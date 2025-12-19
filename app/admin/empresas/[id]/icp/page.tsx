@@ -1,0 +1,240 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+
+export default function ICPConfigPage() {
+  const params = useParams();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [config, setConfig] = useState({
+    idade_min: 18,
+    idade_max: 65,
+    nichos: ['Agricultura', 'Pecuária'],
+    leads_por_dia_max: 3,
+    usar_ia: true,
+    entregar_fins_semana: false,
+    notificar_novos_leads: true,
+    prioridade: 'Média',
+    dores: '',
+    objetivos: '',
+  });
+
+  const steps = [
+    'Demográfico',
+    'Empresa',
+    'Comunicação',
+    'Comportamento',
+    'Dores e Objetivos',
+    'Configurações',
+  ];
+
+  useEffect(() => {
+    fetchICP();
+  }, [params.id]);
+
+  async function fetchICP() {
+    try {
+      const response = await fetch(`/api/admin/icp/${params.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data) {
+          setConfig(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching ICP:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/icp/${params.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message);
+
+      toast.success('ICP configurado com sucesso!');
+      router.push(`/admin/empresas/${params.id}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao salvar ICP');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-96">
+      <div className="animate-shimmer h-8 w-32 rounded-lg" />
+    </div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Configurar ICP</h1>
+          <p className="text-muted-foreground mt-1">
+            Etapa {currentStep + 1} de {steps.length}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-6">
+        {steps.map((step, index) => (
+          <Button
+            key={index}
+            variant={currentStep === index ? 'default' : 'outline'}
+            onClick={() => setCurrentStep(index)}
+            className="flex-1"
+            size="sm"
+          >
+            {index + 1}. {step}
+          </Button>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{steps[currentStep]}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {currentStep === 0 && (
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Idade Mínima</Label>
+                <Input
+                  type="number"
+                  value={config.idade_min}
+                  onChange={(e) =>
+                    setConfig({ ...config, idade_min: parseInt(e.target.value) })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Idade Máxima</Label>
+                <Input
+                  type="number"
+                  value={config.idade_max}
+                  onChange={(e) =>
+                    setConfig({ ...config, idade_max: parseInt(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 4 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Dores do Cliente</Label>
+                <Textarea
+                  value={config.dores}
+                  onChange={(e) => setConfig({ ...config, dores: e.target.value })}
+                  rows={4}
+                  placeholder="Descreva as principais dores..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Objetivos</Label>
+                <Textarea
+                  value={config.objetivos}
+                  onChange={(e) => setConfig({ ...config, objetivos: e.target.value })}
+                  rows={4}
+                  placeholder="Descreva os objetivos..."
+                />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 5 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Leads por Dia (Máximo)</Label>
+                <Input
+                  type="number"
+                  value={config.leads_por_dia_max}
+                  onChange={(e) =>
+                    setConfig({ ...config, leads_por_dia_max: parseInt(e.target.value) })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between border rounded-lg p-4">
+                <div>
+                  <Label>Usar IA para Qualificação</Label>
+                  <p className="text-xs text-muted-foreground">
+                    IA analisa e qualifica leads automaticamente
+                  </p>
+                </div>
+                <Switch
+                  checked={config.usar_ia}
+                  onCheckedChange={(checked) => setConfig({ ...config, usar_ia: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between border rounded-lg p-4">
+                <div>
+                  <Label>Entregar Fins de Semana</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enviar leads aos sábados e domingos
+                  </p>
+                </div>
+                <Switch
+                  checked={config.entregar_fins_semana}
+                  onCheckedChange={(checked) =>
+                    setConfig({ ...config, entregar_fins_semana: checked })
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-between">
+        {currentStep > 0 && (
+          <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
+            Anterior
+          </Button>
+        )}
+        <div className="ml-auto space-x-2">
+          {currentStep < steps.length - 1 ? (
+            <Button onClick={() => setCurrentStep(currentStep + 1)}>Próximo</Button>
+          ) : (
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Configuração'
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
