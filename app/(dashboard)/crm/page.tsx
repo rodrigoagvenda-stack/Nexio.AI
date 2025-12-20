@@ -21,8 +21,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
 import {
@@ -33,9 +43,11 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -45,19 +57,22 @@ import { CSS } from '@dnd-kit/utilities';
 
 // Componente de card draggable para o Kanban
 function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: lead.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: lead.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Lead novo': return 'border-l-blue-500';
-      case 'Em contato': return 'border-l-yellow-500';
-      case 'Interessado': return 'border-l-orange-500';
-      case 'Proposta enviada': return 'border-l-purple-500';
+      case 'Em contato': return 'border-l-pink-500';
+      case 'Interessado': return 'border-l-purple-500';
+      case 'Proposta enviada': return 'border-l-cyan-500';
       case 'Fechado': return 'border-l-green-500';
       case 'Perdido': return 'border-l-red-500';
       default: return 'border-l-gray-500';
@@ -75,40 +90,116 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className={`cursor-move hover:shadow-lg transition-all border-l-4 ${getStatusColor(lead.status)} mb-2`}>
-        <CardContent className="p-3">
+      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-lg transition-all border-l-4 ${getStatusColor(lead.status)} mb-3 bg-card`}>
+        <CardContent className="p-4">
           <div className="flex justify-between items-start mb-2">
-            <h4 className="font-semibold text-sm">{lead.company_name}</h4>
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-                <Pencil className="h-3 w-3" />
+            <h4 className="font-semibold text-sm flex-1 pr-2">{lead.company_name}</h4>
+            <div className="flex gap-1" style={{ pointerEvents: 'auto' }}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 hover:bg-accent"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onEdit();
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-                <Trash2 className="h-3 w-3 text-red-500" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 hover:bg-destructive/10"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-red-500" />
               </Button>
             </div>
           </div>
+
           {lead.contact_name && (
-            <p className="text-xs text-muted-foreground mb-2">{lead.contact_name}</p>
+            <p className="text-xs text-muted-foreground mb-2">👤 {lead.contact_name}</p>
           )}
-          {lead.project_value && (
+
+          {lead.whatsapp && (
+            <p className="text-xs text-muted-foreground mb-2">📱 {lead.whatsapp}</p>
+          )}
+
+          {lead.project_value && lead.project_value > 0 && (
             <p className="text-sm font-semibold text-primary mb-2">
-              R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              💰 R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           )}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${getPriorityBadge(lead.priority || 'Baixa')}`}>
+
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            <span className={`text-xs px-2 py-1 rounded-full ${getPriorityBadge(lead.priority || 'Baixa')}`}>
               {lead.priority}
             </span>
             {lead.nivel_interesse && (
-              <span className="text-xs">{lead.nivel_interesse}</span>
+              <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-1 rounded-full flex items-center gap-1">
+                {lead.nivel_interesse.includes('Quente') && <Flame className="h-3 w-3" />}
+                {lead.nivel_interesse}
+              </span>
             )}
           </div>
+
           {lead.segment && (
-            <p className="text-xs text-muted-foreground mt-2">{lead.segment}</p>
+            <p className="text-xs text-muted-foreground mt-2 italic">🏢 {lead.segment}</p>
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Componente de coluna droppable
+function DroppableColumn({
+  id,
+  title,
+  count,
+  children,
+  color
+}: {
+  id: string;
+  title: string;
+  count: number;
+  children: React.ReactNode;
+  color: string;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  const colorClasses = {
+    blue: 'bg-blue-500',
+    pink: 'bg-pink-500',
+    purple: 'bg-purple-500',
+    cyan: 'bg-cyan-500',
+    green: 'bg-green-500',
+    red: 'bg-red-500',
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className={`${colorClasses[color as keyof typeof colorClasses]} text-white rounded-t-lg p-3 flex items-center justify-between`}>
+        <h3 className="font-semibold text-sm">{title}</h3>
+        <span className="text-xs bg-white/20 px-3 py-1 rounded-full font-medium">
+          {count}
+        </span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`flex-1 bg-secondary/30 rounded-b-lg p-3 min-h-[500px] transition-colors ${
+          isOver ? 'bg-secondary/50 ring-2 ring-primary' : ''
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -122,9 +213,11 @@ export default function CRMPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [priorityFilter, setPriorityFilter] = useState('Todas');
+  const [activeDragId, setActiveDragId] = useState<number | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -143,7 +236,11 @@ export default function CRMPage() {
   });
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -181,20 +278,28 @@ export default function CRMPage() {
     }
   }
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as number);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveDragId(null);
 
     if (!over) return;
 
     const activeId = active.id as number;
-    const overId = over.id;
+    const overId = over.id as string;
 
-    // Se foi dropado em uma coluna, atualizar status
-    if (typeof overId === 'string' && overId.startsWith('column-')) {
+    // Se foi dropado em uma coluna
+    if (overId.startsWith('column-')) {
       const newStatus = overId.replace('column-', '') as Lead['status'];
       const lead = leads.find(l => l.id === activeId);
 
       if (lead && lead.status !== newStatus) {
+        // Update otimista
+        setLeads(leads.map(l => l.id === activeId ? { ...l, status: newStatus } : l));
+
         try {
           const supabase = createClient();
           const { error } = await supabase
@@ -203,12 +308,12 @@ export default function CRMPage() {
             .eq('id', activeId);
 
           if (error) throw error;
-
-          setLeads(leads.map(l => l.id === activeId ? { ...l, status: newStatus } : l));
-          toast.success('Status atualizado!');
+          toast.success(`Lead movido para "${newStatus}"!`);
         } catch (error) {
           console.error('Error updating lead:', error);
           toast.error('Erro ao atualizar lead');
+          // Reverter em caso de erro
+          fetchLeads();
         }
       }
     }
@@ -273,7 +378,7 @@ export default function CRMPage() {
           .eq('id', editingLead.id);
 
         if (error) throw error;
-        toast.success('Lead atualizado com sucesso!');
+        toast.success(`Lead "${formData.company_name}" atualizado com sucesso!`);
       } else {
         // Insert
         const { error } = await supabase
@@ -281,7 +386,7 @@ export default function CRMPage() {
           .insert([leadData]);
 
         if (error) throw error;
-        toast.success('Lead adicionado com sucesso!');
+        toast.success(`Lead "${formData.company_name}" adicionado com sucesso!`);
       }
 
       setShowModal(false);
@@ -292,18 +397,19 @@ export default function CRMPage() {
     }
   };
 
-  const handleDeleteLead = async (id: number) => {
-    if (!confirm('Tem certeza que deseja deletar este lead?')) return;
+  const handleDeleteLead = async () => {
+    if (!deletingLead) return;
 
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from('leads')
         .delete()
-        .eq('id', id);
+        .eq('id', deletingLead.id);
 
       if (error) throw error;
-      toast.success('Lead deletado com sucesso!');
+      toast.success(`Lead "${deletingLead.company_name}" deletado com sucesso!`);
+      setDeletingLead(null);
       fetchLeads();
     } catch (error) {
       console.error('Error deleting lead:', error);
@@ -312,12 +418,12 @@ export default function CRMPage() {
   };
 
   const columns = [
-    'Lead novo',
-    'Em contato',
-    'Interessado',
-    'Proposta enviada',
-    'Fechado',
-    'Perdido',
+    { id: 'Lead novo', title: 'Lead novo', color: 'blue' },
+    { id: 'Em contato', title: 'Em contato', color: 'pink' },
+    { id: 'Interessado', title: 'Interessado', color: 'purple' },
+    { id: 'Proposta enviada', title: 'Proposta enviada', color: 'cyan' },
+    { id: 'Fechado', title: 'Fechado', color: 'green' },
+    { id: 'Perdido', title: 'Perdido', color: 'red' },
   ];
 
   const getLeadsByStatus = (status: string) => {
@@ -340,9 +446,9 @@ export default function CRMPage() {
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'Lead novo': return 'bg-blue-500/20 text-blue-700';
-      case 'Em contato': return 'bg-yellow-500/20 text-yellow-700';
-      case 'Interessado': return 'bg-orange-500/20 text-orange-700';
-      case 'Proposta enviada': return 'bg-purple-500/20 text-purple-700';
+      case 'Em contato': return 'bg-pink-500/20 text-pink-700';
+      case 'Interessado': return 'bg-purple-500/20 text-purple-700';
+      case 'Proposta enviada': return 'bg-cyan-500/20 text-cyan-700';
       case 'Fechado': return 'bg-green-500/20 text-green-700';
       case 'Perdido': return 'bg-red-500/20 text-red-700';
       default: return 'bg-gray-500/20 text-gray-700';
@@ -384,6 +490,8 @@ export default function CRMPage() {
     );
   }
 
+  const activeLead = activeDragId ? leads.find(l => l.id === activeDragId) : null;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -416,8 +524,8 @@ export default function CRMPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Todos">Todos</SelectItem>
-              {columns.map(status => (
-                <SelectItem key={status} value={status}>{status}</SelectItem>
+              {columns.map(col => (
+                <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -473,34 +581,46 @@ export default function CRMPage() {
           </CardContent>
         </Card>
       ) : viewMode === 'kanban' ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {columns.map((column) => {
-              const columnLeads = getLeadsByStatus(column);
+              const columnLeads = getLeadsByStatus(column.id);
               return (
-                <div key={column} className="space-y-3">
-                  <div className="flex items-center justify-between bg-secondary/50 rounded-lg p-3">
-                    <h3 className="font-semibold text-sm">{column}</h3>
-                    <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full">
-                      {columnLeads.length}
-                    </span>
-                  </div>
+                <DroppableColumn
+                  key={column.id}
+                  id={`column-${column.id}`}
+                  title={column.title}
+                  count={columnLeads.length}
+                  color={column.color}
+                >
                   <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2 min-h-[200px]" id={`column-${column}`}>
-                      {columnLeads.map((lead) => (
-                        <SortableLeadCard
-                          key={lead.id}
-                          lead={lead}
-                          onEdit={() => handleOpenModal(lead)}
-                          onDelete={() => handleDeleteLead(lead.id)}
-                        />
-                      ))}
-                    </div>
+                    {columnLeads.map((lead) => (
+                      <SortableLeadCard
+                        key={lead.id}
+                        lead={lead}
+                        onEdit={() => handleOpenModal(lead)}
+                        onDelete={() => setDeletingLead(lead)}
+                      />
+                    ))}
                   </SortableContext>
-                </div>
+                </DroppableColumn>
               );
             })}
           </div>
+          <DragOverlay>
+            {activeLead ? (
+              <Card className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
+                <CardContent className="p-4">
+                  <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
+                </CardContent>
+              </Card>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       ) : (
         <Card>
@@ -564,7 +684,7 @@ export default function CRMPage() {
                         </span>
                       </td>
                       <td className="p-4 text-sm">{lead.import_source || '-'}</td>
-                      <td className="p-4 text-sm text-muted-foreground">{lead.notes || '-'}</td>
+                      <td className="p-4 text-sm text-muted-foreground max-w-[200px] truncate">{lead.notes || '-'}</td>
                       <td className="p-4">
                         <div className="flex gap-2">
                           <Button
@@ -578,7 +698,7 @@ export default function CRMPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteLead(lead.id)}
+                            onClick={() => setDeletingLead(lead)}
                             className="h-8 w-8 text-red-500 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -603,7 +723,7 @@ export default function CRMPage() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingLead ? 'Editar Lead' : 'Adicionar Lead'}</DialogTitle>
+            <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="basico" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
@@ -736,6 +856,32 @@ export default function CRMPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Alert Dialog para Delete */}
+      <AlertDialog open={!!deletingLead} onOpenChange={() => setDeletingLead(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar o lead <strong>"{deletingLead?.company_name}"</strong>?
+              {deletingLead?.contact_name && (
+                <span> (Contato: {deletingLead.contact_name})</span>
+              )}
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteLead}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
