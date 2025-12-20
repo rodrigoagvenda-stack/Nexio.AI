@@ -286,7 +286,6 @@ export default function CRMPage() {
     const { active, over } = event;
     setActiveDragId(null);
 
-    // Validar se há um destino válido
     if (!over) {
       console.log('Drag ended without valid drop target');
       return;
@@ -297,19 +296,26 @@ export default function CRMPage() {
 
     console.log('Drag end:', { activeId, overId, activeIdType: typeof activeId, overIdType: typeof overId });
 
-    // Validar tipos e formato do ID da coluna
-    if (!overId || typeof overId !== 'string') {
-      console.log('Invalid overId type:', typeof overId);
-      return;
+    let newStatus: Lead['status'] | null = null;
+
+    // Se caiu em uma COLUNA (id = "column-{status}")
+    if (typeof overId === 'string' && overId.startsWith('column-')) {
+      newStatus = overId.replace('column-', '') as Lead['status'];
+      console.log('Dropped on column:', newStatus);
+    }
+    // Se caiu em outro CARD (id = number do lead)
+    else if (typeof overId === 'number') {
+      const targetLead = leads.find(l => l.id === overId);
+      if (targetLead) {
+        newStatus = targetLead.status;
+        console.log('Dropped on card, using its status:', newStatus);
+      }
     }
 
-    if (!overId.startsWith('column-')) {
-      console.log('overId does not start with column-:', overId);
+    if (!newStatus) {
+      console.log('Could not determine target status');
       return;
     }
-
-    // Extrair novo status
-    const newStatus = overId.replace('column-', '') as Lead['status'];
 
     // Validar status
     const validStatuses: Lead['status'][] = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido'];
@@ -318,7 +324,7 @@ export default function CRMPage() {
       return;
     }
 
-    // Buscar lead
+    // Buscar lead sendo movido
     const lead = leads.find(l => l.id === activeId);
 
     if (!lead) {
@@ -348,7 +354,6 @@ export default function CRMPage() {
     } catch (error) {
       console.error('Error updating lead:', error);
       toast.error('Erro ao atualizar lead');
-      // Reverter em caso de erro
       fetchLeads();
     }
   };
