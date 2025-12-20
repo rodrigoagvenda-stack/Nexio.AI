@@ -289,10 +289,10 @@ export default function CRMPage() {
     if (!over) return;
 
     const activeId = active.id as number;
-    const overId = over.id as string;
+    const overId = over.id;
 
-    // Se foi dropado em uma coluna
-    if (overId.startsWith('column-')) {
+    // Se foi dropado em uma coluna (verificar se é string primeiro!)
+    if (typeof overId === 'string' && overId.startsWith('column-')) {
       const newStatus = overId.replace('column-', '') as Lead['status'];
       const lead = leads.find(l => l.id === activeId);
 
