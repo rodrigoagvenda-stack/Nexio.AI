@@ -1,4 +1,6 @@
-const N8N_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL!;
+const N8N_WEBHOOK_MAPS = process.env.N8N_WEBHOOK_MAPS!;
+const N8N_WEBHOOK_ICP = process.env.N8N_WEBHOOK_ICP!;
+const N8N_WEBHOOK_WHATSAPP = process.env.N8N_WEBHOOK_WHATSAPP!;
 const WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET!;
 
 interface N8NResponse {
@@ -13,7 +15,7 @@ export async function extractLeadsFromMaps(
   companyId: number
 ): Promise<N8NResponse> {
   try {
-    const response = await fetch(`${N8N_BASE_URL}/webhook/extrair-leads`, {
+    const response = await fetch(N8N_WEBHOOK_MAPS, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,7 +41,7 @@ export async function extractLeadsFromMaps(
 
 export async function extractICPLeads(companyId: number): Promise<N8NResponse> {
   try {
-    const response = await fetch(`${N8N_BASE_URL}/webhook/extrair-icp-leads`, {
+    const response = await fetch(N8N_WEBHOOK_ICP, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -72,7 +74,7 @@ export async function sendWhatsAppMessage(payload: {
   message_id: string;
 }): Promise<N8NResponse> {
   try {
-    const response = await fetch(`${N8N_BASE_URL}/webhook/send-manual-message`, {
+    const response = await fetch(N8N_WEBHOOK_WHATSAPP, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
