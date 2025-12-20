@@ -298,33 +298,39 @@ export default function CRMPage() {
     setActiveDragId(null);
 
     if (!over) {
-      console.log('Drag ended without valid drop target');
+      console.log('❌ Drag ended without valid drop target');
       return;
     }
 
     const activeId = active.id;
     const overId = over.id;
 
-    console.log('Drag end:', { activeId, overId, activeIdType: typeof activeId, overIdType: typeof overId });
+    console.log('🎯 Drag end:', { activeId, overId, activeIdType: typeof activeId, overIdType: typeof overId });
 
     let newStatus: Lead['status'] | null = null;
 
-    // Se caiu em uma COLUNA (id = "column-{status}")
+    // SEMPRE tentar usar a coluna primeiro
     if (typeof overId === 'string' && overId.startsWith('column-')) {
+      // Caiu diretamente na coluna
       newStatus = overId.replace('column-', '') as Lead['status'];
-      console.log('Dropped on column:', newStatus);
+      console.log('✅ Dropped on COLUMN:', newStatus);
     }
-    // Se caiu em outro CARD (id = number do lead)
     else if (typeof overId === 'number') {
+      // Caiu em um card - pegar o status desse card
       const targetLead = leads.find(l => l.id === overId);
       if (targetLead) {
         newStatus = targetLead.status;
-        console.log('Dropped on card, using its status:', newStatus);
+        console.log('✅ Dropped on CARD, using column:', newStatus);
+      } else {
+        console.log('❌ Card not found:', overId);
       }
+    }
+    else {
+      console.log('❌ Unknown overId type:', typeof overId, overId);
     }
 
     if (!newStatus) {
-      console.log('Could not determine target status');
+      console.log('❌ Could not determine target status');
       return;
     }
 
