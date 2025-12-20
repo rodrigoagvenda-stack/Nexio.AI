@@ -137,7 +137,8 @@ export default async function AdminDashboardPage() {
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                📋 Briefing
+                <Activity className="h-5 w-5 text-primary" />
+                Briefing
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Respostas do formulário
@@ -150,7 +151,8 @@ export default async function AdminDashboardPage() {
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                🏢 Empresas
+                <Building2 className="h-5 w-5 text-primary" />
+                Empresas
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Gerenciar empresas
@@ -163,7 +165,8 @@ export default async function AdminDashboardPage() {
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                👥 Usuários
+                <Users className="h-5 w-5 text-primary" />
+                Usuários
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Gerenciar usuários
@@ -176,7 +179,8 @@ export default async function AdminDashboardPage() {
           <Card className="hover:shadow-lg transition-shadow cursor-pointer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                📊 Logs
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Logs
               </CardTitle>
               <p className="text-sm text-muted-foreground">
                 Sistema de logs

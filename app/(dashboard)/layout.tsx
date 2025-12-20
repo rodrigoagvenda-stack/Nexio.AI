@@ -28,9 +28,19 @@ export default async function DashboardLayout({
 
   const hasVendAgro = !!(userData?.companies as any)?.vendagro_plan;
 
+  // Check if user is admin
+  const { data: adminUser } = await supabase
+    .from('admin_users')
+    .select('*')
+    .eq('auth_user_id', user.id)
+    .eq('is_active', true)
+    .single();
+
+  const isAdmin = !!adminUser;
+
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar hasVendAgro={hasVendAgro} />
+      <Sidebar hasVendAgro={hasVendAgro} isAdmin={isAdmin} />
       <div className="flex-1 flex flex-col">
         <Header />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 lg:pb-6">

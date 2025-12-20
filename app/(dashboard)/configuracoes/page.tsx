@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { User, Lock } from 'lucide-react';
+import { User, Lock, Settings } from 'lucide-react';
 
 export default function ConfiguracoesPage() {
   const { user, authUser } = useUser();
@@ -58,7 +58,7 @@ export default function ConfiguracoesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
+        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2"><Settings className="h-8 w-8 text-primary" />Configurações</h1>
         <p className="text-muted-foreground mt-1">Gerencie suas informações pessoais</p>
       </div>
 
