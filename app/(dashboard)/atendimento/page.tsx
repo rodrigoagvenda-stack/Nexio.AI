@@ -225,7 +225,10 @@ export default function AtendimentoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">💬 Atendimento WhatsApp</h1>
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <MessageSquare className="h-8 w-8 text-primary" />
+          Atendimento WhatsApp
+        </h1>
         <p className="text-muted-foreground mt-1">
           Gerencie suas conversas em tempo real
         </p>

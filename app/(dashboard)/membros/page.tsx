@@ -223,7 +223,10 @@ export default function MembrosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">👥 Membros da Equipe</h1>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <UserPlus className="h-8 w-8 text-primary" />
+            Membros da Equipe
+          </h1>
           <p className="text-muted-foreground mt-1">
             Gerencie os membros da sua empresa
           </p>
