@@ -221,6 +221,7 @@ export default function CRMPage() {
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [priorityFilter, setPriorityFilter] = useState('Todas');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
+  const [overId, setOverId] = useState<string | number | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -283,9 +284,16 @@ export default function CRMPage() {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(event.active.id as number);
+    setOverId(null);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    setOverId(over?.id ?? null);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    setOverId(null);
     const { active, over } = event;
     setActiveDragId(null);
 
@@ -627,6 +635,7 @@ export default function CRMPage() {
           sensors={sensors}
           collisionDetection={closestCorners}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
