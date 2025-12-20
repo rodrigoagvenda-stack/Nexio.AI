@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { Poppins } from 'next/font/google';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: "vend.AI - CRM Inteligente com IA",
-  description: "Quem já queimou os barcos, entra por aqui. 🚀",
+  description: "Sistema completo de CRM com automação e inteligência artificial",
 };
 
 export default function RootLayout({
@@ -14,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark">
-      <body className="font-sans antialiased">
+      <body className={`${poppins.variable} font-poppins antialiased`}>
         {children}
         <Toaster position="top-right" richColors />
       </body>

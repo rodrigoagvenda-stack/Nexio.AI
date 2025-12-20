@@ -56,7 +56,7 @@ export default function LoginPage() {
             Bem-vindo de volta
           </CardTitle>
           <CardDescription className="text-white/90 text-center text-base">
-            Quem já queimou os barcos, entra por aqui. 🚀
+            Sistema completo de CRM com automação e IA
           </CardDescription>
         </CardHeader>
         <CardContent>

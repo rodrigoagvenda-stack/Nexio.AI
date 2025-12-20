@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Login - vend.AI",
-  description: "Quem já queimou os barcos, entra por aqui. 🚀",
+  description: "Sistema completo de CRM com automação e inteligência artificial",
 };
 
 export default function AuthLayout({

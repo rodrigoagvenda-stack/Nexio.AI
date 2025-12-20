@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame } from 'lucide-react';
+import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
 import {
@@ -63,8 +63,9 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || 'transform 200ms ease',
     opacity: isDragging ? 0.5 : 1,
+    scale: isDragging ? 1.02 : 1,
   };
 
   const getStatusColor = (status: string) => {
@@ -90,7 +91,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-lg transition-all border-l-4 ${getStatusColor(lead.status)} mb-3 bg-card`}>
+      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-xl hover:scale-[1.02] transition-all duration-200 border-l-4 ${getStatusColor(lead.status)} mb-3 bg-card`}>
         <CardContent className="p-4">
           <div className="flex justify-between items-start mb-2">
             <h4 className="font-semibold text-sm flex-1 pr-2">{lead.company_name}</h4>
@@ -125,16 +126,23 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
           </div>
 
           {lead.contact_name && (
-            <p className="text-xs text-muted-foreground mb-2">👤 {lead.contact_name}</p>
+            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {lead.contact_name}
+            </p>
           )}
 
           {lead.whatsapp && (
-            <p className="text-xs text-muted-foreground mb-2">📱 {lead.whatsapp}</p>
+            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+              <Phone className="h-3 w-3" />
+              {lead.whatsapp}
+            </p>
           )}
 
           {lead.project_value && lead.project_value > 0 && (
-            <p className="text-sm font-semibold text-primary mb-2">
-              💰 R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-1">
+              <DollarSign className="h-4 w-4" />
+              R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           )}
 
@@ -151,7 +159,10 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
           </div>
 
           {lead.segment && (
-            <p className="text-xs text-muted-foreground mt-2 italic">🏢 {lead.segment}</p>
+            <p className="text-xs text-muted-foreground mt-2 italic flex items-center gap-1">
+              <Building2 className="h-3 w-3" />
+              {lead.segment}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -159,43 +170,32 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
   );
 }
 
-// Componente de coluna droppable
+// Componente de coluna droppable - Design minimalista
 function DroppableColumn({
   id,
   title,
   count,
   children,
-  color
 }: {
   id: string;
   title: string;
   count: number;
   children: React.ReactNode;
-  color: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
-  const colorClasses = {
-    blue: 'bg-blue-500',
-    pink: 'bg-pink-500',
-    purple: 'bg-purple-500',
-    cyan: 'bg-cyan-500',
-    green: 'bg-green-500',
-    red: 'bg-red-500',
-  };
-
   return (
     <div className="flex flex-col h-full">
-      <div className={`${colorClasses[color as keyof typeof colorClasses]} text-white rounded-t-lg p-3 flex items-center justify-between`}>
-        <h3 className="font-semibold text-sm">{title}</h3>
-        <span className="text-xs bg-white/20 px-3 py-1 rounded-full font-medium">
+      <div className="bg-card border border-border rounded-t-lg p-3 flex items-center justify-between">
+        <h3 className="font-semibold text-sm text-foreground">{title}</h3>
+        <span className="text-xs bg-secondary text-secondary-foreground px-3 py-1 rounded-full font-medium">
           {count}
         </span>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 bg-secondary/30 rounded-b-lg p-3 min-h-[500px] transition-colors ${
-          isOver ? 'bg-secondary/50 ring-2 ring-primary' : ''
+        className={`flex-1 bg-secondary/20 border border-t-0 border-border rounded-b-lg p-3 min-h-[500px] transition-all duration-200 ${
+          isOver ? 'bg-primary/10 border-primary ring-2 ring-primary/50' : ''
         }`}
       >
         {children}
@@ -229,7 +229,7 @@ export default function CRMPage() {
     email: '',
     priority: 'Média',
     status: 'Lead novo',
-    nivel_interesse: 'Morno 🌡️',
+    nivel_interesse: 'Morno',
     import_source: 'Manual',
     project_value: 0,
     notes: '',
@@ -286,36 +286,70 @@ export default function CRMPage() {
     const { active, over } = event;
     setActiveDragId(null);
 
-    if (!over) return;
+    // Validar se há um destino válido
+    if (!over) {
+      console.log('Drag ended without valid drop target');
+      return;
+    }
 
-    const activeId = active.id as number;
+    const activeId = active.id;
     const overId = over.id;
 
-    // Se foi dropado em uma coluna (verificar se é string primeiro!)
-    if (typeof overId === 'string' && overId.startsWith('column-')) {
-      const newStatus = overId.replace('column-', '') as Lead['status'];
-      const lead = leads.find(l => l.id === activeId);
+    console.log('Drag end:', { activeId, overId, activeIdType: typeof activeId, overIdType: typeof overId });
 
-      if (lead && lead.status !== newStatus) {
-        // Update otimista
-        setLeads(leads.map(l => l.id === activeId ? { ...l, status: newStatus } : l));
+    // Validar tipos e formato do ID da coluna
+    if (!overId || typeof overId !== 'string') {
+      console.log('Invalid overId type:', typeof overId);
+      return;
+    }
 
-        try {
-          const supabase = createClient();
-          const { error } = await supabase
-            .from('leads')
-            .update({ status: newStatus })
-            .eq('id', activeId);
+    if (!overId.startsWith('column-')) {
+      console.log('overId does not start with column-:', overId);
+      return;
+    }
 
-          if (error) throw error;
-          toast.success(`Lead movido para "${newStatus}"!`);
-        } catch (error) {
-          console.error('Error updating lead:', error);
-          toast.error('Erro ao atualizar lead');
-          // Reverter em caso de erro
-          fetchLeads();
-        }
-      }
+    // Extrair novo status
+    const newStatus = overId.replace('column-', '') as Lead['status'];
+
+    // Validar status
+    const validStatuses: Lead['status'][] = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido'];
+    if (!validStatuses.includes(newStatus)) {
+      console.error('Invalid status:', newStatus);
+      return;
+    }
+
+    // Buscar lead
+    const lead = leads.find(l => l.id === activeId);
+
+    if (!lead) {
+      console.error('Lead not found:', activeId);
+      return;
+    }
+
+    if (lead.status === newStatus) {
+      console.log('Lead already in this status');
+      return;
+    }
+
+    // Update otimista
+    setLeads(prevLeads => prevLeads.map(l => l.id === activeId ? { ...l, status: newStatus } : l));
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('leads')
+        .update({ status: newStatus })
+        .eq('id', activeId);
+
+      if (error) throw error;
+
+      console.log('Lead status updated successfully');
+      toast.success(`Lead movido para "${newStatus}"!`);
+    } catch (error) {
+      console.error('Error updating lead:', error);
+      toast.error('Erro ao atualizar lead');
+      // Reverter em caso de erro
+      fetchLeads();
     }
   };
 
@@ -331,7 +365,7 @@ export default function CRMPage() {
         email: lead.email || '',
         priority: lead.priority || 'Média',
         status: lead.status || 'Lead novo',
-        nivel_interesse: lead.nivel_interesse || 'Morno 🌡️',
+        nivel_interesse: lead.nivel_interesse || 'Morno',
         import_source: lead.import_source || 'Manual',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
@@ -347,7 +381,7 @@ export default function CRMPage() {
         email: '',
         priority: 'Média',
         status: 'Lead novo',
-        nivel_interesse: 'Morno 🌡️',
+        nivel_interesse: 'Morno',
         import_source: 'Manual',
         project_value: 0,
         notes: '',
@@ -418,12 +452,12 @@ export default function CRMPage() {
   };
 
   const columns = [
-    { id: 'Lead novo', title: 'Lead novo', color: 'blue' },
-    { id: 'Em contato', title: 'Em contato', color: 'pink' },
-    { id: 'Interessado', title: 'Interessado', color: 'purple' },
-    { id: 'Proposta enviada', title: 'Proposta enviada', color: 'cyan' },
-    { id: 'Fechado', title: 'Fechado', color: 'green' },
-    { id: 'Perdido', title: 'Perdido', color: 'red' },
+    { id: 'Lead novo', title: 'Lead novo' },
+    { id: 'Em contato', title: 'Em contato' },
+    { id: 'Interessado', title: 'Interessado' },
+    { id: 'Proposta enviada', title: 'Proposta enviada' },
+    { id: 'Fechado', title: 'Fechado' },
+    { id: 'Perdido', title: 'Perdido' },
   ];
 
   const getLeadsByStatus = (status: string) => {
@@ -596,7 +630,6 @@ export default function CRMPage() {
                   id={`column-${column.id}`}
                   title={column.title}
                   count={columnLeads.length}
-                  color={column.color}
                 >
                   <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                     {columnLeads.map((lead) => (

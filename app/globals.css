@@ -10,7 +10,7 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 28 100% 50%; /* Orange #FF9500 */
+    --primary: 28 96% 54%; /* Bitcoin Orange #F7931A */
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
@@ -22,7 +22,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 28 100% 50%;
+    --ring: 28 96% 54%;
     --radius: 0.5rem;
   }
 
@@ -33,7 +33,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 9%; /* #171717 */
     --popover-foreground: 0 0% 98%;
-    --primary: 28 100% 50%; /* Orange #FF9500 */
+    --primary: 28 96% 54%; /* Bitcoin Orange #F7931A */
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 15%; /* #262626 */
     --secondary-foreground: 0 0% 98%;
@@ -45,7 +45,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 32%; /* #525252 */
     --input: 0 0% 32%;
-    --ring: 28 100% 50%;
+    --ring: 28 96% 54%;
   }
 }
 
