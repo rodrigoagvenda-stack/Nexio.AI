@@ -17,7 +17,7 @@ export async function PATCH(
       );
     }
 
-    const supabase = createServiceClient();
+    const supabase = await createServiceClient();
 
     // Atualizar membro
     const { data: updatedUser, error } = await supabase
@@ -75,7 +75,7 @@ export async function DELETE(
       );
     }
 
-    const supabase = createServiceClient();
+    const supabase = await createServiceClient();
 
     // Buscar info do usuário antes de desativar
     const { data: user } = await supabase

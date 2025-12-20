@@ -29,11 +29,12 @@ export default async function AdminDashboardPage() {
   const mrr = companies
     ?.filter((c) => c.is_active)
     .reduce((sum, c) => {
-      const planValue = {
+      const planValues: Record<string, number> = {
         basic: 197,
         performance: 497,
         advanced: 997,
-      }[c.plan_type] || 0;
+      };
+      const planValue = planValues[c.plan_type] || 0;
       return sum + planValue;
     }, 0) || 0;
 

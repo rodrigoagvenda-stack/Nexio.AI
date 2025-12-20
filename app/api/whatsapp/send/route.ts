@@ -14,10 +14,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Enviar mensagem via n8n/WhatsApp
-    const whatsappResult = await sendWhatsAppMessage(phoneNumber, message, companyId);
+    const whatsappResult = await sendWhatsAppMessage({
+      number: phoneNumber,
+      text: message,
+      company_id: parseInt(companyId),
+      instance_name: 'default',
+      instance_token: 'default',
+      conversa_id: conversationId.toString(),
+      lead_id: '',
+      message_id: '',
+    });
 
     if (!whatsappResult.success) {
       throw new Error('Erro ao enviar mensagem via WhatsApp');

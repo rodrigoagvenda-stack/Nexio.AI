@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: members, error } = await supabase
       .from('users')
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabaseService = createServiceClient();
+    const supabaseService = await createServiceClient();
 
     // 1. Criar usuário no Supabase Auth
     const { data: authUser, error: authError } = await supabaseService.auth.admin.createUser({
