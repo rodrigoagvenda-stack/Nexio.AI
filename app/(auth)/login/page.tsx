@@ -34,8 +34,7 @@ export default function LoginPage() {
 
       if (data.user) {
         toast.success('Login realizado com sucesso!');
-        router.push('/dashboard');
-        router.refresh();
+        window.location.href = '/dashboard';
       }
     } catch (error: any) {
       console.error('Login error:', error);
