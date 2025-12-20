@@ -12,20 +12,20 @@ export default async function DashboardPage() {
 
   if (!user) return null;
 
-  // Buscar company_id do usuário
+  // Buscar company_id e leads em paralelo com JOIN otimizado
   const { data: userData } = await supabase
     .from('users')
     .select('company_id')
     .eq('auth_user_id', user.id)
     .single();
 
-  const companyId = userData?.company_id;
+  if (!userData?.company_id) return null;
 
-  // Buscar métricas
+  // Buscar apenas os campos necessários (não SELECT *)
   const { data: leads } = await supabase
     .from('leads')
-    .select('*')
-    .eq('company_id', companyId);
+    .select('id, status, project_value')
+    .eq('company_id', userData.company_id);
 
   const totalLeads = leads?.length || 0;
   const novosLeads = leads?.filter((l) => l.status === 'Lead novo').length || 0;

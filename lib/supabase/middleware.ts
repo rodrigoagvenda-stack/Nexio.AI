@@ -54,7 +54,9 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  // Apenas refresh o session sem fetch pesado
+  // O getUser() real é feito nos layouts quando necessário
+  const { data: { session } } = await supabase.auth.getSession()
 
   return response
 }

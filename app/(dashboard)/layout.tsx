@@ -18,23 +18,14 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Fetch user data to check vendagro plan
+  // Fetch user AND company data in ONE optimized query (JOIN)
   const { data: userData } = await supabase
     .from('users')
-    .select('company_id')
+    .select('company_id, companies:company_id(vendagro_plan)')
     .eq('auth_user_id', user.id)
     .single();
 
-  let hasVendAgro = false;
-  if (userData?.company_id) {
-    const { data: companyData } = await supabase
-      .from('companies')
-      .select('vendagro_plan')
-      .eq('id', userData.company_id)
-      .single();
-
-    hasVendAgro = !!companyData?.vendagro_plan;
-  }
+  const hasVendAgro = !!(userData?.companies as any)?.vendagro_plan;
 
   return (
     <div className="flex h-screen bg-background">
