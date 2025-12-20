@@ -4,26 +4,26 @@
 -- 1. Inserir empresa de teste
 INSERT INTO companies (
   name,
+  email,
   plan_type,
-  whatsapp_instance_name,
-  whatsapp_instance_token,
-  google_maps_limit,
-  icp_limit_per_month,
-  has_vendagro,
+  vendagro_plan,
+  plan_monthly_limit,
+  whatsapp_instance,
+  whatsapp_token,
   is_active,
   subscription_expires_at
 ) VALUES (
   'Empresa Teste - vend.AI',
+  'empresa@vendai.com',
   'performance',
+  'advanced',
+  500,
   'vendai-test',
   'test-token-12345',
-  500,
-  200,
   true,
-  true,
-  (NOW() + INTERVAL '1 year')::DATE
+  (NOW() + INTERVAL '1 year')
 )
-ON CONFLICT DO NOTHING;
+ON CONFLICT (email) DO NOTHING;
 
 -- 2. Criar usuário no Supabase Auth (você precisa fazer isso manualmente no dashboard)
 -- OU use este comando via Supabase API:
@@ -31,25 +31,28 @@ ON CONFLICT DO NOTHING;
 -- Password: vendai123
 
 -- 3. Inserir usuário na tabela users
--- IMPORTANTE: Substitua 'USER_UUID_AQUI' pelo UUID que o Supabase gerou para o usuário
+-- AUTOMATICAMENTE busca o UUID do auth.users
 INSERT INTO users (
+  auth_user_id,
   user_id,
   company_id,
   name,
   email,
-  role,
   department,
   is_active
-) VALUES (
-  'USER_UUID_AQUI', -- Copie o UUID do Supabase Auth
-  (SELECT id FROM companies WHERE name = 'Empresa Teste - vend.AI' LIMIT 1),
-  'Admin Teste',
-  'admin@vendai.com',
-  'admin',
-  'TI',
-  true
 )
-ON CONFLICT (user_id) DO NOTHING;
+SELECT
+  au.id as auth_user_id,
+  gen_random_uuid() as user_id,
+  (SELECT id FROM companies WHERE name = 'Empresa Teste - vend.AI' LIMIT 1) as company_id,
+  'Admin Teste' as name,
+  'admin@vendai.com' as email,
+  'TI' as department,
+  true as is_active
+FROM auth.users au
+WHERE au.email = 'admin@vendai.com'
+LIMIT 1
+ON CONFLICT (auth_user_id) DO NOTHING;
 
 -- 4. Inserir alguns leads de exemplo
 INSERT INTO leads (
@@ -57,46 +60,46 @@ INSERT INTO leads (
   company_name,
   contact_name,
   email,
-  phone,
   whatsapp,
   status,
   priority,
-  temperature,
-  source
+  nivel_interesse,
+  import_source,
+  segment
 ) VALUES
 (
   (SELECT id FROM companies WHERE name = 'Empresa Teste - vend.AI' LIMIT 1),
   'Agro Solutions LTDA',
   'João Silva',
   'joao@agrosolutions.com',
-  '(11) 98765-4321',
   '5511987654321',
-  'novo',
-  'high',
-  'hot',
-  'google_maps'
+  'Lead novo',
+  'Alta',
+  'Quente 🔥',
+  'Google Maps',
+  'Agricultura'
 ),
 (
   (SELECT id FROM companies WHERE name = 'Empresa Teste - vend.AI' LIMIT 1),
   'FarmTech Brasil',
   'Maria Santos',
   'maria@farmtech.com.br',
-  '(19) 97654-3210',
   '5519976543210',
-  'em_contato',
-  'medium',
-  'warm',
-  'indicacao'
+  'Em contato',
+  'Média',
+  'Morno 🌡️',
+  'Google Maps',
+  'Tecnologia Agrícola'
 ),
 (
   (SELECT id FROM companies WHERE name = 'Empresa Teste - vend.AI' LIMIT 1),
   'Verde Campo Agro',
   'Pedro Oliveira',
   'pedro@verdecampo.com',
-  '(16) 96543-2109',
   '5516965432109',
-  'interessado',
-  'high',
-  'hot',
-  'icp'
+  'Interessado',
+  'Alta',
+  'Quente 🔥',
+  'PEG',
+  'Agronegócio'
 );
