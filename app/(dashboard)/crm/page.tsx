@@ -699,100 +699,169 @@ export default function CRMPage() {
           </DragOverlay>
         </DndContext>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-secondary/50">
-                  <tr>
-                    <th className="text-left p-4 font-semibold text-sm">NOME DA EMPRESA</th>
-                    <th className="text-left p-4 font-semibold text-sm">SEGMENTO</th>
-                    <th className="text-left p-4 font-semibold text-sm">STATUS</th>
-                    <th className="text-left p-4 font-semibold text-sm">WEBSITE</th>
-                    <th className="text-left p-4 font-semibold text-sm">TELEFONE</th>
-                    <th className="text-left p-4 font-semibold text-sm">PRIORIDADE</th>
-                    <th className="text-left p-4 font-semibold text-sm">IMPORTAÇÃO</th>
-                    <th className="text-left p-4 font-semibold text-sm">OBSERVAÇÕES</th>
-                    <th className="text-left p-4 font-semibold text-sm">AÇÕES</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLeads.map((lead, index) => (
-                    <tr
-                      key={lead.id}
-                      className={`border-b hover:bg-accent/50 transition-colors ${
-                        index % 2 === 0 ? 'bg-background' : 'bg-secondary/20'
-                      }`}
-                    >
-                      <td className="p-4">
-                        <div>
-                          <p className="font-medium text-sm">{lead.company_name}</p>
-                          {lead.contact_name && (
-                            <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-sm">{lead.segment || '-'}</td>
-                      <td className="p-4">
-                        <span className={`text-xs px-3 py-1 rounded-full ${getStatusBadgeColor(lead.status || '')}`}>
-                          {lead.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {lead.website_or_instagram ? (
-                          <a
-                            href={lead.website_or_instagram.startsWith('http') ? lead.website_or_instagram : `https://${lead.website_or_instagram}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-orange-500 hover:underline text-sm"
-                          >
-                            Link
-                          </a>
-                        ) : (
-                          <span className="text-sm">Não tem</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-sm">{lead.whatsapp || '-'}</td>
-                      <td className="p-4">
-                        <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 w-fit ${getPriorityBadgeColor(lead.priority || '')}`}>
-                          <span className="w-2 h-2 rounded-full bg-current" />
-                          {lead.priority}
-                        </span>
-                      </td>
-                      <td className="p-4 text-sm">{lead.import_source || '-'}</td>
-                      <td className="p-4 text-sm text-muted-foreground max-w-[200px] truncate">{lead.notes || '-'}</td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenModal(lead)}
-                            className="h-8 w-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeletingLead(lead)}
-                            className="h-8 w-8 text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
+        <>
+          {/* Desktop Table View */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary/50">
+                    <tr>
+                      <th className="text-left p-4 font-semibold text-sm">NOME DA EMPRESA</th>
+                      <th className="text-left p-4 font-semibold text-sm">SEGMENTO</th>
+                      <th className="text-left p-4 font-semibold text-sm">STATUS</th>
+                      <th className="text-left p-4 font-semibold text-sm">WEBSITE</th>
+                      <th className="text-left p-4 font-semibold text-sm">TELEFONE</th>
+                      <th className="text-left p-4 font-semibold text-sm">PRIORIDADE</th>
+                      <th className="text-left p-4 font-semibold text-sm">IMPORTAÇÃO</th>
+                      <th className="text-left p-4 font-semibold text-sm">OBSERVAÇÕES</th>
+                      <th className="text-left p-4 font-semibold text-sm">AÇÕES</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map((lead, index) => (
+                      <tr
+                        key={lead.id}
+                        className={`border-b hover:bg-accent/50 transition-colors ${
+                          index % 2 === 0 ? 'bg-background' : 'bg-secondary/20'
+                        }`}
+                      >
+                        <td className="p-4">
+                          <div>
+                            <p className="font-medium text-sm">{lead.company_name}</p>
+                            {lead.contact_name && (
+                              <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4 text-sm">{lead.segment || '-'}</td>
+                        <td className="p-4">
+                          <span className={`text-xs px-3 py-1 rounded-full ${getStatusBadgeColor(lead.status || '')}`}>
+                            {lead.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          {lead.website_or_instagram ? (
+                            <a
+                              href={lead.website_or_instagram.startsWith('http') ? lead.website_or_instagram : `https://${lead.website_or_instagram}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-orange-500 hover:underline text-sm"
+                            >
+                              Link
+                            </a>
+                          ) : (
+                            <span className="text-sm">Não tem</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-sm">{lead.whatsapp || '-'}</td>
+                        <td className="p-4">
+                          <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 w-fit ${getPriorityBadgeColor(lead.priority || '')}`}>
+                            <span className="w-2 h-2 rounded-full bg-current" />
+                            {lead.priority}
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm">{lead.import_source || '-'}</td>
+                        <td className="p-4 text-sm text-muted-foreground max-w-[200px] truncate">{lead.notes || '-'}</td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenModal(lead)}
+                              className="h-8 w-8"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeletingLead(lead)}
+                              className="h-8 w-8 text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {filteredLeads.length > 0 && (
+                <div className="p-4 border-t bg-secondary/30 text-sm text-muted-foreground">
+                  Mostrando {filteredLeads.length} de {leads.length} leads
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden grid gap-4">
+            {filteredLeads.map((lead) => (
+              <Card key={lead.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-base">{lead.company_name}</h3>
+                      {lead.contact_name && (
+                        <p className="text-sm text-muted-foreground">{lead.contact_name}</p>
+                      )}
+                    </div>
+                    {lead.priority && (
+                      <span className={`text-xs px-2 py-1 rounded-full ${getPriorityBadgeColor(lead.priority)}`}>
+                        {lead.priority}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    {lead.segment && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Building2 className="h-4 w-4" />
+                        <span>{lead.segment}</span>
+                      </div>
+                    )}
+                    {lead.whatsapp && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>{lead.whatsapp}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className={`text-xs px-3 py-1 rounded-full ${getStatusBadgeColor(lead.status || '')}`}>
+                      {lead.status}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenModal(lead)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeletingLead(lead)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
             {filteredLeads.length > 0 && (
-              <div className="p-4 border-t bg-secondary/30 text-sm text-muted-foreground">
+              <div className="p-4 text-sm text-muted-foreground text-center">
                 Mostrando {filteredLeads.length} de {leads.length} leads
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </>
       )}
 
       {/* Modal Adicionar/Editar Lead */}

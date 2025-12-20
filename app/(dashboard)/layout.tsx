@@ -1,5 +1,6 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -32,8 +33,11 @@ export default async function DashboardLayout({
       <Sidebar hasVendAgro={hasVendAgro} />
       <div className="flex-1 flex flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 lg:pb-6">
+          {children}
+        </main>
       </div>
+      <MobileNav />
     </div>
   );
 }
