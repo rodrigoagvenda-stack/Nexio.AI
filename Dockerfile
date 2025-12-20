@@ -1,4 +1,4 @@
-# Dockerfile para vend.AI CRM - Next.js 14
+# Dockerfile para vend.AI CRM - Next.js 14 (Seguro)
 FROM node:20-alpine AS base
 
 # 1. Dependências
@@ -16,18 +16,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build args para env vars
+# ⚠️ APENAS variáveis PÚBLICAS como build args (ficam no bundle do cliente)
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG SUPABASE_SERVICE_ROLE_KEY
-ARG N8N_WEBHOOK_SECRET
-ARG N8N_WEBHOOK_URL
 
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-ENV N8N_WEBHOOK_SECRET=$N8N_WEBHOOK_SECRET
-ENV N8N_WEBHOOK_URL=$N8N_WEBHOOK_URL
 
 # Disable telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -56,5 +50,13 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# 🔒 SECRETS são injetados em RUNTIME via env vars do EasyPanel
+# Não use ARG para secrets! O EasyPanel vai passar automaticamente:
+# - SUPABASE_SERVICE_ROLE_KEY
+# - N8N_WEBHOOK_SECRET
+# - N8N_WEBHOOK_MAPS
+# - N8N_WEBHOOK_ICP
+# - N8N_WEBHOOK_WHATSAPP
 
 CMD ["node", "server.js"]
