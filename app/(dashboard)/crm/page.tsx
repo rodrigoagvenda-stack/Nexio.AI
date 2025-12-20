@@ -38,6 +38,7 @@ import { Lead } from '@/types/database.types';
 import {
   DndContext,
   closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -61,6 +62,10 @@ import { CSS } from '@dnd-kit/utilities';
 function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
+    data: {
+      type: 'lead',
+      lead,
+    },
   });
 
   const style = {
@@ -184,7 +189,13 @@ function DroppableColumn({
   count: number;
   children: React.ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({
+    id,
+    data: {
+      type: 'column',
+      status: id.replace('column-', ''),
+    },
+  });
 
   return (
     <div className="flex flex-col h-full">
@@ -648,7 +659,7 @@ export default function CRMPage() {
       ) : viewMode === 'kanban' ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={pointerWithin}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
