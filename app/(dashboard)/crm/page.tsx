@@ -37,7 +37,7 @@ import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -46,6 +46,7 @@ import {
   DragOverlay,
   DragStartEvent,
   useDroppable,
+  DragOverEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -194,11 +195,13 @@ function DroppableColumn({
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 bg-secondary/20 border border-t-0 border-border rounded-b-lg p-3 min-h-[500px] transition-all duration-200 ${
-          isOver ? 'bg-primary/10 border-primary ring-2 ring-primary/50' : ''
+        className={`flex-1 bg-secondary/20 border border-t-0 border-border rounded-b-lg p-3 min-h-[600px] transition-all duration-200 ${
+          isOver ? 'bg-primary/10 border-primary ring-2 ring-primary/50 scale-[1.02]' : ''
         }`}
       >
         {children}
+        {/* Espaço vazio para facilitar drop */}
+        <div className="min-h-[100px]" />
       </div>
     </div>
   );
@@ -622,7 +625,7 @@ export default function CRMPage() {
       ) : viewMode === 'kanban' ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={closestCorners}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
