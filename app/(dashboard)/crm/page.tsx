@@ -191,7 +191,7 @@ export default function CRMPage() {
 
     // Se foi dropado em uma coluna, atualizar status
     if (typeof overId === 'string' && overId.startsWith('column-')) {
-      const newStatus = overId.replace('column-', '');
+      const newStatus = overId.replace('column-', '') as Lead['status'];
       const lead = leads.find(l => l.id === activeId);
 
       if (lead && lead.status !== newStatus) {
