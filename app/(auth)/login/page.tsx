@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { OrbEffect } from '@/components/auth/OrbEffect';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,75 +46,81 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="w-full max-w-md backdrop-blur-xl bg-white/10 border-white/20">
-        <CardHeader className="space-y-3">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-white mb-2">vend.AI</h1>
-            <div className="w-16 h-1 bg-primary mx-auto rounded-full" />
-          </div>
-          <CardTitle className="text-3xl font-bold text-white text-center">
-            Bem-vindo de volta
-          </CardTitle>
-          <CardDescription className="text-white/90 text-center text-base">
-            Sistema completo de CRM com automação e IA
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-              />
+    <div className="relative min-h-screen bg-black flex items-center justify-center overflow-hidden">
+      <OrbEffect />
+
+      <div className="relative z-10 w-full max-w-md px-6">
+        <Card className="backdrop-blur-2xl bg-white/5 border border-white/10 shadow-2xl">
+          <CardHeader className="space-y-3 text-center">
+            <div className="flex justify-center mb-2">
+              <div className="w-16 h-1 bg-primary rounded-full" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">
-                Senha
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+            <CardTitle className="text-4xl font-bold text-white">
+              vend<span className="text-primary">.</span>AI
+            </CardTitle>
+            <CardDescription className="text-white/80 text-base">
+              Quem já queimou os barcos, entra por aqui.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-white/90">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-primary focus:ring-primary"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-white/90">
+                  Senha
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-primary focus:ring-primary"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90 text-black font-semibold py-6 text-base"
                 disabled={loading}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
-              />
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
+              </Button>
+            </form>
+            <div className="mt-6 text-center">
+              <p className="text-white/60 text-sm">
+                Não tem uma conta? Entre em contato com o admin.
+              </p>
             </div>
-            <Button
-              type="submit"
-              className="w-full text-base font-semibold"
-              disabled={loading}
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
-                </>
-              ) : (
-                'Entrar'
-              )}
-            </Button>
-          </form>
-          <div className="mt-6 text-center">
-            <p className="text-white/70 text-sm">
-              Não tem uma conta? Entre em contato com o admin.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-white/60 text-sm mt-6">
+          Sistema de CRM com automação e inteligência artificial
+        </p>
+      </div>
     </div>
   );
 }
