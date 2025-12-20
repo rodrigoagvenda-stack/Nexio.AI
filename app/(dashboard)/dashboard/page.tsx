@@ -1,145 +1,251 @@
-import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Users, DollarSign, Target } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/format';
+'use client';
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { Users, Target, TrendingUp, DollarSign } from 'lucide-react';
+import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, isWithinInterval } from 'date-fns';
+import { DateRange } from 'react-day-picker';
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { FilterButtons, FilterPeriod } from '@/components/dashboard/FilterButtons';
+import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
+import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
+import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
+import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 
-  if (!user) return null;
+interface Lead {
+  id: string;
+  status: string;
+  project_value: number;
+  created_at: string;
+}
 
-  // Buscar company_id e leads em paralelo com JOIN otimizado
-  const { data: userData } = await supabase
-    .from('users')
-    .select('company_id')
-    .eq('auth_user_id', user.id)
-    .single();
+export default function DashboardPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  if (!userData?.company_id) return null;
+  useEffect(() => {
+    fetchLeads();
+  }, []);
 
-  // Buscar apenas os campos necessários (não SELECT *)
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('id, status, project_value')
-    .eq('company_id', userData.company_id);
+  useEffect(() => {
+    filterLeadsByPeriod();
+  }, [selectedPeriod, dateRange, leads]);
 
-  const totalLeads = leads?.length || 0;
-  const novosLeads = leads?.filter((l) => l.status === 'Lead novo').length || 0;
-  const emAtendimento = leads?.filter((l) => l.status === 'Em contato').length || 0;
-  const fechados = leads?.filter((l) => l.status === 'Fechado').length || 0;
+  const fetchLeads = async () => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-  const faturamento = leads
-    ?.filter((l) => l.status === 'Fechado')
-    .reduce((sum, l) => sum + (l.project_value || 0), 0) || 0;
+      if (!user) return;
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData?.company_id) return;
+
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('id, status, project_value, created_at')
+        .eq('company_id', userData.company_id)
+        .order('created_at', { ascending: true });
+
+      setLeads(leadsData || []);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterLeadsByPeriod = () => {
+    const now = new Date();
+    let filtered = leads;
+
+    if (selectedPeriod === 'custom') {
+      if (dateRange?.from && dateRange?.to) {
+        filtered = leads.filter((lead) => {
+          const leadDate = new Date(lead.created_at);
+          return isWithinInterval(leadDate, {
+            start: dateRange.from!,
+            end: endOfDay(dateRange.to!),
+          });
+        });
+      }
+    } else {
+      const periodStarts = {
+        today: startOfDay(now),
+        week: startOfWeek(now, { weekStartsOn: 0 }),
+        month: startOfMonth(now),
+        year: startOfYear(now),
+      };
+
+      const periodStart = periodStarts[selectedPeriod as keyof typeof periodStarts];
+
+      if (periodStart) {
+        filtered = leads.filter((lead) => {
+          const leadDate = new Date(lead.created_at);
+          return leadDate >= periodStart;
+        });
+      }
+    }
+
+    setFilteredLeads(filtered);
+  };
+
+  const handlePeriodChange = (period: FilterPeriod) => {
+    setSelectedPeriod(period);
+    if (period !== 'custom') {
+      setDateRange(undefined);
+    }
+  };
+
+  // Métricas
+  const totalLeads = filteredLeads.length;
+  const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
+  const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
+  const fechados = filteredLeads.filter((l) => l.status === 'Fechado').length;
+  const faturamento = filteredLeads
+    .filter((l) => l.status === 'Fechado')
+    .reduce((sum, l) => sum + (l.project_value || 0), 0);
   const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
+
+  // Dados do gráfico de performance (últimos 7 dias ou semanas)
+  const performanceData = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' });
+
+    const dayLeads = filteredLeads.filter((lead) => {
+      const leadDate = new Date(lead.created_at);
+      return leadDate.toDateString() === date.toDateString();
+    });
+
+    return {
+      name: dayName,
+      leads: dayLeads.length,
+      fechados: dayLeads.filter((l) => l.status === 'Fechado').length,
+    };
+  });
+
+  // Dados do donut de conversão
+  const conversionData = [
+    { name: 'Fechados', value: fechados, color: '#10b981' },
+    { name: 'Em andamento', value: totalLeads - fechados, color: 'hsl(var(--primary))' },
+  ];
+
+  // Dados do funil
+  const funnelStages = [
+    {
+      label: 'Lead novo',
+      count: filteredLeads.filter((l) => l.status === 'Lead novo').length,
+      color: 'bg-blue-500',
+    },
+    {
+      label: 'Em contato',
+      count: filteredLeads.filter((l) => l.status === 'Em contato').length,
+      color: 'bg-yellow-500',
+    },
+    {
+      label: 'Interessado',
+      count: filteredLeads.filter((l) => l.status === 'Interessado').length,
+      color: 'bg-orange-500',
+    },
+    {
+      label: 'Proposta enviada',
+      count: filteredLeads.filter((l) => l.status === 'Proposta enviada').length,
+      color: 'bg-purple-500',
+    },
+    {
+      label: 'Fechado',
+      count: fechados,
+      color: 'bg-green-500',
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <div className="animate-shimmer h-8 w-48 rounded"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Visão geral das suas métricas de vendas
-        </p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Visão geral das suas métricas de vendas
+          </p>
+        </div>
+
+        {/* Filtros */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <FilterButtons
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={handlePeriodChange}
+          />
+          {selectedPeriod === 'custom' && (
+            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+          )}
+        </div>
       </div>
 
       {/* Métricas Principais */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Novos Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{novosLeads}</div>
-            <p className="text-xs text-muted-foreground">Status: Lead novo</p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Novos Leads"
+          value={novosLeads}
+          subtitle="Status: Lead novo"
+          icon={Users}
+          format="number"
+        />
+        <MetricCard
+          title="Em Atendimento"
+          value={emAtendimento}
+          subtitle="Status: Em contato"
+          icon={Target}
+          format="number"
+        />
+        <MetricCard
+          title="Taxa de Conversão"
+          value={taxaConversao}
+          subtitle={`${fechados} de ${totalLeads} leads`}
+          icon={TrendingUp}
+          format="percentage"
+        />
+        <MetricCard
+          title="Faturamento"
+          value={faturamento}
+          subtitle="Leads fechados"
+          icon={DollarSign}
+          format="currency"
+        />
+      </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Em Atendimento</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{emAtendimento}</div>
-            <p className="text-xs text-muted-foreground">Status: Em contato</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{taxaConversao}%</div>
-            <p className="text-xs text-muted-foreground">
-              {fechados} de {totalLeads} leads
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Faturamento</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(faturamento)}</div>
-            <p className="text-xs text-muted-foreground">Leads fechados</p>
-          </CardContent>
-        </Card>
+      {/* Gráficos */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <PerformanceChart data={performanceData} />
+        </div>
+        <div className="md:col-span-1">
+          <ConversionDonut data={conversionData} />
+        </div>
       </div>
 
       {/* Funil de Vendas */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Funil de Vendas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              { label: 'Lead novo', count: novosLeads, color: 'bg-blue-500' },
-              {
-                label: 'Em contato',
-                count: leads?.filter((l) => l.status === 'Em contato').length || 0,
-                color: 'bg-yellow-500',
-              },
-              {
-                label: 'Interessado',
-                count: leads?.filter((l) => l.status === 'Interessado').length || 0,
-                color: 'bg-orange-500',
-              },
-              {
-                label: 'Proposta enviada',
-                count: leads?.filter((l) => l.status === 'Proposta enviada').length || 0,
-                color: 'bg-purple-500',
-              },
-              { label: 'Fechado', count: fechados, color: 'bg-green-500' },
-            ].map((stage, i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{stage.label}</span>
-                  <span className="text-muted-foreground">{stage.count} leads</span>
-                </div>
-                <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${stage.color}`}
-                    style={{
-                      width: `${totalLeads > 0 ? (stage.count / totalLeads) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <SalesFunnel stages={funnelStages} totalLeads={totalLeads} />
     </div>
   );
 }
