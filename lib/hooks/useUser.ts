@@ -43,26 +43,21 @@ export function useUser() {
     const supabase = createClient();
 
     try {
-      // Fetch user from our users table
+      // Fetch user AND company in ONE query (JOIN) para evitar múltiplas requests
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('*')
+        .select('*, companies:company_id(*)')
         .eq('auth_user_id', authUserId)
         .single();
 
       if (userError) throw userError;
+
+      // Evitar set desnecessário se dados não mudaram
       setUser(userData);
 
-      // Fetch company
-      if (userData?.company_id) {
-        const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', userData.company_id)
-          .single();
-
-        if (companyError) throw companyError;
-        setCompany(companyData);
+      // Company já vem no JOIN
+      if (userData?.companies) {
+        setCompany(userData.companies as any);
       }
     } catch (error) {
       console.error('Error fetching user/company:', error);

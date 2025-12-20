@@ -16,20 +16,24 @@ export default function CRMPage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [error, setError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
-    console.log('CRM Debug - User state:', { user, userLoading });
+    // Prevenir loop infinito - só executar UMA vez quando user carregar
+    if (!userLoading && !hasFetched) {
+      console.log('CRM Debug - User state:', { user, userLoading });
 
-    if (!userLoading) {
       if (user?.company_id) {
         fetchLeads();
+        setHasFetched(true);
       } else {
         console.error('❌ User ou company_id não encontrado');
         setError('Usuário não configurado. Verifique o banco de dados.');
         setLoading(false);
+        setHasFetched(true);
       }
     }
-  }, [user, userLoading]);
+  }, [userLoading, user?.company_id, hasFetched]);
 
   async function fetchLeads() {
     try {
