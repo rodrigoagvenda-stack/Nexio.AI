@@ -11,16 +11,25 @@ import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
 
 export default function CRMPage() {
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.company_id) {
-      fetchLeads();
+    console.log('CRM Debug - User state:', { user, userLoading });
+
+    if (!userLoading) {
+      if (user?.company_id) {
+        fetchLeads();
+      } else {
+        console.error('❌ User ou company_id não encontrado');
+        setError('Usuário não configurado. Verifique o banco de dados.');
+        setLoading(false);
+      }
     }
-  }, [user]);
+  }, [user, userLoading]);
 
   async function fetchLeads() {
     try {
@@ -76,7 +85,30 @@ export default function CRMPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-shimmer h-8 w-32 rounded-lg" />
+        <div className="animate-pulse h-8 w-32 bg-secondary rounded-lg" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">CRM</h1>
+          <p className="text-muted-foreground mt-1">Gerencie seus leads e oportunidades</p>
+        </div>
+        <Card className="border-red-500">
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <p className="text-red-500 font-semibold">❌ {error}</p>
+              <div className="text-sm text-muted-foreground">
+                <p>Abra o Console do navegador (F12) para ver os detalhes.</p>
+                <p className="mt-2">Execute o SQL de diagnóstico no Supabase:</p>
+                <code className="bg-secondary px-2 py-1 rounded">database/diagnostico.sql</code>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -110,7 +142,18 @@ export default function CRMPage() {
         </div>
       </div>
 
-      {viewMode === 'kanban' ? (
+      {leads.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-muted-foreground mb-4">
+              Nenhum lead encontrado. Clique em "Novo Lead" para começar!
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Debug: user.company_id = {user?.company_id || 'NULL'}
+            </p>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'kanban' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {columns.map((column) => {
             const columnLeads = getLeadsByStatus(column);
