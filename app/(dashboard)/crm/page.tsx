@@ -47,6 +47,7 @@ import {
   DragStartEvent,
   useDroppable,
   DragOverEvent,
+  UniqueIdentifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -297,81 +298,89 @@ export default function CRMPage() {
     const { active, over } = event;
     setActiveDragId(null);
 
+    console.group('🎯 DRAG & DROP DEBUG');
+    console.log('Event:', event);
+    console.log('Active ID:', active.id, 'Type:', typeof active.id);
+    console.log('Over ID:', over?.id, 'Type:', typeof over?.id);
+    console.log('Over Data:', over?.data);
+
     if (!over) {
-      console.log('❌ Drag ended without valid drop target');
+      console.warn('❌ No drop target!');
+      console.groupEnd();
       return;
     }
 
     const activeId = active.id;
     const overId = over.id;
 
-    console.log('🎯 Drag end:', { activeId, overId, activeIdType: typeof activeId, overIdType: typeof overId });
-
+    // Determinar novo status
     let newStatus: Lead['status'] | null = null;
 
-    // SEMPRE tentar usar a coluna primeiro
-    if (typeof overId === 'string' && overId.startsWith('column-')) {
-      // Caiu diretamente na coluna
-      newStatus = overId.replace('column-', '') as Lead['status'];
-      console.log('✅ Dropped on COLUMN:', newStatus);
+    // CASO 1: Drop direto na coluna (id = "column-{status}")
+    if (String(overId).startsWith('column-')) {
+      newStatus = String(overId).replace('column-', '') as Lead['status'];
+      console.log('✅ Drop na COLUNA:', newStatus);
     }
-    else if (typeof overId === 'number') {
-      // Caiu em um card - pegar o status desse card
-      const targetLead = leads.find(l => l.id === overId);
+    // CASO 2: Drop em outro card (pegar status do card de destino)
+    else {
+      const targetLead = leads.find(l => l.id === overId || String(l.id) === String(overId));
       if (targetLead) {
         newStatus = targetLead.status;
-        console.log('✅ Dropped on CARD, using column:', newStatus);
+        console.log('✅ Drop no CARD. Usando status da coluna:', newStatus);
       } else {
-        console.log('❌ Card not found:', overId);
+        console.error('❌ Card de destino não encontrado:', overId);
       }
-    }
-    else {
-      console.log('❌ Unknown overId type:', typeof overId, overId);
     }
 
     if (!newStatus) {
-      console.log('❌ Could not determine target status');
+      console.error('❌ Não foi possível determinar o status de destino');
+      console.groupEnd();
       return;
     }
 
-    // Validar status
-    const validStatuses: Lead['status'][] = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido'];
-    if (!validStatuses.includes(newStatus)) {
-      console.error('Invalid status:', newStatus);
-      return;
-    }
-
-    // Buscar lead sendo movido
-    const lead = leads.find(l => l.id === activeId);
+    // Buscar lead sendo arrastado
+    const lead = leads.find(l => l.id === activeId || String(l.id) === String(activeId));
 
     if (!lead) {
-      console.error('Lead not found:', activeId);
+      console.error('❌ Lead arrastado não encontrado:', activeId);
+      console.groupEnd();
       return;
     }
 
     if (lead.status === newStatus) {
-      console.log('Lead already in this status');
+      console.log('ℹ️ Lead já está neste status. Nada a fazer.');
+      console.groupEnd();
       return;
     }
 
-    // Update otimista
-    setLeads(prevLeads => prevLeads.map(l => l.id === activeId ? { ...l, status: newStatus } : l));
+    console.log(`🔄 Movendo "${lead.company_name}" de "${lead.status}" → "${newStatus}"`);
 
+    // Update otimista (atualiza UI imediatamente)
+    setLeads(prevLeads => prevLeads.map(l =>
+      (l.id === activeId || String(l.id) === String(activeId))
+        ? { ...l, status: newStatus! }
+        : l
+    ));
+
+    // Persistir no banco
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from('leads')
         .update({ status: newStatus })
-        .eq('id', activeId);
+        .eq('id', lead.id);
 
       if (error) throw error;
 
-      console.log('Lead status updated successfully');
+      console.log('✅ Status atualizado no banco com sucesso!');
       toast.success(`Lead movido para "${newStatus}"!`);
+      console.groupEnd();
     } catch (error) {
-      console.error('Error updating lead:', error);
+      console.error('❌ Erro ao atualizar no banco:', error);
       toast.error('Erro ao atualizar lead');
+      // Reverter mudança otimista
       fetchLeads();
+      console.groupEnd();
     }
   };
 
