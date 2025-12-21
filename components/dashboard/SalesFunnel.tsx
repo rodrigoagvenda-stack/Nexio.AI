@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 interface FunnelStage {
   label: string;
   count: number;
-  color: string;
+  color?: string;
 }
 
 interface SalesFunnelProps {
@@ -28,14 +28,14 @@ export function SalesFunnel({ stages, totalLeads }: SalesFunnelProps) {
             return (
               <div key={i} className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{stage.label}</span>
+                  <span className="font-medium text-foreground">{stage.label}</span>
                   <span className="text-muted-foreground">
                     {stage.count} leads ({percentage.toFixed(1)}%)
                   </span>
                 </div>
-                <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                <div className="h-3 bg-secondary/50 rounded-full overflow-hidden">
                   <motion.div
-                    className={`h-full ${stage.color}`}
+                    className="h-full bg-primary rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${percentage}%` }}
                     transition={{ duration: 0.8, delay: i * 0.1, ease: 'easeOut' }}
