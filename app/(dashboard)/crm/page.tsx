@@ -671,14 +671,16 @@ export default function CRMPage() {
           </CardContent>
         </Card>
       ) : viewMode === 'kanban' ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={pointerWithin}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <>
+          {/* Desktop Kanban */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {columns.map((column) => {
               const columnLeads = getLeadsByStatus(column.id);
               return (
@@ -712,6 +714,131 @@ export default function CRMPage() {
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {/* Mobile Kanban - Vertical List with Status Selector */}
+        <div className="md:hidden space-y-3">
+          {filteredLeads.map((lead) => (
+            <Card key={lead.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-semibold text-sm flex-1">{lead.company_name}</h4>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleOpenModal(lead)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setDeletingLead(lead)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  {lead.contact_name && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {lead.contact_name}
+                    </p>
+                  )}
+                  {lead.whatsapp && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Phone className="h-3 w-3" />
+                      {lead.whatsapp}
+                    </p>
+                  )}
+                  {lead.project_value && lead.project_value > 0 && (
+                    <p className="text-sm font-semibold text-primary flex items-center gap-1">
+                      <DollarSign className="h-4 w-4" />
+                      R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
+
+                  {/* Status Selector */}
+                  <div>
+                    <Label htmlFor={`status-${lead.id}`} className="text-xs text-muted-foreground">
+                      Status
+                    </Label>
+                    <Select
+                      value={lead.status}
+                      onValueChange={async (newStatus) => {
+                        // Update optimistically
+                        setLeads(prevLeads =>
+                          prevLeads.map(l =>
+                            l.id === lead.id ? { ...l, status: newStatus as Lead['status'] } : l
+                          )
+                        );
+
+                        // Persist to database
+                        try {
+                          const supabase = createClient();
+                          const { error } = await supabase
+                            .from('leads')
+                            .update({ status: newStatus })
+                            .eq('id', lead.id);
+
+                          if (error) throw error;
+                          toast.success(`Status atualizado para "${newStatus}"!`);
+                        } catch (error) {
+                          console.error('Error updating status:', error);
+                          toast.error('Erro ao atualizar status');
+                          fetchLeads(); // Revert on error
+                        }
+                      }}
+                    >
+                      <SelectTrigger id={`status-${lead.id}`} className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((col) => (
+                          <SelectItem key={col.id} value={col.id}>
+                            {col.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Priority and Interest Level */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      lead.priority === 'Alta' ? 'bg-red-500/20 text-red-700' :
+                      lead.priority === 'Média' ? 'bg-yellow-500/20 text-yellow-700' :
+                      'bg-gray-500/20 text-gray-700'
+                    }`}>
+                      {lead.priority}
+                    </span>
+                    {lead.nivel_interesse && (
+                      <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-1 rounded-full flex items-center gap-1">
+                        {lead.nivel_interesse.includes('Quente') && <Flame className="h-3 w-3" />}
+                        {lead.nivel_interesse}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Segment */}
+                  {lead.segment && (
+                    <p className="text-xs text-muted-foreground italic flex items-center gap-1">
+                      <Building2 className="h-3 w-3" />
+                      {lead.segment}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        </>
       ) : (
         <>
           {/* Desktop Table View */}
