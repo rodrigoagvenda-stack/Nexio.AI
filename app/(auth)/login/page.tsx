@@ -49,14 +49,10 @@ export default function LoginPage() {
             await supabase.auth.signOut();
             throw new Error('Você não tem permissão de administrador');
           }
-          toast.success('Bem-vindo, Admin! 🛡️');
+          toast.success('Bem-vindo, Admin!');
           window.location.href = '/admin';
         } else {
-          if (adminUser) {
-            toast.info('Você é um admin. Use o modo Admin para entrar.');
-            await supabase.auth.signOut();
-            return;
-          }
+          // Usuários comuns e admins podem acessar o dashboard
           toast.success('Login realizado com sucesso!');
           window.location.href = '/dashboard';
         }
