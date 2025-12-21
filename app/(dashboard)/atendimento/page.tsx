@@ -229,9 +229,6 @@ export default function AtendimentoPage() {
           <MessageSquare className="h-8 w-8 text-primary" />
           Atendimento WhatsApp
         </h1>
-        <p className="text-muted-foreground mt-1">
-          Gerencie suas conversas em tempo real
-        </p>
       </div>
 
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-200px)]">
