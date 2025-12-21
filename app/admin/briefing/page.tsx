@@ -9,12 +9,15 @@ import { toast } from 'sonner';
 import { Copy, Settings, Eye, FileText, CheckCircle2, XCircle } from 'lucide-react';
 import { BriefingResponse } from '@/types/briefing';
 import { formatDateTime } from '@/lib/utils/format';
+import { SimplePagination } from '@/components/ui/pagination-simple';
 
 export default function BriefingListPage() {
   const [responses, setResponses] = useState<BriefingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const formUrl = typeof window !== 'undefined' ? `${window.location.origin}/brief` : '';
 
@@ -46,6 +49,17 @@ export default function BriefingListPage() {
     navigator.clipboard.writeText(formUrl);
     toast.success('Link copiado!');
   };
+
+  // Pagination
+  const totalPages = Math.ceil(responses.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedResponses = responses.slice(startIndex, endIndex);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   if (loading) {
     return (
@@ -129,7 +143,7 @@ export default function BriefingListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {responses.map((response) => (
+                  {paginatedResponses.map((response) => (
                     <tr key={response.id} className="border-b hover:bg-accent">
                       <td className="p-3 font-medium">{response.nome_responsavel}</td>
                       <td className="p-3">{response.nome_empresa}</td>
@@ -163,6 +177,15 @@ export default function BriefingListPage() {
             </div>
           )}
         </CardContent>
+        {responses.length > 0 && (
+          <SimplePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={responses.length}
+            itemsPerPage={itemsPerPage}
+          />
+        )}
       </Card>
     </div>
   );
