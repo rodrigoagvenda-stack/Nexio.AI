@@ -27,24 +27,27 @@ export function DateRangePicker({ date, onDateChange }: DateRangePickerProps) {
           <Button
             id="date"
             variant="outline"
+            size="sm"
             className={cn(
-              'w-[300px] justify-start text-left font-normal',
+              'w-full sm:w-[280px] justify-start text-left font-normal',
               !date && 'text-muted-foreground'
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, 'dd/MM/yyyy', { locale: ptBR })} -{' '}
-                  {format(date.to, 'dd/MM/yyyy', { locale: ptBR })}
-                </>
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, 'dd/MM/yy', { locale: ptBR })} -{' '}
+                    {format(date.to, 'dd/MM/yy', { locale: ptBR })}
+                  </>
+                ) : (
+                  format(date.from, 'dd/MM/yyyy', { locale: ptBR })
+                )
               ) : (
-                format(date.from, 'dd/MM/yyyy', { locale: ptBR })
-              )
-            ) : (
-              <span>Selecione o período</span>
-            )}
+                'Período'
+              )}
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -54,8 +57,9 @@ export function DateRangePicker({ date, onDateChange }: DateRangePickerProps) {
             defaultMonth={date?.from}
             selected={date}
             onSelect={onDateChange}
-            numberOfMonths={2}
+            numberOfMonths={1}
             locale={ptBR}
+            className="sm:block"
           />
         </PopoverContent>
       </Popover>
