@@ -52,31 +52,19 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
     return displayValue;
   };
 
-  const getCardStyle = () => {
-    // Diferentes cores para cada tipo de métrica
-    if (title.includes('Novos')) return 'bg-gradient-to-br from-blue-500 to-blue-600';
-    if (title.includes('Atendimento')) return 'bg-gradient-to-br from-purple-500 to-purple-600';
-    if (title.includes('Conversão')) return 'bg-gradient-to-br from-green-500 to-green-600';
-    if (title.includes('Faturamento')) return 'bg-gradient-to-br from-orange-500 to-orange-600';
-    return 'bg-gradient-to-br from-primary to-orange-600';
-  };
-
   return (
-    <Card className={`transition-all duration-300 hover:shadow-xl hover:scale-105 ${getCardStyle()} text-white border-0`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
-          <Icon className="h-6 w-6" />
+    <Card className="bg-card border-border hover:shadow-lg transition-shadow">
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
+        <div className="p-2.5 rounded-full bg-muted">
+          <Icon className="h-5 w-5 text-foreground" />
         </div>
-        {format === 'percentage' && (
-          <span className="text-xs px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm font-semibold">
-            +{value}%
-          </span>
-        )}
+        <div className="flex-1">
+          <p className="text-sm text-muted-foreground">{title}</p>
+        </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-sm font-medium opacity-90 mb-1">{title}</div>
-        <div className="text-4xl font-bold tracking-tight mb-1">{formattedValue()}</div>
-        <p className="text-xs opacity-80">{subtitle}</p>
+      <CardContent className="pt-0">
+        <div className="text-3xl font-bold text-foreground mb-1">{formattedValue()}</div>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       </CardContent>
     </Card>
   );
