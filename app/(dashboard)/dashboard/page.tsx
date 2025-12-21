@@ -181,65 +181,63 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Visão geral das suas métricas de vendas
-          </p>
-        </div>
-
-        {/* Filtros */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <FilterButtons
-            selectedPeriod={selectedPeriod}
-            onPeriodChange={handlePeriodChange}
-          />
-          {selectedPeriod === 'custom' && (
-            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-          )}
+      {/* Header com Filtros */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-foreground">Overview</h1>
+        <div className="flex gap-2">
+          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
+            Hoje
+          </button>
+          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
+            Hoje
+          </button>
+          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
+            Hoje
+          </button>
+          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
+            Hoje
+          </button>
         </div>
       </div>
 
-      {/* Métricas Principais */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Cards de Métricas */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Novos Leads"
+          title="Novos leads"
           value={novosLeads}
-          subtitle="Status: Lead novo"
+          subtitle={`${novosLeads} novos leads`}
           icon={Users}
           format="number"
         />
         <MetricCard
-          title="Em Atendimento"
+          title="Em atendimento"
           value={emAtendimento}
-          subtitle="Status: Em contato"
+          subtitle={`Leads em atendimento`}
           icon={Target}
           format="number"
         />
         <MetricCard
-          title="Taxa de Conversão"
+          title="Taxa de conversão"
           value={taxaConversao}
-          subtitle={`${fechados} de ${totalLeads} leads`}
+          subtitle={`Leads convertidos`}
           icon={TrendingUp}
           format="percentage"
         />
         <MetricCard
           title="Faturamento"
           value={faturamento}
-          subtitle="Leads fechados"
+          subtitle={`Faturamento em negócios`}
           icon={DollarSign}
           format="currency"
         />
       </div>
 
-      {/* Gráficos */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="md:col-span-2">
+      {/* Performance e Taxa de Conversão */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
           <PerformanceChart data={performanceData} />
         </div>
-        <div className="md:col-span-1">
+        <div>
           <ConversionDonut data={conversionData} />
         </div>
       </div>
