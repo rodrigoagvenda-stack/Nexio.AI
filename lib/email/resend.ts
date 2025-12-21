@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResend() {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export async function sendMemberInviteEmail({
   to,
@@ -18,6 +26,11 @@ export async function sendMemberInviteEmail({
     return { success: false, message: 'Resend não configurado' };
   }
 
+  const resendClient = getResend();
+  if (!resendClient) {
+    return { success: false, message: 'Resend não configurado' };
+  }
+
   try {
     const roleLabels: Record<string, string> = {
       admin: 'Administrador',
@@ -27,7 +40,7 @@ export async function sendMemberInviteEmail({
 
     const roleLabel = roleLabels[role] || 'Membro';
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resendClient.emails.send({
       from: 'vend.AI <noreply@vendai.com.br>',
       to: [to],
       subject: `Convite para ${companyName} na vend.AI`,
