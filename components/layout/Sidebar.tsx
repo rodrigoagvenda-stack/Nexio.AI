@@ -3,32 +3,42 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
   MapPin,
   MessageSquare,
   Target,
-  Settings,
   UserPlus,
+  HelpCircle,
+  Shield,
   ChevronLeft,
   ChevronRight,
-  Menu,
-  X,
-  Shield,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface SidebarProps {
   hasVendAgro?: boolean;
   isAdmin?: boolean;
+  userName?: string;
+  userEmail?: string;
 }
 
-export function Sidebar({ hasVendAgro = false, isAdmin = false }: SidebarProps) {
+export function Sidebar({
+  hasVendAgro = false,
+  isAdmin = false,
+  userName,
+  userEmail,
+}: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const links = [
     {
@@ -63,9 +73,9 @@ export function Sidebar({ hasVendAgro = false, isAdmin = false }: SidebarProps) 
       icon: UserPlus,
     },
     {
-      href: '/configuracoes',
-      label: 'Configurações',
-      icon: Settings,
+      href: '/ajuda',
+      label: 'Ajuda',
+      icon: HelpCircle,
     },
     ...(isAdmin
       ? [
@@ -79,50 +89,53 @@ export function Sidebar({ hasVendAgro = false, isAdmin = false }: SidebarProps) 
       : []),
   ];
 
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      toast.success('Logout realizado com sucesso');
+      router.push('/login');
+    } catch (error) {
+      toast.error('Erro ao fazer logout');
+      setIsLoggingOut(false);
+    }
+  }
+
   return (
     <>
-      {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden fixed top-4 left-4 z-50"
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-      >
-        {isMobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </Button>
-
-      {/* Mobile Overlay */}
-      {isMobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
-
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300',
-          isCollapsed ? 'w-20' : 'w-64',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-all duration-300',
+          isCollapsed ? 'md:w-20' : 'md:w-72'
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-border">
-          {!isCollapsed && (
-            <h1 className="text-2xl font-bold">
-              vend<span className="text-primary">.</span>AI
-            </h1>
-          )}
-          {isCollapsed && (
-            <h1 className="text-xl font-bold mx-auto">
-              v<span className="text-primary">.</span>AI
-            </h1>
-          )}
+        <div className="flex items-center h-20 px-6 border-b border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
+              <span className="text-lg font-bold text-white">V</span>
+            </div>
+            {!isCollapsed && (
+              <h1 className="text-xl font-semibold">
+                vend<span className="text-primary">.</span>AI
+              </h1>
+            )}
+          </div>
         </div>
 
+        {/* Menu Label */}
+        {!isCollapsed && (
+          <div className="px-6 pt-6 pb-3">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Menu
+            </span>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           {links.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
@@ -131,22 +144,30 @@ export function Sidebar({ hasVendAgro = false, isAdmin = false }: SidebarProps) 
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setIsMobileOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
+                  'group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-lg'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  isCollapsed && 'justify-center'
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                    : 'text-muted-foreground hover:bg-accent/50',
+                  isCollapsed && 'justify-center px-2'
                 )}
                 title={isCollapsed ? link.label : undefined}
               >
-                <Icon className="h-5 w-5 flex-shrink-0" />
+                <div
+                  className={cn(
+                    'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors',
+                    isActive
+                      ? 'bg-primary-foreground/20'
+                      : 'bg-muted/50 group-hover:bg-muted'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
                 {!isCollapsed && (
                   <>
-                    <span className="font-medium flex-1">{link.label}</span>
+                    <span className="font-medium text-sm flex-1">{link.label}</span>
                     {link.badge && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold border border-primary/30">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold border border-primary/30">
                         {link.badge}
                       </span>
                     )}
@@ -157,25 +178,63 @@ export function Sidebar({ hasVendAgro = false, isAdmin = false }: SidebarProps) 
           })}
         </nav>
 
-        {/* Toggle Button (Desktop only) */}
-        <div className="hidden md:flex items-center justify-center p-4 border-t border-border">
+        {/* User Profile */}
+        <div className="p-4 border-t border-border/50">
+          <div
+            className={cn(
+              'flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/30',
+              isCollapsed && 'justify-center px-2'
+            )}
+          >
+            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <span className="text-xs font-bold text-white">
+                {userName?.charAt(0)?.toUpperCase() || 'U'}
+              </span>
+            </div>
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{userName || 'Usuário'}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {userEmail || 'user@vend.ai'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Logout Button */}
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={cn(
+              'w-full mt-2 justify-start text-muted-foreground hover:text-foreground',
+              isCollapsed && 'justify-center px-2'
+            )}
+            size={isCollapsed ? 'icon' : 'default'}
+            title={isCollapsed ? 'Sair' : undefined}
+          >
+            <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+            {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
+          </Button>
+
+          {/* Toggle Button */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hover:bg-accent"
+            className="w-full mt-2"
           >
             {isCollapsed ? (
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" />
             ) : (
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-4 w-4" />
             )}
           </Button>
         </div>
       </aside>
 
       {/* Spacer for content */}
-      <div className={cn('hidden md:block', isCollapsed ? 'w-20' : 'w-64')} />
+      <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-72')} />
     </>
   );
 }

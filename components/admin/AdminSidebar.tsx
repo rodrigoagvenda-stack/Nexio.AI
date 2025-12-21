@@ -10,13 +10,11 @@ import {
   Users,
   FileText,
   Activity,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Menu,
-  X,
+  HelpCircle,
   LogOut,
   Shield,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -32,7 +30,6 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const links = [
@@ -61,6 +58,11 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       label: 'Logs',
       icon: Activity,
     },
+    {
+      href: '/admin/ajuda',
+      label: 'Ajuda',
+      icon: HelpCircle,
+    },
   ];
 
   async function handleLogout() {
@@ -78,135 +80,130 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
 
   return (
     <>
-      {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden fixed top-4 left-4 z-50"
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-      >
-        {isMobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </Button>
-
-      {/* Mobile Overlay */}
-      {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
-
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300',
-          isCollapsed ? 'w-20' : 'w-64',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-all duration-300',
+          isCollapsed ? 'md:w-20' : 'md:w-72'
         )}
       >
         {/* Logo */}
-        <div className="flex items-center h-16 px-6 border-b border-border">
-          {!isCollapsed ? (
-            <h1 className="text-2xl font-bold">
-              vend<span className="text-primary">.</span>AI
-            </h1>
-          ) : (
-            <h1 className="text-xl font-bold mx-auto">
-              v<span className="text-primary">.</span>AI
-            </h1>
-          )}
+        <div className="flex items-center h-20 px-6 border-b border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
+              <Shield className="h-5 w-5 text-white" />
+            </div>
+            {!isCollapsed && (
+              <h1 className="text-xl font-semibold">
+                vend<span className="text-primary">.</span>AI
+              </h1>
+            )}
+          </div>
         </div>
 
-        {/* Admin Profile */}
-        {!isCollapsed && (adminName || adminEmail) && (
-          <div className="p-4 border-b border-border">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
-                <Shield className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {adminName || 'Admin'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{adminEmail || ''}</p>
-              </div>
-            </div>
+        {/* Menu Label */}
+        {!isCollapsed && (
+          <div className="px-6 pt-6 pb-3">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Menu
+            </span>
           </div>
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
           {links.map((link) => {
             const Icon = link.icon;
-            const isActive = pathname === link.href ||
+            const isActive =
+              pathname === link.href ||
               (link.href !== '/admin' && pathname.startsWith(link.href + '/'));
 
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setIsMobileOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
+                  'group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                  isCollapsed && 'justify-center'
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                    : 'text-muted-foreground hover:bg-accent/50',
+                  isCollapsed && 'justify-center px-2'
                 )}
                 title={isCollapsed ? link.label : undefined}
               >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {!isCollapsed && <span className="flex-1">{link.label}</span>}
+                <div
+                  className={cn(
+                    'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors',
+                    isActive
+                      ? 'bg-primary-foreground/20'
+                      : 'bg-muted/50 group-hover:bg-muted'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                {!isCollapsed && <span className="font-medium text-sm">{link.label}</span>}
               </Link>
             );
           })}
         </nav>
 
-        {/* Bottom Actions */}
-        <div className="p-4 border-t border-border space-y-2">
-          {/* Logout Button */}
-          {!isCollapsed ? (
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="w-full justify-start"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              {isLoggingOut ? 'Saindo...' : 'Sair'}
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="w-full"
-              title="Sair"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
-
-          {/* Toggle Button (Desktop only) */}
-          <div className="hidden lg:flex items-center justify-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-            >
-              {isCollapsed ? (
-                <ChevronRight className="h-4 w-4" />
-              ) : (
-                <ChevronLeft className="h-4 w-4" />
-              )}
-            </Button>
+        {/* User Profile */}
+        <div className="p-4 border-t border-border/50">
+          <div
+            className={cn(
+              'flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/30',
+              isCollapsed && 'justify-center px-2'
+            )}
+          >
+            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <span className="text-xs font-bold text-white">
+                {adminName?.charAt(0)?.toUpperCase() || 'A'}
+              </span>
+            </div>
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{adminName || 'Admin'}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {adminEmail || 'admin@vend.ai'}
+                </p>
+              </div>
+            )}
           </div>
+
+          {/* Logout Button */}
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={cn(
+              'w-full mt-2 justify-start text-muted-foreground hover:text-foreground',
+              isCollapsed && 'justify-center px-2'
+            )}
+            size={isCollapsed ? 'icon' : 'default'}
+            title={isCollapsed ? 'Sair' : undefined}
+          >
+            <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+            {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
+          </Button>
+
+          {/* Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full mt-2"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
         </div>
       </aside>
 
       {/* Spacer for content */}
-      <div className={cn('hidden lg:block', isCollapsed ? 'w-20' : 'w-64')} />
+      <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-72')} />
     </>
   );
 }
