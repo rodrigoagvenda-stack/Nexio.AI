@@ -1,6 +1,7 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { MobileNav } from '@/components/layout/MobileNav';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -39,15 +40,17 @@ export default async function DashboardLayout({
   const isAdmin = !!adminUser;
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar hasVendAgro={hasVendAgro} isAdmin={isAdmin} />
-      <div className="flex-1 flex flex-col">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 lg:pb-6">
-          {children}
-        </main>
+    <SmoothScrollProvider>
+      <div className="flex h-screen bg-background">
+        <Sidebar hasVendAgro={hasVendAgro} isAdmin={isAdmin} />
+        <div className="flex-1 flex flex-col">
+          <Header />
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6">
+            {children}
+          </main>
+        </div>
+        <MobileBottomNav />
       </div>
-      <MobileNav />
-    </div>
+    </SmoothScrollProvider>
   );
 }
