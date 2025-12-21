@@ -46,6 +46,7 @@ import {
 import { useUser } from '@/lib/hooks/useUser';
 import { formatDateTime } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { SimplePagination } from '@/components/ui/pagination-simple';
 
 interface Member {
   user_id: string;
@@ -68,6 +69,8 @@ export default function MembrosPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Form states
   const [inviteForm, setInviteForm] = useState({
@@ -199,6 +202,17 @@ export default function MembrosPage() {
       member.department?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Pagination
+  const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -261,7 +275,7 @@ export default function MembrosPage() {
             <p className="text-center py-8 text-muted-foreground">Nenhum membro encontrado</p>
           ) : (
             <div className="space-y-4">
-              {filteredMembers.map((member) => (
+              {paginatedMembers.map((member) => (
                 <div
                   key={member.user_id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
@@ -325,6 +339,15 @@ export default function MembrosPage() {
             </div>
           )}
         </CardContent>
+        {filteredMembers.length > 0 && (
+          <SimplePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredMembers.length}
+            itemsPerPage={itemsPerPage}
+          />
+        )}
       </Card>
 
       {/* Invite Dialog */}
