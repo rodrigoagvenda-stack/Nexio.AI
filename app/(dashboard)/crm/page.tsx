@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
+import { SimplePagination } from '@/components/ui/pagination-simple';
 import {
   DndContext,
   closestCorners,
@@ -234,6 +235,8 @@ export default function CRMPage() {
   const [priorityFilter, setPriorityFilter] = useState('Todas');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<string | number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -519,6 +522,17 @@ export default function CRMPage() {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, priorityFilter]);
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'Lead novo': return 'bg-blue-500/20 text-blue-700';
@@ -719,7 +733,7 @@ export default function CRMPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLeads.map((lead, index) => (
+                    {paginatedLeads.map((lead, index) => (
                       <tr
                         key={lead.id}
                         className={`border-b hover:bg-accent/50 transition-colors ${
@@ -788,17 +802,22 @@ export default function CRMPage() {
                   </tbody>
                 </table>
               </div>
-              {filteredLeads.length > 0 && (
-                <div className="p-4 border-t bg-secondary/30 text-sm text-muted-foreground">
-                  Mostrando {filteredLeads.length} de {leads.length} leads
-                </div>
-              )}
             </CardContent>
+            {filteredLeads.length > 0 && (
+              <SimplePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredLeads.length}
+                itemsPerPage={itemsPerPage}
+              />
+            )}
           </Card>
 
           {/* Mobile Card View */}
-          <div className="md:hidden grid gap-4">
-            {filteredLeads.map((lead) => (
+          <div className="md:hidden space-y-4">
+            <div className="grid gap-4">
+              {paginatedLeads.map((lead) => (
               <Card key={lead.id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
@@ -854,11 +873,18 @@ export default function CRMPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              ))}
+            </div>
             {filteredLeads.length > 0 && (
-              <div className="p-4 text-sm text-muted-foreground text-center">
-                Mostrando {filteredLeads.length} de {leads.length} leads
-              </div>
+              <Card>
+                <SimplePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  totalItems={filteredLeads.length}
+                  itemsPerPage={itemsPerPage}
+                />
+              </Card>
             )}
           </div>
         </>
