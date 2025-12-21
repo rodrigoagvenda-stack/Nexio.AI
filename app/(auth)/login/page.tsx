@@ -34,8 +34,21 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        toast.success('Login realizado com sucesso!');
-        window.location.href = '/dashboard';
+        // Verificar se é admin
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('auth_user_id', data.user.id)
+          .eq('is_active', true)
+          .single();
+
+        if (adminUser) {
+          toast.success('Bem-vindo, Admin!');
+          window.location.href = '/admin';
+        } else {
+          toast.success('Login realizado com sucesso!');
+          window.location.href = '/dashboard';
+        }
       }
     } catch (error: any) {
       console.error('Login error:', error);
