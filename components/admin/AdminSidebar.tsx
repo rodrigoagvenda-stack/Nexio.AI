@@ -99,46 +99,36 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 z-50 flex flex-col bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 transition-all duration-300',
-          isCollapsed ? 'w-20' : 'w-72',
+          'fixed inset-y-0 z-50 flex flex-col bg-card border-r border-border transition-all duration-300',
+          isCollapsed ? 'w-20' : 'w-64',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        {/* Logo & Admin Badge */}
-        <div className="flex items-center justify-between h-20 px-6 border-b border-slate-700">
+        {/* Logo */}
+        <div className="flex items-center h-16 px-6 border-b border-border">
           {!isCollapsed ? (
-            <div className="space-y-1">
-              <h1 className="text-2xl font-black text-white">
-                vend<span className="text-primary">.</span>AI
-              </h1>
-              <div className="flex items-center gap-2">
-                <Shield className="h-3 w-3 text-primary" />
-                <span className="text-xs font-bold text-primary uppercase tracking-wider">
-                  Admin Panel
-                </span>
-              </div>
-            </div>
+            <h1 className="text-2xl font-bold">
+              vend<span className="text-primary">.</span>AI
+            </h1>
           ) : (
-            <div className="mx-auto">
-              <h1 className="text-xl font-black text-white">
-                v<span className="text-primary">.</span>AI
-              </h1>
-            </div>
+            <h1 className="text-xl font-bold mx-auto">
+              v<span className="text-primary">.</span>AI
+            </h1>
           )}
         </div>
 
         {/* Admin Profile */}
         {!isCollapsed && (adminName || adminEmail) && (
-          <div className="p-4 border-b border-slate-700 bg-slate-800/50">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary">
-                <Shield className="h-5 w-5 text-primary" />
+              <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                <Shield className="h-4 w-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">
+                <p className="text-sm font-medium truncate">
                   {adminName || 'Admin'}
                 </p>
-                <p className="text-xs text-slate-400 truncate">{adminEmail || ''}</p>
+                <p className="text-xs text-muted-foreground truncate">{adminEmail || ''}</p>
               </div>
             </div>
           </div>
@@ -157,10 +147,10 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
                 href={link.href}
                 onClick={() => setIsMobileOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium',
+                  'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors',
                   isActive
-                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
-                    : 'text-slate-300 hover:bg-slate-700/50 hover:text-white',
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                   isCollapsed && 'justify-center'
                 )}
                 title={isCollapsed ? link.label : undefined}
@@ -173,16 +163,16 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-4 border-t border-slate-700 space-y-2">
+        <div className="p-4 border-t border-border space-y-2">
           {/* Logout Button */}
           {!isCollapsed ? (
             <Button
               variant="ghost"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="w-full justify-start text-slate-300 hover:text-white hover:bg-red-500/10"
+              className="w-full justify-start"
             >
-              <LogOut className="h-5 w-5 mr-3" />
+              <LogOut className="h-4 w-4 mr-2" />
               {isLoggingOut ? 'Saindo...' : 'Sair'}
             </Button>
           ) : (
@@ -191,10 +181,10 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
               size="icon"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="w-full text-slate-300 hover:text-white hover:bg-red-500/10"
+              className="w-full"
               title="Sair"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />
             </Button>
           )}
 
@@ -204,12 +194,11 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
               variant="ghost"
               size="icon"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="hover:bg-slate-700/50 text-slate-400 hover:text-white"
             >
               {isCollapsed ? (
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4" />
               ) : (
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-4 w-4" />
               )}
             </Button>
           </div>
@@ -217,7 +206,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       </aside>
 
       {/* Spacer for content */}
-      <div className={cn('hidden lg:block', isCollapsed ? 'w-20' : 'w-72')} />
+      <div className={cn('hidden lg:block', isCollapsed ? 'w-20' : 'w-64')} />
     </>
   );
 }

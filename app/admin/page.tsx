@@ -52,17 +52,13 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-10 border border-slate-700 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="relative">
-          <h1 className="text-5xl font-black text-white mb-3">
-            Dashboard Admin <span className="text-primary">🛡️</span>
-          </h1>
-          <p className="text-xl text-slate-300">
-            Visão geral e controle total do sistema vend.AI
-          </p>
-        </div>
+      <div className="border-b pb-6 mb-6">
+        <h1 className="text-3xl font-bold text-foreground mb-2">
+          Painel Administrativo
+        </h1>
+        <p className="text-muted-foreground">
+          Gerencie empresas, usuários e configurações do sistema
+        </p>
       </div>
 
       {/* Métricas Principais */}
@@ -154,15 +150,13 @@ export default async function AdminDashboardPage() {
 
       {/* Links Rápidos */}
       <div>
-        <h2 className="text-3xl font-bold mb-6">Acesso Rápido</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <h2 className="text-2xl font-semibold mb-4">Acesso Rápido</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link href="/admin/briefing">
-            <Card className="border-2 hover:shadow-2xl hover:scale-105 hover:border-cyan-500/50 transition-all duration-300 cursor-pointer group bg-gradient-to-br from-background to-cyan-500/5">
-              <CardHeader className="text-center space-y-4 p-6">
-                <div className="mx-auto p-5 bg-gradient-to-br from-cyan-500/20 to-cyan-500/10 rounded-2xl group-hover:from-cyan-500/30 group-hover:to-cyan-500/20 transition-all w-fit shadow-lg">
-                  <Activity className="h-10 w-10 text-cyan-500" />
-                </div>
-                <CardTitle className="text-xl font-bold">Briefing</CardTitle>
+            <Card className="hover:border-primary transition-colors cursor-pointer">
+              <CardHeader className="space-y-2 p-6">
+                <Activity className="h-6 w-6 text-primary mb-2" />
+                <CardTitle className="text-lg font-semibold">Briefing</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Respostas do formulário
                 </p>
@@ -171,26 +165,22 @@ export default async function AdminDashboardPage() {
           </Link>
 
           <Link href="/admin/empresas">
-            <Card className="border-2 hover:shadow-2xl hover:scale-105 hover:border-blue-500/50 transition-all duration-300 cursor-pointer group bg-gradient-to-br from-background to-blue-500/5">
-              <CardHeader className="text-center space-y-4 p-6">
-                <div className="mx-auto p-5 bg-gradient-to-br from-blue-500/20 to-blue-500/10 rounded-2xl group-hover:from-blue-500/30 group-hover:to-blue-500/20 transition-all w-fit shadow-lg">
-                  <Building2 className="h-10 w-10 text-blue-500" />
-                </div>
-                <CardTitle className="text-xl font-bold">Empresas</CardTitle>
+            <Card className="hover:border-primary transition-colors cursor-pointer">
+              <CardHeader className="space-y-2 p-6">
+                <Building2 className="h-6 w-6 text-primary mb-2" />
+                <CardTitle className="text-lg font-semibold">Empresas</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Gerenciar empresas
+                  Gerenciar empresas e planos
                 </p>
               </CardHeader>
             </Card>
           </Link>
 
           <Link href="/admin/usuarios">
-            <Card className="border-2 hover:shadow-2xl hover:scale-105 hover:border-green-500/50 transition-all duration-300 cursor-pointer group bg-gradient-to-br from-background to-green-500/5">
-              <CardHeader className="text-center space-y-4 p-6">
-                <div className="mx-auto p-5 bg-gradient-to-br from-green-500/20 to-green-500/10 rounded-2xl group-hover:from-green-500/30 group-hover:to-green-500/20 transition-all w-fit shadow-lg">
-                  <Users className="h-10 w-10 text-green-500" />
-                </div>
-                <CardTitle className="text-xl font-bold">Usuários</CardTitle>
+            <Card className="hover:border-primary transition-colors cursor-pointer">
+              <CardHeader className="space-y-2 p-6">
+                <Users className="h-6 w-6 text-primary mb-2" />
+                <CardTitle className="text-lg font-semibold">Usuários</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Gerenciar usuários
                 </p>
@@ -199,12 +189,10 @@ export default async function AdminDashboardPage() {
           </Link>
 
           <Link href="/admin/logs">
-            <Card className="border-2 hover:shadow-2xl hover:scale-105 hover:border-purple-500/50 transition-all duration-300 cursor-pointer group bg-gradient-to-br from-background to-purple-500/5">
-              <CardHeader className="text-center space-y-4 p-6">
-                <div className="mx-auto p-5 bg-gradient-to-br from-purple-500/20 to-purple-500/10 rounded-2xl group-hover:from-purple-500/30 group-hover:to-purple-500/20 transition-all w-fit shadow-lg">
-                  <TrendingUp className="h-10 w-10 text-purple-500" />
-                </div>
-                <CardTitle className="text-xl font-bold">Logs</CardTitle>
+            <Card className="hover:border-primary transition-colors cursor-pointer">
+              <CardHeader className="space-y-2 p-6">
+                <TrendingUp className="h-6 w-6 text-primary mb-2" />
+                <CardTitle className="text-lg font-semibold">Logs</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Sistema de logs
                 </p>
