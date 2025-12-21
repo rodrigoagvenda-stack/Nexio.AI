@@ -44,7 +44,7 @@ export default function LogsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">📊 Sistema de Logs</h1>
+      <h1 className="text-3xl font-bold">Sistema de Logs</h1>
 
       <Card>
         <CardHeader>
