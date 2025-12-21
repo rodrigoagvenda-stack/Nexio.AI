@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 
 export default async function AdminLayout({
   children,
@@ -29,13 +31,14 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b">
-        <div className="flex h-16 items-center px-6">
-          <h1 className="text-2xl font-bold text-primary">vend.AI Admin</h1>
-        </div>
+    <div className="flex h-screen bg-background">
+      <AdminSidebar adminName={adminUser.name} adminEmail={adminUser.email} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <AdminHeader />
+        <main className="flex-1 overflow-y-auto p-6">
+          {children}
+        </main>
       </div>
-      <main className="p-6">{children}</main>
     </div>
   );
 }

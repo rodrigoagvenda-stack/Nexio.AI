@@ -9,9 +9,20 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import Link from 'next/link';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function EmpresaDetailPage() {
   const params = useParams();
@@ -63,6 +74,53 @@ export default function EmpresaDetailPage() {
     }
   }
 
+  async function handleToggleStatus() {
+    if (!company) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...company, is_active: !company.is_active }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message);
+
+      toast.success(
+        `Empresa ${!company.is_active ? 'ativada' : 'desativada'} com sucesso!`
+      );
+      setCompany(data.data);
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao alterar status');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!company) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/companies/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message);
+
+      toast.success('Empresa deletada com sucesso!');
+      router.push('/admin/empresas');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao deletar empresa');
+      setSaving(false);
+    }
+  }
+
   if (loading || !company) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -72,7 +130,7 @@ export default function EmpresaDetailPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => router.back()}>
@@ -84,14 +142,48 @@ export default function EmpresaDetailPage() {
             <p className="text-muted-foreground mt-1">Detalhes e configurações</p>
           </div>
         </div>
-        {company.vendagro_plan && (
-          <Link href={`/admin/empresas/${params.id}/icp`}>
-            <Button variant="outline">
-              <Settings className="mr-2 h-4 w-4" />
-              Configurar ICP
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {company.vendagro_plan && (
+            <Link href={`/admin/empresas/${params.id}/icp`}>
+              <Button variant="outline">
+                <Settings className="mr-2 h-4 w-4" />
+                Configurar ICP
+              </Button>
+            </Link>
+          )}
+          <Button
+            variant={company.is_active ? 'outline' : 'default'}
+            onClick={handleToggleStatus}
+            disabled={saving}
+          >
+            <Power className="mr-2 h-4 w-4" />
+            {company.is_active ? 'Desativar' : 'Ativar'}
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={saving}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Deletar
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação não pode ser desfeita. Isso irá deletar permanentemente a
+                  empresa <strong>{company.name}</strong> e todos os seus dados
+                  associados.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Deletar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -195,34 +287,103 @@ export default function EmpresaDetailPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>WhatsApp (UAZap)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Assinatura</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="whatsapp_instance">Nome da Instância</Label>
-              <Input
-                id="whatsapp_instance"
-                value={company.whatsapp_instance || ''}
-                onChange={(e) =>
-                  setCompany({ ...company, whatsapp_instance: e.target.value })
-                }
-              />
+              <Label htmlFor="subscription_expires_at">Data de Vencimento</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="subscription_expires_at"
+                  type="date"
+                  value={
+                    company.subscription_expires_at
+                      ? new Date(company.subscription_expires_at).toISOString().split('T')[0]
+                      : ''
+                  }
+                  onChange={(e) =>
+                    setCompany({ ...company, subscription_expires_at: e.target.value })
+                  }
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const nextMonth = new Date();
+                    nextMonth.setMonth(nextMonth.getMonth() + 1);
+                    setCompany({
+                      ...company,
+                      subscription_expires_at: nextMonth.toISOString(),
+                    });
+                  }}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  +30d
+                </Button>
+              </div>
+              {company.subscription_expires_at && (
+                <p className="text-xs text-muted-foreground">
+                  {new Date(company.subscription_expires_at) < new Date() ? (
+                    <span className="text-red-500 font-semibold">
+                      ⚠️ Vencida há{' '}
+                      {Math.floor(
+                        (new Date().getTime() -
+                          new Date(company.subscription_expires_at).getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )}{' '}
+                      dias
+                    </span>
+                  ) : (
+                    <span className="text-green-500">
+                      ✓ Vence em{' '}
+                      {Math.floor(
+                        (new Date(company.subscription_expires_at).getTime() -
+                          new Date().getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )}{' '}
+                      dias
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp_token">Token</Label>
-              <Input
-                id="whatsapp_token"
-                value={company.whatsapp_token || ''}
-                onChange={(e) => setCompany({ ...company, whatsapp_token: e.target.value })}
-              />
+        <Card>
+          <CardHeader>
+            <CardTitle>WhatsApp (UAZap)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp_instance">Nome da Instância</Label>
+                <Input
+                  id="whatsapp_instance"
+                  value={company.whatsapp_instance || ''}
+                  onChange={(e) =>
+                    setCompany({ ...company, whatsapp_instance: e.target.value })
+                  }
+                  placeholder="Ex: minha-empresa"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp_token">Token</Label>
+                <Input
+                  id="whatsapp_token"
+                  type="password"
+                  value={company.whatsapp_token || ''}
+                  onChange={(e) => setCompany({ ...company, whatsapp_token: e.target.value })}
+                  placeholder="Token de acesso"
+                />
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}>

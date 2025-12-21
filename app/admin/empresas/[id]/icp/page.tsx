@@ -122,24 +122,200 @@ export default function ICPConfigPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {currentStep === 0 && (
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Idade Mínima</Label>
+                  <Input
+                    type="number"
+                    value={config.idade_min}
+                    onChange={(e) =>
+                      setConfig({ ...config, idade_min: parseInt(e.target.value) })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Idade Máxima</Label>
+                  <Input
+                    type="number"
+                    value={config.idade_max}
+                    onChange={(e) =>
+                      setConfig({ ...config, idade_max: parseInt(e.target.value) })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Gênero</Label>
+                  <Input
+                    value={config.genero || ''}
+                    onChange={(e) => setConfig({ ...config, genero: e.target.value })}
+                    placeholder="Ex: Masculino, Feminino, Todos"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Escolaridade</Label>
+                  <Input
+                    value={config.escolaridade || ''}
+                    onChange={(e) => setConfig({ ...config, escolaridade: e.target.value })}
+                    placeholder="Ex: Superior Completo"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tamanho da Empresa</Label>
+                  <Input
+                    value={config.tamanho_empresa || ''}
+                    onChange={(e) =>
+                      setConfig({ ...config, tamanho_empresa: e.target.value })
+                    }
+                    placeholder="Ex: Pequena, Média, Grande"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tempo de Mercado</Label>
+                  <Input
+                    value={config.tempo_mercado || ''}
+                    onChange={(e) => setConfig({ ...config, tempo_mercado: e.target.value })}
+                    placeholder="Ex: 1-5 anos, 5-10 anos"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label>Idade Mínima</Label>
+                <Label>Número de Funcionários</Label>
                 <Input
-                  type="number"
-                  value={config.idade_min}
+                  value={config.empresa_funcionarios || ''}
                   onChange={(e) =>
-                    setConfig({ ...config, idade_min: parseInt(e.target.value) })
+                    setConfig({ ...config, empresa_funcionarios: e.target.value })
                   }
+                  placeholder="Ex: 10-50, 50-200"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Idade Máxima</Label>
+                <Label>Nichos (separados por vírgula)</Label>
+                <Input
+                  value={config.nichos?.join(', ') || ''}
+                  onChange={(e) =>
+                    setConfig({ ...config, nichos: e.target.value.split(',').map(n => n.trim()) })
+                  }
+                  placeholder="Ex: Agricultura, Pecuária, Tecnologia"
+                />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 2 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Canais de Comunicação Preferidos</Label>
+                <Input
+                  value={config.canais?.join(', ') || ''}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      canais: e.target.value.split(',').map(c => c.trim()),
+                    })
+                  }
+                  placeholder="Ex: WhatsApp, Email, Telefone"
+                />
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Preferência de Contato</Label>
+                  <Input
+                    value={config.preferencia_contato || ''}
+                    onChange={(e) =>
+                      setConfig({ ...config, preferencia_contato: e.target.value })
+                    }
+                    placeholder="Ex: Manhã, Tarde, Noite"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Horário Preferido</Label>
+                  <Input
+                    value={config.horario || ''}
+                    onChange={(e) => setConfig({ ...config, horario: e.target.value })}
+                    placeholder="Ex: 9h-12h, 14h-18h"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Linguagem/Tom de Comunicação</Label>
+                <Input
+                  value={config.linguagem || ''}
+                  onChange={(e) => setConfig({ ...config, linguagem: e.target.value })}
+                  placeholder="Ex: Formal, Informal, Técnico"
+                />
+              </div>
+            </div>
+          )}
+
+          {currentStep === 3 && (
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Ciclo de Compra</Label>
+                  <Input
+                    value={config.ciclo_compra || ''}
+                    onChange={(e) => setConfig({ ...config, ciclo_compra: e.target.value })}
+                    placeholder="Ex: 30 dias, 60 dias, 90 dias"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Budget Mínimo (R$)</Label>
+                  <Input
+                    type="number"
+                    value={config.budget_min || ''}
+                    onChange={(e) =>
+                      setConfig({ ...config, budget_min: parseInt(e.target.value) })
+                    }
+                    placeholder="Ex: 1000"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Budget Máximo (R$)</Label>
                 <Input
                   type="number"
-                  value={config.idade_max}
+                  value={config.budget_max || ''}
                   onChange={(e) =>
-                    setConfig({ ...config, idade_max: parseInt(e.target.value) })
+                    setConfig({ ...config, budget_max: parseInt(e.target.value) })
+                  }
+                  placeholder="Ex: 10000"
+                />
+              </div>
+              <div className="flex items-center justify-between border rounded-lg p-4">
+                <div>
+                  <Label>Já Comprou Online?</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Cliente tem experiência com compras online
+                  </p>
+                </div>
+                <Switch
+                  checked={config.comprou_online || false}
+                  onCheckedChange={(checked) =>
+                    setConfig({ ...config, comprou_online: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between border rounded-lg p-4">
+                <div>
+                  <Label>Influenciado por Redes Sociais?</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Cliente é ativo em redes sociais e influenciadores
+                  </p>
+                </div>
+                <Switch
+                  checked={config.influenciador || false}
+                  onCheckedChange={(checked) =>
+                    setConfig({ ...config, influenciador: checked })
                   }
                 />
               </div>
