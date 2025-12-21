@@ -99,15 +99,15 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-xl hover:scale-[1.02] transition-all duration-200 border-l-4 ${getStatusColor(lead.status)} mb-3 bg-card`}>
+      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 border-l-[6px] ${getStatusColor(lead.status)} mb-3 bg-card/80 backdrop-blur-sm`}>
         <CardContent className="p-4">
-          <div className="flex justify-between items-start mb-2">
-            <h4 className="font-semibold text-sm flex-1 pr-2">{lead.company_name}</h4>
+          <div className="flex justify-between items-start mb-3">
+            <h4 className="font-bold text-sm flex-1 pr-2 text-foreground">{lead.company_name}</h4>
             <div className="flex gap-1" style={{ pointerEvents: 'auto' }}>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 hover:bg-accent"
+                className="h-7 w-7 hover:bg-primary/10 hover:text-primary rounded-lg transition-all"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -120,7 +120,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 hover:bg-destructive/10"
+                className="h-7 w-7 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -128,7 +128,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
                   onDelete();
                 }}
               >
-                <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
@@ -178,7 +178,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
   );
 }
 
-// Componente de coluna droppable - Design minimalista
+// Componente de coluna droppable - Design moderno com visual aprimorado
 function DroppableColumn({
   id,
   title,
@@ -198,18 +198,34 @@ function DroppableColumn({
     },
   });
 
+  // Cores específicas para cada coluna do Kanban
+  const getColumnColor = () => {
+    const status = id.replace('column-', '');
+    switch (status) {
+      case 'Lead novo': return 'border-t-blue-500';
+      case 'Em contato': return 'border-t-pink-500';
+      case 'Interessado': return 'border-t-purple-500';
+      case 'Proposta enviada': return 'border-t-cyan-500';
+      case 'Fechado': return 'border-t-green-500';
+      case 'Perdido': return 'border-t-red-500';
+      default: return 'border-t-gray-500';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-card border border-border rounded-t-lg p-3 flex items-center justify-between">
-        <h3 className="font-semibold text-sm text-foreground">{title}</h3>
-        <span className="text-xs bg-secondary text-secondary-foreground px-3 py-1 rounded-full font-medium">
-          {count}
-        </span>
+      <div className={`bg-card border-2 border-b-0 ${getColumnColor()} rounded-t-xl p-4 shadow-sm`}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-sm text-foreground">{title}</h3>
+          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary">
+            <span className="text-xs font-bold">{count}</span>
+          </div>
+        </div>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 bg-secondary/20 border border-t-0 border-border rounded-b-lg p-3 min-h-[600px] transition-all duration-200 ${
-          isOver ? 'bg-primary/10 border-primary ring-2 ring-primary/50 scale-[1.02]' : ''
+        className={`flex-1 bg-secondary/30 border-2 border-t-0 border-border rounded-b-xl p-3 min-h-[600px] transition-all duration-300 ${
+          isOver ? 'bg-primary/5 border-primary ring-2 ring-primary/30 shadow-lg scale-[1.01]' : ''
         }`}
       >
         {children}
