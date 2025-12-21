@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -11,14 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { ArrowRight, ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { BriefingFormData } from '@/types/briefing';
 
 export default function BriefPage() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(-1); // -1 = welcome screen
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -28,7 +25,7 @@ export default function BriefPage() {
   });
 
   const totalSteps = 12;
-  const progress = ((currentStep + 1) / totalSteps) * 100;
+  const progress = currentStep === -1 ? 0 : ((currentStep + 1) / totalSteps) * 100;
 
   const updateField = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -53,9 +50,9 @@ export default function BriefPage() {
       case 3:
         return !!formData.nome_empresa;
       case 4:
-        return true; // site é opcional
+        return true;
       case 5:
-        return true; // instagram é opcional
+        return true;
       case 6:
         return !!formData.segmento;
       case 7:
@@ -78,18 +75,17 @@ export default function BriefPage() {
   };
 
   const nextStep = () => {
+    if (currentStep === -1) {
+      setCurrentStep(0);
+      return;
+    }
+
     if (validateCurrentStep()) {
       if (currentStep < totalSteps - 1) {
         setCurrentStep((prev) => prev + 1);
       }
     } else {
       toast.error('Por favor, preencha este campo antes de continuar');
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
     }
   };
 
@@ -124,378 +120,464 @@ export default function BriefPage() {
     }
   };
 
-  if (isSuccess) {
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isSubmitting) {
+      if (currentStep === totalSteps - 1) {
+        handleSubmit();
+      } else {
+        nextStep();
+      }
+    }
+  };
+
+  // Welcome Screen
+  if (currentStep === -1) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <CheckCircle2 className="h-16 w-16 text-green-500" />
-              <h2 className="text-2xl font-bold text-center">Briefing Enviado!</h2>
-              <p className="text-muted-foreground text-center">
-                Obrigado por preencher nosso briefing. Em breve entraremos em contato!
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
+          <div className="flex justify-center mb-8">
+            <h1 className="text-4xl font-bold">
+              vend<span className="text-primary">.</span>AI
+            </h1>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-bold">
+            Bem-vindo ao Briefing
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-xl mx-auto">
+            Vamos conhecer melhor a sua empresa e entender como podemos ajudar a alavancar seus resultados
+          </p>
+          <Button size="lg" onClick={nextStep} className="text-lg px-8 py-6">
+            Começar
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
+        </div>
       </div>
     );
   }
 
+  // Thank You Screen
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
+          <div className="text-6xl mb-4">🎉</div>
+          <h1 className="text-5xl md:text-6xl font-bold">
+            Briefing Enviado!
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-xl mx-auto">
+            Obrigado por preencher nosso briefing. Em breve entraremos em contato via WhatsApp para discutir os próximos passos!
+          </p>
+          <Button
+            size="lg"
+            onClick={() => {
+              const whatsapp = formData.whatsapp?.replace(/\D/g, '');
+              window.open(`https://wa.me/${formData.country_code}${whatsapp}`, '_blank');
+            }}
+            className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700"
+          >
+            Abrir WhatsApp
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Question Screens
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <CardTitle className="text-2xl">Briefing de Projeto</CardTitle>
-              <CardDescription>
-                Etapa {currentStep + 1} de {totalSteps}
-              </CardDescription>
-            </div>
-            <div className="text-primary font-bold text-lg">{Math.round(progress)}%</div>
+    <div className="min-h-screen bg-background">
+      {/* Fixed Logo */}
+      <div className="fixed top-6 left-6 z-50">
+        <h1 className="text-2xl font-bold">
+          vend<span className="text-primary">.</span>AI
+        </h1>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 bg-muted z-50">
+        <div
+          className="h-full bg-primary transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Question Content */}
+      <div className="flex items-center justify-center min-h-screen p-4 pt-20">
+        <div className="max-w-2xl w-full animate-in fade-in duration-300" onKeyPress={handleKeyPress}>
+          {/* Question Number */}
+          <div className="mb-4">
+            <span className="text-sm text-muted-foreground">
+              {currentStep + 1} → {totalSteps}
+            </span>
           </div>
-          <Progress value={progress} />
-        </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* Etapa 0: Nome do Responsável */}
+          {/* Step 0: Nome */}
           {currentStep === 0 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="nome_responsavel" className="text-lg">
-                  Qual é o seu nome completo? *
-                </Label>
-                <Input
-                  id="nome_responsavel"
-                  value={formData.nome_responsavel || ''}
-                  onChange={(e) => updateField('nome_responsavel', e.target.value)}
-                  placeholder="João Silva Santos"
-                  className="mt-2 text-lg h-12"
-                  autoFocus
-                />
-              </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o seu nome completo?
+              </h2>
+              <Input
+                value={formData.nome_responsavel || ''}
+                onChange={(e) => updateField('nome_responsavel', e.target.value)}
+                placeholder="Digite seu nome..."
+                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                autoFocus
+              />
+              <Button size="lg" onClick={nextStep} disabled={!formData.nome_responsavel}>
+                OK <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
-          {/* Etapa 1: Email */}
+          {/* Step 1: Email */}
           {currentStep === 1 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="email" className="text-lg">
-                  Qual é o seu email? *
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email || ''}
-                  onChange={(e) => updateField('email', e.target.value)}
-                  placeholder="joao@empresa.com"
-                  className="mt-2 text-lg h-12"
-                  autoFocus
-                />
-              </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o seu email?
+              </h2>
+              <Input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => updateField('email', e.target.value)}
+                placeholder="nome@empresa.com"
+                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                autoFocus
+              />
+              <Button
+                size="lg"
+                onClick={nextStep}
+                disabled={!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)}
+              >
+                OK <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
-          {/* Etapa 2: WhatsApp */}
+          {/* Step 2: WhatsApp */}
           {currentStep === 2 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="whatsapp" className="text-lg">
-                  Qual é o seu WhatsApp? *
-                </Label>
-                <div className="flex gap-2 mt-2">
-                  <Select
-                    value={formData.country_code}
-                    onValueChange={(value) => updateField('country_code', value)}
-                  >
-                    <SelectTrigger className="w-24 h-12">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="+55">🇧🇷 +55</SelectItem>
-                      <SelectItem value="+1">🇺🇸 +1</SelectItem>
-                      <SelectItem value="+351">🇵🇹 +351</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="whatsapp"
-                    value={formData.whatsapp || ''}
-                    onChange={(e) => {
-                      const formatted = formatWhatsApp(e.target.value);
-                      updateField('whatsapp', formatted);
-                    }}
-                    placeholder="(14) 99999-9999"
-                    className="text-lg h-12"
-                    autoFocus
-                  />
-                </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o seu WhatsApp?
+              </h2>
+              <div className="flex gap-4">
+                <Select
+                  value={formData.country_code}
+                  onValueChange={(value) => updateField('country_code', value)}
+                >
+                  <SelectTrigger className="w-32 h-16 text-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+55">🇧🇷 +55</SelectItem>
+                    <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                    <SelectItem value="+351">🇵🇹 +351</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={formData.whatsapp || ''}
+                  onChange={(e) => {
+                    const formatted = formatWhatsApp(e.target.value);
+                    updateField('whatsapp', formatted);
+                  }}
+                  placeholder="(14) 99999-9999"
+                  className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                  autoFocus
+                />
               </div>
+              <Button
+                size="lg"
+                onClick={nextStep}
+                disabled={!formData.whatsapp || formData.whatsapp.length < 10}
+              >
+                OK <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
-          {/* Etapa 3: Nome da Empresa */}
+          {/* Step 3: Nome da Empresa */}
           {currentStep === 3 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="nome_empresa" className="text-lg">
-                  Qual é o nome da sua empresa? *
-                </Label>
-                <Input
-                  id="nome_empresa"
-                  value={formData.nome_empresa || ''}
-                  onChange={(e) => updateField('nome_empresa', e.target.value)}
-                  placeholder="Empresa X Ltda"
-                  className="mt-2 text-lg h-12"
-                  autoFocus
-                />
-              </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o nome da sua empresa?
+              </h2>
+              <Input
+                value={formData.nome_empresa || ''}
+                onChange={(e) => updateField('nome_empresa', e.target.value)}
+                placeholder="Digite o nome da empresa..."
+                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                autoFocus
+              />
+              <Button size="lg" onClick={nextStep} disabled={!formData.nome_empresa}>
+                OK <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
-          {/* Etapa 4: Site */}
+          {/* Step 4: Site */}
           {currentStep === 4 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="site" className="text-lg">
-                  Qual é o site da sua empresa?
-                </Label>
-                <Input
-                  id="site"
-                  type="url"
-                  value={formData.site || ''}
-                  onChange={(e) => updateField('site', e.target.value)}
-                  placeholder="www.empresax.com.br"
-                  className="mt-2 text-lg h-12"
-                  autoFocus
-                />
-                <p className="text-sm text-muted-foreground mt-2">Opcional</p>
-              </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o site da sua empresa?
+              </h2>
+              <p className="text-muted-foreground text-lg">Opcional - pressione OK para pular</p>
+              <Input
+                type="url"
+                value={formData.site || ''}
+                onChange={(e) => updateField('site', e.target.value)}
+                placeholder="www.empresax.com.br"
+                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                autoFocus
+              />
+              <Button size="lg" onClick={nextStep}>
+                OK <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
-          {/* Etapa 5: Instagram */}
+          {/* Step 5: Instagram */}
           {currentStep === 5 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="instagram" className="text-lg">
-                  Qual é o Instagram da sua empresa?
-                </Label>
-                <Input
-                  id="instagram"
-                  value={formData.instagram || ''}
-                  onChange={(e) => updateField('instagram', e.target.value)}
-                  placeholder="@empresax"
-                  className="mt-2 text-lg h-12"
-                  autoFocus
-                />
-                <p className="text-sm text-muted-foreground mt-2">Opcional</p>
-              </div>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o Instagram da sua empresa?
+              </h2>
+              <p className="text-muted-foreground text-lg">Opcional - pressione OK para pular</p>
+              <Input
+                value={formData.instagram || ''}
+                onChange={(e) => updateField('instagram', e.target.value)}
+                placeholder="@empresax"
+                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                autoFocus
+              />
+              <Button size="lg" onClick={nextStep}>
+                OK <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
             </div>
           )}
 
-          {/* Etapa 6: Segmento */}
+          {/* Step 6: Segmento */}
           {currentStep === 6 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Qual é o segmento da sua empresa? *</Label>
-                <Select
-                  value={formData.segmento}
-                  onValueChange={(value) => updateField('segmento', value)}
-                >
-                  <SelectTrigger className="mt-2 h-12 text-lg">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="E-commerce">E-commerce</SelectItem>
-                    <SelectItem value="Serviços">Serviços</SelectItem>
-                    <SelectItem value="Varejo">Varejo</SelectItem>
-                    <SelectItem value="Indústria">Indústria</SelectItem>
-                    <SelectItem value="Tecnologia">Tecnologia</SelectItem>
-                    <SelectItem value="Saúde">Saúde</SelectItem>
-                    <SelectItem value="Educação">Educação</SelectItem>
-                    <SelectItem value="Outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o segmento da sua empresa?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'E-commerce', label: 'E-commerce' },
+                  { value: 'Serviços', label: 'Serviços' },
+                  { value: 'Varejo', label: 'Varejo' },
+                  { value: 'Indústria', label: 'Indústria' },
+                  { value: 'Tecnologia', label: 'Tecnologia' },
+                  { value: 'Saúde', label: 'Saúde' },
+                  { value: 'Educação', label: 'Educação' },
+                  { value: 'Outro', label: 'Outro' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('segmento', option.value);
+                      setTimeout(nextStep, 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Etapa 7: Tempo de Mercado */}
+          {/* Step 7: Tempo de Mercado */}
           {currentStep === 7 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Há quanto tempo está no mercado? *</Label>
-                <Select
-                  value={formData.tempo_mercado}
-                  onValueChange={(value) => updateField('tempo_mercado', value)}
-                >
-                  <SelectTrigger className="mt-2 h-12 text-lg">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="menos-1-ano">Menos de 1 ano</SelectItem>
-                    <SelectItem value="1-3-anos">1 a 3 anos</SelectItem>
-                    <SelectItem value="3-5-anos">3 a 5 anos</SelectItem>
-                    <SelectItem value="5-10-anos">5 a 10 anos</SelectItem>
-                    <SelectItem value="mais-10-anos">Mais de 10 anos</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Há quanto tempo está no mercado?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'menos-1-ano', label: 'Menos de 1 ano' },
+                  { value: '1-3-anos', label: '1 a 3 anos' },
+                  { value: '3-5-anos', label: '3 a 5 anos' },
+                  { value: '5-10-anos', label: '5 a 10 anos' },
+                  { value: 'mais-10-anos', label: 'Mais de 10 anos' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('tempo_mercado', option.value);
+                      setTimeout(nextStep, 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Etapa 8: Investe em Marketing */}
+          {/* Step 8: Investe em Marketing */}
           {currentStep === 8 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Já investe em marketing digital? *</Label>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <Button
-                    type="button"
-                    variant={formData.investe_marketing === 'sim' ? 'default' : 'outline'}
-                    className="h-16 text-lg"
-                    onClick={() => updateField('investe_marketing', 'sim')}
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Já investe em marketing digital?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'sim', label: 'Sim' },
+                  { value: 'nao', label: 'Não' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('investe_marketing', option.value);
+                      setTimeout(nextStep, 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
                   >
-                    Sim
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={formData.investe_marketing === 'nao' ? 'default' : 'outline'}
-                    className="h-16 text-lg"
-                    onClick={() => updateField('investe_marketing', 'nao')}
-                  >
-                    Não
-                  </Button>
-                </div>
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Etapa 9: Resultados ou Objetivo */}
+          {/* Step 9: Resultados ou Objetivo */}
           {currentStep === 9 && formData.investe_marketing === 'sim' && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Como você avalia os resultados atuais? *</Label>
-                <Select
-                  value={formData.resultados}
-                  onValueChange={(value) => updateField('resultados', value)}
-                >
-                  <SelectTrigger className="mt-2 h-12 text-lg">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="excelente">Excelente</SelectItem>
-                    <SelectItem value="bom">Bom</SelectItem>
-                    <SelectItem value="regular">Regular</SelectItem>
-                    <SelectItem value="ruim">Ruim</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Como você avalia os resultados atuais?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'excelente', label: 'Excelente' },
+                  { value: 'bom', label: 'Bom' },
+                  { value: 'regular', label: 'Regular' },
+                  { value: 'ruim', label: 'Ruim' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('resultados', option.value);
+                      setTimeout(nextStep, 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
           {currentStep === 9 && formData.investe_marketing === 'nao' && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Qual é o principal objetivo? *</Label>
-                <Select
-                  value={formData.objetivo}
-                  onValueChange={(value) => updateField('objetivo', value)}
-                >
-                  <SelectTrigger className="mt-2 h-12 text-lg">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aumentar-vendas">Aumentar vendas</SelectItem>
-                    <SelectItem value="gerar-leads">Gerar leads</SelectItem>
-                    <SelectItem value="fortalecer-marca">Fortalecer marca</SelectItem>
-                    <SelectItem value="engajamento">Aumentar engajamento</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o principal objetivo?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'aumentar-vendas', label: 'Aumentar vendas' },
+                  { value: 'gerar-leads', label: 'Gerar leads' },
+                  { value: 'fortalecer-marca', label: 'Fortalecer marca' },
+                  { value: 'engajamento', label: 'Aumentar engajamento' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('objetivo', option.value);
+                      setTimeout(nextStep, 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Etapa 10: Faturamento */}
+          {/* Step 10: Faturamento */}
           {currentStep === 10 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Qual é o faturamento mensal médio? *</Label>
-                <Select
-                  value={formData.faturamento}
-                  onValueChange={(value) => updateField('faturamento', value)}
-                >
-                  <SelectTrigger className="mt-2 h-12 text-lg">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ate-10k">Até R$ 10k</SelectItem>
-                    <SelectItem value="10k-50k">R$ 10k - R$ 50k</SelectItem>
-                    <SelectItem value="50k-100k">R$ 50k - R$ 100k</SelectItem>
-                    <SelectItem value="100k-500k">R$ 100k - R$ 500k</SelectItem>
-                    <SelectItem value="acima-500k">Acima de R$ 500k</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual é o faturamento mensal médio?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'ate-10k', label: 'Até R$ 10k' },
+                  { value: '10k-50k', label: 'R$ 10k - R$ 50k' },
+                  { value: '50k-100k', label: 'R$ 50k - R$ 100k' },
+                  { value: '100k-500k', label: 'R$ 100k - R$ 500k' },
+                  { value: 'acima-500k', label: 'Acima de R$ 500k' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('faturamento', option.value);
+                      setTimeout(nextStep, 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Etapa 11: Budget */}
+          {/* Step 11: Budget */}
           {currentStep === 11 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-lg">Qual o budget para marketing digital? *</Label>
-                <Select
-                  value={formData.budget}
-                  onValueChange={(value) => updateField('budget', value)}
-                >
-                  <SelectTrigger className="mt-2 h-12 text-lg">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ate-2k">Até R$ 2k</SelectItem>
-                    <SelectItem value="2k-5k">R$ 2k - R$ 5k</SelectItem>
-                    <SelectItem value="5k-8k">R$ 5k - R$ 8k</SelectItem>
-                    <SelectItem value="8k-20k">R$ 8k - R$ 20k</SelectItem>
-                    <SelectItem value="acima-20k">Acima de R$ 20k</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-6">
+              <h2 className="text-4xl md:text-5xl font-bold">
+                Qual o budget para marketing digital?
+              </h2>
+              <div className="space-y-3">
+                {[
+                  { value: 'ate-2k', label: 'Até R$ 2k' },
+                  { value: '2k-5k', label: 'R$ 2k - R$ 5k' },
+                  { value: '5k-8k', label: 'R$ 5k - R$ 8k' },
+                  { value: '8k-20k', label: 'R$ 8k - R$ 20k' },
+                  { value: 'acima-20k', label: 'Acima de R$ 20k' },
+                ].map((option, index) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      updateField('budget', option.value);
+                      setTimeout(() => handleSubmit(), 300);
+                    }}
+                    className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                    disabled={isSubmitting}
+                  >
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span className="text-xl">{option.label}</span>
+                    {isSubmitting && <Loader2 className="ml-auto h-5 w-5 animate-spin" />}
+                  </button>
+                ))}
               </div>
             </div>
           )}
-
-          {/* Botões de Navegação */}
-          <div className="flex justify-between pt-4">
-            {currentStep > 0 && (
-              <Button variant="outline" onClick={prevStep} disabled={isSubmitting}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-              </Button>
-            )}
-            <div className="ml-auto">
-              {currentStep < totalSteps - 1 ? (
-                <Button onClick={nextStep} disabled={isSubmitting}>
-                  Próximo
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              ) : (
-                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : (
-                    'Enviar Briefing'
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
