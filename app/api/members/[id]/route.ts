@@ -3,12 +3,12 @@ import { createServiceClient } from '@/lib/supabase/server';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
     const { role, department, companyId } = body;
-    const { id: userId } = params;
+    const { id: userId } = await params;
 
     if (!userId || !companyId) {
       return NextResponse.json(
@@ -61,12 +61,12 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
     const { companyId } = body;
-    const { id: userId } = params;
+    const { id: userId } = await params;
 
     if (!userId || !companyId) {
       return NextResponse.json(

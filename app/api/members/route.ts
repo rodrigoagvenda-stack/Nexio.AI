@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { sendMemberInviteEmail } from '@/lib/email/resend';
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,7 +80,26 @@ export async function POST(request: NextRequest) {
 
     if (userError) throw userError;
 
-    // 3. Registrar log
+    // 3. Buscar nome da empresa
+    const { data: company } = await supabaseService
+      .from('companies')
+      .select('company_name')
+      .eq('id', companyId)
+      .single();
+
+    // 4. Enviar email de convite
+    const emailResult = await sendMemberInviteEmail({
+      to: email,
+      name,
+      companyName: company?.company_name || 'Sua Empresa',
+      role,
+    });
+
+    if (!emailResult.success) {
+      console.warn('Email não enviado:', emailResult.message);
+    }
+
+    // 5. Registrar log
     await supabaseService.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -88,13 +108,17 @@ export async function POST(request: NextRequest) {
       metadata: {
         user_id: authUser.user.id,
         role,
+        email_sent: emailResult.success,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Membro adicionado com sucesso',
+      message: emailResult.success
+        ? 'Membro adicionado e convite enviado com sucesso'
+        : 'Membro adicionado com sucesso (email não enviado)',
       data: user,
+      emailSent: emailResult.success,
     });
   } catch (error: any) {
     console.error('Error creating member:', error);
