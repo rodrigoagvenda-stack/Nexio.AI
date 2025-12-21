@@ -52,24 +52,31 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
     return displayValue;
   };
 
+  const getCardStyle = () => {
+    // Diferentes cores para cada tipo de métrica
+    if (title.includes('Novos')) return 'bg-gradient-to-br from-blue-500 to-blue-600';
+    if (title.includes('Atendimento')) return 'bg-gradient-to-br from-purple-500 to-purple-600';
+    if (title.includes('Conversão')) return 'bg-gradient-to-br from-green-500 to-green-600';
+    if (title.includes('Faturamento')) return 'bg-gradient-to-br from-orange-500 to-orange-600';
+    return 'bg-gradient-to-br from-primary to-orange-600';
+  };
+
   return (
-    <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105 border-l-4 border-l-primary">
+    <Card className={`transition-all duration-300 hover:shadow-xl hover:scale-105 ${getCardStyle()} text-white border-0`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-full bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
-          </div>
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <div className="p-3 rounded-2xl bg-white/20 backdrop-blur-sm">
+          <Icon className="h-6 w-6" />
         </div>
         {format === 'percentage' && (
-          <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-600 font-medium">
+          <span className="text-xs px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm font-semibold">
             +{value}%
           </span>
         )}
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold tracking-tight">{formattedValue()}</div>
-        <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+        <div className="text-sm font-medium opacity-90 mb-1">{title}</div>
+        <div className="text-4xl font-bold tracking-tight mb-1">{formattedValue()}</div>
+        <p className="text-xs opacity-80">{subtitle}</p>
       </CardContent>
     </Card>
   );
