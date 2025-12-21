@@ -147,60 +147,6 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Links Rápidos */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Acesso Rápido</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link href="/admin/briefing">
-            <Card className="hover:border-primary transition-colors cursor-pointer">
-              <CardHeader className="space-y-2 p-6">
-                <Activity className="h-6 w-6 text-primary mb-2" />
-                <CardTitle className="text-lg font-semibold">Briefing</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Respostas do formulário
-                </p>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Link href="/admin/empresas">
-            <Card className="hover:border-primary transition-colors cursor-pointer">
-              <CardHeader className="space-y-2 p-6">
-                <Building2 className="h-6 w-6 text-primary mb-2" />
-                <CardTitle className="text-lg font-semibold">Empresas</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Gerenciar empresas e planos
-                </p>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Link href="/admin/usuarios">
-            <Card className="hover:border-primary transition-colors cursor-pointer">
-              <CardHeader className="space-y-2 p-6">
-                <Users className="h-6 w-6 text-primary mb-2" />
-                <CardTitle className="text-lg font-semibold">Usuários</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Gerenciar usuários
-                </p>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          <Link href="/admin/logs">
-            <Card className="hover:border-primary transition-colors cursor-pointer">
-              <CardHeader className="space-y-2 p-6">
-                <TrendingUp className="h-6 w-6 text-primary mb-2" />
-                <CardTitle className="text-lg font-semibold">Logs</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Sistema de logs
-                </p>
-              </CardHeader>
-            </Card>
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

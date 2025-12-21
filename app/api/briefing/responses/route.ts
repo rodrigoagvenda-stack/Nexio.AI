@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('briefing_responses')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .order('submitted_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (search) {
