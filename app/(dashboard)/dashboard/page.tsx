@@ -185,17 +185,45 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Overview</h1>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
+          <button
+            onClick={() => handlePeriodChange('today')}
+            className={`px-4 py-2 text-sm rounded-md transition-colors ${
+              selectedPeriod === 'today'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
             Hoje
           </button>
-          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
-            Hoje
+          <button
+            onClick={() => handlePeriodChange('week')}
+            className={`px-4 py-2 text-sm rounded-md transition-colors ${
+              selectedPeriod === 'week'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Semana
           </button>
-          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
-            Hoje
+          <button
+            onClick={() => handlePeriodChange('month')}
+            className={`px-4 py-2 text-sm rounded-md transition-colors ${
+              selectedPeriod === 'month'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Mês
           </button>
-          <button className="px-4 py-2 bg-muted hover:bg-muted/80 text-sm rounded-md transition-colors">
-            Hoje
+          <button
+            onClick={() => handlePeriodChange('year')}
+            className={`px-4 py-2 text-sm rounded-md transition-colors ${
+              selectedPeriod === 'year'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Ano
           </button>
         </div>
       </div>
