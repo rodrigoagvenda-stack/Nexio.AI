@@ -53,14 +53,23 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
   };
 
   return (
-    <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105">
+    <Card className="transition-all duration-300 hover:shadow-lg hover:scale-105 border-l-4 border-l-primary">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-full bg-primary/10">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        </div>
+        {format === 'percentage' && (
+          <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-600 font-medium">
+            +{value}%
+          </span>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{formattedValue()}</div>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <div className="text-3xl font-bold tracking-tight">{formattedValue()}</div>
+        <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
       </CardContent>
     </Card>
   );
