@@ -14,6 +14,7 @@ export default function BriefingDetailPage() {
   const router = useRouter();
   const [response, setResponse] = useState<BriefingResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetchResponse();
@@ -32,6 +33,31 @@ export default function BriefingDetailPage() {
       toast.error(error.message || 'Erro ao carregar resposta');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDownloadPDF() {
+    if (!response) return;
+
+    setDownloading(true);
+    try {
+      const { pdf } = await import('@react-pdf/renderer');
+      const { BriefingPDF } = await import('@/lib/pdf/briefing-generator');
+
+      const blob = await pdf(<BriefingPDF data={response} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `briefing-${response.nome_empresa}-${new Date().toISOString().split('T')[0]}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('PDF baixado com sucesso!');
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast.error('Erro ao gerar PDF');
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -58,22 +84,22 @@ export default function BriefingDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar
         </Button>
-        <Button variant="outline" disabled>
+        <Button variant="outline" onClick={handleDownloadPDF} disabled={downloading}>
           <FileDown className="mr-2 h-4 w-4" />
-          Baixar PDF
+          {downloading ? 'Gerando PDF...' : 'Baixar PDF'}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>📋 Resposta de {response.nome_responsavel}</CardTitle>
+          <CardTitle>Resposta de {response.nome_responsavel}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Preenchido em: {formatDateTime(response.submitted_at)}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4">👤 Informações de Contato</h3>
+            <h3 className="text-lg font-semibold mb-4">Informações de Contato</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Nome</p>
@@ -93,7 +119,7 @@ export default function BriefingDetailPage() {
           </div>
 
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4">🏢 Empresa</h3>
+            <h3 className="text-lg font-semibold mb-4">Empresa</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Nome</p>
@@ -123,7 +149,7 @@ export default function BriefingDetailPage() {
           </div>
 
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4">📊 Marketing</h3>
+            <h3 className="text-lg font-semibold mb-4">Marketing</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Já investe em marketing?</p>
@@ -145,7 +171,7 @@ export default function BriefingDetailPage() {
           </div>
 
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold mb-4">💰 Financeiro</h3>
+            <h3 className="text-lg font-semibold mb-4">Financeiro</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Faturamento Mensal</p>

@@ -136,17 +136,17 @@ export default function BriefPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
           <div className="flex justify-center mb-8">
-            <h1 className="text-4xl font-bold">
+            <h1 className="text-3xl font-semibold">
               vend<span className="text-primary">.</span>AI
             </h1>
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold">
+          <h1 className="text-4xl md:text-5xl font-semibold">
             Bem-vindo ao Briefing
           </h1>
-          <p className="text-xl text-muted-foreground max-w-xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
             Vamos conhecer melhor a sua empresa e entender como podemos ajudar a alavancar seus resultados
           </p>
-          <Button size="lg" onClick={nextStep} className="text-lg px-8 py-6">
+          <Button size="lg" onClick={nextStep} className="text-base px-8 py-6">
             Começar
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
@@ -160,11 +160,10 @@ export default function BriefPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
-          <div className="text-6xl mb-4">🎉</div>
-          <h1 className="text-5xl md:text-6xl font-bold">
+          <h1 className="text-4xl md:text-5xl font-semibold">
             Briefing Enviado!
           </h1>
-          <p className="text-xl text-muted-foreground max-w-xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
             Obrigado por preencher nosso briefing. Em breve entraremos em contato via WhatsApp para discutir os próximos passos!
           </p>
           <Button
@@ -213,14 +212,14 @@ export default function BriefPage() {
           {/* Step 0: Nome */}
           {currentStep === 0 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o seu nome completo?
               </h2>
               <Input
                 value={formData.nome_responsavel || ''}
                 onChange={(e) => updateField('nome_responsavel', e.target.value)}
                 placeholder="Digite seu nome..."
-                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                className="text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
                 autoFocus
               />
               <Button size="lg" onClick={nextStep} disabled={!formData.nome_responsavel}>
@@ -232,7 +231,7 @@ export default function BriefPage() {
           {/* Step 1: Email */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o seu email?
               </h2>
               <Input
@@ -240,7 +239,7 @@ export default function BriefPage() {
                 value={formData.email || ''}
                 onChange={(e) => updateField('email', e.target.value)}
                 placeholder="nome@empresa.com"
-                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                className="text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
                 autoFocus
               />
               <Button
@@ -256,7 +255,7 @@ export default function BriefPage() {
           {/* Step 2: WhatsApp */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o seu WhatsApp?
               </h2>
               <div className="flex gap-4">
@@ -264,7 +263,7 @@ export default function BriefPage() {
                   value={formData.country_code}
                   onValueChange={(value) => updateField('country_code', value)}
                 >
-                  <SelectTrigger className="w-32 h-16 text-xl">
+                  <SelectTrigger className="w-32 h-14 text-lg">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -280,7 +279,7 @@ export default function BriefPage() {
                     updateField('whatsapp', formatted);
                   }}
                   placeholder="(14) 99999-9999"
-                  className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                  className="text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
                   autoFocus
                 />
               </div>
@@ -297,14 +296,14 @@ export default function BriefPage() {
           {/* Step 3: Nome da Empresa */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o nome da sua empresa?
               </h2>
               <Input
                 value={formData.nome_empresa || ''}
                 onChange={(e) => updateField('nome_empresa', e.target.value)}
                 placeholder="Digite o nome da empresa..."
-                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                className="text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
                 autoFocus
               />
               <Button size="lg" onClick={nextStep} disabled={!formData.nome_empresa}>
@@ -316,16 +315,16 @@ export default function BriefPage() {
           {/* Step 4: Site */}
           {currentStep === 4 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o site da sua empresa?
               </h2>
-              <p className="text-muted-foreground text-lg">Opcional - pressione OK para pular</p>
+              <p className="text-muted-foreground">Opcional - pressione OK para pular</p>
               <Input
                 type="url"
                 value={formData.site || ''}
                 onChange={(e) => updateField('site', e.target.value)}
                 placeholder="www.empresax.com.br"
-                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                className="text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
                 autoFocus
               />
               <Button size="lg" onClick={nextStep}>
@@ -337,15 +336,15 @@ export default function BriefPage() {
           {/* Step 5: Instagram */}
           {currentStep === 5 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o Instagram da sua empresa?
               </h2>
-              <p className="text-muted-foreground text-lg">Opcional - pressione OK para pular</p>
+              <p className="text-muted-foreground">Opcional - pressione OK para pular</p>
               <Input
                 value={formData.instagram || ''}
                 onChange={(e) => updateField('instagram', e.target.value)}
                 placeholder="@empresax"
-                className="text-2xl h-16 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
+                className="text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0"
                 autoFocus
               />
               <Button size="lg" onClick={nextStep}>
@@ -357,7 +356,7 @@ export default function BriefPage() {
           {/* Step 6: Segmento */}
           {currentStep === 6 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o segmento da sua empresa?
               </h2>
               <div className="space-y-3">
@@ -379,10 +378,10 @@ export default function BriefPage() {
                     }}
                     className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
                   >
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-semibold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -392,7 +391,7 @@ export default function BriefPage() {
           {/* Step 7: Tempo de Mercado */}
           {currentStep === 7 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Há quanto tempo está no mercado?
               </h2>
               <div className="space-y-3">
@@ -414,7 +413,7 @@ export default function BriefPage() {
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -424,7 +423,7 @@ export default function BriefPage() {
           {/* Step 8: Investe em Marketing */}
           {currentStep === 8 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Já investe em marketing digital?
               </h2>
               <div className="space-y-3">
@@ -443,7 +442,7 @@ export default function BriefPage() {
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -453,7 +452,7 @@ export default function BriefPage() {
           {/* Step 9: Resultados ou Objetivo */}
           {currentStep === 9 && formData.investe_marketing === 'sim' && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Como você avalia os resultados atuais?
               </h2>
               <div className="space-y-3">
@@ -474,7 +473,7 @@ export default function BriefPage() {
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -483,7 +482,7 @@ export default function BriefPage() {
 
           {currentStep === 9 && formData.investe_marketing === 'nao' && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o principal objetivo?
               </h2>
               <div className="space-y-3">
@@ -504,7 +503,7 @@ export default function BriefPage() {
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -514,7 +513,7 @@ export default function BriefPage() {
           {/* Step 10: Faturamento */}
           {currentStep === 10 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual é o faturamento mensal médio?
               </h2>
               <div className="space-y-3">
@@ -536,7 +535,7 @@ export default function BriefPage() {
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -546,7 +545,7 @@ export default function BriefPage() {
           {/* Step 11: Budget */}
           {currentStep === 11 && (
             <div className="space-y-6">
-              <h2 className="text-4xl md:text-5xl font-bold">
+              <h2 className="text-3xl md:text-4xl font-medium">
                 Qual o budget para marketing digital?
               </h2>
               <div className="space-y-3">
@@ -569,7 +568,7 @@ export default function BriefPage() {
                     <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center font-bold">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <span className="text-xl">{option.label}</span>
+                    <span className="text-lg">{option.label}</span>
                     {isSubmitting && <Loader2 className="ml-auto h-5 w-5 animate-spin" />}
                   </button>
                 ))}

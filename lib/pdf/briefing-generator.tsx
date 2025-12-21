@@ -108,7 +108,7 @@ export const BriefingPDF: React.FC<BriefingPDFProps> = ({ data }) => {
 
         {/* Informações de Contato */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📞 Informações de Contato</Text>
+          <Text style={styles.sectionTitle}>Informações de Contato</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Nome do Responsável:</Text>
             <Text style={styles.value}>{data.nome_responsavel}</Text>
@@ -127,7 +127,7 @@ export const BriefingPDF: React.FC<BriefingPDFProps> = ({ data }) => {
 
         {/* Informações da Empresa */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🏢 Informações da Empresa</Text>
+          <Text style={styles.sectionTitle}>Informações da Empresa</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Nome da Empresa:</Text>
             <Text style={styles.value}>{data.nome_empresa}</Text>
@@ -156,7 +156,7 @@ export const BriefingPDF: React.FC<BriefingPDFProps> = ({ data }) => {
 
         {/* Marketing Atual */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Marketing Atual</Text>
+          <Text style={styles.sectionTitle}>Marketing Atual</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Investe em Marketing:</Text>
             <Text style={styles.value}>{data.investe_marketing}</Text>
@@ -171,7 +171,7 @@ export const BriefingPDF: React.FC<BriefingPDFProps> = ({ data }) => {
 
         {/* Objetivos e Expectativas */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎯 Objetivos e Expectativas</Text>
+          <Text style={styles.sectionTitle}>Objetivos e Expectativas</Text>
           {data.objetivo && (
             <View style={styles.row}>
               <Text style={styles.label}>Objetivo Principal:</Text>
@@ -182,7 +182,7 @@ export const BriefingPDF: React.FC<BriefingPDFProps> = ({ data }) => {
 
         {/* Informações Financeiras */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💰 Informações Financeiras</Text>
+          <Text style={styles.sectionTitle}>Informações Financeiras</Text>
           <View style={styles.row}>
             <Text style={styles.label}>Faturamento Mensal:</Text>
             <Text style={styles.value}>{data.faturamento}</Text>
