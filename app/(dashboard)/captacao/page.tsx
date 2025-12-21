@@ -87,22 +87,36 @@ export default function CaptacaoPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">prospect.AI</h1>
-        <p className="text-muted-foreground mt-1">
-          Extraia leads qualificados do Google Maps automaticamente
-        </p>
+    <div className="space-y-8">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-3 bg-primary/10 rounded-xl">
+              <MapPin className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-4xl font-black text-foreground bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              prospect.AI
+            </h1>
+          </div>
+          <p className="text-lg text-muted-foreground max-w-2xl">
+            Extraia leads qualificados do Google Maps automaticamente com inteligência artificial
+          </p>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
+        <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
+          <CardHeader className="space-y-3">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <MapPin className="h-5 w-5 text-primary" />
+              </div>
               Extração Google Maps
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-base">
               Cole a URL de uma busca do Google Maps e extraia contatos automaticamente
             </CardDescription>
           </CardHeader>
@@ -139,68 +153,77 @@ export default function CaptacaoPage() {
               </Select>
             </div>
 
-            <Button onClick={handleExtract} disabled={loading || !mapsUrl} className="w-full" size="lg">
+            <Button
+              onClick={handleExtract}
+              disabled={loading || !mapsUrl}
+              className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300 text-base font-bold"
+              size="lg"
+            >
               {loading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Extraindo...
                 </>
               ) : (
-                'Extrair Leads'
+                <>
+                  <MapPin className="mr-2 h-5 w-5" />
+                  Extrair Leads
+                </>
               )}
             </Button>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-2 shadow-lg">
           <CardHeader>
-            <CardTitle>Como funciona?</CardTitle>
+            <CardTitle className="text-xl">Como funciona?</CardTitle>
+            <CardDescription>Siga estes passos simples para extrair leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+            <div className="space-y-5">
+              <div className="flex gap-4 group">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground flex items-center justify-center font-black text-lg shadow-lg group-hover:scale-110 transition-transform">
                   1
                 </div>
-                <div>
-                  <h4 className="font-medium">Faça uma busca no Google Maps</h4>
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex-1">
+                  <h4 className="font-bold text-base mb-1">Faça uma busca no Google Maps</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     Busque por &quot;restaurantes em São Paulo&quot;, &quot;academias em Campinas&quot;, etc.
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+              <div className="flex gap-4 group">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground flex items-center justify-center font-black text-lg shadow-lg group-hover:scale-110 transition-transform">
                   2
                 </div>
-                <div>
-                  <h4 className="font-medium">Copie a URL completa</h4>
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex-1">
+                  <h4 className="font-bold text-base mb-1">Copie a URL completa</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     Cole aqui a URL da página de resultados do Google Maps
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+              <div className="flex gap-4 group">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground flex items-center justify-center font-black text-lg shadow-lg group-hover:scale-110 transition-transform">
                   3
                 </div>
-                <div>
-                  <h4 className="font-medium">Escolha a quantidade</h4>
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex-1">
+                  <h4 className="font-bold text-base mb-1">Escolha a quantidade</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     Selecione quantos leads você quer extrair (50 a 300)
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+              <div className="flex gap-4 group">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground flex items-center justify-center font-black text-lg shadow-lg group-hover:scale-110 transition-transform">
                   4
                 </div>
-                <div>
-                  <h4 className="font-medium">Aguarde a extração</h4>
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex-1">
+                  <h4 className="font-bold text-base mb-1">Aguarde a extração</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     Em 30-60 segundos, os leads estarão prontos no CRM
                   </p>
                 </div>
