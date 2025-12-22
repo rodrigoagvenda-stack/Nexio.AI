@@ -1,218 +1,393 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 import { useUser } from '@/lib/hooks/useUser';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Target, Loader2, TrendingUp } from 'lucide-react';
+import { Link2, Zap, FileText, Users, Loader2, Target, MapPin, Briefcase } from 'lucide-react';
+
+const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
+
+const ESTADOS_BRASIL = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+];
+
+const NICHOS = [
+  'Restaurantes',
+  'Academias',
+  'Salões de Beleza',
+  'Clínicas Médicas',
+  'Consultórios Odontológicos',
+  'Escritórios de Advocacia',
+  'Imobiliárias',
+  'Agências de Marketing',
+  'Lojas de Roupas',
+  'Pet Shops',
+  'Oficinas Mecânicas',
+  'Escolas',
+  'Hotéis e Pousadas',
+  'Bares e Cafeterias',
+  'Farmácias',
+  'Supermercados',
+  'Padarias',
+  'Floriculturas',
+  'Auto Escolas',
+  'Outros',
+];
 
 export default function LeadProPage() {
   const { company } = useUser();
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
+
+  // URL Mode
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [leadLimit, setLeadLimit] = useState(100);
+
+  // Manual Mode
+  const [cidade, setCidade] = useState('');
+  const [estado, setEstado] = useState('');
+  const [nicho, setNicho] = useState('');
+  const [customNicho, setCustomNicho] = useState('');
+
   const [extracting, setExtracting] = useState(false);
-  const [icpLeads, setICPLeads] = useState<any[]>([]);
-  const [stats, setStats] = useState({
-    extracted: 0,
-    limit: 0,
-    remaining: 0,
-  });
-
-  useEffect(() => {
-    if (company?.id) {
-      fetchData();
-    }
-  }, [company]);
-
-  async function fetchData() {
-    try {
-      const supabase = createClient();
-
-      // Buscar leads ICP
-      const { data: leads } = await supabase
-        .from('ICP_leads')
-        .select('*')
-        .eq('company_id', company?.id)
-        .order('created_at', { ascending: false });
-
-      setICPLeads(leads || []);
-
-      // Calcular estatísticas
-      const extracted = company?.leads_extracted_this_month || 0;
-      const limit = company?.plan_monthly_limit || 0;
-      const remaining = Math.max(0, limit - extracted);
-
-      setStats({ extracted, limit, remaining });
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleExtract() {
-    setExtracting(true);
-    try {
-      const response = await fetch('/api/extraction/icp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: company?.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.message);
-
-      toast.success(`${data.extractedCount} leads extraídos com sucesso!`);
-      await fetchData();
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao extrair leads');
-    } finally {
-      setExtracting(false);
-    }
-  }
+  const [progress, setProgress] = useState(0);
+  const [currentAction, setCurrentAction] = useState('');
 
   if (!company?.vendagro_plan) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
-            <Target className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Lead PRO não disponível</h3>
-            <p className="text-sm text-muted-foreground">
-              Entre em contato com o admin para ativar o módulo VendAgro
-            </p>
-          </CardContent>
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <Card className="max-w-md p-8 text-center">
+          <Target className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">prospect.AI não disponível</h3>
+          <p className="text-sm text-muted-foreground">
+            Entre em contato com o admin para ativar o módulo VendAgro
+          </p>
         </Card>
       </div>
     );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-shimmer h-8 w-32 rounded-lg" />
-      </div>
-    );
-  }
+  const validateUrl = (url: string): boolean => {
+    // Aceita .com e .com.br
+    const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
+    return googleMapsPattern.test(url);
+  };
 
-  const progressPercent = stats.limit > 0 ? (stats.extracted / stats.limit) * 100 : 0;
+  const validateManualForm = (): boolean => {
+    if (!cidade.trim()) {
+      toast.error('Por favor, informe a cidade');
+      return false;
+    }
+    if (!estado) {
+      toast.error('Por favor, selecione o estado');
+      return false;
+    }
+    if (!nicho && !customNicho.trim()) {
+      toast.error('Por favor, selecione ou digite um nicho');
+      return false;
+    }
+    return true;
+  };
+
+  const handleExtract = async () => {
+    try {
+      setExtracting(true);
+      setProgress(0);
+      setCurrentAction('Validando informações...');
+
+      let finalUrl = '';
+
+      if (activeTab === 'url') {
+        // Modo URL
+        if (!mapsUrl.trim()) {
+          toast.error('Por favor, cole a URL do Google Maps');
+          return;
+        }
+
+        if (!validateUrl(mapsUrl)) {
+          toast.error('URL inválida. Use uma URL do Google Maps (.com ou .com.br)');
+          return;
+        }
+
+        finalUrl = mapsUrl;
+      } else {
+        // Modo Manual
+        if (!validateManualForm()) {
+          return;
+        }
+
+        setCurrentAction('Montando URL de busca...');
+        setProgress(10);
+
+        // Construir query de busca
+        const nichoFinal = nicho === 'Outros' ? customNicho : nicho;
+        const query = `${nichoFinal} em ${cidade}, ${estado}`;
+
+        // Montar URL do Google Maps
+        const encodedQuery = encodeURIComponent(query);
+        finalUrl = `https://www.google.com.br/maps/search/${encodedQuery}`;
+
+        toast.info(`Buscando: ${query}`);
+      }
+
+      setProgress(20);
+      setCurrentAction('Conectando ao Google Maps...');
+
+      // Chamar API de extração
+      const response = await fetch('/api/extraction/maps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: finalUrl,
+          limit: leadLimit,
+          companyId: company?.id,
+        }),
+      });
+
+      setProgress(40);
+      setCurrentAction('Extraindo dados...');
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao extrair leads');
+      }
+
+      setProgress(60);
+      setCurrentAction('Processando informações...');
+
+      // Simular progresso de processamento
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setProgress(80);
+      setCurrentAction('Qualificando leads...');
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setProgress(100);
+      setCurrentAction('Concluído!');
+
+      toast.success(`${data.extractedCount || leadLimit} leads extraídos com sucesso!`);
+
+      // Resetar formulário
+      setMapsUrl('');
+      setCidade('');
+      setEstado('');
+      setNicho('');
+      setCustomNicho('');
+
+    } catch (error: any) {
+      console.error('Extraction error:', error);
+      toast.error(error.message || 'Erro ao extrair leads. Tente novamente.');
+    } finally {
+      setExtracting(false);
+      setProgress(0);
+      setCurrentAction('');
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Lead PRO - VendAgro</h1>
-        <p className="text-muted-foreground mt-1">
-          Leads qualificados baseados no seu ICP
-        </p>
-      </div>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl space-y-12">
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <h1 className="text-5xl font-bold tracking-tight">
+            prospect<span className="text-primary">.</span>AI
+          </h1>
+          <h2 className="text-4xl md:text-5xl font-bold">
+            O jeito mais <span className="text-orange-500">rápido</span> de transformar
+            <br />
+            buscas em oportunidades reais.
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Transforme qualquer busca do Google Maps em leads qualificados.
+          </p>
+        </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Limite Mensal</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.limit}</div>
-            <p className="text-xs text-muted-foreground">leads/mês</p>
-          </CardContent>
-        </Card>
+        {/* Main Card */}
+        <Card className="p-8 space-y-6 bg-card border-border">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'url' | 'manual')}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="manual">
+                <MapPin className="h-4 w-4 mr-2" />
+                Buscar por Cidade
+              </TabsTrigger>
+              <TabsTrigger value="url">
+                <Link2 className="h-4 w-4 mr-2" />
+                Cole a URL do Maps
+              </TabsTrigger>
+            </TabsList>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Extraídos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.extracted}</div>
-            <p className="text-xs text-muted-foreground">este mês</p>
-          </CardContent>
-        </Card>
+            {/* Manual Mode */}
+            <TabsContent value="manual" className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cidade</label>
+                  <Input
+                    placeholder="Ex: São Paulo"
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    disabled={extracting}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Estado</label>
+                  <Select value={estado} onValueChange={setEstado} disabled={extracting}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESTADOS_BRASIL.map((uf) => (
+                        <SelectItem key={uf} value={uf}>
+                          {uf}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Disponíveis</CardTitle>
-            <Target className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.remaining}</div>
-            <p className="text-xs text-muted-foreground">restantes</p>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nicho / Segmento</label>
+                <Select value={nicho} onValueChange={setNicho} disabled={extracting}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o nicho" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NICHOS.map((n) => (
+                      <SelectItem key={n} value={n}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Progresso Mensal</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Progress value={progressPercent} />
-          <div className="flex justify-between text-sm">
-            <span>{stats.extracted} extraídos</span>
-            <span>{stats.limit} limite</span>
+              {nicho === 'Outros' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Digite o nicho</label>
+                  <Input
+                    placeholder="Ex: Lojas de Produtos Naturais"
+                    value={customNicho}
+                    onChange={(e) => setCustomNicho(e.target.value)}
+                    disabled={extracting}
+                  />
+                </div>
+              )}
+            </TabsContent>
+
+            {/* URL Mode */}
+            <TabsContent value="url" className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  URL do Google Maps
+                </label>
+                <Input
+                  placeholder="https://www.google.com/maps/search/..."
+                  value={mapsUrl}
+                  onChange={(e) => setMapsUrl(e.target.value)}
+                  disabled={extracting}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Aceita URLs do Google Maps (.com ou .com.br)
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Lead Limit */}
+          <div className="flex items-center gap-4">
+            <Select
+              value={leadLimit.toString()}
+              onValueChange={(v) => setLeadLimit(parseInt(v))}
+              disabled={extracting}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEAD_LIMITS.map((limit) => (
+                  <SelectItem key={limit} value={limit.toString()}>
+                    {limit} leads
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">leads para extrair</span>
           </div>
+
+          {/* Extract Button */}
           <Button
             onClick={handleExtract}
-            disabled={extracting || stats.remaining === 0}
-            className="w-full"
+            disabled={extracting}
             size="lg"
+            className="w-full text-lg h-14"
           >
             {extracting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Extraindo...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                {currentAction}
               </>
-            ) : stats.remaining === 0 ? (
-              'Limite Mensal Atingido'
             ) : (
-              'Extrair Leads ICP'
+              'Extrair leads'
             )}
           </Button>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Leads Extraídos ({icpLeads.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {icpLeads.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                Nenhum lead extraído ainda. Clique em &quot;Extrair Leads ICP&quot; para começar.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-3">Nome</th>
-                    <th className="text-left p-3">Empresa</th>
-                    <th className="text-left p-3">Email</th>
-                    <th className="text-left p-3">WhatsApp</th>
-                    <th className="text-left p-3">Segmento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {icpLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b hover:bg-accent">
-                      <td className="p-3 font-medium">{lead.nome}</td>
-                      <td className="p-3">{lead.empresa}</td>
-                      <td className="p-3 text-sm text-muted-foreground">{lead.email}</td>
-                      <td className="p-3 text-sm text-muted-foreground">{lead.whatsapp}</td>
-                      <td className="p-3 text-sm">{lead.segmento}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Progress */}
+          {extracting && (
+            <div className="space-y-2">
+              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-primary h-full transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <p className="text-sm text-center text-muted-foreground">{progress}%</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+
+        {/* Benefits */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card className="p-6 space-y-3 bg-card/50 border-border/50">
+            <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <Zap className="h-6 w-6 text-orange-500" />
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Extrai dados de Google Maps automaticamente com IA em segundos.
+            </p>
+          </Card>
+
+          <Card className="p-6 space-y-3 bg-card/50 border-border/50">
+            <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <FileText className="h-6 w-6 text-orange-500" />
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Captura nome, telefone, email, endereço e redes sociais em um clique.
+            </p>
+          </Card>
+
+          <Card className="p-6 space-y-3 bg-card/50 border-border/50">
+            <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <Users className="h-6 w-6 text-orange-500" />
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Leads organizados e qualificados direto no seu pipeline de vendas.
+            </p>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
