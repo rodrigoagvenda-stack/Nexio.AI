@@ -81,8 +81,8 @@ export default async function AdminDashboardPage() {
         <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-semibold">Usuários Ativos</CardTitle>
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <Users className="h-5 w-5 text-green-500" />
+            <div className="p-2 bg-zinc-700/10 rounded-lg">
+              <Users className="h-5 w-5 text-zinc-700" />
             </div>
           </CardHeader>
           <CardContent>

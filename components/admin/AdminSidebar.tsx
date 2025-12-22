@@ -15,6 +15,7 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -169,6 +170,21 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
               </div>
             )}
           </div>
+
+          {/* Return to Dashboard Button */}
+          <Button
+            variant="ghost"
+            onClick={() => router.push('/dashboard')}
+            className={cn(
+              'w-full mt-2 justify-start text-muted-foreground hover:text-foreground',
+              isCollapsed && 'justify-center px-2'
+            )}
+            size={isCollapsed ? 'icon' : 'default'}
+            title={isCollapsed ? 'Voltar ao Sistema' : undefined}
+          >
+            <ArrowLeft className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+            {!isCollapsed && 'Voltar ao Sistema'}
+          </Button>
 
           {/* Logout Button */}
           <Button

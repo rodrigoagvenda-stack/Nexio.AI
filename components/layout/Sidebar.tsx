@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
-  MapPin,
   MessageSquare,
   Target,
   UserPlus,
@@ -51,11 +50,6 @@ export function Sidebar({
       href: '/crm',
       label: 'CRM',
       icon: Users,
-    },
-    {
-      href: '/captacao',
-      label: 'Captação',
-      icon: MapPin,
     },
     {
       href: '/atendimento',

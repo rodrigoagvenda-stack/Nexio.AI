@@ -29,7 +29,7 @@ const statusColors: Record<string, string> = {
   'Em contato': 'bg-yellow-500',
   'Interessado': 'bg-orange-500',
   'Proposta enviada': 'bg-purple-500',
-  'Fechado': 'bg-green-500',
+  'Fechado': 'bg-zinc-700',
   'Perdido': 'bg-red-500',
 };
 

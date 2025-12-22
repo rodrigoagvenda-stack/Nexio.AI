@@ -167,7 +167,7 @@ export default function DashboardPage() {
     {
       label: 'Fechado',
       count: fechados,
-      color: 'bg-green-500',
+      color: 'bg-zinc-700',
     },
   ];
 
