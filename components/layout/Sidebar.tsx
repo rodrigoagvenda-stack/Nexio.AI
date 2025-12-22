@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -66,6 +67,11 @@ export function Sidebar({
       label: 'Lead PRO',
       icon: Target,
       badge: hasVendAgro ? undefined : 'PRO',
+    },
+    {
+      href: '/prospect',
+      label: 'prospect.AI',
+      icon: Sparkles,
     },
     {
       href: '/membros',
