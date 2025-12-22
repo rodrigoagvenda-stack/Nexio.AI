@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface SidebarProps {
   hasVendAgro?: boolean;
@@ -201,21 +202,24 @@ export function Sidebar({
             )}
           </div>
 
-          {/* Logout Button */}
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className={cn(
-              'w-full mt-2 justify-start text-muted-foreground hover:text-foreground',
-              isCollapsed && 'justify-center px-2'
-            )}
-            size={isCollapsed ? 'icon' : 'default'}
-            title={isCollapsed ? 'Sair' : undefined}
-          >
-            <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
-            {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
-          </Button>
+          {/* Theme and Actions */}
+          <div className={cn('flex gap-2 mt-2', isCollapsed && 'flex-col')}>
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className={cn(
+                'flex-1 justify-start text-muted-foreground hover:text-foreground',
+                isCollapsed && 'justify-center px-2'
+              )}
+              size={isCollapsed ? 'icon' : 'default'}
+              title={isCollapsed ? 'Sair' : undefined}
+            >
+              <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+              {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
+            </Button>
+          </div>
 
           {/* Toggle Button */}
           <Button

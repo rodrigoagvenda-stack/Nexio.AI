@@ -206,7 +206,7 @@ function DroppableColumn({
       case 'Em contato': return 'border-t-pink-500';
       case 'Interessado': return 'border-t-purple-500';
       case 'Proposta enviada': return 'border-t-cyan-500';
-      case 'Fechado': return 'border-t-green-500';
+      case 'Fechado': return 'border-t-[#191919]';
       case 'Perdido': return 'border-t-red-500';
       default: return 'border-t-gray-500';
     }

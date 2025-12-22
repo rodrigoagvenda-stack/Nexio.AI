@@ -343,11 +343,11 @@ export default function LeadProPage() {
                 </thead>
                 <tbody>
                   {icpLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b hover:bg-accent/50 transition-colors">
+                    <tr key={lead.id} className="border-b hover:bg-[#191919] hover:text-white transition-colors group">
                       <td className="p-3 font-medium">{lead.nome}</td>
                       <td className="p-3">{lead.empresa}</td>
-                      <td className="p-3 text-sm text-muted-foreground">{lead.email}</td>
-                      <td className="p-3 text-sm text-muted-foreground">{lead.whatsapp}</td>
+                      <td className="p-3 text-sm text-muted-foreground group-hover:text-white">{lead.email}</td>
+                      <td className="p-3 text-sm text-muted-foreground group-hover:text-white">{lead.whatsapp}</td>
                       <td className="p-3 text-sm">{lead.segmento}</td>
                       <td className="p-3 text-sm">{lead.cidade ? `${lead.cidade}/${lead.estado}` : '-'}</td>
                       <td className="p-3">

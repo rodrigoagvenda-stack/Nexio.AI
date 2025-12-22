@@ -172,7 +172,7 @@ export default function BriefPage() {
               const whatsapp = formData.whatsapp?.replace(/\D/g, '');
               window.open(`https://wa.me/${formData.country_code}${whatsapp}`, '_blank');
             }}
-            className="text-lg px-8 py-6 bg-green-600 hover:bg-green-700"
+            className="text-lg px-8 py-6 bg-[#191919] hover:bg-[#2a2a2a]"
           >
             Abrir WhatsApp
           </Button>

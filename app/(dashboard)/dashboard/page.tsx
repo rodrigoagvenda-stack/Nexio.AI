@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
   // Dados do donut de conversão
   const conversionData = [
-    { name: 'Fechados', value: fechados, color: '#10b981' },
+    { name: 'Fechados', value: fechados, color: '#191919' },
     { name: 'Em andamento', value: totalLeads - fechados, color: 'hsl(var(--primary))' },
   ];
 
