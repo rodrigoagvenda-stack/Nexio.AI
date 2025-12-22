@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { extractLeadsFromMaps } from '@/lib/n8n/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,36 +79,14 @@ export async function POST(request: NextRequest) {
     const maxLeadsPerExtraction = 500;
     const leadsToExtract = Math.min(limit, maxLeadsPerExtraction);
 
-    // IMPLEMENTAÇÃO DE SCRAPING DO GOOGLE MAPS
-    // Por enquanto, simulando a extração de leads para demonstração
-    // Em produção, você deve integrar com um serviço de scraping real
+    // Chamar n8n para extrair leads do Google Maps
+    const extractionResult = await extractLeadsFromMaps(finalUrl, leadsToExtract, companyId);
 
-    const mockLeads = Array.from({ length: leadsToExtract }, (_, i) => ({
-      company_id: companyId,
-      nome: `Lead ${i + 1}`,
-      empresa: `Empresa ${i + 1}`,
-      email: `lead${i + 1}@empresa.com`,
-      telefone: `(11) ${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
-      whatsapp: `(11) 9${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
-      segmento: nicho || 'Diversos',
-      cidade: cidade || null,
-      estado: estado || null,
-      status: 'Novo',
-      priority: 'Média',
-    }));
-
-    // Inserir leads no banco
-    const { error: insertError } = await supabase
-      .from('ICP_leads')
-      .insert(mockLeads);
-
-    if (insertError) {
-      console.error('Error inserting leads:', insertError);
+    if (!extractionResult.success) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Erro ao salvar leads no banco de dados',
-          error: insertError.message,
+          message: extractionResult.message || 'Erro ao extrair leads via n8n',
         },
         { status: 500 }
       );
@@ -131,8 +110,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Leads extraídos com sucesso',
-      extractedCount: leadsToExtract,
+      message: 'Leads extraídos com sucesso via prospect.AI',
+      extractedCount: extractionResult.data?.extractedCount || leadsToExtract,
       query: cidade && estado && nicho ? `${nicho} em ${cidade}, ${estado}` : undefined,
     });
   } catch (error: any) {

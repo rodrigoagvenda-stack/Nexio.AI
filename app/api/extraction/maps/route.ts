@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { extractLeadsFromMaps } from '@/lib/n8n/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -80,43 +81,26 @@ export async function POST(request: NextRequest) {
 
     const leadsToExtract = Math.min(limit, remaining);
 
-    // AQUI VOCÊ IMPLEMENTARIA A LÓGICA DE SCRAPING DO GOOGLE MAPS
-    // Por enquanto, vou simular a extração de leads
+    // Chamar n8n para extrair leads do Google Maps
+    const extractionResult = await extractLeadsFromMaps(url, leadsToExtract, companyId);
 
-    const mockLeads = Array.from({ length: leadsToExtract }, (_, i) => ({
-      company_id: companyId,
-      nome: `Lead ${i + 1}`,
-      empresa: `Empresa ${i + 1}`,
-      email: `lead${i + 1}@empresa.com`,
-      whatsapp: `(11) 9${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
-      segmento: 'Diversos',
-      endereco: 'Endereço exemplo',
-      maps_url: url,
-      extracted_at: new Date().toISOString(),
-    }));
-
-    // Inserir leads no banco
-    const { error: insertError } = await supabase
-      .from('ICP_leads')
-      .insert(mockLeads);
-
-    if (insertError) {
-      console.error('Error inserting leads:', insertError);
+    if (!extractionResult.success) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Erro ao salvar leads no banco de dados',
-          error: insertError.message,
+          message: extractionResult.message || 'Erro ao extrair leads via n8n',
         },
         { status: 500 }
       );
     }
 
+    const actualExtracted = extractionResult.data?.extractedCount || leadsToExtract;
+
     // Atualizar contador de leads extraídos
     const { error: updateError } = await supabase
       .from('companies')
       .update({
-        leads_extracted_this_month: extracted + leadsToExtract,
+        leads_extracted_this_month: extracted + actualExtracted,
       })
       .eq('id', companyId);
 
@@ -129,19 +113,19 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       company_id: companyId,
       action: 'lead_extraction',
-      description: `Extraiu ${leadsToExtract} leads do Google Maps`,
+      description: `Extraiu ${actualExtracted} leads do Google Maps`,
       metadata: {
         url,
         limit,
-        extracted: leadsToExtract,
+        extracted: actualExtracted,
       },
     });
 
     return NextResponse.json({
       success: true,
       message: 'Leads extraídos com sucesso',
-      extractedCount: leadsToExtract,
-      remaining: remaining - leadsToExtract,
+      extractedCount: actualExtracted,
+      remaining: remaining - actualExtracted,
     });
   } catch (error: any) {
     console.error('Maps extraction error:', error);
