@@ -1,5 +1,5 @@
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Header } from '@/components/layout/Header';
+import { SystemTopBar } from '@/components/SystemTopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -42,7 +42,7 @@ export default async function DashboardLayout({
     <div className="flex h-screen bg-background">
       <Sidebar hasVendAgro={hasVendAgro} isAdmin={isAdmin} />
       <div className="flex-1 flex flex-col">
-        <Header />
+        <SystemTopBar />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6">
           {children}
         </main>
