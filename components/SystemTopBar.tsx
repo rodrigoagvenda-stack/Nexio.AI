@@ -80,7 +80,7 @@ export function SystemTopBar() {
           type: log.action,
           message: log.description,
           created_at: log.created_at,
-          read: false,
+          read: log.read || false,
         }));
         setNotifications(formatted);
       }
@@ -88,6 +88,25 @@ export function SystemTopBar() {
       console.error('Error fetching notifications:', error);
     }
   }, [company?.id]);
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        // Atualizar localmente
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notificationId ? { ...n, read: true } : n
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
   useEffect(() => {
     if (company?.id) {
@@ -176,6 +195,7 @@ export function SystemTopBar() {
                     <DropdownMenuItem
                       key={notif.id}
                       className="flex-col items-start p-3 cursor-pointer"
+                      onClick={() => markAsRead(notif.id)}
                     >
                       <div className="flex items-start gap-2 w-full">
                         <div className={`h-2 w-2 rounded-full mt-1.5 ${!notif.read ? 'bg-primary' : 'bg-muted'}`} />
