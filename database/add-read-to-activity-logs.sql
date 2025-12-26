@@ -6,8 +6,11 @@ ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE;
 -- Índice para buscar notificações não lidas
 CREATE INDEX IF NOT EXISTS idx_activity_logs_read ON activity_logs(read);
 
+-- Remover policy se existir (para evitar conflitos)
+DROP POLICY IF EXISTS "Users can update their company's activity logs" ON activity_logs;
+
 -- Policy para UPDATE (marcar como lida)
-CREATE POLICY IF NOT EXISTS "Users can update their company's activity logs"
+CREATE POLICY "Users can update their company's activity logs"
   ON activity_logs
   FOR UPDATE
   USING (
