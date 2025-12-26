@@ -237,7 +237,7 @@ function DroppableColumn({
 }
 
 export default function CRMPage() {
-  const { user, loading: userLoading } = useUser();
+  const { user, company, loading: userLoading } = useUser();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('table');
@@ -401,6 +401,22 @@ export default function CRMPage() {
         .eq('id', lead.id);
 
       if (error) throw error;
+
+      // Criar log de atividade
+      if (user && company) {
+        await supabase.from('activity_logs').insert({
+          user_id: user.id,
+          company_id: company.id,
+          action: 'lead_status_change',
+          description: `Moveu lead "${lead.company_name || lead.nome}" para "${newStatus}"`,
+          metadata: {
+            lead_id: lead.id,
+            old_status: oldStatus,
+            new_status: newStatus,
+            lead_name: lead.company_name || lead.nome,
+          },
+        });
+      }
 
       console.log('✅ Status atualizado no banco com sucesso!');
       toast.success(`Lead movido para "${newStatus}"!`);
@@ -798,12 +814,30 @@ export default function CRMPage() {
                         // Persist to database
                         try {
                           const supabase = createClient();
+                          const oldStatus = lead.status;
                           const { error } = await supabase
                             .from('leads')
                             .update({ status: newStatus })
                             .eq('id', lead.id);
 
                           if (error) throw error;
+
+                          // Criar log de atividade
+                          if (user && company) {
+                            await supabase.from('activity_logs').insert({
+                              user_id: user.id,
+                              company_id: company.id,
+                              action: 'lead_status_change',
+                              description: `Alterou status do lead "${lead.company_name || lead.nome}" de "${oldStatus}" para "${newStatus}"`,
+                              metadata: {
+                                lead_id: lead.id,
+                                old_status: oldStatus,
+                                new_status: newStatus,
+                                lead_name: lead.company_name || lead.nome,
+                              },
+                            });
+                          }
+
                           toast.success(`Status atualizado para "${newStatus}"!`);
                         } catch (error) {
                           console.error('Error updating status:', error);
