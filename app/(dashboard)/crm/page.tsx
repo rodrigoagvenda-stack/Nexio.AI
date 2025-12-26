@@ -407,7 +407,7 @@ export default function CRMPage() {
       // Criar log de atividade
       if (user && company) {
         await supabase.from('activity_logs').insert({
-          user_id: user.id,
+          user_id: user.auth_user_id,
           company_id: company.id,
           action: 'lead_status_change',
           description: `Moveu lead "${lead.company_name}" para "${newStatus}"`,
@@ -828,7 +828,7 @@ export default function CRMPage() {
                           // Criar log de atividade
                           if (user && company) {
                             await supabase.from('activity_logs').insert({
-                              user_id: user.id,
+                              user_id: user.auth_user_id,
                               company_id: company.id,
                               action: 'lead_status_change',
                               description: `Alterou status do lead "${lead.company_name}" de "${oldStatus}" para "${newStatus}"`,
