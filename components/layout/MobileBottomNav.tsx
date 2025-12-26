@@ -7,6 +7,11 @@ import { LayoutDashboard, Users, Phone, Target, Settings } from 'lucide-react';
 export function MobileBottomNav() {
   const pathname = usePathname();
 
+  // Esconder menu na página de mensagens/atendimento
+  if (pathname?.includes('/atendimento')) {
+    return null;
+  }
+
   const navItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/crm', label: 'CRM', icon: Users },
@@ -16,8 +21,8 @@ export function MobileBottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 md:hidden">
-      <div className="bg-background/80 backdrop-blur-xl border border-border rounded-full px-6 py-3 shadow-2xl">
+    <nav className="fixed bottom-[15px] left-1/2 -translate-x-1/2 z-50 md:hidden">
+      <div className="bg-background/80 backdrop-blur-xl border border-border rounded-full px-6 pt-[25px] pb-[15px] shadow-2xl">
         <div className="flex items-center gap-8">
           {navItems.map((item) => {
             const Icon = item.icon;
