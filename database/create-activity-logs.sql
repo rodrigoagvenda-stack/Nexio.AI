@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS activity_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   action VARCHAR(100) NOT NULL,
   description TEXT NOT NULL,
   metadata JSONB,

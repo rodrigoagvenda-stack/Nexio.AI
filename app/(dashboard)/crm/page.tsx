@@ -385,6 +385,8 @@ export default function CRMPage() {
 
     console.log(`🔄 Movendo "${lead.company_name}" de "${lead.status}" → "${newStatus}"`);
 
+    const oldStatus = lead.status;
+
     // Update otimista (atualiza UI imediatamente)
     setLeads(prevLeads => prevLeads.map(l =>
       (l.id === activeId || String(l.id) === String(activeId))
