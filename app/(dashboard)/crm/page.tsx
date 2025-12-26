@@ -408,12 +408,13 @@ export default function CRMPage() {
           user_id: user.id,
           company_id: company.id,
           action: 'lead_status_change',
-          description: `Moveu lead "${lead.company_name || lead.nome}" para "${newStatus}"`,
+          description: `Moveu lead "${lead.company_name}" para "${newStatus}"`,
           metadata: {
             lead_id: lead.id,
             old_status: oldStatus,
             new_status: newStatus,
-            lead_name: lead.company_name || lead.nome,
+            lead_name: lead.company_name,
+            contact_name: lead.contact_name,
           },
         });
       }
@@ -828,12 +829,13 @@ export default function CRMPage() {
                               user_id: user.id,
                               company_id: company.id,
                               action: 'lead_status_change',
-                              description: `Alterou status do lead "${lead.company_name || lead.nome}" de "${oldStatus}" para "${newStatus}"`,
+                              description: `Alterou status do lead "${lead.company_name}" de "${oldStatus}" para "${newStatus}"`,
                               metadata: {
                                 lead_id: lead.id,
                                 old_status: oldStatus,
                                 new_status: newStatus,
-                                lead_name: lead.company_name || lead.nome,
+                                lead_name: lead.company_name,
+                                contact_name: lead.contact_name,
                               },
                             });
                           }
