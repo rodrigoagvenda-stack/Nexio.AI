@@ -40,11 +40,6 @@ export function SystemTopBar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Hide on config page
-  if (pathname?.includes('/configuracoes')) {
-    return null;
-  }
-
   const userName = user?.name || 'Usuário';
   const userEmail = user?.email || '';
   const userInitials = userName
@@ -116,6 +111,11 @@ export function SystemTopBar() {
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Hide on config page
+  if (pathname?.includes('/configuracoes')) {
+    return null;
+  }
 
   return (
     <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
