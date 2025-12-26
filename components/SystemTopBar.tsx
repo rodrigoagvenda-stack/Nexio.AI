@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/popover';
 import { useRouter, usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -57,6 +57,38 @@ export function SystemTopBar() {
     router.refresh();
   };
 
+  const fetchNotifications = useCallback(async () => {
+    if (!company?.id) return;
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('company_id', company.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        return;
+      }
+
+      if (data) {
+        const formatted = data.map((log: any) => ({
+          id: log.id,
+          type: log.action,
+          message: log.description,
+          created_at: log.created_at,
+          read: false,
+        }));
+        setNotifications(formatted);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  }, [company?.id]);
+
   useEffect(() => {
     if (company?.id) {
       fetchNotifications();
@@ -83,32 +115,7 @@ export function SystemTopBar() {
         supabase.removeChannel(channel);
       };
     }
-  }, [company?.id]);
-
-  async function fetchNotifications() {
-    try {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .eq('company_id', company?.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (data) {
-        const formatted = data.map((log: any) => ({
-          id: log.id,
-          type: log.action,
-          message: log.description,
-          created_at: log.created_at,
-          read: false,
-        }));
-        setNotifications(formatted);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  }
+  }, [company?.id, fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
