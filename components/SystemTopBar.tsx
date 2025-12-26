@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@/lib/hooks/useUser';
-import { Bell, Settings } from 'lucide-react';
+import { Bell, Settings, LogOut, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -11,12 +11,19 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+} from '@/components/ui/popover';
 import { useRouter, usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface Notification {
   id: string;
@@ -31,7 +38,7 @@ export function SystemTopBar() {
   const router = useRouter();
   const pathname = usePathname();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [settingsRotating, setSettingsRotating] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Hide on config page
   if (pathname?.includes('/configuracoes')) {
@@ -46,6 +53,14 @@ export function SystemTopBar() {
     .join('')
     .toUpperCase()
     .slice(0, 2);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    toast.success('Logout realizado com sucesso!');
+    router.push('/login');
+    router.refresh();
+  };
 
   useEffect(() => {
     if (company?.id) {
@@ -100,19 +115,11 @@ export function SystemTopBar() {
     }
   }
 
-  const handleSettingsClick = () => {
-    setSettingsRotating(true);
-    setTimeout(() => {
-      router.push('/configuracoes');
-      setTimeout(() => setSettingsRotating(false), 300);
-    }, 300);
-  };
-
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="flex items-center justify-between h-16 px-6">
+      <div className="flex items-center justify-between h-20 px-6">
         {/* Left: User info */}
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
@@ -191,18 +198,44 @@ export function SystemTopBar() {
           </DropdownMenu>
 
           {/* Settings */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSettingsClick}
-            className="relative"
-          >
-            <Settings
-              className={`h-5 w-5 transition-transform duration-300 ${
-                settingsRotating ? 'rotate-180' : ''
-              }`}
-            />
-          </Button>
+          <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
+                <Settings
+                  className={`h-5 w-5 transition-transform duration-300 ${
+                    settingsOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-0">
+              <PopoverBody className="p-0">
+                <div className="flex flex-col">
+                  <button
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      router.push('/configuracoes');
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-accent transition-colors text-left"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Configurações</span>
+                  </button>
+                  <div className="h-px bg-border" />
+                  <button
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-accent transition-colors text-left text-destructive"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sair</span>
+                  </button>
+                </div>
+              </PopoverBody>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>
