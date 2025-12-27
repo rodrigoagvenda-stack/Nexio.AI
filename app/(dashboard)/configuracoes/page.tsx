@@ -112,7 +112,7 @@ export default function ConfiguracoesPage() {
             <div className="flex flex-col items-center gap-4 py-4">
               <Avatar className="h-24 w-24">
                 {photoUrl ? (
-                  <AvatarImage src={photoUrl} alt={user?.name} />
+                  <AvatarImage src={photoUrl} alt={user?.name} className="object-cover" />
                 ) : (
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}

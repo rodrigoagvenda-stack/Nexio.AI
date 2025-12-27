@@ -182,9 +182,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header com Filtros */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Overview</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => handlePeriodChange('today')}
             className={`px-4 py-2 text-sm rounded-md transition-colors ${

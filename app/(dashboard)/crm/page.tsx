@@ -620,21 +620,21 @@ export default function CRMPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">CRM</h1>
           <p className="text-muted-foreground mt-1">Planilha de Leads - Gerencie seus leads e oportunidades</p>
         </div>
-        <Button onClick={() => handleOpenModal()} className="bg-orange-500 hover:bg-orange-600">
+        <Button onClick={() => handleOpenModal()} className="bg-orange-500 hover:bg-orange-600 w-full md:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Lead
         </Button>
       </div>
 
       {/* Filtros e View Toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative flex-1 max-w-md">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
+          <div className="relative flex-1 md:max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar..."
@@ -643,42 +643,44 @@ export default function CRMPage() {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todos">Todos</SelectItem>
-              {columns.map(col => (
-                <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Prioridade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Todas">Todas</SelectItem>
-              <SelectItem value="Alta">Alta</SelectItem>
-              <SelectItem value="Média">Média</SelectItem>
-              <SelectItem value="Baixa">Baixa</SelectItem>
-            </SelectContent>
-          </Select>
-          {(searchTerm || statusFilter !== 'Todos' || priorityFilter !== 'Todas') && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('Todos');
-                setPriorityFilter('Todas');
-              }}
-            >
-              Limpar
-            </Button>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-40">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos</SelectItem>
+                {columns.map(col => (
+                  <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-full md:w-40">
+                <SelectValue placeholder="Prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todas">Todas</SelectItem>
+                <SelectItem value="Alta">Alta</SelectItem>
+                <SelectItem value="Média">Média</SelectItem>
+                <SelectItem value="Baixa">Baixa</SelectItem>
+              </SelectContent>
+            </Select>
+            {(searchTerm || statusFilter !== 'Todos' || priorityFilter !== 'Todas') && (
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('Todos');
+                  setPriorityFilter('Todas');
+                }}
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 justify-end">
           <Button
             variant={viewMode === 'table' ? 'default' : 'outline'}
             size="icon"
