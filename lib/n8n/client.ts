@@ -60,7 +60,6 @@ export async function extractICPLeads(
           genero: icpConfig.genero,
           escolaridade: icpConfig.escolaridade,
           estados: icpConfig.estados,
-          regioes: icpConfig.regioes,
           nichos: icpConfig.nichos,
           tamanho_empresas: icpConfig.tamanho_empresas,
           tempo_mercado: icpConfig.tempo_mercado,

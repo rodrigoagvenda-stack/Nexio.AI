@@ -39,7 +39,6 @@ interface ICPConfig {
   genero?: string;
   escolaridade?: string;
   estados?: string[];
-  regioes?: string[];
   nichos?: string[];
   tamanho_empresas?: string;
   tempo_mercado?: string;

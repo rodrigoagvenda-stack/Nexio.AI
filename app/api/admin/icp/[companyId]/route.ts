@@ -52,7 +52,7 @@ export async function POST(
       return str;
     };
 
-    // Limpar e preparar dados
+    // Limpar e preparar dados (somente colunas que EXISTEM no banco)
     const cleanedData = {
       idade_min: sanitizeNumber(body.idade_min),
       idade_max: sanitizeNumber(body.idade_max),
@@ -61,7 +61,6 @@ export async function POST(
       genero: sanitizeString(body.genero),
       escolaridade: sanitizeString(body.escolaridade),
       estados: sanitizeArray(body.estados),
-      regioes: sanitizeArray(body.regioes),
       nichos: sanitizeArray(body.nichos),
       tamanho_empresas: sanitizeString(body.tamanho_empresas),
       tempo_mercado: sanitizeString(body.tempo_mercado),
