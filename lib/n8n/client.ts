@@ -44,11 +44,16 @@ export async function extractICPLeads(
   icpConfig: any
 ): Promise<N8NResponse> {
   try {
+    // Criar credenciais Basic Auth
+    const username = 'Boladao';
+    const password = 'Bruniboladao';
+    const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
+
     const response = await fetch(N8N_WEBHOOK_ICP, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-webhook-secret': WEBHOOK_SECRET,
+        'Authorization': `Basic ${basicAuth}`,
       },
       body: JSON.stringify({
         company_id: companyId,
@@ -85,7 +90,8 @@ export async function extractICPLeads(
     });
 
     if (!response.ok) {
-      throw new Error(`N8N request failed: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`N8N request failed: ${response.statusText} - ${errorText}`);
     }
 
     return await response.json();
