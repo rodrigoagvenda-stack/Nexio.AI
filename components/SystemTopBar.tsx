@@ -150,7 +150,7 @@ export function SystemTopBar() {
         <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
           <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
             {user?.photo_url ? (
-              <AvatarImage src={user.photo_url} alt={userName} />
+              <AvatarImage src={user.photo_url} alt={userName} className="object-cover" />
             ) : null}
             <AvatarFallback className="bg-primary text-primary-foreground text-xs md:text-sm font-semibold">
               {userInitials}
