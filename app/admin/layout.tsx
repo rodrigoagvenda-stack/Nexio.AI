@@ -35,7 +35,7 @@ export default async function AdminLayout({
       <AdminSidebar adminName={adminUser.name} adminEmail={adminUser.email} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 md:p-6">
           {children}
         </main>
       </div>

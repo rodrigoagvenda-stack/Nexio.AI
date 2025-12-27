@@ -116,16 +116,17 @@ export default function ICPConfigPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
         {steps.map((step, index) => (
           <Button
             key={index}
             variant={currentStep === index ? 'default' : 'outline'}
             onClick={() => setCurrentStep(index)}
-            className="flex-1"
+            className="flex-shrink-0 min-w-[40px]"
             size="sm"
           >
-            {index + 1}. {step}
+            <span className="md:hidden">{index + 1}</span>
+            <span className="hidden md:inline">{index + 1}. {step}</span>
           </Button>
         ))}
       </div>
