@@ -144,37 +144,37 @@ export function SystemTopBar() {
   }
 
   return (
-    <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="flex items-center justify-between h-20 px-6">
+    <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border w-full">
+      <div className="flex items-center justify-between h-20 px-3 md:px-6 w-full min-w-0">
         {/* Left: User info */}
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+          <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
             {user?.photo_url ? (
               <AvatarImage src={user.photo_url} alt={userName} />
             ) : null}
-            <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs md:text-sm font-semibold">
               {userInitials}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <h2 className="text-sm font-semibold flex items-center gap-1">
-              Olá, {userName} ✌️
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xs md:text-sm font-semibold flex items-center gap-1 truncate">
+              Olá, {userName.split(' ')[0]} ✌️
             </h2>
-            <p className="text-xs text-muted-foreground">{userEmail}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground truncate">{userEmail}</p>
           </div>
         </div>
 
         {/* Right: Notifications + Settings */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="relative h-9 w-9 md:h-10 md:w-10">
+                <Bell className="h-4 w-4 md:h-5 md:w-5" />
                 {unreadCount > 0 && (
                   <Badge
                     variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                    className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center p-0 text-[10px] md:text-xs"
                   >
                     {unreadCount}
                   </Badge>
@@ -230,9 +230,9 @@ export function SystemTopBar() {
           {/* Settings */}
           <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
+              <Button variant="ghost" size="icon" className="relative h-9 w-9 md:h-10 md:w-10">
                 <Settings
-                  className={`h-5 w-5 transition-transform duration-300 ${
+                  className={`h-4 w-4 md:h-5 md:w-5 transition-transform duration-300 ${
                     settingsOpen ? 'rotate-180' : ''
                   }`}
                 />

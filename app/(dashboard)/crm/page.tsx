@@ -213,7 +213,7 @@ function DroppableColumn({
   };
 
   return (
-    <div className="flex flex-col h-full min-w-[280px] md:min-w-0 snap-start">
+    <div className="flex flex-col h-full">
       <div className={`bg-card border-2 border-b-0 ${getColumnColor()} rounded-t-xl p-4 shadow-sm`}>
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-sm text-foreground">{title}</h3>
@@ -715,7 +715,7 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex md:grid overflow-x-auto md:overflow-x-visible gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 pb-4 md:pb-0 snap-x snap-mandatory md:snap-none">
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {columns.map((column) => {
               const columnLeads = getLeadsByStatus(column.id);
               return (
