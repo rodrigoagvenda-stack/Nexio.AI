@@ -283,7 +283,7 @@ export default function LeadProPage() {
                   <div className="w-1 h-4 bg-primary rounded-full"></div>
                   Perfil da Empresa
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-3">
+                <div className="space-y-3 pl-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Tamanho</p>
                     <p className="text-sm font-medium">{icpConfig.tamanho_empresas || 'Não definido'}</p>
