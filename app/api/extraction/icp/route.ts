@@ -40,8 +40,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error in ICP extraction:', error);
+
+    // Retornar erro detalhado para debug
     return NextResponse.json(
-      { success: false, message: error.message || 'Erro ao extrair leads ICP' },
+      {
+        success: false,
+        message: error.message || 'Erro ao extrair leads ICP',
+        error: {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          cause: error.cause,
+        }
+      },
       { status: 500 }
     );
   }

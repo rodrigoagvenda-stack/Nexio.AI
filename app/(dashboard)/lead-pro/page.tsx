@@ -115,6 +115,7 @@ export default function LeadProPage() {
 
     setExtracting(true);
     try {
+      console.log('[FRONTEND] Enviando requisição para extrair leads ICP...');
       const response = await fetch('/api/extraction/icp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,12 +123,18 @@ export default function LeadProPage() {
       });
 
       const data = await response.json();
+      console.log('[FRONTEND] Resposta da API:', data);
 
-      if (!response.ok) throw new Error(data.message);
+      if (!response.ok) {
+        console.error('[FRONTEND] ERRO COMPLETO:', data);
+        console.error('[FRONTEND] Stack trace:', data.error?.stack);
+        throw new Error(data.message);
+      }
 
       toast.success(`${data.extractedCount || 0} leads extraídos com sucesso!`);
       await fetchData();
     } catch (error: any) {
+      console.error('[FRONTEND] Erro ao extrair leads:', error);
       toast.error(error.message || 'Erro ao extrair leads');
     } finally {
       setExtracting(false);
