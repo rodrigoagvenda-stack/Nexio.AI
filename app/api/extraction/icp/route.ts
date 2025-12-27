@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractICPLeads } from '@/lib/n8n/client';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,8 +14,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Chamar n8n para extrair leads ICP
-    const result = await extractICPLeads(companyId);
+    // Buscar configuração do ICP
+    const supabase = await createClient();
+    const { data: icpConfig, error: icpError } = await supabase
+      .from('icp_configuration')
+      .select('*')
+      .eq('company_id', companyId)
+      .single();
+
+    if (icpError || !icpConfig) {
+      return NextResponse.json(
+        { success: false, message: 'ICP não configurado para esta empresa' },
+        { status: 404 }
+      );
+    }
+
+    // Chamar n8n para extrair leads ICP com TODAS as configurações
+    const result = await extractICPLeads(companyId, icpConfig);
 
     return NextResponse.json({
       success: true,
