@@ -26,6 +26,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     fetchLeads();
@@ -105,6 +106,9 @@ export default function DashboardPage() {
     setSelectedPeriod(period);
     if (period !== 'custom') {
       setDateRange(undefined);
+      setShowDatePicker(false);
+    } else {
+      setShowDatePicker(true);
     }
   };
 
@@ -118,23 +122,158 @@ export default function DashboardPage() {
     .reduce((sum, l) => sum + (l.project_value || 0), 0);
   const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
 
-  // Dados do gráfico de performance (últimos 7 dias ou semanas)
-  const performanceData = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' });
+  // Dados do gráfico de performance - ADAPTATIVO por período
+  const generatePerformanceData = () => {
+    const now = new Date();
 
-    const dayLeads = filteredLeads.filter((lead) => {
-      const leadDate = new Date(lead.created_at);
-      return leadDate.toDateString() === date.toDateString();
-    });
+    switch (selectedPeriod) {
+      case 'today': {
+        // HOJE: Mostrar 24 horas (0h-23h)
+        return Array.from({ length: 24 }, (_, i) => {
+          const hourLeads = filteredLeads.filter((lead) => {
+            const leadDate = new Date(lead.created_at);
+            return leadDate.getHours() === i;
+          });
 
-    return {
-      name: dayName,
-      leads: dayLeads.length,
-      fechados: dayLeads.filter((l) => l.status === 'Fechado').length,
-    };
-  });
+          return {
+            name: `${i}h`,
+            leads: hourLeads.length,
+            fechados: hourLeads.filter((l) => l.status === 'Fechado').length,
+          };
+        });
+      }
+
+      case 'week': {
+        // SEMANA: Mostrar 7 dias
+        return Array.from({ length: 7 }, (_, i) => {
+          const date = new Date(now);
+          date.setDate(date.getDate() - (6 - i));
+          const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' });
+
+          const dayLeads = filteredLeads.filter((lead) => {
+            const leadDate = new Date(lead.created_at);
+            return leadDate.toDateString() === date.toDateString();
+          });
+
+          return {
+            name: dayName,
+            leads: dayLeads.length,
+            fechados: dayLeads.filter((l) => l.status === 'Fechado').length,
+          };
+        });
+      }
+
+      case 'month': {
+        // MÊS: Mostrar semanas (4-5 semanas)
+        const startOfMonthDate = startOfMonth(now);
+        const weeks: { name: string; leads: number; fechados: number }[] = [];
+        let weekNum = 1;
+
+        for (let d = new Date(startOfMonthDate); d <= now; ) {
+          const weekStart = new Date(d);
+          const weekEnd = new Date(d);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+
+          const weekLeads = filteredLeads.filter((lead) => {
+            const leadDate = new Date(lead.created_at);
+            return leadDate >= weekStart && leadDate <= weekEnd;
+          });
+
+          weeks.push({
+            name: `Sem ${weekNum}`,
+            leads: weekLeads.length,
+            fechados: weekLeads.filter((l) => l.status === 'Fechado').length,
+          });
+
+          d.setDate(d.getDate() + 7);
+          weekNum++;
+        }
+
+        return weeks.length > 0 ? weeks : [{ name: 'Sem 1', leads: 0, fechados: 0 }];
+      }
+
+      case 'year': {
+        // ANO: Mostrar 12 meses
+        return Array.from({ length: 12 }, (_, i) => {
+          const monthDate = new Date(now.getFullYear(), i, 1);
+          const monthName = monthDate.toLocaleDateString('pt-BR', { month: 'short' });
+
+          const monthLeads = filteredLeads.filter((lead) => {
+            const leadDate = new Date(lead.created_at);
+            return leadDate.getMonth() === i && leadDate.getFullYear() === now.getFullYear();
+          });
+
+          return {
+            name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+            leads: monthLeads.length,
+            fechados: monthLeads.filter((l) => l.status === 'Fechado').length,
+          };
+        });
+      }
+
+      case 'custom': {
+        // PERSONALIZADO: Baseado no intervalo selecionado
+        if (!dateRange?.from || !dateRange?.to) {
+          return [{ name: 'Selecione um período', leads: 0, fechados: 0 }];
+        }
+
+        const diffTime = Math.abs(dateRange.to.getTime() - dateRange.from.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Se intervalo <= 7 dias, mostrar por dia
+        if (diffDays <= 7) {
+          return Array.from({ length: diffDays + 1 }, (_, i) => {
+            const date = new Date(dateRange.from!);
+            date.setDate(date.getDate() + i);
+            const dayName = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+            const dayLeads = filteredLeads.filter((lead) => {
+              const leadDate = new Date(lead.created_at);
+              return leadDate.toDateString() === date.toDateString();
+            });
+
+            return {
+              name: dayName,
+              leads: dayLeads.length,
+              fechados: dayLeads.filter((l) => l.status === 'Fechado').length,
+            };
+          });
+        }
+
+        // Se intervalo > 7 dias, mostrar por semana
+        const weeks: { name: string; leads: number; fechados: number }[] = [];
+        let weekNum = 1;
+
+        for (let d = new Date(dateRange.from); d <= dateRange.to; ) {
+          const weekStart = new Date(d);
+          const weekEnd = new Date(d);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          if (weekEnd > dateRange.to) weekEnd.setTime(dateRange.to.getTime());
+
+          const weekLeads = filteredLeads.filter((lead) => {
+            const leadDate = new Date(lead.created_at);
+            return leadDate >= weekStart && leadDate <= weekEnd;
+          });
+
+          weeks.push({
+            name: `Sem ${weekNum}`,
+            leads: weekLeads.length,
+            fechados: weekLeads.filter((l) => l.status === 'Fechado').length,
+          });
+
+          d.setDate(d.getDate() + 7);
+          weekNum++;
+        }
+
+        return weeks;
+      }
+
+      default:
+        return [];
+    }
+  };
+
+  const performanceData = generatePerformanceData();
 
   // Dados do donut de conversão
   const conversionData = [
@@ -184,47 +323,64 @@ export default function DashboardPage() {
       {/* Header com Filtros */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-3xl font-bold text-foreground">Overview</h1>
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => handlePeriodChange('today')}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              selectedPeriod === 'today'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            Hoje
-          </button>
-          <button
-            onClick={() => handlePeriodChange('week')}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              selectedPeriod === 'week'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            Semana
-          </button>
-          <button
-            onClick={() => handlePeriodChange('month')}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              selectedPeriod === 'month'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            Mês
-          </button>
-          <button
-            onClick={() => handlePeriodChange('year')}
-            className={`px-4 py-2 text-sm rounded-md transition-colors ${
-              selectedPeriod === 'year'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            Ano
-          </button>
+        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => handlePeriodChange('today')}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                selectedPeriod === 'today'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              Hoje
+            </button>
+            <button
+              onClick={() => handlePeriodChange('week')}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                selectedPeriod === 'week'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              Semana
+            </button>
+            <button
+              onClick={() => handlePeriodChange('month')}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                selectedPeriod === 'month'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              Mês
+            </button>
+            <button
+              onClick={() => handlePeriodChange('year')}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                selectedPeriod === 'year'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              Ano
+            </button>
+            <button
+              onClick={() => handlePeriodChange('custom')}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                selectedPeriod === 'custom'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
+              }`}
+            >
+              Personalizado
+            </button>
+          </div>
+          {showDatePicker && (
+            <div className="w-full sm:w-auto">
+              <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+            </div>
+          )}
         </div>
       </div>
 

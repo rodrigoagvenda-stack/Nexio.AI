@@ -29,7 +29,7 @@ export function DateRangePicker({ date, onDateChange }: DateRangePickerProps) {
             variant="outline"
             size="sm"
             className={cn(
-              'w-full sm:w-[280px] justify-start text-left font-normal',
+              'w-full sm:w-[280px] justify-start text-left font-normal rounded-lg border-border hover:bg-accent',
               !date && 'text-muted-foreground'
             )}
           >
@@ -45,21 +45,20 @@ export function DateRangePicker({ date, onDateChange }: DateRangePickerProps) {
                   format(date.from, 'dd/MM/yyyy', { locale: ptBR })
                 )
               ) : (
-                'Período'
+                'Selecionar período'
               )}
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 border-border" align="start">
           <Calendar
             initialFocus
             mode="range"
             defaultMonth={date?.from}
             selected={date}
             onSelect={onDateChange}
-            numberOfMonths={1}
+            numberOfMonths={2}
             locale={ptBR}
-            className="sm:block"
           />
         </PopoverContent>
       </Popover>
