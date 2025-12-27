@@ -1075,12 +1075,12 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto px-[15px] sm:px-6">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto !p-0 py-6 mx-[15px] sm:mx-auto">
+          <DialogHeader className="px-[15px] sm:px-6">
             <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="basico" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 mx-[15px] sm:mx-6">
               <TabsTrigger value="basico">
                 <span className="sm:hidden">1</span>
                 <span className="hidden sm:inline">1. Informações Básicas</span>
@@ -1095,7 +1095,7 @@ export default function CRMPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="basico" className="space-y-4 mt-4">
+            <TabsContent value="basico" className="space-y-4 mt-4 px-[15px] sm:px-6">
               <div>
                 <Label htmlFor="company_name">Nome da Empresa *</Label>
                 <Input
@@ -1125,7 +1125,7 @@ export default function CRMPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="contato" className="space-y-4 mt-4">
+            <TabsContent value="contato" className="space-y-4 mt-4 px-[15px] sm:px-6">
               <div>
                 <Label htmlFor="contact_name">Nome do Contato</Label>
                 <Input
@@ -1156,8 +1156,8 @@ export default function CRMPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="detalhes" className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+            <TabsContent value="detalhes" className="space-y-4 mt-4 px-[15px] sm:px-6">
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="priority">Prioridade *</Label>
                   <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
@@ -1209,7 +1209,7 @@ export default function CRMPage() {
             </TabsContent>
           </Tabs>
 
-          <DialogFooter className="gap-5">
+          <DialogFooter className="gap-5 px-[15px] sm:px-6">
             <Button variant="outline" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
