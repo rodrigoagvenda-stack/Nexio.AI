@@ -53,16 +53,16 @@ export default async function AdminDashboardPage() {
     <div className="space-y-8">
       {/* Hero Header */}
       <div className="border-b pb-6 mb-6">
-        <h1 className="text-3xl font-bold text-foreground mb-2">
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
           Painel Administrativo
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground">
           Gerencie empresas, usuários e configurações do sistema
         </p>
       </div>
 
       {/* Métricas Principais */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-semibold">Empresas Ativas</CardTitle>

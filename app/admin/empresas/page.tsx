@@ -58,13 +58,13 @@ export default function EmpresasListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">🏢 Empresas</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">🏢 Empresas</h1>
           <p className="text-muted-foreground mt-1">Gerencie as empresas cadastradas</p>
         </div>
         <Link href="/admin/empresas/nova">
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Nova Empresa
           </Button>
@@ -73,13 +73,13 @@ export default function EmpresasListPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle>Empresas ({companies.length})</CardTitle>
             <Input
               placeholder="Buscar por nome ou email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="max-w-sm"
+              className="w-full sm:max-w-sm"
             />
           </div>
         </CardHeader>
@@ -89,61 +89,61 @@ export default function EmpresasListPage() {
               <p className="text-muted-foreground">Nenhuma empresa encontrada</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-3 md:mx-0">
+              <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-3">Empresa</th>
-                    <th className="text-left p-3">Email</th>
-                    <th className="text-left p-3">Plano</th>
-                    <th className="text-left p-3">VendAgro</th>
-                    <th className="text-left p-3">Status</th>
-                    <th className="text-left p-3">Criado</th>
-                    <th className="text-left p-3">Ações</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Empresa</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Email</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Plano</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">VendAgro</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Status</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Criado</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {companies.map((company) => (
                     <tr key={company.id} className="border-b hover:bg-accent">
-                      <td className="p-3 font-medium">{company.name}</td>
-                      <td className="p-3 text-sm text-muted-foreground">{company.email}</td>
-                      <td className="p-3">
-                        <Badge variant={getPlanBadge(company.plan_type)}>
+                      <td className="p-2 md:p-3 font-medium text-sm">{company.name}</td>
+                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">{company.email}</td>
+                      <td className="p-2 md:p-3">
+                        <Badge variant={getPlanBadge(company.plan_type)} className="text-xs">
                           {company.plan_type}
                         </Badge>
                       </td>
-                      <td className="p-3">
+                      <td className="p-2 md:p-3">
                         {company.vendagro_plan ? (
-                          <Badge variant="default">
+                          <Badge variant="default" className="text-xs">
                             {company.vendagro_plan}
                           </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </td>
-                      <td className="p-3">
+                      <td className="p-2 md:p-3">
                         {company.is_active ? (
-                          <Badge variant="default" className="bg-green-500">
+                          <Badge variant="default" className="bg-green-500 text-xs">
                             Ativa
                           </Badge>
                         ) : (
-                          <Badge variant="destructive">Inativa</Badge>
+                          <Badge variant="destructive" className="text-xs">Inativa</Badge>
                         )}
                       </td>
-                      <td className="p-3 text-sm text-muted-foreground">
+                      <td className="p-2 md:p-3 text-xs text-muted-foreground">
                         {formatDateTime(company.created_at)}
                       </td>
-                      <td className="p-3">
-                        <div className="flex gap-2">
+                      <td className="p-2 md:p-3">
+                        <div className="flex gap-1">
                           <Link href={`/admin/empresas/${company.id}`}>
                             <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3 w-3 md:h-4 md:w-4" />
                             </Button>
                           </Link>
                           {company.vendagro_plan && (
                             <Link href={`/admin/empresas/${company.id}/icp`}>
                               <Button variant="ghost" size="sm">
-                                <Settings className="h-4 w-4" />
+                                <Settings className="h-3 w-3 md:h-4 md:w-4" />
                               </Button>
                             </Link>
                           )}

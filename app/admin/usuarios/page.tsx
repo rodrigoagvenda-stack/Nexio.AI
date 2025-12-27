@@ -122,14 +122,14 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Usuários</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Usuários</h1>
           <p className="text-muted-foreground mt-1">Gerencie os usuários do sistema</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Adicionar Usuário
             </Button>
@@ -217,10 +217,10 @@ export default function UsuariosPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle>Todos os Usuários ({filteredUsers.length})</CardTitle>
             <Select value={filterCompany} onValueChange={setFilterCompany}>
-              <SelectTrigger className="w-64">
+              <SelectTrigger className="w-full sm:w-64">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -242,43 +242,43 @@ export default function UsuariosPage() {
           ) : filteredUsers.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-3 md:mx-0">
+              <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-3">Nome</th>
-                    <th className="text-left p-3">Email</th>
-                    <th className="text-left p-3">Empresa</th>
-                    <th className="text-left p-3">Cargo</th>
-                    <th className="text-left p-3">Status</th>
-                    <th className="text-left p-3">Último Login</th>
-                    <th className="text-left p-3">Ações</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Nome</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Email</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Empresa</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Cargo</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Status</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Último Login</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.map((user: any) => (
                     <tr key={user.id} className="border-b hover:bg-accent">
-                      <td className="p-3 font-medium">{user.name}</td>
-                      <td className="p-3 text-sm">{user.email}</td>
-                      <td className="p-3 text-sm text-muted-foreground">
+                      <td className="p-2 md:p-3 font-medium text-sm">{user.name}</td>
+                      <td className="p-2 md:p-3 text-xs md:text-sm">{user.email}</td>
+                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">
                         {companies.find(c => c.id === user.company_id)?.name || '-'}
                       </td>
-                      <td className="p-3 text-sm">{user.department || '-'}</td>
-                      <td className="p-3">
+                      <td className="p-2 md:p-3 text-xs md:text-sm">{user.department || '-'}</td>
+                      <td className="p-2 md:p-3">
                         {user.is_active ? (
-                          <Badge className="bg-green-500">Ativo</Badge>
+                          <Badge className="bg-green-500 text-xs">Ativo</Badge>
                         ) : (
-                          <Badge variant="destructive">Inativo</Badge>
+                          <Badge variant="destructive" className="text-xs">Inativo</Badge>
                         )}
                       </td>
-                      <td className="p-3 text-sm text-muted-foreground">
+                      <td className="p-2 md:p-3 text-xs text-muted-foreground">
                         {user.last_login ? formatDateTime(user.last_login) : 'Nunca'}
                       </td>
-                      <td className="p-3">
+                      <td className="p-2 md:p-3">
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="sm">
-                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <Trash2 className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
