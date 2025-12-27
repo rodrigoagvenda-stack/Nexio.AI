@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Users, Target, TrendingUp, DollarSign } from 'lucide-react';
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, isWithinInterval } from 'date-fns';
-import { DateRange } from 'react-day-picker';
+
+interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
+}
 
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { FilterButtons, FilterPeriod } from '@/components/dashboard/FilterButtons';
