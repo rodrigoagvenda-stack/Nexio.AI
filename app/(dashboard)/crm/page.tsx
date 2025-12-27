@@ -1075,15 +1075,24 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto px-[15px] sm:px-6">
           <DialogHeader>
             <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="basico" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basico">1. Informações Básicas</TabsTrigger>
-              <TabsTrigger value="contato">2. Contato</TabsTrigger>
-              <TabsTrigger value="detalhes">3. Detalhes</TabsTrigger>
+              <TabsTrigger value="basico">
+                <span className="sm:hidden">1</span>
+                <span className="hidden sm:inline">1. Informações Básicas</span>
+              </TabsTrigger>
+              <TabsTrigger value="contato">
+                <span className="sm:hidden">2</span>
+                <span className="hidden sm:inline">2. Contato</span>
+              </TabsTrigger>
+              <TabsTrigger value="detalhes">
+                <span className="sm:hidden">3</span>
+                <span className="hidden sm:inline">3. Detalhes</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="basico" className="space-y-4 mt-4">
@@ -1200,7 +1209,7 @@ export default function CRMPage() {
             </TabsContent>
           </Tabs>
 
-          <DialogFooter>
+          <DialogFooter className="gap-5">
             <Button variant="outline" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
