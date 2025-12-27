@@ -33,6 +33,57 @@ export async function POST(
     const supabase = await createClient();
     const body = await request.json();
 
+    // Sanitizar arrays - remover strings vazias e garantir que arrays vazios sejam null
+    const sanitizeArray = (arr: any) => {
+      if (!arr || !Array.isArray(arr)) return null;
+      const filtered = arr.filter((item: any) => item && item.trim && item.trim() !== '');
+      return filtered.length > 0 ? filtered : null;
+    };
+
+    // Sanitizar números
+    const sanitizeNumber = (num: any) => {
+      if (num === null || num === undefined || num === '' || isNaN(num)) return null;
+      return Number(num);
+    };
+
+    // Sanitizar strings
+    const sanitizeString = (str: any) => {
+      if (!str || (typeof str === 'string' && str.trim() === '')) return null;
+      return str;
+    };
+
+    // Limpar e preparar dados
+    const cleanedData = {
+      idade_min: sanitizeNumber(body.idade_min),
+      idade_max: sanitizeNumber(body.idade_max),
+      renda_min: sanitizeNumber(body.renda_min),
+      renda_max: sanitizeNumber(body.renda_max),
+      genero: sanitizeString(body.genero),
+      escolaridade: sanitizeString(body.escolaridade),
+      estados: sanitizeArray(body.estados),
+      regioes: sanitizeArray(body.regioes),
+      nichos: sanitizeArray(body.nichos),
+      tamanho_empresas: sanitizeString(body.tamanho_empresas),
+      tempo_mercado: sanitizeString(body.tempo_mercado),
+      empresa_funcionarios: sanitizeNumber(body.empresa_funcionarios),
+      canais: sanitizeArray(body.canais),
+      preferencia_contato: sanitizeString(body.preferencia_contato),
+      horario: sanitizeString(body.horario),
+      linguagem: sanitizeString(body.linguagem),
+      ciclo_compra: sanitizeString(body.ciclo_compra),
+      comprou_online: body.comprou_online === true,
+      influenciador: body.influenciador === true,
+      budget_min: sanitizeNumber(body.budget_min),
+      budget_max: sanitizeNumber(body.budget_max),
+      dores: sanitizeString(body.dores),
+      objetivos: sanitizeString(body.objetivos),
+      leads_por_dia_max: sanitizeNumber(body.leads_por_dia_max) || 3,
+      usar_ia: body.usar_ia === true,
+      entregar_fins_semana: body.entregar_fins_semana === true,
+      notificar_novos_leads: body.notificar_novos_leads !== false,
+      prioridade: sanitizeString(body.prioridade) || 'Média',
+    };
+
     // Verificar se já existe configuração
     const { data: existing } = await supabase
       .from('icp_configuration')
@@ -46,7 +97,7 @@ export async function POST(
       // Atualizar
       ({ data, error } = await supabase
         .from('icp_configuration')
-        .update({ ...body, updated_at: new Date().toISOString() })
+        .update({ ...cleanedData, updated_at: new Date().toISOString() })
         .eq('company_id', params.companyId)
         .select()
         .single());
@@ -54,7 +105,7 @@ export async function POST(
       // Criar
       ({ data, error } = await supabase
         .from('icp_configuration')
-        .insert([{ ...body, company_id: parseInt(params.companyId) }])
+        .insert([{ ...cleanedData, company_id: parseInt(params.companyId) }])
         .select()
         .single());
     }
