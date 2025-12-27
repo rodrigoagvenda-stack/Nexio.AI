@@ -44,17 +44,36 @@ export async function extractICPLeads(
   icpConfig: any
 ): Promise<N8NResponse> {
   try {
-    // Criar credenciais Basic Auth
-    const username = 'Boladao';
-    const password = 'Bruniboladao';
-    const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
+    // Buscar configuração do webhook do banco de dados
+    const { createClient } = await import('@/lib/supabase/server');
+    const supabase = await createClient();
 
-    const response = await fetch(N8N_WEBHOOK_ICP, {
+    const { data: webhookConfig, error: configError } = await supabase
+      .from('n8n_webhook_config')
+      .select('*')
+      .eq('webhook_type', 'icp')
+      .eq('is_active', true)
+      .single();
+
+    if (configError || !webhookConfig) {
+      throw new Error('Webhook ICP não configurado. Configure em Admin > N8N.');
+    }
+
+    // Criar credenciais Basic Auth se configurado
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (webhookConfig.auth_type === 'basic' && webhookConfig.auth_username && webhookConfig.auth_password) {
+      const basicAuth = Buffer.from(
+        `${webhookConfig.auth_username}:${webhookConfig.auth_password}`
+      ).toString('base64');
+      headers['Authorization'] = `Basic ${basicAuth}`;
+    }
+
+    const response = await fetch(webhookConfig.webhook_url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${basicAuth}`,
-      },
+      headers,
       body: JSON.stringify({
         company_id: companyId,
         icp: {
