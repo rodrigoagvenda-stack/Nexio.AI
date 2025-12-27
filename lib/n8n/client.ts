@@ -123,16 +123,32 @@ export async function extractICPLeads(
 
     console.log('[ICP] Response status:', response.status);
     console.log('[ICP] Response OK:', response.ok);
+    console.log('[ICP] Response headers:', Object.fromEntries(response.headers.entries()));
+
+    // Pegar o texto da resposta PRIMEIRO para debug
+    const responseText = await response.text();
+    console.log('[ICP] Response text (primeiros 500 chars):', responseText.substring(0, 500));
+    console.log('[ICP] Response text length:', responseText.length);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.log('[ICP] Error text:', errorText);
-      throw new Error(`N8N request failed: ${response.statusText} - ${errorText}`);
+      throw new Error(`N8N request failed: ${response.statusText} - ${responseText}`);
     }
 
-    const result = await response.json();
-    console.log('[ICP] Resultado:', result);
-    return result;
+    // Tentar parsear como JSON
+    if (!responseText || responseText.trim() === '') {
+      console.warn('[ICP] n8n retornou resposta vazia! Considerando sucesso.');
+      return { success: true, message: 'Webhook executado (resposta vazia)', data: {} };
+    }
+
+    try {
+      const result = JSON.parse(responseText);
+      console.log('[ICP] Resultado parseado:', result);
+      return result;
+    } catch (parseError) {
+      console.error('[ICP] ERRO ao parsear JSON:', parseError);
+      console.error('[ICP] Texto completo da resposta:', responseText);
+      throw new Error(`n8n retornou resposta inválida (não é JSON): ${responseText.substring(0, 200)}`);
+    }
   } catch (error) {
     console.error('[ICP] ERRO na extração:', error);
     throw error;
