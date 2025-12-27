@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Target, Loader2, TrendingUp, Trash2, Edit, FileText } from 'lucide-react';
+import { Target, Loader2, Trash2, Edit, Download, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +15,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ICPLead {
   id: number;
@@ -69,11 +68,6 @@ export default function LeadProPage() {
   const [extracting, setExtracting] = useState(false);
   const [icpLeads, setICPLeads] = useState<ICPLead[]>([]);
   const [icpConfig, setICPConfig] = useState<ICPConfig | null>(null);
-  const [stats, setStats] = useState({
-    extracted: 0,
-    limit: 0,
-    remaining: 0,
-  });
   const [editingLead, setEditingLead] = useState<ICPLead | null>(null);
   const [deletingLead, setDeletingLead] = useState<ICPLead | null>(null);
 
@@ -106,13 +100,6 @@ export default function LeadProPage() {
         .order('created_at', { ascending: false });
 
       setICPLeads(leads || []);
-
-      // Calcular estatísticas
-      const extracted = company?.leads_extracted_this_month || 0;
-      const limit = company?.plan_monthly_limit || 0;
-      const remaining = Math.max(0, limit - extracted);
-
-      setStats({ extracted, limit, remaining });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Erro ao carregar dados');
@@ -122,6 +109,11 @@ export default function LeadProPage() {
   }
 
   async function handleExtract() {
+    if (!icpConfig) {
+      toast.error('ICP não configurado. Entre em contato com o admin.');
+      return;
+    }
+
     setExtracting(true);
     try {
       const response = await fetch('/api/extraction/icp', {
@@ -134,7 +126,7 @@ export default function LeadProPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success(`${data.extractedCount} leads extraídos com sucesso!`);
+      toast.success(`${data.extractedCount || 0} leads extraídos com sucesso!`);
       await fetchData();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao extrair leads');
@@ -216,123 +208,150 @@ export default function LeadProPage() {
     );
   }
 
-  const progressPercent = stats.limit > 0 ? (stats.extracted / stats.limit) * 100 : 0;
-
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">Lead PRO - VendAgro</h1>
         <p className="text-muted-foreground mt-1">
-          Leads qualificados baseados no seu ICP
+          Extração automática de leads baseada no seu Perfil de Cliente Ideal (ICP)
         </p>
       </div>
 
-      {/* ICP Configuration (Read-Only) - TODAS as configurações */}
-      {icpConfig && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Target className="h-4 w-4 md:h-5 md:w-5" />
-              Configuração do ICP
+      {/* ICP Configuration - DESTACADO NO TOPO */}
+      {!icpConfig ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>ICP não configurado</AlertTitle>
+          <AlertDescription>
+            O admin ainda não configurou o Perfil de Cliente Ideal (ICP) para sua empresa.
+            Entre em contato com o administrador para ativar a extração de leads.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="bg-primary/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Target className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Perfil de Cliente Ideal (ICP)</CardTitle>
+                  <CardDescription>Configuração definida pelo administrador</CardDescription>
+                </div>
+              </div>
               <Badge variant="secondary" className="text-xs">
-                Definido pelo Admin
+                Read-Only
               </Badge>
-            </CardTitle>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-6">
               {/* Demográfico */}
               <div>
-                <h3 className="text-sm font-semibold text-primary mb-3">Perfil Demográfico</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-primary rounded-full"></div>
+                  Perfil Demográfico
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pl-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Idade</p>
-                    <p className="text-sm">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Faixa Etária</p>
+                    <p className="text-sm font-medium">
                       {icpConfig.idade_min && icpConfig.idade_max
                         ? `${icpConfig.idade_min} - ${icpConfig.idade_max} anos`
                         : 'Não definido'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Gênero</p>
-                    <p className="text-sm">{icpConfig.genero || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Gênero</p>
+                    <p className="text-sm font-medium">{icpConfig.genero || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Escolaridade</p>
-                    <p className="text-sm">{icpConfig.escolaridade || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Escolaridade</p>
+                    <p className="text-sm font-medium">{icpConfig.escolaridade || 'Não definido'}</p>
                   </div>
-                  <div className="sm:col-span-2 md:col-span-3">
-                    <p className="text-xs font-medium text-muted-foreground">Nichos</p>
-                    <p className="text-sm">{icpConfig.nichos?.join(', ') || 'Não definido'}</p>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Nichos</p>
+                    <p className="text-sm font-medium">{icpConfig.nichos?.join(', ') || 'Não definido'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Empresa */}
               <div>
-                <h3 className="text-sm font-semibold text-primary mb-3">Perfil da Empresa</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-primary rounded-full"></div>
+                  Perfil da Empresa
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Tamanho</p>
-                    <p className="text-sm">{icpConfig.tamanho_empresa || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Tamanho</p>
+                    <p className="text-sm font-medium">{icpConfig.tamanho_empresa || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Tempo de Mercado</p>
-                    <p className="text-sm">{icpConfig.tempo_mercado || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Tempo de Mercado</p>
+                    <p className="text-sm font-medium">{icpConfig.tempo_mercado || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Nº Funcionários</p>
-                    <p className="text-sm">{icpConfig.empresa_funcionarios || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Nº Funcionários</p>
+                    <p className="text-sm font-medium">{icpConfig.empresa_funcionarios || 'Não definido'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Comunicação */}
               <div>
-                <h3 className="text-sm font-semibold text-primary mb-3">Preferências de Comunicação</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-primary rounded-full"></div>
+                  Preferências de Comunicação
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pl-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Canais</p>
-                    <p className="text-sm">{icpConfig.canais?.join(', ') || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Canais</p>
+                    <p className="text-sm font-medium">{icpConfig.canais?.join(', ') || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Preferência</p>
-                    <p className="text-sm">{icpConfig.preferencia_contato || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Preferência</p>
+                    <p className="text-sm font-medium">{icpConfig.preferencia_contato || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Horário</p>
-                    <p className="text-sm">{icpConfig.horario || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Horário</p>
+                    <p className="text-sm font-medium">{icpConfig.horario || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Linguagem</p>
-                    <p className="text-sm">{icpConfig.linguagem || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Tom de Voz</p>
+                    <p className="text-sm font-medium">{icpConfig.linguagem || 'Não definido'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Comportamento */}
               <div>
-                <h3 className="text-sm font-semibold text-primary mb-3">Perfil Comportamental</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-primary rounded-full"></div>
+                  Perfil Comportamental
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pl-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Ciclo de Compra</p>
-                    <p className="text-sm">{icpConfig.ciclo_compra || 'Não definido'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Ciclo de Compra</p>
+                    <p className="text-sm font-medium">{icpConfig.ciclo_compra || 'Não definido'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Budget</p>
-                    <p className="text-sm">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Budget</p>
+                    <p className="text-sm font-medium">
                       {icpConfig.budget_min && icpConfig.budget_max
                         ? `R$ ${icpConfig.budget_min.toLocaleString()} - R$ ${icpConfig.budget_max.toLocaleString()}`
                         : 'Não definido'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Experiência Online</p>
-                    <p className="text-sm">{icpConfig.comprou_online ? 'Sim' : 'Não'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Compra Online</p>
+                    <p className="text-sm font-medium">{icpConfig.comprou_online ? 'Sim' : 'Não'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Influenciado por Redes</p>
-                    <p className="text-sm">{icpConfig.influenciador ? 'Sim' : 'Não'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Influenciável</p>
+                    <p className="text-sm font-medium">{icpConfig.influenciador ? 'Sim' : 'Não'}</p>
                   </div>
                 </div>
               </div>
@@ -340,17 +359,20 @@ export default function LeadProPage() {
               {/* Dores e Objetivos */}
               {(icpConfig.dores || icpConfig.objetivos) && (
                 <div>
-                  <h3 className="text-sm font-semibold text-primary mb-3">Dores e Objetivos</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                  <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    Dores e Objetivos
+                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pl-3">
                     {icpConfig.dores && (
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground">Dores</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Dores</p>
                         <p className="text-sm">{icpConfig.dores}</p>
                       </div>
                     )}
                     {icpConfig.objetivos && (
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground">Objetivos</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Objetivos</p>
                         <p className="text-sm">{icpConfig.objetivos}</p>
                       </div>
                     )}
@@ -360,23 +382,30 @@ export default function LeadProPage() {
 
               {/* Configurações de Extração */}
               <div>
-                <h3 className="text-sm font-semibold text-primary mb-3">Configurações de Extração</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                <h3 className="text-sm font-semibold text-primary mb-3 flex items-center gap-2">
+                  <div className="w-1 h-4 bg-primary rounded-full"></div>
+                  Configurações de Extração
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pl-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Leads/Dia (Máx)</p>
-                    <p className="text-sm">{icpConfig.leads_por_dia_max || 3}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Leads/Dia</p>
+                    <p className="text-sm font-medium">{icpConfig.leads_por_dia_max || 3}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Usar IA</p>
-                    <p className="text-sm">{icpConfig.usar_ia ? 'Sim' : 'Não'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">IA Ativa</p>
+                    <Badge variant={icpConfig.usar_ia ? 'default' : 'secondary'} className="text-xs">
+                      {icpConfig.usar_ia ? 'Sim' : 'Não'}
+                    </Badge>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Fins de Semana</p>
-                    <p className="text-sm">{icpConfig.entregar_fins_semana ? 'Sim' : 'Não'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Fins de Semana</p>
+                    <Badge variant={icpConfig.entregar_fins_semana ? 'default' : 'secondary'} className="text-xs">
+                      {icpConfig.entregar_fins_semana ? 'Sim' : 'Não'}
+                    </Badge>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Prioridade</p>
-                    <p className="text-sm">{icpConfig.prioridade || 'Média'}</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Prioridade</p>
+                    <Badge variant="outline" className="text-xs">{icpConfig.prioridade || 'Média'}</Badge>
                   </div>
                 </div>
               </div>
@@ -385,81 +414,54 @@ export default function LeadProPage() {
         </Card>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Limite Mensal</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.limit}</div>
-            <p className="text-xs text-muted-foreground">leads/mês</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Extraídos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.extracted}</div>
-            <p className="text-xs text-muted-foreground">este mês</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Disponíveis</CardTitle>
-            <Target className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.remaining}</div>
-            <p className="text-xs text-muted-foreground">restantes</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Progress */}
+      {/* Botão de Extração */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base md:text-lg">Progresso Mensal</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Progress value={progressPercent} />
-          <div className="flex justify-between text-sm">
-            <span>{stats.extracted} extraídos</span>
-            <span>{stats.limit} limite</span>
+        <CardContent className="pt-6">
+          <div className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Download className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Extrair Leads ICP</h3>
+            </div>
+            <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+              Clique no botão abaixo para iniciar a extração automática de leads qualificados
+              baseados nas configurações do ICP acima. Os leads serão extraídos do Google Sheets.
+            </p>
+            <Button
+              onClick={handleExtract}
+              disabled={extracting || !icpConfig}
+              size="lg"
+              className="w-full max-w-md"
+            >
+              {extracting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Extraindo Leads...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-5 w-5" />
+                  Extrair Leads ICP
+                </>
+              )}
+            </Button>
           </div>
-          <Button
-            onClick={handleExtract}
-            disabled={extracting || stats.remaining === 0}
-            className="w-full"
-            size="lg"
-          >
-            {extracting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Extraindo...
-              </>
-            ) : stats.remaining === 0 ? (
-              'Limite Mensal Atingido'
-            ) : (
-              'Extrair Leads ICP'
-            )}
-          </Button>
         </CardContent>
       </Card>
 
-      {/* Leads Table - Mobile Responsive como CRM */}
+      {/* Leads Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base md:text-lg">Leads Extraídos ({icpLeads.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Leads Extraídos</CardTitle>
+              <CardDescription>{icpLeads.length} leads no total</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {icpLeads.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-12">
+              <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground text-sm">
                 Nenhum lead extraído ainda. Clique em &quot;Extrair Leads ICP&quot; para começar.
               </p>
