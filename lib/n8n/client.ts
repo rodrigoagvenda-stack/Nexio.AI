@@ -1,3 +1,5 @@
+import { createClient } from '@/lib/supabase/server';
+
 const N8N_WEBHOOK_MAPS = process.env.N8N_WEBHOOK_MAPS!;
 const N8N_WEBHOOK_ICP = process.env.N8N_WEBHOOK_ICP!;
 const N8N_WEBHOOK_WHATSAPP = process.env.N8N_WEBHOOK_WHATSAPP!;
@@ -44,9 +46,11 @@ export async function extractICPLeads(
   icpConfig: any
 ): Promise<N8NResponse> {
   try {
+    console.log('[ICP] Iniciando extração para company_id:', companyId);
+
     // Buscar configuração do webhook do banco de dados
-    const { createClient } = await import('@/lib/supabase/server');
     const supabase = await createClient();
+    console.log('[ICP] Supabase client criado');
 
     const { data: webhookConfig, error: configError } = await supabase
       .from('n8n_webhook_config')
@@ -55,9 +59,15 @@ export async function extractICPLeads(
       .eq('is_active', true)
       .single();
 
+    console.log('[ICP] Webhook config:', webhookConfig);
+    console.log('[ICP] Config error:', configError);
+
     if (configError || !webhookConfig) {
       throw new Error('Webhook ICP não configurado. Configure em Admin > N8N.');
     }
+
+    console.log('[ICP] Webhook URL:', webhookConfig.webhook_url);
+    console.log('[ICP] Auth type:', webhookConfig.auth_type);
 
     // Criar headers
     const headers: Record<string, string> = {
@@ -70,8 +80,10 @@ export async function extractICPLeads(
         `${webhookConfig.auth_username}:${webhookConfig.auth_password}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${basicAuth}`;
+      console.log('[ICP] Basic Auth configurado');
     }
 
+    console.log('[ICP] Enviando requisição para n8n...');
     const response = await fetch(webhookConfig.webhook_url, {
       method: 'POST',
       headers,
@@ -109,14 +121,20 @@ export async function extractICPLeads(
       }),
     });
 
+    console.log('[ICP] Response status:', response.status);
+    console.log('[ICP] Response OK:', response.ok);
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.log('[ICP] Error text:', errorText);
       throw new Error(`N8N request failed: ${response.statusText} - ${errorText}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('[ICP] Resultado:', result);
+    return result;
   } catch (error) {
-    console.error('Error calling n8n ICP extraction:', error);
+    console.error('[ICP] ERRO na extração:', error);
     throw error;
   }
 }
