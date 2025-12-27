@@ -192,7 +192,7 @@ export function CustomCalendar({
   };
 
   return (
-    <div className={`p-4 px-[15px] sm:px-4 ${className || ''}`}>
+    <div className={`p-4 px-[15px] sm:px-4 max-h-[80vh] overflow-y-auto sm:overflow-visible ${className || ''}`}>
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
         {Array.from({ length: numberOfMonths }).map((_, i) => renderMonth(i))}
       </div>
