@@ -26,6 +26,7 @@ function Calendar({
         caption_label: "text-sm font-semibold text-foreground",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
+          buttonVariants({ variant: "outline" }),
           "h-7 w-7 bg-transparent p-0 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-accent"
         ),
         nav_button_previous: "absolute left-1",
@@ -42,6 +43,7 @@ function Calendar({
           "[&:has([aria-selected])]:bg-accent/50"
         ),
         day: cn(
+          buttonVariants({ variant: "ghost" }),
           "h-9 w-9 p-0 font-normal rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors",
           "aria-selected:opacity-100"
         ),
@@ -57,10 +59,6 @@ function Calendar({
           "aria-selected:bg-accent/30 aria-selected:text-accent-foreground rounded-none",
         day_hidden: "invisible",
         ...classNames,
-      }}
-      components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />
