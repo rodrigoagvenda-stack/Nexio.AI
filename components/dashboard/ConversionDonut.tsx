@@ -30,8 +30,8 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
       ease: 'easeOut',
     });
 
-    return controls.stop;
-  }, [mainPercentage]);
+    return () => controls.stop();
+  }, [mainPercentage, count]);
 
   useEffect(() => {
     const unsubscribe = rounded.on('change', (latest) => {
