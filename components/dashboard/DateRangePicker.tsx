@@ -48,7 +48,7 @@ export function DateRangePicker({ date, onDateChange }: DateRangePickerProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0 sm:mr-[50px]" align="start">
         <CustomCalendar
           mode="range"
           selected={date}

@@ -193,7 +193,7 @@ export function CustomCalendar({
 
   return (
     <div className={`p-4 px-[15px] sm:px-4 ${className || ''}`}>
-      <div className="flex gap-8">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
         {Array.from({ length: numberOfMonths }).map((_, i) => renderMonth(i))}
       </div>
     </div>
