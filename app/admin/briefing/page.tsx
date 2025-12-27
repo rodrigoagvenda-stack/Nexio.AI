@@ -71,10 +71,10 @@ export default function BriefingListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <FileText className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <FileText className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             Respostas do Briefing
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -82,7 +82,7 @@ export default function BriefingListPage() {
           </p>
         </div>
         <Link href="/admin/briefing/configuracoes">
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Settings className="mr-2 h-4 w-4" />
             Configurar Webhook
           </Button>
@@ -101,10 +101,11 @@ export default function BriefingListPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2">
-            <Input value={formUrl} readOnly className="font-mono text-sm" />
-            <Button onClick={copyFormUrl} variant="outline">
-              <Copy className="h-4 w-4" />
+          <div className="flex gap-2 flex-col sm:flex-row">
+            <Input value={formUrl} readOnly className="font-mono text-xs sm:text-sm flex-1" />
+            <Button onClick={copyFormUrl} variant="outline" className="sm:w-auto">
+              <Copy className="h-4 w-4 sm:mr-0" />
+              <span className="sm:hidden ml-2">Copiar Link</span>
             </Button>
           </div>
         </CardContent>
@@ -112,13 +113,13 @@ export default function BriefingListPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle>Respostas ({total})</CardTitle>
             <Input
               placeholder="Buscar por nome, email ou empresa..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="max-w-sm"
+              className="w-full sm:max-w-sm"
             />
           </div>
         </CardHeader>
@@ -129,43 +130,43 @@ export default function BriefingListPage() {
               <p className="text-muted-foreground">Nenhuma resposta encontrada</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto -mx-3 md:mx-0">
+              <table className="w-full min-w-[900px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-3">Nome</th>
-                    <th className="text-left p-3">Empresa</th>
-                    <th className="text-left p-3">Email</th>
-                    <th className="text-left p-3">WhatsApp</th>
-                    <th className="text-left p-3">Data</th>
-                    <th className="text-left p-3">Webhook</th>
-                    <th className="text-left p-3">Ações</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Nome</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Empresa</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Email</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">WhatsApp</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Data</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Webhook</th>
+                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedResponses.map((response) => (
                     <tr key={response.id} className="border-b hover:bg-accent">
-                      <td className="p-3 font-medium">{response.nome_responsavel}</td>
-                      <td className="p-3">{response.nome_empresa}</td>
-                      <td className="p-3 text-sm text-muted-foreground">{response.email}</td>
-                      <td className="p-3 text-sm text-muted-foreground">
+                      <td className="p-2 md:p-3 font-medium text-sm">{response.nome_responsavel}</td>
+                      <td className="p-2 md:p-3 text-sm">{response.nome_empresa}</td>
+                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">{response.email}</td>
+                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">
                         {response.country_code} {response.whatsapp}
                       </td>
-                      <td className="p-3 text-sm text-muted-foreground">
+                      <td className="p-2 md:p-3 text-xs text-muted-foreground">
                         {formatDateTime(response.submitted_at)}
                       </td>
-                      <td className="p-3">
+                      <td className="p-2 md:p-3">
                         {response.webhook_sent ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-gray-500" />
+                          <XCircle className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
                         )}
                       </td>
-                      <td className="p-3">
+                      <td className="p-2 md:p-3">
                         <div className="flex gap-2">
                           <Link href={`/admin/briefing/${response.id}`}>
                             <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3 w-3 md:h-4 md:w-4" />
                             </Button>
                           </Link>
                         </div>

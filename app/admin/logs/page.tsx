@@ -44,13 +44,13 @@ export default function LogsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Sistema de Logs</h1>
+      <h1 className="text-2xl md:text-3xl font-bold">Sistema de Logs</h1>
 
       <Card>
         <CardHeader>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <Select value={filter.type} onValueChange={(v) => setFilter({ ...filter, type: v })}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -62,7 +62,7 @@ export default function LogsPage() {
             </Select>
 
             <Select value={filter.severity} onValueChange={(v) => setFilter({ ...filter, severity: v })}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -81,19 +81,19 @@ export default function LogsPage() {
           ) : (
             <div className="space-y-2">
               {logs.map((log) => (
-                <div key={log.id} className="border rounded-lg p-4 hover:bg-accent">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Badge className={getSeverityColor(log.severity)}>
+                <div key={log.id} className="border rounded-lg p-3 md:p-4 hover:bg-accent">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={`${getSeverityColor(log.severity)} text-xs`}>
                         {log.severity}
                       </Badge>
-                      <Badge variant="outline">{log.type}</Badge>
+                      <Badge variant="outline" className="text-xs">{log.type}</Badge>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {formatDateTime(log.created_at)}
                     </span>
                   </div>
-                  <p className="text-sm">{log.message}</p>
+                  <p className="text-xs md:text-sm">{log.message}</p>
                   {log.payload && (
                     <details className="mt-2">
                       <summary className="text-xs text-muted-foreground cursor-pointer">
