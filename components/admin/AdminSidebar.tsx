@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
+  Webhook,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -54,6 +55,11 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       href: '/admin/briefing',
       label: 'Briefing',
       icon: FileText,
+    },
+    {
+      href: '/admin/n8n',
+      label: 'N8N',
+      icon: Webhook,
     },
     {
       href: '/admin/logs',
