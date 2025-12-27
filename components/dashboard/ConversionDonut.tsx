@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface ConversionData {
   name: string;
@@ -19,27 +18,6 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
   // Calculate total percentage (should be close to 100)
   const totalValue = data.reduce((sum, item) => sum + item.value, 0);
   const mainPercentage = data[0] ? Math.round((data[0].value / totalValue) * 100) : 0;
-
-  const count = useMotionValue(0);
-  const rounded = useTransform(count, (latest) => Math.round(latest));
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    const controls = animate(count, mainPercentage, {
-      duration: 1.5,
-      ease: 'easeOut',
-    });
-
-    return () => controls.stop();
-  }, [mainPercentage, count]);
-
-  useEffect(() => {
-    const unsubscribe = rounded.on('change', (latest) => {
-      setDisplayValue(latest);
-    });
-
-    return () => unsubscribe();
-  }, [rounded]);
 
   return (
     <motion.div
@@ -82,12 +60,17 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
               </PieChart>
             </ResponsiveContainer>
             {/* Center percentage text */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <motion.div
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
+            >
               <div className="text-center">
-                <div className="text-5xl font-bold text-foreground">{displayValue}%</div>
+                <div className="text-5xl font-bold text-foreground">{mainPercentage}%</div>
                 <div className="text-sm text-muted-foreground mt-1">Taxa geral</div>
               </div>
-            </div>
+            </motion.div>
           </div>
           {/* Legend below chart */}
           <div className="mt-6 flex justify-center gap-6">
