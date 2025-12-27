@@ -62,7 +62,7 @@ export async function extractICPLeads(
           estados: icpConfig.estados,
           regioes: icpConfig.regioes,
           nichos: icpConfig.nichos,
-          tamanho_empresa: icpConfig.tamanho_empresa,
+          tamanho_empresas: icpConfig.tamanho_empresas,
           tempo_mercado: icpConfig.tempo_mercado,
           empresa_funcionarios: icpConfig.empresa_funcionarios,
           canais: icpConfig.canais,

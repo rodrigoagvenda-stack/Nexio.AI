@@ -41,9 +41,9 @@ interface ICPConfig {
   estados?: string[];
   regioes?: string[];
   nichos?: string[];
-  tamanho_empresa?: string;
+  tamanho_empresas?: string;
   tempo_mercado?: string;
-  empresa_funcionarios?: string;
+  empresa_funcionarios?: number;
   canais?: string[];
   preferencia_contato?: string;
   horario?: string;
@@ -287,7 +287,7 @@ export default function LeadProPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pl-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Tamanho</p>
-                    <p className="text-sm font-medium">{icpConfig.tamanho_empresa || 'Não definido'}</p>
+                    <p className="text-sm font-medium">{icpConfig.tamanho_empresas || 'Não definido'}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Tempo de Mercado</p>

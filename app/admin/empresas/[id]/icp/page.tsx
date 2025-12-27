@@ -23,9 +23,9 @@ export default function ICPConfigPage() {
     genero: '',
     escolaridade: '',
     nichos: ['Agricultura', 'Pecuária'],
-    tamanho_empresa: '',
+    tamanho_empresas: '',
     tempo_mercado: '',
-    empresa_funcionarios: '',
+    empresa_funcionarios: 0,
     canais: ['WhatsApp', 'Email'],
     preferencia_contato: '',
     horario: '',
@@ -187,9 +187,9 @@ export default function ICPConfigPage() {
                 <div className="space-y-2">
                   <Label>Tamanho da Empresa</Label>
                   <Input
-                    value={config.tamanho_empresa || ''}
+                    value={config.tamanho_empresas || ''}
                     onChange={(e) =>
-                      setConfig({ ...config, tamanho_empresa: e.target.value })
+                      setConfig({ ...config, tamanho_empresas: e.target.value })
                     }
                     placeholder="Ex: Pequena, Média, Grande"
                   />
@@ -206,11 +206,12 @@ export default function ICPConfigPage() {
               <div className="space-y-2">
                 <Label>Número de Funcionários</Label>
                 <Input
-                  value={config.empresa_funcionarios || ''}
+                  type="number"
+                  value={config.empresa_funcionarios || 0}
                   onChange={(e) =>
-                    setConfig({ ...config, empresa_funcionarios: e.target.value })
+                    setConfig({ ...config, empresa_funcionarios: parseInt(e.target.value) || 0 })
                   }
-                  placeholder="Ex: 10-50, 50-200"
+                  placeholder="Ex: 50, 100, 500"
                 />
               </div>
               <div className="space-y-2">
