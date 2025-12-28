@@ -117,7 +117,8 @@ export function Sidebar({
           {!isCollapsed && (
             <h1 className="text-2xl">
               <span className="font-normal">vend</span>
-              <span className="font-bold">.AI</span>
+              <span className="text-primary font-bold">.</span>
+              <span className="font-bold">AI</span>
             </h1>
           )}
         </div>
