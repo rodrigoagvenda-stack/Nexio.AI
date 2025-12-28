@@ -43,10 +43,11 @@ export async function extractLeadsFromMaps(
 
 export async function extractICPLeads(
   companyId: number,
+  icpId: number,
   icpConfig: any
 ): Promise<N8NResponse> {
   try {
-    console.log('[ICP] Iniciando extração para company_id:', companyId);
+    console.log('[ICP] Iniciando extração para company_id:', companyId, 'icp_id:', icpId);
 
     // Buscar configuração do webhook do banco de dados
     const supabase = await createClient();
@@ -89,6 +90,7 @@ export async function extractICPLeads(
       headers,
       body: JSON.stringify({
         company_id: companyId,
+        icp_id: icpId,
         icp: {
           idade_min: icpConfig.idade_min,
           idade_max: icpConfig.idade_max,

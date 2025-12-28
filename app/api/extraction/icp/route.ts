@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Chamar n8n para extrair leads ICP com TODAS as configurações
-    const result = await extractICPLeads(companyId, icpConfig);
+    // Chamar n8n para extrair leads ICP com TODAS as configurações + icp_id
+    const result = await extractICPLeads(companyId, icpConfig.id, icpConfig);
 
     return NextResponse.json({
       success: true,
