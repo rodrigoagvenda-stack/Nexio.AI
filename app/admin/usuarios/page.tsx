@@ -242,70 +242,145 @@ export default function UsuariosPage() {
           ) : filteredUsers.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">Nenhum usuário encontrado</p>
           ) : (
-            <div className="overflow-x-auto -mx-3 md:mx-0">
-              <table className="w-full min-w-[800px]">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Nome</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Email</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Empresa</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Cargo</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Status</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Último Login</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((user: any) => (
-                    <tr key={user.id} className="border-b hover:bg-accent">
-                      <td className="p-2 md:p-3 font-medium text-sm">{user.name}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm">{user.email}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">
-                        {companies.find(c => c.id === user.company_id)?.name || '-'}
-                      </td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm">{user.department || '-'}</td>
-                      <td className="p-2 md:p-3">
-                        {user.is_active ? (
-                          <Badge className="bg-green-500 text-xs">Ativo</Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">Inativo</Badge>
-                        )}
-                      </td>
-                      <td className="p-2 md:p-3 text-xs text-muted-foreground">
-                        {user.last_login ? formatDateTime(user.last_login) : 'Nunca'}
-                      </td>
-                      <td className="p-2 md:p-3">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Deletar Usuário</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja deletar o usuário <strong>{user.name}</strong>?
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteUser(user.id, user.name)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Deletar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </td>
+            <>
+              {/* Cards para Mobile */}
+              <div className="md:hidden space-y-4">
+                {filteredUsers.map((user: any) => (
+                  <Card key={user.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-base">{user.name}</h3>
+                            <p className="text-xs text-muted-foreground mt-1">{user.email}</p>
+                          </div>
+                          {user.is_active ? (
+                            <Badge className="bg-green-500 text-xs">Ativo</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Inativo</Badge>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Empresa</p>
+                            <p className="text-xs mt-1 font-medium">
+                              {companies.find(c => c.id === user.company_id)?.name || '-'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Cargo</p>
+                            <p className="text-xs mt-1 font-medium">{user.department || '-'}</p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Último Login</p>
+                          <p className="text-xs mt-1">
+                            {user.last_login ? formatDateTime(user.last_login) : 'Nunca'}
+                          </p>
+                        </div>
+
+                        <div className="pt-2 border-t">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full text-red-500 border-red-500">
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Deletar Usuário
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Deletar Usuário</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja deletar o usuário <strong>{user.name}</strong>?
+                                  Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteUser(user.id, user.name)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Deletar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Tabela para Desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 text-sm">Nome</th>
+                      <th className="text-left p-3 text-sm">Email</th>
+                      <th className="text-left p-3 text-sm">Empresa</th>
+                      <th className="text-left p-3 text-sm">Cargo</th>
+                      <th className="text-left p-3 text-sm">Status</th>
+                      <th className="text-left p-3 text-sm">Último Login</th>
+                      <th className="text-left p-3 text-sm">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((user: any) => (
+                      <tr key={user.id} className="border-b hover:bg-accent">
+                        <td className="p-3 font-medium text-sm">{user.name}</td>
+                        <td className="p-3 text-sm">{user.email}</td>
+                        <td className="p-3 text-sm text-muted-foreground">
+                          {companies.find(c => c.id === user.company_id)?.name || '-'}
+                        </td>
+                        <td className="p-3 text-sm">{user.department || '-'}</td>
+                        <td className="p-3">
+                          {user.is_active ? (
+                            <Badge className="bg-green-500 text-xs">Ativo</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Inativo</Badge>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {user.last_login ? formatDateTime(user.last_login) : 'Nunca'}
+                        </td>
+                        <td className="p-3">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Deletar Usuário</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja deletar o usuário <strong>{user.name}</strong>?
+                                  Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteUser(user.id, user.name)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Deletar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

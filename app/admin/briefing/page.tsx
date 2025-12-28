@@ -130,52 +130,102 @@ export default function BriefingListPage() {
               <p className="text-muted-foreground">Nenhuma resposta encontrada</p>
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-3 md:mx-0">
-              <table className="w-full min-w-[900px]">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Nome</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Empresa</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Email</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">WhatsApp</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Data</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Webhook</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedResponses.map((response) => (
-                    <tr key={response.id} className="border-b hover:bg-accent">
-                      <td className="p-2 md:p-3 font-medium text-sm">{response.nome_responsavel}</td>
-                      <td className="p-2 md:p-3 text-sm">{response.nome_empresa}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">{response.email}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">
-                        {response.country_code} {response.whatsapp}
-                      </td>
-                      <td className="p-2 md:p-3 text-xs text-muted-foreground">
-                        {formatDateTime(response.submitted_at)}
-                      </td>
-                      <td className="p-2 md:p-3">
-                        {response.webhook_sent ? (
-                          <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
-                        ) : (
-                          <XCircle className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                        )}
-                      </td>
-                      <td className="p-2 md:p-3">
-                        <div className="flex gap-2">
-                          <Link href={`/admin/briefing/${response.id}`}>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-3 w-3 md:h-4 md:w-4" />
+            <>
+              {/* Cards para Mobile */}
+              <div className="md:hidden space-y-4">
+                {paginatedResponses.map((response) => (
+                  <Card key={response.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-base">{response.nome_responsavel}</h3>
+                            <p className="text-xs text-muted-foreground mt-1">{response.nome_empresa}</p>
+                          </div>
+                          {response.webhook_sent ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-gray-500" />
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Email</p>
+                            <p className="text-xs mt-1">{response.email}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">WhatsApp</p>
+                            <p className="text-xs mt-1">{response.country_code} {response.whatsapp}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Data de Envio</p>
+                            <p className="text-xs mt-1">{formatDateTime(response.submitted_at)}</p>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t">
+                          <Link href={`/admin/briefing/${response.id}`} className="block">
+                            <Button variant="outline" size="sm" className="w-full">
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver Detalhes
                             </Button>
                           </Link>
                         </div>
-                      </td>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Tabela para Desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 text-sm">Nome</th>
+                      <th className="text-left p-3 text-sm">Empresa</th>
+                      <th className="text-left p-3 text-sm">Email</th>
+                      <th className="text-left p-3 text-sm">WhatsApp</th>
+                      <th className="text-left p-3 text-sm">Data</th>
+                      <th className="text-left p-3 text-sm">Webhook</th>
+                      <th className="text-left p-3 text-sm">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paginatedResponses.map((response) => (
+                      <tr key={response.id} className="border-b hover:bg-accent">
+                        <td className="p-3 font-medium text-sm">{response.nome_responsavel}</td>
+                        <td className="p-3 text-sm">{response.nome_empresa}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{response.email}</td>
+                        <td className="p-3 text-sm text-muted-foreground">
+                          {response.country_code} {response.whatsapp}
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {formatDateTime(response.submitted_at)}
+                        </td>
+                        <td className="p-3">
+                          {response.webhook_sent ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-gray-500" />
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-2">
+                            <Link href={`/admin/briefing/${response.id}`}>
+                              <Button variant="ghost" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
         {responses.length > 0 && (

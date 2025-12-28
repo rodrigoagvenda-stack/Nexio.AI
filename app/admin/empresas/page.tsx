@@ -60,7 +60,7 @@ export default function EmpresasListPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">🏢 Empresas</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Empresas</h1>
           <p className="text-muted-foreground mt-1">Gerencie as empresas cadastradas</p>
         </div>
         <Link href="/admin/empresas/nova">
@@ -89,71 +89,138 @@ export default function EmpresasListPage() {
               <p className="text-muted-foreground">Nenhuma empresa encontrada</p>
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-3 md:mx-0">
-              <table className="w-full min-w-[800px]">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Empresa</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Email</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Plano</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">VendAgro</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Status</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Criado</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {companies.map((company) => (
-                    <tr key={company.id} className="border-b hover:bg-accent">
-                      <td className="p-2 md:p-3 font-medium text-sm">{company.name}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">{company.email}</td>
-                      <td className="p-2 md:p-3">
-                        <Badge variant={getPlanBadge(company.plan_type)} className="text-xs">
-                          {company.plan_type}
-                        </Badge>
-                      </td>
-                      <td className="p-2 md:p-3">
-                        {company.vendagro_plan ? (
-                          <Badge variant="default" className="text-xs">
-                            {company.vendagro_plan}
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="p-2 md:p-3">
-                        {company.is_active ? (
-                          <Badge variant="default" className="bg-green-500 text-xs">
-                            Ativa
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">Inativa</Badge>
-                        )}
-                      </td>
-                      <td className="p-2 md:p-3 text-xs text-muted-foreground">
-                        {formatDateTime(company.created_at)}
-                      </td>
-                      <td className="p-2 md:p-3">
-                        <div className="flex gap-1">
-                          <Link href={`/admin/empresas/${company.id}`}>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-3 w-3 md:h-4 md:w-4" />
+            <>
+              {/* Cards para Mobile */}
+              <div className="md:hidden space-y-4">
+                {companies.map((company) => (
+                  <Card key={company.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-base">{company.name}</h3>
+                            <p className="text-xs text-muted-foreground mt-1">{company.email}</p>
+                          </div>
+                          {company.is_active ? (
+                            <Badge variant="default" className="bg-green-500 text-xs">Ativa</Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Inativa</Badge>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Plano</p>
+                            <Badge variant={getPlanBadge(company.plan_type)} className="text-xs mt-1">
+                              {company.plan_type}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">VendAgro</p>
+                            {company.vendagro_plan ? (
+                              <Badge variant="default" className="text-xs mt-1">
+                                {company.vendagro_plan}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Criado em</p>
+                          <p className="text-xs mt-1">{formatDateTime(company.created_at)}</p>
+                        </div>
+
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Link href={`/admin/empresas/${company.id}`} className="flex-1">
+                            <Button variant="outline" size="sm" className="w-full">
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver
                             </Button>
                           </Link>
                           {company.vendagro_plan && (
-                            <Link href={`/admin/empresas/${company.id}/icp`}>
-                              <Button variant="ghost" size="sm">
-                                <Settings className="h-3 w-3 md:h-4 md:w-4" />
+                            <Link href={`/admin/empresas/${company.id}/icp`} className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">
+                                <Settings className="h-4 w-4 mr-2" />
+                                ICP
                               </Button>
                             </Link>
                           )}
                         </div>
-                      </td>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Tabela para Desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 text-sm">Empresa</th>
+                      <th className="text-left p-3 text-sm">Email</th>
+                      <th className="text-left p-3 text-sm">Plano</th>
+                      <th className="text-left p-3 text-sm">VendAgro</th>
+                      <th className="text-left p-3 text-sm">Status</th>
+                      <th className="text-left p-3 text-sm">Criado</th>
+                      <th className="text-left p-3 text-sm">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {companies.map((company) => (
+                      <tr key={company.id} className="border-b hover:bg-accent">
+                        <td className="p-3 font-medium text-sm">{company.name}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{company.email}</td>
+                        <td className="p-3">
+                          <Badge variant={getPlanBadge(company.plan_type)} className="text-xs">
+                            {company.plan_type}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          {company.vendagro_plan ? (
+                            <Badge variant="default" className="text-xs">
+                              {company.vendagro_plan}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {company.is_active ? (
+                            <Badge variant="default" className="bg-green-500 text-xs">
+                              Ativa
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs">Inativa</Badge>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {formatDateTime(company.created_at)}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-1">
+                            <Link href={`/admin/empresas/${company.id}`}>
+                              <Button variant="ghost" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            {company.vendagro_plan && (
+                              <Link href={`/admin/empresas/${company.id}/icp`}>
+                                <Button variant="ghost" size="sm">
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
