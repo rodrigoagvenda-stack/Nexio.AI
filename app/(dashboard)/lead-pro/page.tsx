@@ -69,6 +69,8 @@ export default function LeadProPage() {
   const [icpConfig, setICPConfig] = useState<ICPConfig | null>(null);
   const [editingLead, setEditingLead] = useState<ICPLead | null>(null);
   const [deletingLead, setDeletingLead] = useState<ICPLead | null>(null);
+  const [extractionsRemaining, setExtractionsRemaining] = useState<number>(0);
+  const [extractionsLimit, setExtractionsLimit] = useState<number>(0);
 
   useEffect(() => {
     if (company?.id) {
@@ -79,6 +81,29 @@ export default function LeadProPage() {
   async function fetchData() {
     try {
       const supabase = createClient();
+
+      // Buscar dados da empresa (plan_id)
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('plan_id')
+        .eq('id', company?.id)
+        .single();
+
+      let limit = 0;
+
+      // Buscar limite de extrações do plano
+      if (companyData?.plan_id) {
+        const { data: planData } = await supabase
+          .from('plans')
+          .select('extraction_limit')
+          .eq('id', companyData.plan_id)
+          .single();
+
+        if (planData) {
+          limit = planData.extraction_limit || 0;
+          setExtractionsLimit(limit);
+        }
+      }
 
       // Buscar configuração do ICP
       const { data: icpData } = await supabase
@@ -102,7 +127,12 @@ export default function LeadProPage() {
       console.log('[LEAD-PRO] Erro ao buscar leads:', leadsError);
       console.log('[LEAD-PRO] Company ID:', company?.id);
 
+      const totalLeads = leads?.length || 0;
       setICPLeads(leads || []);
+
+      // Calcular extrações restantes
+      const remaining = Math.max(0, limit - totalLeads);
+      setExtractionsRemaining(remaining);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Erro ao carregar dados');
@@ -222,10 +252,25 @@ export default function LeadProPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Lead PRO - VendAgro</h1>
-        <p className="text-muted-foreground mt-1">
-          Extração automática de leads baseada no seu Perfil de Cliente Ideal (ICP)
-        </p>
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">VendAgro</h1>
+            <p className="text-muted-foreground mt-1">
+              Extração automática de leads baseada no seu Perfil de Cliente Ideal (ICP)
+            </p>
+          </div>
+          {extractionsLimit > 0 && (
+            <div className="flex items-center gap-3 bg-primary/10 px-4 py-2 rounded-lg">
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Extrações Restantes</p>
+                <p className="text-2xl font-bold text-primary">{extractionsRemaining}</p>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                de {extractionsLimit}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ICP Configuration - DESTACADO NO TOPO */}
@@ -477,36 +522,94 @@ export default function LeadProPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-3 md:mx-0">
-              <table className="w-full min-w-[900px]">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-semibold">Nome</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-semibold">Empresa</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-semibold">Email</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-semibold">WhatsApp</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-semibold">Segmento</th>
-                    <th className="text-left p-2 md:p-3 text-xs md:text-sm font-semibold">Cidade</th>
-                    <th className="text-right p-2 md:p-3 text-xs md:text-sm font-semibold">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {icpLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b hover:bg-accent transition-colors">
-                      <td className="p-2 md:p-3 font-medium text-sm">{lead.nome}</td>
-                      <td className="p-2 md:p-3 text-sm">{lead.empresa}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">{lead.email}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm text-muted-foreground">{lead.whatsapp}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm">{lead.segmento}</td>
-                      <td className="p-2 md:p-3 text-xs md:text-sm">
-                        {lead.cidade ? `${lead.cidade}/${lead.estado}` : '-'}
-                      </td>
-                      <td className="p-2 md:p-3">
-                        <div className="flex justify-end gap-1 md:gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingLead(lead)}
+            <>
+              {/* Cards Mobile */}
+              <div className="md:hidden space-y-4">
+                {icpLeads.map((lead) => (
+                  <div key={lead.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-semibold text-sm">{lead.nome}</h4>
+                        <p className="text-sm text-muted-foreground">{lead.empresa}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingLead(lead)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingLead(lead)}
+                          className="h-8 w-8 p-0 text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Email:</span>
+                        <p className="text-sm">{lead.email}</p>
+                      </div>
+                      {lead.whatsapp && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">WhatsApp:</span>
+                          <p className="text-sm">{lead.whatsapp}</p>
+                        </div>
+                      )}
+                      {lead.segmento && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">Segmento:</span>
+                          <p className="text-sm">{lead.segmento}</p>
+                        </div>
+                      )}
+                      {lead.cidade && (
+                        <div>
+                          <span className="text-xs text-muted-foreground">Cidade:</span>
+                          <p className="text-sm">{lead.cidade}/{lead.estado}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tabela Desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3 text-sm font-semibold">Nome</th>
+                      <th className="text-left p-3 text-sm font-semibold">Empresa</th>
+                      <th className="text-left p-3 text-sm font-semibold">Email</th>
+                      <th className="text-left p-3 text-sm font-semibold">WhatsApp</th>
+                      <th className="text-left p-3 text-sm font-semibold">Segmento</th>
+                      <th className="text-left p-3 text-sm font-semibold">Cidade</th>
+                      <th className="text-right p-3 text-sm font-semibold">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {icpLeads.map((lead) => (
+                      <tr key={lead.id} className="border-b hover:bg-accent transition-colors">
+                        <td className="p-3 font-medium text-sm">{lead.nome}</td>
+                        <td className="p-3 text-sm">{lead.empresa}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{lead.email}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{lead.whatsapp}</td>
+                        <td className="p-3 text-sm">{lead.segmento}</td>
+                        <td className="p-3 text-sm">
+                          {lead.cidade ? `${lead.cidade}/${lead.estado}` : '-'}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingLead(lead)}
                             title="Editar lead"
                           >
                             <Edit className="h-3 w-3 md:h-4 md:w-4" />
@@ -516,8 +619,9 @@ export default function LeadProPage() {
                             size="sm"
                             onClick={() => setDeletingLead(lead)}
                             title="Excluir lead"
+                            className="text-destructive"
                           >
-                            <Trash2 className="h-3 w-3 md:h-4 md:w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>
@@ -526,6 +630,7 @@ export default function LeadProPage() {
                 </tbody>
               </table>
             </div>
+          </>
           )}
         </CardContent>
       </Card>
