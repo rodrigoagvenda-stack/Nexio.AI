@@ -166,6 +166,17 @@ export default function LeadProPage() {
       }
 
       toast.success(`${data.extractedCount || 0} leads extraídos com sucesso!`);
+
+      // Criar notificação
+      const supabase = createClient();
+      await supabase.from('notifications').insert({
+        company_id: company?.id,
+        title: 'Leads ICP Extraídos',
+        message: `${data.extractedCount || 0} novos leads foram extraídos com sucesso baseados no seu ICP.`,
+        type: 'success',
+        read: false,
+      });
+
       await fetchData();
     } catch (error: any) {
       console.error('[FRONTEND] Erro ao extrair leads:', error);
@@ -259,17 +270,20 @@ export default function LeadProPage() {
               Extração automática de leads baseada no seu Perfil de Cliente Ideal (ICP)
             </p>
           </div>
-          {extractionsLimit > 0 && (
-            <div className="flex items-center gap-3 bg-primary/10 px-4 py-2 rounded-lg">
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Extrações Restantes</p>
-                <p className="text-2xl font-bold text-primary">{extractionsRemaining}</p>
-              </div>
+          {/* Contador SEMPRE visível */}
+          <div className="flex items-center gap-3 bg-primary/10 px-4 py-2 rounded-lg">
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Extrações Restantes</p>
+              <p className="text-2xl font-bold text-primary">
+                {extractionsLimit > 0 ? extractionsRemaining : '∞'}
+              </p>
+            </div>
+            {extractionsLimit > 0 && (
               <div className="text-xs text-muted-foreground">
                 de {extractionsLimit}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
