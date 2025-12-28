@@ -114,16 +114,12 @@ export function Sidebar({
       >
         {/* Logo */}
         <div className="flex items-center h-20 px-6 border-b border-border/50">
-          <div className="flex items-center gap-3">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-              <span className="text-lg font-bold text-white">V</span>
-            </div>
-            {!isCollapsed && (
-              <h1 className="text-xl font-semibold">
-                vend<span className="text-primary">.</span>AI
-              </h1>
-            )}
-          </div>
+          {!isCollapsed && (
+            <h1 className="text-2xl">
+              <span className="font-normal">vend</span>
+              <span className="font-bold">.AI</span>
+            </h1>
+          )}
         </div>
 
         {/* Menu Label */}
