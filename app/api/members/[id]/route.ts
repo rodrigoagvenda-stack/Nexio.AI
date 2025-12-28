@@ -77,7 +77,7 @@ export async function DELETE(
 
     const supabase = await createServiceClient();
 
-    // Buscar info do usuário antes de desativar
+    // Buscar info do usuário antes de deletar
     const { data: user } = await supabase
       .from('users')
       .select('name, email')
@@ -85,34 +85,38 @@ export async function DELETE(
       .eq('company_id', companyId)
       .single();
 
-    // Desativar membro (soft delete)
-    const { error } = await supabase
+    // 1. Deletar do Supabase Auth PRIMEIRO
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+    if (authError) {
+      console.error('Error deleting from Auth:', authError);
+      // Continua mesmo se der erro no Auth
+    }
+
+    // 2. Deletar da tabela users
+    const { error: dbError } = await supabase
       .from('users')
-      .update({ is_active: false })
+      .delete()
       .eq('user_id', userId)
       .eq('company_id', companyId);
 
-    if (error) throw error;
+    if (dbError) throw dbError;
 
-    // Desativar no Supabase Auth
-    await supabase.auth.admin.updateUserById(userId, {
-      user_metadata: { is_active: false },
-    });
-
-    // Registrar log
+    // 3. Registrar log
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
       severity: 'warning',
-      message: `Membro removido: ${user?.name} (${user?.email})`,
-      metadata: {
+      message: `Membro deletado: ${user?.name} (${user?.email})`,
+      payload: {
         user_id: userId,
+        deleted_from_auth: !authError,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Membro removido com sucesso',
+      message: 'Membro deletado completamente do sistema',
     });
   } catch (error: any) {
     console.error('Error deleting member:', error);

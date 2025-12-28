@@ -50,14 +50,37 @@ export async function POST(request: NextRequest) {
 
     const supabaseService = await createServiceClient();
 
-    // 1. Buscar nome da empresa primeiro
+    // 1. Verificar se o email já existe no Auth
+    console.log('[INVITE] Verificando email:', email);
+    const { data: existingUsers } = await supabaseService.auth.admin.listUsers();
+    const userExists = existingUsers?.users?.find(u => u.email === email);
+
+    if (userExists) {
+      console.log('[INVITE] Email já existe no Auth:', email);
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Este email já está cadastrado no sistema. Se foi deletado, aguarde alguns minutos e tente novamente.'
+        },
+        { status: 400 }
+      );
+    }
+
+    // 2. Buscar nome da empresa primeiro
     const { data: company } = await supabaseService
       .from('companies')
       .select('name')
       .eq('id', companyId)
       .single();
 
-    // 2. Convidar usuário no Supabase Auth (envia email automaticamente)
+    console.log('[INVITE] Empresa:', company?.name);
+
+    // 3. Convidar usuário no Supabase Auth (envia email automaticamente)
+    console.log('[INVITE] Enviando convite via Supabase Auth para:', email);
+
+    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
+    console.log('[INVITE] Redirect URL:', redirectUrl);
+
     const { data: authUser, error: authError } = await supabaseService.auth.admin.inviteUserByEmail(
       email,
       {
@@ -68,13 +91,20 @@ export async function POST(request: NextRequest) {
           role,
           department: department || null,
         },
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
+        redirectTo: redirectUrl,
       }
     );
 
-    if (authError) throw authError;
+    if (authError) {
+      console.error('[INVITE] Erro ao enviar convite:', authError);
+      throw new Error(`Erro ao enviar convite: ${authError.message}`);
+    }
 
-    // 3. Criar registro na tabela users
+    console.log('[INVITE] Convite enviado com sucesso! User ID:', authUser.user.id);
+    console.log('[INVITE] Email do usuário:', authUser.user.email);
+    console.log('[INVITE] Status do email:', authUser.user.email_confirmed_at ? 'Confirmado' : 'Pendente');
+
+    // 4. Criar registro na tabela users
     const { data: user, error: userError } = await supabaseService
       .from('users')
       .insert({
@@ -90,9 +120,16 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (userError) throw userError;
+    if (userError) {
+      console.error('[INVITE] Erro ao criar usuário na tabela:', userError);
+      // Se falhar, deletar do Auth para evitar inconsistência
+      await supabaseService.auth.admin.deleteUser(authUser.user.id);
+      throw userError;
+    }
 
-    // 4. Registrar log
+    console.log('[INVITE] Usuário criado na tabela com sucesso');
+
+    // 5. Registrar log
     await supabaseService.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -102,19 +139,34 @@ export async function POST(request: NextRequest) {
         user_id: authUser.user.id,
         role,
         invite_sent: true,
+        email_confirmed: !!authUser.user.email_confirmed_at,
       },
     });
 
+    console.log('[INVITE] ✅ Processo completo! Email de convite foi enviado pelo Supabase.');
+
     return NextResponse.json({
       success: true,
-      message: 'Convite enviado com sucesso! O membro receberá um email para definir sua senha.',
+      message: 'Convite enviado! Verifique o email (inclusive spam) para aceitar o convite.',
       data: user,
       emailSent: true,
+      info: {
+        smtp_configured: '⚠️ Verifique se o SMTP está configurado no Supabase (Project Settings > Auth > SMTP Settings)',
+        check_logs: 'Verifique os logs do Supabase em: Logs > Auth',
+      }
     });
   } catch (error: any) {
-    console.error('Error creating member:', error);
+    console.error('[INVITE] ❌ Erro ao criar membro:', error);
+
+    // Mensagem mais específica baseada no erro
+    let errorMessage = error.message || 'Erro ao adicionar membro';
+
+    if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
+      errorMessage = 'Este email já está cadastrado. Tente outro email ou delete o usuário anterior completamente.';
+    }
+
     return NextResponse.json(
-      { success: false, message: error.message || 'Erro ao adicionar membro' },
+      { success: false, message: errorMessage },
       { status: 500 }
     );
   }
