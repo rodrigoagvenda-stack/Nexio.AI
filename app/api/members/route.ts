@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { sendMemberInviteEmail } from '@/lib/email/resend';
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,23 +50,36 @@ export async function POST(request: NextRequest) {
 
     const supabaseService = await createServiceClient();
 
-    // 1. Criar usuário no Supabase Auth
-    const { data: authUser, error: authError } = await supabaseService.auth.admin.createUser({
+    // 1. Buscar nome da empresa primeiro
+    const { data: company } = await supabaseService
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .single();
+
+    // 2. Convidar usuário no Supabase Auth (envia email automaticamente)
+    const { data: authUser, error: authError } = await supabaseService.auth.admin.inviteUserByEmail(
       email,
-      email_confirm: true,
-      user_metadata: {
-        name,
-        company_id: companyId,
-      },
-    });
+      {
+        data: {
+          name,
+          company_id: companyId,
+          company_name: company?.name || 'Vend.AI',
+          role,
+          department: department || null,
+        },
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
+      }
+    );
 
     if (authError) throw authError;
 
-    // 2. Criar registro na tabela users
+    // 3. Criar registro na tabela users
     const { data: user, error: userError } = await supabaseService
       .from('users')
       .insert({
         user_id: authUser.user.id,
+        auth_user_id: authUser.user.id,
         company_id: companyId,
         name,
         email,
@@ -80,45 +92,24 @@ export async function POST(request: NextRequest) {
 
     if (userError) throw userError;
 
-    // 3. Buscar nome da empresa
-    const { data: company } = await supabaseService
-      .from('companies')
-      .select('company_name')
-      .eq('id', companyId)
-      .single();
-
-    // 4. Enviar email de convite
-    const emailResult = await sendMemberInviteEmail({
-      to: email,
-      name,
-      companyName: company?.company_name || 'Sua Empresa',
-      role,
-    });
-
-    if (!emailResult.success) {
-      console.warn('Email não enviado:', emailResult.message);
-    }
-
-    // 5. Registrar log
+    // 4. Registrar log
     await supabaseService.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
       severity: 'info',
-      message: `Novo membro adicionado: ${name} (${email})`,
-      metadata: {
+      message: `Novo membro convidado: ${name} (${email})`,
+      payload: {
         user_id: authUser.user.id,
         role,
-        email_sent: emailResult.success,
+        invite_sent: true,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: emailResult.success
-        ? 'Membro adicionado e convite enviado com sucesso'
-        : 'Membro adicionado com sucesso (email não enviado)',
+      message: 'Convite enviado com sucesso! O membro receberá um email para definir sua senha.',
       data: user,
-      emailSent: emailResult.success,
+      emailSent: true,
     });
   } catch (error: any) {
     console.error('Error creating member:', error);
