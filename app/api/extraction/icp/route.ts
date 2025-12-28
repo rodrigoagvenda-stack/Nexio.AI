@@ -34,9 +34,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      extractedCount: result.data?.extractedCount || 0,
-      remaining: result.data?.remaining || 0,
-      message: 'Leads ICP extraídos com sucesso!',
+      extractedCount: result.data?.leadsCount || result.data?.leads_count || 0,
+      remaining: 0,
+      message: `${result.data?.leadsCount || 0} leads ICP extraídos com sucesso!`,
     });
   } catch (error: any) {
     console.error('Error in ICP extraction:', error);

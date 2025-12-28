@@ -92,11 +92,15 @@ export default function LeadProPage() {
       }
 
       // Buscar leads ICP
-      const { data: leads } = await supabase
+      const { data: leads, error: leadsError } = await supabase
         .from('ICP_leads')
         .select('*')
         .eq('company_id', company?.id)
         .order('created_at', { ascending: false });
+
+      console.log('[LEAD-PRO] Leads buscados:', leads);
+      console.log('[LEAD-PRO] Erro ao buscar leads:', leadsError);
+      console.log('[LEAD-PRO] Company ID:', company?.id);
 
       setICPLeads(leads || []);
     } catch (error) {
