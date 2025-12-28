@@ -5,6 +5,7 @@ export interface Company {
   phone?: string;
   plan_type: 'basic' | 'performance' | 'advanced';
   vendagro_plan?: 'performance' | 'advanced' | null;
+  plan_id?: number | null;
   plan_monthly_limit?: number;
   leads_extracted_this_month?: number;
   last_extraction_month?: string;
