@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info, Upload, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info, Upload, X, Camera } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import Link from 'next/link';
+import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +44,7 @@ export default function EmpresaDetailPage() {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { applyPhoneMask, removeMask } = usePhoneMask();
 
   useEffect(() => {
     fetchCompany();
@@ -161,50 +163,28 @@ export default function EmpresaDetailPage() {
     const file = event.target.files?.[0];
     if (!file || !company) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecione uma imagem válida');
-      return;
-    }
-
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Imagem muito grande. Máximo 2MB');
-      return;
-    }
-
     setUploading(true);
     try {
-      const supabase = createClient();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', company.id.toString());
 
-      // Create unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${company.id}-${Date.now()}.${fileExt}`;
-      const filePath = `company-logos/${fileName}`;
+      const response = await fetch('/api/company/upload-logo', {
+        method: 'POST',
+        body: formData,
+      });
 
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, file, {
-          upsert: true,
-          contentType: file.type,
-        });
+      const data = await response.json();
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
-
-      const imageUrl = urlData.publicUrl;
-
-      // Update company with new image URL
-      setCompany({ ...company, image_url: imageUrl });
-      toast.success('Logo carregado com sucesso!');
+      if (data.success) {
+        setCompany({ ...company, image_url: data.logoUrl });
+        toast.success('Logo carregado com sucesso!');
+      } else {
+        toast.error(data.message || 'Erro ao fazer upload');
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error(error.message || 'Erro ao fazer upload da imagem');
+      toast.error('Erro ao fazer upload da imagem');
     } finally {
       setUploading(false);
     }
@@ -309,9 +289,18 @@ export default function EmpresaDetailPage() {
               <Label htmlFor="phone">Telefone</Label>
               <Input
                 id="phone"
-                value={company.phone || ''}
-                onChange={(e) => setCompany({ ...company, phone: e.target.value })}
+                value={applyPhoneMask(company.phone || '')}
+                onChange={(e) => {
+                  const masked = applyPhoneMask(e.target.value);
+                  const unmasked = removeMask(e.target.value);
+                  setCompany({ ...company, phone: unmasked });
+                }}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
               />
+              <p className="text-xs text-muted-foreground">
+                Detecta automaticamente fixo ou móvel
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -336,14 +325,14 @@ export default function EmpresaDetailPage() {
                   </div>
                 ) : (
                   <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <Camera className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
                 <div className="flex-1">
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                     className="hidden"
                     onChange={handleImageUpload}
                   />
@@ -352,21 +341,22 @@ export default function EmpresaDetailPage() {
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
+                    className="gap-2"
                   >
                     {uploading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Carregando...
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Enviando...
                       </>
                     ) : (
                       <>
-                        <Upload className="mr-2 h-4 w-4" />
-                        {company.image_url ? 'Trocar Logo' : 'Fazer Upload'}
+                        <Camera className="h-4 w-4" />
+                        {company.image_url ? 'Alterar Logo' : 'Fazer Upload'}
                       </>
                     )}
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1">
-                    PNG, JPG ou GIF (máx. 2MB)
+                    JPG, PNG, WEBP ou GIF (máx. 2MB)
                   </p>
                 </div>
               </div>
