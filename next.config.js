@@ -1,6 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+
+  // Otimizações para build em ambientes com pouca memória
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+  },
+
+  // Reduzir uso de memória durante build
+  experimental: {
+    // Limitar workers para reduzir uso de RAM
+    workerThreads: false,
+    cpus: 1,
+  },
+
   images: {
     remotePatterns: [
       {
@@ -9,6 +23,7 @@ const nextConfig = {
       },
     ],
   },
+
   // Configuração para subdomínios
   async headers() {
     return [
