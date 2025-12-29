@@ -45,7 +45,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Enviar mensagem via n8n/WhatsApp
+    // 3. Buscar lead associado à conversa (se houver)
+    const { data: conversationData } = await supabase
+      .from('conversas_do_whatsapp')
+      .select('id_do_lead')
+      .eq('id', conversationId)
+      .single();
+
+    const leadId = conversationData?.id_do_lead || null;
+
+    // 4. Enviar mensagem via n8n/WhatsApp
     const whatsappResult = await sendWhatsAppMessage({
       number: phoneNumber,
       text: message,
@@ -53,7 +62,7 @@ export async function POST(request: NextRequest) {
       instance_name: company.whatsapp_instance,
       instance_token: company.whatsapp_token,
       conversa_id: conversationId.toString(),
-      lead_id: '',
+      lead_id: leadId ? leadId.toString() : '',
       message_id: '',
     });
 
@@ -61,26 +70,33 @@ export async function POST(request: NextRequest) {
       throw new Error('Erro ao enviar mensagem via WhatsApp');
     }
 
-    // 4. Salvar mensagem no banco
+    // 5. Salvar mensagem no banco
+    const messageData: any = {
+      company_id: companyId, // 🔒 Segurança: isolamento por empresa
+      id_da_conversacao: conversationId,
+      texto_da_mensagem: message,
+      tipo_de_mensagem: 'text',
+      direcao: 'outbound',
+      sender_type: 'human',
+      sender_user_id: userId,
+      status: 'sent',
+      carimbo_de_data_e_hora: new Date().toISOString(),
+    };
+
+    // Adicionar lead_id apenas se existir (nem todas conversas têm lead)
+    if (leadId) {
+      messageData.id_do_lead = leadId;
+    }
+
     const { data: savedMessage, error: messageError } = await supabase
       .from('mensagens_do_whatsapp')
-      .insert({
-        company_id: companyId, // 🔒 Segurança: isolamento por empresa
-        id_da_conversacao: conversationId,
-        texto_da_mensagem: message,
-        tipo_de_mensagem: 'text',
-        direcao: 'outbound',
-        sender_type: 'human',
-        sender_user_id: userId,
-        status: 'sent',
-        carimbo_de_data_e_hora: new Date().toISOString(),
-      })
+      .insert(messageData)
       .select()
       .single();
 
     if (messageError) throw messageError;
 
-    // 5. Atualizar última mensagem da conversa
+    // 6. Atualizar última mensagem da conversa
     const { error: conversationError } = await supabase
       .from('conversas_do_whatsapp')
       .update({
@@ -92,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     if (conversationError) throw conversationError;
 
-    // 6. Registrar log
+    // 7. Registrar log
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
