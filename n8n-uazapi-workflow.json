@@ -39,7 +39,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "text"
+              "outputKey": "Mensagem de Texto"
             },
             {
               "conditions": {
@@ -61,7 +61,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "image"
+              "outputKey": "Mensagem com Imagem"
             },
             {
               "conditions": {
@@ -83,7 +83,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "document"
+              "outputKey": "Mensagem com Documento"
             },
             {
               "conditions": {
@@ -105,7 +105,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "audio"
+              "outputKey": "Mensagem com Áudio"
             },
             {
               "conditions": {
@@ -127,7 +127,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "sticker"
+              "outputKey": "Mensagem com Figurinha"
             },
             {
               "conditions": {
@@ -149,7 +149,7 @@
                 "combinator": "and"
               },
               "renameOutput": true,
-              "outputKey": "reaction"
+              "outputKey": "Reação à Mensagem"
             }
           ]
         },
