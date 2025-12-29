@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info, Upload, X } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import Link from 'next/link';
 import {
@@ -41,6 +41,8 @@ export default function EmpresaDetailPage() {
   const [saving, setSaving] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchCompany();
@@ -155,6 +157,64 @@ export default function EmpresaDetailPage() {
     }
   }
 
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !company) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem válida');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const supabase = createClient();
+
+      // Create unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${company.id}-${Date.now()}.${fileExt}`;
+      const filePath = `company-logos/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('public')
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('public')
+        .getPublicUrl(filePath);
+
+      const imageUrl = urlData.publicUrl;
+
+      // Update company with new image URL
+      setCompany({ ...company, image_url: imageUrl });
+      toast.success('Logo carregado com sucesso!');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Erro ao fazer upload da imagem');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleRemoveImage() {
+    if (!company) return;
+    setCompany({ ...company, image_url: '' });
+  }
+
   if (loading || !company) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -255,6 +315,64 @@ export default function EmpresaDetailPage() {
             </div>
 
             <div className="space-y-2">
+              <Label>Logo da Empresa</Label>
+              <div className="flex items-center gap-4">
+                {company.image_url ? (
+                  <div className="relative">
+                    <img
+                      src={company.image_url}
+                      alt="Logo da empresa"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Carregando...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        {company.image_url ? 'Trocar Logo' : 'Fazer Upload'}
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PNG, JPG ou GIF (máx. 2MB)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label>Status</Label>
               <div className="flex items-center gap-2">
                 {company.is_active ? (
@@ -281,16 +399,14 @@ export default function EmpresaDetailPage() {
             <div className="space-y-2">
               <Label htmlFor="plan_type">Plano</Label>
               <Select
-                value={company.plan_type}
+                value={company.plan_type || 'crm-smart'}
                 onValueChange={(value: any) => setCompany({ ...company, plan_type: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">Basic</SelectItem>
-                  <SelectItem value="performance">Performance</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="crm-smart">CRM Smart</SelectItem>
                 </SelectContent>
               </Select>
             </div>

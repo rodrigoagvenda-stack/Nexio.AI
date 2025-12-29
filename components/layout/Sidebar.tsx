@@ -26,15 +26,17 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 interface SidebarProps {
   hasVendAgro?: boolean;
   isAdmin?: boolean;
-  userName?: string;
-  userEmail?: string;
+  companyName?: string;
+  companyEmail?: string;
+  companyImage?: string;
 }
 
 export function Sidebar({
   hasVendAgro = false,
   isAdmin = false,
-  userName,
-  userEmail,
+  companyName,
+  companyEmail,
+  companyImage,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -176,7 +178,7 @@ export function Sidebar({
           })}
         </nav>
 
-        {/* User Profile */}
+        {/* Company Profile */}
         <div className="p-4 border-t border-border/50">
           <div
             className={cn(
@@ -184,16 +186,20 @@ export function Sidebar({
               isCollapsed && 'justify-center px-2'
             )}
           >
-            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-              <span className="text-xs font-bold text-white">
-                {userName?.charAt(0)?.toUpperCase() || 'U'}
-              </span>
+            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center overflow-hidden">
+              {companyImage ? (
+                <img src={companyImage} alt={companyName || 'Empresa'} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-white">
+                  {companyName?.charAt(0)?.toUpperCase() || 'E'}
+                </span>
+              )}
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{userName || 'Usuário'}</p>
+                <p className="text-sm font-medium truncate">{companyName || 'Empresa'}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {userEmail || 'user@vend.ai'}
+                  {companyEmail || 'empresa@vend.ai'}
                 </p>
               </div>
             )}
