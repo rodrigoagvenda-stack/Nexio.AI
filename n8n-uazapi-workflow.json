@@ -120,8 +120,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"number\": $json.number, \"text\": $json.text } }}",
+        "contentType": "application/json",
+        "body": "={\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}",
         "options": {}
       },
       "id": "send-text",
@@ -149,8 +149,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl, \"caption\": $json.caption || '' } }}",
+        "contentType": "application/json",
+        "body": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}",
         "options": {}
       },
       "id": "send-image",
@@ -178,8 +178,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl, \"filename\": $json.filename || 'documento.pdf' } }}",
+        "contentType": "application/json",
+        "body": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"filename\": \"{{ $json.filename }}\"\n}",
         "options": {}
       },
       "id": "send-document",
@@ -207,8 +207,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl } }}",
+        "contentType": "application/json",
+        "body": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}",
         "options": {}
       },
       "id": "send-audio",
@@ -236,8 +236,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl } }}",
+        "contentType": "application/json",
+        "body": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}",
         "options": {}
       },
       "id": "send-sticker",
@@ -265,8 +265,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { \"id\": $json.messageId, \"text\": $json.emoji, \"number\": $json.number } }}",
+        "contentType": "application/json",
+        "body": "={\n  \"id\": \"{{ $json.messageId }}\",\n  \"text\": \"{{ $json.emoji }}\",\n  \"number\": \"{{ $json.number }}\"\n}",
         "options": {}
       },
       "id": "send-reaction",
