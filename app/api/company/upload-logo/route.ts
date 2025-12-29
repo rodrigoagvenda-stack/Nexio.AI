@@ -72,9 +72,9 @@ export async function POST(request: NextRequest) {
     const fileName = `${companyId}-${Date.now()}.${fileExt}`;
     const filePath = `company-logos/${fileName}`;
 
-    // Upload para Supabase Storage
+    // Upload para Supabase Storage (usa o mesmo bucket de user-uploads)
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('public')
+      .from('user-uploads')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: true,
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // Obter URL pública
     const { data: { publicUrl } } = supabase.storage
-      .from('public')
+      .from('user-uploads')
       .getPublicUrl(filePath);
 
     // Atualizar URL do logo na empresa
