@@ -263,7 +263,7 @@ export default function LeadProPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">VendAgro</h1>
             <p className="text-muted-foreground mt-1">
@@ -271,18 +271,18 @@ export default function LeadProPage() {
             </p>
           </div>
           {/* Contador SEMPRE visível */}
-          <div className="flex items-center gap-3 bg-primary/10 px-4 py-2 rounded-lg">
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Extrações Restantes</p>
-              <p className="text-2xl font-bold text-primary">
+          <div className="flex flex-col items-center justify-center gap-1 bg-primary/10 px-6 py-3 rounded-lg min-w-[160px]">
+            <p className="text-xs text-muted-foreground text-center">Extrações Restantes</p>
+            <div className="flex items-baseline gap-1">
+              <p className="text-3xl font-bold text-primary">
                 {extractionsLimit > 0 ? extractionsRemaining : '∞'}
               </p>
+              {extractionsLimit > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  de {extractionsLimit}
+                </p>
+              )}
             </div>
-            {extractionsLimit > 0 && (
-              <div className="text-xs text-muted-foreground">
-                de {extractionsLimit}
-              </div>
-            )}
           </div>
         </div>
       </div>

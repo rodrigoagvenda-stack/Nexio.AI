@@ -235,17 +235,17 @@ export default function MembrosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <UserPlus className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <UserPlus className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             Membros da Equipe
           </h1>
           <p className="text-muted-foreground mt-1">
             Gerencie os membros da sua empresa
           </p>
         </div>
-        <Button onClick={() => setInviteDialogOpen(true)}>
+        <Button onClick={() => setInviteDialogOpen(true)} className="w-full md:w-auto">
           <UserPlus className="h-4 w-4 mr-2" />
           Convidar Membro
         </Button>
@@ -278,43 +278,43 @@ export default function MembrosPage() {
               {paginatedMembers.map((member) => (
                 <div
                   key={member.user_id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                  className="flex flex-col md:flex-row md:items-center md:justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors gap-4"
                 >
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
+                  <div className="flex items-start md:items-center gap-4 min-w-0 flex-1">
+                    <Avatar className="h-12 w-12 flex-shrink-0">
                       <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
                     </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{member.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold truncate">{member.name}</p>
                         {getRoleBadge(member.role)}
                         {member.is_active ? (
-                          <UserCheck className="h-4 w-4 text-green-500" />
+                          <UserCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
                         ) : (
-                          <UserX className="h-4 w-4 text-red-500" />
+                          <UserX className="h-4 w-4 text-red-500 flex-shrink-0" />
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {member.email}
+                      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mt-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Mail className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{member.email}</span>
                         </div>
                         {member.department && (
                           <div className="flex items-center gap-1">
-                            <Shield className="h-3 w-3" />
-                            {member.department}
+                            <Shield className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{member.department}</span>
                           </div>
                         )}
                         {member.last_login && (
                           <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Último acesso: {formatDateTime(member.last_login)}
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">Último acesso: {formatDateTime(member.last_login)}</span>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 md:flex-shrink-0">
                     {member.user_id !== user?.user_id && (
                       <>
                         <Button
@@ -352,7 +352,7 @@ export default function MembrosPage() {
 
       {/* Invite Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="mx-[15px] sm:mx-0">
           <DialogHeader>
             <DialogTitle>Convidar Novo Membro</DialogTitle>
             <DialogDescription>
@@ -420,7 +420,7 @@ export default function MembrosPage() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="mx-[15px] sm:mx-0">
           <DialogHeader>
             <DialogTitle>Editar Membro</DialogTitle>
             <DialogDescription>Atualize as informações do membro</DialogDescription>
