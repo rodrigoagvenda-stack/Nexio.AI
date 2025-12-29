@@ -28,6 +28,7 @@
                 },
                 "conditions": [
                   {
+                    "id": "text-condition",
                     "leftValue": "={{ $json.messageType }}",
                     "rightValue": "text",
                     "operator": {
@@ -50,6 +51,7 @@
                 },
                 "conditions": [
                   {
+                    "id": "image-condition",
                     "leftValue": "={{ $json.messageType }}",
                     "rightValue": "image",
                     "operator": {
@@ -72,6 +74,7 @@
                 },
                 "conditions": [
                   {
+                    "id": "document-condition",
                     "leftValue": "={{ $json.messageType }}",
                     "rightValue": "document",
                     "operator": {
@@ -94,6 +97,7 @@
                 },
                 "conditions": [
                   {
+                    "id": "audio-condition",
                     "leftValue": "={{ $json.messageType }}",
                     "rightValue": "audio",
                     "operator": {
@@ -116,6 +120,7 @@
                 },
                 "conditions": [
                   {
+                    "id": "sticker-condition",
                     "leftValue": "={{ $json.messageType }}",
                     "rightValue": "sticker",
                     "operator": {
@@ -138,6 +143,7 @@
                 },
                 "conditions": [
                   {
+                    "id": "reaction-condition",
                     "leftValue": "={{ $json.messageType }}",
                     "rightValue": "reaction",
                     "operator": {
@@ -160,7 +166,7 @@
       "id": "switch-message-type",
       "name": "Switch Message Type",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
+      "typeVersion": 3.3,
       "position": [450, 300]
     },
     {
