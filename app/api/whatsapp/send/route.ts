@@ -16,23 +16,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 1. Enviar mensagem via n8n/WhatsApp
-    const whatsappResult = await sendWhatsAppMessage({
-      number: phoneNumber,
-      text: message,
-      company_id: parseInt(companyId),
-      instance_name: 'default',
-      instance_token: 'default',
-      conversa_id: conversationId.toString(),
-      lead_id: '',
-      message_id: '',
-    });
-
-    if (!whatsappResult.success) {
-      throw new Error('Erro ao enviar mensagem via WhatsApp');
-    }
-
-    // 1.5. Verificar se conversa pertence à empresa (segurança)
+    // 1. Verificar se conversa pertence à empresa (segurança) - DEVE SER PRIMEIRO!
     const { data: conversation, error: convCheckError } = await supabase
       .from('conversas_do_whatsapp')
       .select('id, company_id')
@@ -47,7 +31,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2. Salvar mensagem no banco
+    // 2. Buscar credenciais da empresa para WhatsApp
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('whatsapp_instance, whatsapp_token')
+      .eq('id', companyId)
+      .single();
+
+    if (companyError || !company?.whatsapp_instance || !company?.whatsapp_token) {
+      return NextResponse.json(
+        { success: false, message: 'Credenciais WhatsApp não configuradas' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Enviar mensagem via n8n/WhatsApp
+    const whatsappResult = await sendWhatsAppMessage({
+      number: phoneNumber,
+      text: message,
+      company_id: parseInt(companyId),
+      instance_name: company.whatsapp_instance,
+      instance_token: company.whatsapp_token,
+      conversa_id: conversationId.toString(),
+      lead_id: '',
+      message_id: '',
+    });
+
+    if (!whatsappResult.success) {
+      throw new Error('Erro ao enviar mensagem via WhatsApp');
+    }
+
+    // 4. Salvar mensagem no banco
     const { data: savedMessage, error: messageError } = await supabase
       .from('mensagens_do_whatsapp')
       .insert({
@@ -66,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     if (messageError) throw messageError;
 
-    // 3. Atualizar última mensagem da conversa
+    // 5. Atualizar última mensagem da conversa
     const { error: conversationError } = await supabase
       .from('conversas_do_whatsapp')
       .update({
@@ -78,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     if (conversationError) throw conversationError;
 
-    // 4. Registrar log
+    // 6. Registrar log
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
