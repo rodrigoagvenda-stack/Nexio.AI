@@ -32,10 +32,26 @@ export async function POST(request: NextRequest) {
       throw new Error('Erro ao enviar mensagem via WhatsApp');
     }
 
+    // 1.5. Verificar se conversa pertence à empresa (segurança)
+    const { data: conversation, error: convCheckError } = await supabase
+      .from('conversas_do_whatsapp')
+      .select('id, company_id')
+      .eq('id', conversationId)
+      .eq('company_id', companyId)
+      .single();
+
+    if (convCheckError || !conversation) {
+      return NextResponse.json(
+        { success: false, message: 'Conversa não encontrada ou acesso negado' },
+        { status: 403 }
+      );
+    }
+
     // 2. Salvar mensagem no banco
     const { data: savedMessage, error: messageError } = await supabase
       .from('mensagens_do_whatsapp')
       .insert({
+        company_id: companyId, // 🔒 Segurança: isolamento por empresa
         id_da_conversacao: conversationId,
         texto_da_mensagem: message,
         tipo_de_mensagem: 'text',
@@ -57,7 +73,8 @@ export async function POST(request: NextRequest) {
         ultima_mensagem: message,
         hora_da_ultima_mensagem: new Date().toISOString(),
       })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('company_id', companyId); // 🔒 Segurança: garante isolamento
 
     if (conversationError) throw conversationError;
 

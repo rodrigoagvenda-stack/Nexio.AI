@@ -156,6 +156,7 @@ export default function AtendimentoPage() {
           user:users!mensagens_do_whatsapp_sender_user_id_fkey(name)
         `)
         .eq('id_da_conversacao', conversationId)
+        .eq('company_id', company!.id) // 🔒 Segurança: garante isolamento por empresa
         .order('carimbo_de_data_e_hora', { ascending: true });
 
       if (error) throw error;
@@ -170,7 +171,8 @@ export default function AtendimentoPage() {
       await supabase
         .from('conversas_do_whatsapp')
         .update({ contagem_nao_lida: 0 })
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .eq('company_id', company!.id); // 🔒 Segurança: garante isolamento por empresa
     } catch (error) {
       console.error('Error marking as read:', error);
     }
