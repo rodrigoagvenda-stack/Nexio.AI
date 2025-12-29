@@ -79,10 +79,12 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(filePath);
 
     // Atualizar URL do logo na empresa
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
       .from('companies')
       .update({ image_url: publicUrl })
-      .eq('id', companyId);
+      .eq('id', parseInt(companyId))
+      .select()
+      .single();
 
     if (updateError) {
       console.error('Error updating company logo:', updateError);
