@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,8 +78,9 @@ export async function POST(request: NextRequest) {
       .from('user-uploads')
       .getPublicUrl(filePath);
 
-    // Atualizar URL do logo na empresa
-    const { data: updateData, error: updateError } = await supabase
+    // Atualizar URL do logo na empresa (usa service client para bypassar RLS)
+    const adminClient = createServiceClient();
+    const { data: updateData, error: updateError } = await adminClient
       .from('companies')
       .update({ image_url: publicUrl })
       .eq('id', parseInt(companyId))
