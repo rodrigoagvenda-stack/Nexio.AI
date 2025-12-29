@@ -17,88 +17,150 @@
     },
     {
       "parameters": {
-        "mode": "rules",
         "rules": {
-          "rules": [
+          "values": [
             {
               "conditions": {
-                "string": [
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
                   {
-                    "value1": "={{ $json.messageType }}",
-                    "operation": "equals",
-                    "value2": "text"
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
-              "output": 0
+              "renameOutput": true,
+              "outputKey": "text"
             },
             {
               "conditions": {
-                "string": [
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
                   {
-                    "value1": "={{ $json.messageType }}",
-                    "operation": "equals",
-                    "value2": "image"
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
-              "output": 1
+              "renameOutput": true,
+              "outputKey": "image"
             },
             {
               "conditions": {
-                "string": [
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
                   {
-                    "value1": "={{ $json.messageType }}",
-                    "operation": "equals",
-                    "value2": "document"
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "document",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
-              "output": 2
+              "renameOutput": true,
+              "outputKey": "document"
             },
             {
               "conditions": {
-                "string": [
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
                   {
-                    "value1": "={{ $json.messageType }}",
-                    "operation": "equals",
-                    "value2": "audio"
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
-              "output": 3
+              "renameOutput": true,
+              "outputKey": "audio"
             },
             {
               "conditions": {
-                "string": [
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
                   {
-                    "value1": "={{ $json.messageType }}",
-                    "operation": "equals",
-                    "value2": "sticker"
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "sticker",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
-              "output": 4
+              "renameOutput": true,
+              "outputKey": "sticker"
             },
             {
               "conditions": {
-                "string": [
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
                   {
-                    "value1": "={{ $json.messageType }}",
-                    "operation": "equals",
-                    "value2": "reaction"
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "reaction",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
-                ]
+                ],
+                "combinator": "and"
               },
-              "output": 5
+              "renameOutput": true,
+              "outputKey": "reaction"
             }
           ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
         }
       },
       "id": "switch-message-type",
       "name": "Switch Message Type",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 2,
+      "typeVersion": 3,
       "position": [450, 300]
     },
     {
