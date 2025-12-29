@@ -160,14 +160,24 @@ export async function extractICPLeads(
 export async function sendWhatsAppMessage(payload: {
   number: string;
   text: string;
+  messageType?: string;
+  mediaUrl?: string;
+  caption?: string;
+  filename?: string;
   company_id: number;
-  instance_name: string;
-  instance_token: string;
+  url_instancia: string; // URL base da instância UAZapi
+  token: string; // Token de autenticação
   conversa_id: string;
   lead_id: string;
   message_id: string;
 }): Promise<N8NResponse> {
   try {
+    console.log('[WhatsApp] Enviando mensagem via n8n:', {
+      number: payload.number,
+      messageType: payload.messageType || 'text',
+      url_instancia: payload.url_instancia,
+    });
+
     const response = await fetch(N8N_WEBHOOK_WHATSAPP, {
       method: 'POST',
       headers: {
@@ -177,11 +187,33 @@ export async function sendWhatsAppMessage(payload: {
       body: JSON.stringify(payload),
     });
 
+    console.log('[WhatsApp] Response status:', response.status);
+    console.log('[WhatsApp] Response OK:', response.ok);
+
+    // Pegar texto da resposta PRIMEIRO para debug
+    const responseText = await response.text();
+    console.log('[WhatsApp] Response text:', responseText.substring(0, 500));
+
     if (!response.ok) {
-      throw new Error(`N8N request failed: ${response.statusText}`);
+      throw new Error(`N8N request failed: ${response.statusText} - ${responseText}`);
     }
 
-    return await response.json();
+    // Tratar resposta vazia
+    if (!responseText || responseText.trim() === '') {
+      console.warn('[WhatsApp] n8n retornou resposta vazia! Considerando sucesso.');
+      return { success: true, message: 'Mensagem enviada (webhook executado)' };
+    }
+
+    // Tentar parsear como JSON
+    try {
+      const result = JSON.parse(responseText);
+      console.log('[WhatsApp] Resultado parseado:', result);
+      return result;
+    } catch (parseError) {
+      console.error('[WhatsApp] ERRO ao parsear JSON:', parseError);
+      console.error('[WhatsApp] Resposta completa:', responseText);
+      throw new Error(`n8n retornou resposta inválida: ${responseText.substring(0, 200)}`);
+    }
   } catch (error) {
     console.error('Error calling n8n WhatsApp send:', error);
     throw error;

@@ -58,9 +58,10 @@ export async function POST(request: NextRequest) {
     const whatsappResult = await sendWhatsAppMessage({
       number: phoneNumber,
       text: message,
+      messageType: 'text',
       company_id: parseInt(companyId),
-      instance_name: company.whatsapp_instance,
-      instance_token: company.whatsapp_token,
+      url_instancia: company.whatsapp_instance, // URL base da instância UAZapi
+      token: company.whatsapp_token, // Token de autenticação
       conversa_id: conversationId.toString(),
       lead_id: leadId ? leadId.toString() : '',
       message_id: '',
