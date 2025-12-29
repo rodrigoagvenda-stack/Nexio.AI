@@ -103,224 +103,176 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $json.url_instancia }}/send/text",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "token",
               "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "text",
-              "value": "={{ $json.text }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"text\": $json.text } }}",
         "options": {}
       },
       "id": "send-text",
       "name": "Enviar Texto",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.1,
       "position": [650, 100]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $json.url_instancia }}/send/image",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "token",
               "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            },
-            {
-              "name": "caption",
-              "value": "={{ $json.caption || '' }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl, \"caption\": $json.caption || '' } }}",
         "options": {}
       },
       "id": "send-image",
       "name": "Enviar Imagem",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.1,
       "position": [650, 200]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $json.url_instancia }}/send/document",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "token",
               "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            },
-            {
-              "name": "filename",
-              "value": "={{ $json.filename || 'documento.pdf' }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl, \"filename\": $json.filename || 'documento.pdf' } }}",
         "options": {}
       },
       "id": "send-document",
       "name": "Enviar Documento",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.1,
       "position": [650, 300]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $json.url_instancia }}/send/audio",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "token",
               "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl } }}",
         "options": {}
       },
       "id": "send-audio",
       "name": "Enviar Áudio",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.1,
       "position": [650, 400]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $json.url_instancia }}/send/sticker",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "token",
               "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.number, \"url\": $json.mediaUrl } }}",
         "options": {}
       },
       "id": "send-sticker",
       "name": "Enviar Figurinha",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.1,
       "position": [650, 500]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "={{ $json.url_instancia }}/message/react",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "token",
               "value": "={{ $json.token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
             }
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "id",
-              "value": "={{ $json.messageId }}"
-            },
-            {
-              "name": "text",
-              "value": "={{ $json.emoji }}"
-            },
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"id\": $json.messageId, \"text\": $json.emoji, \"number\": $json.number } }}",
         "options": {}
       },
       "id": "send-reaction",
       "name": "Reagir à Mensagem",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
+      "typeVersion": 4.1,
       "position": [650, 600]
     },
     {
