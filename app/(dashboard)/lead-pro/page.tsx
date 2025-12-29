@@ -82,12 +82,19 @@ export default function LeadProPage() {
     try {
       const supabase = createClient();
 
-      // Buscar dados da empresa (plan_id)
+      // Buscar dados da empresa (plan_id e vendagro_plan)
       const { data: companyData } = await supabase
         .from('companies')
-        .select('plan_id')
+        .select('plan_id, vendagro_plan')
         .eq('id', company?.id)
         .single();
+
+      // Se não tem plano ativo, bloquear
+      if (!companyData?.plan_id && !companyData?.vendagro_plan) {
+        setExtractionsLimit(0);
+        setLoading(false);
+        return;
+      }
 
       let limit = 0;
 
@@ -235,16 +242,34 @@ export default function LeadProPage() {
     }
   }
 
-  if (!company?.vendagro_plan) {
+  // Bloquear se não tem plano ativo
+  if ((!company?.vendagro_plan && extractionsLimit === 0) || (!loading && extractionsLimit === 0)) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
-            <Target className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Lead PRO não disponível</h3>
-            <p className="text-sm text-muted-foreground">
-              Entre em contato com o admin para ativar o módulo VendAgro
-            </p>
+      <div className="flex items-center justify-center min-h-[70vh]">
+        <Card className="max-w-lg border-2">
+          <CardContent className="pt-8 pb-8 text-center space-y-6">
+            <div className="mx-auto w-20 h-20 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
+              <Target className="h-10 w-10 text-orange-600 dark:text-orange-500" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold">VendAgro não disponível</h3>
+              <p className="text-muted-foreground">
+                Sua empresa não possui um plano VendAgro ativo.
+              </p>
+            </div>
+            <div className="pt-4 border-t space-y-4">
+              <div>
+                <p className="text-sm font-semibold mb-1">Quer ativar o VendAgro?</p>
+                <p className="text-xs text-muted-foreground">
+                  Entre em contato com nossa equipe de vendas e suporte da vend.AI
+                </p>
+              </div>
+              <Button variant="default" size="lg" className="w-full" asChild>
+                <a href="mailto:contato@vend.ai">
+                  Falar com Vendas
+                </a>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
