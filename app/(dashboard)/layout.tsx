@@ -4,6 +4,8 @@ import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -19,45 +21,24 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Fetch user data
-  const { data: userData, error: userError } = await supabase
+  // 1. Pegar company_id do usuário
+  const { data: userData } = await supabase
     .from('users')
     .select('company_id')
     .eq('auth_user_id', user.id)
     .single();
 
-  console.log('[LAYOUT DEBUG] Auth User ID:', user.id);
-  console.log('[LAYOUT DEBUG] User Data:', userData);
-  console.log('[LAYOUT DEBUG] User Error:', userError);
+  // 2. Pegar dados da empresa DIRETO (igual admin faz)
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('id', userData?.company_id || 0)
+    .single();
 
-  // Fetch company data separately
-  let companyName: string | undefined;
-  let companyEmail: string | undefined;
-  let companyImage: string | undefined;
-  let hasVendAgro = false;
-
-  if (userData?.company_id) {
-    const { data: companyData, error: companyError } = await supabase
-      .from('companies')
-      .select('name, email, image_url, vendagro_plan')
-      .eq('id', userData.company_id)
-      .single();
-
-    console.log('[LAYOUT DEBUG] Company ID:', userData.company_id);
-    console.log('[LAYOUT DEBUG] Company Data:', companyData);
-    console.log('[LAYOUT DEBUG] Company Error:', companyError);
-
-    if (companyData) {
-      companyName = companyData.name || undefined;
-      companyEmail = companyData.email || undefined;
-      companyImage = companyData.image_url || undefined;
-      hasVendAgro = !!companyData.vendagro_plan;
-
-      console.log('[LAYOUT DEBUG] Parsed - Name:', companyName, 'Email:', companyEmail, 'Image:', companyImage);
-    }
-  } else {
-    console.log('[LAYOUT DEBUG] No company_id found for user');
-  }
+  const companyName = companyData?.name;
+  const companyEmail = companyData?.email;
+  const companyImage = companyData?.image_url;
+  const hasVendAgro = !!companyData?.vendagro_plan;
 
   // Check if user is admin
   const { data: adminUser } = await supabase
