@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Paperclip, Image as ImageIcon, FileText, Mic, X, Play, Pause, Download } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -40,6 +40,9 @@ interface Message {
   sender_user_id?: string;
   status: string;
   carimbo_de_data_e_hora: string;
+  media_url?: string;
+  media_caption?: string;
+  media_filename?: string;
   user?: {
     name: string;
   };
@@ -55,7 +58,16 @@ export default function AtendimentoPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Carregar conversas
   useEffect(() => {
@@ -178,17 +190,43 @@ export default function AtendimentoPage() {
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation || !user) return;
+    if ((!newMessage.trim() && !selectedFile) || !selectedConversation || !user) return;
 
     setLoading(true);
     try {
+      let messageType = 'text';
+      let mediaUrl = '';
+      let caption = newMessage.trim();
+      let filename = '';
+
+      // Se tem arquivo selecionado, fazer upload primeiro
+      if (selectedFile) {
+        const uploadedUrl = await uploadFile(selectedFile);
+        mediaUrl = uploadedUrl;
+
+        // Determinar tipo baseado no arquivo
+        if (selectedFile.type.startsWith('image/')) {
+          messageType = 'image';
+        } else if (selectedFile.type.startsWith('audio/')) {
+          messageType = 'audio';
+        } else {
+          messageType = 'document';
+          filename = selectedFile.name;
+        }
+      }
+
+      // Enviar mensagem via API
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId: selectedConversation.id,
           phoneNumber: selectedConversation.numero_de_telefone,
-          message: newMessage,
+          message: newMessage.trim(),
+          messageType,
+          mediaUrl,
+          caption,
+          filename,
           companyId: company!.id,
           userId: user.user_id,
         }),
@@ -198,6 +236,8 @@ export default function AtendimentoPage() {
       if (!data.success) throw new Error(data.message);
 
       setNewMessage('');
+      setSelectedFile(null);
+      setFilePreview(null);
       toast.success('Mensagem enviada!');
     } catch (error: any) {
       console.error('Error sending message:', error);
@@ -206,6 +246,114 @@ export default function AtendimentoPage() {
       setLoading(false);
     }
   }
+
+  async function uploadFile(file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `whatsapp-media/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('user-uploads')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('user-uploads')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+        setSelectedFile(audioFile);
+        setFilePreview('audio');
+
+        // Parar todas as tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // Iniciar contador
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast.error('Erro ao acessar o microfone');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamanho (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 10MB');
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Preview para imagens
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else if (file.type.startsWith('audio/')) {
+      setFilePreview('audio');
+    } else {
+      setFilePreview('document');
+    }
+
+    setShowAttachMenu(false);
+  }
+
+  function clearSelectedFile() {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const filteredConversations = conversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -224,14 +372,7 @@ export default function AtendimentoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <MessageSquare className="h-8 w-8 text-primary" />
-          Atendimento WhatsApp
-        </h1>
-      </div>
-
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-140px)]">
         {/* Lista de Conversas */}
         <Card className="col-span-12 lg:col-span-3 flex flex-col">
           <CardHeader>
@@ -397,7 +538,56 @@ export default function AtendimentoPage() {
                           )}
                         </div>
                       )}
-                      <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+
+                      {/* Conteúdo da mensagem baseado no tipo */}
+                      {msg.tipo_de_mensagem === 'image' && msg.media_url && (
+                        <div className="space-y-2">
+                          <img
+                            src={msg.media_url}
+                            alt="Imagem"
+                            className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90"
+                            onClick={() => window.open(msg.media_url, '_blank')}
+                          />
+                          {msg.media_caption && (
+                            <p className="text-sm whitespace-pre-wrap">{msg.media_caption}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {msg.tipo_de_mensagem === 'audio' && msg.media_url && (
+                        <div className="flex items-center gap-2 min-w-[200px]">
+                          <audio controls className="w-full">
+                            <source src={msg.media_url} type="audio/mpeg" />
+                            <source src={msg.media_url} type="audio/webm" />
+                            Seu navegador não suporta áudio.
+                          </audio>
+                        </div>
+                      )}
+
+                      {msg.tipo_de_mensagem === 'document' && msg.media_url && (
+                        <div className="flex items-center gap-3 p-2 bg-background/10 rounded">
+                          <FileText className="h-8 w-8 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {msg.media_filename || 'Documento'}
+                            </p>
+                            <a
+                              href={msg.media_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs underline hover:no-underline flex items-center gap-1"
+                            >
+                              <Download className="h-3 w-3" />
+                              Baixar
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      {(msg.tipo_de_mensagem === 'text' || !msg.tipo_de_mensagem) && msg.texto_da_mensagem && (
+                        <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+                      )}
+
                       <p
                         className={`text-xs mt-1 ${
                           msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'
@@ -424,14 +614,145 @@ export default function AtendimentoPage() {
 
               {/* Input de Mensagem */}
               <div className="border-t p-4">
+                {/* Preview de arquivo selecionado */}
+                {filePreview && selectedFile && (
+                  <div className="mb-3 p-3 bg-muted rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        {filePreview === 'audio' ? (
+                          <div className="flex items-center gap-2">
+                            <Mic className="h-5 w-5 text-primary" />
+                            <span className="text-sm font-medium">Áudio gravado</span>
+                          </div>
+                        ) : filePreview === 'document' ? (
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-primary" />
+                            <span className="text-sm font-medium truncate">{selectedFile.name}</span>
+                          </div>
+                        ) : (
+                          <img
+                            src={filePreview}
+                            alt="Preview"
+                            className="max-h-32 rounded"
+                          />
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearSelectedFile}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gravação em andamento */}
+                {isRecording && (
+                  <div className="mb-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                        <span className="text-sm font-medium">Gravando...</span>
+                        <span className="text-sm text-muted-foreground">
+                          {formatRecordingTime(recordingTime)}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={stopRecording}
+                      >
+                        <Pause className="h-4 w-4 mr-1" />
+                        Parar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <form onSubmit={handleSendMessage} className="flex gap-2">
+                  {/* Input oculto para upload de arquivos */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    onChange={handleFileSelect}
+                  />
+
+                  {/* Botão de anexos */}
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowAttachMenu(!showAttachMenu)}
+                      disabled={loading || isRecording}
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+
+                    {/* Menu de anexos */}
+                    {showAttachMenu && (
+                      <div className="absolute bottom-full left-0 mb-2 bg-background border rounded-lg shadow-lg p-2 space-y-1 min-w-[160px]">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            fileInputRef.current?.setAttribute('accept', 'image/*');
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          <ImageIcon className="h-4 w-4 mr-2" />
+                          Imagem
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            fileInputRef.current?.setAttribute('accept', '.pdf,.doc,.docx,.xls,.xlsx,.txt');
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Documento
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botão de gravar áudio */}
+                  <Button
+                    type="button"
+                    variant={isRecording ? 'destructive' : 'outline'}
+                    size="icon"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={loading || !!selectedFile}
+                  >
+                    <Mic className="h-4 w-4" />
+                  </Button>
+
+                  {/* Input de texto */}
                   <Input
                     placeholder="Digite sua mensagem..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    disabled={loading}
+                    disabled={loading || isRecording}
+                    className="flex-1"
                   />
-                  <Button type="submit" disabled={loading || !newMessage.trim()}>
+
+                  {/* Botão de enviar */}
+                  <Button
+                    type="submit"
+                    disabled={loading || isRecording || (!newMessage.trim() && !selectedFile)}
+                  >
                     <Send className="h-4 w-4" />
                   </Button>
                 </form>

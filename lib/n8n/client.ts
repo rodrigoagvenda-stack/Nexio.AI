@@ -160,6 +160,10 @@ export async function extractICPLeads(
 export async function sendWhatsAppMessage(payload: {
   number: string;
   text: string;
+  messageType?: string;
+  mediaUrl?: string;
+  caption?: string;
+  filename?: string;
   company_id: number;
   instance_name: string;
   instance_token: string;
