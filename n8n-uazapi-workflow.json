@@ -12,8 +12,82 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300],
-      "webhookId": "a253246d-00e9-4288-88ff-974fbe42aa50"
+      "position": [250, 500],
+      "webhookId": "send-manual-message"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "url_instancia",
+              "name": "url_instancia",
+              "value": "={{ $json.body.url_instancia || $json.url_instancia }}",
+              "type": "string"
+            },
+            {
+              "id": "token",
+              "name": "token",
+              "value": "={{ $json.body.token || $json.token }}",
+              "type": "string"
+            },
+            {
+              "id": "number",
+              "name": "number",
+              "value": "={{ $json.body.number || $json.number }}",
+              "type": "string"
+            },
+            {
+              "id": "messageType",
+              "name": "messageType",
+              "value": "={{ $json.body.messageType || $json.messageType }}",
+              "type": "string"
+            },
+            {
+              "id": "text",
+              "name": "text",
+              "value": "={{ $json.body.text || $json.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "mediaUrl",
+              "name": "mediaUrl",
+              "value": "={{ $json.body.mediaUrl || $json.mediaUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "caption",
+              "name": "caption",
+              "value": "={{ $json.body.caption || $json.caption || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "filename",
+              "name": "filename",
+              "value": "={{ $json.body.filename || $json.filename || 'documento.pdf' }}",
+              "type": "string"
+            },
+            {
+              "id": "emoji",
+              "name": "emoji",
+              "value": "={{ $json.body.emoji || $json.emoji || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "messageId",
+              "name": "messageId",
+              "value": "={{ $json.body.messageId || $json.messageId || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "edit-fields",
+      "name": "Organizar Dados",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [450, 500]
     },
     {
       "parameters": {
@@ -31,42 +105,7 @@
       "name": "É Texto?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [450, 300]
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url_instancia }}/send/text",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "text",
-              "value": "={{ $json.text }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "send-text",
-      "name": "Enviar Texto",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [650, 200]
+      "position": [650, 300]
     },
     {
       "parameters": {
@@ -84,46 +123,7 @@
       "name": "É Imagem?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [450, 400]
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url_instancia }}/send/image",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            },
-            {
-              "name": "caption",
-              "value": "={{ $json.caption || '' }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "send-image",
-      "name": "Enviar Imagem",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [650, 300]
+      "position": [650, 400]
     },
     {
       "parameters": {
@@ -141,46 +141,7 @@
       "name": "É Documento?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [450, 500]
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url_instancia }}/send/document",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            },
-            {
-              "name": "filename",
-              "value": "={{ $json.filename || 'documento.pdf' }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "send-document",
-      "name": "Enviar Documento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [650, 400]
+      "position": [650, 500]
     },
     {
       "parameters": {
@@ -198,42 +159,7 @@
       "name": "É Áudio?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [450, 600]
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url_instancia }}/send/audio",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "send-audio",
-      "name": "Enviar Áudio",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [650, 500]
+      "position": [650, 600]
     },
     {
       "parameters": {
@@ -251,42 +177,7 @@
       "name": "É Figurinha?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [450, 700]
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url_instancia }}/send/sticker",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
-            },
-            {
-              "name": "url",
-              "value": "={{ $json.mediaUrl }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "send-sticker",
-      "name": "Enviar Figurinha",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [650, 600]
+      "position": [650, 700]
     },
     {
       "parameters": {
@@ -304,13 +195,12 @@
       "name": "É Reação?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [450, 800]
+      "position": [650, 800]
     },
     {
       "parameters": {
-        "url": "={{ $json.url_instancia }}/message/react",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "={{ $json.url_instancia }}/send/text",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -321,29 +211,141 @@
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}",
+        "options": {}
+      },
+      "id": "send-text",
+      "name": "Enviar Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_instancia }}/send/image",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
           "parameters": [
             {
-              "name": "id",
-              "value": "={{ $json.messageId }}"
-            },
-            {
-              "name": "text",
-              "value": "={{ $json.emoji }}"
-            },
-            {
-              "name": "number",
-              "value": "={{ $json.number }}"
+              "name": "token",
+              "value": "={{ $json.token }}"
             }
           ]
         },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}",
+        "options": {}
+      },
+      "id": "send-image",
+      "name": "Enviar Imagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_instancia }}/send/document",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"filename\": \"{{ $json.filename }}\"\n}",
+        "options": {}
+      },
+      "id": "send-document",
+      "name": "Enviar Documento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_instancia }}/send/audio",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}",
+        "options": {}
+      },
+      "id": "send-audio",
+      "name": "Enviar Áudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_instancia }}/send/sticker",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}",
+        "options": {}
+      },
+      "id": "send-sticker",
+      "name": "Enviar Figurinha",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_instancia }}/message/react",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $json.messageId }}\",\n  \"text\": \"{{ $json.emoji }}\",\n  \"number\": \"{{ $json.number }}\"\n}",
         "options": {}
       },
       "id": "send-reaction",
       "name": "Reagir à Mensagem",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 3,
-      "position": [650, 700]
+      "typeVersion": 4.2,
+      "position": [850, 700]
     },
     {
       "parameters": {
@@ -354,11 +356,22 @@
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [850, 400]
+      "position": [1050, 400]
     }
   ],
   "connections": {
     "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Organizar Dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Organizar Dados": {
       "main": [
         [
           {
@@ -532,5 +545,5 @@
   "tags": [],
   "triggerCount": 1,
   "updatedAt": "2025-12-29T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "2"
 }
