@@ -21,30 +21,24 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Buscar usuário e empresa (IGUAL ao admin)
+  // 1. Pegar company_id do usuário
   const { data: userData } = await supabase
     .from('users')
-    .select(`
-      id,
-      name,
-      email,
-      company_id,
-      companies (
-        id,
-        name,
-        email,
-        image_url,
-        vendagro_plan
-      )
-    `)
+    .select('company_id')
     .eq('auth_user_id', user.id)
     .single();
 
-  const company = userData?.companies as any;
-  const companyName = company?.name;
-  const companyEmail = company?.email;
-  const companyImage = company?.image_url;
-  const hasVendAgro = !!company?.vendagro_plan;
+  // 2. Pegar dados da empresa DIRETO (igual admin faz)
+  const { data: companyData } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('id', userData?.company_id || 0)
+    .single();
+
+  const companyName = companyData?.name;
+  const companyEmail = companyData?.email;
+  const companyImage = companyData?.image_url;
+  const hasVendAgro = !!companyData?.vendagro_plan;
 
   // Check if user is admin
   const { data: adminUser } = await supabase
