@@ -20,11 +20,15 @@ export default async function DashboardLayout({
   }
 
   // Fetch user data
-  const { data: userData } = await supabase
+  const { data: userData, error: userError } = await supabase
     .from('users')
     .select('company_id')
     .eq('auth_user_id', user.id)
     .single();
+
+  console.log('[LAYOUT DEBUG] Auth User ID:', user.id);
+  console.log('[LAYOUT DEBUG] User Data:', userData);
+  console.log('[LAYOUT DEBUG] User Error:', userError);
 
   // Fetch company data separately
   let companyName: string | undefined;
@@ -44,11 +48,15 @@ export default async function DashboardLayout({
     console.log('[LAYOUT DEBUG] Company Error:', companyError);
 
     if (companyData) {
-      companyName = companyData.name;
-      companyEmail = companyData.email;
+      companyName = companyData.name || undefined;
+      companyEmail = companyData.email || undefined;
       companyImage = companyData.image_url || undefined;
       hasVendAgro = !!companyData.vendagro_plan;
+
+      console.log('[LAYOUT DEBUG] Parsed - Name:', companyName, 'Email:', companyEmail, 'Image:', companyImage);
     }
+  } else {
+    console.log('[LAYOUT DEBUG] No company_id found for user');
   }
 
   // Check if user is admin
