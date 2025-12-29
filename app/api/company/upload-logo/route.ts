@@ -17,21 +17,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se usuário é admin
-    const { data: adminUser } = await supabase
-      .from('admin_users')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!adminUser) {
-      return NextResponse.json(
-        { success: false, message: 'Acesso negado. Apenas administradores podem fazer upload de logos.' },
-        { status: 403 }
-      );
-    }
-
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const companyId = formData.get('companyId') as string;
