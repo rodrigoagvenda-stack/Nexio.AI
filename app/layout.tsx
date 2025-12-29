@@ -3,8 +3,11 @@ import "./globals.css";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "vend.AI - CRM Inteligente com IA",
+  title: "vend.AI - CRM Inteligente",
   description: "Sistema completo de CRM com automação e inteligência artificial",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
