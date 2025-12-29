@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { AudioRecorder } from '@/components/chat/AudioRecorder';
 
 interface Conversation {
   id: number;
@@ -55,6 +56,7 @@ export default function AtendimentoPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar conversas
@@ -204,6 +206,57 @@ export default function AtendimentoPage() {
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast.error(error.message || 'Erro ao enviar mensagem');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSendAudio(audioBlob: Blob, duration: number) {
+    if (!selectedConversation || !user) return;
+
+    setLoading(true);
+    try {
+      // 1. Upload do áudio para o Supabase Storage
+      const fileName = `audio_${Date.now()}.webm`;
+      const filePath = `${company!.id}/whatsapp/${selectedConversation.id}/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('whatsapp-media')
+        .upload(filePath, audioBlob, {
+          contentType: 'audio/webm',
+          cacheControl: '3600',
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Pegar URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('whatsapp-media')
+        .getPublicUrl(filePath);
+
+      // 3. Enviar via API
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: selectedConversation.id,
+          phoneNumber: selectedConversation.numero_de_telefone,
+          message: '🎵 Áudio',
+          messageType: 'audio',
+          mediaUrl: publicUrl,
+          companyId: company!.id,
+          userId: user.user_id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      setShowAudioRecorder(false);
+      toast.success('Áudio enviado!');
+    } catch (error: any) {
+      console.error('Error sending audio:', error);
+      toast.error(error.message || 'Erro ao enviar áudio');
     } finally {
       setLoading(false);
     }
@@ -426,17 +479,33 @@ export default function AtendimentoPage() {
 
               {/* Input de Mensagem */}
               <div className="border-t p-4">
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <Input
-                    placeholder="Digite sua mensagem..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    disabled={loading}
+                {showAudioRecorder ? (
+                  <AudioRecorder
+                    onSendAudio={handleSendAudio}
+                    onCancel={() => setShowAudioRecorder(false)}
                   />
-                  <Button type="submit" disabled={loading || !newMessage.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </form>
+                ) : (
+                  <form onSubmit={handleSendMessage} className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowAudioRecorder(true)}
+                      disabled={loading}
+                    >
+                      <Mic className="h-4 w-4" />
+                    </Button>
+                    <Input
+                      placeholder="Digite sua mensagem..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      disabled={loading}
+                    />
+                    <Button type="submit" disabled={loading || !newMessage.trim()}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </form>
+                )}
               </div>
             </>
           ) : (
