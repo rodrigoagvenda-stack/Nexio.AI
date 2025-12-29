@@ -407,7 +407,12 @@ export default function EmpresaDetailPage() {
                 value={company.plan_id?.toString() || 'none'}
                 onValueChange={(value: any) => {
                   const planId = value === 'none' ? null : parseInt(value);
-                  setCompany({ ...company, plan_id: planId });
+                  // Se não tiver plano, limpar vendagro_plan também
+                  setCompany({
+                    ...company,
+                    plan_id: planId,
+                    vendagro_plan: planId ? company.vendagro_plan : null
+                  });
                   const plan = plans.find(p => p.id === planId);
                   setSelectedPlan(plan || null);
                 }}
