@@ -52,10 +52,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Nome único do arquivo
+    // Nome único do arquivo (usa mesma pasta de avatars que já tem permissão)
     const fileExt = file.name.split('.').pop();
-    const fileName = `${companyId}-${Date.now()}.${fileExt}`;
-    const filePath = `company-logos/${fileName}`;
+    const fileName = `company-${companyId}-${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
 
     // Upload para Supabase Storage (usa o mesmo bucket de user-uploads)
     const { data: uploadData, error: uploadError } = await supabase.storage
