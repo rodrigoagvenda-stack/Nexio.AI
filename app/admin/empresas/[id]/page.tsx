@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info, Upload, X, Camera } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import Link from 'next/link';
+import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +42,9 @@ export default function EmpresaDetailPage() {
   const [saving, setSaving] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { applyPhoneMask, removeMask } = usePhoneMask();
 
   useEffect(() => {
     fetchCompany();
@@ -155,6 +159,42 @@ export default function EmpresaDetailPage() {
     }
   }
 
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !company) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('companyId', company.id.toString());
+
+      const response = await fetch('/api/company/upload-logo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setCompany({ ...company, image_url: data.logoUrl });
+        toast.success('Logo carregado com sucesso!');
+      } else {
+        toast.error(data.message || 'Erro ao fazer upload');
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error('Erro ao fazer upload da imagem');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleRemoveImage() {
+    if (!company) return;
+    setCompany({ ...company, image_url: '' });
+  }
+
   if (loading || !company) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -249,9 +289,77 @@ export default function EmpresaDetailPage() {
               <Label htmlFor="phone">Telefone</Label>
               <Input
                 id="phone"
-                value={company.phone || ''}
-                onChange={(e) => setCompany({ ...company, phone: e.target.value })}
+                value={applyPhoneMask(company.phone || '')}
+                onChange={(e) => {
+                  const masked = applyPhoneMask(e.target.value);
+                  const unmasked = removeMask(e.target.value);
+                  setCompany({ ...company, phone: unmasked });
+                }}
+                placeholder="(00) 00000-0000"
+                maxLength={15}
               />
+              <p className="text-xs text-muted-foreground">
+                Detecta automaticamente fixo ou móvel
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Logo da Empresa</Label>
+              <div className="flex items-center gap-4">
+                {company.image_url ? (
+                  <div className="relative">
+                    <img
+                      src={company.image_url}
+                      alt="Logo da empresa"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                    <Camera className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="gap-2"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="h-4 w-4" />
+                        {company.image_url ? 'Alterar Logo' : 'Fazer Upload'}
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    JPG, PNG, WEBP ou GIF (máx. 2MB)
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -281,16 +389,14 @@ export default function EmpresaDetailPage() {
             <div className="space-y-2">
               <Label htmlFor="plan_type">Plano</Label>
               <Select
-                value={company.plan_type}
+                value={company.plan_type || 'crm-smart'}
                 onValueChange={(value: any) => setCompany({ ...company, plan_type: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">Basic</SelectItem>
-                  <SelectItem value="performance">Performance</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="crm-smart">CRM Smart</SelectItem>
                 </SelectContent>
               </Select>
             </div>

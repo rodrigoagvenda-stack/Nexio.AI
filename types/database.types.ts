@@ -3,7 +3,8 @@ export interface Company {
   name: string;
   email: string;
   phone?: string;
-  plan_type: 'basic' | 'performance' | 'advanced';
+  image_url?: string;
+  plan_type: 'basic' | 'performance' | 'advanced' | 'crm-smart';
   vendagro_plan?: 'performance' | 'advanced' | null;
   plan_id?: number | null;
   plan_monthly_limit?: number;

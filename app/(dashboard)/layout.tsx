@@ -19,14 +19,45 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Fetch user AND company data in ONE optimized query (JOIN)
-  const { data: userData } = await supabase
+  // Fetch user data
+  const { data: userData, error: userError } = await supabase
     .from('users')
-    .select('company_id, companies:company_id(vendagro_plan)')
+    .select('company_id')
     .eq('auth_user_id', user.id)
     .single();
 
-  const hasVendAgro = !!(userData?.companies as any)?.vendagro_plan;
+  console.log('[LAYOUT DEBUG] Auth User ID:', user.id);
+  console.log('[LAYOUT DEBUG] User Data:', userData);
+  console.log('[LAYOUT DEBUG] User Error:', userError);
+
+  // Fetch company data separately
+  let companyName: string | undefined;
+  let companyEmail: string | undefined;
+  let companyImage: string | undefined;
+  let hasVendAgro = false;
+
+  if (userData?.company_id) {
+    const { data: companyData, error: companyError } = await supabase
+      .from('companies')
+      .select('name, email, image_url, vendagro_plan')
+      .eq('id', userData.company_id)
+      .single();
+
+    console.log('[LAYOUT DEBUG] Company ID:', userData.company_id);
+    console.log('[LAYOUT DEBUG] Company Data:', companyData);
+    console.log('[LAYOUT DEBUG] Company Error:', companyError);
+
+    if (companyData) {
+      companyName = companyData.name || undefined;
+      companyEmail = companyData.email || undefined;
+      companyImage = companyData.image_url || undefined;
+      hasVendAgro = !!companyData.vendagro_plan;
+
+      console.log('[LAYOUT DEBUG] Parsed - Name:', companyName, 'Email:', companyEmail, 'Image:', companyImage);
+    }
+  } else {
+    console.log('[LAYOUT DEBUG] No company_id found for user');
+  }
 
   // Check if user is admin
   const { data: adminUser } = await supabase
@@ -40,7 +71,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar hasVendAgro={hasVendAgro} isAdmin={isAdmin} />
+      <Sidebar
+        hasVendAgro={hasVendAgro}
+        isAdmin={isAdmin}
+        companyName={companyName}
+        companyEmail={companyEmail}
+        companyImage={companyImage}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 pb-[120px] lg:pb-6 w-full">
