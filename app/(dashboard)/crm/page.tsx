@@ -224,7 +224,7 @@ function DroppableColumn({
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 bg-secondary/30 border-2 border-t-0 border-border rounded-b-xl p-3 min-h-[600px] transition-all duration-300 ${
+        className={`flex-1 bg-secondary/30 border-2 border-t-0 border-border rounded-b-xl p-3 min-h-[400px] lg:min-h-[600px] transition-all duration-300 ${
           isOver ? 'bg-primary/5 border-primary ring-2 ring-primary/30 shadow-lg scale-[1.01]' : ''
         }`}
       >
@@ -1154,7 +1154,7 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="w-[calc(100%-30px)] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <DialogContent className="w-[95%] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
           </DialogHeader>

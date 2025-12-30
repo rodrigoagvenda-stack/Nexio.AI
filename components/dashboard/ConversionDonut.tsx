@@ -31,14 +31,14 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250} className="sm:!h-[280px] lg:!h-[300px]">
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius={70}
-                  outerRadius={110}
+                  innerRadius="40%"
+                  outerRadius="70%"
                   fill="#8884d8"
                   paddingAngle={2}
                   dataKey="value"
@@ -67,8 +67,8 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
               transition={{ duration: 0.5, delay: 0.8 }}
             >
               <div className="text-center">
-                <div className="text-5xl font-bold text-foreground">{mainPercentage}%</div>
-                <div className="text-sm text-muted-foreground mt-1">Taxa geral</div>
+                <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">{mainPercentage}%</div>
+                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Taxa geral</div>
               </div>
             </motion.div>
           </div>

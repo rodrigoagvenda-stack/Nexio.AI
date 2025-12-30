@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -286,9 +286,9 @@ export default function AtendimentoPage() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-180px)] md:h-[calc(100vh-200px)]">
         {/* Lista de Conversas */}
-        <Card className="col-span-12 lg:col-span-3 flex flex-col">
+        <Card className={`col-span-12 lg:col-span-3 flex flex-col ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
@@ -355,13 +355,21 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Área de Chat */}
-        <Card className="col-span-12 lg:col-span-6 flex flex-col">
+        <Card className={`col-span-12 lg:col-span-6 flex flex-col ${!selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
               <CardHeader className="border-b">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="lg:hidden"
+                      onClick={() => setSelectedConversation(null)}
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </Button>
                     <Avatar className="h-10 w-10">
                       <AvatarFallback>
                         {getInitials(
@@ -431,7 +439,7 @@ export default function AtendimentoPage() {
                       </Avatar>
                     )}
                     <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
+                      className={`max-w-[85%] md:max-w-[70%] rounded-lg p-3 ${
                         msg.direcao === 'outbound'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
@@ -521,7 +529,7 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Lead Info Sidebar */}
-        <Card className="col-span-12 lg:col-span-3 flex flex-col overflow-hidden">
+        <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
           {selectedConversation?.lead ? (
             <>
               <CardHeader className="border-b">
