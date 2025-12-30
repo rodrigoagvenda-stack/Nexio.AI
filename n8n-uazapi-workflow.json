@@ -17,156 +17,24 @@
     },
     {
       "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.messageType }}",
         "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "text-condition",
-                    "leftValue": "={{ $json.messageType }}",
-                    "rightValue": "text",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Mensagem de Texto"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "image-condition",
-                    "leftValue": "={{ $json.messageType }}",
-                    "rightValue": "image",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Mensagem com Imagem"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "document-condition",
-                    "leftValue": "={{ $json.messageType }}",
-                    "rightValue": "document",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Mensagem com Documento"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "audio-condition",
-                    "leftValue": "={{ $json.messageType }}",
-                    "rightValue": "audio",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Mensagem com Áudio"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "sticker-condition",
-                    "leftValue": "={{ $json.messageType }}",
-                    "rightValue": "sticker",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Mensagem com Figurinha"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict"
-                },
-                "conditions": [
-                  {
-                    "id": "reaction-condition",
-                    "leftValue": "={{ $json.messageType }}",
-                    "rightValue": "reaction",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "Reação à Mensagem"
-            }
+          "rules": [
+            { "value2": "text", "output": 0 },
+            { "value2": "image", "output": 1 },
+            { "value2": "document", "output": 2 },
+            { "value2": "audio", "output": 3 },
+            { "value2": "sticker", "output": 4 },
+            { "value2": "reaction", "output": 5 }
           ]
         },
-        "options": {
-          "fallbackOutput": "extra"
-        }
+        "fallbackOutput": "none"
       },
       "id": "switch-message-type",
       "name": "Switch Message Type",
       "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.3,
+      "typeVersion": 3,
       "position": [450, 300]
     },
     {
