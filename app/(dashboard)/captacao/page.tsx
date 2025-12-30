@@ -89,19 +89,19 @@ export default function CaptacaoPage() {
   return (
     <div className="space-y-8">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 sm:p-6 md:p-8 border border-primary/20">
+        <div className="absolute top-0 right-0 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 sm:w-36 sm:h-36 md:w-48 md:h-48 bg-primary/5 rounded-full blur-3xl" />
         <div className="relative">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-primary/10 rounded-xl">
-              <MapPin className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-2 sm:p-3 bg-primary/10 rounded-xl">
+              <MapPin className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-primary" />
             </div>
-            <h1 className="text-4xl font-black text-foreground bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-foreground bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               prospect.AI
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground max-w-2xl">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-2xl">
             Extraia leads qualificados do Google Maps automaticamente com inteligência artificial
           </p>
         </div>
