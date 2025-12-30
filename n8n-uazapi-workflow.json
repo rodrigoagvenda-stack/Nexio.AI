@@ -21,12 +21,30 @@
         "value1": "={{ $json.messageType }}",
         "rules": {
           "rules": [
-            { "value2": "text", "output": 0 },
-            { "value2": "image", "output": 1 },
-            { "value2": "document", "output": 2 },
-            { "value2": "audio", "output": 3 },
-            { "value2": "sticker", "output": 4 },
-            { "value2": "reaction", "output": 5 }
+            {
+              "value2": "text",
+              "output": 0
+            },
+            {
+              "value2": "image",
+              "output": 1
+            },
+            {
+              "value2": "document",
+              "output": 2
+            },
+            {
+              "value2": "audio",
+              "output": 3
+            },
+            {
+              "value2": "sticker",
+              "output": 4
+            },
+            {
+              "value2": "reaction",
+              "output": 5
+            }
           ]
         }
       },
