@@ -17,227 +17,24 @@
     },
     {
       "parameters": {
-        "dataType": "string",
-        "value1": "={{ $json.messageType }}",
-        "rules": {
-          "rules": [
-            {
-              "value2": "text",
-              "output": 0
-            },
-            {
-              "value2": "image",
-              "output": 1
-            },
-            {
-              "value2": "document",
-              "output": 2
-            },
-            {
-              "value2": "audio",
-              "output": 3
-            },
-            {
-              "value2": "sticker",
-              "output": 4
-            },
-            {
-              "value2": "reaction",
-              "output": 5
-            }
-          ]
-        }
+        "jsCode": "const data = $input.item.json;\nconst messageType = data.messageType;\nconst urlInstancia = data.url_instancia;\nconst token = data.token;\nconst number = data.number;\n\nlet endpoint, body;\n\nswitch (messageType) {\n  case 'text':\n    endpoint = `${urlInstancia}/send/text`;\n    body = {\n      number: number,\n      text: data.text\n    };\n    break;\n  \n  case 'image':\n    endpoint = `${urlInstancia}/send/image`;\n    body = {\n      number: number,\n      url: data.mediaUrl,\n      caption: data.caption || ''\n    };\n    break;\n  \n  case 'document':\n    endpoint = `${urlInstancia}/send/document`;\n    body = {\n      number: number,\n      url: data.mediaUrl,\n      filename: data.filename || 'document'\n    };\n    break;\n  \n  case 'audio':\n    endpoint = `${urlInstancia}/send/audio`;\n    body = {\n      number: number,\n      url: data.mediaUrl\n    };\n    break;\n  \n  case 'sticker':\n    endpoint = `${urlInstancia}/send/sticker`;\n    body = {\n      number: number,\n      url: data.mediaUrl\n    };\n    break;\n  \n  case 'reaction':\n    endpoint = `${urlInstancia}/message/react`;\n    body = {\n      id: data.messageId,\n      text: data.emoji,\n      number: number\n    };\n    break;\n  \n  default:\n    throw new Error(`Tipo de mensagem inválido: ${messageType}`);\n}\n\n// Faz a requisição para UAZapi\nconst response = await $http.request({\n  method: 'POST',\n  url: endpoint,\n  headers: {\n    'token': token,\n    'Content-Type': 'application/json'\n  },\n  body: body,\n  json: true\n});\n\nreturn {\n  json: {\n    success: true,\n    message: 'Mensagem enviada com sucesso',\n    uazapi_response: response\n  }\n};"
       },
-      "id": "switch-message-type",
-      "name": "Switch Message Type",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3,
+      "id": "send-to-uazapi",
+      "name": "Send to UAZapi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [450, 300]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url_instancia }}/send/text",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "application/json",
-        "body": "{\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}",
-        "options": {}
-      },
-      "id": "send-text",
-      "name": "Enviar Texto",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [650, 100]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url_instancia }}/send/image",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "application/json",
-        "body": "{\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}",
-        "options": {}
-      },
-      "id": "send-image",
-      "name": "Enviar Imagem",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [650, 200]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url_instancia }}/send/document",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "application/json",
-        "body": "{\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"filename\": \"{{ $json.filename }}\"\n}",
-        "options": {}
-      },
-      "id": "send-document",
-      "name": "Enviar Documento",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [650, 300]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url_instancia }}/send/audio",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "application/json",
-        "body": "{\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}",
-        "options": {}
-      },
-      "id": "send-audio",
-      "name": "Enviar Áudio",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [650, 400]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url_instancia }}/send/sticker",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "application/json",
-        "body": "{\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}",
-        "options": {}
-      },
-      "id": "send-sticker",
-      "name": "Enviar Figurinha",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [650, 500]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url_instancia }}/message/react",
-        "authentication": "none",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "token",
-              "value": "={{ $json.token }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "application/json",
-        "body": "{\n  \"id\": \"{{ $json.messageId }}\",\n  \"text\": \"{{ $json.emoji }}\",\n  \"number\": \"{{ $json.number }}\"\n}",
-        "options": {}
-      },
-      "id": "send-reaction",
-      "name": "Reagir à Mensagem",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [650, 600]
-    },
-    {
-      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { success: true, message: 'Mensagem enviada com sucesso' } }}"
+        "responseBody": "={{ $json }}"
       },
       "id": "respond-success",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [650, 300]
     }
   ],
   "connections": {
@@ -245,115 +42,14 @@
       "main": [
         [
           {
-            "node": "Switch Message Type",
+            "node": "Send to UAZapi",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Switch Message Type": {
-      "main": [
-        [
-          {
-            "node": "Enviar Texto",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enviar Imagem",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enviar Documento",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enviar Áudio",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Enviar Figurinha",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Reagir à Mensagem",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar Texto": {
-      "main": [
-        [
-          {
-            "node": "Responder Sucesso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar Imagem": {
-      "main": [
-        [
-          {
-            "node": "Responder Sucesso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar Documento": {
-      "main": [
-        [
-          {
-            "node": "Responder Sucesso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar Áudio": {
-      "main": [
-        [
-          {
-            "node": "Responder Sucesso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar Figurinha": {
-      "main": [
-        [
-          {
-            "node": "Responder Sucesso",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Reagir à Mensagem": {
+    "Send to UAZapi": {
       "main": [
         [
           {
