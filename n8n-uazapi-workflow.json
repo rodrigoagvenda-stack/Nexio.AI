@@ -28,8 +28,7 @@
             { "value2": "sticker", "output": 4 },
             { "value2": "reaction", "output": 5 }
           ]
-        },
-        "fallbackOutput": "none"
+        }
       },
       "id": "switch-message-type",
       "name": "Switch Message Type",
