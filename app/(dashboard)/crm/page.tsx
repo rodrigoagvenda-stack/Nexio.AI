@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2 } from 'lucide-react';
+import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -531,6 +531,76 @@ export default function CRMPage() {
     }
   };
 
+  const exportToCSV = () => {
+    try {
+      // Cabeçalhos do CSV
+      const headers = [
+        'Nome da Empresa',
+        'Nome do Contato',
+        'Segmento',
+        'Status',
+        'Website/Instagram',
+        'WhatsApp',
+        'Email',
+        'Prioridade',
+        'Nível de Interesse',
+        'Valor do Projeto',
+        'Fonte de Importação',
+        'Observações',
+        'Data de Criação'
+      ];
+
+      // Converter leads para linhas CSV
+      const rows = filteredLeads.map(lead => [
+        lead.company_name || '',
+        lead.contact_name || '',
+        lead.segment || '',
+        lead.status || '',
+        lead.website_or_instagram || '',
+        lead.whatsapp || '',
+        lead.email || '',
+        lead.priority || '',
+        lead.nivel_interesse || '',
+        lead.project_value ? `R$ ${lead.project_value.toFixed(2)}` : '',
+        lead.import_source || '',
+        lead.notes || '',
+        lead.created_at ? new Date(lead.created_at).toLocaleDateString('pt-BR') : ''
+      ]);
+
+      // Escapar vírgulas e aspas nos valores
+      const escapeCsvValue = (value: string) => {
+        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      };
+
+      // Montar CSV
+      const csvContent = [
+        headers.map(escapeCsvValue).join(','),
+        ...rows.map(row => row.map(escapeCsvValue).join(','))
+      ].join('\n');
+
+      // Criar blob e fazer download
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `leads_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`${filteredLeads.length} leads exportados com sucesso!`);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      toast.error('Erro ao exportar CSV');
+    }
+  };
+
   const columns = [
     { id: 'Lead novo', title: 'Lead novo' },
     { id: 'Em contato', title: 'Em contato' },
@@ -681,6 +751,15 @@ export default function CRMPage() {
           </div>
         </div>
         <div className="flex gap-2 justify-end">
+          <Button
+            variant="outline"
+            onClick={exportToCSV}
+            disabled={filteredLeads.length === 0}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+          </Button>
           <Button
             variant={viewMode === 'table' ? 'default' : 'outline'}
             size="icon"
