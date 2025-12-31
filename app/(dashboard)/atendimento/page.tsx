@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -41,6 +41,7 @@ interface Message {
   sender_user_id?: string;
   status: string;
   carimbo_de_data_e_hora: string;
+  url_da_midia?: string;
   user?: {
     name: string;
   };
@@ -342,6 +343,89 @@ export default function AtendimentoPage() {
       .slice(0, 2) || '??';
   };
 
+  const renderMessageContent = (msg: Message) => {
+    // Se tem mídia, renderiza o preview
+    if (msg.url_da_midia) {
+      switch (msg.tipo_de_mensagem) {
+        case 'image':
+          return (
+            <div className="space-y-2">
+              <img
+                src={msg.url_da_midia}
+                alt="Imagem enviada"
+                className="max-w-full rounded-lg max-h-96 object-contain"
+                loading="lazy"
+              />
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
+                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+              )}
+            </div>
+          );
+
+        case 'video':
+          return (
+            <div className="space-y-2">
+              <video
+                src={msg.url_da_midia}
+                controls
+                className="max-w-full rounded-lg max-h-96"
+              >
+                Seu navegador não suporta vídeo.
+              </video>
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎥') && (
+                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+              )}
+            </div>
+          );
+
+        case 'audio':
+          return (
+            <div className="space-y-2">
+              <audio
+                src={msg.url_da_midia}
+                controls
+                className="w-full max-w-sm"
+              >
+                Seu navegador não suporta áudio.
+              </audio>
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎵') && (
+                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+              )}
+            </div>
+          );
+
+        case 'document':
+          const fileName = msg.url_da_midia.split('/').pop() || 'documento';
+          return (
+            <div className="space-y-2">
+              <a
+                href={msg.url_da_midia}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-3 bg-background/50 rounded-lg hover:bg-background/80 transition-colors"
+              >
+                <File className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{fileName}</p>
+                  <p className="text-xs text-muted-foreground">Clique para baixar</p>
+                </div>
+                <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </a>
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📄') && (
+                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+              )}
+            </div>
+          );
+
+        default:
+          return <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>;
+      }
+    }
+
+    // Se não tem mídia, só renderiza o texto
+    return <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -525,7 +609,7 @@ export default function AtendimentoPage() {
                           )}
                         </div>
                       )}
-                      <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+                      {renderMessageContent(msg)}
                       <p
                         className={`text-xs mt-1 ${
                           msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'
