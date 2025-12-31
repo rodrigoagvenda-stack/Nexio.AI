@@ -425,15 +425,8 @@ export default function AtendimentoPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <div className="p-6 border-b flex-shrink-0">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <MessageSquare className="h-8 w-8 text-primary" />
-          Atendimento WhatsApp
-        </h1>
-      </div>
-
-      <div className="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
+    <div className="h-screen w-full overflow-hidden">
+      <div className="h-full grid grid-cols-12 gap-4 p-4 overflow-hidden">
         {/* Lista de Conversas */}
         <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="flex-shrink-0">
