@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -579,6 +579,16 @@ export default function AtendimentoPage() {
                         title="Enviar documento"
                       >
                         <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleFileSelect('video')}
+                        disabled={loading}
+                        title="Enviar vídeo"
+                      >
+                        <Video className="h-4 w-4" />
                       </Button>
                       <Button
                         type="button"
