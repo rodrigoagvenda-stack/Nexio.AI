@@ -423,7 +423,7 @@ export default function AtendimentoPage() {
               </CardHeader>
 
               {/* Mensagens */}
-              <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+              <CardContent className="flex-1 overflow-y-auto px-6 py-[25px] space-y-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
