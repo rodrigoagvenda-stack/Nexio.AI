@@ -590,7 +590,7 @@ export default function AtendimentoPage() {
                     <div
                       className={`max-w-[85%] md:max-w-[70%] rounded-lg p-3 ${
                         msg.direcao === 'outbound'
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-green-600 text-white'
                           : 'bg-muted'
                       }`}
                     >
@@ -620,7 +620,7 @@ export default function AtendimentoPage() {
                     </div>
                     {msg.direcao === 'outbound' && (
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                        <AvatarFallback className="text-xs bg-green-600 text-white">
                           {msg.sender_type === 'ai' ? (
                             <Bot className="h-4 w-4" />
                           ) : (
