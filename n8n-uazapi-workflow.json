@@ -11,30 +11,296 @@
       "id": "webhook-trigger",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [250, 300],
-      "webhookId": "a253246d-00e9-4288-88ff-974fbe42aa50"
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "webhookId": "send-manual-message"
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.item.json;\nconst messageType = data.messageType;\nconst urlInstancia = data.url_instancia;\nconst token = data.token;\nconst number = data.number;\n\nlet endpoint, body;\n\nswitch (messageType) {\n  case 'text':\n    endpoint = `${urlInstancia}/send/text`;\n    body = {\n      number: number,\n      text: data.text\n    };\n    break;\n  \n  case 'image':\n    endpoint = `${urlInstancia}/send/image`;\n    body = {\n      number: number,\n      url: data.mediaUrl,\n      caption: data.caption || ''\n    };\n    break;\n  \n  case 'document':\n    endpoint = `${urlInstancia}/send/document`;\n    body = {\n      number: number,\n      url: data.mediaUrl,\n      filename: data.filename || 'document'\n    };\n    break;\n  \n  case 'audio':\n    endpoint = `${urlInstancia}/send/audio`;\n    body = {\n      number: number,\n      url: data.mediaUrl\n    };\n    break;\n  \n  case 'sticker':\n    endpoint = `${urlInstancia}/send/sticker`;\n    body = {\n      number: number,\n      url: data.mediaUrl\n    };\n    break;\n  \n  case 'reaction':\n    endpoint = `${urlInstancia}/message/react`;\n    body = {\n      id: data.messageId,\n      text: data.emoji,\n      number: number\n    };\n    break;\n  \n  default:\n    throw new Error(`Tipo de mensagem inválido: ${messageType}`);\n}\n\n// Faz a requisição para UAZapi\nconst response = await $http.request({\n  method: 'POST',\n  url: endpoint,\n  headers: {\n    'token': token,\n    'Content-Type': 'application/json'\n  },\n  body: body,\n  json: true\n});\n\nreturn {\n  json: {\n    success: true,\n    message: 'Mensagem enviada com sucesso',\n    uazapi_response: response\n  }\n};"
+        "jsCode": "// Processar payload do VendAI\nlet payload = $input.item.json.body || $input.item.json[0] || $input.item.json;\n\n// Extrair dados de forma flexível\nlet messageType = payload.messageType || payload.message_type || 'text';\nlet number = payload.number || payload.phone;\nlet text = payload.text || payload.message;\nlet mediaUrl = payload.mediaUrl || payload.media_url || payload.url;\nlet caption = payload.caption || '';\nlet filename = payload.filename || payload.fileName || 'document.pdf';\nlet token = payload.token || payload.instance_token;\nlet urlInstancia = payload.url_instancia || payload.uazapi_url || 'https://free.uazapi.com';\nlet companyId = payload.company_id;\nlet conversaId = payload.conversa_id;\nlet leadId = payload.lead_id;\n\n// Validação\nif (!number) {\n  throw new Error('Campo obrigatório: number');\n}\nif (!token) {\n  throw new Error('Campo obrigatório: token');\n}\nif (messageType === 'text' && !text) {\n  throw new Error('Campo obrigatório para texto: text');\n}\nif (messageType !== 'text' && !mediaUrl) {\n  throw new Error('Campo obrigatório para mídia: mediaUrl');\n}\n\n// Limpar número (apenas dígitos)\nconst cleanNumber = number.replace(/\\\\D/g, '');\nconst phoneWithCountry = cleanNumber.startsWith('55') ? cleanNumber : `55${cleanNumber}`;\n\nreturn {\n  json: {\n    messageType: messageType,\n    number: phoneWithCountry,\n    text: text,\n    mediaUrl: mediaUrl,\n    caption: caption,\n    filename: filename,\n    token: token,\n    url_instancia: urlInstancia,\n    company_id: companyId,\n    conversa_id: conversaId,\n    lead_id: leadId,\n    timestamp: new Date().toISOString()\n  }\n};\n"
       },
-      "id": "send-to-uazapi",
-      "name": "Send to UAZapi",
+      "id": "process-payload",
+      "name": "Processar Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [450, 300]
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false,
+              "outputKey": "text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "document",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false,
+              "outputKey": "document"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.messageType }}",
+                    "rightValue": "video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": false,
+              "outputKey": "video"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch-type",
+      "name": "Switch Tipo Mensagem",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_instancia }}/message/sendText",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"text\": \"{{ $json.text }}\"\n}\n",
+        "options": {}
+      },
+      "id": "send-text",
+      "name": "Enviar Texto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, -200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"image\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
+        "options": {}
+      },
+      "id": "send-image",
+      "name": "Enviar Imagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"audio\"\n}\n",
+        "options": {}
+      },
+      "id": "send-audio",
+      "name": "Enviar Áudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"document\",\n  \"fileName\": \"{{ $json.filename }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
+        "options": {}
+      },
+      "id": "send-document",
+      "name": "Enviar Documento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"video\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
+        "options": {}
+      },
+      "id": "send-video",
+      "name": "Enviar Vídeo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 200]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json }}"
+        "responseBody": "={{ { \"success\": true, \"message\": \"Mensagem enviada com sucesso via WhatsApp\", \"type\": $json.messageType, \"number\": $json.number, \"timestamp\": $json.timestamp } }}",
+        "options": {}
       },
       "id": "respond-success",
       "name": "Responder Sucesso",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [650, 300]
+      "typeVersion": 1.1,
+      "position": [960, 0]
     }
   ],
   "connections": {
@@ -42,14 +308,108 @@
       "main": [
         [
           {
-            "node": "Send to UAZapi",
+            "node": "Processar Payload",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send to UAZapi": {
+    "Processar Payload": {
+      "main": [
+        [
+          {
+            "node": "Switch Tipo Mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Tipo Mensagem": {
+      "main": [
+        [
+          {
+            "node": "Enviar Texto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Imagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Áudio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Documento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Vídeo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Texto": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Imagem": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Áudio": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Documento": {
+      "main": [
+        [
+          {
+            "node": "Responder Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Vídeo": {
       "main": [
         [
           {
@@ -61,10 +421,11 @@
       ]
     }
   },
-  "settings": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
   "staticData": null,
   "tags": [],
-  "triggerCount": 1,
-  "updatedAt": "2025-12-29T00:00:00.000Z",
   "versionId": "1"
 }
