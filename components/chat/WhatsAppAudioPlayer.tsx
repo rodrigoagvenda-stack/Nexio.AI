@@ -65,8 +65,22 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex items-center gap-2 min-w-[280px] max-w-md">
-      <audio ref={audioRef} src={src} preload="metadata" />
+    <>
+      <style jsx>{`
+        @keyframes audioPulse {
+          0%, 100% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scaleY(1.3);
+            opacity: 0.9;
+          }
+        }
+      `}</style>
+
+      <div className="flex items-center gap-2 min-w-[280px] max-w-md">
+        <audio ref={audioRef} src={src} preload="metadata" />
 
       {/* Play/Pause Button */}
       <Button
@@ -108,7 +122,12 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
                       ? 'bg-white/40'
                       : 'bg-gray-400'
                 }`}
-                style={{ height: `${height}px` }}
+                style={{
+                  height: `${height}px`,
+                  animation: isPlaying && isActive
+                    ? `audioPulse ${0.8 + (i % 3) * 0.2}s ease-in-out infinite`
+                    : 'none'
+                }}
               />
             );
           })}
@@ -121,6 +140,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
       }`}>
         {formatTime(currentTime || duration)}
       </span>
-    </div>
+      </div>
+    </>
   );
 }
