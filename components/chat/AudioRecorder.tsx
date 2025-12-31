@@ -264,7 +264,12 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
                       className={`w-[2px] rounded-full transition-colors ${
                         isActive ? 'bg-primary' : 'bg-muted-foreground/40'
                       }`}
-                      style={{ height: `${heights[i]}px` }}
+                      style={{
+                        height: `${heights[i]}px`,
+                        animation: isPlaying && isActive
+                          ? `audioPulse ${0.8 + (i % 3) * 0.2}s ease-in-out infinite`
+                          : 'none'
+                      }}
                     />
                   );
                 })}
@@ -316,6 +321,16 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
         @keyframes pulse {
           0%, 100% { transform: scaleY(1); }
           50% { transform: scaleY(1.5); }
+        }
+        @keyframes audioPulse {
+          0%, 100% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scaleY(1.3);
+            opacity: 0.9;
+          }
         }
       `}</style>
     </div>
