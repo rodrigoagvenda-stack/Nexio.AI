@@ -5,11 +5,26 @@ import { sendWhatsAppMessage } from '@/lib/n8n/client';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { conversationId, phoneNumber, message, companyId, userId } = body;
+    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename } = body;
 
-    if (!conversationId || !phoneNumber || !message || !companyId) {
+    if (!conversationId || !phoneNumber || !companyId) {
       return NextResponse.json(
         { success: false, message: 'Dados obrigatórios faltando' },
+        { status: 400 }
+      );
+    }
+
+    // Validação específica por tipo de mensagem
+    const type = messageType || 'text';
+    if (type === 'text' && !message) {
+      return NextResponse.json(
+        { success: false, message: 'Mensagem de texto não pode estar vazia' },
+        { status: 400 }
+      );
+    }
+    if (type !== 'text' && !mediaUrl) {
+      return NextResponse.json(
+        { success: false, message: 'URL da mídia é obrigatória' },
         { status: 400 }
       );
     }
@@ -57,8 +72,11 @@ export async function POST(request: NextRequest) {
     // 4. Enviar mensagem via n8n/WhatsApp
     const whatsappResult = await sendWhatsAppMessage({
       number: phoneNumber,
-      text: message,
-      messageType: 'text',
+      text: message || '',
+      messageType: type,
+      mediaUrl: mediaUrl || '',
+      caption: caption || '',
+      filename: filename || '',
       company_id: parseInt(companyId),
       url_instancia: company.whatsapp_instance, // URL base da instância UAZapi
       token: company.whatsapp_token, // Token de autenticação
@@ -75,13 +93,14 @@ export async function POST(request: NextRequest) {
     const messageData: any = {
       company_id: companyId, // 🔒 Segurança: isolamento por empresa
       id_da_conversacao: conversationId,
-      texto_da_mensagem: message,
-      tipo_de_mensagem: 'text',
+      texto_da_mensagem: message || (type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : type === 'audio' ? '🎵 Áudio' : type === 'video' ? '🎥 Vídeo' : ''),
+      tipo_de_mensagem: type,
       direcao: 'outbound',
       sender_type: 'human',
       sender_user_id: userId,
       status: 'sent',
       carimbo_de_data_e_hora: new Date().toISOString(),
+      url_da_midia: mediaUrl || null,
     };
 
     // Adicionar lead_id apenas se existir (nem todas conversas têm lead)

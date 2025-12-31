@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -220,7 +220,7 @@ export default function AtendimentoPage() {
       const fileName = `audio_${Date.now()}.webm`;
       const filePath = `${company!.id}/whatsapp/${selectedConversation.id}/${fileName}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError} = await supabase.storage
         .from('whatsapp-media')
         .upload(filePath, audioBlob, {
           contentType: 'audio/webm',
@@ -260,6 +260,71 @@ export default function AtendimentoPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleSendFile(file: File, type: 'image' | 'document' | 'video') {
+    if (!selectedConversation || !user) return;
+
+    setLoading(true);
+    try {
+      // 1. Upload do arquivo para o Supabase Storage
+      const ext = file.name.split('.').pop();
+      const fileName = `${type}_${Date.now()}.${ext}`;
+      const filePath = `${company!.id}/whatsapp/${selectedConversation.id}/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('whatsapp-media')
+        .upload(filePath, file, {
+          contentType: file.type,
+          cacheControl: '3600',
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Pegar URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('whatsapp-media')
+        .getPublicUrl(filePath);
+
+      // 3. Enviar via API
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: selectedConversation.id,
+          phoneNumber: selectedConversation.numero_de_telefone,
+          message: type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : '🎥 Vídeo',
+          messageType: type,
+          mediaUrl: publicUrl,
+          filename: file.name,
+          companyId: company!.id,
+          userId: user.user_id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      toast.success(`${type === 'image' ? 'Imagem' : type === 'document' ? 'Documento' : 'Vídeo'} enviado!`);
+    } catch (error: any) {
+      console.error(`Error sending ${type}:`, error);
+      toast.error(error.message || `Erro ao enviar ${type}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleFileSelect(type: 'image' | 'document' | 'video') {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'image' ? 'image/*' : type === 'document' ? '.pdf,.doc,.docx,.xls,.xlsx,.txt' : 'video/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        await handleSendFile(file, type);
+      }
+    };
+    input.click();
   }
 
   const filteredConversations = conversations.filter((conv) =>
@@ -494,15 +559,38 @@ export default function AtendimentoPage() {
                   />
                 ) : (
                   <form onSubmit={handleSendMessage} className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setShowAudioRecorder(true)}
-                      disabled={loading}
-                    >
-                      <Mic className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleFileSelect('image')}
+                        disabled={loading}
+                        title="Enviar imagem"
+                      >
+                        <Image className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleFileSelect('document')}
+                        disabled={loading}
+                        title="Enviar documento"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowAudioRecorder(true)}
+                        disabled={loading}
+                        title="Gravar áudio"
+                      >
+                        <Mic className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Input
                       placeholder="Digite sua mensagem..."
                       value={newMessage}
