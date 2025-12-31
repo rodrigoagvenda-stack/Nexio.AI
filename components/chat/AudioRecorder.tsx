@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Trash2, Pause, Send, Play } from 'lucide-react';
+import { Mic, Trash2, Pause, Send, Play, Square } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AudioRecorderProps {
@@ -18,11 +18,13 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [playbackTime, setPlaybackTime] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const playbackTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Auto-start recording quando monta
@@ -30,6 +32,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (playbackTimerRef.current) clearInterval(playbackTimerRef.current);
       if (audioURL) URL.revokeObjectURL(audioURL);
       stopMediaStream();
     };
@@ -117,22 +120,13 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
       stopMediaStream();
       if (timerRef.current) clearInterval(timerRef.current);
     }
+    if (playbackTimerRef.current) clearInterval(playbackTimerRef.current);
     if (audioURL) URL.revokeObjectURL(audioURL);
     onCancel();
   };
 
   const handleSend = () => {
-    if (isRecording) {
-      // Se ainda está gravando, para e envia
-      stopRecording();
-      // Aguarda um pouco para o blob ser criado
-      setTimeout(() => {
-        if (audioBlob) {
-          onSendAudio(audioBlob, recordingTime);
-        }
-      }, 100);
-    } else if (audioBlob) {
-      // Se já parou de gravar, envia direto
+    if (audioBlob) {
       onSendAudio(audioBlob, duration);
     }
   };
@@ -143,9 +137,17 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
+      if (playbackTimerRef.current) clearInterval(playbackTimerRef.current);
     } else {
       audioRef.current.play();
       setIsPlaying(true);
+
+      // Update playback time
+      playbackTimerRef.current = setInterval(() => {
+        if (audioRef.current) {
+          setPlaybackTime(Math.floor(audioRef.current.currentTime));
+        }
+      }, 100);
     }
   };
 
@@ -156,13 +158,13 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
   };
 
   return (
-    <div className="bg-[#202c33] border-t border-[#2a3942] py-2 px-4">
+    <div className="bg-muted border-t py-3 px-4">
       {isRecording ? (
-        // Gravando - WhatsApp style
+        // Gravando - VendAI style
         <div className="flex items-center gap-3">
           {/* Ícone microfone */}
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#00a884]">
-            <Mic className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary">
+            <Mic className="h-5 w-5 text-primary-foreground" />
           </div>
 
           {/* Botão deletar */}
@@ -170,7 +172,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
             onClick={handleDelete}
             size="icon"
             variant="ghost"
-            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
+            className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2 className="h-5 w-5" />
           </Button>
@@ -180,7 +182,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
             {/* Timer com bolinha vermelha */}
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-red-500 font-mono text-sm tabular-nums">
+              <span className="text-red-500 font-mono text-sm tabular-nums font-semibold">
                 {formatTime(recordingTime)}
               </span>
             </div>
@@ -194,7 +196,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
                 return (
                   <div
                     key={i}
-                    className="w-[2px] bg-[#8696a0] rounded-full transition-all duration-75"
+                    className="w-[2px] bg-muted-foreground/40 rounded-full transition-all duration-75"
                     style={{
                       height: `${height}px`,
                       animation: isPaused ? 'none' : `pulse ${0.5 + (i % 3) * 0.2}s ease-in-out infinite`
@@ -210,7 +212,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
             onClick={isPaused ? resumeRecording : pauseRecording}
             size="icon"
             variant="ghost"
-            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
+            className="h-10 w-10"
           >
             {isPaused ? (
               <Mic className="h-5 w-5" />
@@ -219,58 +221,94 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
             )}
           </Button>
 
-          {/* Botão enviar */}
+          {/* Botão parar gravação para preview */}
           <Button
-            onClick={handleSend}
+            onClick={stopRecording}
             size="icon"
-            className="h-12 w-12 rounded-full bg-[#00a884] hover:bg-[#06cf9c]"
+            variant="default"
+            className="h-10 w-10"
           >
-            <Send className="h-5 w-5" fill="white" />
+            <Square className="h-4 w-4" />
           </Button>
         </div>
       ) : (
-        // Preview após gravar
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={togglePlayPause}
-            size="icon"
-            variant="ghost"
-            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
-          >
-            {isPlaying ? (
-              <Pause className="h-5 w-5" />
-            ) : (
-              <Play className="h-5 w-5" />
-            )}
-          </Button>
+        // Preview após gravar - VendAI style
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            {/* Play/Pause button */}
+            <Button
+              onClick={togglePlayPause}
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 flex-shrink-0"
+            >
+              {isPlaying ? (
+                <Pause className="h-5 w-5" />
+              ) : (
+                <Play className="h-5 w-5" />
+              )}
+            </Button>
 
-          <div className="flex-1">
-            <p className="text-sm text-white">Áudio gravado</p>
-            <p className="text-xs text-[#8696a0]">{formatTime(duration)}</p>
+            {/* Waveform + Time */}
+            <div className="flex-1 flex items-center gap-3">
+              {/* Waveform */}
+              <div className="flex items-center gap-[2px] h-8 flex-1">
+                {[...Array(40)].map((_, i) => {
+                  const heights = [4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 16, 20, 16, 12, 8, 4, 8, 12, 16, 12, 8, 4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 12];
+                  const progress = duration > 0 ? (playbackTime / duration) * 100 : 0;
+                  const isActive = (i / 40) * 100 <= progress;
+
+                  return (
+                    <div
+                      key={i}
+                      className={`w-[2px] rounded-full transition-colors ${
+                        isActive ? 'bg-primary' : 'bg-muted-foreground/40'
+                      }`}
+                      style={{ height: `${heights[i]}px` }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Time */}
+              <span className="text-sm font-mono tabular-nums text-muted-foreground flex-shrink-0">
+                {formatTime(isPlaying ? playbackTime : duration)}
+              </span>
+            </div>
+
+            <audio
+              ref={audioRef}
+              src={audioURL || ''}
+              onEnded={() => {
+                setIsPlaying(false);
+                setPlaybackTime(0);
+                if (playbackTimerRef.current) clearInterval(playbackTimerRef.current);
+              }}
+            />
+
+            {/* Botão deletar */}
+            <Button
+              onClick={handleDelete}
+              size="icon"
+              variant="ghost"
+              className="h-10 w-10 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+
+            {/* Botão enviar */}
+            <Button
+              onClick={handleSend}
+              size="icon"
+              className="h-12 w-12 rounded-full bg-primary hover:bg-primary/90"
+            >
+              <Send className="h-5 w-5" fill="currentColor" />
+            </Button>
           </div>
 
-          <audio
-            ref={audioRef}
-            src={audioURL || ''}
-            onEnded={() => setIsPlaying(false)}
-          />
-
-          <Button
-            onClick={handleSend}
-            size="icon"
-            className="h-12 w-12 rounded-full bg-[#00a884] hover:bg-[#06cf9c]"
-          >
-            <Send className="h-5 w-5" fill="white" />
-          </Button>
-
-          <Button
-            onClick={handleDelete}
-            size="icon"
-            variant="ghost"
-            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            Ouça o áudio antes de enviar
+          </p>
         </div>
       )}
 
