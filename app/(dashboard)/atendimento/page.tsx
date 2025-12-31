@@ -519,7 +519,7 @@ export default function AtendimentoPage() {
               />
             </div>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto space-y-2">
+          <CardContent className="flex-1 overflow-y-auto space-y-2 scrollbar-minimal">
             {filteredConversations.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 Nenhuma conversa encontrada
@@ -638,7 +638,7 @@ export default function AtendimentoPage() {
               </CardHeader>
 
               {/* Mensagens */}
-              <CardContent className="flex-1 overflow-y-auto px-6 py-[25px] space-y-4">
+              <CardContent className="flex-1 overflow-y-auto p-[20px] space-y-4 scrollbar-minimal">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
@@ -790,7 +790,7 @@ export default function AtendimentoPage() {
               <CardHeader className="border-b flex-shrink-0">
                 <CardTitle className="text-base">Informações do Lead</CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal">
                 {/* Company Info */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
