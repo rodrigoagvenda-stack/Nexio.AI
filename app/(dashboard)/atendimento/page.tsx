@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { AudioRecorder } from '@/components/chat/AudioRecorder';
+import { WhatsAppAudioPlayer } from '@/components/chat/WhatsAppAudioPlayer';
 
 interface Conversation {
   id: number;
@@ -381,13 +382,10 @@ export default function AtendimentoPage() {
         case 'audio':
           return (
             <div className="space-y-2">
-              <audio
+              <WhatsAppAudioPlayer
                 src={msg.url_da_midia}
-                controls
-                className="w-full max-w-sm"
-              >
-                Seu navegador não suporta áudio.
-              </audio>
+                isOutbound={msg.direcao === 'outbound'}
+              />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎵') && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}

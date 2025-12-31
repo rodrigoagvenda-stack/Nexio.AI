@@ -1,0 +1,126 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { Play, Pause } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+interface WhatsAppAudioPlayerProps {
+  src: string;
+  isOutbound?: boolean;
+}
+
+export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPlayerProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-2 min-w-[280px] max-w-md">
+      <audio ref={audioRef} src={src} preload="metadata" />
+
+      {/* Play/Pause Button */}
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={togglePlay}
+        className={`h-10 w-10 rounded-full flex-shrink-0 ${
+          isOutbound
+            ? 'hover:bg-white/20'
+            : 'hover:bg-muted-foreground/10'
+        }`}
+      >
+        {isPlaying ? (
+          <Pause className="h-5 w-5" fill="currentColor" />
+        ) : (
+          <Play className="h-5 w-5" fill="currentColor" />
+        )}
+      </Button>
+
+      {/* Waveform / Progress Container */}
+      <div className="flex-1 flex flex-col gap-1">
+        {/* Waveform bars */}
+        <div className="flex items-center gap-[2px] h-8">
+          {[...Array(40)].map((_, i) => {
+            const isActive = (i / 40) * 100 <= progress;
+            const heights = [8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 12, 8];
+            const height = heights[i];
+
+            return (
+              <div
+                key={i}
+                className={`w-[3px] rounded-full transition-all ${
+                  isActive
+                    ? isOutbound
+                      ? 'bg-white'
+                      : 'bg-green-600'
+                    : isOutbound
+                      ? 'bg-white/40'
+                      : 'bg-gray-400'
+                }`}
+                style={{ height: `${height}px` }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Time Display */}
+      <span className={`text-xs tabular-nums flex-shrink-0 ${
+        isOutbound ? 'opacity-80' : 'text-muted-foreground'
+      }`}>
+        {formatTime(currentTime || duration)}
+      </span>
+    </div>
+  );
+}
