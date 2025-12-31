@@ -425,18 +425,18 @@ export default function AtendimentoPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="h-screen flex flex-col overflow-hidden">
+      <div className="p-6 border-b flex-shrink-0">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <MessageSquare className="h-8 w-8 text-primary" />
           Atendimento WhatsApp
         </h1>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-180px)] md:h-[calc(100vh-200px)]">
+      <div className="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden">
         {/* Lista de Conversas */}
-        <Card className={`col-span-12 lg:col-span-3 flex flex-col ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
-          <CardHeader>
+        <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
+          <CardHeader className="flex-shrink-0">
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
               Conversas
@@ -502,11 +502,11 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Área de Chat */}
-        <Card className={`col-span-12 lg:col-span-6 flex flex-col ${!selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
+        <Card className={`col-span-12 lg:col-span-6 flex flex-col overflow-hidden ${!selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
-              <CardHeader className="border-b">
+              <CardHeader className="border-b flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Button
@@ -633,7 +633,7 @@ export default function AtendimentoPage() {
               </CardContent>
 
               {/* Input de Mensagem */}
-              <div className="border-t p-4">
+              <div className="border-t p-4 flex-shrink-0">
                 {showAudioRecorder ? (
                   <AudioRecorder
                     onSendAudio={handleSendAudio}
@@ -712,7 +712,7 @@ export default function AtendimentoPage() {
         <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
           {selectedConversation?.lead ? (
             <>
-              <CardHeader className="border-b">
+              <CardHeader className="border-b flex-shrink-0">
                 <CardTitle className="text-base">Informações do Lead</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
