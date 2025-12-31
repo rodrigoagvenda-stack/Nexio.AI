@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Mic, Square, Play, Pause, X, Send } from 'lucide-react';
+import { Mic, Trash2, Pause, Send, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AudioRecorderProps {
@@ -12,6 +12,7 @@ interface AudioRecorderProps {
 
 export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [audioURL, setAudioURL] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -24,8 +25,10 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Auto-start recording quando monta
+    startRecording();
+
     return () => {
-      // Cleanup
       if (timerRef.current) clearInterval(timerRef.current);
       if (audioURL) URL.revokeObjectURL(audioURL);
       stopMediaStream();
@@ -42,7 +45,6 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Use audio/webm;codecs=opus para melhor compatibilidade
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : 'audio/webm';
@@ -70,13 +72,31 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
       setIsRecording(true);
       setRecordingTime(0);
 
-      // Timer para mostrar tempo de gravação
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
       toast.error('Não foi possível acessar o microfone');
+      onCancel();
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
     }
   };
 
@@ -84,10 +104,36 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+    }
+  };
+
+  const handleDelete = () => {
+    if (isRecording) {
+      stopMediaStream();
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    if (audioURL) URL.revokeObjectURL(audioURL);
+    onCancel();
+  };
+
+  const handleSend = () => {
+    if (isRecording) {
+      // Se ainda está gravando, para e envia
+      stopRecording();
+      // Aguarda um pouco para o blob ser criado
+      setTimeout(() => {
+        if (audioBlob) {
+          onSendAudio(audioBlob, recordingTime);
+        }
+      }, 100);
+    } else if (audioBlob) {
+      // Se já parou de gravar, envia direto
+      onSendAudio(audioBlob, duration);
     }
   };
 
@@ -103,22 +149,6 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
     }
   };
 
-  const handleSend = () => {
-    if (audioBlob) {
-      onSendAudio(audioBlob, duration);
-    }
-  };
-
-  const handleCancel = () => {
-    if (isRecording) {
-      stopRecording();
-    }
-    if (audioURL) {
-      URL.revokeObjectURL(audioURL);
-    }
-    onCancel();
-  };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -126,94 +156,130 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-      {!audioURL ? (
-        <>
-          {/* Gravando */}
-          {isRecording ? (
-            <>
-              <div className="flex items-center gap-2 flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-sm font-medium">{formatTime(recordingTime)}</span>
-                </div>
-                <span className="text-sm text-muted-foreground">Gravando áudio...</span>
-              </div>
-              <Button
-                onClick={stopRecording}
-                size="icon"
-                variant="destructive"
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <>
-              {/* Iniciar gravação */}
-              <span className="text-sm text-muted-foreground flex-1">
-                Clique no microfone para gravar
-              </span>
-              <Button
-                onClick={startRecording}
-                size="icon"
-                variant="default"
-              >
-                <Mic className="h-4 w-4" />
-              </Button>
-            </>
-          )}
+    <div className="bg-[#202c33] border-t border-[#2a3942] py-2 px-4">
+      {isRecording ? (
+        // Gravando - WhatsApp style
+        <div className="flex items-center gap-3">
+          {/* Ícone microfone */}
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#00a884]">
+            <Mic className="h-5 w-5 text-white" />
+          </div>
+
+          {/* Botão deletar */}
           <Button
-            onClick={handleCancel}
+            onClick={handleDelete}
             size="icon"
             variant="ghost"
+            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
           >
-            <X className="h-4 w-4" />
+            <Trash2 className="h-5 w-5" />
           </Button>
-        </>
-      ) : (
-        <>
-          {/* Preview do áudio */}
-          <div className="flex items-center gap-2 flex-1">
-            <Button
-              onClick={togglePlayPause}
-              size="icon"
-              variant="outline"
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Áudio gravado</p>
-              <p className="text-xs text-muted-foreground">{formatTime(duration)}</p>
+
+          {/* Timer + Waveform */}
+          <div className="flex-1 flex items-center gap-3">
+            {/* Timer com bolinha vermelha */}
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-red-500 font-mono text-sm tabular-nums">
+                {formatTime(recordingTime)}
+              </span>
             </div>
-            <audio
-              ref={audioRef}
-              src={audioURL}
-              onEnded={() => setIsPlaying(false)}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            />
+
+            {/* Waveform animado */}
+            <div className="flex items-center gap-[2px] h-8">
+              {[...Array(30)].map((_, i) => {
+                const heights = [4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 16, 20, 16, 12, 8, 4, 8, 12, 16, 12, 8, 4, 8, 12, 16, 20, 16, 12, 8, 4];
+                const height = isPaused ? 4 : heights[i];
+
+                return (
+                  <div
+                    key={i}
+                    className="w-[2px] bg-[#8696a0] rounded-full transition-all duration-75"
+                    style={{
+                      height: `${height}px`,
+                      animation: isPaused ? 'none' : `pulse ${0.5 + (i % 3) * 0.2}s ease-in-out infinite`
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
+
+          {/* Botão pause/resume */}
+          <Button
+            onClick={isPaused ? resumeRecording : pauseRecording}
+            size="icon"
+            variant="ghost"
+            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
+          >
+            {isPaused ? (
+              <Mic className="h-5 w-5" />
+            ) : (
+              <Pause className="h-5 w-5" />
+            )}
+          </Button>
+
+          {/* Botão enviar */}
           <Button
             onClick={handleSend}
             size="icon"
-            variant="default"
-            className="bg-orange-500 hover:bg-orange-600"
+            className="h-12 w-12 rounded-full bg-[#00a884] hover:bg-[#06cf9c]"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-5 w-5" fill="white" />
           </Button>
+        </div>
+      ) : (
+        // Preview após gravar
+        <div className="flex items-center gap-3">
           <Button
-            onClick={handleCancel}
+            onClick={togglePlayPause}
             size="icon"
             variant="ghost"
+            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
           >
-            <X className="h-4 w-4" />
+            {isPlaying ? (
+              <Pause className="h-5 w-5" />
+            ) : (
+              <Play className="h-5 w-5" />
+            )}
           </Button>
-        </>
+
+          <div className="flex-1">
+            <p className="text-sm text-white">Áudio gravado</p>
+            <p className="text-xs text-[#8696a0]">{formatTime(duration)}</p>
+          </div>
+
+          <audio
+            ref={audioRef}
+            src={audioURL || ''}
+            onEnded={() => setIsPlaying(false)}
+          />
+
+          <Button
+            onClick={handleSend}
+            size="icon"
+            className="h-12 w-12 rounded-full bg-[#00a884] hover:bg-[#06cf9c]"
+          >
+            <Send className="h-5 w-5" fill="white" />
+          </Button>
+
+          <Button
+            onClick={handleDelete}
+            size="icon"
+            variant="ghost"
+            className="h-10 w-10 text-[#8696a0] hover:text-white hover:bg-[#2a3942]"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        </div>
       )}
+
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(1.5); }
+        }
+      `}</style>
     </div>
   );
 }
