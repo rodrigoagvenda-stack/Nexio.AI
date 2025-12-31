@@ -14,6 +14,7 @@ import { formatDateTime } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { AudioRecorder } from '@/components/chat/AudioRecorder';
 import { WhatsAppAudioPlayer } from '@/components/chat/WhatsAppAudioPlayer';
+import { MessageContextMenu } from '@/components/chat/MessageContextMenu';
 
 interface Conversation {
   id: number;
@@ -34,7 +35,9 @@ interface Conversation {
 }
 
 interface Message {
-  id: number;
+  id: number | string; // Permitir string para IDs temporários (UI otimista)
+  company_id?: number;
+  id_da_conversacao?: number;
   texto_da_mensagem: string;
   tipo_de_mensagem: string;
   direcao: 'inbound' | 'outbound';
@@ -105,7 +108,14 @@ export default function AtendimentoPage() {
           filter: `id_da_conversacao=eq.${selectedConversation.id}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          // Evitar duplicatas (UI otimista já adicionou)
+          setMessages((prev) => {
+            const newMessage = payload.new as Message;
+            const exists = prev.some(msg =>
+              typeof msg.id === 'number' && msg.id === newMessage.id
+            );
+            return exists ? prev : [...prev, newMessage];
+          });
           scrollToBottom();
         }
       )
@@ -186,7 +196,28 @@ export default function AtendimentoPage() {
     e.preventDefault();
     if (!newMessage.trim() || !selectedConversation || !user) return;
 
+    const messageText = newMessage.trim();
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // UI Otimista: Adicionar mensagem imediatamente
+    const optimisticMessage: Message = {
+      id: tempId,
+      company_id: company!.id,
+      id_da_conversacao: selectedConversation.id,
+      texto_da_mensagem: messageText,
+      tipo_de_mensagem: 'text',
+      direcao: 'outbound',
+      sender_type: 'human',
+      sender_user_id: user.user_id,
+      status: 'sending', // Status temporário
+      carimbo_de_data_e_hora: new Date().toISOString(),
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
     setLoading(true);
+    scrollToBottom();
+
     try {
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -194,7 +225,7 @@ export default function AtendimentoPage() {
         body: JSON.stringify({
           conversationId: selectedConversation.id,
           phoneNumber: selectedConversation.numero_de_telefone,
-          message: newMessage,
+          message: messageText,
           companyId: company!.id,
           userId: user.user_id,
         }),
@@ -203,14 +234,58 @@ export default function AtendimentoPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      setNewMessage('');
+      // Atualizar mensagem otimista com dados reais do servidor
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempId ? { ...data.data, status: 'sent' } : msg
+        )
+      );
       toast.success('Mensagem enviada!');
     } catch (error: any) {
       console.error('Error sending message:', error);
+      // Remover mensagem otimista em caso de erro
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setNewMessage(messageText); // Restaurar texto
       toast.error(error.message || 'Erro ao enviar mensagem');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleCopyMessage(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Mensagem copiada!');
+    } catch (error) {
+      toast.error('Erro ao copiar mensagem');
+    }
+  }
+
+  async function handleDeleteMessage(messageId: number | string) {
+    if (typeof messageId === 'string') return; // Não deletar mensagens otimistas
+
+    try {
+      const { error } = await supabase
+        .from('mensagens_do_whatsapp')
+        .delete()
+        .eq('id', messageId)
+        .eq('company_id', company!.id); // 🔒 Segurança: garante isolamento
+
+      if (error) throw error;
+
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      toast.success('Mensagem apagada!');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Erro ao apagar mensagem');
+    }
+  }
+
+  async function handleReactToMessage(messageId: number | string, emoji: string) {
+    if (typeof messageId === 'string') return; // Não reagir a mensagens otimistas
+
+    // TODO: Implementar reação via UAZapi
+    toast.info(`Reação ${emoji} (em breve)`);
   }
 
   async function handleSendAudio(audioBlob: Blob, duration: number) {
@@ -563,7 +638,7 @@ export default function AtendimentoPage() {
               </CardHeader>
 
               {/* Mensagens */}
-              <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+              <CardContent className="flex-1 overflow-y-auto px-6 py-[25px] space-y-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
@@ -578,37 +653,44 @@ export default function AtendimentoPage() {
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    <div
-                      className={`max-w-[85%] md:max-w-[70%] rounded-lg p-3 ${
-                        msg.direcao === 'outbound'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-muted'
-                      }`}
+                    <MessageContextMenu
+                      onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
+                      onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
+                      onDelete={msg.direcao === 'outbound' ? () => handleDeleteMessage(msg.id) : undefined}
                     >
-                      {msg.direcao === 'outbound' && (
-                        <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
-                          {msg.sender_type === 'ai' ? (
-                            <>
-                              <Bot className="h-3 w-3" />
-                              IA
-                            </>
-                          ) : (
-                            <>
-                              <User className="h-3 w-3" />
-                              {msg.user?.name || 'Você'}
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {renderMessageContent(msg)}
-                      <p
-                        className={`text-xs mt-1 ${
-                          msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'
-                        }`}
+                      <div
+                        className={`max-w-[85%] md:max-w-[70%] rounded-lg p-3 cursor-pointer ${
+                          msg.direcao === 'outbound'
+                            ? 'bg-[#005c4b] text-white'
+                            : 'bg-muted'
+                        } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
                       >
-                        {formatDateTime(msg.carimbo_de_data_e_hora)}
-                      </p>
-                    </div>
+                        {msg.direcao === 'outbound' && (
+                          <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
+                            {msg.sender_type === 'ai' ? (
+                              <>
+                                <Bot className="h-3 w-3" />
+                                IA
+                              </>
+                            ) : (
+                              <>
+                                <User className="h-3 w-3" />
+                                {msg.user?.name || 'Você'}
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {renderMessageContent(msg)}
+                        <p
+                          className={`text-xs mt-1 flex items-center gap-1 ${
+                            msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {formatDateTime(msg.carimbo_de_data_e_hora)}
+                          {msg.status === 'sending' && ' • Enviando...'}
+                        </p>
+                      </div>
+                    </MessageContextMenu>
                     {msg.direcao === 'outbound' && (
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs bg-green-600 text-white">
