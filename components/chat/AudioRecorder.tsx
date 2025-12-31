@@ -185,9 +185,37 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
                 <Play className="h-4 w-4" />
               )}
             </Button>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Áudio gravado</p>
-              <p className="text-xs text-muted-foreground">{formatTime(duration)}</p>
+
+            {/* Waveform + Time */}
+            <div className="flex-1 flex items-center gap-3">
+              {/* Waveform */}
+              <div className="flex items-center gap-[2px] h-8 flex-1">
+                {[...Array(40)].map((_, i) => {
+                  const heights = [4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 16, 20, 16, 12, 8, 4, 8, 12, 16, 12, 8, 4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 12, 16, 20, 16, 12, 8, 4, 8, 12];
+                  const progress = duration > 0 ? (playbackTime / duration) * 100 : 0;
+                  const isActive = (i / 40) * 100 <= progress;
+
+                  return (
+                    <div
+                      key={i}
+                      className={`w-[2px] rounded-full transition-colors ${
+                        isActive ? 'bg-primary' : 'bg-muted-foreground/40'
+                      }`}
+                      style={{
+                        height: `${heights[i]}px`,
+                        animation: isPlaying && isActive
+                          ? `audioPulse ${0.8 + (i % 3) * 0.2}s ease-in-out infinite`
+                          : 'none'
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Time */}
+              <span className="text-sm font-mono tabular-nums text-muted-foreground flex-shrink-0">
+                {formatTime(isPlaying ? playbackTime : duration)}
+              </span>
             </div>
             <audio
               ref={audioRef}
@@ -214,6 +242,23 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
           </Button>
         </>
       )}
+
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(1.5); }
+        }
+        @keyframes audioPulse {
+          0%, 100% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scaleY(1.3);
+            opacity: 0.9;
+          }
+        }
+      `}</style>
     </div>
   );
 }
