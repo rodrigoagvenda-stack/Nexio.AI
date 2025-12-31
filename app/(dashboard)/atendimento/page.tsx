@@ -425,8 +425,8 @@ export default function AtendimentoPage() {
   };
 
   return (
-    <div className="h-screen w-full overflow-hidden">
-      <div className="h-full grid grid-cols-12 gap-4 p-4 overflow-hidden">
+    <div className="h-full w-full overflow-hidden">
+      <div className="h-full grid grid-cols-12 gap-2 overflow-hidden">
         {/* Lista de Conversas */}
         <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="flex-shrink-0">
