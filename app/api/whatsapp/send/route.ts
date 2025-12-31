@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         conversation_id: conversationId,
         message_length: message.length,
       },
-    }).catch(err => console.error('Error logging message send:', err));
+    }).then(() => {}).catch(err => console.error('Error logging message send:', err));
 
     return NextResponse.json({
       success: true,
