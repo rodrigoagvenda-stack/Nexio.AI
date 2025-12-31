@@ -153,7 +153,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.url_instancia }}/message/sendText",
+        "url": "={{ $json.url_instancia }}/send/text",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -181,7 +181,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "url": "={{ $json.url_instancia }}/send/image",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -197,7 +197,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"image\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
         "options": {}
       },
       "id": "send-image",
@@ -209,7 +209,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "url": "={{ $json.url_instancia }}/send/audio",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -225,7 +225,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"audio\"\n}\n",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\"\n}\n",
         "options": {}
       },
       "id": "send-audio",
@@ -237,7 +237,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "url": "={{ $json.url_instancia }}/send/document",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -253,7 +253,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"document\",\n  \"fileName\": \"{{ $json.filename }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"filename\": \"{{ $json.filename }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
         "options": {}
       },
       "id": "send-document",
@@ -265,7 +265,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.url_instancia }}/message/sendMedia",
+        "url": "={{ $json.url_instancia }}/send/video",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -281,7 +281,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"mediaUrl\": \"{{ $json.mediaUrl }}\",\n  \"mediaType\": \"video\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
+        "jsonBody": "={\n  \"number\": \"{{ $json.number }}\",\n  \"url\": \"{{ $json.mediaUrl }}\",\n  \"caption\": \"{{ $json.caption }}\"\n}\n",
         "options": {}
       },
       "id": "send-video",
