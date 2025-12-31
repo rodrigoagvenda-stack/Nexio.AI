@@ -33,7 +33,9 @@ interface Conversation {
 }
 
 interface Message {
-  id: number;
+  id: number | string; // Permitir string para IDs temporários (UI otimista)
+  company_id?: number;
+  id_da_conversacao?: number;
   texto_da_mensagem: string;
   tipo_de_mensagem: string;
   direcao: 'inbound' | 'outbound';
@@ -103,7 +105,14 @@ export default function AtendimentoPage() {
           filter: `id_da_conversacao=eq.${selectedConversation.id}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          // Evitar duplicatas (UI otimista já adicionou)
+          setMessages((prev) => {
+            const newMessage = payload.new as Message;
+            const exists = prev.some(msg =>
+              typeof msg.id === 'number' && msg.id === newMessage.id
+            );
+            return exists ? prev : [...prev, newMessage];
+          });
           scrollToBottom();
         }
       )
@@ -184,7 +193,28 @@ export default function AtendimentoPage() {
     e.preventDefault();
     if (!newMessage.trim() || !selectedConversation || !user) return;
 
+    const messageText = newMessage.trim();
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // UI Otimista: Adicionar mensagem imediatamente
+    const optimisticMessage: Message = {
+      id: tempId,
+      company_id: company!.id,
+      id_da_conversacao: selectedConversation.id,
+      texto_da_mensagem: messageText,
+      tipo_de_mensagem: 'text',
+      direcao: 'outbound',
+      sender_type: 'human',
+      sender_user_id: user.user_id,
+      status: 'sending', // Status temporário
+      carimbo_de_data_e_hora: new Date().toISOString(),
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
     setLoading(true);
+    scrollToBottom();
+
     try {
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -192,7 +222,7 @@ export default function AtendimentoPage() {
         body: JSON.stringify({
           conversationId: selectedConversation.id,
           phoneNumber: selectedConversation.numero_de_telefone,
-          message: newMessage,
+          message: messageText,
           companyId: company!.id,
           userId: user.user_id,
         }),
@@ -201,10 +231,18 @@ export default function AtendimentoPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      setNewMessage('');
+      // Atualizar mensagem otimista com dados reais do servidor
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempId ? { ...data.data, status: 'sent' } : msg
+        )
+      );
       toast.success('Mensagem enviada!');
     } catch (error: any) {
       console.error('Error sending message:', error);
+      // Remover mensagem otimista em caso de erro
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setNewMessage(messageText); // Restaurar texto
       toast.error(error.message || 'Erro ao enviar mensagem');
     } finally {
       setLoading(false);
