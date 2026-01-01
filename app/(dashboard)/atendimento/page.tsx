@@ -17,6 +17,7 @@ import { WhatsAppAudioPlayer } from '@/components/chat/WhatsAppAudioPlayer';
 import { MessageContextMenu } from '@/components/chat/MessageContextMenu';
 import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
 import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
+import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
 
 interface Conversation {
   id: number;
@@ -69,6 +70,7 @@ export default function AtendimentoPage() {
   const [imageCaption, setImageCaption] = useState('');
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
   const [forwardDialog, setForwardDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
+  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar conversas
@@ -852,56 +854,47 @@ export default function AtendimentoPage() {
                   />
                 ) : (
                   <form onSubmit={handleSendMessage} className="flex gap-2">
-                    <div className="flex gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleFileSelect('image')}
-                        disabled={loading}
-                        title="Enviar imagem"
-                      >
-                        <Image className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleFileSelect('document')}
-                        disabled={loading}
-                        title="Enviar documento"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleFileSelect('video')}
-                        disabled={loading}
-                        title="Enviar vídeo"
-                      >
-                        <Video className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowAudioRecorder(true)}
-                        disabled={loading}
-                        title="Gravar áudio"
-                      >
-                        <Mic className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowAttachmentOptions(true)}
+                      disabled={loading}
+                      title="Anexar"
+                      className="text-muted-foreground"
+                    >
+                      <Paperclip className="h-5 w-5" />
+                    </Button>
                     <Input
                       placeholder="Digite sua mensagem..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (newMessage.trim()) {
+                            handleSendMessage(e);
+                          }
+                        }
+                      }}
                       disabled={loading}
                     />
-                    <Button type="submit" disabled={loading || !newMessage.trim()}>
-                      <Send className="h-4 w-4" />
+                    <Button
+                      type={newMessage.trim() ? 'submit' : 'button'}
+                      size="icon"
+                      onClick={() => {
+                        if (!newMessage.trim()) {
+                          setShowAudioRecorder(true);
+                        }
+                      }}
+                      disabled={loading}
+                      className="bg-[#005c4b] hover:bg-[#004d3d]"
+                    >
+                      {newMessage.trim() ? (
+                        <Send className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )}
                     </Button>
                   </form>
                 )}
@@ -1035,6 +1028,21 @@ export default function AtendimentoPage() {
           )}
         </Card>
       </div>
+
+      {/* Attachment Options Dialog */}
+      <AttachmentOptionsDialog
+        open={showAttachmentOptions}
+        onOpenChange={setShowAttachmentOptions}
+        onSelectDocument={() => handleFileSelect('document')}
+        onSelectImage={() => handleFileSelect('image')}
+        onSelectVideo={() => handleFileSelect('video')}
+        onSelectCamera={() => toast.info('Câmera em breve')}
+        onSelectAudio={() => setShowAudioRecorder(true)}
+        onSelectContact={() => toast.info('Contato em breve')}
+        onSelectPoll={() => toast.info('Enquete em breve')}
+        onSelectEvent={() => toast.info('Evento em breve')}
+        onSelectSticker={() => toast.info('Figurinha em breve')}
+      />
     </div>
   );
 }
