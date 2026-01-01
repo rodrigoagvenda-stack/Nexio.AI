@@ -520,9 +520,8 @@ export default function AtendimentoPage() {
               <img
                 src={msg.url_da_midia}
                 alt="Imagem enviada"
-                className="max-w-full rounded max-h-96 object-cover cursor-pointer"
+                className="max-w-full rounded-lg max-h-96 object-contain"
                 loading="lazy"
-                onClick={() => window.open(msg.url_da_midia, '_blank')}
               />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
@@ -536,7 +535,7 @@ export default function AtendimentoPage() {
               <video
                 src={msg.url_da_midia}
                 controls
-                className="max-w-full rounded max-h-96"
+                className="max-w-full rounded-lg max-h-96"
               >
                 Seu navegador não suporta vídeo.
               </video>
@@ -567,14 +566,14 @@ export default function AtendimentoPage() {
                 href={msg.url_da_midia}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 bg-background/20 rounded hover:bg-background/40 transition-colors"
+                className="flex items-center gap-2 p-3 bg-background/50 rounded-lg hover:bg-background/80 transition-colors"
               >
-                <File className="h-6 w-6 flex-shrink-0" />
+                <File className="h-8 w-8 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{fileName}</p>
-                  <p className="text-xs opacity-70">Documento</p>
+                  <p className="text-xs text-muted-foreground">Clique para baixar</p>
                 </div>
-                <Download className="h-4 w-4 flex-shrink-0" />
+                <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </a>
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📄') && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
@@ -746,6 +745,7 @@ export default function AtendimentoPage() {
                       </Avatar>
                     )}
                     <MessageContextMenu
+                      isOutbound={msg.direcao === 'outbound'}
                       onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
                       onDelete={msg.direcao === 'outbound' ? () => handleDeleteMessage(msg.id) : undefined}
