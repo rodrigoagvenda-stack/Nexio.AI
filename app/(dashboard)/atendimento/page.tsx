@@ -46,6 +46,7 @@ interface Message {
   status: string;
   carimbo_de_data_e_hora: string;
   url_da_midia?: string;
+  reactions?: string[]; // Array de emojis
   user?: {
     name: string;
   };
@@ -62,6 +63,8 @@ export default function AtendimentoPage() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ file: File; url: string } | null>(null);
+  const [imageCaption, setImageCaption] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar conversas
@@ -284,8 +287,22 @@ export default function AtendimentoPage() {
   async function handleReactToMessage(messageId: number | string, emoji: string) {
     if (typeof messageId === 'string') return; // Não reagir a mensagens otimistas
 
-    // TODO: Implementar reação via UAZapi
-    toast.info(`Reação ${emoji} (em breve)`);
+    setMessages(prev =>
+      prev.map(msg => {
+        if (msg.id === messageId) {
+          const currentReactions = msg.reactions || [];
+          // Se já tem a reação, remove; senão, adiciona
+          const hasReaction = currentReactions.includes(emoji);
+          return {
+            ...msg,
+            reactions: hasReaction
+              ? currentReactions.filter(r => r !== emoji)
+              : [...currentReactions, emoji]
+          };
+        }
+        return msg;
+      })
+    );
   }
 
   async function handleSendAudio(audioBlob: Blob, duration: number) {
@@ -339,7 +356,7 @@ export default function AtendimentoPage() {
     }
   }
 
-  async function handleSendFile(file: File, type: 'image' | 'document' | 'video') {
+  async function handleSendFile(file: File, type: 'image' | 'document' | 'video', caption?: string) {
     if (!selectedConversation || !user) return;
 
     setLoading(true);
@@ -364,13 +381,14 @@ export default function AtendimentoPage() {
         .getPublicUrl(filePath);
 
       // 3. Enviar via API
+      const defaultMessage = type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : '🎥 Vídeo';
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationId: selectedConversation.id,
           phoneNumber: selectedConversation.numero_de_telefone,
-          message: type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : '🎥 Vídeo',
+          message: caption || defaultMessage,
           messageType: type,
           mediaUrl: publicUrl,
           filename: file.name,
@@ -398,10 +416,42 @@ export default function AtendimentoPage() {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        await handleSendFile(file, type);
+        // Se for imagem, mostrar preview
+        if (type === 'image') {
+          const url = URL.createObjectURL(file);
+          setImagePreview({ file, url });
+          setImageCaption('');
+        } else {
+          // Senão, enviar diretamente
+          await handleSendFile(file, type);
+        }
       }
     };
     input.click();
+  }
+
+  async function handleSendImageWithPreview() {
+    if (!imagePreview) return;
+
+    setLoading(true);
+    try {
+      await handleSendFile(imagePreview.file, 'image', imageCaption);
+      setImagePreview(null);
+      setImageCaption('');
+      URL.revokeObjectURL(imagePreview.url);
+    } catch (error) {
+      console.error('Error sending image:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCancelImagePreview() {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview.url);
+      setImagePreview(null);
+      setImageCaption('');
+    }
   }
 
   const filteredConversations = conversations.filter((conv) =>
@@ -429,8 +479,9 @@ export default function AtendimentoPage() {
               <img
                 src={msg.url_da_midia}
                 alt="Imagem enviada"
-                className="max-w-full rounded-lg max-h-96 object-contain"
+                className="max-w-full rounded max-h-96 object-cover cursor-pointer"
                 loading="lazy"
+                onClick={() => window.open(msg.url_da_midia, '_blank')}
               />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
@@ -444,7 +495,7 @@ export default function AtendimentoPage() {
               <video
                 src={msg.url_da_midia}
                 controls
-                className="max-w-full rounded-lg max-h-96"
+                className="max-w-full rounded max-h-96"
               >
                 Seu navegador não suporta vídeo.
               </video>
@@ -475,14 +526,14 @@ export default function AtendimentoPage() {
                 href={msg.url_da_midia}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 p-3 bg-background/50 rounded-lg hover:bg-background/80 transition-colors"
+                className="flex items-center gap-2 p-2 bg-background/20 rounded hover:bg-background/40 transition-colors"
               >
-                <File className="h-8 w-8 text-muted-foreground flex-shrink-0" />
+                <File className="h-6 w-6 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{fileName}</p>
-                  <p className="text-xs text-muted-foreground">Clique para baixar</p>
+                  <p className="text-xs opacity-70">Documento</p>
                 </div>
-                <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Download className="h-4 w-4 flex-shrink-0" />
               </a>
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📄') && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
@@ -681,6 +732,15 @@ export default function AtendimentoPage() {
                           </div>
                         )}
                         {renderMessageContent(msg)}
+                        {msg.reactions && msg.reactions.length > 0 && (
+                          <div className="flex gap-1 mt-2">
+                            {msg.reactions.map((reaction, idx) => (
+                              <span key={idx} className="text-base">
+                                {reaction}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <p
                           className={`text-xs mt-1 flex items-center gap-1 ${
                             msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'
@@ -709,7 +769,42 @@ export default function AtendimentoPage() {
 
               {/* Input de Mensagem */}
               <div className="border-t p-4 flex-shrink-0">
-                {showAudioRecorder ? (
+                {imagePreview ? (
+                  <div className="space-y-3">
+                    <div className="relative rounded overflow-hidden bg-black/5">
+                      <img
+                        src={imagePreview.url}
+                        alt="Preview"
+                        className="max-h-64 w-full object-contain"
+                      />
+                      <button
+                        onClick={handleCancelImagePreview}
+                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5"
+                        title="Cancelar"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={imageCaption}
+                        onChange={(e) => setImageCaption(e.target.value)}
+                        placeholder="Adicione uma legenda..."
+                        className="flex-1"
+                        disabled={loading}
+                      />
+                      <Button
+                        onClick={handleSendImageWithPreview}
+                        disabled={loading}
+                        className="bg-[#005c4b] hover:bg-[#004d3d]"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : showAudioRecorder ? (
                   <AudioRecorder
                     onSendAudio={handleSendAudio}
                     onCancel={() => setShowAudioRecorder(false)}
