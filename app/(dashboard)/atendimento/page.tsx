@@ -287,11 +287,11 @@ export default function AtendimentoPage() {
   async function handleReactToMessage(messageId: number | string, emoji: string) {
     if (typeof messageId === 'string') return; // Não reagir a mensagens otimistas
 
+    // Atualizar UI imediatamente (otimista)
     setMessages(prev =>
       prev.map(msg => {
         if (msg.id === messageId) {
           const currentReactions = msg.reactions || [];
-          // Se já tem a reação, remove; senão, adiciona
           const hasReaction = currentReactions.includes(emoji);
           return {
             ...msg,
@@ -303,6 +303,43 @@ export default function AtendimentoPage() {
         return msg;
       })
     );
+
+    // Enviar reação via API para WhatsApp
+    try {
+      const response = await fetch('/api/whatsapp/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          emoji,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message);
+      }
+    } catch (error: any) {
+      console.error('Error sending reaction:', error);
+      toast.error(error.message || 'Erro ao enviar reação');
+      // Reverter mudança otimista em caso de erro
+      setMessages(prev =>
+        prev.map(msg => {
+          if (msg.id === messageId) {
+            const currentReactions = msg.reactions || [];
+            const hasReaction = currentReactions.includes(emoji);
+            return {
+              ...msg,
+              reactions: hasReaction
+                ? currentReactions.filter(r => r !== emoji)
+                : [...currentReactions, emoji]
+            };
+          }
+          return msg;
+        })
+      );
+    }
   }
 
   async function handleSendAudio(audioBlob: Blob, duration: number) {
