@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { AudioRecorder } from '@/components/chat/AudioRecorder';
 import { WhatsAppAudioPlayer } from '@/components/chat/WhatsAppAudioPlayer';
 import { MessageContextMenu } from '@/components/chat/MessageContextMenu';
+import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
+import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 
 interface Conversation {
   id: number;
@@ -65,6 +67,8 @@ export default function AtendimentoPage() {
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ file: File; url: string } | null>(null);
   const [imageCaption, setImageCaption] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
+  const [forwardDialog, setForwardDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar conversas
