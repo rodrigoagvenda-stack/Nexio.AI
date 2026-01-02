@@ -150,12 +150,7 @@ export default function AtendimentoPage() {
         .from('conversas_do_whatsapp')
         .select(`
           *,
-          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(
-            company_name,
-            contact_name,
-            email,
-            status
-          )
+          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)
         `)
         .eq('company_id', company!.id)
         .order('hora_da_ultima_mensagem', { ascending: false });
