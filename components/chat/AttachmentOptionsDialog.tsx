@@ -151,16 +151,16 @@ export function AttachmentOptionsDialog({
         onClick={() => onOpenChange(false)}
       />
 
-      {/* Sheet de baixo */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-lg animate-in slide-in-from-bottom duration-300">
-        <div className="p-4 space-y-1">
+      {/* Sheet de baixo - centralizado e com largura limitada */}
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 bg-background rounded-t-2xl shadow-lg animate-in slide-in-from-bottom duration-300 w-full max-w-md mx-auto">
+        <div className="p-3 space-y-0.5">
           {options.map((option) => (
             <button
               key={option.id}
               onClick={option.onClick}
-              className="w-full flex items-center gap-4 p-3 hover:bg-accent rounded-lg transition-colors"
+              className="w-full flex items-center gap-3 p-2.5 hover:bg-accent rounded-lg transition-colors"
             >
-              <div className={`${option.bgColor} ${option.color} p-2.5 rounded-full`}>
+              <div className={`${option.bgColor} ${option.color} p-2 rounded-full flex-shrink-0`}>
                 {option.icon}
               </div>
               <span className="text-sm font-medium">{option.label}</span>
@@ -171,7 +171,7 @@ export function AttachmentOptionsDialog({
         {/* Botão fechar */}
         <button
           onClick={() => onOpenChange(false)}
-          className="w-full p-4 text-center text-sm text-muted-foreground border-t"
+          className="w-full p-3 text-center text-sm text-muted-foreground border-t hover:bg-accent transition-colors"
         >
           Cancelar
         </button>
