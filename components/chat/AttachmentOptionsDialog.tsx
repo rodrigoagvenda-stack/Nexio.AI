@@ -153,7 +153,7 @@ export function AttachmentOptionsDialog({
 
       {/* Sheet - posicionado em cima do botão de anexo */}
       <div
-        className="fixed bottom-20 left-[560px] z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px]"
+        className="fixed bottom-20 left-[575px] z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px]"
         style={{
           borderRadius: '8px',
           animation: 'slideUpFadeIn 300ms ease-out',
