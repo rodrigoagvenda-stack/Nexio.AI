@@ -18,6 +18,7 @@ import { MessageContextMenu } from '@/components/chat/MessageContextMenu';
 import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
 import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
+import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 
 interface Conversation {
   id: number;
@@ -979,120 +980,35 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Lead Info Sidebar */}
-        <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
-          {selectedConversation?.lead ? (
-            <>
-              <CardHeader className="border-b flex-shrink-0">
-                <CardTitle className="text-base">Informações do Lead</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal">
-                {/* Company Info */}
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    Empresa
-                  </h4>
-                  <p className="text-sm font-medium">{selectedConversation.lead.company_name}</p>
-                  {selectedConversation.lead.contact_name && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Contato: {selectedConversation.lead.contact_name}
-                    </p>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Contact Info */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">Telefone:</span>
-                  </div>
-                  <p className="text-sm font-medium pl-6">
-                    {selectedConversation.numero_de_telefone}
-                  </p>
-                </div>
-
-                {selectedConversation.lead.email && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Email:</span>
-                    </div>
-                    <p className="text-sm font-medium pl-6">
-                      {selectedConversation.lead.email}
-                    </p>
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Status */}
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Status</h4>
-                  <Badge variant="outline" className="w-full justify-center">
-                    {selectedConversation.lead.status}
-                  </Badge>
-                </div>
-
-                {/* Tags */}
-                {selectedConversation.etiquetas && selectedConversation.etiquetas.length > 0 && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                        <Tag className="h-4 w-4" />
-                        Etiquetas
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedConversation.etiquetas.map((tag) => (
-                          <Badge key={tag} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <Separator />
-
-                {/* Conversation Status */}
-                <div>
-                  <h4 className="text-sm font-semibold mb-2">Status da Conversa</h4>
-                  <Badge className="w-full justify-center">
-                    {selectedConversation.status_da_conversa}
-                  </Badge>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="pt-4">
-                  <Button variant="outline" size="sm" className="w-full">
-                    Ver Lead Completo
-                  </Button>
-                </div>
-              </CardContent>
-            </>
-          ) : selectedConversation ? (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <div className="text-center">
-                <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  Este contato não está vinculado a um lead
-                </p>
-                <Button variant="outline" size="sm" className="mt-4">
-                  Criar Lead
-                </Button>
-              </div>
-            </div>
-          ) : (
+        {selectedConversation?.lead ? (
+          <LeadInfoSidebar
+            lead={selectedConversation.lead}
+            phone={selectedConversation.numero_de_telefone}
+            companyId={company!.id}
+            tags={selectedConversation.etiquetas}
+            onLeadUpdate={(updatedLead) => {
+              // Atualizar o lead na conversa selecionada
+              setSelectedConversation((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      lead: updatedLead,
+                    }
+                  : prev
+              );
+              // Recarregar conversas para atualizar Kanban via Realtime
+              fetchConversations();
+            }}
+          />
+        ) : (
+          <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
             <div className="flex-1 flex items-center justify-center p-6">
               <p className="text-sm text-muted-foreground text-center">
                 Selecione uma conversa para ver as informações do lead
               </p>
             </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
 
       {/* Attachment Options Dialog */}
