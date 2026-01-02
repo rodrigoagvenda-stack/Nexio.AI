@@ -19,6 +19,7 @@ import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
 import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
+import type { Lead } from '@/types/database.types';
 
 interface Conversation {
   id: number;
@@ -30,12 +31,7 @@ interface Conversation {
   status_da_conversa: string;
   etiquetas: string[];
   id_do_lead?: number;
-  lead?: {
-    company_name: string;
-    contact_name: string;
-    email: string;
-    status: string;
-  };
+  lead?: Lead;
 }
 
 interface Message {
@@ -985,6 +981,7 @@ export default function AtendimentoPage() {
             lead={selectedConversation.lead}
             phone={selectedConversation.numero_de_telefone}
             companyId={company!.id}
+            userId={user!.user_id}
             tags={selectedConversation.etiquetas}
             onLeadUpdate={(updatedLead) => {
               // Atualizar o lead na conversa selecionada
@@ -997,6 +994,19 @@ export default function AtendimentoPage() {
                   : prev
               );
               // Recarregar conversas para atualizar Kanban via Realtime
+              fetchConversations();
+            }}
+            onTagsUpdate={(updatedTags) => {
+              // Atualizar tags na conversa selecionada
+              setSelectedConversation((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      etiquetas: updatedTags,
+                    }
+                  : prev
+              );
+              // Recarregar conversas para atualizar sidebar
               fetchConversations();
             }}
           />

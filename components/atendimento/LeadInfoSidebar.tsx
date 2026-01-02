@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,24 +14,30 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Phone, Mail, Tag, User, DollarSign, FileText } from 'lucide-react';
+import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote } from 'lucide-react';
 import { toast } from 'sonner';
+import { ChatNotesTab } from './ChatNotesTab';
+import { TagsManager } from './TagsManager';
 import type { Lead } from '@/types/database.types';
 
 interface LeadInfoSidebarProps {
   lead: Lead;
   phone: string;
   companyId: number;
+  userId: string;
   tags?: string[];
   onLeadUpdate?: (updatedLead: Lead) => void;
+  onTagsUpdate?: (tags: string[]) => void;
 }
 
 export function LeadInfoSidebar({
   lead,
   phone,
   companyId,
+  userId,
   tags = [],
   onLeadUpdate,
+  onTagsUpdate,
 }: LeadInfoSidebarProps) {
   const [updating, setUpdating] = useState(false);
 
@@ -71,7 +78,21 @@ export function LeadInfoSidebar({
           <CardHeader className="border-b flex-shrink-0">
             <CardTitle className="text-base">Informações do Lead</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal">
+          <Tabs defaultValue="dados" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full justify-start px-4 pt-2">
+              <TabsTrigger value="dados" className="text-xs">Dados</TabsTrigger>
+              <TabsTrigger value="notas" className="text-xs">
+                <StickyNote className="h-3 w-3 mr-1" />
+                Notas
+              </TabsTrigger>
+              <TabsTrigger value="tags" className="text-xs">
+                <Tag className="h-3 w-3 mr-1" />
+                Tags
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Aba: Dados */}
+            <TabsContent value="dados" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal mt-0">
             {/* Dados Básicos */}
             <div>
               <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
@@ -318,7 +339,27 @@ export function LeadInfoSidebar({
                 </div>
               </>
             )}
-          </CardContent>
+            </TabsContent>
+
+            {/* Aba: Notas */}
+            <TabsContent value="notas" className="flex-1 overflow-y-auto p-4 mt-0">
+              <ChatNotesTab
+                leadId={lead.id}
+                companyId={companyId}
+                userId={userId}
+              />
+            </TabsContent>
+
+            {/* Aba: Tags */}
+            <TabsContent value="tags" className="flex-1 overflow-y-auto p-4 mt-0">
+              <TagsManager
+                leadId={lead.id}
+                companyId={companyId}
+                currentTags={tags}
+                onTagsUpdate={onTagsUpdate}
+              />
+            </TabsContent>
+          </Tabs>
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center p-6">

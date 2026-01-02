@@ -202,6 +202,38 @@ export interface SystemLog {
   created_at: string;
 }
 
+export interface ChatNote {
+  id: number;
+  company_id: number;
+  lead_id?: number;
+  conversation_id?: number;
+  user_id: string;
+  note_text: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    name: string;
+    email: string;
+  };
+}
+
+export interface Tag {
+  id: number;
+  company_id: number;
+  tag_name: string;
+  tag_color: string;
+  created_at: string;
+}
+
+export interface LeadTag {
+  id: number;
+  lead_id: number;
+  tag_id: number;
+  created_at: string;
+  tag?: Tag;
+}
+
 export interface AdminUser {
   id: number;
   user_id: string;
