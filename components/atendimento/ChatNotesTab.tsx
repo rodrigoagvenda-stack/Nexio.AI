@@ -74,7 +74,10 @@ export function ChatNotesTab({ leadId, companyId, userId }: ChatNotesTabProps) {
     }
   }
 
-  async function handleUpdateNote(noteId: number, updates: Partial<ChatNote>) {
+  async function handleUpdateNote(
+    noteId: number,
+    updates: { noteText?: string; isPinned?: boolean }
+  ) {
     setLoading(true);
     try {
       const response = await fetch(`/api/chat-notes/${noteId}`, {
