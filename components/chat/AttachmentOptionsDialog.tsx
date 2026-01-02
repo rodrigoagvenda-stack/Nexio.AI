@@ -151,23 +151,25 @@ export function AttachmentOptionsDialog({
         onClick={() => onOpenChange(false)}
       />
 
-      {/* Sheet - posicionado em cima do botão de anexo */}
+      {/* Sheet - posicionado em cima do botão de anexo, centro do modal alinhado ao centro do ícone */}
       <div
-        className="fixed bottom-20 left-[575px] z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px]"
+        className="fixed bottom-20 z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px]"
         style={{
           borderRadius: '8px',
           animation: 'slideUpFadeIn 300ms ease-out',
+          left: '575px',
+          transform: 'translateX(-50%)',
         }}
       >
         <style jsx>{`
           @keyframes slideUpFadeIn {
             from {
               opacity: 0;
-              transform: translateY(20px) scale(0.95);
+              transform: translateX(-50%) translateY(20px) scale(0.95);
             }
             to {
               opacity: 1;
-              transform: translateY(0) scale(1);
+              transform: translateX(-50%) translateY(0) scale(1);
             }
           }
         `}</style>
