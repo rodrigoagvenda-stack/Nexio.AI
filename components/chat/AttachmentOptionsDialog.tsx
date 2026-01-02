@@ -147,34 +147,37 @@ export function AttachmentOptionsDialog({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-50 animate-in fade-in"
+        className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200"
         onClick={() => onOpenChange(false)}
       />
 
-      {/* Sheet de baixo - centralizado e com largura limitada */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 bg-background rounded-t-2xl shadow-lg animate-in slide-in-from-bottom duration-300 w-full max-w-md mx-auto">
-        <div className="p-3 space-y-0.5">
+      {/* Sheet de baixo - centralizado e compacto */}
+      <div
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px] animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300"
+        style={{ borderRadius: '15px' }}
+      >
+        <div className="p-2 space-y-1">
           {options.map((option) => (
             <button
               key={option.id}
               onClick={option.onClick}
-              className="w-full flex items-center gap-3 p-2.5 hover:bg-accent rounded-lg transition-colors"
+              className="w-full flex items-center gap-3 p-2 hover:bg-accent/50 transition-all duration-200 rounded-lg"
             >
-              <div className={`${option.bgColor} ${option.color} p-2 rounded-full flex-shrink-0`}>
-                {option.icon}
+              <div className={`flex-shrink-0`}>
+                {/* Renderizar ícone com cor direta */}
+                {option.id === 'document' && <FileText className="h-5 w-5 text-purple-500" />}
+                {option.id === 'photos-videos' && <Image className="h-5 w-5 text-pink-500" />}
+                {option.id === 'camera' && <Camera className="h-5 w-5 text-red-500" />}
+                {option.id === 'audio' && <Mic className="h-5 w-5 text-green-500" />}
+                {option.id === 'contact' && <User className="h-5 w-5 text-blue-500" />}
+                {option.id === 'poll' && <BarChart3 className="h-5 w-5 text-yellow-500" />}
+                {option.id === 'event' && <Calendar className="h-5 w-5 text-indigo-500" />}
+                {option.id === 'sticker' && <Smile className="h-5 w-5 text-teal-500" />}
               </div>
-              <span className="text-sm font-medium">{option.label}</span>
+              <span className="text-sm font-medium whitespace-nowrap">{option.label}</span>
             </button>
           ))}
         </div>
-
-        {/* Botão fechar */}
-        <button
-          onClick={() => onOpenChange(false)}
-          className="w-full p-3 text-center text-sm text-muted-foreground border-t hover:bg-accent transition-colors"
-        >
-          Cancelar
-        </button>
       </div>
     </>
   );
