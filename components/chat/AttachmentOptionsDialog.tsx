@@ -1,9 +1,6 @@
 'use client';
 
-import {
-  Dialog,
-  DialogContent,
-} from '@/components/ui/dialog';
+import { useState } from 'react';
 import {
   FileText,
   Image,
@@ -14,6 +11,7 @@ import {
   BarChart3,
   Calendar,
   Smile,
+  X,
 } from 'lucide-react';
 
 interface AttachmentOption {
@@ -21,10 +19,11 @@ interface AttachmentOption {
   label: string;
   icon: React.ReactNode;
   color: string;
+  bgColor: string;
   onClick: () => void;
 }
 
-interface AttachmentOptionsDialogProps {
+interface AttachmentOptionsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectDocument: () => void;
@@ -50,13 +49,14 @@ export function AttachmentOptionsDialog({
   onSelectPoll,
   onSelectEvent,
   onSelectSticker,
-}: AttachmentOptionsDialogProps) {
+}: AttachmentOptionsSheetProps) {
   const options: AttachmentOption[] = [
     {
       id: 'document',
       label: 'Documento',
-      icon: <FileText className="h-6 w-6" />,
-      color: 'bg-purple-500 hover:bg-purple-600',
+      icon: <FileText className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-purple-500',
       onClick: () => {
         onSelectDocument();
         onOpenChange(false);
@@ -65,8 +65,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'photos-videos',
       label: 'Fotos e vídeos',
-      icon: <Image className="h-6 w-6" />,
-      color: 'bg-pink-500 hover:bg-pink-600',
+      icon: <Image className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-pink-500',
       onClick: () => {
         onSelectImage();
         onOpenChange(false);
@@ -75,8 +76,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'camera',
       label: 'Câmera',
-      icon: <Camera className="h-6 w-6" />,
-      color: 'bg-red-500 hover:bg-red-600',
+      icon: <Camera className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-red-500',
       onClick: () => {
         onSelectCamera();
         onOpenChange(false);
@@ -85,8 +87,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'audio',
       label: 'Áudio',
-      icon: <Mic className="h-6 w-6" />,
-      color: 'bg-green-500 hover:bg-green-600',
+      icon: <Mic className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-green-500',
       onClick: () => {
         onSelectAudio();
         onOpenChange(false);
@@ -95,8 +98,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'contact',
       label: 'Contato',
-      icon: <User className="h-6 w-6" />,
-      color: 'bg-blue-500 hover:bg-blue-600',
+      icon: <User className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-blue-500',
       onClick: () => {
         onSelectContact();
         onOpenChange(false);
@@ -105,8 +109,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'poll',
       label: 'Enquete',
-      icon: <BarChart3 className="h-6 w-6" />,
-      color: 'bg-yellow-500 hover:bg-yellow-600',
+      icon: <BarChart3 className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-yellow-500',
       onClick: () => {
         onSelectPoll();
         onOpenChange(false);
@@ -115,8 +120,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'event',
       label: 'Evento',
-      icon: <Calendar className="h-6 w-6" />,
-      color: 'bg-indigo-500 hover:bg-indigo-600',
+      icon: <Calendar className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-indigo-500',
       onClick: () => {
         onSelectEvent();
         onOpenChange(false);
@@ -125,8 +131,9 @@ export function AttachmentOptionsDialog({
     {
       id: 'sticker',
       label: 'Nova figurinha',
-      icon: <Smile className="h-6 w-6" />,
-      color: 'bg-teal-500 hover:bg-teal-600',
+      icon: <Smile className="h-5 w-5" />,
+      color: 'text-white',
+      bgColor: 'bg-teal-500',
       onClick: () => {
         onSelectSticker();
         onOpenChange(false);
@@ -134,26 +141,41 @@ export function AttachmentOptionsDialog({
     },
   ];
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] p-6">
-        <div className="grid grid-cols-3 gap-4">
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 z-50 animate-in fade-in"
+        onClick={() => onOpenChange(false)}
+      />
+
+      {/* Sheet de baixo */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-lg animate-in slide-in-from-bottom duration-300">
+        <div className="p-4 space-y-1">
           {options.map((option) => (
             <button
               key={option.id}
               onClick={option.onClick}
-              className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-accent transition-colors group"
+              className="w-full flex items-center gap-4 p-3 hover:bg-accent rounded-lg transition-colors"
             >
-              <div
-                className={`${option.color} text-white p-3 rounded-full transition-all group-hover:scale-110`}
-              >
+              <div className={`${option.bgColor} ${option.color} p-2.5 rounded-full`}>
                 {option.icon}
               </div>
-              <span className="text-xs text-center">{option.label}</span>
+              <span className="text-sm font-medium">{option.label}</span>
             </button>
           ))}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Botão fechar */}
+        <button
+          onClick={() => onOpenChange(false)}
+          className="w-full p-4 text-center text-sm text-muted-foreground border-t"
+        >
+          Cancelar
+        </button>
+      </div>
+    </>
   );
 }

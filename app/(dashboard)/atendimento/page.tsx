@@ -270,23 +270,88 @@ export default function AtendimentoPage() {
     }
   }
 
-  async function handleDeleteMessage(messageId: number | string) {
-    if (typeof messageId === 'string') return; // Não deletar mensagens otimistas
+  async function handleDeleteForMe(messageId: number | string) {
+    if (typeof messageId === 'string') return;
 
+    setLoading(true);
     try {
-      const { error } = await supabase
-        .from('mensagens_do_whatsapp')
-        .delete()
-        .eq('id', messageId)
-        .eq('company_id', company!.id); // 🔒 Segurança: garante isolamento
+      const response = await fetch('/api/whatsapp/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          deleteForEveryone: false,
+          companyId: company!.id,
+        }),
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
 
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      toast.success('Mensagem apagada!');
-    } catch (error) {
+      toast.success('Mensagem apagada para você');
+    } catch (error: any) {
       console.error('Error deleting message:', error);
-      toast.error('Erro ao apagar mensagem');
+      toast.error(error.message || 'Erro ao apagar mensagem');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteForEveryone(messageId: number | string) {
+    if (typeof messageId === 'string') return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/whatsapp/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId,
+          deleteForEveryone: true,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      toast.success('Mensagem apagada para todos');
+    } catch (error: any) {
+      console.error('Error deleting message for everyone:', error);
+      toast.error(error.message || 'Erro ao apagar mensagem');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForwardMessage(selectedConversationIds: number[]) {
+    if (!forwardDialog.messageId || typeof forwardDialog.messageId === 'string') return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/whatsapp/forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: forwardDialog.messageId,
+          conversationIds: selectedConversationIds,
+          companyId: company!.id,
+          userId: user!.user_id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      toast.success(data.message);
+      setForwardDialog({ open: false, messageId: null });
+    } catch (error: any) {
+      console.error('Error forwarding message:', error);
+      toast.error(error.message || 'Erro ao encaminhar mensagem');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -750,7 +815,8 @@ export default function AtendimentoPage() {
                       isOutbound={msg.direcao === 'outbound'}
                       onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
-                      onDelete={msg.direcao === 'outbound' ? () => handleDeleteMessage(msg.id) : undefined}
+                      onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
+                      onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
                     >
                       <div
                         className={`max-w-[85%] md:max-w-[70%] rounded-lg p-3 cursor-pointer ${
@@ -1042,6 +1108,30 @@ export default function AtendimentoPage() {
         onSelectPoll={() => toast.info('Enquete em breve')}
         onSelectEvent={() => toast.info('Evento em breve')}
         onSelectSticker={() => toast.info('Figurinha em breve')}
+      />
+
+      {/* Delete Message Dialog */}
+      <DeleteMessageDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, messageId: null })}
+        onDeleteForMe={() => {
+          if (deleteDialog.messageId) handleDeleteForMe(deleteDialog.messageId);
+          setDeleteDialog({ open: false, messageId: null });
+        }}
+        onDeleteForEveryone={() => {
+          if (deleteDialog.messageId) handleDeleteForEveryone(deleteDialog.messageId);
+          setDeleteDialog({ open: false, messageId: null });
+        }}
+        canDeleteForEveryone={true}
+      />
+
+      {/* Forward Message Dialog */}
+      <ForwardMessageDialog
+        open={forwardDialog.open}
+        onOpenChange={(open) => setForwardDialog({ open, messageId: null })}
+        conversations={conversations}
+        onForward={handleForwardMessage}
+        isLoading={loading}
       />
     </div>
   );
