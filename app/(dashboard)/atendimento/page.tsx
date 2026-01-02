@@ -977,7 +977,7 @@ export default function AtendimentoPage() {
             phone={selectedConversation.numero_de_telefone}
             companyId={company!.id}
             userId={user!.user_id}
-            tags={selectedConversation.etiquetas}
+            tags={selectedConversation.etiquetas || []}
             onLeadUpdate={(updatedLead) => {
               // Atualizar o lead na conversa selecionada
               setSelectedConversation((prev) =>

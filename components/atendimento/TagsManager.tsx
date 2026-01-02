@@ -12,7 +12,7 @@ import type { Tag, LeadTag } from '@/types/database.types';
 interface TagsManagerProps {
   leadId: number;
   companyId: number;
-  currentTags: string[]; // Array of tag names from conversation
+  currentTags?: string[]; // Array of tag names from conversation
   onTagsUpdate?: (tags: string[]) => void;
 }
 
@@ -38,7 +38,7 @@ const DEFAULT_COLORS = [
 export function TagsManager({
   leadId,
   companyId,
-  currentTags,
+  currentTags = [],
   onTagsUpdate,
 }: TagsManagerProps) {
   const [allTags, setAllTags] = useState<Tag[]>([]);
