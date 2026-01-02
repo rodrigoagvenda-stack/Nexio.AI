@@ -151,11 +151,26 @@ export function AttachmentOptionsDialog({
         onClick={() => onOpenChange(false)}
       />
 
-      {/* Sheet de baixo - centralizado e compacto */}
+      {/* Sheet - posicionado em cima do botão de anexo */}
       <div
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px] animate-in slide-in-from-bottom-4 fade-in zoom-in-95 duration-300"
-        style={{ borderRadius: '15px' }}
+        className="fixed bottom-20 left-6 z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px]"
+        style={{
+          borderRadius: '8px',
+          animation: 'slideUpFadeIn 300ms ease-out',
+        }}
       >
+        <style jsx>{`
+          @keyframes slideUpFadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(20px) scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        `}</style>
         <div className="p-2 space-y-1">
           {options.map((option) => (
             <button
