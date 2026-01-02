@@ -1,0 +1,335 @@
+'use client';
+
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Building2, Phone, Mail, Tag, User, DollarSign, FileText } from 'lucide-react';
+import { toast } from 'sonner';
+import type { Lead } from '@/types/database.types';
+
+interface LeadInfoSidebarProps {
+  lead: Lead;
+  phone: string;
+  companyId: number;
+  tags?: string[];
+  onLeadUpdate?: (updatedLead: Lead) => void;
+}
+
+export function LeadInfoSidebar({
+  lead,
+  phone,
+  companyId,
+  tags = [],
+  onLeadUpdate,
+}: LeadInfoSidebarProps) {
+  const [updating, setUpdating] = useState(false);
+
+  async function handleFieldUpdate(field: string, value: any) {
+    setUpdating(true);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          field,
+          value,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      toast.success(`${field} atualizado!`);
+
+      // Notificar componente pai
+      if (onLeadUpdate && data.data) {
+        onLeadUpdate(data.data);
+      }
+    } catch (error: any) {
+      console.error(`Error updating ${field}:`, error);
+      toast.error(error.message || `Erro ao atualizar ${field}`);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  return (
+    <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
+      {lead ? (
+        <>
+          <CardHeader className="border-b flex-shrink-0">
+            <CardTitle className="text-base">Informações do Lead</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal">
+            {/* Dados Básicos */}
+            <div>
+              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                Empresa
+              </h4>
+              <p className="text-sm font-medium">{lead.company_name}</p>
+              {lead.contact_name && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Contato: {lead.contact_name}
+                </p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Telefone */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Telefone:</span>
+              </div>
+              <p className="text-sm font-medium pl-6">{phone}</p>
+            </div>
+
+            {/* Email */}
+            {lead.email && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Email:</span>
+                </div>
+                <p className="text-sm font-medium pl-6">{lead.email}</p>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Status (Nível de Interesse) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Status</Label>
+              <Select
+                value={lead.nivel_interesse}
+                onValueChange={(value) => handleFieldUpdate('nivel_interesse', value)}
+                disabled={updating}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
+                  <SelectItem value="Morno 🟡">Morno 🟡</SelectItem>
+                  <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Estágio */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Estágio</Label>
+              <Select
+                value={lead.status}
+                onValueChange={(value) => handleFieldUpdate('status', value)}
+                disabled={updating}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Lead novo">Lead novo</SelectItem>
+                  <SelectItem value="Em contato">Em contato</SelectItem>
+                  <SelectItem value="Interessado">Interessado</SelectItem>
+                  <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
+                  <SelectItem value="Fechado">Fechado</SelectItem>
+                  <SelectItem value="Perdido">Perdido</SelectItem>
+                  <SelectItem value="Remarketing">Remarketing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Prioridade */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Prioridade</Label>
+              <Select
+                value={lead.priority}
+                onValueChange={(value) => handleFieldUpdate('priority', value)}
+                disabled={updating}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Alta">Alta</SelectItem>
+                  <SelectItem value="Média">Média</SelectItem>
+                  <SelectItem value="Baixa">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Segmento */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Segmento</Label>
+              <Select
+                value={lead.segment || undefined}
+                onValueChange={(value) => handleFieldUpdate('segment', value)}
+                disabled={updating}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="E-commerce">E-commerce</SelectItem>
+                  <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
+                  <SelectItem value="Educação">Educação</SelectItem>
+                  <SelectItem value="Alimentação">Alimentação</SelectItem>
+                  <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
+                  <SelectItem value="Imobiliária">Imobiliária</SelectItem>
+                  <SelectItem value="Advocacia">Advocacia</SelectItem>
+                  <SelectItem value="Consultoria">Consultoria</SelectItem>
+                  <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                  <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
+                  <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                  <SelectItem value="Outros">Outros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Origem */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Origem</Label>
+              <Select
+                value={lead.import_source || undefined}
+                onValueChange={(value) => handleFieldUpdate('import_source', value)}
+                disabled={updating}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PEG">PEG</SelectItem>
+                  <SelectItem value="Linkedin">Linkedin</SelectItem>
+                  <SelectItem value="Interno">Interno</SelectItem>
+                  <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                  <SelectItem value="Google Ads">Google Ads</SelectItem>
+                  <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
+                  <SelectItem value="Indicação">Indicação</SelectItem>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                  <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
+                  <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Cargo */}
+            {lead.cargo && (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Cargo</Label>
+                <Select
+                  value={lead.cargo}
+                  onValueChange={(value) => handleFieldUpdate('cargo', value)}
+                  disabled={updating}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Proprietário/Dono">Proprietário/Dono</SelectItem>
+                    <SelectItem value="Gerente Comercial">Gerente Comercial</SelectItem>
+                    <SelectItem value="Vendedor">Vendedor</SelectItem>
+                    <SelectItem value="Representante Comercial">
+                      Representante Comercial
+                    </SelectItem>
+                    <SelectItem value="Consultor de Vendas">Consultor de Vendas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Valor do Projeto */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Valor do Projeto
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  R$
+                </span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={lead.project_value || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseFloat(e.target.value) : null;
+                    handleFieldUpdate('project_value', value);
+                  }}
+                  className="pl-8"
+                  disabled={updating}
+                />
+              </div>
+            </div>
+
+            {/* Tags */}
+            {tags.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Etiquetas
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Nota SDR (Read-only) */}
+            {lead.notes && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    🤖 Resumo do SDR IA
+                  </h4>
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                      {lead.notes}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 italic">
+                      Atualizado automaticamente pelo SDR
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </>
+      ) : (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center">
+            <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Selecione uma conversa para ver as informações do lead
+            </p>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}

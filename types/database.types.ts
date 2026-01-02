@@ -34,6 +34,54 @@ export interface User {
   updated_at: string;
 }
 
+// ENUMs do banco de dados
+export type Segmento =
+  | 'E-commerce'
+  | 'Saúde/Medicina'
+  | 'Educação'
+  | 'Alimentação'
+  | 'Beleza/Estética'
+  | 'Imobiliária'
+  | 'Advocacia'
+  | 'Consultoria'
+  | 'Tecnologia'
+  | 'Moda/Fashion'
+  | 'Arquitetura'
+  | 'Outros';
+
+export type Prioridade = 'Alta' | 'Média' | 'Baixa';
+
+export type FonteImportacao =
+  | 'PEG'
+  | 'Linkedin'
+  | 'Interno'
+  | 'Meta Ads'
+  | 'Google Ads'
+  | 'Site/Landing Page'
+  | 'Indicação'
+  | 'WhatsApp'
+  | 'TikTok Ads'
+  | 'E-mail Marketing'
+  | 'Evento/Feira';
+
+export type EstagioLead =
+  | 'Lead novo'
+  | 'Em contato'
+  | 'Interessado'
+  | 'Proposta enviada'
+  | 'Fechado'
+  | 'Perdido'
+  | 'Remarketing';
+
+export type StatusLead = 'Quente 🔥' | 'Morno 🟡' | 'Frio ❄️';
+
+export type Cargo =
+  | 'Proprietário/Dono'
+  | 'Gerente Comercial'
+  | 'Vendedor'
+  | 'Representante Comercial'
+  | 'Consultor de Vendas';
+
 export interface Lead {
   id: number;
   lead_id: string;
@@ -41,14 +89,15 @@ export interface Lead {
   user_id?: string;
   company_name: string;
   contact_name?: string;
-  segment?: string;
+  segment?: Segmento;
   website_or_instagram?: string;
   whatsapp?: string;
   email?: string;
-  priority: 'Alta' | 'Média' | 'Baixa';
-  status: 'Lead novo' | 'Em contato' | 'Interessado' | 'Proposta enviada' | 'Fechado' | 'Perdido';
-  nivel_interesse: 'Quente 🔥' | 'Morno 🌡️' | 'Frio ❄️';
-  import_source?: string;
+  priority: Prioridade;
+  status: EstagioLead;
+  nivel_interesse: StatusLead;
+  import_source?: FonteImportacao;
+  cargo?: Cargo;
   project_value?: number;
   notes?: string;
   created_at: string;
