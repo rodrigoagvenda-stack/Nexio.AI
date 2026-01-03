@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, Clock } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -19,6 +19,7 @@ import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
 import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
 import { EditMessageDialog } from '@/components/chat/EditMessageDialog';
+import { ScheduleMessageDialog } from '@/components/chat/ScheduleMessageDialog';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import type { Lead } from '@/types/database.types';
 
@@ -72,6 +73,7 @@ export default function AtendimentoPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
   const [forwardDialog, setForwardDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
   const [editDialog, setEditDialog] = useState<{ open: boolean; message: Message | null }>({ open: false, message: null });
+  const [scheduleDialog, setScheduleDialog] = useState(false);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -644,6 +646,39 @@ export default function AtendimentoPage() {
     }, 3000);
   }
 
+  // Handler para agendar mensagem
+  async function handleScheduleMessage(date: string, time: string) {
+    if (!selectedConversation || !newMessage.trim()) return;
+
+    const scheduledFor = new Date(`${date}T${time}`).toISOString();
+
+    try {
+      const response = await fetch('/api/messages/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: selectedConversation.id,
+          leadId: selectedConversation.id_do_lead,
+          content: newMessage.trim(),
+          type: 'text',
+          scheduledFor,
+          companyId: company!.id,
+          userId: user!.user_id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      toast.success('Mensagem agendada com sucesso!');
+      setNewMessage('');
+    } catch (error: any) {
+      console.error('Error scheduling message:', error);
+      toast.error(error.message || 'Erro ao agendar mensagem');
+      throw error;
+    }
+  }
+
   const filteredConversations = conversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.numero_de_telefone.includes(searchQuery) ||
@@ -1039,6 +1074,17 @@ export default function AtendimentoPage() {
                       disabled={loading}
                     />
                     <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setScheduleDialog(true)}
+                      disabled={loading || !newMessage.trim()}
+                      title="Agendar envio"
+                      className="text-muted-foreground"
+                    >
+                      <Clock className="h-5 w-5" />
+                    </Button>
+                    <Button
                       type={newMessage.trim() ? 'submit' : 'button'}
                       size="icon"
                       onClick={() => {
@@ -1078,6 +1124,7 @@ export default function AtendimentoPage() {
             phone={selectedConversation.numero_de_telefone}
             companyId={company!.id}
             userId={user!.user_id}
+            chatId={selectedConversation.id}
             tags={selectedConversation.etiquetas || []}
             onLeadUpdate={(updatedLead) => {
               // Atualizar o lead na conversa selecionada
@@ -1165,6 +1212,14 @@ export default function AtendimentoPage() {
           onSave={(newMessage) => handleEditMessage(editDialog.message!.id, newMessage)}
         />
       )}
+
+      {/* Schedule Message Dialog */}
+      <ScheduleMessageDialog
+        open={scheduleDialog}
+        onOpenChange={setScheduleDialog}
+        message={newMessage}
+        onSchedule={handleScheduleMessage}
+      />
     </div>
   );
 }

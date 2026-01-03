@@ -14,10 +14,12 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote } from 'lucide-react';
+import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatNotesTab } from './ChatNotesTab';
 import { TagsManager } from './TagsManager';
+import { AgendaTab } from './AgendaTab';
+import { MidiaTab } from './MidiaTab';
 import type { Lead } from '@/types/database.types';
 
 interface LeadInfoSidebarProps {
@@ -25,6 +27,7 @@ interface LeadInfoSidebarProps {
   phone: string;
   companyId: number;
   userId: string;
+  chatId?: number;
   tags?: string[];
   onLeadUpdate?: (updatedLead: Lead) => void;
   onTagsUpdate?: (tags: string[]) => void;
@@ -35,6 +38,7 @@ export function LeadInfoSidebar({
   phone,
   companyId,
   userId,
+  chatId,
   tags = [],
   onLeadUpdate,
   onTagsUpdate,
@@ -88,6 +92,14 @@ export function LeadInfoSidebar({
               <TabsTrigger value="tags" className="text-xs">
                 <Tag className="h-3 w-3 mr-1" />
                 Tags
+              </TabsTrigger>
+              <TabsTrigger value="agenda" className="text-xs">
+                <Calendar className="h-3 w-3 mr-1" />
+                Agenda
+              </TabsTrigger>
+              <TabsTrigger value="midia" className="text-xs">
+                <Image className="h-3 w-3 mr-1" />
+                Mídia
               </TabsTrigger>
             </TabsList>
 
@@ -358,6 +370,41 @@ export function LeadInfoSidebar({
                 currentTags={tags}
                 onTagsUpdate={onTagsUpdate}
               />
+            </TabsContent>
+
+            {/* Aba: Agenda */}
+            <TabsContent value="agenda" className="flex-1 overflow-y-auto p-4 mt-0">
+              {chatId ? (
+                <AgendaTab
+                  chatId={chatId}
+                  leadId={lead.id}
+                  companyId={companyId}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma conversa selecionada
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Aba: Mídia */}
+            <TabsContent value="midia" className="flex-1 overflow-y-auto p-4 mt-0">
+              {chatId ? (
+                <MidiaTab
+                  chatId={chatId}
+                  companyId={companyId}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <Image className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma conversa selecionada
+                  </p>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </>
