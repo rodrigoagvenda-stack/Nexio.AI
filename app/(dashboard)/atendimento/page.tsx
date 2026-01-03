@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, Clock } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, Clock, UserCircle2 } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -21,6 +21,7 @@ import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDial
 import { EditMessageDialog } from '@/components/chat/EditMessageDialog';
 import { ScheduleMessageDialog } from '@/components/chat/ScheduleMessageDialog';
 import { QuickReplyMenu } from '@/components/chat/QuickReplyMenu';
+import { AssignChatDialog } from '@/components/chat/AssignChatDialog';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import type { Lead } from '@/types/database.types';
 
@@ -35,6 +36,10 @@ interface Conversation {
   etiquetas: string[];
   id_do_lead?: number;
   lead?: Lead;
+  assigned_to?: number | null;
+  assigned_to_user?: {
+    name: string;
+  } | null;
 }
 
 interface Message {
@@ -78,6 +83,7 @@ export default function AtendimentoPage() {
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
+  const [assignDialog, setAssignDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +168,8 @@ export default function AtendimentoPage() {
         .from('conversas_do_whatsapp')
         .select(`
           *,
-          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)
+          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*),
+          assigned_to_user:users!conversas_do_whatsapp_assigned_to_fkey(name)
         `)
         .eq('company_id', company!.id)
         .order('hora_da_ultima_mensagem', { ascending: false });
@@ -945,9 +952,24 @@ export default function AtendimentoPage() {
                           {selectedConversation.lead.company_name}
                         </p>
                       )}
+                      {selectedConversation.assigned_to_user && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <UserCircle2 className="h-3 w-3" />
+                          {selectedConversation.assigned_to_user.name}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAssignDialog(true)}
+                      title={selectedConversation.assigned_to ? "Transferir atendimento" : "Atribuir atendimento"}
+                    >
+                      <UserCircle2 className="h-4 w-4 mr-2" />
+                      {selectedConversation.assigned_to ? "Transferir" : "Atribuir"}
+                    </Button>
                     <Badge variant="outline">
                       {selectedConversation.status_da_conversa}
                     </Badge>
@@ -1294,6 +1316,21 @@ export default function AtendimentoPage() {
           position={templateMenuPosition}
           onSelect={handleTemplateSelect}
           onClose={() => setShowTemplateMenu(false)}
+        />
+      )}
+
+      {/* Assign Chat Dialog */}
+      {selectedConversation && user && company && (
+        <AssignChatDialog
+          open={assignDialog}
+          onOpenChange={setAssignDialog}
+          chatId={selectedConversation.id}
+          chatName={selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
+          currentAssignedTo={selectedConversation.assigned_to}
+          currentAssignedToName={selectedConversation.assigned_to_user?.name}
+          companyId={company.id}
+          userId={user.id}
+          onSuccess={fetchConversations}
         />
       )}
     </div>
