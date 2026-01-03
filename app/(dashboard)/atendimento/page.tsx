@@ -169,7 +169,7 @@ export default function AtendimentoPage() {
         .select(`
           *,
           lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*),
-          assigned_to_user:users!conversas_do_whatsapp_assigned_to_fkey(name)
+          assigned_to_user:users(name)
         `)
         .eq('company_id', company!.id)
         .order('hora_da_ultima_mensagem', { ascending: false });
