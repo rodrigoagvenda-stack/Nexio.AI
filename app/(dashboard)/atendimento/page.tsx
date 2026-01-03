@@ -1018,7 +1018,9 @@ export default function AtendimentoPage() {
                     >
                       <div
                         className={`w-full ${
-                          msg.url_da_midia ? 'max-w-[70%]' : 'max-w-full'
+                          msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
+                            ? 'max-w-[70%]'
+                            : 'max-w-full'
                         } rounded-2xl p-4 cursor-pointer ${
                           msg.direcao === 'outbound'
                             ? 'bg-[#005c4b] text-white'
