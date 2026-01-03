@@ -1,27 +1,50 @@
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
+import { createClient } from '@/lib/supabase/client';
+import { Loader2 } from 'lucide-react';
 
-export default async function AnalyticsPage() {
-  const supabase = await createClient();
+export default function AnalyticsPage() {
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  useEffect(() => {
+    async function getCompanyId() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login');
+      if (user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('company_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (userData?.company_id) {
+          setCompanyId(userData.company_id);
+        }
+      }
+      setLoading(false);
+    }
+
+    getCompanyId();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
-  // Get user's company
-  const { data: userData } = await supabase
-    .from('users')
-    .select('company_id, companies(id, name)')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!userData?.company_id) {
-    redirect('/login');
+  if (!companyId) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-muted-foreground">Erro ao carregar dados da empresa</p>
+      </div>
+    );
   }
 
   return (
@@ -35,7 +58,7 @@ export default async function AnalyticsPage() {
         </div>
       </div>
 
-      <AnalyticsDashboard companyId={userData.company_id} />
+      <AnalyticsDashboard companyId={companyId} />
     </div>
   );
 }
