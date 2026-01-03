@@ -18,6 +18,7 @@ import { MessageContextMenu } from '@/components/chat/MessageContextMenu';
 import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
 import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
+import { EditMessageDialog } from '@/components/chat/EditMessageDialog';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import type { Lead } from '@/types/database.types';
 
@@ -47,6 +48,9 @@ interface Message {
   carimbo_de_data_e_hora: string;
   url_da_midia?: string;
   reactions?: string[]; // Array de emojis
+  is_edited?: boolean;
+  edited_at?: string;
+  is_pinned?: boolean;
   user?: {
     name: string;
   };
@@ -67,8 +71,10 @@ export default function AtendimentoPage() {
   const [imageCaption, setImageCaption] = useState('');
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
   const [forwardDialog, setForwardDialog] = useState<{ open: boolean; messageId: number | string | null }>({ open: false, messageId: null });
+  const [editDialog, setEditDialog] = useState<{ open: boolean; message: Message | null }>({ open: false, message: null });
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Carregar conversas
   useEffect(() => {
@@ -554,6 +560,90 @@ export default function AtendimentoPage() {
     }
   }
 
+  // Handler para editar mensagem
+  async function handleEditMessage(messageId: number | string, newMessage: string) {
+    if (typeof messageId === 'string') return;
+
+    try {
+      const response = await fetch(`/api/whatsapp/messages/${messageId}/edit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newMessage,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      // Atualizar mensagem localmente
+      setMessages(prev =>
+        prev.map(msg => msg.id === messageId ? data.data : msg)
+      );
+      toast.success('Mensagem editada!');
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      toast.error(error.message || 'Erro ao editar mensagem');
+      throw error;
+    }
+  }
+
+  // Handler para fixar/desfixar mensagem
+  async function handlePinMessage(messageId: number | string, isPinned: boolean) {
+    if (typeof messageId === 'string') return;
+
+    try {
+      const response = await fetch(`/api/whatsapp/messages/${messageId}/pin`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPinned,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      // Atualizar mensagem localmente
+      setMessages(prev =>
+        prev.map(msg => msg.id === messageId ? data.data : msg)
+      );
+      toast.success(isPinned ? 'Mensagem fixada!' : 'Mensagem desafixada!');
+    } catch (error: any) {
+      console.error('Error pinning message:', error);
+      toast.error(error.message || 'Erro ao fixar mensagem');
+    }
+  }
+
+  // Handler para enviar status "digitando..."
+  function handleTyping() {
+    if (!selectedConversation) return;
+
+    // Limpar timeout anterior
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Enviar status de digitando
+    fetch('/api/whatsapp/presence/typing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        phoneNumber: selectedConversation.numero_de_telefone,
+        companyId: company!.id,
+      }),
+    }).catch(error => {
+      console.error('Error sending typing status:', error);
+    });
+
+    // Configurar timeout para parar de enviar após 3 segundos
+    typingTimeoutRef.current = setTimeout(() => {
+      typingTimeoutRef.current = null;
+    }, 3000);
+  }
+
   const filteredConversations = conversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.numero_de_telefone.includes(searchQuery) ||
@@ -807,7 +897,9 @@ export default function AtendimentoPage() {
                       isOutbound={msg.direcao === 'outbound'}
                       onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
+                      onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
+                      onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
                     >
                       <div
@@ -832,6 +924,11 @@ export default function AtendimentoPage() {
                             )}
                           </div>
                         )}
+                        {msg.is_pinned && (
+                          <Badge variant="secondary" className="mb-2 text-xs">
+                            📌 Fixada
+                          </Badge>
+                        )}
                         {renderMessageContent(msg)}
                         {msg.reactions && msg.reactions.length > 0 && (
                           <div className="flex gap-1 mt-2">
@@ -848,6 +945,7 @@ export default function AtendimentoPage() {
                           }`}
                         >
                           {formatDateTime(msg.carimbo_de_data_e_hora)}
+                          {msg.is_edited && ' • Editada'}
                           {msg.status === 'sending' && ' • Enviando...'}
                         </p>
                       </div>
@@ -926,7 +1024,10 @@ export default function AtendimentoPage() {
                     <Input
                       placeholder="Digite sua mensagem..."
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={(e) => {
+                        setNewMessage(e.target.value);
+                        handleTyping();
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -1054,6 +1155,16 @@ export default function AtendimentoPage() {
         onForward={handleForwardMessage}
         isLoading={loading}
       />
+
+      {/* Edit Message Dialog */}
+      {editDialog.message && (
+        <EditMessageDialog
+          open={editDialog.open}
+          onOpenChange={(open) => setEditDialog({ open, message: null })}
+          message={editDialog.message.texto_da_mensagem}
+          onSave={(newMessage) => handleEditMessage(editDialog.message!.id, newMessage)}
+        />
+      )}
     </div>
   );
 }

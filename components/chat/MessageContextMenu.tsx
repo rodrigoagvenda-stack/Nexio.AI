@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Trash2,
   ChevronDown,
+  Pencil,
 } from 'lucide-react';
 
 interface MessageContextMenuProps {
@@ -26,6 +27,7 @@ interface MessageContextMenuProps {
   onReact?: (emoji: string) => void;
   onReply?: () => void;
   onCopy?: () => void;
+  onEdit?: () => void;
   onForward?: () => void;
   onPin?: () => void;
   onFavorite?: () => void;
@@ -42,6 +44,7 @@ export function MessageContextMenu({
   onReact,
   onReply,
   onCopy,
+  onEdit,
   onForward,
   onPin,
   onFavorite,
@@ -112,6 +115,13 @@ export function MessageContextMenu({
             <DropdownMenuItem onClick={onCopy}>
               <Copy className="h-4 w-4 mr-2" />
               Copiar
+            </DropdownMenuItem>
+          )}
+
+          {onEdit && (
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Editar
             </DropdownMenuItem>
           )}
 
