@@ -996,7 +996,7 @@ export default function AtendimentoPage() {
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`flex gap-3 ${
+                    className={`flex gap-2 ${
                       msg.direcao === 'outbound' ? 'justify-end' : 'justify-start'
                     }`}
                   >
