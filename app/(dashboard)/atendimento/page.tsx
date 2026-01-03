@@ -1017,10 +1017,14 @@ export default function AtendimentoPage() {
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
                     >
                       <div
-                        className={`w-full ${
+                        className={`${
                           msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
-                            ? 'max-w-[70%]'
-                            : 'max-w-full'
+                            ? 'w-auto max-w-[70%]'
+                            : 'w-full max-w-full'
+                        } ${
+                          (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
+                            ? 'ml-auto'
+                            : ''
                         } rounded-2xl p-4 cursor-pointer ${
                           msg.direcao === 'outbound'
                             ? 'bg-[#005c4b] text-white'
