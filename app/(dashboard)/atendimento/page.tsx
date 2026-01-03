@@ -774,7 +774,7 @@ export default function AtendimentoPage() {
               <img
                 src={msg.url_da_midia}
                 alt="Imagem enviada"
-                className="max-w-[70%] rounded-lg max-h-96 object-contain ml-auto"
+                className="max-w-full rounded-lg max-h-96 object-contain"
                 loading="lazy"
               />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
@@ -1017,7 +1017,11 @@ export default function AtendimentoPage() {
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
                     >
                       <div
-                        className={`w-full max-w-full rounded-2xl p-4 cursor-pointer ${
+                        className={`w-full ${
+                          msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
+                            ? 'max-w-[70%]'
+                            : 'max-w-full'
+                        } rounded-2xl p-4 cursor-pointer ${
                           msg.direcao === 'outbound'
                             ? 'bg-[#005c4b] text-white'
                             : 'bg-muted'
