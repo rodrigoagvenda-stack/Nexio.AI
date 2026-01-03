@@ -17,6 +17,7 @@ import {
   LogOut,
   Sparkles,
   BarChart3,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -64,6 +65,11 @@ export function Sidebar({
       href: '/analytics',
       label: 'Analytics',
       icon: BarChart3,
+    },
+    {
+      href: '/automacao',
+      label: 'Automação',
+      icon: Bot,
     },
     {
       href: '/lead-pro',
