@@ -79,7 +79,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
         }
       `}</style>
 
-      <div className="flex items-center gap-2 min-w-[280px] max-w-md">
+      <div className="flex items-center gap-2 w-full">
         <audio ref={audioRef} src={src} preload="metadata" />
 
       {/* Play/Pause Button */}
