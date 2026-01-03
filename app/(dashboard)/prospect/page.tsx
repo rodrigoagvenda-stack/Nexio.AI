@@ -184,7 +184,7 @@ export default function ProspectAIPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8 pt-20">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8 pt-8 md:pt-20 pb-24 md:pb-8">
       <div className="w-full max-w-4xl space-y-8 md:space-y-12">
         {/* Header */}
         <div className="text-center space-y-6 md:space-y-8">

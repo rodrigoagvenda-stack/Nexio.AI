@@ -365,7 +365,7 @@ export default function AtendimentoPage() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-180px)] md:h-[calc(100vh-200px)]">
+      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-220px)] md:h-[calc(100vh-200px)]">
         {/* Lista de Conversas */}
         <Card className={`col-span-12 lg:col-span-3 flex flex-col ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader>

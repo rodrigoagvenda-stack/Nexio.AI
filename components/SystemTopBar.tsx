@@ -181,14 +181,14 @@ export function SystemTopBar() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm">
               <div className="p-3 border-b">
                 <h3 className="font-semibold text-sm">Notificações</h3>
                 <p className="text-xs text-muted-foreground">
                   {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="max-h-[400px] overflow-y-auto">
+              <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="p-8 text-center text-sm text-muted-foreground">
                     Nenhuma notificação ainda
@@ -238,7 +238,7 @@ export function SystemTopBar() {
                 />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-56 p-0">
+            <PopoverContent align="end" className="w-48 sm:w-56 p-0">
               <PopoverBody className="p-0">
                 <div className="flex flex-col">
                   <button
