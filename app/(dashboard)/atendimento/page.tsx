@@ -774,7 +774,7 @@ export default function AtendimentoPage() {
               <img
                 src={msg.url_da_midia}
                 alt="Imagem enviada"
-                className="max-w-[70%] rounded-lg max-h-96 object-contain"
+                className="max-w-[70%] rounded-lg max-h-96 object-contain ml-auto"
                 loading="lazy"
               />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
