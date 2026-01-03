@@ -20,6 +20,7 @@ import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
 import { EditMessageDialog } from '@/components/chat/EditMessageDialog';
 import { ScheduleMessageDialog } from '@/components/chat/ScheduleMessageDialog';
+import { QuickReplyMenu } from '@/components/chat/QuickReplyMenu';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import type { Lead } from '@/types/database.types';
 
@@ -75,8 +76,11 @@ export default function AtendimentoPage() {
   const [editDialog, setEditDialog] = useState<{ open: boolean; message: Message | null }>({ open: false, message: null });
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Carregar conversas
   useEffect(() => {
@@ -679,6 +683,69 @@ export default function AtendimentoPage() {
     }
   }
 
+  // Template handling functions
+  function handleMessageInputChange(value: string) {
+    setNewMessage(value);
+    handleTyping();
+
+    // Detectar se usuário digitou "/"
+    if (value.startsWith('/') && inputRef.current) {
+      // Calcular posição do menu
+      const rect = inputRef.current.getBoundingClientRect();
+      setTemplateMenuPosition({
+        top: rect.top - 320, // Posicionar acima do input
+        left: rect.left,
+      });
+      setShowTemplateMenu(true);
+    } else {
+      setShowTemplateMenu(false);
+    }
+  }
+
+  function substituteVariables(content: string): string {
+    let result = content;
+
+    // Variáveis disponíveis
+    const variables: Record<string, string> = {
+      nome: selectedConversation?.nome_do_contato || selectedConversation?.numero_de_telefone || '',
+      empresa: selectedConversation?.lead?.company_name || '',
+      telefone: selectedConversation?.numero_de_telefone || '',
+      usuario: user?.name || '',
+      minha_empresa: company?.name || '',
+    };
+
+    // Substituir todas as variáveis
+    Object.entries(variables).forEach(([key, value]) => {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'gi');
+      result = result.replace(regex, value);
+    });
+
+    return result;
+  }
+
+  async function handleTemplateSelect(template: any) {
+    // Substituir variáveis no conteúdo do template
+    const contentWithVariables = substituteVariables(template.content);
+
+    // Inserir no campo de mensagem
+    setNewMessage(contentWithVariables);
+    setShowTemplateMenu(false);
+
+    // Incrementar contador de uso
+    try {
+      await fetch(`/api/templates/${template.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company!.id }),
+      });
+    } catch (error) {
+      console.error('Error incrementing template usage:', error);
+    }
+
+    // Focar no input
+    inputRef.current?.focus();
+  }
+
   const filteredConversations = conversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.numero_de_telefone.includes(searchQuery) ||
@@ -1057,12 +1124,10 @@ export default function AtendimentoPage() {
                       <Paperclip className="h-5 w-5" />
                     </Button>
                     <Input
-                      placeholder="Digite sua mensagem..."
+                      ref={inputRef}
+                      placeholder="Digite sua mensagem... (/ para templates)"
                       value={newMessage}
-                      onChange={(e) => {
-                        setNewMessage(e.target.value);
-                        handleTyping();
-                      }}
+                      onChange={(e) => handleMessageInputChange(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
@@ -1220,6 +1285,17 @@ export default function AtendimentoPage() {
         message={newMessage}
         onSchedule={handleScheduleMessage}
       />
+
+      {/* Quick Reply Template Menu */}
+      {showTemplateMenu && company && (
+        <QuickReplyMenu
+          companyId={company.id}
+          searchQuery={newMessage}
+          position={templateMenuPosition}
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowTemplateMenu(false)}
+        />
+      )}
     </div>
   );
 }
