@@ -40,7 +40,6 @@ interface AssignChatDialogProps {
   chatId: number;
   chatName: string;
   currentAssignedTo?: number | null;
-  currentAssignedToName?: string | null;
   companyId: number;
   userId: number;
   onSuccess: () => void;
@@ -52,7 +51,6 @@ export function AssignChatDialog({
   chatId,
   chatName,
   currentAssignedTo,
-  currentAssignedToName,
   companyId,
   userId,
   onSuccess,
@@ -168,12 +166,14 @@ export function AssignChatDialog({
 
         <div className="space-y-4">
           {/* Atribuição Atual */}
-          {currentAssignedTo && currentAssignedToName && (
+          {currentAssignedTo && (
             <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
               <UserCircle className="h-4 w-4 text-muted-foreground" />
               <div className="flex-1">
                 <p className="text-sm font-medium">Atribuído atualmente para:</p>
-                <p className="text-sm text-muted-foreground">{currentAssignedToName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {team.find(m => m.id === currentAssignedTo)?.name || 'Carregando...'}
+                </p>
               </div>
             </div>
           )}

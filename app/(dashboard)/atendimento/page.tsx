@@ -37,9 +37,6 @@ interface Conversation {
   id_do_lead?: number;
   lead?: Lead;
   assigned_to?: number | null;
-  assigned_to_user?: {
-    name: string;
-  } | null;
 }
 
 interface Message {
@@ -168,8 +165,7 @@ export default function AtendimentoPage() {
         .from('conversas_do_whatsapp')
         .select(`
           *,
-          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*),
-          assigned_to_user:users(name)
+          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)
         `)
         .eq('company_id', company!.id)
         .order('hora_da_ultima_mensagem', { ascending: false });
@@ -952,12 +948,6 @@ export default function AtendimentoPage() {
                           {selectedConversation.lead.company_name}
                         </p>
                       )}
-                      {selectedConversation.assigned_to_user && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <UserCircle2 className="h-3 w-3" />
-                          {selectedConversation.assigned_to_user.name}
-                        </p>
-                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1327,7 +1317,6 @@ export default function AtendimentoPage() {
           chatId={selectedConversation.id}
           chatName={selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
           currentAssignedTo={selectedConversation.assigned_to}
-          currentAssignedToName={selectedConversation.assigned_to_user?.name}
           companyId={company.id}
           userId={user.id}
           onSuccess={fetchConversations}
