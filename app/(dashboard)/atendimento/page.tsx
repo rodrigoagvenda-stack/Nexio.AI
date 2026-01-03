@@ -1017,7 +1017,9 @@ export default function AtendimentoPage() {
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
                     >
                       <div
-                        className={`w-full max-w-[98%] rounded-2xl p-4 cursor-pointer ${
+                        className={`w-full ${
+                          msg.url_da_midia ? 'max-w-[70%]' : 'max-w-full'
+                        } rounded-2xl p-4 cursor-pointer ${
                           msg.direcao === 'outbound'
                             ? 'bg-[#005c4b] text-white'
                             : 'bg-muted'
