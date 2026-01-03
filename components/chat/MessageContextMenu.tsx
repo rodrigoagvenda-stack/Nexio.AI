@@ -16,12 +16,14 @@ import {
   CheckSquare,
   AlertTriangle,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 
 interface MessageContextMenuProps {
   children: React.ReactNode;
   onReact?: (emoji: string) => void;
   onReply?: () => void;
+  onEdit?: () => void;
   onCopy?: () => void;
   onForward?: () => void;
   onPin?: () => void;
@@ -37,6 +39,7 @@ export function MessageContextMenu({
   children,
   onReact,
   onReply,
+  onEdit,
   onCopy,
   onForward,
   onPin,
@@ -85,6 +88,13 @@ export function MessageContextMenu({
           <DropdownMenuItem onClick={onReply}>
             <Reply className="h-4 w-4 mr-2" />
             Responder
+          </DropdownMenuItem>
+        )}
+
+        {onEdit && (
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Editar
           </DropdownMenuItem>
         )}
 

@@ -18,6 +18,7 @@ import { DeleteMessageDialog } from '@/components/chat/DeleteMessageDialog';
 import { ForwardMessageDialog } from '@/components/chat/ForwardMessageDialog';
 import { AttachmentOptionsDialog } from '@/components/chat/AttachmentOptionsDialog';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
+import { EditMessageDialog } from '@/components/chat/EditMessageDialog';
 
 interface Conversation {
   id: number;
@@ -48,6 +49,10 @@ interface Message {
   sender_user_id?: string;
   status: string;
   carimbo_de_data_e_hora: string;
+  is_edited?: boolean;
+  edited_at?: string;
+  is_pinned?: boolean;
+  reactions?: Array<{ emoji: string; user_id: string; created_at: string }>;
   user?: {
     name: string;
   };
@@ -64,6 +69,9 @@ export default function AtendimentoPage() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Carregar conversas
@@ -286,8 +294,83 @@ export default function AtendimentoPage() {
   async function handleReactToMessage(messageId: number | string, emoji: string) {
     if (typeof messageId === 'string') return; // Não reagir a mensagens otimistas
 
-    // TODO: Implementar reação via UAZapi
-    toast.info(`Reação ${emoji} (em breve)`);
+    try {
+      const response = await fetch(`/api/whatsapp/messages/${messageId}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emoji,
+          userId: user!.user_id,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      // Atualizar mensagem localmente
+      setMessages(prev =>
+        prev.map(msg => msg.id === messageId ? data.data : msg)
+      );
+    } catch (error: any) {
+      console.error('Error reacting to message:', error);
+      toast.error(error.message || 'Erro ao reagir à mensagem');
+    }
+  }
+
+  async function handleEditMessage(messageId: number | string, newMessage: string) {
+    if (typeof messageId === 'string') return;
+
+    try {
+      const response = await fetch(`/api/whatsapp/messages/${messageId}/edit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newMessage,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      // Atualizar mensagem localmente
+      setMessages(prev =>
+        prev.map(msg => msg.id === messageId ? data.data : msg)
+      );
+      toast.success('Mensagem editada!');
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      toast.error(error.message || 'Erro ao editar mensagem');
+      throw error;
+    }
+  }
+
+  async function handlePinMessage(messageId: number | string, isPinned: boolean) {
+    if (typeof messageId === 'string') return;
+
+    try {
+      const response = await fetch(`/api/whatsapp/messages/${messageId}/pin`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isPinned,
+          companyId: company!.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+
+      // Atualizar mensagem localmente
+      setMessages(prev =>
+        prev.map(msg => msg.id === messageId ? data.data : msg)
+      );
+      toast.success(isPinned ? 'Mensagem fixada!' : 'Mensagem desafixada!');
+    } catch (error: any) {
+      console.error('Error pinning message:', error);
+      toast.error(error.message || 'Erro ao fixar mensagem');
+    }
   }
 
   async function handleSendAudio(audioBlob: Blob, duration: number) {
@@ -519,7 +602,9 @@ export default function AtendimentoPage() {
                     )}
                     <MessageContextMenu
                       onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
+                      onEdit={msg.direcao === 'outbound' ? () => setEditingMessage(msg) : undefined}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
+                      onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => handleDeleteMessage(msg.id) : undefined}
                     >
                       <div
@@ -544,6 +629,11 @@ export default function AtendimentoPage() {
                             )}
                           </div>
                         )}
+                        {msg.is_pinned && (
+                          <Badge variant="secondary" className="mb-2 text-xs">
+                            📌 Fixada
+                          </Badge>
+                        )}
                         <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
                         <p
                           className={`text-xs mt-1 flex items-center gap-1 ${
@@ -551,8 +641,28 @@ export default function AtendimentoPage() {
                           }`}
                         >
                           {formatDateTime(msg.carimbo_de_data_e_hora)}
+                          {msg.is_edited && ' • Editada'}
                           {msg.status === 'sending' && ' • Enviando...'}
                         </p>
+                        {msg.reactions && msg.reactions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {Object.entries(
+                              msg.reactions.reduce((acc, r) => {
+                                acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>)
+                            ).map(([emoji, count]) => (
+                              <button
+                                key={emoji}
+                                onClick={() => handleReactToMessage(msg.id, emoji)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-background/50 hover:bg-background transition-colors text-xs"
+                              >
+                                <span>{emoji}</span>
+                                <span className="text-[10px]">{count}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </MessageContextMenu>
                     {msg.direcao === 'outbound' && (
@@ -568,6 +678,25 @@ export default function AtendimentoPage() {
                     )}
                   </div>
                 ))}
+
+                {/* Indicador de digitando */}
+                {isTyping && (
+                  <div className="flex gap-3 justify-start">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs">
+                        {getInitials(selectedConversation.nome_do_contato || 'C')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="bg-muted rounded-lg p-3 max-w-[85%] md:max-w-[70%]">
+                      <div className="flex gap-1">
+                        <span className="animate-bounce animation-delay-0">●</span>
+                        <span className="animate-bounce animation-delay-200">●</span>
+                        <span className="animate-bounce animation-delay-400">●</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </CardContent>
 
@@ -645,6 +774,16 @@ export default function AtendimentoPage() {
           </Card>
         )}
       </div>
+
+      {/* Edit Message Dialog */}
+      {editingMessage && (
+        <EditMessageDialog
+          open={!!editingMessage}
+          onOpenChange={(open) => !open && setEditingMessage(null)}
+          message={editingMessage.texto_da_mensagem}
+          onSave={(newMessage) => handleEditMessage(editingMessage.id, newMessage)}
+        />
+      )}
     </div>
   );
 }
