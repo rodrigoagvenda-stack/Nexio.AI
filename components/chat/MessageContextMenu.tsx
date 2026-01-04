@@ -24,6 +24,7 @@ import {
 interface MessageContextMenuProps {
   children: React.ReactNode;
   isOutbound?: boolean;
+  className?: string;
   onReact?: (emoji: string) => void;
   onReply?: () => void;
   onCopy?: () => void;
@@ -41,6 +42,7 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 export function MessageContextMenu({
   children,
   isOutbound = false,
+  className = '',
   onReact,
   onReply,
   onCopy,
@@ -56,7 +58,7 @@ export function MessageContextMenu({
 
   return (
     <div
-      className="relative group"
+      className={`relative group ${className}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >

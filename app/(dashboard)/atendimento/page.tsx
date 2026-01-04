@@ -1007,20 +1007,20 @@ export default function AtendimentoPage() {
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    <div className={`${
-                      (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
-                        ? 'ml-auto w-fit'
-                        : ''
-                    }`}>
-                      <MessageContextMenu
-                        isOutbound={msg.direcao === 'outbound'}
-                        onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
-                        onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
-                        onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
-                        onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
-                        onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
-                        onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
-                      >
+                    <MessageContextMenu
+                      isOutbound={msg.direcao === 'outbound'}
+                      className={
+                        (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
+                          ? 'w-fit ml-auto'
+                          : ''
+                      }
+                      onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
+                      onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
+                      onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
+                      onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
+                      onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
+                      onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
+                    >
                         <div
                           className={`${
                             msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
@@ -1073,7 +1073,6 @@ export default function AtendimentoPage() {
                         </p>
                       </div>
                     </MessageContextMenu>
-                    </div>
                     {msg.direcao === 'outbound' && (
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs bg-green-600 text-white">
