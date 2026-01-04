@@ -68,8 +68,8 @@ export function MessageContextMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className={`absolute top-0 ${
-              isOutbound ? 'left-0 -translate-x-8' : 'right-0 translate-x-8'
+            className={`absolute top-2 ${
+              isOutbound ? 'right-2' : 'left-2'
             } opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-background/10 rounded`}
           >
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
