@@ -1009,7 +1009,7 @@ export default function AtendimentoPage() {
                     )}
                     <div className={`${
                       (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
-                        ? 'ml-auto'
+                        ? 'ml-auto w-fit'
                         : ''
                     }`}>
                       <MessageContextMenu
