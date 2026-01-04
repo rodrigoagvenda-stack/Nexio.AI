@@ -1007,30 +1007,31 @@ export default function AtendimentoPage() {
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    <MessageContextMenu
-                      isOutbound={msg.direcao === 'outbound'}
-                      onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
-                      onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
-                      onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
-                      onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
-                      onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
-                      onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
-                    >
-                      <div
-                        className={`${
-                          msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
-                            ? 'w-auto max-w-[70%]'
-                            : 'w-full max-w-full'
-                        } ${
-                          (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
-                            ? 'ml-auto'
-                            : ''
-                        } rounded-2xl p-4 cursor-pointer ${
-                          msg.direcao === 'outbound'
-                            ? 'bg-[#005c4b] text-white'
-                            : 'bg-muted'
-                        } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
+                    <div className={`${
+                      (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
+                        ? 'ml-auto'
+                        : ''
+                    }`}>
+                      <MessageContextMenu
+                        isOutbound={msg.direcao === 'outbound'}
+                        onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
+                        onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
+                        onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
+                        onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
+                        onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
+                        onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
                       >
+                        <div
+                          className={`${
+                            msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
+                              ? 'w-auto max-w-[70%]'
+                              : 'w-full max-w-full'
+                          } rounded-2xl p-4 cursor-pointer ${
+                            msg.direcao === 'outbound'
+                              ? 'bg-[#005c4b] text-white'
+                              : 'bg-muted'
+                          } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
+                        >
                         {msg.direcao === 'outbound' && (
                           <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
                             {msg.sender_type === 'ai' ? (
@@ -1072,6 +1073,7 @@ export default function AtendimentoPage() {
                         </p>
                       </div>
                     </MessageContextMenu>
+                    </div>
                     {msg.direcao === 'outbound' && (
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs bg-green-600 text-white">
