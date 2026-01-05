@@ -1009,11 +1009,6 @@ export default function AtendimentoPage() {
                     )}
                     <MessageContextMenu
                       isOutbound={msg.direcao === 'outbound'}
-                      className={
-                        (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') && msg.direcao === 'outbound'
-                          ? 'w-fit ml-auto'
-                          : ''
-                      }
                       onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
                       onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
