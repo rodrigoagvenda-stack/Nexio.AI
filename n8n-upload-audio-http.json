@@ -1,0 +1,87 @@
+{
+  "name": "Upload e Salvar Áudio IA - HTTP",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://dkvznmmiliiyrkopiqx.supabase.co/storage/v1/object/whatsapp-media/{{ $json.company_id }}/whatsapp/{{ $json.chat_id }}/{{ $json.timestamp }}_audio.webm",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "audio/webm"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "options": {}
+      },
+      "name": "1. Upload Áudio Bucket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [820, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CREATE_NEW",
+          "name": "Supabase Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dkvznmmiliiyrkopiqx.supabase.co/rest/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $credentials.httpHeaderAuth.value }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": {{ $('Buscar conversa no banco1').item.json.id }},\n  \"lead_id\": {{ $json.lead_id }},\n  \"company_id\": {{ $json.company_id }},\n  \"texto_da_mensagem\": \"🎵 Áudio\",\n  \"tipo_de_mensagem\": \"audio\",\n  \"url_da_midia\": \"https://dkvznmmiliiyrkopiqx.supabase.co/storage/v1/object/public/whatsapp-media/{{ $json.company_id }}/whatsapp/{{ $json.chat_id }}/{{ $json.timestamp }}_audio.webm\",\n  \"direcao\": \"outbound\",\n  \"sender_type\": \"ai\",\n  \"status\": \"sent\"\n}",
+        "options": {}
+      },
+      "name": "2. Inserir Mensagem no Banco",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1040, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SAME_AS_ABOVE",
+          "name": "Supabase Auth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "1. Upload Áudio Bucket": {
+      "main": [
+        [
+          {
+            "node": "2. Inserir Mensagem no Banco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
