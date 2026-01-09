@@ -774,7 +774,7 @@ export default function AtendimentoPage() {
               <img
                 src={msg.url_da_midia}
                 alt="Imagem enviada"
-                className="max-w-full rounded-lg max-h-96 object-contain"
+                className="rounded-lg max-h-96 max-w-md object-contain"
                 loading="lazy"
               />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
@@ -1020,7 +1020,7 @@ export default function AtendimentoPage() {
                         <div
                           className={`${
                             msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
-                              ? 'w-auto max-w-[70%]'
+                              ? 'w-fit'
                               : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
