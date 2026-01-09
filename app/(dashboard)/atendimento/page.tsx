@@ -1015,13 +1015,12 @@ export default function AtendimentoPage() {
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
                       onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
-                      className={(msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') ? 'flex-shrink-0' : 'flex-1'}
                     >
                         <div
                           className={`${
                             msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
                               ? 'w-auto max-w-[70%]'
-                              : 'w-full max-w-full'
+                              : 'max-w-[85%]'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
                               ? 'bg-[#005c4b] text-white'
