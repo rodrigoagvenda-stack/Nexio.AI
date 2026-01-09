@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, Settings, User as UserIcon } from 'lucide-react';
+import { LogOut, Settings, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUser } from '@/lib/hooks/useUser';
 
@@ -28,27 +28,41 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">
-          {company?.name || 'vend.AI'}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {company?.plan_type === 'basic' && 'Plano Básico'}
-          {company?.plan_type === 'performance' && 'Plano Performance'}
-          {company?.plan_type === 'advanced' && 'Plano Advanced'}
-        </p>
+    <header className="h-16 border-b border-border bg-black flex items-center justify-between px-6">
+      {/* User Info */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+          {company?.image_url ? (
+            <img src={company.image_url} alt={company.name || ''} className="w-full h-full object-cover rounded-full" />
+          ) : (
+            <span className="text-sm font-bold text-white">
+              {company?.name?.substring(0, 2)?.toUpperCase() || user?.name?.substring(0, 2)?.toUpperCase() || 'BR'}
+            </span>
+          )}
+        </div>
+        <div>
+          <h2 className="text-sm font-medium text-white">
+            {user?.name || 'Rodrigo'}
+          </h2>
+          <p className="text-xs text-gray-400">
+            {company?.email || user?.email || 'admin@venda.com'}
+          </p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      {/* Actions */}
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/5">
+          <Bell className="h-5 w-5" />
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-2">
-              <UserIcon className="h-4 w-4" />
-              <span>{user?.name || 'Usuário'}</span>
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/5">
+              <Settings className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56 bg-card">
             <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push('/configuracoes')}>
