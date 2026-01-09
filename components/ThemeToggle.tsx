@@ -43,12 +43,12 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       title={theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
-      className="rounded-full"
+      className="text-gray-400 hover:text-white hover:bg-white/5"
     >
       {theme === 'light' ? (
-        <Moon className="h-5 w-5" />
+        <Moon className="h-4 w-4" />
       ) : (
-        <Sun className="h-5 w-5" />
+        <Sun className="h-4 w-4" />
       )}
     </Button>
   );

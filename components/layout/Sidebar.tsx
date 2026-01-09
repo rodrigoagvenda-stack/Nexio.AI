@@ -160,18 +160,69 @@ export function Sidebar({
           })}
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 space-y-2">
-          {/* Theme Toggle */}
-          {!isCollapsed && (
-            <button className="flex items-center gap-3 px-3 py-2.5 w-full text-left text-gray-400 hover:text-white transition-colors">
-              <span className="text-sm">🌙 Alternar tema</span>
-            </button>
-          )}
+        {/* Company Profile */}
+        <div className="p-4 border-t border-white/10">
+          <div
+            className={cn(
+              'flex items-center gap-3 px-3 py-3 rounded-xl bg-white/5',
+              isCollapsed && 'justify-center px-2'
+            )}
+          >
+            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center overflow-hidden">
+              {companyImage ? (
+                <img src={companyImage} alt={companyName || 'Empresa'} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-white">
+                  {companyName?.charAt(0)?.toUpperCase() || 'E'}
+                </span>
+              )}
+            </div>
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{companyName || 'Empresa'}</p>
+                <p className="text-xs text-gray-400 truncate">
+                  {companyEmail || 'empresa@vend.ai'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Theme and Actions */}
+          <div className={cn('flex gap-2 mt-2', isCollapsed && 'flex-col')}>
+            <ThemeToggle />
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className={cn(
+                'flex-1 justify-start text-gray-400 hover:text-white hover:bg-white/5',
+                isCollapsed && 'justify-center px-2'
+              )}
+              size={isCollapsed ? 'icon' : 'default'}
+              title={isCollapsed ? 'Sair' : undefined}
+            >
+              <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+              {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
+            </Button>
+          </div>
+
+          {/* Toggle Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full mt-2 text-gray-400 hover:text-white hover:bg-white/5"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
 
           {/* Agency Branding */}
           {!isCollapsed && (
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 px-3 py-2 mt-2 text-xs text-gray-500">
               <span>⭐</span>
               <div>
                 <p className="font-medium text-gray-400">Agência Venda</p>

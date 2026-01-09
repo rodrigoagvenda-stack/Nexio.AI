@@ -1015,6 +1015,7 @@ export default function AtendimentoPage() {
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
                       onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
+                      className={msg.direcao === 'outbound' && (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') ? 'ml-auto' : ''}
                     >
                         <div
                           className={`${
