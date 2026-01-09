@@ -1001,7 +1001,7 @@ export default function AtendimentoPage() {
                     }`}
                   >
                     {msg.direcao === 'inbound' && (
-                      <Avatar className="h-8 w-8 flex-shrink-0">
+                      <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs">
                           {getInitials(selectedConversation.nome_do_contato || 'C')}
                         </AvatarFallback>
@@ -1015,12 +1015,13 @@ export default function AtendimentoPage() {
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
                       onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
+                      className={msg.direcao === 'outbound' && (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') ? 'ml-auto' : ''}
                     >
                         <div
                           className={`${
                             msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
                               ? 'w-auto max-w-[70%]'
-                              : 'max-w-[85%]'
+                              : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
                               ? 'bg-[#005c4b] text-white'
@@ -1069,7 +1070,7 @@ export default function AtendimentoPage() {
                       </div>
                     </MessageContextMenu>
                     {msg.direcao === 'outbound' && (
-                      <Avatar className="h-8 w-8 flex-shrink-0">
+                      <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs bg-green-600 text-white">
                           {msg.sender_type === 'ai' ? (
                             <Bot className="h-4 w-4" />
