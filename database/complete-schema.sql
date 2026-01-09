@@ -314,7 +314,7 @@ CREATE POLICY IF NOT EXISTS "users_own_conversas" ON conversas_do_whatsapp
 
 CREATE POLICY IF NOT EXISTS "users_own_mensagens" ON mensagens_do_whatsapp
   FOR ALL USING (
-    conversa_id IN (
+    id_da_conversacao IN (
       SELECT id FROM conversas_do_whatsapp
       WHERE company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid())
     )
