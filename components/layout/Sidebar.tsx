@@ -110,32 +110,23 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-all duration-300',
-          isCollapsed ? 'md:w-20' : 'md:w-72'
+          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-black border-r border-border transition-all duration-300',
+          isCollapsed ? 'md:w-20' : 'md:w-64'
         )}
       >
         {/* Logo */}
-        <div className="flex items-center h-20 px-6 border-b border-border/50">
+        <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
-            <h1 className="text-2xl">
-              <span className="font-normal">vend</span>
+            <h1 className="text-xl">
+              <span className="font-normal text-white">vend</span>
               <span className="text-primary font-bold">.</span>
-              <span className="font-bold">AI</span>
+              <span className="font-bold text-white">AI</span>
             </h1>
           )}
         </div>
 
-        {/* Menu Label */}
-        {!isCollapsed && (
-          <div className="px-6 pt-6 pb-3">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Menu
-            </span>
-          </div>
-        )}
-
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 pt-4 space-y-1 overflow-y-auto">
           {links.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
@@ -145,10 +136,10 @@ export function Sidebar({
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+                  'group flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground font-medium'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+                    ? 'bg-white/5 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5',
                   isCollapsed && 'justify-center px-2'
                 )}
                 title={isCollapsed ? link.label : undefined}
@@ -158,7 +149,7 @@ export function Sidebar({
                   <>
                     <span className="text-sm flex-1">{link.label}</span>
                     {link.badge && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary font-semibold border border-primary/20">
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
                         {link.badge}
                       </span>
                     )}
@@ -169,70 +160,30 @@ export function Sidebar({
           })}
         </nav>
 
-        {/* Company Profile */}
-        <div className="p-4 border-t border-border/50">
-          <div
-            className={cn(
-              'flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/30',
-              isCollapsed && 'justify-center px-2'
-            )}
-          >
-            <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center overflow-hidden">
-              {companyImage ? (
-                <img src={companyImage} alt={companyName || 'Empresa'} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xs font-bold text-white">
-                  {companyName?.charAt(0)?.toUpperCase() || 'E'}
-                </span>
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{companyName || 'Empresa'}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {companyEmail || 'empresa@vend.ai'}
-                </p>
+        {/* Footer */}
+        <div className="p-4 space-y-2">
+          {/* Theme Toggle */}
+          {!isCollapsed && (
+            <button className="flex items-center gap-3 px-3 py-2.5 w-full text-left text-gray-400 hover:text-white transition-colors">
+              <span className="text-sm">🌙 Alternar tema</span>
+            </button>
+          )}
+
+          {/* Agency Branding */}
+          {!isCollapsed && (
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-500">
+              <span>⭐</span>
+              <div>
+                <p className="font-medium text-gray-400">Agência Venda</p>
+                <p>Marketing</p>
               </div>
-            )}
-          </div>
-
-          {/* Theme and Actions */}
-          <div className={cn('flex gap-2 mt-2', isCollapsed && 'flex-col')}>
-            <ThemeToggle />
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className={cn(
-                'flex-1 justify-start text-muted-foreground hover:text-foreground',
-                isCollapsed && 'justify-center px-2'
-              )}
-              size={isCollapsed ? 'icon' : 'default'}
-              title={isCollapsed ? 'Sair' : undefined}
-            >
-              <LogOut className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
-              {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
-            </Button>
-          </div>
-
-          {/* Toggle Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full mt-2"
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
+            </div>
+          )}
         </div>
       </aside>
 
       {/* Spacer for content */}
-      <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-72')} />
+      <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-64')} />
     </>
   );
 }
