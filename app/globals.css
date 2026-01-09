@@ -10,7 +10,7 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 36 95% 50%; /* #F79506 */
+    --primary: 36 95% 50%; /* Laranja */
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
@@ -27,24 +27,24 @@
   }
 
   .dark {
-    --background: 0 0% 0%; /* #000000 */
-    --foreground: 0 0% 98%; /* #FAFAFA */
-    --card: 0 0% 6%; /* #0A0A0A */
+    --background: 0 0% 5%; /* Quase preto */
+    --foreground: 0 0% 98%;
+    --card: 0 0% 7%; /* Cards escuros */
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 9%; /* #171717 */
+    --popover: 0 0% 7%;
     --popover-foreground: 0 0% 98%;
-    --primary: 36 95% 50%; /* #F79506 */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 15%; /* #262626 */
+    --primary: 36 95% 50%; /* Laranja accent */
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 12%; /* Cinza escuro */
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 21%; /* #373737 */
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 12%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 32%; /* #525252 */
-    --input: 0 0% 32%;
+    --border: 0 0% 15%; /* Bordas sutis */
+    --input: 0 0% 15%;
     --ring: 36 95% 50%;
   }
 }

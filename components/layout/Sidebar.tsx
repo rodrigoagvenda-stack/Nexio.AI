@@ -145,29 +145,20 @@ export function Sidebar({
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200',
+                  'group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                    : 'text-muted-foreground hover:bg-accent/50',
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent',
                   isCollapsed && 'justify-center px-2'
                 )}
                 title={isCollapsed ? link.label : undefined}
               >
-                <div
-                  className={cn(
-                    'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors',
-                    isActive
-                      ? 'bg-primary-foreground/20'
-                      : 'bg-muted/50 group-hover:bg-muted'
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
+                <Icon className="h-5 w-5 flex-shrink-0" />
                 {!isCollapsed && (
                   <>
-                    <span className="font-medium text-sm flex-1">{link.label}</span>
+                    <span className="text-sm flex-1">{link.label}</span>
                     {link.badge && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-bold border border-primary/30">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary font-semibold border border-primary/20">
                         {link.badge}
                       </span>
                     )}
