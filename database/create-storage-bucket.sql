@@ -36,3 +36,37 @@ USING (
   bucket_id = 'user-uploads' AND
   auth.role() = 'authenticated'
 );
+
+-- ============================================================================
+-- Políticas para logos de empresa (company-logos/)
+-- ============================================================================
+
+-- Policy para permitir upload de logos de empresa
+DROP POLICY IF EXISTS "Usuarios podem fazer upload de logos de empresa" ON storage.objects;
+CREATE POLICY "Usuarios podem fazer upload de logos de empresa"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'user-uploads' AND
+  (storage.foldername(name))[1] = 'company-logos' AND
+  auth.role() = 'authenticated'
+);
+
+-- Policy para permitir atualização (upsert) de logos de empresa
+DROP POLICY IF EXISTS "Usuarios podem atualizar logos de empresa" ON storage.objects;
+CREATE POLICY "Usuarios podem atualizar logos de empresa"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'user-uploads' AND
+  (storage.foldername(name))[1] = 'company-logos' AND
+  auth.role() = 'authenticated'
+);
+
+-- Policy para permitir deletar logos de empresa
+DROP POLICY IF EXISTS "Usuarios podem deletar logos de empresa" ON storage.objects;
+CREATE POLICY "Usuarios podem deletar logos de empresa"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'user-uploads' AND
+  (storage.foldername(name))[1] = 'company-logos' AND
+  auth.role() = 'authenticated'
+);
