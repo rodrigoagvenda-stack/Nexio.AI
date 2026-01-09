@@ -43,8 +43,8 @@ export function Header() {
       {/* User Info */}
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-          {company?.logo_url ? (
-            <img src={company.logo_url} alt={company.name || ''} className="w-full h-full object-cover rounded-full" />
+          {company?.image_url ? (
+            <img src={company.image_url} alt={company.name || ''} className="w-full h-full object-cover rounded-full" />
           ) : (
             <span className="text-sm font-bold text-primary-foreground">
               {company?.name?.charAt(0)?.toUpperCase() || user?.name?.charAt(0)?.toUpperCase() || 'U'}
