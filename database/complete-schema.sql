@@ -309,6 +309,17 @@ CREATE POLICY IF NOT EXISTS "users_own_leads" ON leads
 CREATE POLICY IF NOT EXISTS "users_own_icp_leads" ON "ICP_leads"
   FOR ALL USING (company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid()));
 
+CREATE POLICY IF NOT EXISTS "users_own_conversas" ON conversas_do_whatsapp
+  FOR ALL USING (company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid()));
+
+CREATE POLICY IF NOT EXISTS "users_own_mensagens" ON mensagens_do_whatsapp
+  FOR ALL USING (
+    conversa_id IN (
+      SELECT id FROM conversas_do_whatsapp
+      WHERE company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid())
+    )
+  );
+
 -- Admins veem tudo
 CREATE POLICY IF NOT EXISTS "admins_see_all_companies" ON companies
   FOR ALL USING (auth.uid() IN (SELECT auth_user_id FROM admin_users WHERE is_active = true));
