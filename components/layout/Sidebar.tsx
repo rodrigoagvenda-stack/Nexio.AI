@@ -219,17 +219,6 @@ export function Sidebar({
               <ChevronLeft className="h-4 w-4" />
             )}
           </Button>
-
-          {/* Agency Branding */}
-          {!isCollapsed && (
-            <div className="flex items-center gap-2 px-3 py-2 mt-2 text-xs text-gray-500">
-              <span>⭐</span>
-              <div>
-                <p className="font-medium text-gray-400">Agência Venda</p>
-                <p>Marketing</p>
-              </div>
-            </div>
-          )}
         </div>
       </aside>
 
