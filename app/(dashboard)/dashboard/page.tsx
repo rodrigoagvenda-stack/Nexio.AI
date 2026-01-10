@@ -25,88 +25,151 @@ type ProfileWithIgreja = Profile & {
 }
 
 export default async function DashboardPage() {
+  const debugInfo: any = { steps: [] }
+
   try {
+    debugInfo.steps.push('1. Creating Supabase client')
     const supabase = await createClient()
 
+    debugInfo.steps.push('2. Getting user from auth')
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return null
+    if (!user) {
+      debugInfo.steps.push('2a. No user found')
+      return null
+    }
+    debugInfo.userId = user.id
+    debugInfo.steps.push('2b. User found: ' + user.id)
 
     // Buscar perfil sem JOIN primeiro
+    debugInfo.steps.push('3. Fetching profile')
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single<Profile>()
 
-    if (profileError || !profile) {
-      console.error("Error fetching profile:", profileError)
+    if (profileError) {
+      debugInfo.profileError = profileError
+      debugInfo.steps.push('3a. Profile error')
+    }
+
+    if (!profile) {
+      debugInfo.steps.push('3b. No profile found')
       return (
         <div className="p-8">
-          <h1 className="text-2xl font-bold text-red-600">Erro ao carregar perfil</h1>
-          <pre className="mt-4 p-4 bg-gray-100 rounded text-xs overflow-auto">{JSON.stringify(profileError, null, 2)}</pre>
-          <p className="mt-4 text-sm">User ID: {user.id}</p>
+          <h1 className="text-2xl font-bold text-red-600">Erro: Perfil não encontrado</h1>
+          <pre className="mt-4 p-4 bg-gray-100 rounded text-xs overflow-auto max-h-96">{JSON.stringify({ profileError, debugInfo }, null, 2)}</pre>
         </div>
       )
     }
 
-    // Buscar igreja separadamente (pode falhar se não existir)
-    const { data: igreja } = await supabase
+    debugInfo.profile = { id: profile.id, nome: profile.nome, igreja_id: profile.igreja_id }
+    debugInfo.steps.push('3c. Profile loaded: ' + profile.nome)
+
+    // Buscar igreja separadamente
+    debugInfo.steps.push('4. Fetching igreja')
+    const { data: igreja, error: igrejaError } = await supabase
       .from("igrejas")
       .select("*")
       .eq("id", profile.igreja_id || "")
       .single<Igreja>()
 
+    if (igrejaError) {
+      debugInfo.igrejaError = igrejaError
+      debugInfo.steps.push('4a. Igreja error (pode ser normal se não existir)')
+    }
+
     const profileWithIgreja: ProfileWithIgreja = {
       ...profile,
       igrejas: igreja
     }
+    debugInfo.steps.push('4b. Igreja: ' + (igreja ? igreja.nome : 'null'))
 
-    // Estatísticas
-    const { count: totalMembros } = await (supabase as any)
-      .from("membros")
-      .select("*", { count: "exact", head: true })
-      .eq("igreja_id", profileWithIgreja?.igreja_id || "")
-      .eq("status", "ativo")
+    // Estatísticas - com try/catch individual
+    debugInfo.steps.push('5. Fetching totalMembros')
+    let totalMembros = 0
+    try {
+      const result = await (supabase as any)
+        .from("membros")
+        .select("*", { count: "exact", head: true })
+        .eq("igreja_id", profileWithIgreja?.igreja_id || "")
+        .eq("status", "ativo")
+      totalMembros = result.count || 0
+      debugInfo.steps.push('5a. totalMembros: ' + totalMembros)
+    } catch (e: any) {
+      debugInfo.membrosError = e.message
+      debugInfo.steps.push('5b. Error fetching membros: ' + e.message)
+    }
 
-    const { count: totalIgrejas } = await (supabase as any)
-      .from("igrejas")
-      .select("*", { count: "exact", head: true })
+    debugInfo.steps.push('6. Fetching totalIgrejas')
+    let totalIgrejas = 0
+    try {
+      const result = await (supabase as any)
+        .from("igrejas")
+        .select("*", { count: "exact", head: true })
+      totalIgrejas = result.count || 0
+      debugInfo.steps.push('6a. totalIgrejas: ' + totalIgrejas)
+    } catch (e: any) {
+      debugInfo.igrejasError = e.message
+      debugInfo.steps.push('6b. Error fetching igrejas: ' + e.message)
+    }
 
-    const { count: totalEventos } = await (supabase as any)
-      .from("eventos")
-      .select("*", { count: "exact", head: true })
-      .eq("igreja_id", profileWithIgreja?.igreja_id || "")
-      .gte("data_inicio", new Date().toISOString().split('T')[0])
+    debugInfo.steps.push('7. Fetching totalEventos')
+    let totalEventos = 0
+    try {
+      const result = await (supabase as any)
+        .from("eventos")
+        .select("*", { count: "exact", head: true })
+        .eq("igreja_id", profileWithIgreja?.igreja_id || "")
+        .gte("data_inicio", new Date().toISOString().split('T')[0])
+      totalEventos = result.count || 0
+      debugInfo.steps.push('7a. totalEventos: ' + totalEventos)
+    } catch (e: any) {
+      debugInfo.eventosError = e.message
+      debugInfo.steps.push('7b. Error fetching eventos: ' + e.message)
+    }
 
     // Estatísticas financeiras
+    debugInfo.steps.push('8. Calculating dates for stats')
     const hoje = new Date()
     const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
     const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
+    debugInfo.dates = { inicioMes, fimMes }
 
-    const { data: statsFinanceiro, error: statsError } = await (supabase as any)
-      .rpc("estatisticas_financeiras", {
-        p_igreja_id: profileWithIgreja?.igreja_id || '',
-        p_data_inicio: inicioMes,
-        p_data_fim: fimMes,
-      })
-
-    // Se erro na função RPC, usar valores default
-    const stats = statsError ? {
+    debugInfo.steps.push('9. Calling RPC estatisticas_financeiras')
+    let stats = {
       total_entradas: 0,
       total_saidas: 0,
       saldo: 0,
       total_dizimos: 0,
       total_ofertas: 0,
-    } : (statsFinanceiro?.[0] || {
-      total_entradas: 0,
-      total_saidas: 0,
-      saldo: 0,
-      total_dizimos: 0,
-      total_ofertas: 0,
-    })
+    }
+
+    try {
+      const { data: statsFinanceiro, error: statsError } = await (supabase as any)
+        .rpc("estatisticas_financeiras", {
+          p_igreja_id: profileWithIgreja?.igreja_id || '',
+          p_data_inicio: inicioMes,
+          p_data_fim: fimMes,
+        })
+
+      if (statsError) {
+        debugInfo.statsError = statsError
+        debugInfo.steps.push('9a. Stats RPC error: ' + statsError.message)
+      } else {
+        stats = statsFinanceiro?.[0] || stats
+        debugInfo.steps.push('9b. Stats loaded successfully')
+      }
+    } catch (e: any) {
+      debugInfo.statsException = e.message
+      debugInfo.steps.push('9c. Stats exception: ' + e.message)
+    }
+
+    debugInfo.steps.push('10. Rendering dashboard')
+    debugInfo.stats = stats
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -241,20 +304,43 @@ export default async function DashboardPage() {
     </div>
   )
   } catch (error: any) {
+    debugInfo.error = {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    }
+
     console.error("Dashboard error:", error)
+    console.error("Debug info:", debugInfo)
+
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-bold text-red-600">Erro no Dashboard</h1>
-        <pre className="mt-4 p-4 bg-gray-100 rounded text-xs overflow-auto max-h-96">
-          {JSON.stringify({
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          }, null, 2)}
-        </pre>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Este erro foi capturado para debug. Verifique os dados no Supabase.
-        </p>
+        <h1 className="text-2xl font-bold text-red-600">ERRO NO DASHBOARD - DEBUG COMPLETO</h1>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <h2 className="font-bold text-lg mb-2">Passos Executados:</h2>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              {debugInfo.steps?.map((step: string, i: number) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h2 className="font-bold text-lg mb-2">Erro Principal:</h2>
+            <pre className="p-4 bg-red-100 rounded text-xs overflow-auto max-h-40">
+              {JSON.stringify(error.message, null, 2)}
+            </pre>
+          </div>
+
+          <div>
+            <h2 className="font-bold text-lg mb-2">Debug Info Completo:</h2>
+            <pre className="p-4 bg-gray-100 rounded text-xs overflow-auto max-h-96">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        </div>
       </div>
     )
   }
