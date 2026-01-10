@@ -1,6 +1,23 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Church, DollarSign, Calendar } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
+import {
+  Users,
+  Church,
+  DollarSign,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  Flame,
+  UserPlus,
+  BarChart3
+} from "lucide-react"
+import { StatsCard } from "@/components/dashboard/stats-card"
+import { WelcomeCard } from "@/components/dashboard/welcome-card"
+import { RevenueChart } from "@/components/dashboard/revenue-chart"
+import { QuickActions } from "@/components/dashboard/quick-actions"
+import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
+import { RecentActivity } from "@/components/dashboard/recent-activity"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -9,18 +26,15 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
-  // Buscar perfil do usuário
   const { data: profile } = await supabase
     .from("profiles")
     .select("*, igrejas(*)")
     .eq("id", user.id)
     .single()
 
-  // Buscar estatísticas básicas
+  // Estatísticas
   const { count: totalMembros } = await supabase
     .from("membros")
     .select("*", { count: "exact", head: true })
@@ -31,101 +45,157 @@ export default async function DashboardPage() {
     .from("igrejas")
     .select("*", { count: "exact", head: true })
 
-  const stats = [
-    {
-      name: "Membros Ativos",
-      value: totalMembros || 0,
-      icon: Users,
-      change: "+4.75%",
-      changeType: "positive",
-    },
-    {
-      name: "Igrejas",
-      value: totalIgrejas || 0,
-      icon: Church,
-      change: "+0%",
-      changeType: "neutral",
-    },
-    {
-      name: "Entradas do Mês",
-      value: "R$ 0,00",
-      icon: DollarSign,
-      change: "+0%",
-      changeType: "neutral",
-    },
-    {
-      name: "Eventos Próximos",
-      value: 0,
-      icon: Calendar,
-      change: "+0%",
-      changeType: "neutral",
-    },
-  ]
+  const { count: totalEventos } = await supabase
+    .from("eventos")
+    .select("*", { count: "exact", head: true })
+    .eq("igreja_id", profile?.igreja_id || "")
+    .gte("data_inicio", new Date().toISOString().split('T')[0])
+
+  // Estatísticas financeiras
+  const hoje = new Date()
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
+
+  const { data: statsFinanceiro } = await supabase
+    .rpc("estatisticas_financeiras", {
+      p_igreja_id: profile?.igreja_id,
+      p_data_inicio: inicioMes,
+      p_data_fim: fimMes,
+    })
+
+  const stats = statsFinanceiro?.[0] || {
+    total_entradas: 0,
+    total_saidas: 0,
+    saldo: 0,
+    total_dizimos: 0,
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">
-          Bem-vindo, {profile?.nome}!
-        </h2>
-        <p className="text-muted-foreground">
-          Aqui está um resumo do que está acontecendo.
-        </p>
+    <div className="space-y-6 animate-slide-up">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Olá, {profile?.nome?.split(' ')[0]}! 👋
+          </h2>
+          <p className="text-muted-foreground">
+            Aqui está o que está acontecendo na {profile?.igrejas?.nome || 'igreja'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2">
+            <Flame className="h-5 w-5 text-accent" />
+            <span className="font-semibold text-primary">Igreja Pentecostal</span>
+          </div>
+        </div>
       </div>
 
+      {/* Welcome Card */}
+      <WelcomeCard
+        userName={profile?.nome || ''}
+        churchName={profile?.igrejas?.nome || ''}
+        totalMembers={totalMembros || 0}
+      />
+
+      {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.name}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.name}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
-                {stat.change} desde o último mês
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        <StatsCard
+          title="Membros Ativos"
+          value={totalMembros || 0}
+          icon={Users}
+          description="+12% desde o último mês"
+          trend="up"
+          gradient="primary"
+        />
+
+        <StatsCard
+          title="Entradas do Mês"
+          value={formatCurrency(stats.total_entradas)}
+          icon={TrendingUp}
+          description="Ofertas e dízimos"
+          trend="up"
+          gradient="success"
+        />
+
+        <StatsCard
+          title="Eventos Próximos"
+          value={totalEventos || 0}
+          icon={Calendar}
+          description="Programados este mês"
+          trend="neutral"
+          gradient="orange"
+        />
+
+        <StatsCard
+          title="Saldo do Mês"
+          value={formatCurrency(stats.saldo)}
+          icon={DollarSign}
+          description={stats.saldo >= 0 ? "Superávit" : "Déficit"}
+          trend={stats.saldo >= 0 ? "up" : "down"}
+          gradient="primary"
+        />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+      {/* Charts and Details */}
+      <div className="grid gap-6 lg:grid-cols-7">
+        {/* Revenue Chart */}
+        <div className="lg:col-span-4">
+          <RevenueChart igrejaId={profile?.igreja_id || ''} />
+        </div>
+
+        {/* Quick Stats */}
+        <div className="lg:col-span-3 space-y-6">
+          <QuickActions />
+          <UpcomingEvents igrejaId={profile?.igreja_id || ''} />
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <RecentActivity />
+
+        <Card className="chart-container">
           <CardHeader>
-            <CardTitle>Atividades Recentes</CardTitle>
-            <CardDescription>
-              Últimas ações realizadas no sistema
-            </CardDescription>
+            <CardTitle>Dízimos e Ofertas</CardTitle>
+            <CardDescription>Contribuições financeiras este mês</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center">
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium">Sistema inicializado</p>
-                  <p className="text-sm text-muted-foreground">
-                    Bem-vindo ao Sistema de Gestão para Igrejas
+              <div className="flex items-center justify-between p-4 rounded-lg bg-success/5">
+                <div>
+                  <p className="text-sm text-muted-foreground">Dízimos</p>
+                  <p className="text-2xl font-bold text-success">
+                    {formatCurrency(stats.total_dizimos)}
                   </p>
                 </div>
+                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
+                  <DollarSign className="h-6 w-6 text-success" />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Próximos Cultos</CardTitle>
-            <CardDescription>
-              Escalas confirmadas
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Nenhuma escala cadastrada ainda.
-              </p>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-primary/5">
+                <div>
+                  <p className="text-sm text-muted-foreground">Ofertas</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {formatCurrency(stats.total_entradas - stats.total_dizimos)}
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Church className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-lg bg-accent/5">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Arrecadado</p>
+                  <p className="text-2xl font-bold text-accent">
+                    {formatCurrency(stats.total_entradas)}
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-accent" />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
