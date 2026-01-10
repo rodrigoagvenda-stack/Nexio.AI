@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     if (tipo === "individual" && destinatarios) {
       destinatariosFinal = destinatarios
     } else if (tipo === "massa" && segmentacao) {
-      let query = supabase
+      let query = (supabase as any)
         .from("membros")
         .select("id, nome, telefone")
         .eq("status", "ativo")
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
       const { data: membros } = await query
 
-      destinatariosFinal = membros?.map(m => ({
+      destinatariosFinal = membros?.map((m: any) => ({
         id: m.id,
         nome: m.nome,
         telefone: m.telefone,
