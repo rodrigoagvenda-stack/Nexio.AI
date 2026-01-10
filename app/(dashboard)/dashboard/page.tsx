@@ -61,9 +61,9 @@ export default async function DashboardPage() {
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
   const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
 
-  const { data: statsFinanceiro } = await supabase
+  const { data: statsFinanceiro } = await (supabase as any)
     .rpc("estatisticas_financeiras", {
-      p_igreja_id: profile?.igreja_id,
+      p_igreja_id: profile?.igreja_id || '',
       p_data_inicio: inicioMes,
       p_data_fim: fimMes,
     })
