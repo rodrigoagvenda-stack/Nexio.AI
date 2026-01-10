@@ -61,18 +61,28 @@ export default async function DashboardPage() {
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
   const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
 
-  const { data: statsFinanceiro } = await (supabase as any)
-    .rpc("estatisticas_financeiras", {
-      p_igreja_id: profile?.igreja_id || '',
-      p_data_inicio: inicioMes,
-      p_data_fim: fimMes,
-    })
+  // TODO: Descomentar quando executar 02_functions.sql no banco
+  // const { data: statsFinanceiro } = await (supabase as any)
+  //   .rpc("estatisticas_financeiras", {
+  //     p_igreja_id: profile?.igreja_id || '',
+  //     p_data_inicio: inicioMes,
+  //     p_data_fim: fimMes,
+  //   })
 
-  const stats = statsFinanceiro?.[0] || {
+  // const stats = statsFinanceiro?.[0] || {
+  //   total_entradas: 0,
+  //   total_saidas: 0,
+  //   saldo: 0,
+  //   total_dizimos: 0,
+  // }
+
+  // Valores temporários até executar as funções SQL
+  const stats = {
     total_entradas: 0,
     total_saidas: 0,
     saldo: 0,
     total_dizimos: 0,
+    total_ofertas: 0,
   }
 
   return (
