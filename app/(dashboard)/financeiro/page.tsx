@@ -20,8 +20,8 @@ export default async function FinanceiroPage() {
   const data_fim = new Date().toISOString().split('T')[0]
 
   // Buscar estatísticas
-  const { data: stats } = await supabase.rpc("estatisticas_financeiras", {
-    p_igreja_id: profile?.igreja_id,
+  const { data: stats } = await (supabase as any).rpc("estatisticas_financeiras", {
+    p_igreja_id: profile?.igreja_id || '',
     p_data_inicio: data_inicio,
     p_data_fim: data_fim,
   })
