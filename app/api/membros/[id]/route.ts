@@ -37,12 +37,12 @@ export async function PUT(
 
     const { funcoes, ...membroData } = body
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("membros")
       .update(membroData)
       .eq("id", params.id)
       .select()
-      .single<Membro>()
+      .single()
 
     if (error) throw error
 

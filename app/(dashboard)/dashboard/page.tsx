@@ -40,17 +40,17 @@ export default async function DashboardPage() {
     .single<ProfileWithIgreja>()
 
   // Estatísticas
-  const { count: totalMembros } = await supabase
+  const { count: totalMembros } = await (supabase as any)
     .from("membros")
     .select("*", { count: "exact", head: true })
     .eq("igreja_id", profile?.igreja_id || "")
     .eq("status", "ativo")
 
-  const { count: totalIgrejas } = await supabase
+  const { count: totalIgrejas } = await (supabase as any)
     .from("igrejas")
     .select("*", { count: "exact", head: true })
 
-  const { count: totalEventos } = await supabase
+  const { count: totalEventos } = await (supabase as any)
     .from("eventos")
     .select("*", { count: "exact", head: true })
     .eq("igreja_id", profile?.igreja_id || "")

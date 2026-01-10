@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     }
 
     // Chamar função SQL para estatísticas
-    const { data: stats, error: statsError } = await supabase
+    const { data: stats, error: statsError } = await (supabase as any)
       .rpc("estatisticas_financeiras", {
         p_igreja_id: igreja_id,
         p_data_inicio: data_inicio,

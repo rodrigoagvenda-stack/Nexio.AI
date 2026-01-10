@@ -46,14 +46,14 @@ export async function POST(request: Request) {
 
     const body = await request.json()
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("escalas")
       .insert({
         ...body,
         created_by: user.id,
       })
       .select()
-      .single<Escala>()
+      .single()
 
     if (error) throw error
 

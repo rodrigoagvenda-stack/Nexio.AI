@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
     // Se recusou, reescalar automaticamente
     if (status === "recusado") {
-      const { data: novoMembroId, error: reescalarError } = await supabase.rpc("reescalar_membro", {
+      const { data: novoMembroId, error: reescalarError } = await (supabase as any).rpc("reescalar_membro", {
         p_detalhe_escala_id: detalhe_escala_id,
         p_funcao: funcao,
       })

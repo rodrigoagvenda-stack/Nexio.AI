@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       created_by: user.id,
     }))
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("frequencias")
       .upsert(frequenciasComUser, {
         onConflict: "membro_id,data,tipo_culto",

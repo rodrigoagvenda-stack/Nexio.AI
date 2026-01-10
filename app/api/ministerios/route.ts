@@ -35,11 +35,11 @@ export async function POST(request: Request) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("ministerios")
       .insert(body)
       .select()
-      .single<Ministerio>()
+      .single()
 
     if (error) throw error
 

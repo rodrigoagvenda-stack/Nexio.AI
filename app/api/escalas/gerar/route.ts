@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     const { mes, ano, igreja_id } = await request.json()
 
     // Chamar função SQL para gerar escala automaticamente
-    const { data, error } = await supabase.rpc("gerar_escala_automatica", {
+    const { data, error } = await (supabase as any).rpc("gerar_escala_automatica", {
       p_mes: mes,
       p_ano: ano,
       p_igreja_id: igreja_id,

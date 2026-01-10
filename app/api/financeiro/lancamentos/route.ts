@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         })
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("lancamentos_financeiros")
         .insert(lancamentos)
         .select()
@@ -90,14 +90,14 @@ export async function POST(request: Request) {
     }
 
     // Lançamento único
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("lancamentos_financeiros")
       .insert({
         ...body,
         created_by: user.id,
       })
       .select()
-      .single<LancamentoFinanceiro>()
+      .single()
 
     if (error) throw error
 

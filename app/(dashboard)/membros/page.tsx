@@ -8,7 +8,7 @@ import { MembrosTable } from "@/components/membros/membros-table"
 export default async function MembrosPage() {
   const supabase = await createClient()
 
-  const { data: membros } = await supabase
+  const { data: membros } = await (supabase as any)
     .from("membros")
     .select(`
       *,
