@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     const { tipo, destinatarios, segmentacao, assunto, mensagem } = await request.json()
 
     // Criar registro de mensagem
-    const { data: mensagemData, error: mensagemError } = await supabase
+    const { data: mensagemData, error: mensagemError } = await (supabase as any)
       .from("mensagens")
       .insert({
         tipo,
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         enviado_por: user.id,
       })
       .select()
-      .single<Mensagem>()
+      .single()
 
     if (mensagemError) throw mensagemError
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     }
 
     // Atualizar status
-    await supabase
+    await (supabase as any)
       .from("mensagens")
       .update({
         status: "enviado",
