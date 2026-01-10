@@ -25,55 +25,60 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
+    // TODO: Descomentar quando executar 02_functions.sql no banco
     // Se recusou, reescalar automaticamente
     if (status === "recusado") {
-      const { data: novoMembroId, error: reescalarError } = await (supabase as any).rpc("reescalar_membro", {
-        p_detalhe_escala_id: detalhe_escala_id,
-        p_funcao: funcao,
-      })
-
-      if (reescalarError) throw reescalarError
-
-      // Buscar dados do novo membro para enviar confirmação
-      const { data: novoMembro } = await supabase
-        .from("membros")
-        .select("id, nome, telefone")
-        .eq("id", novoMembroId)
-        .single() as any
-
-      // Buscar dados do culto
-      const { data: detalhe } = await supabase
-        .from("escalas_detalhes")
-        .select("data_culto, horario, tipo_culto")
-        .eq("id", detalhe_escala_id)
-        .single() as any
-
-      // Chamar n8n novamente para enviar confirmação ao novo membro
-      const n8nUrl = `${process.env.N8N_WEBHOOK_URL_BASE}${process.env.N8N_ESCALA_CONFIRMACAO_WEBHOOK}`
-
-      await fetch(n8nUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.N8N_WEBHOOK_SECRET}`,
-        },
-        body: JSON.stringify({
-          escala_id: detalhe_escala_id,
-          escalados: [{
-            membro_id: novoMembro?.id,
-            nome: novoMembro?.nome,
-            telefone: novoMembro?.telefone,
-            funcao: funcao,
-            data: detalhe?.data_culto,
-            horario: detalhe?.horario,
-          }],
-        }),
-      })
-
       return NextResponse.json({
-        message: "Membro reescalado e notificação enviada",
-        novo_membro_id: novoMembroId,
-      })
+        error: "Função SQL 'reescalar_membro' ainda não foi criada. Execute 02_functions.sql primeiro."
+      }, { status: 501 })
+
+      // const { data: novoMembroId, error: reescalarError } = await (supabase as any).rpc("reescalar_membro", {
+      //   p_detalhe_escala_id: detalhe_escala_id,
+      //   p_funcao: funcao,
+      // })
+
+      // if (reescalarError) throw reescalarError
+
+      // // Buscar dados do novo membro para enviar confirmação
+      // const { data: novoMembro } = await supabase
+      //   .from("membros")
+      //   .select("id, nome, telefone")
+      //   .eq("id", novoMembroId)
+      //   .single() as any
+
+      // // Buscar dados do culto
+      // const { data: detalhe } = await supabase
+      //   .from("escalas_detalhes")
+      //   .select("data_culto, horario, tipo_culto")
+      //   .eq("id", detalhe_escala_id)
+      //   .single() as any
+
+      // // Chamar n8n novamente para enviar confirmação ao novo membro
+      // const n8nUrl = `${process.env.N8N_WEBHOOK_URL_BASE}${process.env.N8N_ESCALA_CONFIRMACAO_WEBHOOK}`
+
+      // await fetch(n8nUrl, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     "Authorization": `Bearer ${process.env.N8N_WEBHOOK_SECRET}`,
+      //   },
+      //   body: JSON.stringify({
+      //     escala_id: detalhe_escala_id,
+      //     escalados: [{
+      //       membro_id: novoMembro?.id,
+      //       nome: novoMembro?.nome,
+      //       telefone: novoMembro?.telefone,
+      //       funcao: funcao,
+      //       data: detalhe?.data_culto,
+      //       horario: detalhe?.horario,
+      //     }],
+      //   }),
+      // })
+
+      // return NextResponse.json({
+      //   message: "Membro reescalado e notificação enviada",
+      //   novo_membro_id: novoMembroId,
+      // })
     }
 
     return NextResponse.json({
