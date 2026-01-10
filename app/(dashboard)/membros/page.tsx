@@ -1,22 +1,9 @@
-import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus } from "lucide-react"
+import { Plus, Users } from "lucide-react"
 import Link from "next/link"
-import { MembrosTable } from "@/components/membros/membros-table"
 
 export default async function MembrosPage() {
-  const supabase = await createClient()
-
-  const { data: membros } = await (supabase as any)
-    .from("membros")
-    .select(`
-      *,
-      igrejas(nome)
-    `)
-    .order("nome")
-    .limit(50)
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -42,7 +29,19 @@ export default async function MembrosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <MembrosTable membros={membros || []} />
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum membro cadastrado</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Execute o schema completo do banco para criar a tabela de membros
+            </p>
+            <Link href="/membros/novo">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Primeiro Membro
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
