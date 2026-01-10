@@ -23,7 +23,7 @@ export function useUser() {
           .from('profiles')
           .select('*')
           .eq('id', authUser.id)
-          .single()
+          .single<Profile>()
 
         setUser(profile)
       } catch (error) {

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         )
       `)
       .eq("id", data)
-      .single()
+      .single() as any
 
     if (escalaError) throw escalaError
 

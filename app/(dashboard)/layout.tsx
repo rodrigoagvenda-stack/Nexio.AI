@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/toaster"
+import type { Profile } from "@/types/database.types"
 
 export default async function DashboardLayout({
   children,
@@ -24,9 +25,9 @@ export default async function DashboardLayout({
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single()
+    .single<Profile>()
 
-  if (!profile || !profile.ativo) {
+  if (!profile || !profile?.ativo) {
     redirect("/login")
   }
 

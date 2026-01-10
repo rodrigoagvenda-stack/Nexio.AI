@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { Membro } from "@/types/database.types"
 
 export async function GET(
   request: Request,
@@ -16,7 +17,7 @@ export async function GET(
         membros_funcoes(funcao, nivel, ativo)
       `)
       .eq("id", params.id)
-      .single()
+      .single() as any
 
     if (error) throw error
 
@@ -41,7 +42,7 @@ export async function PUT(
       .update(membroData)
       .eq("id", params.id)
       .select()
-      .single()
+      .single<Membro>()
 
     if (error) throw error
 

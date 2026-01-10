@@ -24,7 +24,7 @@ export async function POST(
         )
       `)
       .eq("id", params.id)
-      .single()
+      .single() as any
 
     if (error) throw error
 

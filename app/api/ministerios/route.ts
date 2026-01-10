@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { Ministerio } from "@/types/database.types"
 
 export async function GET(request: Request) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       .from("ministerios")
       .insert(body)
       .select()
-      .single()
+      .single<Ministerio>()
 
     if (error) throw error
 

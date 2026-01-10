@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { Membro } from "@/types/database.types"
 
 export async function POST(request: Request) {
   try {
@@ -38,14 +39,14 @@ export async function POST(request: Request) {
         .from("membros")
         .select("id, nome, telefone")
         .eq("id", novoMembroId)
-        .single()
+        .single() as any
 
       // Buscar dados do culto
       const { data: detalhe } = await supabase
         .from("escalas_detalhes")
         .select("data_culto, horario, tipo_culto")
         .eq("id", detalhe_escala_id)
-        .single()
+        .single() as any
 
       // Chamar n8n novamente para enviar confirmação ao novo membro
       const n8nUrl = `${process.env.N8N_WEBHOOK_URL_BASE}${process.env.N8N_ESCALA_CONFIRMACAO_WEBHOOK}`

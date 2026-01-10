@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { Mensagem } from "@/types/database.types"
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
         enviado_por: user.id,
       })
       .select()
-      .single()
+      .single<Mensagem>()
 
     if (mensagemError) throw mensagemError
 

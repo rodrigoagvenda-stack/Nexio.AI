@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { Escala } from "@/types/database.types"
 
 export async function GET(request: Request) {
   try {
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
         created_by: user.id,
       })
       .select()
-      .single()
+      .single<Escala>()
 
     if (error) throw error
 
