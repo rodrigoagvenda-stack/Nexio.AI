@@ -25,79 +25,88 @@ type ProfileWithIgreja = Profile & {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) return null
+    if (!user) return null
 
-  // Buscar perfil sem JOIN primeiro
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single<Profile>()
+    // Buscar perfil sem JOIN primeiro
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single<Profile>()
 
-  if (profileError || !profile) {
-    console.error("Error fetching profile:", profileError)
-    return (
-      <div className="p-8">
-        <h1 className="text-2xl font-bold text-red-600">Erro ao carregar perfil</h1>
-        <pre className="mt-4 p-4 bg-gray-100 rounded text-xs">{JSON.stringify(profileError, null, 2)}</pre>
-      </div>
-    )
-  }
+    if (profileError || !profile) {
+      console.error("Error fetching profile:", profileError)
+      return (
+        <div className="p-8">
+          <h1 className="text-2xl font-bold text-red-600">Erro ao carregar perfil</h1>
+          <pre className="mt-4 p-4 bg-gray-100 rounded text-xs overflow-auto">{JSON.stringify(profileError, null, 2)}</pre>
+          <p className="mt-4 text-sm">User ID: {user.id}</p>
+        </div>
+      )
+    }
 
-  // Buscar igreja separadamente (pode falhar se não existir)
-  const { data: igreja } = await supabase
-    .from("igrejas")
-    .select("*")
-    .eq("id", profile.igreja_id || "")
-    .single<Igreja>()
+    // Buscar igreja separadamente (pode falhar se não existir)
+    const { data: igreja } = await supabase
+      .from("igrejas")
+      .select("*")
+      .eq("id", profile.igreja_id || "")
+      .single<Igreja>()
 
-  const profileWithIgreja: ProfileWithIgreja = {
-    ...profile,
-    igrejas: igreja
-  }
+    const profileWithIgreja: ProfileWithIgreja = {
+      ...profile,
+      igrejas: igreja
+    }
 
-  // Estatísticas
-  const { count: totalMembros } = await (supabase as any)
-    .from("membros")
-    .select("*", { count: "exact", head: true })
-    .eq("igreja_id", profileWithIgreja?.igreja_id || "")
-    .eq("status", "ativo")
+    // Estatísticas
+    const { count: totalMembros } = await (supabase as any)
+      .from("membros")
+      .select("*", { count: "exact", head: true })
+      .eq("igreja_id", profileWithIgreja?.igreja_id || "")
+      .eq("status", "ativo")
 
-  const { count: totalIgrejas } = await (supabase as any)
-    .from("igrejas")
-    .select("*", { count: "exact", head: true })
+    const { count: totalIgrejas } = await (supabase as any)
+      .from("igrejas")
+      .select("*", { count: "exact", head: true })
 
-  const { count: totalEventos } = await (supabase as any)
-    .from("eventos")
-    .select("*", { count: "exact", head: true })
-    .eq("igreja_id", profileWithIgreja?.igreja_id || "")
-    .gte("data_inicio", new Date().toISOString().split('T')[0])
+    const { count: totalEventos } = await (supabase as any)
+      .from("eventos")
+      .select("*", { count: "exact", head: true })
+      .eq("igreja_id", profileWithIgreja?.igreja_id || "")
+      .gte("data_inicio", new Date().toISOString().split('T')[0])
 
-  // Estatísticas financeiras
-  const hoje = new Date()
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
-  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
+    // Estatísticas financeiras
+    const hoje = new Date()
+    const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
+    const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0]
 
-  const { data: statsFinanceiro } = await (supabase as any)
-    .rpc("estatisticas_financeiras", {
-      p_igreja_id: profileWithIgreja?.igreja_id || '',
-      p_data_inicio: inicioMes,
-      p_data_fim: fimMes,
+    const { data: statsFinanceiro, error: statsError } = await (supabase as any)
+      .rpc("estatisticas_financeiras", {
+        p_igreja_id: profileWithIgreja?.igreja_id || '',
+        p_data_inicio: inicioMes,
+        p_data_fim: fimMes,
+      })
+
+    // Se erro na função RPC, usar valores default
+    const stats = statsError ? {
+      total_entradas: 0,
+      total_saidas: 0,
+      saldo: 0,
+      total_dizimos: 0,
+      total_ofertas: 0,
+    } : (statsFinanceiro?.[0] || {
+      total_entradas: 0,
+      total_saidas: 0,
+      saldo: 0,
+      total_dizimos: 0,
+      total_ofertas: 0,
     })
-
-  const stats = statsFinanceiro?.[0] || {
-    total_entradas: 0,
-    total_saidas: 0,
-    saldo: 0,
-    total_dizimos: 0,
-    total_ofertas: 0,
-  }
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -231,4 +240,22 @@ export default async function DashboardPage() {
       </div>
     </div>
   )
+  } catch (error: any) {
+    console.error("Dashboard error:", error)
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold text-red-600">Erro no Dashboard</h1>
+        <pre className="mt-4 p-4 bg-gray-100 rounded text-xs overflow-auto max-h-96">
+          {JSON.stringify({
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+          }, null, 2)}
+        </pre>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Este erro foi capturado para debug. Verifique os dados no Supabase.
+        </p>
+      </div>
+    )
+  }
 }
