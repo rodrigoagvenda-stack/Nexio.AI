@@ -18,6 +18,11 @@ import { RevenueChart } from "@/components/dashboard/revenue-chart"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
+import type { Profile, Igreja } from "@/types/database.types"
+
+type ProfileWithIgreja = Profile & {
+  igrejas: Igreja | null
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -32,7 +37,7 @@ export default async function DashboardPage() {
     .from("profiles")
     .select("*, igrejas(*)")
     .eq("id", user.id)
-    .single()
+    .single<ProfileWithIgreja>()
 
   // Estatísticas
   const { count: totalMembros } = await supabase
