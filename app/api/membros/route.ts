@@ -71,7 +71,7 @@ export async function POST(request: Request) {
         nivel: f.nivel,
       }))
 
-      await supabase.from("membros_funcoes").insert(funcoes)
+      await (supabase as any).from("membros_funcoes").insert(funcoes)
     }
 
     return NextResponse.json({ data })

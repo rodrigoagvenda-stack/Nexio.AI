@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // Atualizar status de confirmação
     const updateField = `status_confirmacao_${funcao}`
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("escalas_detalhes")
       .update({ [updateField]: status })
       .eq("id", detalhe_escala_id)

@@ -34,7 +34,7 @@ export async function POST(
     const pdfUrl = `${process.env.NEXT_PUBLIC_APP_URL}/storage/escalas/escala_${params.id}.pdf`
 
     // Atualizar escala com URL do PDF
-    await supabase
+    await (supabase as any)
       .from("escalas")
       .update({ pdf_url: pdfUrl })
       .eq("id", params.id)

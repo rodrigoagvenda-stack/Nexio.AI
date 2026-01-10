@@ -49,7 +49,7 @@ export async function PUT(
     // Atualizar funções
     if (funcoes) {
       // Deletar funções antigas
-      await supabase
+      await (supabase as any)
         .from("membros_funcoes")
         .delete()
         .eq("membro_id", params.id)
@@ -62,7 +62,7 @@ export async function PUT(
           nivel: f.nivel,
         }))
 
-        await supabase.from("membros_funcoes").insert(novasFuncoes)
+        await (supabase as any).from("membros_funcoes").insert(novasFuncoes)
       }
     }
 
@@ -80,7 +80,7 @@ export async function DELETE(
     const supabase = await createClient()
 
     // Soft delete - apenas marca como inativo
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("membros")
       .update({ status: "inativo" })
       .eq("id", params.id)
