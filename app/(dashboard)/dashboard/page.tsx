@@ -33,17 +33,40 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  const { data: profile } = await supabase
+  // Buscar perfil sem JOIN primeiro
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("*, igrejas(*)")
+    .select("*")
     .eq("id", user.id)
-    .single<ProfileWithIgreja>()
+    .single<Profile>()
+
+  if (profileError || !profile) {
+    console.error("Error fetching profile:", profileError)
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold text-red-600">Erro ao carregar perfil</h1>
+        <pre className="mt-4 p-4 bg-gray-100 rounded text-xs">{JSON.stringify(profileError, null, 2)}</pre>
+      </div>
+    )
+  }
+
+  // Buscar igreja separadamente (pode falhar se não existir)
+  const { data: igreja } = await supabase
+    .from("igrejas")
+    .select("*")
+    .eq("id", profile.igreja_id || "")
+    .single<Igreja>()
+
+  const profileWithIgreja: ProfileWithIgreja = {
+    ...profile,
+    igrejas: igreja
+  }
 
   // Estatísticas
   const { count: totalMembros } = await (supabase as any)
     .from("membros")
     .select("*", { count: "exact", head: true })
-    .eq("igreja_id", profile?.igreja_id || "")
+    .eq("igreja_id", profileWithIgreja?.igreja_id || "")
     .eq("status", "ativo")
 
   const { count: totalIgrejas } = await (supabase as any)
@@ -53,7 +76,7 @@ export default async function DashboardPage() {
   const { count: totalEventos } = await (supabase as any)
     .from("eventos")
     .select("*", { count: "exact", head: true })
-    .eq("igreja_id", profile?.igreja_id || "")
+    .eq("igreja_id", profileWithIgreja?.igreja_id || "")
     .gte("data_inicio", new Date().toISOString().split('T')[0])
 
   // Estatísticas financeiras
@@ -63,7 +86,7 @@ export default async function DashboardPage() {
 
   const { data: statsFinanceiro } = await (supabase as any)
     .rpc("estatisticas_financeiras", {
-      p_igreja_id: profile?.igreja_id || '',
+      p_igreja_id: profileWithIgreja?.igreja_id || '',
       p_data_inicio: inicioMes,
       p_data_fim: fimMes,
     })
@@ -82,10 +105,10 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            Olá, {profile?.nome?.split(' ')[0]}! 👋
+            Olá, {profileWithIgreja?.nome?.split(' ')[0]}! 👋
           </h2>
           <p className="text-muted-foreground">
-            Aqui está o que está acontecendo na {profile?.igrejas?.nome || 'igreja'}
+            Aqui está o que está acontecendo na {profileWithIgreja?.igrejas?.nome || 'igreja'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -98,8 +121,8 @@ export default async function DashboardPage() {
 
       {/* Welcome Card */}
       <WelcomeCard
-        userName={profile?.nome || ''}
-        churchName={profile?.igrejas?.nome || ''}
+        userName={profileWithIgreja?.nome || ''}
+        churchName={profileWithIgreja?.igrejas?.nome || ''}
         totalMembers={totalMembros || 0}
       />
 
@@ -146,13 +169,13 @@ export default async function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-7">
         {/* Revenue Chart */}
         <div className="lg:col-span-4">
-          <RevenueChart igrejaId={profile?.igreja_id || ''} />
+          <RevenueChart igrejaId={profileWithIgreja?.igreja_id || ''} />
         </div>
 
         {/* Quick Stats */}
         <div className="lg:col-span-3 space-y-6">
           <QuickActions />
-          <UpcomingEvents igrejaId={profile?.igreja_id || ''} />
+          <UpcomingEvents igrejaId={profileWithIgreja?.igreja_id || ''} />
         </div>
       </div>
 
