@@ -14,25 +14,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "igreja_id é obrigatório" }, { status: 400 })
     }
 
-    // TODO: Descomentar quando executar 02_functions.sql no banco
     // Chamar função SQL para estatísticas
-    // const { data: stats, error: statsError } = await (supabase as any)
-    //   .rpc("estatisticas_financeiras", {
-    //     p_igreja_id: igreja_id,
-    //     p_data_inicio: data_inicio,
-    //     p_data_fim: data_fim,
-    //   })
+    const { data: stats, error: statsError } = await (supabase as any)
+      .rpc("estatisticas_financeiras", {
+        p_igreja_id: igreja_id,
+        p_data_inicio: data_inicio,
+        p_data_fim: data_fim,
+      })
 
-    // if (statsError) throw statsError
-
-    // Valores temporários até executar as funções SQL
-    const stats = [{
-      total_entradas: 0,
-      total_saidas: 0,
-      saldo: 0,
-      total_dizimos: 0,
-      total_ofertas: 0,
-    }]
+    if (statsError) throw statsError
 
     // Buscar saldo das contas
     const { data: contas, error: contasError } = await supabase

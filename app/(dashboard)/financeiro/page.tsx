@@ -20,23 +20,14 @@ export default async function FinanceiroPage() {
   const data_inicio = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]
   const data_fim = new Date().toISOString().split('T')[0]
 
-  // TODO: Descomentar quando executar 02_functions.sql no banco
   // Buscar estatísticas
-  // const { data: stats } = await (supabase as any).rpc("estatisticas_financeiras", {
-  //   p_igreja_id: profile?.igreja_id || '',
-  //   p_data_inicio: data_inicio,
-  //   p_data_fim: data_fim,
-  // })
+  const { data: stats } = await (supabase as any).rpc("estatisticas_financeiras", {
+    p_igreja_id: profile?.igreja_id || '',
+    p_data_inicio: data_inicio,
+    p_data_fim: data_fim,
+  })
 
-  // const estatisticas = stats?.[0] || {
-  //   total_entradas: 0,
-  //   total_saidas: 0,
-  //   saldo: 0,
-  //   total_dizimos: 0,
-  // }
-
-  // Valores temporários até executar as funções SQL
-  const estatisticas = {
+  const estatisticas = stats?.[0] || {
     total_entradas: 0,
     total_saidas: 0,
     saldo: 0,

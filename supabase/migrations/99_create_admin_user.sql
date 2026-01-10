@@ -10,24 +10,16 @@ INSERT INTO igrejas (
   nome,
   tipo,
   endereco,
-  cidade,
-  estado,
-  cep,
   telefone,
   email,
-  nome_lider,
   ativo
 ) VALUES (
   'e0a3f3e2-8b5c-4d3e-9f2a-1a2b3c4d5e6f',
   'Igreja Pentecostal Vale da Bênção',
-  'matriz',
-  'Rua Principal, 123',
-  'Sua Cidade',
-  'BA',
-  '00000-000',
+  'sede',
+  '{"rua": "Rua Principal, 123", "cidade": "Sua Cidade", "estado": "BA", "cep": "00000-000"}'::jsonb,
   '(00) 00000-0000',
   'contato@igreja.com',
-  'Pastor Principal',
   true
 ) ON CONFLICT (id) DO NOTHING;
 
