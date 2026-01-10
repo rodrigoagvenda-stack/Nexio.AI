@@ -5,6 +5,8 @@ import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/toaster"
 import type { Profile } from "@/types/database.types"
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({
   children,
 }: {
