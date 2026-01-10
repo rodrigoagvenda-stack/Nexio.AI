@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
+import type { Profile } from "@/types/database.types"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -34,11 +35,11 @@ export default function LoginPage() {
         .from('profiles')
         .select('*')
         .eq('id', data.user.id)
-        .single()
+        .single<Profile>()
 
       if (profileError) throw profileError
 
-      if (!profile.ativo) {
+      if (!profile?.ativo) {
         await supabase.auth.signOut()
         toast({
           variant: "destructive",
@@ -50,7 +51,7 @@ export default function LoginPage() {
 
       toast({
         title: "Login realizado com sucesso!",
-        description: `Bem-vindo(a), ${profile.nome}`,
+        description: `Bem-vindo(a), ${profile?.nome || 'Usuário'}`,
       })
 
       router.push("/dashboard")
