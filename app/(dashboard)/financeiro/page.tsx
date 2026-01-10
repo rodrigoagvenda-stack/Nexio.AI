@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/utils"
 import { DollarSign, TrendingUp, TrendingDown, Wallet } from "lucide-react"
+import type { Profile } from "@/types/database.types"
 
 export default async function FinanceiroPage() {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export default async function FinanceiroPage() {
     .from("profiles")
     .select("igreja_id")
     .eq("id", user.id)
-    .single()
+    .single<Pick<Profile, 'igreja_id'>>()
 
   const data_inicio = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]
   const data_fim = new Date().toISOString().split('T')[0]
