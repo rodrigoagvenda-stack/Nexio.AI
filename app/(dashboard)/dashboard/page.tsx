@@ -235,7 +235,7 @@ export default async function DashboardPage() {
           <CardContent>
             {membrosRecentes && membrosRecentes.length > 0 ? (
               <div className="space-y-3">
-                {membrosRecentes.map((membro: any, index) => (
+                {membrosRecentes.map((membro: any, index: number) => (
                   <div key={index} className="flex items-center gap-3 p-3 rounded-lg border border-primary/10">
                     <div className="p-2 rounded-lg bg-primary/10">
                       <Users className="h-4 w-4 text-primary" />
