@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single<Profile>()
+    .single()
 
   if (!profile) return null
 
@@ -34,7 +34,7 @@ export default async function DashboardPage() {
     .from("igrejas")
     .select("*")
     .eq("id", profile.igreja_id || "")
-    .single<Igreja>()
+    .single()
 
   return (
     <div className="space-y-6">
