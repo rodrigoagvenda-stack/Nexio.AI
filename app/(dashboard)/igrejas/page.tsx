@@ -1,14 +1,15 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Church } from "lucide-react"
+import type { Igreja } from "@/types/database.types"
 
 export default async function IgrejasPage() {
   const supabase = await createClient()
 
-  const { data: igrejas } = await supabase
+  const { data: igrejas } = await (supabase as any)
     .from("igrejas")
     .select("*")
-    .order("nome")
+    .order("nome") as { data: Igreja[] | null }
 
   return (
     <div className="space-y-6">
