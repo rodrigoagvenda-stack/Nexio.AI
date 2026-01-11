@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDate } from "@/lib/utils"
 import {
   Users,
   Church,
@@ -9,11 +9,11 @@ import {
   Calendar,
   TrendingUp,
   Flame,
-  ArrowUp,
-  ArrowDown,
-  Eye,
+  UserCheck,
+  Heart,
+  MessageSquare,
+  ArrowRight,
 } from "lucide-react"
-import type { Profile, Igreja } from "@/types/database.types"
 import Link from "next/link"
 
 export default async function DashboardPage() {
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  // Buscar perfil
+  // Buscar perfil e igreja
   const { data: profile } = await (supabase as any)
     .from("profiles")
     .select("*")
@@ -34,501 +34,283 @@ export default async function DashboardPage() {
 
   if (!profile) return null
 
-  // Buscar igreja separadamente
   const { data: igreja } = await (supabase as any)
     .from("igrejas")
     .select("*")
     .eq("id", profile.igreja_id || "")
     .single()
 
-  // Buscar estatísticas reais (se as tabelas existirem)
-  const { count: membrosCount } = await (supabase as any)
+  // Buscar estatísticas reais
+  const { count: totalMembros } = await (supabase as any)
     .from("membros")
     .select("*", { count: "exact", head: true })
     .eq("igreja_id", profile.igreja_id)
     .eq("status", "ativo")
 
-  const { count: eventosCount } = await (supabase as any)
+  const { count: totalEventos } = await (supabase as any)
     .from("eventos")
     .select("*", { count: "exact", head: true })
     .eq("igreja_id", profile.igreja_id)
     .gte("data_inicio", new Date().toISOString().split('T')[0])
 
-  const totalMembros = membrosCount || 0
-  const totalEventos = eventosCount || 0
+  const { count: totalMinisterios } = await (supabase as any)
+    .from("ministerios")
+    .select("*", { count: "exact", head: true })
+    .eq("igreja_id", profile.igreja_id)
+    .eq("ativo", true)
+
+  // Buscar próximos eventos
+  const { data: proximosEventos } = await (supabase as any)
+    .from("eventos")
+    .select("*")
+    .eq("igreja_id", profile.igreja_id)
+    .gte("data_inicio", new Date().toISOString().split('T')[0])
+    .order("data_inicio")
+    .limit(5)
+
+  // Buscar membros recentes
+  const { data: membrosRecentes } = await (supabase as any)
+    .from("membros")
+    .select("nome, data_entrada")
+    .eq("igreja_id", profile.igreja_id)
+    .order("created_at", { ascending: false })
+    .limit(5)
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Olá, Bom Dia</p>
-          <h2 className="text-3xl font-bold tracking-tight">{profile?.nome?.split(' ')[0] || 'Administrador'}</h2>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" className="rounded-full">
-            🌙
-          </Button>
-          <Button variant="outline" size="icon" className="rounded-full relative">
-            🔔
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-accent text-xs text-white flex items-center justify-center">
-              2
-            </span>
-          </Button>
-        </div>
+      {/* Header com saudação */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-secondary">
+          Olá, {profile?.nome?.split(' ')[0]}! 👋
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Aqui está o resumo de {igreja?.nome || 'sua igreja'}
+        </p>
       </div>
 
-      {/* Main Stats Card */}
-      <Card className="overflow-hidden border-0 shadow-lg">
-        <div className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white relative p-8">
-          <div className="flex items-start justify-between">
+      {/* Banner da Igreja */}
+      <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10">
+        <CardContent className="p-8">
+          <div className="flex items-center gap-4">
+            <div className="p-4 rounded-full bg-accent/20">
+              <Flame className="h-12 w-12 text-accent" />
+            </div>
             <div className="flex-1">
-              <p className="text-sm opacity-90 mb-2">Parabéns, {profile?.nome?.split(' ')[0]}! 🎉</p>
-              <h3 className="text-4xl font-bold mb-2">
-                {formatCurrency(0)}
-              </h3>
-              <p className="text-sm opacity-80 mb-6">Suas ofertas este mês têm sido excelentes</p>
-              <Link href="/financeiro">
-                <Button className="bg-white/20 hover:bg-white/30 text-white border-white/30">
-                  Ver Finanças
+              <h2 className="text-2xl font-bold text-secondary mb-1">
+                {igreja?.nome || 'Igreja Pentecostal Vale da Bênção'}
+              </h2>
+              <p className="text-muted-foreground capitalize">
+                {igreja?.tipo || 'Sede'} • Sistema de Gestão Eclesiástica
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cards de Estatísticas */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-primary/20 hover:border-primary/40 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Membros Ativos
+            </CardTitle>
+            <Users className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-secondary">{totalMembros || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total de membros cadastrados
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:border-primary/40 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Próximos Eventos
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-secondary">{totalEventos || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Eventos programados
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:border-primary/40 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Ministérios
+            </CardTitle>
+            <Church className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-secondary">{totalMinisterios || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ministérios ativos
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:border-primary/40 transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Financeiro
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-secondary">{formatCurrency(0)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Saldo do mês atual
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Próximos Eventos */}
+        <Card className="border-primary/20">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-secondary">Próximos Eventos</CardTitle>
+              <Link href="/eventos">
+                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                  Ver todos
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
             </div>
-            <div className="text-8xl opacity-20">
-              🎁
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Statistics Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">Estatísticas</h3>
-          <p className="text-sm text-muted-foreground">Atualizado no último mês</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-lg bg-blue-100">
-                  <TrendingUp className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Ofertas Anuais</p>
-                <h3 className="text-2xl font-bold">{formatCurrency(0)}</h3>
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <ArrowUp className="h-3 w-3" /> +15%
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-lg bg-green-100">
-                  <Users className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Membros</p>
-                <h3 className="text-2xl font-bold">{totalMembros}</h3>
-                <p className="text-xs text-muted-foreground mt-1">Total de membros ativos</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-lg bg-orange-100">
-                  <Calendar className="h-6 w-6 text-orange-600" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Eventos</p>
-                <h3 className="text-2xl font-bold">{totalEventos}</h3>
-                <p className="text-xs text-muted-foreground mt-1">Programados</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-lg bg-purple-100">
-                  <Church className="h-6 w-6 text-purple-600" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Receita</p>
-                <h3 className="text-2xl font-bold">{formatCurrency(0)}</h3>
-                <p className="text-xs text-muted-foreground mt-1">Este mês</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-lg bg-green-100">
-                  <DollarSign className="h-6 w-6 text-green-600" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Saldo</p>
-                <h3 className="text-2xl font-bold">{formatCurrency(0)}</h3>
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <ArrowUp className="h-3 w-3" /> +12%
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Charts and Reports Row */}
-      <div className="grid gap-6 lg:grid-cols-7">
-        {/* Revenue Report */}
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Relatório de Receitas</CardTitle>
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                  <span className="text-muted-foreground">Entradas</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                  <span className="text-muted-foreground">Saídas</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 mt-2">
-              <div>
-                <p className="text-2xl font-bold">{formatCurrency(0)}</p>
-                <p className="text-sm text-muted-foreground">Orçamento: {formatCurrency(0)}</p>
-              </div>
-            </div>
+            <CardDescription>Eventos programados para os próximos dias</CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Placeholder for chart */}
-            <div className="h-64 flex items-end justify-around gap-2">
-              {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago'].map((month, i) => (
-                <div key={month} className="flex flex-col items-center gap-2 flex-1">
-                  <div className="w-full flex flex-col items-center gap-1">
-                    <div
-                      className="w-full bg-blue-500 rounded-t"
-                      style={{ height: `${Math.random() * 120 + 40}px` }}
-                    ></div>
-                    <div
-                      className="w-full bg-green-500 rounded-b"
-                      style={{ height: `${Math.random() * 80 + 20}px` }}
-                    ></div>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{month}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-center">
-              <Button className="bg-primary hover:bg-primary/90">Aumentar Orçamento</Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Right Column - Orders and Earnings */}
-        <div className="lg:col-span-3 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ofertas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <h3 className="text-4xl font-bold">0</h3>
-                <p className="text-sm text-green-600">68.2% mais ofertas que no mês passado</p>
-              </div>
-              <div className="mt-4 h-20 flex items-end justify-around">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-2 bg-green-500 rounded-t"
-                    style={{ height: `${Math.random() * 60 + 20}px` }}
-                  ></div>
+            {proximosEventos && proximosEventos.length > 0 ? (
+              <div className="space-y-3">
+                {proximosEventos.map((evento) => (
+                  <Link key={evento.id} href={`/eventos/${evento.id}`}>
+                    <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer border border-primary/10">
+                      <div className="p-2 rounded-lg bg-accent/10">
+                        <Calendar className="h-4 w-4 text-accent" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-secondary">{evento.nome}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDate(evento.data_inicio)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Dízimos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <h3 className="text-4xl font-bold">{formatCurrency(0)}</h3>
-                <p className="text-sm text-muted-foreground">68.2% mais dízimos que no mês passado</p>
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Nenhum evento programado</p>
+                <Link href="/eventos/novo">
+                  <Button variant="outline" size="sm" className="mt-3 border-primary text-primary hover:bg-primary/10">
+                    Criar Evento
+                  </Button>
+                </Link>
               </div>
-              <div className="mt-4 flex items-center justify-center">
-                <div className="relative h-32 w-32">
-                  <svg className="transform -rotate-90 h-32 w-32">
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="56"
-                      stroke="currentColor"
-                      strokeWidth="12"
-                      fill="none"
-                      className="text-muted/20"
-                    />
-                    <circle
-                      cx="64"
-                      cy="64"
-                      r="56"
-                      stroke="currentColor"
-                      strokeWidth="12"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 56}`}
-                      strokeDashoffset={`${2 * Math.PI * 56 * (1 - 0.89)}`}
-                      className="text-green-500"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-2xl font-bold">89.2%</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Bottom Row */}
-      <div className="grid gap-6 lg:grid-cols-7">
-        {/* Reminders */}
-        <Card className="lg:col-span-2">
+        {/* Membros Recentes */}
+        <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle>Lembretes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100">
-                <div className="aspect-video rounded-lg bg-white/50 mb-3 flex items-center justify-center text-4xl">
-                  📅
-                </div>
-                <h4 className="font-semibold mb-1">Próximo Culto</h4>
-                <p className="text-sm text-muted-foreground mb-3">Prepare-se para o culto de domingo</p>
-                <div className="flex items-center gap-2 text-sm mb-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Dom, 14 Jan 2026</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm mb-4">
-                  <Church className="h-4 w-4" />
-                  <span>{igreja?.nome || 'Igreja'}</span>
-                </div>
-                <Button className="w-full bg-primary/20 hover:bg-primary/30 text-primary">
-                  Lembrete Ativado
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-secondary">Membros Recentes</CardTitle>
+              <Link href="/membros">
+                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80">
+                  Ver todos
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </div>
+              </Link>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Sales Report Table */}
-        <Card className="lg:col-span-5">
-          <CardHeader>
-            <CardTitle>Relatório de Atividades</CardTitle>
+            <CardDescription>Últimos membros cadastrados</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Atividade</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Categoria</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Participantes</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Valor</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b hover:bg-muted/50">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="font-medium">Culto Dominical</p>
-                        <p className="text-sm text-muted-foreground">culto@igreja.com</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded bg-blue-100">
-                          <Church className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <span className="text-sm">Culto</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm">{totalMembros > 0 ? totalMembros : '23.4k'}</td>
-                    <td className="py-3 px-4 text-sm font-medium">{formatCurrency(0)}</td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-green-600 flex items-center gap-1">
-                        <ArrowUp className="h-3 w-3" /> 68%
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="border-b hover:bg-muted/50">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="font-medium">Escola Bíblica</p>
-                        <p className="text-sm text-muted-foreground">ebd@igreja.com</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded bg-green-100">
-                          <Users className="h-4 w-4 text-green-600" />
-                        </div>
-                        <span className="text-sm">Ensino</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-sm">12.8k</td>
-                    <td className="py-3 px-4 text-sm font-medium">{formatCurrency(0)}</td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-red-600 flex items-center gap-1">
-                        <ArrowDown className="h-3 w-3" /> 18%
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 flex justify-center">
-              <Button variant="ghost" className="text-primary">
-                Ver Mais
-              </Button>
-            </div>
+            {membrosRecentes && membrosRecentes.length > 0 ? (
+              <div className="space-y-3">
+                {membrosRecentes.map((membro, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 rounded-lg border border-primary/10">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Users className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-secondary">{membro.nome}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Membro desde {formatDate(membro.data_entrada)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Nenhum membro cadastrado</p>
+                <Link href="/membros/novo">
+                  <Button variant="outline" size="sm" className="mt-3 border-primary text-primary hover:bg-primary/10">
+                    Adicionar Membro
+                  </Button>
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Very Bottom Row */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Goal Overview */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Visão Geral de Metas</CardTitle>
-            <CardDescription>Out, 2025</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative h-48 w-48">
-                <svg className="transform -rotate-90 h-48 w-48">
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="currentColor"
-                    strokeWidth="16"
-                    fill="none"
-                    className="text-muted/20"
-                  />
-                  <circle
-                    cx="96"
-                    cy="96"
-                    r="80"
-                    stroke="url(#gradient)"
-                    strokeWidth="16"
-                    fill="none"
-                    strokeDasharray={`${2 * Math.PI * 80}`}
-                    strokeDashoffset={`${2 * Math.PI * 80 * (1 - 0.78)}`}
-                    strokeLinecap="round"
-                  />
-                  <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#8B5CF6" />
-                      <stop offset="100%" stopColor="#3B82F6" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-4xl font-bold">78%</span>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Completado</p>
-                <p className="text-2xl font-bold">1,762k</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Em Progresso</p>
-                <p className="text-2xl font-bold">762k</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Transactions */}
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Transações</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-100">
-                    <DollarSign className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Ofertas Domingo</p>
-                    <p className="text-sm text-muted-foreground">Entrada</p>
-                  </div>
-                </div>
-                <span className="font-semibold text-green-600">+ {formatCurrency(42)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-orange-100">
-                    <TrendingUp className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Materiais & Equipamentos</p>
-                    <p className="text-sm text-muted-foreground">Transferência Bancária</p>
-                  </div>
-                </div>
-                <span className="font-semibold text-red-600">- {formatCurrency(526)}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-100">
-                    <Users className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Dízimos Mensais</p>
-                    <p className="text-sm text-muted-foreground">Dinheiro</p>
-                  </div>
-                </div>
-                <span className="font-semibold text-red-600">- {formatCurrency(110)}</span>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-center">
-              <Button variant="ghost" className="text-primary">
-                Ver Mais
+      {/* Atalhos Rápidos */}
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-secondary">Ações Rápidas</CardTitle>
+          <CardDescription>Acesse rapidamente as principais funcionalidades</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <Link href="/membros/novo">
+              <Button variant="outline" className="w-full justify-start border-primary/20 hover:bg-primary/5 hover:border-primary">
+                <Users className="mr-2 h-4 w-4 text-primary" />
+                Novo Membro
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </Link>
+            <Link href="/eventos/novo">
+              <Button variant="outline" className="w-full justify-start border-primary/20 hover:bg-primary/5 hover:border-primary">
+                <Calendar className="mr-2 h-4 w-4 text-accent" />
+                Novo Evento
+              </Button>
+            </Link>
+            <Link href="/financeiro">
+              <Button variant="outline" className="w-full justify-start border-primary/20 hover:bg-primary/5 hover:border-primary">
+                <DollarSign className="mr-2 h-4 w-4 text-accent" />
+                Financeiro
+              </Button>
+            </Link>
+            <Link href="/escalas/nova">
+              <Button variant="outline" className="w-full justify-start border-primary/20 hover:bg-primary/5 hover:border-primary">
+                <UserCheck className="mr-2 h-4 w-4 text-primary" />
+                Nova Escala
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Info Card */}
-      <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+      <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30">
         <CardContent className="pt-6">
-          <div className="space-y-2 text-sm">
-            <p>✅ Login configurado</p>
-            <p>✅ Igreja cadastrada: {igreja?.nome || 'Igreja Pentecostal Vale da Bênção'}</p>
-            <p>⚠️ Execute o schema completo para ativar todas as funcionalidades</p>
+          <div className="flex items-start gap-3">
+            <Flame className="h-5 w-5 text-accent mt-0.5" />
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-secondary">Sistema configurado com sucesso!</p>
+              <p className="text-muted-foreground">✅ Igreja: {igreja?.nome || 'Igreja Pentecostal Vale da Bênção'}</p>
+              <p className="text-muted-foreground">✅ Usuário: {profile?.nome} ({profile?.role})</p>
+              <p className="text-muted-foreground">⚠️ Para ativar todas as funcionalidades, execute o schema completo do banco de dados</p>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -30,10 +30,10 @@
     --input: 37 20% 90%;
     --ring: 37 26% 68%;
 
-    --success: 142 76% 36%;
+    --success: 16 100% 60%; /* Laranja da logo */
     --warning: 38 92% 50%;
     --destructive: 0 84% 60%;
-    --info: 221 83% 53%;
+    --info: 37 26% 68%; /* Dourado da logo */
 
     --radius: 0.75rem;
   }
