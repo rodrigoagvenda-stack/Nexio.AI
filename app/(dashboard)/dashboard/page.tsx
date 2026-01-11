@@ -9,17 +9,7 @@ import {
   TrendingUp,
   Flame,
 } from "lucide-react"
-import { StatsCard } from "@/components/dashboard/stats-card"
-import { WelcomeCard } from "@/components/dashboard/welcome-card"
-import { RevenueChart } from "@/components/dashboard/revenue-chart"
-import { QuickActions } from "@/components/dashboard/quick-actions"
-import { UpcomingEvents } from "@/components/dashboard/upcoming-events"
-import { RecentActivity } from "@/components/dashboard/recent-activity"
 import type { Profile, Igreja } from "@/types/database.types"
-
-type ProfileWithIgreja = Profile & {
-  igrejas: Igreja | null
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -31,7 +21,7 @@ export default async function DashboardPage() {
   if (!user) return null
 
   // Buscar perfil
-  const { data: profile } = await supabase
+  const { data: profile } = await (supabase as any)
     .from("profiles")
     .select("*")
     .eq("id", user.id)
@@ -40,35 +30,22 @@ export default async function DashboardPage() {
   if (!profile) return null
 
   // Buscar igreja separadamente
-  const { data: igreja } = await supabase
+  const { data: igreja } = await (supabase as any)
     .from("igrejas")
     .select("*")
     .eq("id", profile.igreja_id || "")
     .single<Igreja>()
 
-  const profileWithIgreja: ProfileWithIgreja = {
-    ...profile,
-    igrejas: igreja
-  }
-
-  // Stats temporários (depois você adiciona as queries reais)
-  const stats = {
-    total_entradas: 0,
-    total_saidas: 0,
-    saldo: 0,
-    total_dizimos: 0,
-  }
-
   return (
-    <div className="space-y-6 animate-slide-up">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            Olá, {profileWithIgreja?.nome?.split(' ')[0]}! 👋
+            Olá, {profile?.nome?.split(' ')[0]}! 👋
           </h2>
           <p className="text-muted-foreground">
-            Aqui está o que está acontecendo na {profileWithIgreja?.igrejas?.nome || 'igreja'}
+            Aqui está o que está acontecendo na {igreja?.nome || 'igreja'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -80,115 +57,116 @@ export default async function DashboardPage() {
       </div>
 
       {/* Welcome Card */}
-      <WelcomeCard
-        userName={profileWithIgreja?.nome || ''}
-        churchName={profileWithIgreja?.igrejas?.nome || ''}
-        totalMembers={0}
-      />
+      <Card className="overflow-hidden border-0 shadow-lg">
+        <div className="gradient-card text-white relative">
+          <CardContent className="p-8 relative">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Flame className="h-5 w-5 text-accent" />
+                  <span className="text-sm font-medium text-white/90">
+                    {igreja?.nome || 'Igreja Pentecostal Vale da Bênção'}
+                  </span>
+                </div>
+                <h2 className="text-3xl font-bold mb-2">
+                  Bem-vindo de volta, {profile?.nome?.split(' ')[0]}! 🙏
+                </h2>
+                <p className="text-white/80 mb-6">
+                  Sistema de Gestão para Igrejas
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </div>
+      </Card>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title="Membros Ativos"
-          value={0}
-          icon={Users}
-          description="+12% desde o último mês"
-          trend="up"
-          gradient="primary"
-        />
-
-        <StatsCard
-          title="Entradas do Mês"
-          value={formatCurrency(stats.total_entradas)}
-          icon={TrendingUp}
-          description="Ofertas e dízimos"
-          trend="up"
-          gradient="success"
-        />
-
-        <StatsCard
-          title="Eventos Próximos"
-          value={0}
-          icon={Calendar}
-          description="Programados este mês"
-          trend="neutral"
-          gradient="orange"
-        />
-
-        <StatsCard
-          title="Saldo do Mês"
-          value={formatCurrency(stats.saldo)}
-          icon={DollarSign}
-          description={stats.saldo >= 0 ? "Superávit" : "Déficit"}
-          trend={stats.saldo >= 0 ? "up" : "down"}
-          gradient="primary"
-        />
-      </div>
-
-      {/* Charts and Details */}
-      <div className="grid gap-6 lg:grid-cols-7">
-        {/* Revenue Chart */}
-        <div className="lg:col-span-4">
-          <RevenueChart igrejaId={profileWithIgreja?.igreja_id || ''} />
-        </div>
-
-        {/* Quick Stats */}
-        <div className="lg:col-span-3 space-y-6">
-          <QuickActions />
-          <UpcomingEvents igrejaId={profileWithIgreja?.igreja_id || ''} />
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <RecentActivity />
-
-        <Card className="chart-container">
-          <CardHeader>
-            <CardTitle>Dízimos e Ofertas</CardTitle>
-            <CardDescription>Contribuições financeiras este mês</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg bg-success/5">
-                <div>
-                  <p className="text-sm text-muted-foreground">Dízimos</p>
-                  <p className="text-2xl font-bold text-success">
-                    {formatCurrency(stats.total_dizimos)}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-success" />
-                </div>
+        <Card className="stat-card group">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-muted-foreground">Membros Ativos</p>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5">
+                <Users className="h-5 w-5 text-primary" />
               </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold tracking-tight mb-1">0</h3>
+              <p className="text-xs font-medium text-muted-foreground">
+                Aguardando dados
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="flex items-center justify-between p-4 rounded-lg bg-primary/5">
-                <div>
-                  <p className="text-sm text-muted-foreground">Ofertas</p>
-                  <p className="text-2xl font-bold text-primary">
-                    {formatCurrency(stats.total_entradas - stats.total_dizimos)}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Church className="h-6 w-6 text-primary" />
-                </div>
+        <Card className="stat-card group">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-muted-foreground">Entradas do Mês</p>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-green-500/10 to-green-500/5">
+                <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold tracking-tight mb-1">{formatCurrency(0)}</h3>
+              <p className="text-xs font-medium text-muted-foreground">
+                Ofertas e dízimos
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="flex items-center justify-between p-4 rounded-lg bg-accent/5">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Arrecadado</p>
-                  <p className="text-2xl font-bold text-accent">
-                    {formatCurrency(stats.total_entradas)}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-accent" />
-                </div>
+        <Card className="stat-card group">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-muted-foreground">Eventos Próximos</p>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-accent/10 to-accent/5">
+                <Calendar className="h-5 w-5 text-accent" />
               </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold tracking-tight mb-1">0</h3>
+              <p className="text-xs font-medium text-muted-foreground">
+                Programados este mês
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="stat-card group">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium text-muted-foreground">Saldo do Mês</p>
+              <div className="p-2.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold tracking-tight mb-1">{formatCurrency(0)}</h3>
+              <p className="text-xs font-medium text-muted-foreground">
+                Superávit
+              </p>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Info Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bem-vindo ao Sistema de Gestão</CardTitle>
+          <CardDescription>
+            Configure seu sistema para começar a gerenciar sua igreja
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm">
+            <p>✅ Login configurado</p>
+            <p>✅ Igreja cadastrada: {igreja?.nome || 'Igreja Pentecostal Vale da Bênção'}</p>
+            <p>⏳ Execute o schema completo para criar as tabelas de membros, eventos e financeiro</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
