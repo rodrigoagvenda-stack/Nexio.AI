@@ -53,11 +53,44 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
+
+    // Verificar autenticação
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Não autorizado" },
+        { status: 401 }
+      )
+    }
+
+    // Buscar perfil do usuário para obter igreja_id
+    const { data: profile } = await (supabase as any)
+      .from("profiles")
+      .select("igreja_id")
+      .eq("id", user.id)
+      .single()
+
+    if (!profile?.igreja_id) {
+      return NextResponse.json(
+        { error: "Usuário não possui igreja associada" },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
+
+    // Adicionar igreja_id do usuário logado
+    const membroData = {
+      ...body,
+      igreja_id: profile.igreja_id,
+    }
 
     const { data, error } = await (supabase as any)
       .from("membros")
-      .insert(body)
+      .insert(membroData)
       .select()
       .single()
 
