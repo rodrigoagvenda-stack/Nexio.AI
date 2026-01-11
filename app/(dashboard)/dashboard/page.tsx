@@ -188,7 +188,7 @@ export default async function DashboardPage() {
           <CardContent>
             {proximosEventos && proximosEventos.length > 0 ? (
               <div className="space-y-3">
-                {proximosEventos.map((evento) => (
+                {proximosEventos.map((evento: any) => (
                   <Link key={evento.id} href={`/eventos/${evento.id}`}>
                     <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-primary/5 transition-colors cursor-pointer border border-primary/10">
                       <div className="p-2 rounded-lg bg-accent/10">
