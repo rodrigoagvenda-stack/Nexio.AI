@@ -25,22 +25,22 @@ export function OrbEffect() {
 
     const orbs = [
       {
-        x: canvas.width / 2 - 100,
+        x: canvas.width / 2 + 300,
         y: canvas.height / 2,
-        targetX: canvas.width / 2 - 100,
+        targetX: canvas.width / 2 + 300,
         targetY: canvas.height / 2,
-        radius: 250,
-        color: '#F7931A',
-        blur: 180
+        radius: 350,
+        color: '#9333EA',
+        blur: 200
       },
       {
-        x: canvas.width / 2 + 100,
-        y: canvas.height / 2 - 50,
-        targetX: canvas.width / 2 + 100,
-        targetY: canvas.height / 2 - 50,
-        radius: 200,
-        color: '#3B82F6',
-        blur: 150
+        x: canvas.width / 2 + 250,
+        y: canvas.height / 2 - 100,
+        targetX: canvas.width / 2 + 250,
+        targetY: canvas.height / 2 - 100,
+        radius: 280,
+        color: '#C084FC',
+        blur: 180
       },
     ];
 
