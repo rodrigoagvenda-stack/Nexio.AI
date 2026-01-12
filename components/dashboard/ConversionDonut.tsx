@@ -30,15 +30,15 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
           <CardTitle>Taxa de conversão geral</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative">
-            <ResponsiveContainer width="100%" height={250} className="sm:!h-[280px] lg:!h-[300px]">
+          <div className="relative h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius="40%"
-                  outerRadius="70%"
+                  innerRadius="45%"
+                  outerRadius="75%"
                   fill="#8884d8"
                   paddingAngle={2}
                   dataKey="value"

@@ -189,12 +189,12 @@ export default function ProspectAIPage() {
         {/* Header */}
         <div className="text-center space-y-6 md:space-y-8">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            prospect<span className="text-primary">.</span>AI
+            <span className="text-primary">Orbit</span>
           </h1>
           <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight">
-            O jeito mais <span className="text-orange-500">rápido</span> de transformar
+            A maior <span className="text-primary">engine de prospecção B2B</span>
             <br className="hidden md:block" />
-            buscas em oportunidades reais.
+            já construída.
           </h2>
           <p className="text-base md:text-lg text-muted-foreground">
             Transforme qualquer busca do Google Maps em leads qualificados.

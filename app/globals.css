@@ -79,8 +79,13 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground scrollbar-minimal;
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* Apply minimal scrollbar globally to all scrollable elements */
+  * {
+    @apply scrollbar-minimal;
   }
 }
 
