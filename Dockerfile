@@ -29,6 +29,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Build
 RUN npm run build
 
+# Debug: listar o que foi gerado
+RUN ls -la .next/ || echo ".next not found" && \
+    ls -la .next/standalone/ || echo "standalone not found"
+
 # 3. Runner - Produção
 FROM base AS runner
 WORKDIR /app
