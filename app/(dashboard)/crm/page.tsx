@@ -995,85 +995,83 @@ export default function CRMPage() {
       ) : (
         <>
           {/* Desktop Table View */}
-          <Card className="hidden md:block">
+          <Card className="hidden md:block border-border/50">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-secondary/50">
-                    <tr>
-                      <th className="text-left p-4 font-semibold text-sm">NOME DA EMPRESA</th>
-                      <th className="text-left p-4 font-semibold text-sm">SEGMENTO</th>
-                      <th className="text-left p-4 font-semibold text-sm">STATUS</th>
-                      <th className="text-left p-4 font-semibold text-sm">WEBSITE</th>
-                      <th className="text-left p-4 font-semibold text-sm">TELEFONE</th>
-                      <th className="text-left p-4 font-semibold text-sm">PRIORIDADE</th>
-                      <th className="text-left p-4 font-semibold text-sm">IMPORTAÇÃO</th>
-                      <th className="text-left p-4 font-semibold text-sm">OBSERVAÇÕES</th>
-                      <th className="text-left p-4 font-semibold text-sm">AÇÕES</th>
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Nome da Empresa</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Segmento</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Website</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Telefone</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Prioridade</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Importação</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Observações</th>
+                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-border/50">
                     {paginatedLeads.map((lead, index) => (
                       <tr
                         key={lead.id}
-                        className={`border-b hover:bg-accent/50 transition-colors ${
-                          index % 2 === 0 ? 'bg-background' : 'bg-secondary/20'
-                        }`}
+                        className="hover:bg-accent/30 transition-colors"
                       >
-                        <td className="p-4">
+                        <td className="px-6 py-4">
                           <div>
-                            <p className="font-medium text-sm">{lead.company_name}</p>
+                            <p className="font-medium text-sm text-foreground">{lead.company_name}</p>
                             {lead.contact_name && (
-                              <p className="text-xs text-muted-foreground">{lead.contact_name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{lead.contact_name}</p>
                             )}
                           </div>
                         </td>
-                        <td className="p-4 text-sm">{lead.segment || '-'}</td>
-                        <td className="p-4">
-                          <span className={`text-xs px-3 py-1 rounded-full ${getStatusBadgeColor(lead.status || '')}`}>
+                        <td className="px-6 py-4 text-sm text-foreground">{lead.segment || '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${getStatusBadgeColor(lead.status || '')}`}>
                             {lead.status}
                           </span>
                         </td>
-                        <td className="p-4">
+                        <td className="px-6 py-4">
                           {lead.website_or_instagram ? (
                             <a
                               href={lead.website_or_instagram.startsWith('http') ? lead.website_or_instagram : `https://${lead.website_or_instagram}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary hover:underline text-sm"
+                              className="text-primary hover:text-primary/80 text-sm transition-colors"
                             >
                               Link
                             </a>
                           ) : (
-                            <span className="text-sm">Não tem</span>
+                            <span className="text-sm text-muted-foreground">-</span>
                           )}
                         </td>
-                        <td className="p-4 text-sm">{lead.whatsapp || '-'}</td>
-                        <td className="p-4">
-                          <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 w-fit ${getPriorityBadgeColor(lead.priority || '')}`}>
-                            <span className="w-2 h-2 rounded-full bg-current" />
+                        <td className="px-6 py-4 text-sm text-foreground">{lead.whatsapp || '-'}</td>
+                        <td className="px-6 py-4">
+                          <span className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 w-fit ${getPriorityBadgeColor(lead.priority || '')}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
                             {lead.priority}
                           </span>
                         </td>
-                        <td className="p-4 text-sm">{lead.import_source || '-'}</td>
-                        <td className="p-4 text-sm text-muted-foreground max-w-[200px] truncate">{lead.notes || '-'}</td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
+                        <td className="px-6 py-4 text-sm text-muted-foreground">{lead.import_source || '-'}</td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground max-w-[200px] truncate">{lead.notes || '-'}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleOpenModal(lead)}
-                              className="h-8 w-8"
+                              className="h-8 w-8 hover:bg-accent"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => setDeletingLead(lead)}
-                              className="h-8 w-8 text-red-500 hover:text-red-700"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-accent"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </td>
