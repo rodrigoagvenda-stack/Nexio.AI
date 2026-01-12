@@ -60,8 +60,8 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
             <Shield className="h-5 w-5 text-white" />
           </div>
-          <h1 className="text-xl font-semibold">
-            Nexio<span className="text-primary">.</span>AI
+          <h1 className="text-xl font-normal">
+            nexio<span className="text-primary">.</span>ai
           </h1>
         </div>
       </div>

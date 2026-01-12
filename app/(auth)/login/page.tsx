@@ -74,9 +74,9 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-5xl font-light text-white mb-2 tracking-tight">
-              <span className="font-semibold">Nexio</span>
+              <span className="font-normal">nexio</span>
               <span className="text-purple-400">.</span>
-              <span className="font-light">AI</span>
+              <span className="font-normal">ai</span>
             </h1>
             <p className="text-white/50 text-sm font-light mb-6">
               Keep it all together and you'll be fine

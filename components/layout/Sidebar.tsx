@@ -110,9 +110,9 @@ export function Sidebar({
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
             <h1 className="text-xl">
-              <span className="font-normal text-white">Nexio</span>
+              <span className="font-normal text-white">nexio</span>
               <span className="text-primary font-bold">.</span>
-              <span className="font-bold text-white">AI</span>
+              <span className="font-normal text-white">ai</span>
             </h1>
           )}
         </div>

@@ -10,19 +10,19 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 36 95% 50%; /* Laranja */
-    --primary-foreground: 0 0% 98%;
+    --primary: 270 91% 65%; /* Roxo/lilás #A855F7 */
+    --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 270 95% 85%; /* Lilás claro para acentos */
+    --accent-foreground: 270 91% 30%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 36 95% 50%;
+    --ring: 270 91% 65%;
     --radius: 0.5rem;
   }
 
@@ -33,19 +33,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 4%;
     --popover-foreground: 0 0% 98%;
-    --primary: 29 100% 50%; /* Laranja #ff9500 */
+    --primary: 270 91% 65%; /* Roxo/lilás #A855F7 */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 8%; /* Cinza escuro */
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 8%;
     --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 8%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 270 50% 20%; /* Roxo escuro para acentos */
+    --accent-foreground: 270 91% 80%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 10%; /* Bordas muito sutis */
     --input: 0 0% 8%;
-    --ring: 29 100% 50%;
+    --ring: 270 91% 65%;
   }
 }
 

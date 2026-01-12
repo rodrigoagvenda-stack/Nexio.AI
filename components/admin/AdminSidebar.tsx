@@ -99,9 +99,9 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         <div className="flex items-center h-20 px-6 border-b border-border/50">
           {!isCollapsed && (
             <h1 className="text-2xl">
-              <span className="font-normal">Nexio</span>
+              <span className="font-normal">nexio</span>
               <span className="text-primary font-bold">.</span>
-              <span className="font-bold">AI</span>
+              <span className="font-normal">ai</span>
             </h1>
           )}
         </div>
