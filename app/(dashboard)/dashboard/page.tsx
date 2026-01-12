@@ -16,6 +16,7 @@ import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
+import { RealTimeActivity } from '@/components/dashboard/RealTimeActivity';
 
 interface Lead {
   id: string;
@@ -430,8 +431,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Funil de Vendas */}
-      <SalesFunnel stages={funnelStages} totalLeads={totalLeads} />
+      {/* Real-time Activity and Funnel */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <SalesFunnel stages={funnelStages} totalLeads={totalLeads} />
+        </div>
+        <div>
+          <RealTimeActivity />
+        </div>
+      </div>
     </div>
   );
 }

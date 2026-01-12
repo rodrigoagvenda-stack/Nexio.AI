@@ -1024,7 +1024,7 @@ export default function AtendimentoPage() {
                               : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
-                              ? 'bg-[#005c4b] text-white'
+                              ? 'bg-primary text-primary-foreground'
                               : 'bg-muted'
                           } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
                         >
