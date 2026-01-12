@@ -102,7 +102,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className="group cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
+      <Card className="kanban-card group cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
         <CardContent className="p-4 space-y-3">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">

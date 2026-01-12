@@ -23,8 +23,9 @@ export function useDragScroll<T extends HTMLElement>(
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
-      // Ignora apenas se for clique DIRETO em elementos interativos
+      // Ignora cards do kanban e elementos interativos
       if (
+        target.closest('.kanban-card') ||
         target.tagName === 'BUTTON' ||
         target.tagName === 'A' ||
         target.tagName === 'INPUT' ||
