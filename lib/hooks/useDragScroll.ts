@@ -12,44 +12,44 @@ export function useDragScroll<T extends HTMLElement>(
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeft = useRef(0);
-  const hasMoved = useRef(false);
 
-  const { scrollSpeed = 2, dragThreshold = 3 } = options;
+  const { scrollSpeed = 1.5, dragThreshold = 10 } = options;
 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
+
+    let hasMoved = false;
 
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
       // Ignora cards do kanban e elementos interativos
       if (
-        target.closest('.kanban-card') ||
+        target.closest('[data-kanban-card]') ||
         target.tagName === 'BUTTON' ||
         target.tagName === 'A' ||
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.closest('[role="button"]')
+        target.tagName === 'SELECT'
       ) {
         return;
       }
 
-      e.preventDefault();
       isDragging.current = true;
-      hasMoved.current = false;
+      hasMoved = false;
       startX.current = e.pageX;
       scrollLeft.current = element.scrollLeft;
-      element.style.cursor = 'grabbing';
       element.style.userSelect = 'none';
     };
 
     const handleMouseUp = () => {
-      isDragging.current = false;
-      hasMoved.current = false;
-      element.style.cursor = 'grab';
-      element.style.userSelect = '';
+      if (isDragging.current) {
+        isDragging.current = false;
+        hasMoved = false;
+        element.style.cursor = 'grab';
+        element.style.userSelect = '';
+      }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -58,13 +58,23 @@ export function useDragScroll<T extends HTMLElement>(
       const x = e.pageX;
       const walk = (x - startX.current) * scrollSpeed;
 
-      if (!hasMoved.current && Math.abs(walk) > dragThreshold) {
-        hasMoved.current = true;
+      if (!hasMoved && Math.abs(walk) > dragThreshold) {
+        hasMoved = true;
+        element.style.cursor = 'grabbing';
       }
 
-      if (hasMoved.current) {
+      if (hasMoved) {
         e.preventDefault();
         element.scrollLeft = scrollLeft.current - walk;
+      }
+    };
+
+    const handleMouseLeave = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        hasMoved = false;
+        element.style.cursor = 'grab';
+        element.style.userSelect = '';
       }
     };
 
@@ -73,12 +83,14 @@ export function useDragScroll<T extends HTMLElement>(
 
     // Add event listeners
     element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('mouseleave', handleMouseLeave);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('mousemove', handleMouseMove);
 
     // Cleanup
     return () => {
       element.removeEventListener('mousedown', handleMouseDown);
+      element.removeEventListener('mouseleave', handleMouseLeave);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('mousemove', handleMouseMove);
       element.style.cursor = '';

@@ -101,8 +101,8 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className="kanban-card group cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} data-kanban-card="true">
+      <Card className="group hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
         <CardContent className="p-4 space-y-3">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
@@ -269,10 +269,7 @@ export default function CRMPage() {
   const itemsPerPage = 10;
 
   // Drag to scroll for kanban
-  const kanbanScrollRef = useDragScroll<HTMLDivElement>({
-    scrollSpeed: 2,
-    dragThreshold: 5,
-  });
+  const kanbanScrollRef = useDragScroll<HTMLDivElement>();
 
   // Form state
   const [formData, setFormData] = useState({
