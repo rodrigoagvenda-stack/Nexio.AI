@@ -10,7 +10,7 @@ import {
   MessagesSquare,
   Target,
   Users,
-  CircleHelp,
+  HelpCircle,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
@@ -70,7 +70,7 @@ export function Sidebar({
     {
       href: '/ajuda',
       label: 'Ajuda',
-      icon: CircleHelp,
+      icon: HelpCircle,
     },
     ...(isAdmin
       ? [
