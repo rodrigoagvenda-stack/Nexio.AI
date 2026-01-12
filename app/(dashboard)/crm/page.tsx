@@ -73,41 +73,56 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
     transform: CSS.Transform.toString(transform),
     transition: transition || 'transform 200ms ease',
     opacity: isDragging ? 0.5 : 1,
-    scale: isDragging ? 1.02 : 1,
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Lead novo': return 'border-l-blue-500';
-      case 'Em contato': return 'border-l-pink-500';
-      case 'Interessado': return 'border-l-purple-500';
-      case 'Proposta enviada': return 'border-l-cyan-500';
-      case 'Fechado': return 'border-l-green-500';
-      case 'Perdido': return 'border-l-red-500';
-      default: return 'border-l-gray-500';
-    }
-  };
-
-  const getPriorityBadge = (priority: string) => {
+  const getPriorityColor = (priority: string) => {
     const colors = {
-      'Alta': 'bg-red-500/20 text-red-700',
-      'Média': 'bg-yellow-500/20 text-yellow-700',
-      'Baixa': 'bg-gray-500/20 text-gray-700',
+      'Alta': 'bg-red-500/10 text-red-600 dark:text-red-400',
+      'Média': 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+      'Baixa': 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
     };
     return colors[priority as keyof typeof colors] || colors['Baixa'];
   };
 
+  const getInterestColor = (interest: string) => {
+    if (interest?.includes('Quente')) return 'bg-orange-500/10 text-orange-600 dark:text-orange-400';
+    if (interest?.includes('Morno')) return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
+    return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      ?.split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || '??';
+  };
+
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 border-l-4 ${getStatusColor(lead.status)} mb-3 h-[180px]`}>
-        <CardContent className="p-3 h-full flex flex-col">
-          <div className="flex justify-between items-start mb-2">
-            <h4 className="font-semibold text-sm flex-1 pr-2 text-foreground line-clamp-2">{lead.company_name}</h4>
-            <div className="flex gap-1 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
+      <Card className="group cursor-grab active:cursor-grabbing hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
+        <CardContent className="p-4 space-y-3">
+          {/* Header com ícone e ações */}
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-semibold text-primary">
+                {getInitials(lead.company_name)}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-medium text-sm text-foreground line-clamp-2 mb-1">
+                {lead.company_name}
+              </h4>
+              {lead.contact_name && (
+                <p className="text-xs text-muted-foreground truncate">{lead.contact_name}</p>
+              )}
+            </div>
+            <div className="flex gap-0.5 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-accent rounded-md"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-opacity"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -120,7 +135,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-accent hover:text-destructive rounded-md"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-destructive rounded-md transition-opacity"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -133,39 +148,45 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
             </div>
           </div>
 
-          <div className="space-y-1 flex-1 overflow-hidden">
-            {lead.contact_name && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                <User className="h-3 w-3 flex-shrink-0" />
-                {lead.contact_name}
-              </p>
+          {/* Tags */}
+          <div className="flex flex-wrap gap-1.5">
+            {lead.priority && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${getPriorityColor(lead.priority)}`}>
+                {lead.priority}
+              </span>
             )}
-
-            {lead.whatsapp && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                <Phone className="h-3 w-3 flex-shrink-0" />
-                {lead.whatsapp}
-              </p>
-            )}
-
-            {lead.project_value && lead.project_value > 0 && (
-              <p className="text-sm font-semibold text-primary flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1 mt-auto pt-2">
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${getPriorityBadge(lead.priority || 'Baixa')}`}>
-              {lead.priority}
-            </span>
             {lead.nivel_interesse && (
-              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 ${getInterestColor(lead.nivel_interesse)}`}>
                 {lead.nivel_interesse.includes('Quente') && <Flame className="h-2.5 w-2.5" />}
                 {lead.nivel_interesse}
               </span>
             )}
+            {lead.segment && (
+              <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                {lead.segment}
+              </span>
+            )}
+          </div>
+
+          {/* Footer com métricas */}
+          <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50">
+            <div className="flex items-center gap-3 text-xs">
+              {lead.whatsapp && (
+                <div className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  <span>1</span>
+                </div>
+              )}
+              {lead.project_value && lead.project_value > 0 && (
+                <div className="flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  <span>R$ {(lead.project_value / 1000).toFixed(0)}k</span>
+                </div>
+              )}
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -173,7 +194,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
   );
 }
 
-// Componente de coluna droppable - Design moderno com visual aprimorado
+// Componente de coluna droppable
 function DroppableColumn({
   id,
   title,
@@ -193,38 +214,35 @@ function DroppableColumn({
     },
   });
 
-  // Cores específicas para cada coluna do Kanban
-  const getColumnColor = () => {
+  const getColumnIcon = () => {
     const status = id.replace('column-', '');
     switch (status) {
-      case 'Lead novo': return 'border-t-blue-500';
-      case 'Em contato': return 'border-t-pink-500';
-      case 'Interessado': return 'border-t-purple-500';
-      case 'Proposta enviada': return 'border-t-cyan-500';
-      case 'Fechado': return 'border-t-[#191919]';
-      case 'Perdido': return 'border-t-red-500';
-      default: return 'border-t-gray-500';
+      case 'Lead novo': return '🔵';
+      case 'Em contato': return '💬';
+      case 'Interessado': return '⭐';
+      case 'Proposta enviada': return '📄';
+      case 'Fechado': return '✅';
+      case 'Perdido': return '❌';
+      default: return '📋';
     }
   };
 
   return (
     <div className="flex flex-col h-full">
-      <div className={`bg-card border-t-4 ${getColumnColor()} rounded-t-lg p-3`}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm text-foreground">{title}</h3>
-          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-accent text-muted-foreground">
-            <span className="text-xs font-medium">{count}</span>
-          </div>
-        </div>
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <span className="text-sm">{getColumnIcon()}</span>
+        <h3 className="font-medium text-sm text-foreground">{title}</h3>
+        <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
+          {count}
+        </span>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 bg-accent/30 border border-t-0 border-border rounded-b-lg p-2 min-h-[calc(100vh-300px)] transition-all ${
-          isOver ? 'bg-primary/5 border-primary' : ''
+        className={`flex-1 rounded-lg p-2 min-h-[calc(100vh-250px)] transition-all ${
+          isOver ? 'bg-accent/50' : 'bg-transparent'
         }`}
       >
         {children}
-        {/* Espaço vazio para facilitar drop */}
         <div className="min-h-[100px]" />
       </div>
     </div>
@@ -791,12 +809,13 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:flex gap-4 overflow-x-auto scrollbar-minimal pb-4">
-            {columns.map((column) => {
-              const columnLeads = getLeadsByStatus(column.id);
-              return (
-                <div key={column.id} className="flex-shrink-0 w-80">
-                  <DroppableColumn
+            <div className="hidden md:block w-full overflow-x-auto scrollbar-minimal" style={{ overscrollBehaviorX: 'contain' }}>
+              <div className="flex gap-4 pb-4 min-w-max">
+                {columns.map((column) => {
+                  const columnLeads = getLeadsByStatus(column.id);
+                  return (
+                    <div key={column.id} className="flex-shrink-0 w-80">
+                      <DroppableColumn
                     id={`column-${column.id}`}
                     title={column.title}
                     count={columnLeads.length}
@@ -815,7 +834,8 @@ export default function CRMPage() {
                 </div>
               );
             })}
-          </div>
+              </div>
+            </div>
           <DragOverlay>
             {activeLead ? (
               <Card className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
