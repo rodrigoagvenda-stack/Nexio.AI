@@ -366,7 +366,7 @@ export default function EmpresaDetailPage() {
               <Label>Status</Label>
               <div className="flex items-center gap-2">
                 {company.is_active ? (
-                  <Badge className="bg-green-500">Ativa</Badge>
+                  <Badge className="bg-primary">Ativa</Badge>
                 ) : (
                   <Badge variant="destructive">Inativa</Badge>
                 )}

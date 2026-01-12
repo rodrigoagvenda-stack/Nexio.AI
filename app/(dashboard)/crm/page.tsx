@@ -101,8 +101,8 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className="group hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
-        <CardContent className="p-4 space-y-3">
+      <Card className="group hover:shadow-md transition-all duration-200 mb-3 bg-card/50 h-[200px]">
+        <CardContent className="p-4 space-y-3 h-full flex flex-col">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -149,27 +149,27 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
           </div>
 
           {/* Tags */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 flex-1">
             {lead.priority && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${getPriorityColor(lead.priority)}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium h-fit ${getPriorityColor(lead.priority)}`}>
                 {lead.priority}
               </span>
             )}
             {lead.nivel_interesse && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 ${getInterestColor(lead.nivel_interesse)}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 h-fit ${getInterestColor(lead.nivel_interesse)}`}>
                 {lead.nivel_interesse.includes('Quente') && <Flame className="h-2.5 w-2.5" />}
                 {lead.nivel_interesse}
               </span>
             )}
             {lead.segment && (
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 h-fit">
                 {lead.segment}
               </span>
             )}
           </div>
 
           {/* Footer com métricas */}
-          <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50 mt-auto">
             <div className="flex items-center gap-3 text-xs">
               {lead.whatsapp && (
                 <div className="flex items-center gap-1">

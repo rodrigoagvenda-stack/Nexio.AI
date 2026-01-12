@@ -187,16 +187,11 @@ export default function ProspectAIPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8 pt-20">
       <div className="w-full max-w-4xl space-y-8 md:space-y-12">
         {/* Header */}
-        <div className="text-center space-y-6 md:space-y-8">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-            <span className="text-primary">Orbit</span>
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
+            A maior <span className="text-primary">engine de prospecção B2B</span> já construída.
           </h1>
-          <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold leading-tight">
-            A maior <span className="text-primary">engine de prospecção B2B</span>
-            <br className="hidden md:block" />
-            já construída.
-          </h2>
-          <p className="text-base md:text-lg text-muted-foreground">
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
             Transforme qualquer busca do Google Maps em leads qualificados.
           </p>
         </div>
