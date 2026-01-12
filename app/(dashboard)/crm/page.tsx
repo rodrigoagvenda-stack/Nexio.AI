@@ -99,15 +99,15 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-2xl hover:scale-[1.03] transition-all duration-300 border-l-[6px] ${getStatusColor(lead.status)} mb-3 bg-card/80 backdrop-blur-sm`}>
-        <CardContent className="p-4">
-          <div className="flex justify-between items-start mb-3">
-            <h4 className="font-bold text-sm flex-1 pr-2 text-foreground">{lead.company_name}</h4>
-            <div className="flex gap-1" style={{ pointerEvents: 'auto' }}>
+      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-lg transition-all duration-200 border-l-4 ${getStatusColor(lead.status)} mb-3 h-[180px]`}>
+        <CardContent className="p-3 h-full flex flex-col">
+          <div className="flex justify-between items-start mb-2">
+            <h4 className="font-semibold text-sm flex-1 pr-2 text-foreground line-clamp-2">{lead.company_name}</h4>
+            <div className="flex gap-1 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 hover:bg-primary/10 hover:text-primary rounded-lg transition-all"
+                className="h-6 w-6 hover:bg-accent rounded-md"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -115,12 +115,12 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
                   onEdit();
                 }}
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-3 w-3" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all"
+                className="h-6 w-6 hover:bg-accent hover:text-destructive rounded-md"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -128,50 +128,45 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
                   onDelete();
                 }}
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-3 w-3" />
               </Button>
             </div>
           </div>
 
-          {lead.contact_name && (
-            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-              <User className="h-3 w-3" />
-              {lead.contact_name}
-            </p>
-          )}
+          <div className="space-y-1 flex-1 overflow-hidden">
+            {lead.contact_name && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                <User className="h-3 w-3 flex-shrink-0" />
+                {lead.contact_name}
+              </p>
+            )}
 
-          {lead.whatsapp && (
-            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-              <Phone className="h-3 w-3" />
-              {lead.whatsapp}
-            </p>
-          )}
+            {lead.whatsapp && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                <Phone className="h-3 w-3 flex-shrink-0" />
+                {lead.whatsapp}
+              </p>
+            )}
 
-          {lead.project_value && lead.project_value > 0 && (
-            <p className="text-sm font-semibold text-primary mb-2 flex items-center gap-1">
-              <DollarSign className="h-4 w-4" />
-              R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          )}
+            {lead.project_value && lead.project_value > 0 && (
+              <p className="text-sm font-semibold text-primary flex items-center gap-1">
+                <DollarSign className="h-3 w-3" />
+                R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+              </p>
+            )}
+          </div>
 
-          <div className="flex items-center gap-2 flex-wrap mt-3">
-            <span className={`text-xs px-2 py-1 rounded-full ${getPriorityBadge(lead.priority || 'Baixa')}`}>
+          <div className="flex items-center gap-1 mt-auto pt-2">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${getPriorityBadge(lead.priority || 'Baixa')}`}>
               {lead.priority}
             </span>
             {lead.nivel_interesse && (
-              <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-1 rounded-full flex items-center gap-1">
-                {lead.nivel_interesse.includes('Quente') && <Flame className="h-3 w-3" />}
+              <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                {lead.nivel_interesse.includes('Quente') && <Flame className="h-2.5 w-2.5" />}
                 {lead.nivel_interesse}
               </span>
             )}
           </div>
-
-          {lead.segment && (
-            <p className="text-xs text-muted-foreground mt-2 italic flex items-center gap-1">
-              <Building2 className="h-3 w-3" />
-              {lead.segment}
-            </p>
-          )}
         </CardContent>
       </Card>
     </div>
@@ -214,18 +209,18 @@ function DroppableColumn({
 
   return (
     <div className="flex flex-col h-full">
-      <div className={`bg-card border-2 border-b-0 ${getColumnColor()} rounded-t-xl p-4 shadow-sm`}>
+      <div className={`bg-card border-t-4 ${getColumnColor()} rounded-t-lg p-3`}>
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-sm text-foreground">{title}</h3>
-          <div className="flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary">
-            <span className="text-xs font-bold">{count}</span>
+          <h3 className="font-semibold text-sm text-foreground">{title}</h3>
+          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-accent text-muted-foreground">
+            <span className="text-xs font-medium">{count}</span>
           </div>
         </div>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 bg-secondary/30 border-2 border-t-0 border-border rounded-b-xl p-3 min-h-[400px] lg:min-h-[600px] transition-all duration-300 ${
-          isOver ? 'bg-primary/5 border-primary ring-2 ring-primary/30 shadow-lg scale-[1.01]' : ''
+        className={`flex-1 bg-accent/30 border border-t-0 border-border rounded-b-lg p-2 min-h-[calc(100vh-300px)] transition-all ${
+          isOver ? 'bg-primary/5 border-primary' : ''
         }`}
       >
         {children}
@@ -796,27 +791,28 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="hidden md:flex gap-4 overflow-x-auto scrollbar-minimal pb-4">
             {columns.map((column) => {
               const columnLeads = getLeadsByStatus(column.id);
               return (
-                <DroppableColumn
-                  key={column.id}
-                  id={`column-${column.id}`}
-                  title={column.title}
-                  count={columnLeads.length}
-                >
-                  <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                    {columnLeads.map((lead) => (
-                      <SortableLeadCard
-                        key={lead.id}
-                        lead={lead}
-                        onEdit={() => handleOpenModal(lead)}
-                        onDelete={() => setDeletingLead(lead)}
-                      />
-                    ))}
-                  </SortableContext>
-                </DroppableColumn>
+                <div key={column.id} className="flex-shrink-0 w-80">
+                  <DroppableColumn
+                    id={`column-${column.id}`}
+                    title={column.title}
+                    count={columnLeads.length}
+                  >
+                    <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                      {columnLeads.map((lead) => (
+                        <SortableLeadCard
+                          key={lead.id}
+                          lead={lead}
+                          onEdit={() => handleOpenModal(lead)}
+                          onDelete={() => setDeletingLead(lead)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DroppableColumn>
+                </div>
               );
             })}
           </div>
