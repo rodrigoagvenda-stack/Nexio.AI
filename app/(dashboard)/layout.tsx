@@ -38,7 +38,6 @@ export default async function DashboardLayout({
   const companyName = companyData?.name;
   const companyEmail = companyData?.email;
   const companyImage = companyData?.image_url;
-  const hasVendAgro = !!companyData?.vendagro_plan;
 
   // Check if user is admin
   const { data: adminUser } = await supabase
@@ -53,7 +52,6 @@ export default async function DashboardLayout({
   return (
     <div className="flex h-screen bg-background">
       <Sidebar
-        hasVendAgro={hasVendAgro}
         isAdmin={isAdmin}
         companyName={companyName}
         companyEmail={companyEmail}
