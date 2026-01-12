@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
+import { useDragScroll } from '@/lib/hooks/useDragScroll';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -266,6 +267,12 @@ export default function CRMPage() {
   const [overId, setOverId] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Drag to scroll for kanban
+  const kanbanScrollRef = useDragScroll<HTMLDivElement>({
+    excludeSelectors: '.card, button, a, input, textarea, select',
+    scrollSpeed: 2,
+  });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -708,7 +715,7 @@ export default function CRMPage() {
           <h1 className="text-3xl font-bold">CRM</h1>
           <p className="text-muted-foreground mt-1">Planilha de Leads - Gerencie seus leads e oportunidades</p>
         </div>
-        <Button onClick={() => handleOpenModal()} className="bg-orange-500 hover:bg-orange-600 w-full md:w-auto">
+        <Button onClick={() => handleOpenModal()} className="w-full md:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Lead
         </Button>
@@ -809,7 +816,7 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:block w-full overflow-x-auto scrollbar-minimal" style={{ overscrollBehaviorX: 'contain' }}>
+            <div ref={kanbanScrollRef} className="hidden md:block w-full overflow-x-auto scrollbar-minimal" style={{ overscrollBehaviorX: 'contain' }}>
               <div className="flex gap-4 pb-4 min-w-max">
                 {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
@@ -970,7 +977,11 @@ export default function CRMPage() {
                       {lead.priority}
                     </span>
                     {lead.nivel_interesse && (
-                      <span className="text-xs bg-orange-500/20 text-orange-700 px-2 py-1 rounded-full flex items-center gap-1">
+                      <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
+                        lead.nivel_interesse.includes('Quente') ? 'bg-red-500/10 text-red-600' :
+                        lead.nivel_interesse.includes('Morno') ? 'bg-blue-500/10 text-blue-600' :
+                        'bg-gray-500/10 text-gray-600'
+                      }`}>
                         {lead.nivel_interesse.includes('Quente') && <Flame className="h-3 w-3" />}
                         {lead.nivel_interesse}
                       </span>
@@ -1038,7 +1049,7 @@ export default function CRMPage() {
                               href={lead.website_or_instagram.startsWith('http') ? lead.website_or_instagram : `https://${lead.website_or_instagram}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-orange-500 hover:underline text-sm"
+                              className="text-primary hover:underline text-sm"
                             >
                               Link
                             </a>
@@ -1308,7 +1319,7 @@ export default function CRMPage() {
             <Button variant="outline" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveLead} className="bg-orange-500 hover:bg-orange-600">
+            <Button onClick={handleSaveLead}>
               {editingLead ? 'Atualizar' : 'Adicionar'}
             </Button>
           </DialogFooter>
