@@ -270,8 +270,8 @@ export default function CRMPage() {
 
   // Drag to scroll for kanban
   const kanbanScrollRef = useDragScroll<HTMLDivElement>({
-    excludeSelectors: '.card, button, a, input, textarea, select',
     scrollSpeed: 2,
+    dragThreshold: 5,
   });
 
   // Form state

@@ -2,14 +2,13 @@ import { useRef, useEffect, RefObject } from 'react';
 
 interface UseDragScrollOptions {
   /**
-   * CSS selector for elements that should be excluded from drag scrolling
-   * (e.g., '.card, button, a, input')
-   */
-  excludeSelectors?: string;
-  /**
    * Scroll speed multiplier (default: 2)
    */
   scrollSpeed?: number;
+  /**
+   * Minimum drag distance to start scrolling (default: 5px)
+   */
+  dragThreshold?: number;
 }
 
 /**
@@ -23,56 +22,77 @@ export function useDragScroll<T extends HTMLElement>(
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeft = useRef(0);
+  const hasMoved = useRef(false);
 
-  const { excludeSelectors = '.card, button, a, input, textarea, select', scrollSpeed = 2 } = options;
+  const { scrollSpeed = 2, dragThreshold = 5 } = options;
 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
 
     const handleMouseDown = (e: MouseEvent) => {
-      // Check if the target element or its parent matches excluded selectors
-      if (excludeSelectors) {
-        const target = e.target as HTMLElement;
-        if (target.closest(excludeSelectors)) {
-          return; // Don't start drag on excluded elements
-        }
+      const target = e.target as HTMLElement;
+
+      // Ignora se clicar em elementos interativos
+      if (
+        target.tagName === 'BUTTON' ||
+        target.tagName === 'A' ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.closest('button') ||
+        target.closest('a') ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('select')
+      ) {
+        return;
       }
 
       isDragging.current = true;
+      hasMoved.current = false;
       startX.current = e.pageX - element.offsetLeft;
       scrollLeft.current = element.scrollLeft;
-      element.style.cursor = 'grabbing';
-      element.style.userSelect = 'none';
     };
 
     const handleMouseLeave = () => {
-      if (isDragging.current) {
-        isDragging.current = false;
-        element.style.cursor = 'grab';
-        element.style.userSelect = '';
-      }
+      isDragging.current = false;
+      hasMoved.current = false;
+      element.style.cursor = 'grab';
+      element.style.userSelect = '';
     };
 
     const handleMouseUp = () => {
       isDragging.current = false;
+      hasMoved.current = false;
       element.style.cursor = 'grab';
       element.style.userSelect = '';
     };
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
-      e.preventDefault();
+
       const x = e.pageX - element.offsetLeft;
       const walk = (x - startX.current) * scrollSpeed;
-      element.scrollLeft = scrollLeft.current - walk;
+
+      // Só começa a arrastar depois de mover um pouco
+      if (!hasMoved.current && Math.abs(walk) > dragThreshold) {
+        hasMoved.current = true;
+        element.style.cursor = 'grabbing';
+        element.style.userSelect = 'none';
+      }
+
+      if (hasMoved.current) {
+        e.preventDefault();
+        element.scrollLeft = scrollLeft.current - walk;
+      }
     };
 
     // Set initial cursor
     element.style.cursor = 'grab';
 
     // Add event listeners
-    element.addEventListener('mousedown', handleMouseDown);
+    element.addEventListener('mousedown', handleMouseDown, { passive: true });
     element.addEventListener('mouseleave', handleMouseLeave);
     element.addEventListener('mouseup', handleMouseUp);
     element.addEventListener('mousemove', handleMouseMove);
@@ -86,7 +106,7 @@ export function useDragScroll<T extends HTMLElement>(
       element.style.cursor = '';
       element.style.userSelect = '';
     };
-  }, [excludeSelectors, scrollSpeed]);
+  }, [scrollSpeed, dragThreshold]);
 
   return ref;
 }
