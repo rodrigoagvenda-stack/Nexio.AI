@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
-import { useDragScroll } from '@/lib/hooks/useDragScroll';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,7 +100,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} data-kanban-card="true">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card className="group hover:shadow-md transition-all duration-200 mb-3 bg-card/50">
         <CardContent className="p-4 space-y-3">
           {/* Header com ícone e ações */}
@@ -267,9 +266,6 @@ export default function CRMPage() {
   const [overId, setOverId] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  // Drag to scroll for kanban
-  const kanbanScrollRef = useDragScroll<HTMLDivElement>();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -813,7 +809,7 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div ref={kanbanScrollRef} className="hidden md:block w-full overflow-x-auto scrollbar-minimal" style={{ overscrollBehaviorX: 'contain' }}>
+            <div className="hidden md:block w-full overflow-x-auto scrollbar-minimal" style={{ overscrollBehaviorX: 'contain' }}>
               <div className="flex gap-4 pb-4 min-w-max">
                 {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
