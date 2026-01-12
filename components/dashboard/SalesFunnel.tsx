@@ -16,12 +16,12 @@ interface SalesFunnelProps {
 
 export function SalesFunnel({ stages, totalLeads }: SalesFunnelProps) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex-shrink-0">
         <CardTitle>Funil de Vendas</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+      <CardContent className="flex-1 flex flex-col justify-center">
+        <div className="space-y-4">
           {stages.map((stage, i) => {
             const percentage = totalLeads > 0 ? (stage.count / totalLeads) * 100 : 0;
 

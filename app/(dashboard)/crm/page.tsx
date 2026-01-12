@@ -101,7 +101,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className="group hover:shadow-md transition-all duration-200 mb-3 bg-card/50 h-[200px]">
+      <Card className="group hover:shadow-md transition-all duration-200 mb-3 dark:bg-[#0A0A0A] bg-card h-[200px]">
         <CardContent className="p-4 space-y-3 h-full flex flex-col">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">

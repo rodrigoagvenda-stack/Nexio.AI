@@ -24,13 +24,14 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
+      className="h-full"
     >
-      <Card>
-        <CardHeader>
+      <Card className="h-full flex flex-col">
+        <CardHeader className="flex-shrink-0">
           <CardTitle>Taxa de conversão geral</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="relative h-[280px]">
+        <CardContent className="flex-1 flex flex-col justify-center">
+          <div className="relative flex-1 min-h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie

@@ -16,7 +16,7 @@ import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
-import { RealTimeActivity } from '@/components/dashboard/RealTimeActivity';
+import { RecentSales } from '@/components/dashboard/RecentSales';
 
 interface Lead {
   id: string;
@@ -423,21 +423,21 @@ export default function DashboardPage() {
 
       {/* Performance e Taxa de Conversão */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-h-[400px]">
           <PerformanceChart data={performanceData} />
         </div>
-        <div>
+        <div className="min-h-[400px]">
           <ConversionDonut data={conversionData} />
         </div>
       </div>
 
-      {/* Real-time Activity and Funnel */}
+      {/* Funil de Vendas e Vendas Recentes */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-h-[500px]">
           <SalesFunnel stages={funnelStages} totalLeads={totalLeads} />
         </div>
-        <div>
-          <RealTimeActivity />
+        <div className="min-h-[500px]">
+          <RecentSales />
         </div>
       </div>
     </div>
