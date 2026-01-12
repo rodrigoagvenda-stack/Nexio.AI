@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, Clock, UserCircle2 } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2 } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -1156,17 +1156,6 @@ export default function AtendimentoPage() {
                       disabled={loading}
                     />
                     <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setScheduleDialog(true)}
-                      disabled={loading || !newMessage.trim()}
-                      title="Agendar envio"
-                      className="text-muted-foreground"
-                    >
-                      <Clock className="h-5 w-5" />
-                    </Button>
-                    <Button
                       type={newMessage.trim() ? 'submit' : 'button'}
                       size="icon"
                       onClick={() => {
@@ -1175,7 +1164,7 @@ export default function AtendimentoPage() {
                         }
                       }}
                       disabled={loading}
-                      className="bg-[#005c4b] hover:bg-[#004d3d]"
+                      className="bg-primary hover:bg-primary/90"
                     >
                       {newMessage.trim() ? (
                         <Send className="h-4 w-4" />
