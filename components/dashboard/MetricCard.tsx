@@ -53,10 +53,10 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
   };
 
   return (
-    <Card className="bg-card border-border hover:shadow-lg transition-shadow">
+    <Card className="bg-card border-border hover:shadow-md transition-all">
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-        <div className="p-2.5 rounded-full bg-muted">
-          <Icon className="h-5 w-5 text-foreground" />
+        <div className="p-2.5 rounded-lg bg-primary/10">
+          <Icon className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1">
           <p className="text-sm text-muted-foreground">{title}</p>
