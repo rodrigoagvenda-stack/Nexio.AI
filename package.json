@@ -1,7 +1,7 @@
 {
-  "name": "vendai-crm",
+  "name": "nexioai-crm",
   "version": "1.0.0",
-  "description": "vend.AI - CRM inteligente com IA e automação WhatsApp",
+  "description": "Nexio.AI - CRM inteligente com IA e automação WhatsApp",
   "private": true,
   "scripts": {
     "dev": "next dev",

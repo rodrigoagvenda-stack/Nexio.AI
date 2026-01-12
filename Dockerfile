@@ -1,4 +1,4 @@
-# Dockerfile para vend.AI CRM - Next.js 14 (Seguro)
+# Dockerfile para Nexio.AI CRM - Next.js 14 (Seguro)
 FROM node:20-alpine AS base
 
 # 1. Dependências

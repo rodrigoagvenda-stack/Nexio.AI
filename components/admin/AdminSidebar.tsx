@@ -99,7 +99,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         <div className="flex items-center h-20 px-6 border-b border-border/50">
           {!isCollapsed && (
             <h1 className="text-2xl">
-              <span className="font-normal">vend</span>
+              <span className="font-normal">Nexio</span>
               <span className="text-primary font-bold">.</span>
               <span className="font-bold">AI</span>
             </h1>
@@ -169,7 +169,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{adminName || 'Admin'}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {adminEmail || 'admin@vend.ai'}
+                  {adminEmail || 'admin@nexio.ai'}
                 </p>
               </div>
             )}

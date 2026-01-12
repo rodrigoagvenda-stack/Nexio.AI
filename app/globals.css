@@ -27,25 +27,25 @@
   }
 
   .dark {
-    --background: 258 34% 8%; /* Azul/roxo escuro profundo */
+    --background: 0 0% 0%; /* Preto puro */
     --foreground: 0 0% 98%;
-    --card: 258 20% 10%; /* Card escuro com toque roxo */
+    --card: 0 0% 4%; /* Cards cinza muito escuro */
     --card-foreground: 0 0% 98%;
-    --popover: 258 20% 10%;
+    --popover: 0 0% 4%;
     --popover-foreground: 0 0% 98%;
-    --primary: 270 91% 65%; /* Roxo/lilás vibrante #A855F7 */
+    --primary: 29 100% 50%; /* Laranja #ff9500 */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 8%; /* Cinza escuro */
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 8%;
     --muted-foreground: 0 0% 60%;
-    --accent: 270 50% 20%; /* Roxo escuro para acentos */
+    --accent: 0 0% 8%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 258 15% 15%; /* Bordas com leve toque roxo */
-    --input: 258 15% 12%;
-    --ring: 270 91% 65%;
+    --border: 0 0% 10%; /* Bordas muito sutis */
+    --input: 0 0% 8%;
+    --ring: 29 100% 50%;
   }
 }
 

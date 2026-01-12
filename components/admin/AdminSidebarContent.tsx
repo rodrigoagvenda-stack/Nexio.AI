@@ -61,7 +61,7 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
             <Shield className="h-5 w-5 text-white" />
           </div>
           <h1 className="text-xl font-semibold">
-            vend<span className="text-primary">.</span>AI
+            Nexio<span className="text-primary">.</span>AI
           </h1>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{adminName || 'Admin'}</p>
             <p className="text-xs text-muted-foreground truncate">
-              {adminEmail || 'admin@vend.ai'}
+              {adminEmail || 'admin@nexio.ai'}
             </p>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield, User } from 'lucide-react';
 import { OrbEffect } from '@/components/auth/OrbEffect';
 
 export default function LoginPage() {
@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [loginMode, setLoginMode] = useState<'user' | 'admin'>('user');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,10 +43,16 @@ export default function LoginPage() {
           .eq('is_active', true)
           .single();
 
-        if (adminUser) {
+        // Validar modo de login
+        if (loginMode === 'admin') {
+          if (!adminUser) {
+            await supabase.auth.signOut();
+            throw new Error('Você não tem permissão de administrador');
+          }
           toast.success('Bem-vindo, Admin!');
           window.location.href = '/admin';
         } else {
+          // Usuários comuns e admins podem acessar o dashboard
           toast.success('Login realizado com sucesso!');
           window.location.href = '/dashboard';
         }
@@ -65,13 +72,43 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-[420px] px-6">
         <div className="backdrop-blur-xl bg-[#1a1435]/40 border border-white/10 rounded-3xl shadow-2xl p-10">
           {/* Header */}
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-light text-white mb-2 tracking-tight">
-              Sign In
+          <div className="text-center mb-8">
+            <h1 className="text-5xl font-light text-white mb-2 tracking-tight">
+              <span className="font-semibold">Nexio</span>
+              <span className="text-purple-400">.</span>
+              <span className="font-light">AI</span>
             </h1>
-            <p className="text-white/50 text-sm font-light">
+            <p className="text-white/50 text-sm font-light mb-6">
               Keep it all together and you'll be fine
             </p>
+
+            {/* Toggle Admin/Usuário */}
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setLoginMode('user')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full transition-all text-sm font-medium ${
+                  loginMode === 'user'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80'
+                }`}
+              >
+                <User className="h-4 w-4" />
+                Usuário
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMode('admin')}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-full transition-all text-sm font-medium ${
+                  loginMode === 'admin'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-500/30'
+                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80'
+                }`}
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </button>
+            </div>
           </div>
 
           {/* Form */}

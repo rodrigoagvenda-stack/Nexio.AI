@@ -24,7 +24,6 @@ import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface SidebarProps {
-  hasVendAgro?: boolean;
   isAdmin?: boolean;
   companyName?: string;
   companyEmail?: string;
@@ -32,7 +31,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({
-  hasVendAgro = false,
   isAdmin = false,
   companyName,
   companyEmail,
@@ -58,12 +56,6 @@ export function Sidebar({
       href: '/atendimento',
       label: 'Atendimento',
       icon: MessageSquare,
-    },
-    {
-      href: '/lead-pro',
-      label: 'Lead PRO',
-      icon: Target,
-      badge: hasVendAgro ? undefined : 'PRO',
     },
     {
       href: '/prospect',
@@ -118,7 +110,7 @@ export function Sidebar({
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
             <h1 className="text-xl">
-              <span className="font-normal text-white">vend</span>
+              <span className="font-normal text-white">Nexio</span>
               <span className="text-primary font-bold">.</span>
               <span className="font-bold text-white">AI</span>
             </h1>
@@ -181,7 +173,7 @@ export function Sidebar({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{companyName || 'Empresa'}</p>
                 <p className="text-xs text-gray-400 truncate">
-                  {companyEmail || 'empresa@vend.ai'}
+                  {companyEmail || 'empresa@nexio.ai'}
                 </p>
               </div>
             )}
