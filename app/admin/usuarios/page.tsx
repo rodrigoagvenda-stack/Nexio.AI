@@ -255,7 +255,7 @@ export default function UsuariosPage() {
                             <p className="text-xs text-muted-foreground mt-1">{user.email}</p>
                           </div>
                           {user.is_active ? (
-                            <Badge className="bg-green-500 text-xs">Ativo</Badge>
+                            <Badge className="bg-primary text-xs">Ativo</Badge>
                           ) : (
                             <Badge variant="destructive" className="text-xs">Inativo</Badge>
                           )}
@@ -340,7 +340,7 @@ export default function UsuariosPage() {
                         <td className="p-3 text-sm">{user.department || '-'}</td>
                         <td className="p-3">
                           {user.is_active ? (
-                            <Badge className="bg-green-500 text-xs">Ativo</Badge>
+                            <Badge className="bg-primary text-xs">Ativo</Badge>
                           ) : (
                             <Badge variant="destructive" className="text-xs">Inativo</Badge>
                           )}

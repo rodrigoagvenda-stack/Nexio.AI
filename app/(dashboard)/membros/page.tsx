@@ -289,7 +289,7 @@ export default function MembrosPage() {
                         <p className="font-semibold truncate">{member.name}</p>
                         {getRoleBadge(member.role)}
                         {member.is_active ? (
-                          <UserCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          <UserCheck className="h-4 w-4 text-primary flex-shrink-0" />
                         ) : (
                           <UserX className="h-4 w-4 text-red-500 flex-shrink-0" />
                         )}

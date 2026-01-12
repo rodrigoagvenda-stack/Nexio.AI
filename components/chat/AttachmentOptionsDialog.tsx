@@ -89,7 +89,7 @@ export function AttachmentOptionsDialog({
       label: 'Áudio',
       icon: <Mic className="h-5 w-5" />,
       color: 'text-white',
-      bgColor: 'bg-green-500',
+      bgColor: 'bg-purple-500',
       onClick: () => {
         onSelectAudio();
         onOpenChange(false);
@@ -183,7 +183,7 @@ export function AttachmentOptionsDialog({
                 {option.id === 'document' && <FileText className="h-5 w-5 text-purple-500" />}
                 {option.id === 'photos-videos' && <Image className="h-5 w-5 text-pink-500" />}
                 {option.id === 'camera' && <Camera className="h-5 w-5 text-red-500" />}
-                {option.id === 'audio' && <Mic className="h-5 w-5 text-green-500" />}
+                {option.id === 'audio' && <Mic className="h-5 w-5 text-purple-500" />}
                 {option.id === 'contact' && <User className="h-5 w-5 text-blue-500" />}
                 {option.id === 'poll' && <BarChart3 className="h-5 w-5 text-purple-500" />}
                 {option.id === 'event' && <Calendar className="h-5 w-5 text-indigo-500" />}

@@ -180,8 +180,8 @@ export default function BriefingConfigPage() {
               <div className="flex items-center gap-2 text-sm">
                 {config.last_test_status === 'success' ? (
                   <>
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    <span className="text-green-500">Último teste: Sucesso</span>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span className="text-primary">Último teste: Sucesso</span>
                   </>
                 ) : (
                   <>

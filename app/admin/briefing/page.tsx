@@ -143,7 +143,7 @@ export default function BriefingListPage() {
                             <p className="text-xs text-muted-foreground mt-1">{response.nome_empresa}</p>
                           </div>
                           {response.webhook_sent ? (
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <CheckCircle2 className="h-5 w-5 text-primary" />
                           ) : (
                             <XCircle className="h-5 w-5 text-gray-500" />
                           )}
@@ -206,7 +206,7 @@ export default function BriefingListPage() {
                         </td>
                         <td className="p-3">
                           {response.webhook_sent ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
                           ) : (
                             <XCircle className="h-4 w-4 text-gray-500" />
                           )}

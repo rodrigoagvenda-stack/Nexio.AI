@@ -445,7 +445,7 @@ export default function EmpresaDetailPage() {
                     </div>
                     <div className="text-center border-l pl-3">
                       <p className="text-xs text-muted-foreground">MQLs ({selectedPlan.mql_percentage}%)</p>
-                      <p className="text-2xl font-bold text-green-600">
+                      <p className="text-2xl font-bold text-primary">
                         {Math.floor((selectedPlan.extraction_limit * selectedPlan.mql_percentage) / 100)}
                       </p>
                       <p className="text-xs">qualificados</p>
@@ -555,7 +555,7 @@ export default function EmpresaDetailPage() {
                       dias
                     </span>
                   ) : (
-                    <span className="text-green-500">
+                    <span className="text-primary">
                       ✓ Vence em{' '}
                       {Math.floor(
                         (new Date(company.subscription_expires_at).getTime() -

@@ -1071,7 +1071,7 @@ export default function AtendimentoPage() {
                     </MessageContextMenu>
                     {msg.direcao === 'outbound' && (
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs bg-green-600 text-white">
+                        <AvatarFallback className="text-xs bg-primary text-white">
                           {msg.sender_type === 'ai' ? (
                             <Bot className="h-4 w-4" />
                           ) : (

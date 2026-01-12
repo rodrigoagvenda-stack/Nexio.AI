@@ -102,7 +102,7 @@ export default function EmpresasListPage() {
                             <p className="text-xs text-muted-foreground mt-1">{company.email}</p>
                           </div>
                           {company.is_active ? (
-                            <Badge variant="default" className="bg-green-500 text-xs">Ativa</Badge>
+                            <Badge variant="default" className="bg-primary text-xs">Ativa</Badge>
                           ) : (
                             <Badge variant="destructive" className="text-xs">Inativa</Badge>
                           )}
@@ -189,7 +189,7 @@ export default function EmpresasListPage() {
                         </td>
                         <td className="p-3">
                           {company.is_active ? (
-                            <Badge variant="default" className="bg-green-500 text-xs">
+                            <Badge variant="default" className="bg-primary text-xs">
                               Ativa
                             </Badge>
                           ) : (

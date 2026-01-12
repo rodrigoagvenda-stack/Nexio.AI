@@ -117,7 +117,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
                   isActive
                     ? isOutbound
                       ? 'bg-white'
-                      : 'bg-green-600'
+                      : 'bg-primary'
                     : isOutbound
                       ? 'bg-white/40'
                       : 'bg-gray-400'

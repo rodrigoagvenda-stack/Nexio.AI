@@ -244,7 +244,7 @@ export default function CaptacaoPage() {
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             {success ? (
               <>
-                <CheckCircle2 className="h-16 w-16 text-green-500 animate-pulse" />
+                <CheckCircle2 className="h-16 w-16 text-primary animate-pulse" />
                 <div className="text-center">
                   <p className="text-6xl font-bold text-primary">
                     <CountUp end={extractedCount} duration={1} />
