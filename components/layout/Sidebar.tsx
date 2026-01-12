@@ -5,17 +5,17 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect } from 'react';
 import {
-  LayoutDashboard,
-  Users,
-  MessageSquare,
+  Home,
+  UsersRound,
+  MessagesSquare,
   Target,
-  UserPlus,
-  HelpCircle,
-  Shield,
+  Users,
+  CircleHelp,
+  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -45,39 +45,39 @@ export function Sidebar({
     {
       href: '/dashboard',
       label: 'Dashboard',
-      icon: LayoutDashboard,
+      icon: Home,
     },
     {
       href: '/crm',
       label: 'CRM',
-      icon: Users,
+      icon: UsersRound,
     },
     {
       href: '/atendimento',
       label: 'Atendimento',
-      icon: MessageSquare,
+      icon: MessagesSquare,
     },
     {
       href: '/prospect',
       label: 'Orbit',
-      icon: Sparkles,
+      icon: Zap,
     },
     {
       href: '/membros',
       label: 'Membros',
-      icon: UserPlus,
+      icon: Users,
     },
     {
       href: '/ajuda',
       label: 'Ajuda',
-      icon: HelpCircle,
+      icon: CircleHelp,
     },
     ...(isAdmin
       ? [
           {
             href: '/admin',
             label: 'Admin',
-            icon: Shield,
+            icon: ShieldCheck,
             badge: 'ADMIN' as const,
           },
         ]
