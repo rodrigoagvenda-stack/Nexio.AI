@@ -809,12 +809,11 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:block w-full overflow-x-auto scrollbar-minimal" style={{ overscrollBehaviorX: 'contain' }}>
-              <div className="flex gap-4 pb-4 min-w-max">
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
-                    <div key={column.id} className="flex-shrink-0 w-80">
+                    <div key={column.id}>
                       <DroppableColumn
                     id={`column-${column.id}`}
                     title={column.title}
@@ -834,7 +833,6 @@ export default function CRMPage() {
                 </div>
               );
             })}
-              </div>
             </div>
           <DragOverlay>
             {activeLead ? (
