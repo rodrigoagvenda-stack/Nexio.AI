@@ -36,8 +36,8 @@ export default function LogsPage() {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'bg-red-500';
-      case 'error': return 'bg-orange-500';
-      case 'warning': return 'bg-yellow-500';
+      case 'error': return 'bg-red-400';
+      case 'warning': return 'bg-primary';
       default: return 'bg-blue-500';
     }
   };

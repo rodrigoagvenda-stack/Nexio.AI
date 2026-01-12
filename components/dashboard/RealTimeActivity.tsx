@@ -110,9 +110,9 @@ export function RealTimeActivity() {
   const getStageColor = (stage: string) => {
     const colors: Record<string, string> = {
       'Lead novo': 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-      'Em contato': 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-      'Interessado': 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-      'Proposta enviada': 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      'Em contato': 'bg-purple-400/10 text-purple-400',
+      'Interessado': 'bg-primary/10 text-primary',
+      'Proposta enviada': 'bg-purple-600/10 text-purple-600 dark:text-purple-400',
       'Fechado': 'bg-green-500/10 text-green-600 dark:text-green-400',
     };
     return colors[stage] || 'bg-muted text-muted-foreground';

@@ -344,8 +344,8 @@ export default function ProspectAIPage() {
         {/* Benefits */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           <Card className="p-4 md:p-6 space-y-3 bg-card/50 border-border/50">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Zap className="h-5 w-5 md:h-6 md:w-6 text-orange-500" />
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Zap className="h-5 w-5 md:h-6 md:w-6 text-primary" />
             </div>
             <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
               Extrai dados de Google Maps automaticamente com IA em segundos.
@@ -353,8 +353,8 @@ export default function ProspectAIPage() {
           </Card>
 
           <Card className="p-4 md:p-6 space-y-3 bg-card/50 border-border/50">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <FileText className="h-5 w-5 md:h-6 md:w-6 text-orange-500" />
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 md:h-6 md:w-6 text-primary" />
             </div>
             <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
               Captura nome, telefone, email, endereço e redes sociais em um clique.
@@ -362,8 +362,8 @@ export default function ProspectAIPage() {
           </Card>
 
           <Card className="p-4 md:p-6 space-y-3 bg-card/50 border-border/50 sm:col-span-2 md:col-span-1">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Users className="h-5 w-5 md:h-6 md:w-6 text-orange-500" />
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
             </div>
             <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
               Leads organizados e qualificados direto no seu pipeline de vendas.

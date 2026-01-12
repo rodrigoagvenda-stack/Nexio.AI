@@ -111,7 +111,7 @@ export function AttachmentOptionsDialog({
       label: 'Enquete',
       icon: <BarChart3 className="h-5 w-5" />,
       color: 'text-white',
-      bgColor: 'bg-yellow-500',
+      bgColor: 'bg-purple-500',
       onClick: () => {
         onSelectPoll();
         onOpenChange(false);
@@ -185,7 +185,7 @@ export function AttachmentOptionsDialog({
                 {option.id === 'camera' && <Camera className="h-5 w-5 text-red-500" />}
                 {option.id === 'audio' && <Mic className="h-5 w-5 text-green-500" />}
                 {option.id === 'contact' && <User className="h-5 w-5 text-blue-500" />}
-                {option.id === 'poll' && <BarChart3 className="h-5 w-5 text-yellow-500" />}
+                {option.id === 'poll' && <BarChart3 className="h-5 w-5 text-purple-500" />}
                 {option.id === 'event' && <Calendar className="h-5 w-5 text-indigo-500" />}
                 {option.id === 'sticker' && <Smile className="h-5 w-5 text-teal-500" />}
               </div>

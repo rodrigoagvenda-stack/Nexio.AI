@@ -78,14 +78,14 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
   const getPriorityColor = (priority: string) => {
     const colors = {
       'Alta': 'bg-red-500/10 text-red-600 dark:text-red-400',
-      'Média': 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+      'Média': 'bg-primary/10 text-primary',
       'Baixa': 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
     };
     return colors[priority as keyof typeof colors] || colors['Baixa'];
   };
 
   const getInterestColor = (interest: string) => {
-    if (interest?.includes('Quente')) return 'bg-orange-500/10 text-orange-600 dark:text-orange-400';
+    if (interest?.includes('Quente')) return 'bg-primary/10 text-primary';
     if (interest?.includes('Morno')) return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
     return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
   };
@@ -666,7 +666,7 @@ export default function CRMPage() {
   const getPriorityBadgeColor = (priority: string) => {
     switch (priority) {
       case 'Alta': return 'bg-red-500/20 text-red-700';
-      case 'Média': return 'bg-yellow-500/20 text-yellow-700';
+      case 'Média': return 'bg-primary/20 text-primary';
       case 'Baixa': return 'bg-gray-500/20 text-gray-700';
       default: return 'bg-gray-500/20 text-gray-700';
     }
@@ -962,7 +962,7 @@ export default function CRMPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       lead.priority === 'Alta' ? 'bg-red-500/20 text-red-700' :
-                      lead.priority === 'Média' ? 'bg-yellow-500/20 text-yellow-700' :
+                      lead.priority === 'Média' ? 'bg-primary/20 text-primary' :
                       'bg-gray-500/20 text-gray-700'
                     }`}>
                       {lead.priority}
