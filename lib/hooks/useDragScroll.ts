@@ -1,20 +1,10 @@
 import { useRef, useEffect, RefObject } from 'react';
 
 interface UseDragScrollOptions {
-  /**
-   * Scroll speed multiplier (default: 2)
-   */
   scrollSpeed?: number;
-  /**
-   * Minimum drag distance to start scrolling (default: 5px)
-   */
   dragThreshold?: number;
 }
 
-/**
- * Custom hook to enable drag-to-scroll functionality on a container
- * Similar to Trello, Notion, Figma, etc.
- */
 export function useDragScroll<T extends HTMLElement>(
   options: UseDragScrollOptions = {}
 ): RefObject<T> {
@@ -24,7 +14,7 @@ export function useDragScroll<T extends HTMLElement>(
   const scrollLeft = useRef(0);
   const hasMoved = useRef(false);
 
-  const { scrollSpeed = 2, dragThreshold = 5 } = options;
+  const { scrollSpeed = 2, dragThreshold = 3 } = options;
 
   useEffect(() => {
     const element = ref.current;
@@ -33,33 +23,25 @@ export function useDragScroll<T extends HTMLElement>(
     const handleMouseDown = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
-      // Ignora se clicar em elementos interativos
+      // Ignora apenas se for clique DIRETO em elementos interativos
       if (
         target.tagName === 'BUTTON' ||
         target.tagName === 'A' ||
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'SELECT' ||
-        target.closest('button') ||
-        target.closest('a') ||
-        target.closest('input') ||
-        target.closest('textarea') ||
-        target.closest('select')
+        target.closest('[role="button"]')
       ) {
         return;
       }
 
+      e.preventDefault();
       isDragging.current = true;
       hasMoved.current = false;
-      startX.current = e.pageX - element.offsetLeft;
+      startX.current = e.pageX;
       scrollLeft.current = element.scrollLeft;
-    };
-
-    const handleMouseLeave = () => {
-      isDragging.current = false;
-      hasMoved.current = false;
-      element.style.cursor = 'grab';
-      element.style.userSelect = '';
+      element.style.cursor = 'grabbing';
+      element.style.userSelect = 'none';
     };
 
     const handleMouseUp = () => {
@@ -72,14 +54,11 @@ export function useDragScroll<T extends HTMLElement>(
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
 
-      const x = e.pageX - element.offsetLeft;
+      const x = e.pageX;
       const walk = (x - startX.current) * scrollSpeed;
 
-      // Só começa a arrastar depois de mover um pouco
       if (!hasMoved.current && Math.abs(walk) > dragThreshold) {
         hasMoved.current = true;
-        element.style.cursor = 'grabbing';
-        element.style.userSelect = 'none';
       }
 
       if (hasMoved.current) {
@@ -92,17 +71,15 @@ export function useDragScroll<T extends HTMLElement>(
     element.style.cursor = 'grab';
 
     // Add event listeners
-    element.addEventListener('mousedown', handleMouseDown, { passive: true });
-    element.addEventListener('mouseleave', handleMouseLeave);
-    element.addEventListener('mouseup', handleMouseUp);
-    element.addEventListener('mousemove', handleMouseMove);
+    element.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleMouseMove);
 
     // Cleanup
     return () => {
       element.removeEventListener('mousedown', handleMouseDown);
-      element.removeEventListener('mouseleave', handleMouseLeave);
-      element.removeEventListener('mouseup', handleMouseUp);
-      element.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove);
       element.style.cursor = '';
       element.style.userSelect = '';
     };
