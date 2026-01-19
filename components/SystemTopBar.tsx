@@ -66,8 +66,7 @@ export function SystemTopBar() {
         .from('activity_logs')
         .select('*')
         .eq('company_id', company.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching notifications:', error);
@@ -219,7 +218,10 @@ export function SystemTopBar() {
               {notifications.length > 0 && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="justify-center text-sm text-primary cursor-pointer">
+                  <DropdownMenuItem
+                    className="justify-center text-sm text-primary cursor-pointer"
+                    onClick={() => router.push('/notificacoes')}
+                  >
                     Ver todas as notificações
                   </DropdownMenuItem>
                 </>

@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
 import { motion } from 'framer-motion';
 
 interface ConversionData {
@@ -14,10 +15,40 @@ interface ConversionDonutProps {
   data: ConversionData[];
 }
 
+// Renderizador customizado para fatia ativa (interactive)
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 10}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+    </g>
+  );
+};
+
 export function ConversionDonut({ data }: ConversionDonutProps) {
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+
   // Calculate total percentage (should be close to 100)
   const totalValue = data.reduce((sum, item) => sum + item.value, 0);
-  const mainPercentage = data[0] ? Math.round((data[0].value / totalValue) * 100) : 0;
+  // Tratar divisão por zero - se totalValue é 0, retornar 0%
+  const mainPercentage = totalValue > 0 && data[0] ? Math.round((data[0].value / totalValue) * 100) : 0;
+
+  const onPieEnter = (_: any, index: number) => {
+    setActiveIndex(index);
+  };
+
+  const onPieLeave = () => {
+    setActiveIndex(undefined);
+  };
 
   return (
     <motion.div
@@ -35,17 +66,22 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
+                  activeIndex={activeIndex}
+                  activeShape={renderActiveShape}
                   data={data}
                   cx="50%"
                   cy="50%"
-                  innerRadius="45%"
-                  outerRadius="75%"
+                  innerRadius="52%"
+                  outerRadius="86%"
                   fill="#8884d8"
                   paddingAngle={2}
                   dataKey="value"
                   strokeWidth={0}
                   animationDuration={1000}
                   animationBegin={300}
+                  onMouseEnter={onPieEnter}
+                  onMouseLeave={onPieLeave}
+                  style={{ cursor: 'pointer' }}
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -53,9 +89,16 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
+                    backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '6px',
+                    color: 'hsl(var(--popover-foreground))',
+                  }}
+                  itemStyle={{
+                    color: 'hsl(var(--popover-foreground))',
+                  }}
+                  labelStyle={{
+                    color: 'hsl(var(--popover-foreground))',
                   }}
                 />
               </PieChart>
@@ -73,7 +116,7 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
               </div>
             </motion.div>
           </div>
-          {/* Legend below chart */}
+          {/* Legend below chart with circular icons */}
           <div className="mt-6 flex justify-center gap-6">
             {data.map((entry, index) => (
               <motion.div
@@ -87,7 +130,7 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="text-sm text-muted-foreground">{entry.name}</span>
+                <span className="text-sm text-foreground">{entry.name}</span>
               </motion.div>
             ))}
           </div>

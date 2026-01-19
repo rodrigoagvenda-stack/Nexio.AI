@@ -5,6 +5,9 @@ export interface Company {
   phone?: string;
   image_url?: string;
   plan_type: 'basic' | 'performance' | 'advanced' | 'crm-smart';
+  plan_name?: 'NEXIO SALES' | 'NEXIO GROWTH' | 'NEXIO ADS';
+  plan_price?: number;
+  plan_features?: any[];
   vendagro_plan?: 'performance' | 'advanced' | null;
   plan_id?: number | null;
   plan_monthly_limit?: number;
@@ -73,7 +76,7 @@ export type EstagioLead =
   | 'Perdido'
   | 'Remarketing';
 
-export type StatusLead = 'Quente 🔥' | 'Morno 🟡' | 'Frio ❄️';
+export type StatusLead = 'Quente 🔥' | 'Morno 🌡️' | 'Frio ❄️';
 
 export type Cargo =
   | 'Proprietário/Dono'

@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { OrbitCard, OrbitCardContent, OrbitCardHeader } from '@/components/ui/orbit-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User, Phone, Mail, DollarSign, Building2, Pencil, Trash2 } from 'lucide-react';
@@ -47,8 +47,8 @@ export function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.2 }}
     >
-      <Card className="hover:shadow-lg transition-shadow">
-        <CardHeader className="pb-3">
+      <OrbitCard className="hover:shadow-lg transition-shadow">
+        <OrbitCardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -67,9 +67,9 @@ export function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
               </Badge>
             )}
           </div>
-        </CardHeader>
+        </OrbitCardHeader>
 
-        <CardContent className="space-y-3">
+        <OrbitCardContent className="space-y-3">
           {/* Contact Info */}
           <div className="space-y-2 text-sm">
             {lead.email && (
@@ -123,8 +123,8 @@ export function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
               Excluir
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </OrbitCardContent>
+      </OrbitCard>
     </motion.div>
   );
 }

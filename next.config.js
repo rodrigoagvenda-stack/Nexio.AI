@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // output: 'standalone', // Desabilitado temporariamente devido a erro de permissão no Windows
   images: {
     remotePatterns: [
       {

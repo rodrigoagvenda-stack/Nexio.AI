@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image } from 'lucide-react';
+import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image, ChevronDown, ChevronUp, Copy, Check, Save } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { ChatNotesTab } from './ChatNotesTab';
 import { TagsManager } from './TagsManager';
@@ -44,6 +45,10 @@ export function LeadInfoSidebar({
   onTagsUpdate,
 }: LeadInfoSidebarProps) {
   const [updating, setUpdating] = useState(false);
+  const [isResumoExpanded, setIsResumoExpanded] = useState(true);
+  const [copiedResumo, setCopiedResumo] = useState(false);
+  const [editingProjectValue, setEditingProjectValue] = useState<string>('');
+  const [hasProjectValueChanged, setHasProjectValueChanged] = useState(false);
 
   async function handleFieldUpdate(field: string, value: any) {
     setUpdating(true);
@@ -288,26 +293,51 @@ export function LeadInfoSidebar({
 
             {/* Valor do Projeto */}
             <div className="space-y-2">
-              <Label className="text-sm font-semibold flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
+              <Label className="text-sm font-semibold">
                 Valor do Projeto
               </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  R$
-                </span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={lead.project_value || ''}
-                  onChange={(e) => {
-                    const value = e.target.value ? parseFloat(e.target.value) : null;
-                    handleFieldUpdate('project_value', value);
-                  }}
-                  className="pl-8"
-                  disabled={updating}
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    R$
+                  </span>
+                  <Input
+                    type="text"
+                    placeholder="0,00"
+                    value={
+                      hasProjectValueChanged
+                        ? editingProjectValue
+                        : lead.project_value
+                        ? new Intl.NumberFormat('pt-BR', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).format(lead.project_value)
+                        : ''
+                    }
+                    onChange={(e) => {
+                      setEditingProjectValue(e.target.value);
+                      setHasProjectValueChanged(true);
+                    }}
+                    className="pl-8"
+                    disabled={updating}
+                  />
+                </div>
+                {hasProjectValueChanged && (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      const value = editingProjectValue.replace(/\D/g, '');
+                      const numValue = value ? parseFloat(value) / 100 : null;
+                      await handleFieldUpdate('project_value', numValue);
+                      setHasProjectValueChanged(false);
+                      setEditingProjectValue('');
+                    }}
+                    disabled={updating}
+                    className="shrink-0"
+                  >
+                    <Check className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -335,19 +365,64 @@ export function LeadInfoSidebar({
             {lead.notes && (
               <>
                 <Separator />
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    🤖 Resumo do SDR IA
-                  </h4>
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                      {lead.notes}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2 italic">
-                      Atualizado automaticamente pelo SDR
-                    </p>
-                  </div>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setIsResumoExpanded(!isResumoExpanded)}
+                    className="w-full flex items-center justify-between p-3 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <h4 className="text-sm font-semibold text-primary">
+                        nexio.ai resumo
+                      </h4>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        IA
+                      </Badge>
+                    </div>
+                    {isResumoExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-primary" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-primary" />
+                    )}
+                  </button>
+
+                  {isResumoExpanded && (
+                    <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20 space-y-3">
+                      <div className="relative">
+                        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                          {lead.notes}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-primary/20">
+                        <p className="text-xs text-muted-foreground italic">
+                          Gerado automaticamente
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => {
+                            navigator.clipboard.writeText(lead.notes || '');
+                            setCopiedResumo(true);
+                            toast.success('Resumo copiado!');
+                            setTimeout(() => setCopiedResumo(false), 2000);
+                          }}
+                        >
+                          {copiedResumo ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Copiado
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              Copiar
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}

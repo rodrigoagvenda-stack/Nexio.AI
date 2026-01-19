@@ -1,177 +1,56 @@
-'use client';
+import { createClient } from '@/lib/supabase/server';
+import { N8NMonitorContent } from '@/components/admin/N8NMonitorContent';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import { Loader2, Webhook, Check } from 'lucide-react';
+export default async function N8NMonitorPage() {
+  const supabase = await createClient();
 
-interface WebhookConfig {
-  id: number;
-  webhook_type: string;
-  webhook_url: string;
-  auth_type: string;
-  auth_username: string | null;
-  auth_password: string | null;
-  is_active: boolean;
-}
+  // Buscar instâncias N8N
+  const { data: instances } = await supabase
+    .from('n8n_instances')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-export default function N8NConfigPage() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState<WebhookConfig | null>(null);
-  const [formData, setFormData] = useState({
-    webhook_url: '',
-    auth_username: '',
-    auth_password: '',
-  });
+  // Buscar erros recentes (últimos 100)
+  const { data: errors } = await supabase
+    .from('n8n_errors')
+    .select(`
+      *,
+      instance:n8n_instances(id, name, url)
+    `)
+    .order('timestamp', { ascending: false })
+    .limit(100);
 
-  useEffect(() => {
-    fetchConfig();
-  }, []);
+  // Calcular estatísticas
+  const now = new Date();
+  const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  async function fetchConfig() {
-    try {
-      const response = await fetch('/api/admin/n8n-config?type=icp');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data && data.data.length > 0) {
-          const icpConfig = data.data[0];
-          setConfig(icpConfig);
-          setFormData({
-            webhook_url: icpConfig.webhook_url || '',
-            auth_username: icpConfig.auth_username || '',
-            auth_password: icpConfig.auth_password || '',
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching config:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { count: errors24h } = await supabase
+    .from('n8n_errors')
+    .select('*', { count: 'exact', head: true })
+    .gte('timestamp', last24h.toISOString());
 
-  async function handleSave() {
-    setSaving(true);
-    try {
-      const response = await fetch('/api/admin/n8n-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          webhook_type: 'icp',
-          webhook_url: formData.webhook_url,
-          auth_type: 'basic',
-          auth_username: formData.auth_username,
-          auth_password: formData.auth_password,
-        }),
-      });
+  const { count: totalInstances } = await supabase
+    .from('n8n_instances')
+    .select('*', { count: 'exact', head: true });
 
-      const data = await response.json();
+  // Calcular uptime médio (baseado em instâncias ativas)
+  const activeInstances = instances?.filter(i => i.active) || [];
+  const uptimeAverage = activeInstances.length > 0
+    ? Math.round((activeInstances.length / (totalInstances || 1)) * 100)
+    : 0;
 
-      if (!response.ok) throw new Error(data.message);
-
-      toast.success('Webhook configurado com sucesso!');
-      fetchConfig();
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar configuração');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const stats = {
+    totalInstances: totalInstances || 0,
+    errors24h: errors24h || 0,
+    uptimeAverage,
+    activeInstances: activeInstances.length,
+  };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold">Configuração N8N</h1>
-        <p className="text-muted-foreground mt-1">
-          Configure os webhooks e credenciais do n8n para extração de leads
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Webhook className="h-5 w-5 text-primary" />
-            <CardTitle>Webhook ICP - VendAgro</CardTitle>
-          </div>
-          <CardDescription>
-            Configure a URL e credenciais de autenticação para o webhook de extração de leads ICP
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="webhook_url">URL do Webhook</Label>
-            <Input
-              id="webhook_url"
-              type="url"
-              placeholder="https://vendai-n8n.aw5nou.easypanel.host/webhook/..."
-              value={formData.webhook_url}
-              onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">
-              URL completa do webhook n8n para extração de leads ICP
-            </p>
-          </div>
-
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-semibold mb-3">Autenticação Basic Auth</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="auth_username">Username</Label>
-                <Input
-                  id="auth_username"
-                  placeholder="Username"
-                  value={formData.auth_username}
-                  onChange={(e) => setFormData({ ...formData, auth_username: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="auth_password">Password</Label>
-                <Input
-                  id="auth_password"
-                  type="password"
-                  placeholder="Password"
-                  value={formData.auth_password}
-                  onChange={(e) => setFormData({ ...formData, auth_password: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-
-          {config && (
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center gap-2">
-              <Check className="h-4 w-4 text-primary" />
-              <p className="text-sm text-primary">
-                Webhook configurado e ativo
-              </p>
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Configuração'
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <N8NMonitorContent
+      instances={instances || []}
+      errors={errors || []}
+      stats={stats}
+    />
   );
 }

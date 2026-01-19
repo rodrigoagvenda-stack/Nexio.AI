@@ -389,16 +389,60 @@ export default function EmpresaDetailPage() {
             <div className="space-y-2">
               <Label htmlFor="plan_type">Plano</Label>
               <Select
-                value={company.plan_type || 'crm-smart'}
-                onValueChange={(value: any) => setCompany({ ...company, plan_type: value })}
+                value={company.plan_type || 'basic'}
+                onValueChange={(value: any) => {
+                  const planNameMap: Record<string, string> = {
+                    'basic': 'NEXIO SALES',
+                    'performance': 'NEXIO GROWTH',
+                    'advanced': 'NEXIO ADS'
+                  };
+                  const planPriceMap: Record<string, number> = {
+                    'basic': 1600,
+                    'performance': 2000,
+                    'advanced': 2600
+                  };
+                  setCompany({
+                    ...company,
+                    plan_type: value,
+                    plan_name: planNameMap[value] as any,
+                    plan_price: planPriceMap[value]
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="crm-smart">CRM Smart</SelectItem>
+                  <SelectItem value="basic">
+                    <div className="flex flex-col">
+                      <span className="font-medium">NEXIO SALES</span>
+                      <span className="text-xs text-muted-foreground">R$ 1.600/mês (sem extração)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="performance">
+                    <div className="flex flex-col">
+                      <span className="font-medium">NEXIO GROWTH</span>
+                      <span className="text-xs text-muted-foreground">R$ 2.000/mês (500 leads inclusos)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="advanced">
+                    <div className="flex flex-col">
+                      <span className="font-medium">NEXIO ADS</span>
+                      <span className="text-xs text-muted-foreground">R$ 2.600/mês (Sales + Tráfego Pago)</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                {company.plan_type === 'basic' && <p>CRM Completo + Chat IA + Funil de Vendas</p>}
+                {company.plan_type === 'performance' && (
+                  <>
+                    <p>500 leads inclusos/mês</p>
+                    <p>Leads extras: R$ 1/lead ou R$ 400 por pacote de +500</p>
+                  </>
+                )}
+                {company.plan_type === 'advanced' && <p>Sales + Gestão de Tráfego Pago integrado</p>}
+              </div>
             </div>
 
             <div className="space-y-2">

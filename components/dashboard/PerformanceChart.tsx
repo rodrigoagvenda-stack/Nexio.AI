@@ -24,6 +24,24 @@ interface PerformanceChartProps {
 }
 
 export function PerformanceChart({ data }: PerformanceChartProps) {
+  // Renderizador customizado para legenda com ícones circulares
+  const renderLegend = (props: any) => {
+    const { payload } = props;
+    return (
+      <div className="flex justify-center gap-6" style={{ paddingTop: '30px' }}>
+        {payload.map((entry: any, index: number) => (
+          <div key={`item-${index}`} className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-sm text-foreground">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -56,13 +74,11 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                 }}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
               />
-              <Legend
-                wrapperStyle={{ color: 'hsl(var(--foreground))' }}
-              />
+              <Legend content={renderLegend} />
               <Bar
                 dataKey="leads"
                 name="Total Leads"
-                fill="hsl(var(--primary))"
+                fill="#9333ea"
                 radius={[4, 4, 0, 0]}
                 animationDuration={1000}
                 animationBegin={200}
@@ -70,7 +86,7 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
               <Bar
                 dataKey="fechados"
                 name="Fechados"
-                fill="#10b981"
+                fill="#404040"
                 radius={[4, 4, 0, 0]}
                 animationDuration={1000}
                 animationBegin={400}

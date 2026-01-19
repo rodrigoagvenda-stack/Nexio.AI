@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Debug: log dos parâmetros recebidos
+    console.log('[DEBUG] Assign chat params:', { chatId, companyId, assignedTo, assignedBy });
+
     // Verificar se chat existe e pertence à empresa
     const { data: chat, error: chatError } = await supabase
       .from('conversas_do_whatsapp')
@@ -27,9 +30,15 @@ export async function POST(request: NextRequest) {
       .eq('company_id', companyId)
       .single();
 
+    console.log('[DEBUG] Chat query result:', { chat, chatError });
+
     if (chatError || !chat) {
       return NextResponse.json(
-        { success: false, message: 'Chat não encontrado' },
+        {
+          success: false,
+          message: `Chat não encontrado. chatId: ${chatId}, companyId: ${companyId}`,
+          debug: { chatError: chatError?.message }
+        },
         { status: 404 }
       );
     }

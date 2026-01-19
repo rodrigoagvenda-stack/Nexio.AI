@@ -23,6 +23,7 @@ interface Lead {
   status: string;
   project_value: number;
   created_at: string;
+  closed_at: string | null;
 }
 
 export default function DashboardPage() {
@@ -60,7 +61,7 @@ export default function DashboardPage() {
 
       const { data: leadsData } = await supabase
         .from('leads')
-        .select('id, status, project_value, created_at')
+        .select('id, status, project_value, created_at, closed_at')
         .eq('company_id', userData.company_id)
         .order('created_at', { ascending: true });
 
@@ -73,6 +74,11 @@ export default function DashboardPage() {
   };
 
   const filterLeadsByPeriod = () => {
+    if (leads.length === 0) {
+      setFilteredLeads([]);
+      return;
+    }
+
     const now = new Date();
     let filtered = leads;
 
@@ -81,10 +87,13 @@ export default function DashboardPage() {
         filtered = leads.filter((lead) => {
           const leadDate = new Date(lead.created_at);
           return isWithinInterval(leadDate, {
-            start: dateRange.from!,
+            start: startOfDay(dateRange.from!),
             end: endOfDay(dateRange.to!),
           });
         });
+      } else {
+        // Se custom mas sem range, mostra todos
+        filtered = leads;
       }
     } else {
       const periodStarts = {
@@ -99,7 +108,7 @@ export default function DashboardPage() {
       if (periodStart) {
         filtered = leads.filter((lead) => {
           const leadDate = new Date(lead.created_at);
-          return leadDate >= periodStart;
+          return leadDate >= periodStart && leadDate <= now;
         });
       }
     }
@@ -121,11 +130,47 @@ export default function DashboardPage() {
   const totalLeads = filteredLeads.length;
   const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
   const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
-  const fechados = filteredLeads.filter((l) => l.status === 'Fechado').length;
-  const faturamento = filteredLeads
-    .filter((l) => l.status === 'Fechado')
-    .reduce((sum, l) => sum + (l.project_value || 0), 0);
+
+  // Para leads fechados, filtramos por closed_at dentro do período
+  const now = new Date();
+  let leadsClosedInPeriod = leads.filter((l) => l.status === 'Fechado' && l.closed_at);
+
+  if (selectedPeriod !== 'custom') {
+    const periodStarts = {
+      today: startOfDay(now),
+      week: startOfWeek(now, { weekStartsOn: 0 }),
+      month: startOfMonth(now),
+      year: startOfYear(now),
+    };
+    const periodStart = periodStarts[selectedPeriod as keyof typeof periodStarts];
+
+    if (periodStart) {
+      leadsClosedInPeriod = leadsClosedInPeriod.filter((l) => {
+        const closedDate = new Date(l.closed_at!);
+        return closedDate >= periodStart && closedDate <= now;
+      });
+    }
+  } else if (dateRange?.from && dateRange?.to) {
+    leadsClosedInPeriod = leadsClosedInPeriod.filter((l) => {
+      const closedDate = new Date(l.closed_at!);
+      return isWithinInterval(closedDate, {
+        start: startOfDay(dateRange.from!),
+        end: endOfDay(dateRange.to!),
+      });
+    });
+  }
+
+  const fechados = leadsClosedInPeriod.length;
+  const faturamento = leadsClosedInPeriod.reduce((sum, l) => sum + (l.project_value || 0), 0);
   const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
+
+  // Debug: ver status dos leads
+  const statusCount = filteredLeads.reduce((acc, l) => {
+    acc[l.status] = (acc[l.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  console.log('📊 Status dos leads filtrados:', JSON.stringify(statusCount));
+  console.log('💰 Leads fechados:', fechados, '| Faturamento:', faturamento);
 
   // Dados do gráfico de performance - ADAPTATIVO por período
   const generatePerformanceData = () => {
@@ -134,36 +179,62 @@ export default function DashboardPage() {
     switch (selectedPeriod) {
       case 'today': {
         // HOJE: Mostrar 24 horas (0h-23h)
+        const today = startOfDay(now);
         return Array.from({ length: 24 }, (_, i) => {
           const hourLeads = filteredLeads.filter((lead) => {
             const leadDate = new Date(lead.created_at);
-            return leadDate.getHours() === i;
+            return (
+              leadDate >= today &&
+              leadDate < new Date(today.getTime() + 24 * 60 * 60 * 1000) &&
+              leadDate.getHours() === i
+            );
+          });
+
+          // Para fechados, usar closed_at
+          const hourFechados = leadsClosedInPeriod.filter((lead) => {
+            if (!lead.closed_at) return false;
+            const closedDate = new Date(lead.closed_at);
+            return (
+              closedDate >= today &&
+              closedDate < new Date(today.getTime() + 24 * 60 * 60 * 1000) &&
+              closedDate.getHours() === i
+            );
           });
 
           return {
             name: `${i}h`,
             leads: hourLeads.length,
-            fechados: hourLeads.filter((l) => l.status === 'Fechado').length,
+            fechados: hourFechados.length,
           };
         });
       }
 
       case 'week': {
         // SEMANA: Mostrar 7 dias
+        const weekStart = startOfWeek(now, { weekStartsOn: 0 });
         return Array.from({ length: 7 }, (_, i) => {
-          const date = new Date(now);
-          date.setDate(date.getDate() - (6 - i));
+          const date = new Date(weekStart);
+          date.setDate(date.getDate() + i);
           const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' });
+          const dayStart = startOfDay(date);
+          const dayEnd = endOfDay(date);
 
           const dayLeads = filteredLeads.filter((lead) => {
             const leadDate = new Date(lead.created_at);
-            return leadDate.toDateString() === date.toDateString();
+            return leadDate >= dayStart && leadDate <= dayEnd;
+          });
+
+          // Para fechados, usar closed_at
+          const dayFechados = leadsClosedInPeriod.filter((lead) => {
+            if (!lead.closed_at) return false;
+            const closedDate = new Date(lead.closed_at);
+            return closedDate >= dayStart && closedDate <= dayEnd;
           });
 
           return {
             name: dayName,
             leads: dayLeads.length,
-            fechados: dayLeads.filter((l) => l.status === 'Fechado').length,
+            fechados: dayFechados.length,
           };
         });
       }
@@ -175,19 +246,27 @@ export default function DashboardPage() {
         let weekNum = 1;
 
         for (let d = new Date(startOfMonthDate); d <= now; ) {
-          const weekStart = new Date(d);
+          const weekStart = startOfDay(d);
           const weekEnd = new Date(d);
           weekEnd.setDate(weekEnd.getDate() + 6);
+          const weekEndDay = endOfDay(weekEnd);
 
           const weekLeads = filteredLeads.filter((lead) => {
             const leadDate = new Date(lead.created_at);
-            return leadDate >= weekStart && leadDate <= weekEnd;
+            return leadDate >= weekStart && leadDate <= weekEndDay;
+          });
+
+          // Para fechados, usar closed_at
+          const weekFechados = leadsClosedInPeriod.filter((lead) => {
+            if (!lead.closed_at) return false;
+            const closedDate = new Date(lead.closed_at);
+            return closedDate >= weekStart && closedDate <= weekEndDay;
           });
 
           weeks.push({
             name: `Sem ${weekNum}`,
             leads: weekLeads.length,
-            fechados: weekLeads.filter((l) => l.status === 'Fechado').length,
+            fechados: weekFechados.length,
           });
 
           d.setDate(d.getDate() + 7);
@@ -231,10 +310,12 @@ export default function DashboardPage() {
             const date = new Date(dateRange.from!);
             date.setDate(date.getDate() + i);
             const dayName = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            const dayStart = startOfDay(date);
+            const dayEnd = endOfDay(date);
 
             const dayLeads = filteredLeads.filter((lead) => {
               const leadDate = new Date(lead.created_at);
-              return leadDate.toDateString() === date.toDateString();
+              return leadDate >= dayStart && leadDate <= dayEnd;
             });
 
             return {
@@ -250,14 +331,14 @@ export default function DashboardPage() {
         let weekNum = 1;
 
         for (let d = new Date(dateRange.from); d <= dateRange.to; ) {
-          const weekStart = new Date(d);
+          const weekStart = startOfDay(d);
           const weekEnd = new Date(d);
           weekEnd.setDate(weekEnd.getDate() + 6);
-          if (weekEnd > dateRange.to) weekEnd.setTime(dateRange.to.getTime());
+          const weekEndDay = weekEnd > dateRange.to ? endOfDay(dateRange.to) : endOfDay(weekEnd);
 
           const weekLeads = filteredLeads.filter((lead) => {
             const leadDate = new Date(lead.created_at);
-            return leadDate >= weekStart && leadDate <= weekEnd;
+            return leadDate >= weekStart && leadDate <= weekEndDay;
           });
 
           weeks.push({
@@ -282,8 +363,8 @@ export default function DashboardPage() {
 
   // Dados do donut de conversão
   const conversionData = [
-    { name: 'Fechados', value: fechados, color: '#191919' },
-    { name: 'Em andamento', value: totalLeads - fechados, color: 'hsl(var(--primary))' },
+    { name: 'Fechados', value: fechados, color: '#404040' },
+    { name: 'Em andamento', value: totalLeads - fechados, color: '#9333ea' },
   ];
 
   // Dados do funil
@@ -433,10 +514,10 @@ export default function DashboardPage() {
 
       {/* Funil de Vendas e Vendas Recentes */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 min-h-[500px]">
+        <div className="lg:col-span-2">
           <SalesFunnel stages={funnelStages} totalLeads={totalLeads} />
         </div>
-        <div className="min-h-[500px]">
+        <div className="h-[500px]">
           <RecentSales />
         </div>
       </div>

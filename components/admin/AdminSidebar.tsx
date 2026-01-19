@@ -17,6 +17,8 @@ import {
   ChevronRight,
   ArrowLeft,
   Webhook,
+  Bug,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -57,9 +59,14 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       icon: FileText,
     },
     {
-      href: '/admin/n8n',
-      label: 'N8N',
+      href: '/admin/webhooks',
+      label: 'Webhooks & APIs',
       icon: Webhook,
+    },
+    {
+      href: '/admin/n8n',
+      label: 'Monitor N8N',
+      icon: Activity,
     },
     {
       href: '/admin/logs',

@@ -30,6 +30,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 export default function UsuariosPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -38,6 +47,8 @@ export default function UsuariosPage() {
   const [filterCompany, setFilterCompany] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -119,6 +130,18 @@ export default function UsuariosPage() {
   const filteredUsers = filterCompany === 'all'
     ? users
     : users.filter(u => u.company_id === parseInt(filterCompany));
+
+  // Calcular paginação
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset página quando filtrar
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterCompany]);
 
   return (
     <div className="space-y-6">
@@ -245,7 +268,7 @@ export default function UsuariosPage() {
             <>
               {/* Cards para Mobile */}
               <div className="md:hidden space-y-4">
-                {filteredUsers.map((user: any) => (
+                {paginatedUsers.map((user: any) => (
                   <Card key={user.id} className="overflow-hidden">
                     <CardContent className="p-4">
                       <div className="space-y-3">
@@ -330,7 +353,7 @@ export default function UsuariosPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((user: any) => (
+                    {paginatedUsers.map((user: any) => (
                       <tr key={user.id} className="border-b hover:bg-accent">
                         <td className="p-3 font-medium text-sm">{user.name}</td>
                         <td className="p-3 text-sm">{user.email}</td>
@@ -381,6 +404,52 @@ export default function UsuariosPage() {
                 </table>
               </div>
             </>
+          )}
+
+          {/* Paginação */}
+          {filteredUsers.length > 0 && totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                    if (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    ) {
+                      return (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(page)}
+                            isActive={currentPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <PaginationEllipsis key={page} />;
+                    }
+                    return null;
+                  })}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           )}
         </CardContent>
       </Card>

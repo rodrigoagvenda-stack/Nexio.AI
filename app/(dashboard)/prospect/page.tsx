@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useUser } from '@/lib/hooks/useUser';
 import { Card } from '@/components/ui/card';
+import TextType from '@/components/TextType';
+import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
+import Orb from '@/components/Orb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,7 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Link2, Zap, FileText, Users, Loader2, MapPin } from 'lucide-react';
+import { Link2, Zap, Loader2, MapPin, Lock, Sparkles } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
 
@@ -49,6 +52,14 @@ const NICHOS = [
 export default function ProspectAIPage() {
   const { company } = useUser();
   const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
+
+  // DEBUG
+  if (company) {
+    console.log('COMPANY PLAN_NAME:', company.plan_name);
+    console.log('COMPANY FULL:', company);
+  }
+
+  const hasOrbitAccess = company?.plan_name === 'NEXIO GROWTH' || company?.plan_name === 'NEXIO ADS';
 
   // URL Mode
   const [mapsUrl, setMapsUrl] = useState('');
@@ -183,50 +194,136 @@ export default function ProspectAIPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8 pt-20">
-      <div className="w-full max-w-4xl space-y-8 md:space-y-12">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
-            A maior <span className="text-primary">engine de prospecção B2B</span> já construída.
-          </h1>
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Transforme qualquer busca do Google Maps em leads qualificados.
-          </p>
+  // Se não tem acesso ao Orbit, mostrar mensagem de upgrade
+  if (!hasOrbitAccess) {
+    return (
+      <div className="h-screen bg-background relative overflow-hidden flex items-center justify-center">
+        {/* Orb background com efeito React Bits */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[700px] h-[700px]">
+            <Orb hue={270} backgroundColor="hsl(var(--background))" />
+          </div>
         </div>
 
-        {/* Main Card */}
-        <Card className="p-4 md:p-8 space-y-4 md:space-y-6 bg-card border-border">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'url' | 'manual')}>
-            <TabsList className="grid w-full grid-cols-2 mb-4 md:mb-6">
-              <TabsTrigger value="manual" className="text-xs md:text-sm">
-                <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Buscar por Cidade
-              </TabsTrigger>
-              <TabsTrigger value="url" className="text-xs md:text-sm">
-                <Link2 className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-                Cole a URL do Maps
-              </TabsTrigger>
-            </TabsList>
+        <div className="relative max-w-2xl mx-auto px-6">
+          <div className="space-y-8 text-center">
+            {/* Hero */}
+            <div className="space-y-6">
+              <div className="min-h-[60px] md:min-h-[80px] lg:min-h-[100px] flex items-center justify-center w-full">
+                <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-light tracking-tight">
+                  Prospecção inteligente.
+                </h1>
+              </div>
+            </div>
+
+            {/* Mensagem de upgrade */}
+            <Card className="relative p-8 border border-border/40 bg-card/60 backdrop-blur-lg rounded-2xl shadow-2xl">
+              <div className="flex flex-col items-center space-y-6">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 rounded-full blur-xl opacity-30"></div>
+                  <div className="relative bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 p-4 rounded-full">
+                    <Lock className="h-10 w-10 text-white" />
+                  </div>
+                </div>
+
+                <div className="space-y-3 max-w-md">
+                  <h2 className="text-xl font-semibold bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
+                    Orbit não disponível no seu plano
+                  </h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    O recurso de prospecção inteligente com Orbit está disponível apenas nos planos <span className="font-semibold text-purple-400">NEXIO GROWTH</span> e <span className="font-semibold text-pink-500">NEXIO ADS</span>.
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Você está no plano <span className="font-semibold">{company?.plan_name || 'NEXIO SALES'}</span>.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    onClick={() => window.location.href = '/admin/empresas/' + company?.id}
+                    className="group bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700 shadow-lg shadow-purple-500/30 rounded-xl"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Fazer upgrade do plano
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen bg-background relative overflow-hidden flex items-center justify-center">
+      {/* Orb background com efeito React Bits */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-[700px] h-[700px]">
+          <Orb hue={270} backgroundColor="hsl(var(--background))" />
+        </div>
+      </div>
+
+      <div className="relative max-w-2xl mx-auto px-6">
+        <div className="space-y-8 text-center">
+          {/* Hero */}
+          <div className="space-y-6">
+            <div className="min-h-[60px] md:min-h-[80px] lg:min-h-[100px] flex items-center justify-center w-full">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-light tracking-tight whitespace-nowrap">
+                <TextType
+                  text={[
+                    'Prospecção inteligente.',
+                    'Leads qualificados.',
+                    'Vendas automatizadas.',
+                  ]}
+                  as="span"
+                  className="font-light inline-block whitespace-nowrap"
+                  typingSpeed={80}
+                  deletingSpeed={40}
+                  pauseDuration={2000}
+                  showCursor={true}
+                  cursorCharacter="|"
+                  cursorClassName="text-primary"
+                  variableSpeed={false}
+                  onSentenceComplete={() => {}}
+                />
+              </h1>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div>
+            <Card className="relative p-6 border border-border/40 bg-card/60 backdrop-blur-lg rounded-2xl shadow-2xl">
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'url' | 'manual')}>
+                <TabsList className="grid w-full grid-cols-2 mb-6 h-11 bg-muted/30 rounded-xl border border-border/50">
+                  <TabsTrigger value="manual" className="text-xs md:text-sm data-[state=active]:bg-background/80 rounded-lg">
+                    <MapPin className="h-3.5 w-3.5 mr-2" />
+                    Buscar por Cidade
+                  </TabsTrigger>
+                  <TabsTrigger value="url" className="text-xs md:text-sm data-[state=active]:bg-background/80 rounded-lg">
+                    <Link2 className="h-3.5 w-3.5 mr-2" />
+                    Cole a URL do Maps
+                  </TabsTrigger>
+                </TabsList>
 
             {/* Manual Mode */}
-            <TabsContent value="manual" className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
+            <TabsContent value="manual" className="space-y-4 min-h-[180px] text-left">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Cidade</label>
+                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Cidade</label>
                   <Input
-                    placeholder="Ex: São Paulo"
+                    placeholder="São Paulo"
                     value={cidade}
                     onChange={(e) => setCidade(e.target.value)}
                     disabled={extracting}
+                    className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Estado</label>
+                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Estado</label>
                   <Select value={estado} onValueChange={setEstado} disabled={extracting}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o estado" />
+                    <SelectTrigger className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50">
+                      <SelectValue placeholder="UF" />
                     </SelectTrigger>
                     <SelectContent>
                       {ESTADOS_BRASIL.map((uf) => (
@@ -240,10 +337,10 @@ export default function ProspectAIPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Nicho / Segmento</label>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Segmento</label>
                 <Select value={nicho} onValueChange={setNicho} disabled={extracting}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o nicho" />
+                  <SelectTrigger className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50">
+                    <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
                     {NICHOS.map((n) => (
@@ -257,46 +354,52 @@ export default function ProspectAIPage() {
 
               {nicho === 'Outros' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Digite o nicho</label>
+                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block text-left">Nicho personalizado</label>
                   <Input
-                    placeholder="Ex: Lojas de Produtos Naturais"
+                    placeholder="Digite o nicho"
                     value={customNicho}
                     onChange={(e) => setCustomNicho(e.target.value)}
                     disabled={extracting}
+                    className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50 transition-colors"
                   />
                 </div>
               )}
             </TabsContent>
 
             {/* URL Mode */}
-            <TabsContent value="url" className="space-y-4">
+            <TabsContent value="url" className="space-y-4 min-h-[180px] text-left">
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Link2 className="h-4 w-4" />
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 text-left">
+                  <Link2 className="h-3 w-3" />
                   URL do Google Maps
                 </label>
-                <Input
-                  placeholder="https://www.google.com/maps/search/..."
-                  value={mapsUrl}
-                  onChange={(e) => setMapsUrl(e.target.value)}
-                  disabled={extracting}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Aceita URLs do Google Maps (.com ou .com.br)
+                <div className="relative">
+                  <Input
+                    placeholder="https://www.google.com/maps/search/..."
+                    value={mapsUrl}
+                    onChange={(e) => setMapsUrl(e.target.value)}
+                    disabled={extracting}
+                    className="h-10 font-mono text-xs bg-background/50 border-border/50 focus:border-primary/50 transition-colors pr-10"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse"></div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60">
+                  Cole a URL da busca do Google Maps
                 </p>
               </div>
             </TabsContent>
           </Tabs>
 
           {/* Lead Limit */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-3 pt-1">
             <Select
               value={leadLimit.toString()}
               onValueChange={(v) => setLeadLimit(parseInt(v))}
               disabled={extracting}
             >
-              <SelectTrigger className="w-full sm:w-40">
+              <SelectTrigger className="w-32 h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -307,68 +410,44 @@ export default function ProspectAIPage() {
                 ))}
               </SelectContent>
             </Select>
-            <span className="text-sm text-muted-foreground">leads para extrair</span>
+            <span className="text-xs text-muted-foreground/60 font-light">leads para extrair</span>
           </div>
 
           {/* Extract Button */}
           <Button
             onClick={handleExtract}
             disabled={extracting}
-            size="lg"
-            className="w-full text-base md:text-lg h-12 md:h-14"
+            className="group w-full h-11 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700 shadow-lg shadow-purple-500/30 rounded-xl mt-5 relative overflow-hidden"
           >
-            {extracting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 md:h-5 md:w-5 animate-spin" />
-                {currentAction}
-              </>
-            ) : (
-              'Extrair leads'
-            )}
+            <AnimatedShinyText className="inline-flex items-center justify-center text-sm font-medium text-white dark:text-background">
+              {extracting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {currentAction}
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Extrair leads com o orbit.ai
+                </>
+              )}
+            </AnimatedShinyText>
           </Button>
 
           {/* Progress */}
           {extracting && (
-            <div className="space-y-2">
-              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div className="space-y-2.5 mt-5">
+              <div className="w-full bg-muted/30 rounded-full h-1 overflow-hidden">
                 <div
-                  className="bg-primary h-full transition-all duration-500"
+                  className="bg-gradient-to-r from-primary to-purple-500 h-full transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-sm text-center text-muted-foreground">{progress}%</p>
+              <p className="text-[10px] text-center text-muted-foreground/60 font-light">{progress}% concluído</p>
             </div>
           )}
-        </Card>
-
-        {/* Benefits */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-          <Card className="p-4 md:p-6 space-y-3 bg-card/50 border-border/50">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Zap className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-            </div>
-            <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-              Extrai dados de Google Maps automaticamente com IA em segundos.
-            </p>
-          </Card>
-
-          <Card className="p-4 md:p-6 space-y-3 bg-card/50 border-border/50">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileText className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-            </div>
-            <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-              Captura nome, telefone, email, endereço e redes sociais em um clique.
-            </p>
-          </Card>
-
-          <Card className="p-4 md:p-6 space-y-3 bg-card/50 border-border/50 sm:col-span-2 md:col-span-1">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-            </div>
-            <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-              Leads organizados e qualificados direto no seu pipeline de vendas.
-            </p>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

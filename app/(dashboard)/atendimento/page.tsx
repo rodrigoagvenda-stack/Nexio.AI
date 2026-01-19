@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2 } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -81,6 +81,7 @@ export default function AtendimentoPage() {
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const [assignDialog, setAssignDialog] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -850,7 +851,7 @@ export default function AtendimentoPage() {
         {/* Lista de Conversas */}
         <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="flex-shrink-0">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 mb-5">
               <MessageSquare className="h-5 w-5" />
               Conversas
             </CardTitle>
@@ -874,38 +875,85 @@ export default function AtendimentoPage() {
                 <button
                   key={conv.id}
                   onClick={() => setSelectedConversation(conv)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  className={`w-full text-left p-3 rounded-lg border transition-colors relative ${
                     selectedConversation?.id === conv.id
-                      ? 'bg-primary/10 border-primary'
+                      ? 'bg-muted border-border'
                       : 'hover:bg-accent'
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <Avatar>
-                      <AvatarFallback>
-                        {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar>
+                        <AvatarFallback>
+                          {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {conv.contagem_nao_lida > 0 && (
+                        <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-semibold">
+                          {conv.contagem_nao_lida}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <p className="font-semibold truncate">
                           {conv.nome_do_contato || conv.numero_de_telefone}
                         </p>
-                        {conv.contagem_nao_lida > 0 && (
-                          <Badge className="ml-2">{conv.contagem_nao_lida}</Badge>
-                        )}
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                          {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                       {conv.lead && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {conv.lead.company_name}
-                        </p>
+                        <div className="flex items-center gap-1 mb-1">
+                          <Building2 className="h-3 w-3 text-muted-foreground" />
+                          <p className="text-xs text-muted-foreground truncate">
+                            {conv.lead.company_name}
+                          </p>
+                        </div>
                       )}
-                      <p className="text-sm text-muted-foreground truncate mt-1">
+                      <p className="text-xs text-muted-foreground truncate mt-1 line-clamp-2">
                         {conv.ultima_mensagem}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDateTime(conv.hora_da_ultima_mensagem)}
-                      </p>
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        {conv.assigned_to && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/50 text-primary">
+                            <UserCircle2 className="h-2.5 w-2.5 mr-0.5" />
+                            Atribuído
+                          </Badge>
+                        )}
+                        {conv.etiquetas?.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                            style={{
+                              borderColor: tag === 'VIP' ? '#22c55e' : undefined,
+                              color: tag === 'VIP' ? '#22c55e' : undefined
+                            }}
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        {conv.lead && (
+                          <>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {conv.lead.status}
+                            </Badge>
+                            {conv.lead.priority && (
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 ${
+                                  conv.lead.priority === 'Alta' ? 'border-red-500 text-red-600' :
+                                  conv.lead.priority === 'Média' ? 'border-primary text-primary' :
+                                  'border-gray-400 text-gray-600'
+                                }`}
+                              >
+                                {conv.lead.priority}
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -915,7 +963,7 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Área de Chat */}
-        <Card className={`col-span-12 lg:col-span-6 flex flex-col overflow-hidden ${!selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
+        <Card className={`col-span-12 ${isSidebarOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex flex-col overflow-hidden ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
@@ -948,9 +996,33 @@ export default function AtendimentoPage() {
                           {selectedConversation.lead.company_name}
                         </p>
                       )}
+                      {selectedConversation.assigned_to && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                          <UserCircle2 className="h-3 w-3" />
+                          <span>Atribuído a você</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {selectedConversation.numero_de_telefone && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')}
+                        title="Abrir no WhatsApp"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setScheduleDialog(true)}
+                      title="Agendar mensagem"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -958,13 +1030,19 @@ export default function AtendimentoPage() {
                       title={selectedConversation.assigned_to ? "Transferir atendimento" : "Atribuir atendimento"}
                     >
                       <UserCircle2 className="h-4 w-4 mr-2" />
-                      {selectedConversation.assigned_to ? "Transferir" : "Atribuir"}
+                      <span className="hidden sm:inline">{selectedConversation.assigned_to ? "Transferir" : "Atribuir"}</span>
                     </Button>
-                    <Badge variant="outline">
-                      {selectedConversation.status_da_conversa}
-                    </Badge>
-                    {selectedConversation.etiquetas?.map((tag) => (
-                      <Badge key={tag} variant="secondary">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                      title={isSidebarOpen ? "Fechar sidebar" : "Abrir sidebar"}
+                      className="hidden lg:flex"
+                    >
+                      {isSidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                    </Button>
+                    {selectedConversation.etiquetas?.slice(0, 2).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="hidden md:flex">
                         {tag}
                       </Badge>
                     ))}
@@ -992,7 +1070,7 @@ export default function AtendimentoPage() {
               </CardHeader>
 
               {/* Mensagens */}
-              <CardContent className="flex-1 overflow-y-auto p-[20px] space-y-4 scrollbar-minimal">
+              <CardContent className="flex-1 overflow-y-auto p-[20px] space-y-4 scrollbar-minimal chat-background">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
@@ -1024,7 +1102,7 @@ export default function AtendimentoPage() {
                               : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
-                              ? 'bg-primary text-primary-foreground'
+                              ? 'bg-purple-500/30 text-foreground border border-purple-500/20'
                               : 'bg-muted'
                           } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
                         >
@@ -1157,19 +1235,18 @@ export default function AtendimentoPage() {
                     />
                     <Button
                       type={newMessage.trim() ? 'submit' : 'button'}
-                      size="icon"
                       onClick={() => {
                         if (!newMessage.trim()) {
                           setShowAudioRecorder(true);
                         }
                       }}
                       disabled={loading}
-                      className="bg-primary hover:bg-primary/90"
+                      className="bg-primary hover:bg-primary/90 rounded-full h-12 w-12 min-h-12 min-w-12 p-0 flex items-center justify-center shrink-0"
                     >
                       {newMessage.trim() ? (
-                        <Send className="h-4 w-4" />
+                        <Send className="h-5 w-5" />
                       ) : (
-                        <Mic className="h-4 w-4" />
+                        <Mic className="h-5 w-5" />
                       )}
                     </Button>
                   </form>
@@ -1189,49 +1266,51 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Lead Info Sidebar */}
-        {selectedConversation?.lead ? (
-          <LeadInfoSidebar
-            lead={selectedConversation.lead}
-            phone={selectedConversation.numero_de_telefone}
-            companyId={company!.id}
-            userId={user!.user_id}
-            chatId={selectedConversation.id}
-            tags={selectedConversation.etiquetas || []}
-            onLeadUpdate={(updatedLead) => {
-              // Atualizar o lead na conversa selecionada
-              setSelectedConversation((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      lead: updatedLead,
-                    }
-                  : prev
-              );
-              // Recarregar conversas para atualizar Kanban via Realtime
-              fetchConversations();
-            }}
-            onTagsUpdate={(updatedTags) => {
-              // Atualizar tags na conversa selecionada
-              setSelectedConversation((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      etiquetas: updatedTags,
-                    }
-                  : prev
-              );
-              // Recarregar conversas para atualizar sidebar
-              fetchConversations();
-            }}
-          />
-        ) : (
-          <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
-            <div className="flex-1 flex items-center justify-center p-6">
-              <p className="text-sm text-muted-foreground text-center">
-                Selecione uma conversa para ver as informações do lead
-              </p>
-            </div>
-          </Card>
+        {isSidebarOpen && (
+          selectedConversation?.lead ? (
+            <LeadInfoSidebar
+              lead={selectedConversation.lead}
+              phone={selectedConversation.numero_de_telefone}
+              companyId={company!.id}
+              userId={user!.user_id}
+              chatId={selectedConversation.id}
+              tags={selectedConversation.etiquetas || []}
+              onLeadUpdate={(updatedLead) => {
+                // Atualizar o lead na conversa selecionada
+                setSelectedConversation((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        lead: updatedLead,
+                      }
+                    : prev
+                );
+                // Recarregar conversas para atualizar Kanban via Realtime
+                fetchConversations();
+              }}
+              onTagsUpdate={(updatedTags) => {
+                // Atualizar tags na conversa selecionada
+                setSelectedConversation((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        etiquetas: updatedTags,
+                      }
+                    : prev
+                );
+                // Recarregar conversas para atualizar sidebar
+                fetchConversations();
+              }}
+            />
+          ) : (
+            <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
+              <div className="flex-1 flex items-center justify-center p-6">
+                <p className="text-sm text-muted-foreground text-center">
+                  Selecione uma conversa para ver as informações do lead
+                </p>
+              </div>
+            </Card>
+          )
         )}
       </div>
 

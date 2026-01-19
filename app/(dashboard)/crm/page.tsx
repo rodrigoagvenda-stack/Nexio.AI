@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
+import { useRouter } from 'next/navigation';
+import { OrbitCard, OrbitCardContent } from '@/components/ui/orbit-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Stepper, Step } from '@/components/ui/stepper';
 import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
@@ -58,6 +61,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 // Componente de card draggable para o Kanban
 function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
@@ -101,8 +105,8 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className="group hover:shadow-md transition-all duration-200 mb-3 dark:bg-[#0A0A0A] bg-card h-[200px]">
-        <CardContent className="p-4 space-y-3 h-full flex flex-col">
+      <OrbitCard className="group hover:shadow-md transition-all duration-200 mb-3 dark:bg-[#0A0A0A] bg-card h-[200px]">
+        <OrbitCardContent className="p-4 space-y-3 h-full flex flex-col">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -188,8 +192,8 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
               {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </OrbitCardContent>
+      </OrbitCard>
     </div>
   );
 }
@@ -228,8 +232,8 @@ function DroppableColumn({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 mb-3 px-1">
+    <div className="flex flex-col h-[calc(100vh-220px)]">
+      <div className="flex items-center gap-2 mb-3 px-1 flex-shrink-0">
         <span className="text-sm">{getColumnIcon()}</span>
         <h3 className="font-medium text-sm text-foreground">{title}</h3>
         <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
@@ -238,7 +242,7 @@ function DroppableColumn({
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 rounded-lg p-2 min-h-[calc(100vh-250px)] transition-all ${
+        className={`flex-1 rounded-lg p-2 overflow-y-auto transition-all ${
           isOver ? 'bg-accent/50' : 'bg-transparent'
         }`}
       >
@@ -250,6 +254,7 @@ function DroppableColumn({
 }
 
 export default function CRMPage() {
+  const router = useRouter();
   const { user, company, loading: userLoading } = useUser();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -267,6 +272,9 @@ export default function CRMPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Stepper state
+  const [currentStep, setCurrentStep] = useState(0);
+
   // Form state
   const [formData, setFormData] = useState({
     company_name: '',
@@ -277,7 +285,7 @@ export default function CRMPage() {
     email: '',
     priority: 'Média',
     status: 'Lead novo',
-    nivel_interesse: 'Morno',
+    nivel_interesse: 'Morno 🌡️',
     import_source: 'Manual',
     project_value: 0,
     notes: '',
@@ -296,16 +304,22 @@ export default function CRMPage() {
 
   useEffect(() => {
     if (!userLoading && !hasFetched) {
+      if (!user) {
+        // Usuário não está logado - redireciona para login
+        router.push('/login');
+        return;
+      }
+
       if (user?.company_id) {
         fetchLeads();
         setHasFetched(true);
-      } else {
+      } else if (user && !user.company_id) {
         setError('Usuário não configurado. Verifique o banco de dados.');
         setLoading(false);
         setHasFetched(true);
       }
     }
-  }, [userLoading, user?.company_id, hasFetched]);
+  }, [userLoading, user, hasFetched, router]);
 
   async function fetchLeads() {
     try {
@@ -458,7 +472,7 @@ export default function CRMPage() {
         email: lead.email || '',
         priority: lead.priority || 'Média',
         status: lead.status || 'Lead novo',
-        nivel_interesse: lead.nivel_interesse || 'Morno',
+        nivel_interesse: lead.nivel_interesse || 'Morno 🥵',
         import_source: lead.import_source || 'Manual',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
@@ -480,6 +494,7 @@ export default function CRMPage() {
         notes: '',
       });
     }
+    setCurrentStep(0); // Reset stepper to first step
     setShowModal(true);
   };
 
@@ -680,6 +695,25 @@ export default function CRMPage() {
     );
   }
 
+  // Check if company has basic plan - Orbit features not available
+  if (company?.plan_type === 'basic') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center space-y-4">
+            <h2 className="text-2xl font-bold">Funcionalidade Indisponível</h2>
+            <p className="text-muted-foreground">
+              Essa funcionalidade não está disponível no seu plano atual.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Faça upgrade para <strong>NEXIO GROWTH</strong> ou <strong>NEXIO ADS</strong> para acessar recursos avançados.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="space-y-6">
@@ -687,13 +721,13 @@ export default function CRMPage() {
           <h1 className="text-3xl font-bold">CRM</h1>
           <p className="text-muted-foreground mt-1">Gerencie seus leads e oportunidades</p>
         </div>
-        <Card className="border-red-500">
-          <CardContent className="p-6">
+        <OrbitCard className="border-red-500">
+          <OrbitCardContent className="p-6">
             <div className="text-center space-y-4">
               <p className="text-red-500 font-semibold">❌ {error}</p>
             </div>
-          </CardContent>
-        </Card>
+          </OrbitCardContent>
+        </OrbitCard>
       </div>
     );
   }
@@ -792,13 +826,13 @@ export default function CRMPage() {
 
       {/* Content */}
       {leads.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
+        <OrbitCard>
+          <OrbitCardContent className="p-12 text-center">
             <p className="text-muted-foreground mb-4">
               Nenhum lead encontrado. Clique em "Adicionar Lead" para começar!
             </p>
-          </CardContent>
-        </Card>
+          </OrbitCardContent>
+        </OrbitCard>
       ) : viewMode === 'kanban' ? (
         <>
           {/* Desktop Kanban */}
@@ -809,11 +843,11 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="hidden md:flex gap-4 overflow-x-auto pb-4">
                 {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
-                    <div key={column.id}>
+                    <div key={column.id} className="w-[320px] flex-shrink-0">
                       <DroppableColumn
                     id={`column-${column.id}`}
                     title={column.title}
@@ -836,11 +870,11 @@ export default function CRMPage() {
             </div>
           <DragOverlay>
             {activeLead ? (
-              <Card className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
-                <CardContent className="p-4">
+              <OrbitCard className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
+                <OrbitCardContent className="p-4">
                   <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
-                </CardContent>
-              </Card>
+                </OrbitCardContent>
+              </OrbitCard>
             ) : null}
           </DragOverlay>
         </DndContext>
@@ -848,8 +882,8 @@ export default function CRMPage() {
         {/* Mobile Kanban - Vertical List with Status Selector */}
         <div className="md:hidden space-y-3">
           {filteredLeads.map((lead) => (
-            <Card key={lead.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-4">
+            <OrbitCard key={lead.id} className="hover:shadow-lg transition-shadow">
+              <OrbitCardContent className="p-4">
                 <div className="space-y-3">
                   {/* Header */}
                   <div className="flex items-start justify-between gap-2">
@@ -987,16 +1021,16 @@ export default function CRMPage() {
                     </p>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </OrbitCardContent>
+            </OrbitCard>
           ))}
         </div>
         </>
       ) : (
         <>
           {/* Desktop Table View */}
-          <Card className="hidden md:block border-border/50">
-            <CardContent className="p-0">
+          <OrbitCard className="hidden md:block border-border/50">
+            <OrbitCardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1080,7 +1114,7 @@ export default function CRMPage() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
+            </OrbitCardContent>
             {filteredLeads.length > 0 && (
               <SimplePagination
                 currentPage={currentPage}
@@ -1090,14 +1124,14 @@ export default function CRMPage() {
                 itemsPerPage={itemsPerPage}
               />
             )}
-          </Card>
+          </OrbitCard>
 
           {/* Mobile Card View */}
           <div className="md:hidden space-y-4">
             <div className="grid gap-4">
               {paginatedLeads.map((lead) => (
-              <Card key={lead.id} className="hover:shadow-lg transition-shadow">
-                <CardContent className="p-4 space-y-3">
+              <OrbitCard key={lead.id} className="hover:shadow-lg transition-shadow">
+                <OrbitCardContent className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <h3 className="font-semibold text-base">{lead.company_name}</h3>
@@ -1149,12 +1183,12 @@ export default function CRMPage() {
                       </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </OrbitCardContent>
+              </OrbitCard>
               ))}
             </div>
             {filteredLeads.length > 0 && (
-              <Card>
+              <OrbitCard>
                 <SimplePagination
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -1162,7 +1196,7 @@ export default function CRMPage() {
                   totalItems={filteredLeads.length}
                   itemsPerPage={itemsPerPage}
                 />
-              </Card>
+              </OrbitCard>
             )}
           </div>
         </>
@@ -1174,23 +1208,21 @@ export default function CRMPage() {
           <DialogHeader>
             <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
           </DialogHeader>
-          <Tabs defaultValue="basico" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basico">
-                <span className="sm:hidden">1</span>
-                <span className="hidden sm:inline">1. Informações Básicas</span>
-              </TabsTrigger>
-              <TabsTrigger value="contato">
-                <span className="sm:hidden">2</span>
-                <span className="hidden sm:inline">2. Contato</span>
-              </TabsTrigger>
-              <TabsTrigger value="detalhes">
-                <span className="sm:hidden">3</span>
-                <span className="hidden sm:inline">3. Detalhes</span>
-              </TabsTrigger>
-            </TabsList>
 
-            <TabsContent value="basico" className="space-y-4 mt-4">
+          {/* Stepper */}
+          <Stepper
+            steps={[
+              { label: 'Informações Básicas', description: 'Dados da empresa' },
+              { label: 'Contato', description: 'Meios de comunicação' },
+              { label: 'Detalhes', description: 'Prioridade e observações' },
+            ]}
+            currentStep={currentStep}
+            className="mb-6"
+          />
+
+          {/* Step 1: Informações Básicas */}
+          {currentStep === 0 && (
+            <div className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="company_name">Nome da Empresa *</Label>
                 <Input
@@ -1218,9 +1250,12 @@ export default function CRMPage() {
                   placeholder="Ex: https://exemplo.com.br ou @instagram"
                 />
               </div>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="contato" className="space-y-4 mt-4">
+          {/* Step 2: Contato */}
+          {currentStep === 1 && (
+            <div className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="contact_name">Nome do Contato</Label>
                 <Input
@@ -1249,9 +1284,12 @@ export default function CRMPage() {
                   placeholder="Ex: contato@empresa.com"
                 />
               </div>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="detalhes" className="space-y-4 mt-4">
+          {/* Step 3: Detalhes */}
+          {currentStep === 2 && (
+            <div className="space-y-4 mt-4">
               <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="priority">Prioridade *</Label>
@@ -1301,16 +1339,38 @@ export default function CRMPage() {
                   placeholder="Anotações sobre o lead..."
                 />
               </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
 
-          <DialogFooter className="gap-5">
-            <Button variant="outline" onClick={() => setShowModal(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveLead}>
-              {editingLead ? 'Atualizar' : 'Adicionar'}
-            </Button>
+          <DialogFooter className="gap-2 mt-6">
+            {currentStep > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(currentStep - 1)}
+              >
+                Voltar
+              </Button>
+            )}
+            {currentStep < 2 ? (
+              <Button
+                onClick={() => {
+                  // Validate current step before proceeding
+                  if (currentStep === 0) {
+                    if (!formData.company_name.trim()) {
+                      toast.error('Nome da empresa é obrigatório');
+                      return;
+                    }
+                  }
+                  setCurrentStep(currentStep + 1);
+                }}
+              >
+                Próximo
+              </Button>
+            ) : (
+              <Button onClick={handleSaveLead}>
+                {editingLead ? 'Atualizar' : 'Adicionar'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

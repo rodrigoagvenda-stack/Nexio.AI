@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Building2, TrendingUp, Zap, Check } from 'lucide-react';
 
 export default function NovaEmpresaPage() {
   const router = useRouter();
@@ -70,11 +70,11 @@ export default function NovaEmpresaPage() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações da Empresa</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl">
+          <div className="p-6 border-b border-white/[0.08]">
+            <h2 className="text-xl font-semibold">Informações da Empresa</h2>
+          </div>
+          <div className="p-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Nome da Empresa *</Label>
               <Input
@@ -111,21 +111,50 @@ export default function NovaEmpresaPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="plan_type">Plano *</Label>
-              <Select
-                value={formData.plan_type}
-                onValueChange={(value: any) => setFormData({ ...formData, plan_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="basic">Basic (R$ 197/mês)</SelectItem>
-                  <SelectItem value="performance">Performance (R$ 497/mês)</SelectItem>
-                  <SelectItem value="advanced">Advanced (R$ 997/mês)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { value: 'basic', name: 'NEXIO SALES', price: 'R$ 1.600', icon: Building2, color: 'from-blue-500/20 to-blue-600/20', features: ['CRM Completo', 'Chat IA', 'Funil de Vendas'] },
+                  { value: 'performance', name: 'NEXIO GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-purple-500/20 to-purple-600/20', features: ['Tudo do SALES', '+ Leads ICP', 'Extração Inteligente'] },
+                  { value: 'advanced', name: 'NEXIO ADS', price: 'R$ 2.600', icon: Zap, color: 'from-orange-500/20 to-orange-600/20', features: ['Tudo do GROWTH', '+ Gestão de Tráfego', 'Facebook Ads'] },
+                ].map((plan) => {
+                  const PlanIcon = plan.icon;
+                  const isSelected = formData.plan_type === plan.value;
+
+                  return (
+                    <button
+                      key={plan.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, plan_type: plan.value as any })}
+                      className={`relative overflow-hidden rounded-xl border p-4 text-left transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary'
+                          : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15]'
+                      }`}
+                    >
+                      <div className={`absolute inset-0 bg-gradient-to-br ${plan.color} opacity-50`} />
+                      <div className="relative space-y-3">
+                        <div className="flex items-center justify-between">
+                          <PlanIcon className="h-6 w-6" />
+                          {isSelected && <Check className="h-5 w-5 text-primary" />}
+                        </div>
+                        <div>
+                          <p className="font-semibold">{plan.name}</p>
+                          <p className="text-lg font-bold text-primary">{plan.price}<span className="text-sm text-muted-foreground">/mês</span></p>
+                        </div>
+                        <ul className="space-y-1">
+                          {plan.features.map((feature) => (
+                            <li key={feature} className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Check className="h-3 w-3" /> {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -190,8 +219,8 @@ export default function NovaEmpresaPage() {
                 )}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </form>
     </div>
   );

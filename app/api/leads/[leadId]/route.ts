@@ -49,6 +49,16 @@ export async function PATCH(
       updated_at: new Date().toISOString(),
     };
 
+    // Se o status está sendo alterado para "Fechado", registrar a data
+    if (field === 'status' && value === 'Fechado') {
+      updateData.closed_at = new Date().toISOString();
+    }
+
+    // Se o status está sendo alterado de "Fechado" para outro, limpar closed_at
+    if (field === 'status' && value !== 'Fechado') {
+      updateData.closed_at = null;
+    }
+
     // Executar update com filtro de company_id (segurança)
     const { data, error } = await supabase
       .from('leads')

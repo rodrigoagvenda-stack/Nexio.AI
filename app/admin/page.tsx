@@ -1,8 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, Users, TrendingUp, DollarSign, AlertTriangle, Activity } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/format';
-import Link from 'next/link';
+import { AdminDashboardContent } from '@/components/admin/AdminDashboardContent';
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
@@ -25,20 +22,20 @@ export default async function AdminDashboardPage() {
   const currentMonth = new Date().toISOString().slice(0, 7);
   const leadsThisMonth = leads?.filter((l) => l.created_at.startsWith(currentMonth)).length || 0;
 
-  // MRR - calcular baseado nos planos
+  // MRR - calcular baseado nos novos planos
   const mrr = companies
     ?.filter((c) => c.is_active)
     .reduce((sum, c) => {
       const planValues: Record<string, number> = {
-        basic: 197,
-        performance: 497,
-        advanced: 997,
+        basic: 1600,
+        performance: 2000,
+        advanced: 2600,
       };
       const planValue = planValues[c.plan_type] || 0;
       return sum + planValue;
     }, 0) || 0;
 
-  // Empresas inadimplentes (subscription_expires_at < hoje)
+  // Empresas inadimplentes
   const inadimplentes = companies?.filter((c) => {
     if (!c.subscription_expires_at) return false;
     return new Date(c.subscription_expires_at) < new Date();
@@ -49,104 +46,66 @@ export default async function AdminDashboardPage() {
     b.submitted_at.startsWith(today)
   ).length || 0;
 
+  // Dados para gráficos
+  // Empresas por plano
+  const companiesByPlan = [
+    { plan: 'basic', name: 'NEXIO SALES', count: companies?.filter(c => c.plan_type === 'basic').length || 0 },
+    { plan: 'performance', name: 'NEXIO GROWTH', count: companies?.filter(c => c.plan_type === 'performance').length || 0 },
+    { plan: 'advanced', name: 'NEXIO ADS', count: companies?.filter(c => c.plan_type === 'advanced').length || 0 },
+  ];
+
+  // Leads ao longo do tempo (últimos 30 dias)
+  const leadsOverTime = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (29 - i));
+    const dateStr = date.toISOString().split('T')[0];
+    const count = leads?.filter(l => l.created_at.startsWith(dateStr)).length || 0;
+    return {
+      date: `${date.getDate()}/${date.getMonth() + 1}`,
+      count,
+    };
+  });
+
+  // Receita ao longo do tempo (últimos 6 meses)
+  const revenueOverTime = Array.from({ length: 6 }, (_, i) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() - (5 - i));
+
+    // Simular crescimento de MRR (em produção, buscar do histórico)
+    const baseMrr = mrr;
+    const factor = 0.8 + (i * 0.04);
+
+    return {
+      date: `${date.getMonth() + 1}/${date.getFullYear().toString().slice(2)}`,
+      mrr: Math.round(baseMrr * factor),
+    };
+  });
+
+  // Leads por status
+  const leadsByStatus = [
+    { status: 'Lead novo', count: leads?.filter(l => l.status === 'Lead novo').length || 0 },
+    { status: 'Em contato', count: leads?.filter(l => l.status === 'Em contato').length || 0 },
+    { status: 'Interessado', count: leads?.filter(l => l.status === 'Interessado').length || 0 },
+    { status: 'Proposta enviada', count: leads?.filter(l => l.status === 'Proposta enviada').length || 0 },
+    { status: 'Fechado', count: leads?.filter(l => l.status === 'Fechado').length || 0 },
+  ].filter(item => item.count > 0);
+
   return (
-    <div className="space-y-8">
-      {/* Hero Header */}
-      <div className="border-b pb-6 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-          Painel Administrativo
-        </h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Gerencie empresas, usuários e configurações do sistema
-        </p>
-      </div>
-
-      {/* Métricas Principais */}
-      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold">Empresas Ativas</CardTitle>
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Building2 className="h-5 w-5 text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-foreground">{activeCompanies}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {companies?.length || 0} total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold">Usuários Ativos</CardTitle>
-            <div className="p-2 bg-zinc-700/10 rounded-lg">
-              <Users className="h-5 w-5 text-zinc-700" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-foreground">{activeUsers}</div>
-            <p className="text-sm text-muted-foreground mt-1">{totalUsers} total</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold">Leads Extraídos</CardTitle>
-            <div className="p-2 bg-purple-500/10 rounded-lg">
-              <TrendingUp className="h-5 w-5 text-purple-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-foreground">{leadsToday}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Hoje • {leadsThisMonth} este mês
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold">MRR</CardTitle>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <DollarSign className="h-5 w-5 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-primary">{formatCurrency(mrr)}</div>
-            <p className="text-sm text-muted-foreground mt-1">Monthly Recurring Revenue</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-red-200 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold">Inadimplentes</CardTitle>
-            <div className="p-2 bg-red-500/10 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-red-500">{inadimplentes}</div>
-            <p className="text-sm text-muted-foreground mt-1">Assinaturas vencidas</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-semibold">Briefings Hoje</CardTitle>
-            <div className="p-2 bg-cyan-500/10 rounded-lg">
-              <Activity className="h-5 w-5 text-cyan-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black text-foreground">{briefingsToday}</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {briefingResponses?.length || 0} total
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <AdminDashboardContent
+      activeCompanies={activeCompanies}
+      totalCompanies={companies?.length || 0}
+      activeUsers={activeUsers}
+      totalUsers={totalUsers}
+      leadsToday={leadsToday}
+      leadsThisMonth={leadsThisMonth}
+      mrr={mrr}
+      inadimplentes={inadimplentes}
+      briefingsToday={briefingsToday}
+      totalBriefings={briefingResponses?.length || 0}
+      companiesByPlan={companiesByPlan}
+      leadsOverTime={leadsOverTime}
+      revenueOverTime={revenueOverTime}
+      leadsByStatus={leadsByStatus}
+    />
   );
 }

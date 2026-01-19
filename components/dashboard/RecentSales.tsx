@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { AnimatedList } from '@/components/ui/animated-list';
+import { cn } from '@/lib/utils';
 
 interface ClosedLead {
   id: string;
@@ -81,17 +83,21 @@ export function RecentSales() {
       <CardHeader className="flex-shrink-0">
         <CardTitle className="text-lg font-semibold">Vendas Recentes</CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto">
+      <CardContent className="flex-1 overflow-y-auto scrollbar-minimal">
         {closedLeads.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-muted-foreground">Nenhuma venda fechada ainda</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <AnimatedList delay={150}>
             {closedLeads.map((lead) => (
               <div
                 key={lead.id}
-                className="flex items-start justify-between gap-3 pb-4 border-b border-border/50 last:border-0 last:pb-0"
+                className={cn(
+                  "flex items-start justify-between gap-3 p-4 rounded-lg",
+                  "bg-card border border-border/50 shadow-sm",
+                  "hover:bg-accent/5 transition-colors"
+                )}
               >
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-foreground truncate">
@@ -116,7 +122,7 @@ export function RecentSales() {
                 </div>
               </div>
             ))}
-          </div>
+          </AnimatedList>
         )}
       </CardContent>
     </Card>
