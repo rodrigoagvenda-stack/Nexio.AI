@@ -115,25 +115,6 @@ export default function NotificacoesPage() {
     );
   }
 
-  // Check if company has basic plan - Orbit features not available
-  if (company?.plan_type === 'basic') {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center space-y-4">
-            <h2 className="text-2xl font-bold">Funcionalidade Indisponível</h2>
-            <p className="text-muted-foreground">
-              Essa funcionalidade não está disponível no seu plano atual.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Faça upgrade para <strong>NEXIO GROWTH</strong> ou <strong>NEXIO ADS</strong> para acessar recursos avançados.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
