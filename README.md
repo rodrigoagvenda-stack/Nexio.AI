@@ -255,11 +255,9 @@ Principais tabelas:
 
 ## 🔗 Links Úteis
 
-- **N8N Webhook Secret:** `874b3d43f82c9fc7ae0577ee36318a005413c29a1c329d81581504a916625143`
-- **Supabase URL:** `https://dkvznmmiiiljyrkopiqx.supabase.co`
-- **App Cliente:** https://app.vendai.com.br
-- **Admin:** https://admin.vendai.com.br
-- **Formulário Briefing:** https://app.vendai.com.br/brief
+- **Configuração:** Variáveis de ambiente em `.env.local` ou no painel de deploy
+- **App Cliente:** Configure `NEXT_PUBLIC_APP_URL`
+- **Supabase:** Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ## 🛠️ Comandos Úteis
 
