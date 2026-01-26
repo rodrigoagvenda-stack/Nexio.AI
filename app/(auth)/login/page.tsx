@@ -216,7 +216,7 @@ export default function LoginPage() {
       <div className="relative hidden lg:flex items-center justify-center bg-[#0a0a0a]">
         <spline-viewer
           url="https://prod.spline.design/EI48OiEjBlC6GZvo/scene.splinecode"
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
         />
       </div>
     </div>
