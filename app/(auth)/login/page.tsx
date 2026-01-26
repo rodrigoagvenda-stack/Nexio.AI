@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,18 @@ import { toast } from 'sonner';
 import { Loader2, Shield, User, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// Declaração do tipo para o web component do Spline
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'spline-viewer': React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & { url?: string },
+        HTMLElement
+      >;
+    }
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -17,6 +29,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginMode, setLoginMode] = useState<'user' | 'admin'>('user');
+
+  // Carrega o script do Spline Viewer
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.type = 'module';
+    script.src = 'https://unpkg.com/@splinetool/viewer@1.12.39/build/spline-viewer.js';
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,14 +212,11 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Lado direito - Spline 3D via iframe */}
+      {/* Lado direito - Spline 3D */}
       <div className="relative hidden bg-gradient-to-br from-purple-900 to-indigo-900 lg:block overflow-hidden">
-        <iframe
-          src="https://my.spline.design/EI48OiEjBlC6GZvo/"
-          frameBorder="0"
-          className="absolute inset-0 h-full w-full"
-          style={{ border: 'none' }}
-          allowFullScreen
+        <spline-viewer
+          url="https://prod.spline.design/EI48OiEjBlC6GZvo/scene.splinecode"
+          style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
         />
       </div>
     </div>
