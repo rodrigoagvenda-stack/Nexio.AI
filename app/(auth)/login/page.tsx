@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 
 // Carrega o Spline dinamicamente para evitar SSR
-const Spline = dynamic(() => import('@splinetool/react-spline'), {
+const Spline = dynamic(() => import('@splinetool/react-spline/next'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full bg-gradient-to-br from-purple-900 to-indigo-900">
