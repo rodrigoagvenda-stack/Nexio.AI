@@ -9,20 +9,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Shield, User, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import dynamic from 'next/dynamic';
-
-// Carrega o Spline dinamicamente para evitar SSR
-const Spline = dynamic(
-  () => import('@splinetool/react-spline').then((mod) => mod.default),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-full bg-gradient-to-br from-purple-900 to-indigo-900">
-        <div className="animate-pulse text-white/50">Carregando 3D...</div>
-      </div>
-    ),
-  }
-);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -202,11 +188,14 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Lado direito - Spline 3D */}
+      {/* Lado direito - Spline 3D via iframe */}
       <div className="relative hidden bg-gradient-to-br from-purple-900 to-indigo-900 lg:block overflow-hidden">
-        <Spline
-          scene="https://prod.spline.design/EI48OiEjBlC6GZvo/scene.splinecode"
+        <iframe
+          src="https://my.spline.design/EI48OiEjBlC6GZvo/"
+          frameBorder="0"
           className="absolute inset-0 h-full w-full"
+          style={{ border: 'none' }}
+          allowFullScreen
         />
       </div>
     </div>
