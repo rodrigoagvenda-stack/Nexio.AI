@@ -41,6 +41,14 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Pré-carrega todas as rotas quando o componente monta
+  useEffect(() => {
+    const routes = ['/dashboard', '/crm', '/atendimento', '/prospect', '/membros', '/ajuda'];
+    routes.forEach((route) => {
+      router.prefetch(route);
+    });
+  }, [router]);
+
   const links = [
     {
       href: '/dashboard',
@@ -127,6 +135,7 @@ export function Sidebar({
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={true}
                 className={cn(
                   'group flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200',
                   isActive
