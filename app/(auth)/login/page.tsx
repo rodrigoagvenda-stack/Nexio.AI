@@ -213,10 +213,14 @@ export default function LoginPage() {
       </div>
 
       {/* Lado direito - Spline 3D */}
-      <div className="relative hidden lg:flex items-center justify-center bg-[#0a0a0a]">
+      <div
+        id="spline-container"
+        className="relative hidden lg:block bg-[#0a0a0a]"
+      >
         <spline-viewer
           url="https://prod.spline.design/EI48OiEjBlC6GZvo/scene.splinecode"
-          style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
+          events-target="#spline-container"
+          style={{ width: '100%', height: '100%' }}
         />
       </div>
     </div>
