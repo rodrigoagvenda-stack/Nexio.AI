@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,17 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Shield, User, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'spline-viewer': React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & { url?: string },
-        HTMLElement
-      >;
-    }
-  }
-}
+import LiquidEther from '@/components/backgrounds/LiquidEther';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -26,18 +16,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginMode, setLoginMode] = useState<'user' | 'admin'>('user');
-
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = 'https://unpkg.com/@splinetool/viewer@1.12.39/build/spline-viewer.js';
-    document.head.appendChild(script);
-    return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-    };
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,10 +59,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen">
-      {/* Spline 3D - Fundo */}
-      <spline-viewer
-        url="https://prod.spline.design/EI48OiEjBlC6GZvo/scene.splinecode"
+    <div className="fixed inset-0 w-screen h-screen bg-black">
+      {/* LiquidEther Background */}
+      <LiquidEther
+        colors={['#7C3AED', '#A855F7', '#C084FC']}
+        mouseForce={25}
+        cursorSize={120}
+        autoDemo={true}
+        autoSpeed={0.4}
+        autoIntensity={2.5}
         style={{ position: 'absolute', width: '100%', height: '100%' }}
       />
 
