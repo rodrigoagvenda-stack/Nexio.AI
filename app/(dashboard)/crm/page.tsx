@@ -513,11 +513,6 @@ export default function CRMPage() {
       setCurrentStep(0);
       return;
     }
-    if (!formData.cargo) {
-      toast.error('Cargo é obrigatório');
-      setCurrentStep(1);
-      return;
-    }
     if (!formData.nivel_interesse) {
       toast.error('Nível de interesse é obrigatório');
       setCurrentStep(2);
@@ -532,8 +527,10 @@ export default function CRMPage() {
     try {
       const supabase = createClient();
 
+      // Remover cargo do objeto pois a coluna não existe no banco
+      const { cargo, ...formDataWithoutCargo } = formData;
       const leadData = {
-        ...formData,
+        ...formDataWithoutCargo,
         company_id: user?.company_id,
       };
 
@@ -1305,21 +1302,6 @@ export default function CRMPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="cargo">Cargo *</Label>
-                <Select value={formData.cargo} onValueChange={(value) => setFormData({ ...formData, cargo: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cargo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Proprietário/Dono">Proprietário/Dono</SelectItem>
-                    <SelectItem value="Gerente Comercial">Gerente Comercial</SelectItem>
-                    <SelectItem value="Vendedor">Vendedor</SelectItem>
-                    <SelectItem value="Representante Comercial">Representante Comercial</SelectItem>
-                    <SelectItem value="Consultor de Vendas">Consultor de Vendas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label htmlFor="whatsapp">WhatsApp</Label>
                 <Input
                   id="whatsapp"
@@ -1438,12 +1420,6 @@ export default function CRMPage() {
                     }
                     if (!formData.segment) {
                       toast.error('Segmento é obrigatório');
-                      return;
-                    }
-                  }
-                  if (currentStep === 1) {
-                    if (!formData.cargo) {
-                      toast.error('Cargo é obrigatório');
                       return;
                     }
                   }
