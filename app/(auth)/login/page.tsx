@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Loader2, Shield, User, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import LiquidEther from '@/components/backgrounds/LiquidEther';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -59,18 +58,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-black">
-      {/* LiquidEther Background */}
-      <LiquidEther
-        colors={['#7C3AED', '#A855F7', '#C084FC']}
-        mouseForce={25}
-        cursorSize={120}
-        autoDemo={true}
-        autoSpeed={0.4}
-        autoIntensity={2.5}
-        style={{ position: 'absolute', width: '100%', height: '100%' }}
-      />
-
+    <div className="fixed inset-0 w-screen h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-gray-900">
       {/* Card de Login - Centralizado */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-background/90 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
