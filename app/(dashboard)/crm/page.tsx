@@ -285,7 +285,7 @@ export default function CRMPage() {
     email: '',
     priority: 'Média',
     status: 'Lead novo',
-    nivel_interesse: 'Morno 🟡',
+    nivel_interesse: 'Quente 🔥',
     import_source: 'Interno',
     project_value: 0,
     notes: '',
@@ -473,7 +473,7 @@ export default function CRMPage() {
         email: lead.email || '',
         priority: lead.priority || 'Média',
         status: lead.status || 'Lead novo',
-        nivel_interesse: lead.nivel_interesse || 'Morno 🟡',
+        nivel_interesse: lead.nivel_interesse || 'Quente 🔥',
         import_source: lead.import_source || 'Interno',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
@@ -490,7 +490,7 @@ export default function CRMPage() {
         email: '',
         priority: 'Média',
         status: 'Lead novo',
-        nivel_interesse: 'Morno 🟡',
+        nivel_interesse: 'Quente 🔥',
         import_source: 'Interno',
         project_value: 0,
         notes: '',
@@ -1375,7 +1375,7 @@ export default function CRMPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
-                        <SelectItem value="Morno 🟡">Morno 🟡</SelectItem>
+                        <SelectItem value="Morno 🟠">Morno 🟠</SelectItem>
                         <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
                       </SelectContent>
                     </Select>
