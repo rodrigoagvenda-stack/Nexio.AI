@@ -285,10 +285,11 @@ export default function CRMPage() {
     email: '',
     priority: 'Média',
     status: 'Lead novo',
-    nivel_interesse: 'Morno 🌡️',
-    import_source: 'Manual',
+    nivel_interesse: 'Morno 🟡',
+    import_source: 'Interno',
     project_value: 0,
     notes: '',
+    cargo: '',
   });
 
   const sensors = useSensors(
@@ -472,10 +473,11 @@ export default function CRMPage() {
         email: lead.email || '',
         priority: lead.priority || 'Média',
         status: lead.status || 'Lead novo',
-        nivel_interesse: lead.nivel_interesse || 'Morno 🥵',
-        import_source: lead.import_source || 'Manual',
+        nivel_interesse: lead.nivel_interesse || 'Morno 🟡',
+        import_source: lead.import_source || 'Interno',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
+        cargo: lead.cargo || '',
       });
     } else {
       setEditingLead(null);
@@ -488,10 +490,11 @@ export default function CRMPage() {
         email: '',
         priority: 'Média',
         status: 'Lead novo',
-        nivel_interesse: 'Morno',
-        import_source: 'Manual',
+        nivel_interesse: 'Morno 🟡',
+        import_source: 'Interno',
         project_value: 0,
         notes: '',
+        cargo: '',
       });
     }
     setCurrentStep(0); // Reset stepper to first step
@@ -499,8 +502,30 @@ export default function CRMPage() {
   };
 
   const handleSaveLead = async () => {
+    // Validar campos obrigatórios
     if (!formData.company_name.trim()) {
       toast.error('Nome da empresa é obrigatório');
+      setCurrentStep(0);
+      return;
+    }
+    if (!formData.segment) {
+      toast.error('Segmento é obrigatório');
+      setCurrentStep(0);
+      return;
+    }
+    if (!formData.cargo) {
+      toast.error('Cargo é obrigatório');
+      setCurrentStep(1);
+      return;
+    }
+    if (!formData.nivel_interesse) {
+      toast.error('Nível de interesse é obrigatório');
+      setCurrentStep(2);
+      return;
+    }
+    if (!formData.import_source) {
+      toast.error('Fonte de importação é obrigatória');
+      setCurrentStep(2);
       return;
     }
 
@@ -636,6 +661,7 @@ export default function CRMPage() {
     { id: 'Proposta enviada', title: 'Proposta enviada' },
     { id: 'Fechado', title: 'Fechado' },
     { id: 'Perdido', title: 'Perdido' },
+    { id: 'Remarketing', title: 'Remarketing' },
   ];
 
   const getLeadsByStatus = (status: string) => {
@@ -1234,12 +1260,25 @@ export default function CRMPage() {
               </div>
               <div>
                 <Label htmlFor="segment">Segmento *</Label>
-                <Input
-                  id="segment"
-                  value={formData.segment}
-                  onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
-                  placeholder="Ex: Saúde/Medicina, Tecnologia, etc."
-                />
+                <Select value={formData.segment} onValueChange={(value) => setFormData({ ...formData, segment: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o segmento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="E-commerce">E-commerce</SelectItem>
+                    <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
+                    <SelectItem value="Educação">Educação</SelectItem>
+                    <SelectItem value="Alimentação">Alimentação</SelectItem>
+                    <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
+                    <SelectItem value="Imobiliária">Imobiliária</SelectItem>
+                    <SelectItem value="Advocacia">Advocacia</SelectItem>
+                    <SelectItem value="Consultoria">Consultoria</SelectItem>
+                    <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                    <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
+                    <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                    <SelectItem value="Outros">Outros</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="website">Site/Instagram</Label>
@@ -1264,6 +1303,21 @@ export default function CRMPage() {
                   onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
                   placeholder="Ex: João Silva"
                 />
+              </div>
+              <div>
+                <Label htmlFor="cargo">Cargo *</Label>
+                <Select value={formData.cargo} onValueChange={(value) => setFormData({ ...formData, cargo: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o cargo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Proprietário/Dono">Proprietário/Dono</SelectItem>
+                    <SelectItem value="Gerente Comercial">Gerente Comercial</SelectItem>
+                    <SelectItem value="Vendedor">Vendedor</SelectItem>
+                    <SelectItem value="Representante Comercial">Representante Comercial</SelectItem>
+                    <SelectItem value="Consultor de Vendas">Consultor de Vendas</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="whatsapp">WhatsApp</Label>
@@ -1305,29 +1359,51 @@ export default function CRMPage() {
                   </Select>
                 </div>
                 <div>
+                  <Label htmlFor="nivel_interesse">Nível de Interesse *</Label>
+                  <Select value={formData.nivel_interesse} onValueChange={(value) => setFormData({ ...formData, nivel_interesse: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
+                      <SelectItem value="Morno 🟡">Morno 🟡</SelectItem>
+                      <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
+                <div>
                   <Label htmlFor="import_source">Fonte de Importação *</Label>
                   <Select value={formData.import_source} onValueChange={(value) => setFormData({ ...formData, import_source: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Manual">Manual</SelectItem>
-                      <SelectItem value="Google Maps">Google Maps</SelectItem>
                       <SelectItem value="PEG">PEG</SelectItem>
+                      <SelectItem value="Linkedin">Linkedin</SelectItem>
+                      <SelectItem value="Interno">Interno</SelectItem>
+                      <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                      <SelectItem value="Google Ads">Google Ads</SelectItem>
+                      <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
                       <SelectItem value="Indicação">Indicação</SelectItem>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                      <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
+                      <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="project_value">Valor do Projeto (R$)</Label>
-                <Input
-                  id="project_value"
-                  type="number"
-                  value={formData.project_value}
-                  onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
-                  placeholder="Ex: 5000"
-                />
+                <div>
+                  <Label htmlFor="project_value">Valor do Projeto (R$)</Label>
+                  <Input
+                    id="project_value"
+                    type="number"
+                    value={formData.project_value}
+                    onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
+                    placeholder="Ex: 5000"
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="notes">Observações</Label>
@@ -1358,6 +1434,16 @@ export default function CRMPage() {
                   if (currentStep === 0) {
                     if (!formData.company_name.trim()) {
                       toast.error('Nome da empresa é obrigatório');
+                      return;
+                    }
+                    if (!formData.segment) {
+                      toast.error('Segmento é obrigatório');
+                      return;
+                    }
+                  }
+                  if (currentStep === 1) {
+                    if (!formData.cargo) {
+                      toast.error('Cargo é obrigatório');
                       return;
                     }
                   }
