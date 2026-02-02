@@ -59,16 +59,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-8">
+      <div className="w-full max-w-sm bg-zinc-950 rounded-2xl p-8 border border-zinc-900">
         {/* Logo */}
-        <div className="text-center">
+        <div className="text-center mb-8">
           <h1 className="text-3xl font-light tracking-tight text-white">
             nexio<span className="text-primary">.</span>ai
           </h1>
         </div>
 
         {/* Toggle */}
-        <div className="flex justify-center">
+        <div className="flex justify-center mb-8">
           <div className="inline-flex rounded-lg bg-zinc-900 p-1">
             <button
               type="button"
@@ -153,7 +153,7 @@ export default function LoginPage() {
         </form>
 
         {/* Footer */}
-        <p className="text-center text-sm text-zinc-600">
+        <p className="text-center text-sm text-zinc-600 mt-6">
           Precisa de ajuda?{' '}
           <a href="mailto:suporte@nexio.ai" className="text-zinc-400 hover:text-white transition-colors">
             Entre em contato
