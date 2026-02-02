@@ -532,6 +532,7 @@ export default function CRMPage() {
       const leadData = {
         ...formDataWithoutCargo,
         company_id: user?.company_id,
+        user_id: user?.auth_user_id,
       };
 
       if (editingLead) {
