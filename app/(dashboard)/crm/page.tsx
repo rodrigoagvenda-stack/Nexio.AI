@@ -285,10 +285,11 @@ export default function CRMPage() {
     email: '',
     priority: 'Média',
     status: 'Lead novo',
-    nivel_interesse: 'Morno 🌡️',
-    import_source: 'Manual',
+    nivel_interesse: 'Quente 🔥',
+    import_source: 'Interno',
     project_value: 0,
     notes: '',
+    cargo: '',
   });
 
   const sensors = useSensors(
@@ -472,10 +473,11 @@ export default function CRMPage() {
         email: lead.email || '',
         priority: lead.priority || 'Média',
         status: lead.status || 'Lead novo',
-        nivel_interesse: lead.nivel_interesse || 'Morno 🥵',
-        import_source: lead.import_source || 'Manual',
+        nivel_interesse: lead.nivel_interesse || 'Quente 🔥',
+        import_source: lead.import_source || 'Interno',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
+        cargo: lead.cargo || '',
       });
     } else {
       setEditingLead(null);
@@ -488,10 +490,11 @@ export default function CRMPage() {
         email: '',
         priority: 'Média',
         status: 'Lead novo',
-        nivel_interesse: 'Morno',
-        import_source: 'Manual',
+        nivel_interesse: 'Quente 🔥',
+        import_source: 'Interno',
         project_value: 0,
         notes: '',
+        cargo: '',
       });
     }
     setCurrentStep(0); // Reset stepper to first step
@@ -499,8 +502,30 @@ export default function CRMPage() {
   };
 
   const handleSaveLead = async () => {
+    // Validação de campos obrigatórios
+    const errors: string[] = [];
+
     if (!formData.company_name.trim()) {
-      toast.error('Nome da empresa é obrigatório');
+      errors.push('Nome da empresa é obrigatório');
+    }
+    if (!formData.segment) {
+      errors.push('Segmento é obrigatório');
+    }
+    if (!formData.cargo) {
+      errors.push('Cargo é obrigatório');
+    }
+    if (!formData.status) {
+      errors.push('Estágio do lead é obrigatório');
+    }
+    if (!formData.nivel_interesse) {
+      errors.push('Nível de interesse é obrigatório');
+    }
+    if (!formData.import_source) {
+      errors.push('Fonte de importação é obrigatória');
+    }
+
+    if (errors.length > 0) {
+      errors.forEach(error => toast.error(error));
       return;
     }
 
@@ -1234,12 +1259,25 @@ export default function CRMPage() {
               </div>
               <div>
                 <Label htmlFor="segment">Segmento *</Label>
-                <Input
-                  id="segment"
-                  value={formData.segment}
-                  onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
-                  placeholder="Ex: Saúde/Medicina, Tecnologia, etc."
-                />
+                <Select value={formData.segment} onValueChange={(value) => setFormData({ ...formData, segment: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o segmento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="E-commerce">E-commerce</SelectItem>
+                    <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
+                    <SelectItem value="Educação">Educação</SelectItem>
+                    <SelectItem value="Alimentação">Alimentação</SelectItem>
+                    <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
+                    <SelectItem value="Imobiliária">Imobiliária</SelectItem>
+                    <SelectItem value="Advocacia">Advocacia</SelectItem>
+                    <SelectItem value="Consultoria">Consultoria</SelectItem>
+                    <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                    <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
+                    <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                    <SelectItem value="Outros">Outros</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="website">Site/Instagram</Label>
@@ -1292,6 +1330,21 @@ export default function CRMPage() {
             <div className="space-y-4 mt-4">
               <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
+                  <Label htmlFor="cargo">Cargo *</Label>
+                  <Select value={formData.cargo} onValueChange={(value) => setFormData({ ...formData, cargo: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o cargo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Proprietário/Dono">Proprietário/Dono</SelectItem>
+                      <SelectItem value="Gerente Comercial">Gerente Comercial</SelectItem>
+                      <SelectItem value="Vendedor">Vendedor</SelectItem>
+                      <SelectItem value="Representante Comercial">Representante Comercial</SelectItem>
+                      <SelectItem value="Consultor de Vendas">Consultor de Vendas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label htmlFor="priority">Prioridade *</Label>
                   <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
                     <SelectTrigger>
@@ -1304,6 +1357,40 @@ export default function CRMPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="status">Estágio do Lead *</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Lead novo">Lead novo</SelectItem>
+                      <SelectItem value="Em contato">Em contato</SelectItem>
+                      <SelectItem value="Interessado">Interessado</SelectItem>
+                      <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
+                      <SelectItem value="Fechado">Fechado</SelectItem>
+                      <SelectItem value="Perdido">Perdido</SelectItem>
+                      <SelectItem value="Remarketing">Remarketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="nivel_interesse">Nível de Interesse *</Label>
+                  <Select value={formData.nivel_interesse} onValueChange={(value) => setFormData({ ...formData, nivel_interesse: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
+                      <SelectItem value="Morno 🟡">Morno 🟡</SelectItem>
+                      <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="import_source">Fonte de Importação *</Label>
                   <Select value={formData.import_source} onValueChange={(value) => setFormData({ ...formData, import_source: value })}>
@@ -1311,23 +1398,30 @@ export default function CRMPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Manual">Manual</SelectItem>
-                      <SelectItem value="Google Maps">Google Maps</SelectItem>
                       <SelectItem value="PEG">PEG</SelectItem>
+                      <SelectItem value="Linkedin">Linkedin</SelectItem>
+                      <SelectItem value="Interno">Interno</SelectItem>
+                      <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                      <SelectItem value="Google Ads">Google Ads</SelectItem>
+                      <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
                       <SelectItem value="Indicação">Indicação</SelectItem>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                      <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
+                      <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="project_value">Valor do Projeto (R$)</Label>
-                <Input
-                  id="project_value"
-                  type="number"
-                  value={formData.project_value}
-                  onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
-                  placeholder="Ex: 5000"
-                />
+                <div>
+                  <Label htmlFor="project_value">Valor do Projeto (R$)</Label>
+                  <Input
+                    id="project_value"
+                    type="number"
+                    value={formData.project_value}
+                    onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
+                    placeholder="Ex: 5000"
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="notes">Observações</Label>
@@ -1354,13 +1448,18 @@ export default function CRMPage() {
             {currentStep < 2 ? (
               <Button
                 onClick={() => {
-                  // Validate current step before proceeding
+                  // Validação por etapa
                   if (currentStep === 0) {
                     if (!formData.company_name.trim()) {
                       toast.error('Nome da empresa é obrigatório');
                       return;
                     }
+                    if (!formData.segment) {
+                      toast.error('Segmento é obrigatório');
+                      return;
+                    }
                   }
+                  // Step 1 (Contato) não tem campos obrigatórios
                   setCurrentStep(currentStep + 1);
                 }}
               >

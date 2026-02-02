@@ -98,7 +98,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-all duration-300',
+          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-[width] duration-300',
           isCollapsed ? 'md:w-20' : 'md:w-72'
         )}
       >
@@ -135,7 +135,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200',
+                  'group flex items-center gap-3 px-3 py-3 rounded-xl transition-[background-color,box-shadow] duration-200',
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
                     : 'text-muted-foreground hover:bg-accent/50',
