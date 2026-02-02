@@ -58,7 +58,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-gradient-to-br from-gray-900 via-purple-950 to-gray-900">
+    <div className="fixed inset-0 w-screen h-screen bg-black">
       {/* Card de Login - Centralizado */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-background/90 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-border/50">
