@@ -1227,192 +1227,220 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="w-[95%] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50">
+          {/* Header minimalista */}
+          <div className="px-6 py-5 border-b border-border/50">
+            <DialogTitle className="text-lg font-medium">
+              {editingLead ? 'Editar Lead' : 'Novo Lead'}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {currentStep === 0 && 'Informações da empresa'}
+              {currentStep === 1 && 'Dados de contato'}
+              {currentStep === 2 && 'Detalhes e observações'}
+            </p>
+          </div>
 
-          {/* Stepper */}
-          <Stepper
-            steps={[
-              { label: 'Informações Básicas', description: 'Dados da empresa' },
-              { label: 'Contato', description: 'Meios de comunicação' },
-              { label: 'Detalhes', description: 'Prioridade e observações' },
-            ]}
-            currentStep={currentStep}
-            className="mb-6"
-          />
-
-          {/* Step 1: Informações Básicas */}
-          {currentStep === 0 && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="company_name">Nome da Empresa *</Label>
-                <Input
-                  id="company_name"
-                  value={formData.company_name}
-                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                  placeholder="Ex: Empresa XYZ Ltda"
+          {/* Progress bar minimalista */}
+          <div className="px-6 pt-4">
+            <div className="flex items-center gap-2">
+              {[0, 1, 2].map((step) => (
+                <div
+                  key={step}
+                  className={`h-1 flex-1 rounded-full transition-colors ${
+                    step <= currentStep ? 'bg-primary' : 'bg-muted'
+                  }`}
                 />
-              </div>
-              <div>
-                <Label htmlFor="segment">Segmento *</Label>
-                <Select value={formData.segment} onValueChange={(value) => setFormData({ ...formData, segment: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o segmento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="E-commerce">E-commerce</SelectItem>
-                    <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
-                    <SelectItem value="Educação">Educação</SelectItem>
-                    <SelectItem value="Alimentação">Alimentação</SelectItem>
-                    <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
-                    <SelectItem value="Imobiliária">Imobiliária</SelectItem>
-                    <SelectItem value="Advocacia">Advocacia</SelectItem>
-                    <SelectItem value="Consultoria">Consultoria</SelectItem>
-                    <SelectItem value="Tecnologia">Tecnologia</SelectItem>
-                    <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
-                    <SelectItem value="Arquitetura">Arquitetura</SelectItem>
-                    <SelectItem value="Outros">Outros</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="website">Site/Instagram</Label>
-                <Input
-                  id="website"
-                  value={formData.website_or_instagram}
-                  onChange={(e) => setFormData({ ...formData, website_or_instagram: e.target.value })}
-                  placeholder="Ex: https://exemplo.com.br ou @instagram"
-                />
-              </div>
+              ))}
             </div>
-          )}
-
-          {/* Step 2: Contato */}
-          {currentStep === 1 && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="contact_name">Nome do Contato</Label>
-                <Input
-                  id="contact_name"
-                  value={formData.contact_name}
-                  onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                  placeholder="Ex: João Silva"
-                />
-              </div>
-              <div>
-                <Label htmlFor="whatsapp">WhatsApp</Label>
-                <Input
-                  id="whatsapp"
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  placeholder="Ex: +55 11 98765-4321"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Ex: contato@empresa.com"
-                />
-              </div>
+            <div className="flex justify-between mt-2">
+              <span className={`text-xs ${currentStep >= 0 ? 'text-primary' : 'text-muted-foreground'}`}>Empresa</span>
+              <span className={`text-xs ${currentStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>Contato</span>
+              <span className={`text-xs ${currentStep >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>Detalhes</span>
             </div>
-          )}
+          </div>
 
-          {/* Step 3: Detalhes */}
-          {currentStep === 2 && (
-            <div className="space-y-4 mt-4">
-              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="priority">Prioridade *</Label>
-                  <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Alta">Alta</SelectItem>
-                      <SelectItem value="Média">Média</SelectItem>
-                      <SelectItem value="Baixa">Baixa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="nivel_interesse">Nível de Interesse *</Label>
-                  <Select value={formData.nivel_interesse} onValueChange={(value) => setFormData({ ...formData, nivel_interesse: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
-                      <SelectItem value="Morno 🟡">Morno 🟡</SelectItem>
-                      <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="import_source">Fonte de Importação *</Label>
-                  <Select value={formData.import_source} onValueChange={(value) => setFormData({ ...formData, import_source: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PEG">PEG</SelectItem>
-                      <SelectItem value="Linkedin">Linkedin</SelectItem>
-                      <SelectItem value="Interno">Interno</SelectItem>
-                      <SelectItem value="Meta Ads">Meta Ads</SelectItem>
-                      <SelectItem value="Google Ads">Google Ads</SelectItem>
-                      <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
-                      <SelectItem value="Indicação">Indicação</SelectItem>
-                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                      <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
-                      <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="project_value">Valor do Projeto (R$)</Label>
+          {/* Form content */}
+          <div className="px-6 py-6">
+            {/* Step 1: Informações Básicas */}
+            {currentStep === 0 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="company_name" className="text-sm font-medium">
+                    Nome da Empresa <span className="text-destructive">*</span>
+                  </Label>
                   <Input
-                    id="project_value"
-                    type="number"
-                    value={formData.project_value}
-                    onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
-                    placeholder="Ex: 5000"
+                    id="company_name"
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    placeholder="Digite o nome da empresa"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="segment" className="text-sm font-medium">
+                    Segmento <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.segment} onValueChange={(value) => setFormData({ ...formData, segment: value })}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Selecione o segmento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="E-commerce">E-commerce</SelectItem>
+                      <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
+                      <SelectItem value="Educação">Educação</SelectItem>
+                      <SelectItem value="Alimentação">Alimentação</SelectItem>
+                      <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
+                      <SelectItem value="Imobiliária">Imobiliária</SelectItem>
+                      <SelectItem value="Advocacia">Advocacia</SelectItem>
+                      <SelectItem value="Consultoria">Consultoria</SelectItem>
+                      <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                      <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
+                      <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                      <SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="website" className="text-sm font-medium">Site ou Instagram</Label>
+                  <Input
+                    id="website"
+                    value={formData.website_or_instagram}
+                    onChange={(e) => setFormData({ ...formData, website_or_instagram: e.target.value })}
+                    placeholder="https://... ou @usuario"
+                    className="h-11"
                   />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="notes">Observações</Label>
-                <textarea
-                  id="notes"
-                  className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Anotações sobre o lead..."
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 mt-6">
-            {currentStep > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep(currentStep - 1)}
-              >
-                Voltar
-              </Button>
             )}
+
+            {/* Step 2: Contato */}
+            {currentStep === 1 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="contact_name" className="text-sm font-medium">Nome do Contato</Label>
+                  <Input
+                    id="contact_name"
+                    value={formData.contact_name}
+                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                    placeholder="Nome da pessoa de contato"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp" className="text-sm font-medium">WhatsApp</Label>
+                  <Input
+                    id="whatsapp"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    placeholder="(00) 00000-0000"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="email@empresa.com"
+                    className="h-11"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Detalhes */}
+            {currentStep === 2 && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="priority" className="text-sm font-medium">Prioridade</Label>
+                    <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Alta">Alta</SelectItem>
+                        <SelectItem value="Média">Média</SelectItem>
+                        <SelectItem value="Baixa">Baixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nivel_interesse" className="text-sm font-medium">Interesse</Label>
+                    <Select value={formData.nivel_interesse} onValueChange={(value) => setFormData({ ...formData, nivel_interesse: value })}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
+                        <SelectItem value="Morno 🟡">Morno 🟡</SelectItem>
+                        <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="import_source" className="text-sm font-medium">Fonte</Label>
+                    <Select value={formData.import_source} onValueChange={(value) => setFormData({ ...formData, import_source: value })}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PEG">PEG</SelectItem>
+                        <SelectItem value="Linkedin">Linkedin</SelectItem>
+                        <SelectItem value="Interno">Interno</SelectItem>
+                        <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                        <SelectItem value="Google Ads">Google Ads</SelectItem>
+                        <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
+                        <SelectItem value="Indicação">Indicação</SelectItem>
+                        <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                        <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                        <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
+                        <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="project_value" className="text-sm font-medium">Valor (R$)</Label>
+                    <Input
+                      id="project_value"
+                      type="number"
+                      value={formData.project_value}
+                      onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
+                      placeholder="0,00"
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
+                  <textarea
+                    id="notes"
+                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Adicione observações sobre este lead..."
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer minimalista */}
+          <div className="px-6 py-4 border-t border-border/50 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => currentStep > 0 ? setCurrentStep(currentStep - 1) : setShowModal(false)}
+              className="text-muted-foreground"
+            >
+              {currentStep > 0 ? 'Voltar' : 'Cancelar'}
+            </Button>
             {currentStep < 2 ? (
               <Button
                 onClick={() => {
-                  // Validate current step before proceeding
                   if (currentStep === 0) {
                     if (!formData.company_name.trim()) {
                       toast.error('Nome da empresa é obrigatório');
@@ -1426,14 +1454,14 @@ export default function CRMPage() {
                   setCurrentStep(currentStep + 1);
                 }}
               >
-                Próximo
+                Continuar
               </Button>
             ) : (
               <Button onClick={handleSaveLead}>
-                {editingLead ? 'Atualizar' : 'Adicionar'}
+                {editingLead ? 'Salvar' : 'Adicionar Lead'}
               </Button>
             )}
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
