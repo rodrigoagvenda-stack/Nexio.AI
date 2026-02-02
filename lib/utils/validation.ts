@@ -40,7 +40,7 @@ export const EstagioLeadEnum = z.enum([
   'Remarketing',
 ]);
 
-export const StatusLeadEnum = z.enum(['Quente 🔥', 'Morno 🟡', 'Frio ❄️']);
+export const StatusLeadEnum = z.enum(['Quente 🔥', 'Morno 🟠', 'Frio ❄️']);
 
 export const CargoEnum = z.enum([
   'Proprietário/Dono',
