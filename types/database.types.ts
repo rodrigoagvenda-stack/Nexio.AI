@@ -76,7 +76,7 @@ export type EstagioLead =
   | 'Perdido'
   | 'Remarketing';
 
-export type StatusLead = 'Quente 🔥' | 'Morno 🌡️' | 'Frio ❄️';
+export type StatusLead = 'Quente 🔥' | 'Morno 🟡' | 'Frio ❄️';
 
 export type Cargo =
   | 'Proprietário/Dono'
