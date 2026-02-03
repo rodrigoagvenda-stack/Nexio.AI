@@ -19,8 +19,6 @@ export default function NovaEmpresaPage() {
     email: '',
     phone: '',
     plan_type: 'basic' as 'basic' | 'performance' | 'advanced',
-    vendagro_plan: null as 'performance' | 'advanced' | null,
-    plan_monthly_limit: 0,
     whatsapp_instance: '',
     whatsapp_token: '',
   });
@@ -30,16 +28,10 @@ export default function NovaEmpresaPage() {
     setLoading(true);
 
     try {
-      // Calcular limite mensal baseado no plano VendAgro
-      const limit = formData.vendagro_plan === 'performance' ? 70 : formData.vendagro_plan === 'advanced' ? 115 : 0;
-
       const response = await fetch('/api/admin/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          plan_monthly_limit: limit,
-        }),
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -155,28 +147,6 @@ export default function NovaEmpresaPage() {
                   );
                 })}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="vendagro_plan">Plano VendAgro (opcional)</Label>
-              <Select
-                value={formData.vendagro_plan || 'none'}
-                onValueChange={(value: any) =>
-                  setFormData({ ...formData, vendagro_plan: value === 'none' ? null : value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem VendAgro</SelectItem>
-                  <SelectItem value="performance">Performance (70 leads/mês)</SelectItem>
-                  <SelectItem value="advanced">Advanced (115 leads/mês)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Habilita módulo Lead PRO com extração de leads ICP
-              </p>
             </div>
 
             <div className="border-t pt-4 space-y-4">
