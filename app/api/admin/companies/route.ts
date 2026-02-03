@@ -54,6 +54,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const serviceSupabase = createServiceClient();
+  let createdAuthUserId: string | null = null;
+  let createdCompanyId: number | null = null;
+
   try {
     const supabase = await createClient();
 
@@ -87,8 +91,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Usar service client para criar user e company
-    const serviceSupabase = createServiceClient();
+    // Verificar se email já existe na tabela companies
+    const { data: existingCompany } = await serviceSupabase
+      .from('companies')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existingCompany) {
+      return NextResponse.json(
+        { success: false, message: 'Já existe uma empresa com este email' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar se email já existe na tabela users
+    const { data: existingUser } = await serviceSupabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return NextResponse.json(
+        { success: false, message: 'Já existe um usuário com este email' },
+        { status: 400 }
+      );
+    }
 
     // 1. Criar usuário no Supabase Auth
     const tempPassword = 'Vendai@2025'; // Senha temporária
@@ -100,8 +129,13 @@ export async function POST(request: NextRequest) {
 
     if (authError) {
       console.error('Auth error:', authError);
-      throw new Error('Erro ao criar usuário: ' + authError.message);
+      return NextResponse.json(
+        { success: false, message: 'Email já cadastrado no sistema de autenticação' },
+        { status: 400 }
+      );
     }
+
+    createdAuthUserId = authData.user.id;
 
     // 2. Criar company
     const { data: companyData, error: companyError } = await serviceSupabase
@@ -120,7 +154,19 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (companyError) throw companyError;
+    if (companyError) {
+      // Rollback: deletar auth user criado
+      if (createdAuthUserId) {
+        await serviceSupabase.auth.admin.deleteUser(createdAuthUserId);
+      }
+      console.error('Company error:', companyError);
+      return NextResponse.json(
+        { success: false, message: 'Erro ao criar empresa: ' + companyError.message },
+        { status: 500 }
+      );
+    }
+
+    createdCompanyId = companyData.id;
 
     // 3. Criar user na tabela users
     const { data: userData, error: userError } = await serviceSupabase
@@ -128,7 +174,7 @@ export async function POST(request: NextRequest) {
       .insert([
         {
           auth_user_id: authData.user.id,
-          user_id: authData.user.id, // UUID customizado = auth_user_id
+          user_id: authData.user.id,
           company_id: companyData.id,
           name: name,
           email: email,
@@ -138,9 +184,20 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (userError) throw userError;
-
-    // TODO: Enviar email com senha temporária
+    if (userError) {
+      // Rollback: deletar company e auth user
+      if (createdCompanyId) {
+        await serviceSupabase.from('companies').delete().eq('id', createdCompanyId);
+      }
+      if (createdAuthUserId) {
+        await serviceSupabase.auth.admin.deleteUser(createdAuthUserId);
+      }
+      console.error('User error:', userError);
+      return NextResponse.json(
+        { success: false, message: 'Erro ao criar usuário: ' + userError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -148,6 +205,13 @@ export async function POST(request: NextRequest) {
       data: companyData,
     });
   } catch (error: any) {
+    // Rollback em caso de erro inesperado
+    if (createdCompanyId) {
+      await serviceSupabase.from('companies').delete().eq('id', createdCompanyId);
+    }
+    if (createdAuthUserId) {
+      await serviceSupabase.auth.admin.deleteUser(createdAuthUserId);
+    }
     console.error('Error creating company:', error);
     return NextResponse.json(
       { success: false, message: error.message || 'Erro ao criar empresa' },
