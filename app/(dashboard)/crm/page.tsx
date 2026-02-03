@@ -255,7 +255,7 @@ function DroppableColumn({
 
 export default function CRMPage() {
   const router = useRouter();
-  const { user, company, loading: userLoading } = useUser();
+  const { authUser, user, company, loading: userLoading } = useUser();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('table');
@@ -532,7 +532,7 @@ export default function CRMPage() {
       const leadData = {
         ...formDataWithoutCargo,
         company_id: user?.company_id,
-        user_id: user?.auth_user_id,
+        user_id: authUser?.id,
       };
 
       if (editingLead) {
