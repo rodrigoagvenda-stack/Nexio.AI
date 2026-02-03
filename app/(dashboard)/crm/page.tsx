@@ -1376,7 +1376,7 @@ export default function CRMPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
-                        <SelectItem value="Morno 🟠">Morno 🟠</SelectItem>
+                        <SelectItem value="Morno 🌡️">Morno 🌡️</SelectItem>
                         <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
                       </SelectContent>
                     </Select>
