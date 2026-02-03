@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, phone, plan_type, vendagro_plan, plan_monthly_limit, whatsapp_instance, whatsapp_token } = body;
+    const { name, email, phone, plan_type, whatsapp_instance, whatsapp_token } = body;
 
     if (!name || !email || !plan_type) {
       return NextResponse.json(
@@ -112,8 +112,6 @@ export async function POST(request: NextRequest) {
           email,
           phone,
           plan_type,
-          vendagro_plan,
-          plan_monthly_limit,
           whatsapp_instance,
           whatsapp_token,
           is_active: true,
