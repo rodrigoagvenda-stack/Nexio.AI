@@ -527,13 +527,22 @@ export default function CRMPage() {
     try {
       const supabase = createClient();
 
+      // Verificar se temos os dados necessários
+      if (!user?.company_id) {
+        toast.error('Erro: company_id não encontrado. Faça login novamente.');
+        console.error('Missing company_id. User:', user, 'AuthUser:', authUser);
+        return;
+      }
+
       // Remover cargo do objeto pois a coluna não existe no banco
       const { cargo, ...formDataWithoutCargo } = formData;
       const leadData = {
         ...formDataWithoutCargo,
-        company_id: user?.company_id,
+        company_id: user.company_id,
         user_id: authUser?.id,
       };
+
+      console.log('Saving lead with data:', leadData);
 
       if (editingLead) {
         // Update
@@ -1228,7 +1237,7 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50 bg-[#0a0a0a]">
           {/* Header minimalista */}
           <div className="px-6 py-5 border-b border-border/50">
             <DialogTitle className="text-lg font-medium">

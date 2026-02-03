@@ -18,7 +18,7 @@ export async function GET() {
     const { data: adminUser } = await supabase
       .from('admin_users')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     const { data: adminUser } = await supabase
       .from('admin_users')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
 
