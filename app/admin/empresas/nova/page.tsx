@@ -28,10 +28,20 @@ export default function NovaEmpresaPage() {
     setLoading(true);
 
     try {
+      // Enviar null para campos opcionais vazios
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        plan_type: formData.plan_type,
+        whatsapp_instance: formData.whatsapp_instance || null,
+        whatsapp_token: formData.whatsapp_token || null,
+      };
+
       const response = await fetch('/api/admin/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -89,7 +99,7 @@ export default function NovaEmpresaPage() {
                 placeholder="contato@empresa.com"
               />
               <p className="text-xs text-muted-foreground">
-                Será usado como login do usuário
+                Email de contato da empresa
               </p>
             </div>
 
