@@ -1,13 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+
+    // Verificar autenticação
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Usar service client para verificar admin
+    const serviceSupabase = createServiceClient();
+
+    const { data: adminUser } = await serviceSupabase
+      .from('admin_users')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!adminUser) {
+      return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
-    let query = supabase.from('n8n_webhook_config').select('*');
+    let query = serviceSupabase.from('n8n_webhook_config').select('*');
 
     if (type) {
       query = query.eq('webhook_type', type);
@@ -29,6 +53,30 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+
+    // Verificar autenticação
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Usar service client para verificar admin
+    const serviceSupabase = createServiceClient();
+
+    const { data: adminUser } = await serviceSupabase
+      .from('admin_users')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!adminUser) {
+      return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { webhook_type, webhook_url, auth_type, auth_username, auth_password, auth_token } = body;
 
@@ -40,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já existe
-    const { data: existing } = await supabase
+    const { data: existing } = await serviceSupabase
       .from('n8n_webhook_config')
       .select('*')
       .eq('webhook_type', webhook_type)
@@ -50,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Atualizar
-      ({ data, error } = await supabase
+      ({ data, error } = await serviceSupabase
         .from('n8n_webhook_config')
         .update({
           webhook_url,
@@ -66,7 +114,7 @@ export async function POST(request: NextRequest) {
         .single());
     } else {
       // Criar
-      ({ data, error } = await supabase
+      ({ data, error } = await serviceSupabase
         .from('n8n_webhook_config')
         .insert([{
           webhook_type,

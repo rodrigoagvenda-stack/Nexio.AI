@@ -64,11 +64,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+
+    // Verificar autenticação (qualquer usuário autenticado pode criar logs)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
+    }
+
+    const serviceSupabase = createServiceClient();
     const body = await request.json();
 
-    const { data, error } = await supabase
+    // Adicionar user_id ao log
+    const logData = {
+      ...body,
+      user_id: user.id,
+    };
+
+    const { data, error } = await serviceSupabase
       .from('system_logs')
-      .insert([body])
+      .insert([logData])
       .select()
       .single();
 
