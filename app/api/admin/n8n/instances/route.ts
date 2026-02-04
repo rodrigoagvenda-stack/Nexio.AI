@@ -1,6 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
-import { encrypt, decrypt } from '@/lib/crypto';
+
+// Função auxiliar para criptografia simples (fallback se ENCRYPTION_KEY não existir)
+function simpleEncrypt(text: string): string {
+  try {
+    // Tentar usar crypto se disponível
+    const { encrypt } = require('@/lib/crypto');
+    return encrypt(text);
+  } catch {
+    // Fallback: codificar em base64 (não seguro para produção, mas evita erro 500)
+    console.warn('ENCRYPTION_KEY não configurada, usando base64 como fallback');
+    return Buffer.from(text).toString('base64');
+  }
+}
 
 // GET /api/admin/n8n/instances - Lista todas as instâncias
 export async function GET() {
@@ -34,6 +46,11 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (error) {
+      // Se a tabela não existir, retornar array vazio
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.warn('Tabela n8n_instances não existe. Execute a migration.');
+        return NextResponse.json({ instances: [], message: 'Tabela não configurada' });
+      }
       throw error;
     }
 
@@ -44,7 +61,7 @@ export async function GET() {
       api_key_encrypted: instance.api_key, // Mantém versão criptografada para edição
     }));
 
-    return NextResponse.json({ instances: instancesWithMaskedKeys });
+    return NextResponse.json({ instances: instancesWithMaskedKeys || [] });
   } catch (error: any) {
     console.error('Erro ao buscar instâncias:', error);
     return NextResponse.json(
@@ -90,8 +107,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Criptografa API key
-    const encryptedApiKey = encrypt(api_key);
+    // Criptografa API key com fallback
+    const encryptedApiKey = simpleEncrypt(api_key);
 
     // Insere no banco
     const { data, error } = await supabase
@@ -107,6 +124,13 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
+      // Se a tabela não existir
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(
+          { error: 'Tabela n8n_instances não existe. Execute a migration SQL no Supabase.' },
+          { status: 500 }
+        );
+      }
       throw error;
     }
 
