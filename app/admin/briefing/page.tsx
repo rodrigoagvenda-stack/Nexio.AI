@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Copy, Settings, Eye, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { Copy, Settings, Eye, FileText, CheckCircle2, XCircle, UserCheck } from 'lucide-react';
 import { BriefingResponse } from '@/types/briefing';
 import { formatDateTime } from '@/lib/utils/format';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -20,6 +20,7 @@ export default function BriefingListPage() {
   const itemsPerPage = 10;
 
   const formUrl = typeof window !== 'undefined' ? `${window.location.origin}/brief` : '';
+  const qualificacaoUrl = typeof window !== 'undefined' ? `${window.location.origin}/qualificacao` : '';
 
   useEffect(() => {
     fetchResponses();
@@ -47,6 +48,11 @@ export default function BriefingListPage() {
 
   const copyFormUrl = () => {
     navigator.clipboard.writeText(formUrl);
+    toast.success('Link copiado!');
+  };
+
+  const copyQualificacaoUrl = () => {
+    navigator.clipboard.writeText(qualificacaoUrl);
     toast.success('Link copiado!');
   };
 
@@ -89,27 +95,51 @@ export default function BriefingListPage() {
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Link do Formulário</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Compartilhe este link com seus clientes
-              </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-base">Formulário de Briefing</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Briefing completo para clientes
+                </p>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2 flex-col sm:flex-row">
-            <Input value={formUrl} readOnly className="font-mono text-xs sm:text-sm flex-1" />
-            <Button onClick={copyFormUrl} variant="outline" className="sm:w-auto">
-              <Copy className="h-4 w-4 sm:mr-0" />
-              <span className="sm:hidden ml-2">Copiar Link</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 flex-col sm:flex-row">
+              <Input value={formUrl} readOnly className="font-mono text-xs flex-1" />
+              <Button onClick={copyFormUrl} variant="outline" size="sm">
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-green-500" />
+              <div>
+                <CardTitle className="text-base">Formulário de Qualificação</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Captação de leads qualificados
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2 flex-col sm:flex-row">
+              <Input value={qualificacaoUrl} readOnly className="font-mono text-xs flex-1" />
+              <Button onClick={copyQualificacaoUrl} variant="outline" size="sm">
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
