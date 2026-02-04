@@ -65,13 +65,25 @@ interface UazapiConfig {
   phone: string
 }
 
+interface N8NWebhookConfig {
+  id?: number
+  webhook_type: string
+  webhook_url: string
+  auth_type: string
+  auth_username?: string
+  auth_password?: string
+  auth_token?: string
+  is_active: boolean
+}
+
 interface WebhooksContentProps {
   webhooks: Webhook[]
   aiConfig: AIConfig | null
   uazapiConfig: UazapiConfig | null
+  n8nWebhooks?: N8NWebhookConfig[]
 }
 
-export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAIConfig, uazapiConfig: initialUazapiConfig }: WebhooksContentProps) {
+export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAIConfig, uazapiConfig: initialUazapiConfig, n8nWebhooks: initialN8NWebhooks }: WebhooksContentProps) {
   const router = useRouter()
   const [webhooks, setWebhooks] = useState<Webhook[]>(initialWebhooks)
   const [aiConfig, setAIConfig] = useState<AIConfig>(initialAIConfig || {
@@ -83,6 +95,20 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
     api_token: '',
     instance: '',
     phone: '',
+  })
+
+  // N8N Webhooks (Orbit)
+  const [n8nMaps, setN8nMaps] = useState<N8NWebhookConfig>(() => {
+    const existing = initialN8NWebhooks?.find(w => w.webhook_type === 'maps')
+    return existing || { webhook_type: 'maps', webhook_url: '', auth_type: 'basic', auth_username: '', auth_password: '', is_active: true }
+  })
+  const [n8nIcp, setN8nIcp] = useState<N8NWebhookConfig>(() => {
+    const existing = initialN8NWebhooks?.find(w => w.webhook_type === 'icp')
+    return existing || { webhook_type: 'icp', webhook_url: '', auth_type: 'basic', auth_username: '', auth_password: '', is_active: true }
+  })
+  const [n8nWhatsapp, setN8nWhatsapp] = useState<N8NWebhookConfig>(() => {
+    const existing = initialN8NWebhooks?.find(w => w.webhook_type === 'whatsapp')
+    return existing || { webhook_type: 'whatsapp', webhook_url: '', auth_type: 'basic', auth_username: '', auth_password: '', is_active: true }
   })
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -101,6 +127,50 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
   const itemsPerPage = 10
 
   const supabase = createClient()
+
+  const handleSaveN8NWebhook = async (config: N8NWebhookConfig) => {
+    setLoading(true)
+    try {
+      // Verificar se já existe
+      const { data: existing } = await supabase
+        .from('n8n_webhook_config')
+        .select('id')
+        .eq('webhook_type', config.webhook_type)
+        .single()
+
+      if (existing) {
+        // Atualizar
+        const { error } = await supabase
+          .from('n8n_webhook_config')
+          .update({
+            webhook_url: config.webhook_url,
+            auth_type: config.auth_type,
+            auth_username: config.auth_username,
+            auth_password: config.auth_password,
+            auth_token: config.auth_token,
+            is_active: config.is_active,
+          })
+          .eq('webhook_type', config.webhook_type)
+
+        if (error) throw error
+      } else {
+        // Inserir
+        const { error } = await supabase
+          .from('n8n_webhook_config')
+          .insert([config])
+
+        if (error) throw error
+      }
+
+      toast.success(`Webhook ${config.webhook_type} salvo com sucesso`)
+      router.refresh()
+    } catch (error) {
+      console.error('Error saving N8N webhook:', error)
+      toast.error('Erro ao salvar webhook N8N')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSaveAIConfig = async () => {
     setLoading(true)
@@ -297,6 +367,227 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
             <Save className="mr-2 h-4 w-4" />
             Salvar Configuração
           </Button>
+        </div>
+      </div>
+
+      {/* N8N Webhooks (Orbit) Section */}
+      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-6 backdrop-blur-xl">
+        <h2 className="mb-4 text-xl font-semibold">🚀 Webhooks N8N (Orbit)</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Configure os webhooks do N8N para extração de leads (Maps), ICP e envio de WhatsApp.
+        </p>
+
+        {/* Maps Webhook */}
+        <div className="mb-6 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+          <h3 className="font-medium mb-3 flex items-center gap-2">
+            🗺️ Webhook Maps (Extração de Leads)
+          </h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label>URL do Webhook</Label>
+              <Input
+                value={n8nMaps.webhook_url}
+                onChange={(e) => setN8nMaps({ ...n8nMaps, webhook_url: e.target.value })}
+                placeholder="https://seu-n8n.com/webhook/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Autenticação</Label>
+              <Select
+                value={n8nMaps.auth_type}
+                onValueChange={(value) => setN8nMaps({ ...n8nMaps, auth_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Basic Auth</SelectItem>
+                  <SelectItem value="bearer">Bearer Token</SelectItem>
+                  <SelectItem value="none">Sem autenticação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {n8nMaps.auth_type === 'basic' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Usuário</Label>
+                  <Input
+                    value={n8nMaps.auth_username || ''}
+                    onChange={(e) => setN8nMaps({ ...n8nMaps, auth_username: e.target.value })}
+                    placeholder="Username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha</Label>
+                  <Input
+                    type="password"
+                    value={n8nMaps.auth_password || ''}
+                    onChange={(e) => setN8nMaps({ ...n8nMaps, auth_password: e.target.value })}
+                    placeholder="Password"
+                  />
+                </div>
+              </>
+            )}
+            {n8nMaps.auth_type === 'bearer' && (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Token</Label>
+                <Input
+                  type="password"
+                  value={n8nMaps.auth_token || ''}
+                  onChange={(e) => setN8nMaps({ ...n8nMaps, auth_token: e.target.value })}
+                  placeholder="Bearer token"
+                />
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => handleSaveN8NWebhook(n8nMaps)} disabled={loading} size="sm">
+              <Save className="mr-2 h-4 w-4" />
+              Salvar Maps
+            </Button>
+          </div>
+        </div>
+
+        {/* ICP Webhook */}
+        <div className="mb-6 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+          <h3 className="font-medium mb-3 flex items-center gap-2">
+            🎯 Webhook ICP (Perfil de Cliente Ideal)
+          </h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label>URL do Webhook</Label>
+              <Input
+                value={n8nIcp.webhook_url}
+                onChange={(e) => setN8nIcp({ ...n8nIcp, webhook_url: e.target.value })}
+                placeholder="https://seu-n8n.com/webhook/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Autenticação</Label>
+              <Select
+                value={n8nIcp.auth_type}
+                onValueChange={(value) => setN8nIcp({ ...n8nIcp, auth_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Basic Auth</SelectItem>
+                  <SelectItem value="bearer">Bearer Token</SelectItem>
+                  <SelectItem value="none">Sem autenticação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {n8nIcp.auth_type === 'basic' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Usuário</Label>
+                  <Input
+                    value={n8nIcp.auth_username || ''}
+                    onChange={(e) => setN8nIcp({ ...n8nIcp, auth_username: e.target.value })}
+                    placeholder="Username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha</Label>
+                  <Input
+                    type="password"
+                    value={n8nIcp.auth_password || ''}
+                    onChange={(e) => setN8nIcp({ ...n8nIcp, auth_password: e.target.value })}
+                    placeholder="Password"
+                  />
+                </div>
+              </>
+            )}
+            {n8nIcp.auth_type === 'bearer' && (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Token</Label>
+                <Input
+                  type="password"
+                  value={n8nIcp.auth_token || ''}
+                  onChange={(e) => setN8nIcp({ ...n8nIcp, auth_token: e.target.value })}
+                  placeholder="Bearer token"
+                />
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => handleSaveN8NWebhook(n8nIcp)} disabled={loading} size="sm">
+              <Save className="mr-2 h-4 w-4" />
+              Salvar ICP
+            </Button>
+          </div>
+        </div>
+
+        {/* WhatsApp Webhook */}
+        <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+          <h3 className="font-medium mb-3 flex items-center gap-2">
+            💬 Webhook WhatsApp (Envio de Mensagens)
+          </h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2 md:col-span-2">
+              <Label>URL do Webhook</Label>
+              <Input
+                value={n8nWhatsapp.webhook_url}
+                onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, webhook_url: e.target.value })}
+                placeholder="https://seu-n8n.com/webhook/..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Autenticação</Label>
+              <Select
+                value={n8nWhatsapp.auth_type}
+                onValueChange={(value) => setN8nWhatsapp({ ...n8nWhatsapp, auth_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Basic Auth</SelectItem>
+                  <SelectItem value="bearer">Bearer Token</SelectItem>
+                  <SelectItem value="none">Sem autenticação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {n8nWhatsapp.auth_type === 'basic' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Usuário</Label>
+                  <Input
+                    value={n8nWhatsapp.auth_username || ''}
+                    onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, auth_username: e.target.value })}
+                    placeholder="Username"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha</Label>
+                  <Input
+                    type="password"
+                    value={n8nWhatsapp.auth_password || ''}
+                    onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, auth_password: e.target.value })}
+                    placeholder="Password"
+                  />
+                </div>
+              </>
+            )}
+            {n8nWhatsapp.auth_type === 'bearer' && (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Token</Label>
+                <Input
+                  type="password"
+                  value={n8nWhatsapp.auth_token || ''}
+                  onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, auth_token: e.target.value })}
+                  placeholder="Bearer token"
+                />
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => handleSaveN8NWebhook(n8nWhatsapp)} disabled={loading} size="sm">
+              <Save className="mr-2 h-4 w-4" />
+              Salvar WhatsApp
+            </Button>
+          </div>
         </div>
       </div>
 

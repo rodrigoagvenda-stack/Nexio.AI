@@ -19,11 +19,17 @@ export default async function WebhooksPage() {
     .select('*')
     .single();
 
+  // Buscar webhooks N8N (Orbit)
+  const { data: n8nWebhooks } = await supabase
+    .from('n8n_webhook_config')
+    .select('*');
+
   return (
     <WebhooksContent
       webhooks={webhooks || []}
       aiConfig={aiConfig}
       uazapiConfig={uazapiConfig}
+      n8nWebhooks={n8nWebhooks || []}
     />
   );
 }
