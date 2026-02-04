@@ -5,7 +5,31 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    const { data: users, error } = await supabase
+    // Verificar autenticação admin
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Usar service client para buscar admin e todos os usuários (bypassa RLS)
+    const serviceSupabase = createServiceClient();
+
+    const { data: adminUser } = await serviceSupabase
+      .from('admin_users')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!adminUser) {
+      return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
+    }
+
+    // Buscar TODOS os usuários de TODAS as empresas
+    const { data: users, error } = await serviceSupabase
       .from('users')
       .select(`
         *,
