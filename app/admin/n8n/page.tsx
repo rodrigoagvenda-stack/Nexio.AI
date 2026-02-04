@@ -1,24 +1,35 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { N8NMonitorContent } from '@/components/admin/N8NMonitorContent';
 
+export const dynamic = 'force-dynamic';
+
 export default async function N8NMonitorPage() {
-  const supabase = await createClient();
+  // Usar service client para bypassar RLS
+  const supabase = createServiceClient();
 
   // Buscar instâncias N8N
-  const { data: instances } = await supabase
+  const { data: instances, error: instancesError } = await supabase
     .from('n8n_instances')
     .select('*')
     .order('created_at', { ascending: false });
 
+  if (instancesError) {
+    console.error('Erro ao buscar instâncias:', instancesError);
+  }
+
   // Buscar erros recentes (últimos 100)
-  const { data: errors } = await supabase
+  const { data: errors, error: errorsError } = await supabase
     .from('n8n_errors')
     .select(`
       *,
       instance:n8n_instances(id, name, url)
     `)
-    .order('timestamp', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(100);
+
+  if (errorsError) {
+    console.error('Erro ao buscar erros:', errorsError);
+  }
 
   // Calcular estatísticas
   const now = new Date();
@@ -27,7 +38,7 @@ export default async function N8NMonitorPage() {
   const { count: errors24h } = await supabase
     .from('n8n_errors')
     .select('*', { count: 'exact', head: true })
-    .gte('timestamp', last24h.toISOString());
+    .gte('created_at', last24h.toISOString());
 
   const { count: totalInstances } = await supabase
     .from('n8n_instances')
