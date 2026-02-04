@@ -25,12 +25,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
+    // Usar service client para bypassar RLS e ver todas as empresas
+    const serviceSupabase = createServiceClient();
+
     // Buscar parâmetros de query
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
 
-    // Buscar empresas
-    let query = supabase.from('companies').select('*').order('created_at', { ascending: false });
+    // Buscar empresas (usando service client para admin ver todas)
+    let query = serviceSupabase.from('companies').select('*').order('created_at', { ascending: false });
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
