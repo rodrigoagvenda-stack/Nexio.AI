@@ -6,7 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Copy, Settings, Eye, FileText, CheckCircle2, XCircle, Users } from 'lucide-react';
+import {
+  Copy,
+  Settings,
+  Eye,
+  FileText,
+  CheckCircle2,
+  XCircle,
+  Users,
+  Download,
+  Trash2,
+  Loader2,
+} from 'lucide-react';
 import { LeadQualificationResponse } from '@/types/lead-qualification';
 import { formatDateTime } from '@/lib/utils/format';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -15,7 +26,19 @@ import {
   GARGALO_OPTIONS,
   URGENCIA_OPTIONS,
   BUDGET_OPTIONS,
+  PROCESSO_VENDAS_OPTIONS,
 } from '@/types/lead-qualification';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 function getLabel(options: { value: string; label: string }[], value: string): string {
   return options.find((o) => o.value === value)?.label || value;
@@ -27,6 +50,7 @@ export default function LeadQualificationListPage() {
   const [search, setSearch] = useState('');
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const itemsPerPage = 10;
 
   const formUrl = typeof window !== 'undefined' ? `${window.location.origin}/qualificacao` : '';
@@ -60,6 +84,92 @@ export default function LeadQualificationListPage() {
     toast.success('Link copiado!');
   };
 
+  const handleDelete = async (id: number) => {
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/lead-qualification/responses/${id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message);
+
+      toast.success('Resposta deletada com sucesso');
+      setResponses((prev) => prev.filter((r) => r.id !== id));
+      setTotal((prev) => prev - 1);
+    } catch (error: any) {
+      console.error('Error deleting response:', error);
+      toast.error(error.message || 'Erro ao deletar resposta');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (responses.length === 0) {
+      toast.error('Nenhuma resposta para exportar');
+      return;
+    }
+
+    const headers = [
+      'ID',
+      'Nome Completo',
+      'Email',
+      'WhatsApp',
+      'Empresa',
+      'Segmento',
+      'Volume Atendimentos',
+      'Principal Gargalo',
+      'Dor Principal',
+      'Processo de Vendas',
+      'Ticket Medio',
+      'Pessoas Comercial',
+      'Urgencia',
+      'Budget',
+      'Data Envio',
+      'Webhook Enviado',
+    ];
+
+    const rows = responses.map((r) => [
+      r.id,
+      r.nome_completo,
+      r.email,
+      `${r.country_code} ${r.whatsapp}`,
+      r.nome_empresa,
+      r.segmento_negocio,
+      getLabel(VOLUME_ATENDIMENTOS_OPTIONS, r.volume_atendimentos),
+      getLabel(GARGALO_OPTIONS, r.principal_gargalo),
+      r.dor_principal || '',
+      getLabel(PROCESSO_VENDAS_OPTIONS, r.processo_vendas),
+      r.ticket_medio || '',
+      r.pessoas_comercial || '',
+      getLabel(URGENCIA_OPTIONS, r.urgencia),
+      getLabel(BUDGET_OPTIONS, r.budget),
+      r.submitted_at,
+      r.webhook_sent ? 'Sim' : 'Nao',
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads-qualificacao-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('CSV exportado com sucesso!');
+  };
+
   // Pagination
   const totalPages = Math.ceil(responses.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -85,25 +195,31 @@ export default function LeadQualificationListPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
             <Users className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            Qualificação de Leads
+            Qualificacao de Leads
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie as respostas do formulário de qualificação
+            Gerencie as respostas do formulario de qualificacao
           </p>
         </div>
-        <Link href="/admin/qualificacao/configuracoes">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Settings className="mr-2 h-4 w-4" />
-            Configurar Webhook
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleDownloadCSV} className="w-full sm:w-auto">
+            <Download className="mr-2 h-4 w-4" />
+            Exportar CSV
           </Button>
-        </Link>
+          <Link href="/admin/qualificacao/configuracoes">
+            <Button variant="outline" className="w-full sm:w-auto">
+              <Settings className="mr-2 h-4 w-4" />
+              Configurar Webhook
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Link do Formulário</CardTitle>
+              <CardTitle>Link do Formulario</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
                 Compartilhe este link para captar leads qualificados
               </p>
@@ -165,7 +281,7 @@ export default function LeadQualificationListPage() {
                             <p className="text-xs mt-1">{response.segmento_negocio}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Urgência</p>
+                            <p className="text-xs text-muted-foreground">Urgencia</p>
                             <p className="text-xs mt-1">{getLabel(URGENCIA_OPTIONS, response.urgencia)}</p>
                           </div>
                           <div>
@@ -178,13 +294,42 @@ export default function LeadQualificationListPage() {
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t">
-                          <Link href={`/admin/qualificacao/${response.id}`} className="block">
+                        <div className="pt-2 border-t flex gap-2">
+                          <Link href={`/admin/qualificacao/${response.id}`} className="flex-1">
                             <Button variant="outline" size="sm" className="w-full">
                               <Eye className="h-4 w-4 mr-2" />
-                              Ver Detalhes
+                              Ver
                             </Button>
                           </Link>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Deletar resposta?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acao nao pode ser desfeita. A resposta de {response.nome_completo} sera
+                                  permanentemente removida.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(response.id)}
+                                  className="bg-red-500 hover:bg-red-600"
+                                >
+                                  {deletingId === response.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    'Deletar'
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     </CardContent>
@@ -200,11 +345,11 @@ export default function LeadQualificationListPage() {
                       <th className="text-left p-3 text-sm">Nome</th>
                       <th className="text-left p-3 text-sm">Empresa</th>
                       <th className="text-left p-3 text-sm">Segmento</th>
-                      <th className="text-left p-3 text-sm">Urgência</th>
+                      <th className="text-left p-3 text-sm">Urgencia</th>
                       <th className="text-left p-3 text-sm">Budget</th>
                       <th className="text-left p-3 text-sm">Data</th>
                       <th className="text-left p-3 text-sm">Webhook</th>
-                      <th className="text-left p-3 text-sm">Ações</th>
+                      <th className="text-left p-3 text-sm">Acoes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -244,6 +389,35 @@ export default function LeadQualificationListPage() {
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Deletar resposta?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acao nao pode ser desfeita. A resposta de {response.nome_completo} sera
+                                    permanentemente removida.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(response.id)}
+                                    className="bg-red-500 hover:bg-red-600"
+                                  >
+                                    {deletingId === response.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      'Deletar'
+                                    )}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </td>
                       </tr>
