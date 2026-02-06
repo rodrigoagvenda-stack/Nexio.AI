@@ -619,7 +619,7 @@ export default function CRMPage() {
     if (selectedLeads.size === paginatedLeads.length) {
       setSelectedLeads(new Set());
     } else {
-      setSelectedLeads(new Set(paginatedLeads.map((l) => l.id)));
+      setSelectedLeads(new Set(paginatedLeads.map((l) => String(l.id))));
     }
   };
 
@@ -631,7 +631,7 @@ export default function CRMPage() {
       const { error } = await supabase
         .from('leads')
         .delete()
-        .in('id', Array.from(selectedLeads));
+        .in('id', Array.from(selectedLeads).map(id => parseInt(id)));
 
       if (error) throw error;
       toast.success(`${selectedLeads.size} leads deletados com sucesso!`);
@@ -1174,8 +1174,8 @@ export default function CRMPage() {
                       >
                         <td className="px-3 py-4">
                           <Checkbox
-                            checked={selectedLeads.has(lead.id)}
-                            onCheckedChange={() => handleToggleSelectLead(lead.id)}
+                            checked={selectedLeads.has(String(lead.id))}
+                            onCheckedChange={() => handleToggleSelectLead(String(lead.id))}
                           />
                         </td>
                         <td className="px-6 py-4">
