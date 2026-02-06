@@ -564,14 +564,38 @@ export default function CRMPage() {
           .eq('id', editingLead.id);
 
         if (error) throw error;
+
+        // Log de atividade para update
+        if (authUser && company) {
+          await supabase.from('activity_logs').insert({
+            user_id: authUser.id,
+            company_id: company.id,
+            action: 'lead_updated',
+            description: `Lead "${formData.company_name}" foi atualizado`,
+            metadata: { lead_id: editingLead.id, company_name: formData.company_name },
+          });
+        }
         toast.success(`Lead "${formData.company_name}" atualizado com sucesso!`);
       } else {
         // Insert
-        const { error } = await supabase
+        const { data: newLead, error } = await supabase
           .from('leads')
-          .insert([leadData]);
+          .insert([leadData])
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Log de atividade para criação
+        if (authUser && company) {
+          await supabase.from('activity_logs').insert({
+            user_id: authUser.id,
+            company_id: company.id,
+            action: 'lead_created',
+            description: `Novo lead "${formData.company_name}" foi criado`,
+            metadata: { lead_id: newLead?.id, company_name: formData.company_name, contact_name: formData.contact_name },
+          });
+        }
         toast.success(`Lead "${formData.company_name}" adicionado com sucesso!`);
       }
 
@@ -594,6 +618,18 @@ export default function CRMPage() {
         .eq('id', deletingLead.id);
 
       if (error) throw error;
+
+      // Log de atividade para deleção
+      if (authUser && company) {
+        await supabase.from('activity_logs').insert({
+          user_id: authUser.id,
+          company_id: company.id,
+          action: 'lead_deleted',
+          description: `Lead "${deletingLead.company_name}" foi deletado`,
+          metadata: { lead_id: deletingLead.id, company_name: deletingLead.company_name },
+        });
+      }
+
       toast.success(`Lead "${deletingLead.company_name}" deletado com sucesso!`);
       setDeletingLead(null);
       fetchLeads();
@@ -628,13 +664,26 @@ export default function CRMPage() {
 
     try {
       const supabase = createClient();
+      const leadsCount = selectedLeads.size;
       const { error } = await supabase
         .from('leads')
         .delete()
         .in('id', Array.from(selectedLeads).map(id => parseInt(id)));
 
       if (error) throw error;
-      toast.success(`${selectedLeads.size} leads deletados com sucesso!`);
+
+      // Log de atividade para deleção múltipla
+      if (authUser && company) {
+        await supabase.from('activity_logs').insert({
+          user_id: authUser.id,
+          company_id: company.id,
+          action: 'leads_bulk_deleted',
+          description: `${leadsCount} leads foram deletados em massa`,
+          metadata: { count: leadsCount, lead_ids: Array.from(selectedLeads) },
+        });
+      }
+
+      toast.success(`${leadsCount} leads deletados com sucesso!`);
       setSelectedLeads(new Set());
       setDeletingMultipleLeads(false);
       fetchLeads();

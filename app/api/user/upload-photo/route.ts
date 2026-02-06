@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const supabaseService = await createServiceClient();
 
     // Verificar autenticação
     const {
@@ -49,8 +50,8 @@ export async function POST(request: NextRequest) {
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
 
-    // Upload para Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Upload para Supabase Storage (usando serviceClient para bypass de permissões)
+    const { data: uploadData, error: uploadError } = await supabaseService.storage
       .from('user-uploads')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -59,22 +60,29 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
+      // Verificar se o bucket existe
+      if (uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
+        return NextResponse.json(
+          { success: false, message: 'Bucket de storage não encontrado. Crie o bucket "user-uploads" no Supabase.' },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
-        { success: false, message: 'Erro ao fazer upload da imagem' },
+        { success: false, message: 'Erro ao fazer upload da imagem: ' + uploadError.message },
         { status: 500 }
       );
     }
 
     // Obter URL pública
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseService.storage
       .from('user-uploads')
       .getPublicUrl(filePath);
 
-    // Atualizar URL da foto no perfil do usuário
-    const { error: updateError } = await supabase
+    // Atualizar URL da foto no perfil do usuário (usando serviceClient)
+    const { error: updateError } = await supabaseService
       .from('users')
       .update({ photo_url: publicUrl })
-      .eq('auth_user_id', user.id);
+      .eq('user_id', user.id);
 
     if (updateError) {
       console.error('Error updating user photo:', updateError);

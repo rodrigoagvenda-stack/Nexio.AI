@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function PATCH(
   request: NextRequest,
@@ -33,7 +33,7 @@ export async function PATCH(
 
     if (error) throw error;
 
-    // Registrar log
+    // Registrar log no system_logs
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -44,6 +44,21 @@ export async function PATCH(
         changes: { role, department },
       },
     });
+
+    // Registrar log no activity_logs para notificações
+    // Obter usuário autenticado que está realizando a ação
+    const supabaseAuth = await createClient();
+    const { data: { user: authUser } } = await supabaseAuth.auth.getUser();
+
+    if (authUser) {
+      await supabase.from('activity_logs').insert({
+        user_id: authUser.id,
+        company_id: companyId,
+        action: 'member_updated',
+        description: `Membro "${updatedUser.name}" foi atualizado`,
+        metadata: { member_name: updatedUser.name, changes: { role, department } },
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -102,7 +117,7 @@ export async function DELETE(
 
     if (dbError) throw dbError;
 
-    // 3. Registrar log
+    // 3. Registrar log no system_logs
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -113,6 +128,21 @@ export async function DELETE(
         deleted_from_auth: !authError,
       },
     });
+
+    // 4. Registrar log no activity_logs para notificações
+    // Obter usuário autenticado que está realizando a ação
+    const supabaseAuth = await createClient();
+    const { data: { user: authUser } } = await supabaseAuth.auth.getUser();
+
+    if (authUser) {
+      await supabase.from('activity_logs').insert({
+        user_id: authUser.id,
+        company_id: companyId,
+        action: 'member_deleted',
+        description: `Membro "${user?.name}" (${user?.email}) foi removido`,
+        metadata: { deleted_member_name: user?.name, deleted_member_email: user?.email },
+      });
+    }
 
     return NextResponse.json({
       success: true,
