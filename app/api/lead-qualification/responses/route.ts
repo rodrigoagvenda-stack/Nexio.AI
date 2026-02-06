@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
 
     // Buscar respostas
     let query = supabase
-      .from('briefing_responses')
+      .from('lead_qualification_responses')
       .select('*', { count: 'exact' })
       .order('submitted_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (search) {
       query = query.or(
-        `nome_responsavel.ilike.%${search}%,email.ilike.%${search}%,nome_empresa.ilike.%${search}%`
+        `nome_completo.ilike.%${search}%,email.ilike.%${search}%,nome_empresa.ilike.%${search}%`
       );
     }
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       total: count || 0,
     });
   } catch (error: any) {
-    console.error('Error fetching briefing responses:', error);
+    console.error('Error fetching lead qualification responses:', error);
     return NextResponse.json(
       { success: false, message: error.message || 'Erro ao buscar respostas' },
       { status: 500 }

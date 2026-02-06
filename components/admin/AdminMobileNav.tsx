@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   Building2,
   Users,
-  FileText,
+  UserCheck,
   Menu,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -44,9 +44,9 @@ export function AdminMobileNav({ adminName, adminEmail }: AdminMobileNavProps) {
       icon: Users,
     },
     {
-      href: '/admin/briefing',
-      label: 'Briefing',
-      icon: FileText,
+      href: '/admin/qualificacao',
+      label: 'Leads',
+      icon: UserCheck,
     },
   ];
 

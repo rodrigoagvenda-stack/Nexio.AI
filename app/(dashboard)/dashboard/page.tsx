@@ -126,12 +126,12 @@ export default function DashboardPage() {
     }
   };
 
-  // Métricas
-  const totalLeads = filteredLeads.length;
+  // Métricas - Corrigidas conforme PRD
+  // Novos leads e em atendimento são filtrados por created_at (já feito pelo filterLeadsByPeriod)
   const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
   const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
 
-  // Para leads fechados, filtramos por closed_at dentro do período
+  // Para leads fechados, filtramos TODOS os leads por closed_at dentro do período
   const now = new Date();
   let leadsClosedInPeriod = leads.filter((l) => l.status === 'Fechado' && l.closed_at);
 
@@ -162,6 +162,9 @@ export default function DashboardPage() {
 
   const fechados = leadsClosedInPeriod.length;
   const faturamento = leadsClosedInPeriod.reduce((sum, l) => sum + (l.project_value || 0), 0);
+
+  // Taxa de conversão: fechados / total de leads CRIADOS no período (filteredLeads)
+  const totalLeads = filteredLeads.length;
   const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
 
   // Debug: ver status dos leads
@@ -287,10 +290,17 @@ export default function DashboardPage() {
             return leadDate.getMonth() === i && leadDate.getFullYear() === now.getFullYear();
           });
 
+          // Para fechados no ano, usar closed_at
+          const monthFechados = leadsClosedInPeriod.filter((l) => {
+            if (!l.closed_at) return false;
+            const closedDate = new Date(l.closed_at);
+            return closedDate.getMonth() === i && closedDate.getFullYear() === now.getFullYear();
+          });
+
           return {
             name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
             leads: monthLeads.length,
-            fechados: monthLeads.filter((l) => l.status === 'Fechado').length,
+            fechados: monthFechados.length,
           };
         });
       }
@@ -318,10 +328,17 @@ export default function DashboardPage() {
               return leadDate >= dayStart && leadDate <= dayEnd;
             });
 
+            // Para fechados, usar closed_at
+            const dayFechados = leadsClosedInPeriod.filter((l) => {
+              if (!l.closed_at) return false;
+              const closedDate = new Date(l.closed_at);
+              return closedDate >= dayStart && closedDate <= dayEnd;
+            });
+
             return {
               name: dayName,
               leads: dayLeads.length,
-              fechados: dayLeads.filter((l) => l.status === 'Fechado').length,
+              fechados: dayFechados.length,
             };
           });
         }
@@ -341,10 +358,17 @@ export default function DashboardPage() {
             return leadDate >= weekStart && leadDate <= weekEndDay;
           });
 
+          // Para fechados, usar closed_at
+          const weekFechados = leadsClosedInPeriod.filter((l) => {
+            if (!l.closed_at) return false;
+            const closedDate = new Date(l.closed_at);
+            return closedDate >= weekStart && closedDate <= weekEndDay;
+          });
+
           weeks.push({
             name: `Sem ${weekNum}`,
             leads: weekLeads.length,
-            fechados: weekLeads.filter((l) => l.status === 'Fechado').length,
+            fechados: weekFechados.length,
           });
 
           d.setDate(d.getDate() + 7);
@@ -362,9 +386,11 @@ export default function DashboardPage() {
   const performanceData = generatePerformanceData();
 
   // Dados do donut de conversão
+  // Em andamento = leads criados no período que NÃO foram fechados no período
+  const emAndamento = Math.max(0, totalLeads - fechados);
   const conversionData = [
     { name: 'Fechados', value: fechados, color: '#404040' },
-    { name: 'Em andamento', value: totalLeads - fechados, color: '#9333ea' },
+    { name: 'Em andamento', value: emAndamento, color: '#9333ea' },
   ];
 
   // Dados do funil

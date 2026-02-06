@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { data: adminUser } = await supabase
       .from('admin_users')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
 
@@ -25,12 +25,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
+    // Usar service client para bypassar RLS e ver todas as empresas
+    const serviceSupabase = createServiceClient();
+
     // Buscar parâmetros de query
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
 
-    // Buscar empresas
-    let query = supabase.from('companies').select('*').order('created_at', { ascending: false });
+    // Buscar empresas (usando service client para admin ver todas)
+    let query = serviceSupabase.from('companies').select('*').order('created_at', { ascending: false });
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
     const { data: adminUser } = await supabase
       .from('admin_users')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
 
@@ -78,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, phone, plan_type, vendagro_plan, plan_monthly_limit, whatsapp_instance, whatsapp_token } = body;
+    const { name, email, phone, plan_type, whatsapp_instance, whatsapp_token } = body;
 
     if (!name || !email || !plan_type) {
       return NextResponse.json(
@@ -87,23 +90,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Usar service client para criar user e company
+    // Usar service client para criar company
     const serviceSupabase = createServiceClient();
 
-    // 1. Criar usuário no Supabase Auth
-    const tempPassword = 'Vendai@2025'; // Senha temporária
-    const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-    });
+    // Verificar se email já existe na tabela companies
+    const { data: existingCompany } = await serviceSupabase
+      .from('companies')
+      .select('id')
+      .eq('email', email)
+      .single();
 
-    if (authError) {
-      console.error('Auth error:', authError);
-      throw new Error('Erro ao criar usuário: ' + authError.message);
+    if (existingCompany) {
+      return NextResponse.json(
+        { success: false, message: 'Já existe uma empresa com este email' },
+        { status: 400 }
+      );
     }
 
-    // 2. Criar company
+    // Criar apenas a empresa (usuários são criados na seção de Usuários)
     const { data: companyData, error: companyError } = await serviceSupabase
       .from('companies')
       .insert([
@@ -112,8 +116,6 @@ export async function POST(request: NextRequest) {
           email,
           phone,
           plan_type,
-          vendagro_plan,
-          plan_monthly_limit,
           whatsapp_instance,
           whatsapp_token,
           is_active: true,
@@ -122,27 +124,13 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (companyError) throw companyError;
-
-    // 3. Criar user na tabela users
-    const { data: userData, error: userError } = await serviceSupabase
-      .from('users')
-      .insert([
-        {
-          auth_user_id: authData.user.id,
-          user_id: authData.user.id, // UUID customizado = auth_user_id
-          company_id: companyData.id,
-          name: name,
-          email: email,
-          is_active: true,
-        },
-      ])
-      .select()
-      .single();
-
-    if (userError) throw userError;
-
-    // TODO: Enviar email com senha temporária
+    if (companyError) {
+      console.error('Company error:', companyError);
+      return NextResponse.json(
+        { success: false, message: 'Erro ao criar empresa: ' + companyError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

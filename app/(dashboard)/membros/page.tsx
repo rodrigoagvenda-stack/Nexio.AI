@@ -72,6 +72,9 @@ export default function MembrosPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // Verificar se o usuário é admin
+  const isAdmin = user?.role === 'admin';
+
   // Form states
   const [inviteForm, setInviteForm] = useState({
     name: '',
@@ -245,10 +248,12 @@ export default function MembrosPage() {
             Gerencie os membros da sua empresa
           </p>
         </div>
-        <Button onClick={() => setInviteDialogOpen(true)} className="w-full md:w-auto">
-          <UserPlus className="h-4 w-4 mr-2" />
-          Convidar Membro
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => setInviteDialogOpen(true)} className="w-full md:w-auto">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Convidar Membro
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -315,7 +320,7 @@ export default function MembrosPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 md:flex-shrink-0">
-                    {member.user_id !== user?.user_id && (
+                    {isAdmin && member.user_id !== user?.user_id && (
                       <>
                         <Button
                           variant="ghost"

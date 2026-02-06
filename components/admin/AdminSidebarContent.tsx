@@ -14,6 +14,9 @@ import {
   LogOut,
   Shield,
   ArrowLeft,
+  UserCheck,
+  Webhook,
+  Server,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -35,6 +38,9 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
     { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
     { href: '/admin/usuarios', label: 'Usuários', icon: Users },
     { href: '/admin/briefing', label: 'Briefing', icon: FileText },
+    { href: '/admin/qualificacao', label: 'Qualificação', icon: UserCheck },
+    { href: '/admin/webhooks', label: 'Webhooks & APIs', icon: Webhook },
+    { href: '/admin/n8n', label: 'Monitor N8N', icon: Server },
     { href: '/admin/logs', label: 'Logs', icon: Activity },
     { href: '/admin/ajuda', label: 'Ajuda', icon: HelpCircle },
   ];

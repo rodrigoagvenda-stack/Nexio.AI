@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
@@ -255,7 +256,7 @@ function DroppableColumn({
 
 export default function CRMPage() {
   const router = useRouter();
-  const { user, company, loading: userLoading } = useUser();
+  const { authUser, user, company, loading: userLoading } = useUser();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('table');
@@ -271,6 +272,8 @@ export default function CRMPage() {
   const [overId, setOverId] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [deletingMultipleLeads, setDeletingMultipleLeads] = useState(false);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState(0);
@@ -285,10 +288,11 @@ export default function CRMPage() {
     email: '',
     priority: 'Média',
     status: 'Lead novo',
-    nivel_interesse: 'Morno 🌡️',
-    import_source: 'Manual',
+    nivel_interesse: 'Quente 🔥',
+    import_source: 'Interno',
     project_value: 0,
     notes: '',
+    cargo: '',
   });
 
   const sensors = useSensors(
@@ -424,9 +428,18 @@ export default function CRMPage() {
     // Persistir no banco
     try {
       const supabase = createClient();
+
+      // Preparar dados para atualização
+      const updateData: any = { status: newStatus };
+
+      // Se o novo status for "Fechado", adicionar closed_at
+      if (newStatus === 'Fechado') {
+        updateData.closed_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from('leads')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', lead.id);
 
       if (error) throw error;
@@ -472,10 +485,11 @@ export default function CRMPage() {
         email: lead.email || '',
         priority: lead.priority || 'Média',
         status: lead.status || 'Lead novo',
-        nivel_interesse: lead.nivel_interesse || 'Morno 🥵',
-        import_source: lead.import_source || 'Manual',
+        nivel_interesse: lead.nivel_interesse || 'Quente 🔥',
+        import_source: lead.import_source || 'Interno',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
+        cargo: lead.cargo || '',
       });
     } else {
       setEditingLead(null);
@@ -488,10 +502,11 @@ export default function CRMPage() {
         email: '',
         priority: 'Média',
         status: 'Lead novo',
-        nivel_interesse: 'Morno',
-        import_source: 'Manual',
+        nivel_interesse: 'Quente 🔥',
+        import_source: 'Interno',
         project_value: 0,
         notes: '',
+        cargo: '',
       });
     }
     setCurrentStep(0); // Reset stepper to first step
@@ -499,18 +514,47 @@ export default function CRMPage() {
   };
 
   const handleSaveLead = async () => {
+    // Validar campos obrigatórios
     if (!formData.company_name.trim()) {
       toast.error('Nome da empresa é obrigatório');
+      setCurrentStep(0);
+      return;
+    }
+    if (!formData.segment) {
+      toast.error('Segmento é obrigatório');
+      setCurrentStep(0);
+      return;
+    }
+    if (!formData.nivel_interesse) {
+      toast.error('Nível de interesse é obrigatório');
+      setCurrentStep(2);
+      return;
+    }
+    if (!formData.import_source) {
+      toast.error('Fonte de importação é obrigatória');
+      setCurrentStep(2);
       return;
     }
 
     try {
       const supabase = createClient();
 
+      // Verificar se temos os dados necessários
+      if (!user?.company_id) {
+        toast.error('Erro: company_id não encontrado. Faça login novamente.');
+        console.error('Missing company_id. User:', user, 'AuthUser:', authUser);
+        return;
+      }
+
+      // Remover cargo do objeto pois a coluna não existe no banco
+      const { cargo, ...formDataWithoutCargo } = formData;
       const leadData = {
-        ...formData,
-        company_id: user?.company_id,
+        ...formDataWithoutCargo,
+        company_id: user.company_id,
+        user_id: authUser?.id,
       };
+
+      console.log('Saving lead with data:', leadData);
 
       if (editingLead) {
         // Update
@@ -556,6 +600,47 @@ export default function CRMPage() {
     } catch (error) {
       console.error('Error deleting lead:', error);
       toast.error('Erro ao deletar lead');
+    }
+  };
+
+  const handleToggleSelectLead = (leadId: string) => {
+    setSelectedLeads((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(leadId)) {
+        newSet.delete(leadId);
+      } else {
+        newSet.add(leadId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedLeads.size === paginatedLeads.length) {
+      setSelectedLeads(new Set());
+    } else {
+      setSelectedLeads(new Set(paginatedLeads.map((l) => String(l.id))));
+    }
+  };
+
+  const handleDeleteMultipleLeads = async () => {
+    if (selectedLeads.size === 0) return;
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .in('id', Array.from(selectedLeads).map(id => parseInt(id)));
+
+      if (error) throw error;
+      toast.success(`${selectedLeads.size} leads deletados com sucesso!`);
+      setSelectedLeads(new Set());
+      setDeletingMultipleLeads(false);
+      fetchLeads();
+    } catch (error) {
+      console.error('Error deleting multiple leads:', error);
+      toast.error('Erro ao deletar leads');
     }
   };
 
@@ -636,6 +721,7 @@ export default function CRMPage() {
     { id: 'Proposta enviada', title: 'Proposta enviada' },
     { id: 'Fechado', title: 'Fechado' },
     { id: 'Perdido', title: 'Perdido' },
+    { id: 'Remarketing', title: 'Remarketing' },
   ];
 
   const getLeadsByStatus = (status: string) => {
@@ -798,6 +884,16 @@ export default function CRMPage() {
           </div>
         </div>
         <div className="flex gap-2 justify-end">
+          {selectedLeads.size > 0 && viewMode === 'table' && (
+            <Button
+              variant="destructive"
+              onClick={() => setDeletingMultipleLeads(true)}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Deletar {selectedLeads.size} selecionado(s)</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={exportToCSV}
@@ -843,41 +939,50 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:flex gap-4 overflow-x-auto pb-4">
+            <ScrollArea className="hidden md:block w-full">
+              <div
+                className="flex gap-4 pb-4"
+                style={{
+                  minWidth: 'min-content',
+                  width: 'fit-content'
+                }}
+              >
                 {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
                     <div key={column.id} className="w-[320px] flex-shrink-0">
                       <DroppableColumn
-                    id={`column-${column.id}`}
-                    title={column.title}
-                    count={columnLeads.length}
-                  >
-                    <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                      {columnLeads.map((lead) => (
-                        <SortableLeadCard
-                          key={lead.id}
-                          lead={lead}
-                          onEdit={() => handleOpenModal(lead)}
-                          onDelete={() => setDeletingLead(lead)}
-                        />
-                      ))}
-                    </SortableContext>
-                  </DroppableColumn>
-                </div>
-              );
-            })}
-            </div>
-          <DragOverlay>
-            {activeLead ? (
-              <OrbitCard className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
-                <OrbitCardContent className="p-4">
-                  <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
-                </OrbitCardContent>
-              </OrbitCard>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+                        id={`column-${column.id}`}
+                        title={column.title}
+                        count={columnLeads.length}
+                      >
+                        <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                          {columnLeads.map((lead) => (
+                            <SortableLeadCard
+                              key={lead.id}
+                              lead={lead}
+                              onEdit={() => handleOpenModal(lead)}
+                              onDelete={() => setDeletingLead(lead)}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DroppableColumn>
+                    </div>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+            <DragOverlay>
+              {activeLead ? (
+                <OrbitCard className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
+                  <OrbitCardContent className="p-4">
+                    <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
+                  </OrbitCardContent>
+                </OrbitCard>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
 
         {/* Mobile Kanban - Vertical List with Status Selector */}
         <div className="md:hidden space-y-3">
@@ -947,9 +1052,18 @@ export default function CRMPage() {
                         try {
                           const supabase = createClient();
                           const oldStatus = lead.status;
+
+                          // Preparar dados para atualização
+                          const updateData: any = { status: newStatus };
+
+                          // Se o novo status for "Fechado", adicionar closed_at
+                          if (newStatus === 'Fechado') {
+                            updateData.closed_at = new Date().toISOString();
+                          }
+
                           const { error } = await supabase
                             .from('leads')
-                            .update({ status: newStatus })
+                            .update(updateData)
                             .eq('id', lead.id);
 
                           if (error) throw error;
@@ -1035,6 +1149,12 @@ export default function CRMPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
+                      <th className="text-left px-3 py-4 w-12">
+                        <Checkbox
+                          checked={selectedLeads.size === paginatedLeads.length && paginatedLeads.length > 0}
+                          onCheckedChange={handleToggleSelectAll}
+                        />
+                      </th>
                       <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Nome da Empresa</th>
                       <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Segmento</th>
                       <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
@@ -1052,6 +1172,12 @@ export default function CRMPage() {
                         key={lead.id}
                         className="hover:bg-accent/30 transition-colors"
                       >
+                        <td className="px-3 py-4">
+                          <Checkbox
+                            checked={selectedLeads.has(String(lead.id))}
+                            onCheckedChange={() => handleToggleSelectLead(String(lead.id))}
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div>
                             <p className="font-medium text-sm text-foreground">{lead.company_name}</p>
@@ -1204,174 +1330,250 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="w-[95%] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>{editingLead ? `Editar Lead: ${editingLead.company_name}` : 'Adicionar Lead'}</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50 bg-[#0a0a0a]">
+          {/* Header minimalista */}
+          <div className="px-6 py-5 border-b border-border/50">
+            <DialogTitle className="text-lg font-medium">
+              {editingLead ? 'Editar Lead' : 'Novo Lead'}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {currentStep === 0 && 'Informações da empresa'}
+              {currentStep === 1 && 'Dados de contato'}
+              {currentStep === 2 && 'Detalhes e observações'}
+            </p>
+          </div>
 
-          {/* Stepper */}
-          <Stepper
-            steps={[
-              { label: 'Informações Básicas', description: 'Dados da empresa' },
-              { label: 'Contato', description: 'Meios de comunicação' },
-              { label: 'Detalhes', description: 'Prioridade e observações' },
-            ]}
-            currentStep={currentStep}
-            className="mb-6"
-          />
-
-          {/* Step 1: Informações Básicas */}
-          {currentStep === 0 && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="company_name">Nome da Empresa *</Label>
-                <Input
-                  id="company_name"
-                  value={formData.company_name}
-                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                  placeholder="Ex: Empresa XYZ Ltda"
+          {/* Progress bar minimalista */}
+          <div className="px-6 pt-4">
+            <div className="flex items-center gap-2">
+              {[0, 1, 2].map((step) => (
+                <div
+                  key={step}
+                  className={`h-1 flex-1 rounded-full transition-colors ${
+                    step <= currentStep ? 'bg-primary' : 'bg-muted'
+                  }`}
                 />
-              </div>
-              <div>
-                <Label htmlFor="segment">Segmento *</Label>
-                <Input
-                  id="segment"
-                  value={formData.segment}
-                  onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
-                  placeholder="Ex: Saúde/Medicina, Tecnologia, etc."
-                />
-              </div>
-              <div>
-                <Label htmlFor="website">Site/Instagram</Label>
-                <Input
-                  id="website"
-                  value={formData.website_or_instagram}
-                  onChange={(e) => setFormData({ ...formData, website_or_instagram: e.target.value })}
-                  placeholder="Ex: https://exemplo.com.br ou @instagram"
-                />
-              </div>
+              ))}
             </div>
-          )}
-
-          {/* Step 2: Contato */}
-          {currentStep === 1 && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="contact_name">Nome do Contato</Label>
-                <Input
-                  id="contact_name"
-                  value={formData.contact_name}
-                  onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                  placeholder="Ex: João Silva"
-                />
-              </div>
-              <div>
-                <Label htmlFor="whatsapp">WhatsApp</Label>
-                <Input
-                  id="whatsapp"
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  placeholder="Ex: +55 11 98765-4321"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="Ex: contato@empresa.com"
-                />
-              </div>
+            <div className="flex justify-between mt-2">
+              <span className={`text-xs ${currentStep >= 0 ? 'text-primary' : 'text-muted-foreground'}`}>Empresa</span>
+              <span className={`text-xs ${currentStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>Contato</span>
+              <span className={`text-xs ${currentStep >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>Detalhes</span>
             </div>
-          )}
+          </div>
 
-          {/* Step 3: Detalhes */}
-          {currentStep === 2 && (
-            <div className="space-y-4 mt-4">
-              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="priority">Prioridade *</Label>
-                  <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
+          {/* Form content */}
+          <div className="px-6 py-6">
+            {/* Step 1: Informações Básicas */}
+            {currentStep === 0 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="company_name" className="text-sm font-medium">
+                    Nome da Empresa <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="company_name"
+                    value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    placeholder="Digite o nome da empresa"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="segment" className="text-sm font-medium">
+                    Segmento <span className="text-destructive">*</span>
+                  </Label>
+                  <Select value={formData.segment} onValueChange={(value) => setFormData({ ...formData, segment: value })}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="Selecione o segmento" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Alta">Alta</SelectItem>
-                      <SelectItem value="Média">Média</SelectItem>
-                      <SelectItem value="Baixa">Baixa</SelectItem>
+                      <SelectItem value="E-commerce">E-commerce</SelectItem>
+                      <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
+                      <SelectItem value="Educação">Educação</SelectItem>
+                      <SelectItem value="Alimentação">Alimentação</SelectItem>
+                      <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
+                      <SelectItem value="Imobiliária">Imobiliária</SelectItem>
+                      <SelectItem value="Advocacia">Advocacia</SelectItem>
+                      <SelectItem value="Consultoria">Consultoria</SelectItem>
+                      <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                      <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
+                      <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                      <SelectItem value="Outros">Outros</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="import_source">Fonte de Importação *</Label>
-                  <Select value={formData.import_source} onValueChange={(value) => setFormData({ ...formData, import_source: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Manual">Manual</SelectItem>
-                      <SelectItem value="Google Maps">Google Maps</SelectItem>
-                      <SelectItem value="PEG">PEG</SelectItem>
-                      <SelectItem value="Indicação">Indicação</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="website" className="text-sm font-medium">Site ou Instagram</Label>
+                  <Input
+                    id="website"
+                    value={formData.website_or_instagram}
+                    onChange={(e) => setFormData({ ...formData, website_or_instagram: e.target.value })}
+                    placeholder="https://... ou @usuario"
+                    className="h-11"
+                  />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="project_value">Valor do Projeto (R$)</Label>
-                <Input
-                  id="project_value"
-                  type="number"
-                  value={formData.project_value}
-                  onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
-                  placeholder="Ex: 5000"
-                />
-              </div>
-              <div>
-                <Label htmlFor="notes">Observações</Label>
-                <textarea
-                  id="notes"
-                  className="w-full min-h-[100px] px-3 py-2 rounded-md border border-input bg-background"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Anotações sobre o lead..."
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 mt-6">
-            {currentStep > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep(currentStep - 1)}
-              >
-                Voltar
-              </Button>
             )}
+
+            {/* Step 2: Contato */}
+            {currentStep === 1 && (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="contact_name" className="text-sm font-medium">Nome do Contato</Label>
+                  <Input
+                    id="contact_name"
+                    value={formData.contact_name}
+                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                    placeholder="Nome da pessoa de contato"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp" className="text-sm font-medium">WhatsApp</Label>
+                  <Input
+                    id="whatsapp"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    placeholder="(00) 00000-0000"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="email@empresa.com"
+                    className="h-11"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Detalhes */}
+            {currentStep === 2 && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="priority" className="text-sm font-medium">Prioridade</Label>
+                    <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Alta">Alta</SelectItem>
+                        <SelectItem value="Média">Média</SelectItem>
+                        <SelectItem value="Baixa">Baixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nivel_interesse" className="text-sm font-medium">Interesse</Label>
+                    <Select value={formData.nivel_interesse} onValueChange={(value) => setFormData({ ...formData, nivel_interesse: value })}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
+                        <SelectItem value="Morno 🌡️">Morno 🌡️</SelectItem>
+                        <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="import_source" className="text-sm font-medium">Fonte</Label>
+                    <Select value={formData.import_source} onValueChange={(value) => setFormData({ ...formData, import_source: value })}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PEG">PEG</SelectItem>
+                        <SelectItem value="Linkedin">Linkedin</SelectItem>
+                        <SelectItem value="Interno">Interno</SelectItem>
+                        <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                        <SelectItem value="Google Ads">Google Ads</SelectItem>
+                        <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
+                        <SelectItem value="Indicação">Indicação</SelectItem>
+                        <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                        <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                        <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
+                        <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="project_value" className="text-sm font-medium">Valor do Projeto</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                      <Input
+                        id="project_value"
+                        type="text"
+                        value={formData.project_value > 0 ? formData.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                        onChange={(e) => {
+                          // Remove tudo que não é número
+                          const rawValue = e.target.value.replace(/\D/g, '');
+                          // Converte para número (considerando os 2 últimos dígitos como centavos)
+                          const numericValue = rawValue ? parseInt(rawValue, 10) / 100 : 0;
+                          setFormData({ ...formData, project_value: numericValue });
+                        }}
+                        placeholder="0,00"
+                        className="h-11 pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
+                  <textarea
+                    id="notes"
+                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Adicione observações sobre este lead..."
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer minimalista */}
+          <div className="px-6 py-4 border-t border-border/50 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => currentStep > 0 ? setCurrentStep(currentStep - 1) : setShowModal(false)}
+              className="text-muted-foreground"
+            >
+              {currentStep > 0 ? 'Voltar' : 'Cancelar'}
+            </Button>
             {currentStep < 2 ? (
               <Button
                 onClick={() => {
-                  // Validate current step before proceeding
                   if (currentStep === 0) {
                     if (!formData.company_name.trim()) {
                       toast.error('Nome da empresa é obrigatório');
+                      return;
+                    }
+                    if (!formData.segment) {
+                      toast.error('Segmento é obrigatório');
                       return;
                     }
                   }
                   setCurrentStep(currentStep + 1);
                 }}
               >
-                Próximo
+                Continuar
               </Button>
             ) : (
               <Button onClick={handleSaveLead}>
-                {editingLead ? 'Atualizar' : 'Adicionar'}
+                {editingLead ? 'Salvar' : 'Adicionar Lead'}
               </Button>
             )}
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1396,6 +1598,29 @@ export default function CRMPage() {
               className="bg-red-500 hover:bg-red-600"
             >
               Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Alert Dialog para Delete Múltiplo */}
+      <AlertDialog open={deletingMultipleLeads} onOpenChange={() => setDeletingMultipleLeads(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar Múltiplos Leads</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar <strong>{selectedLeads.size} leads selecionados</strong>?
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMultipleLeads}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Deletar Todos
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+
+async function verifyAdmin(supabase: any) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Não autorizado', status: 401 };
+  }
+
+  const serviceSupabase = createServiceClient();
+  const { data: adminUser } = await serviceSupabase
+    .from('admin_users')
+    .select('*')
+    .eq('auth_user_id', user.id)
+    .eq('is_active', true)
+    .single();
+
+  if (!adminUser) {
+    return { error: 'Acesso negado', status: 403 };
+  }
+
+  return { user, adminUser, serviceSupabase };
+}
 
 export async function GET(
   request: NextRequest,
@@ -7,8 +31,13 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
+    const auth = await verifyAdmin(supabase);
 
-    const { data, error } = await supabase
+    if ('error' in auth) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
+    const { data, error } = await auth.serviceSupabase
       .from('icp_configuration')
       .select('*')
       .eq('company_id', params.companyId)
@@ -31,6 +60,12 @@ export async function POST(
 ) {
   try {
     const supabase = await createClient();
+    const auth = await verifyAdmin(supabase);
+
+    if ('error' in auth) {
+      return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
 
     // Sanitizar arrays - remover strings vazias e garantir que arrays vazios sejam null
@@ -84,7 +119,7 @@ export async function POST(
     };
 
     // Verificar se já existe configuração
-    const { data: existing } = await supabase
+    const { data: existing } = await auth.serviceSupabase
       .from('icp_configuration')
       .select('*')
       .eq('company_id', params.companyId)
@@ -94,7 +129,7 @@ export async function POST(
 
     if (existing) {
       // Atualizar
-      ({ data, error } = await supabase
+      ({ data, error } = await auth.serviceSupabase
         .from('icp_configuration')
         .update({ ...cleanedData, updated_at: new Date().toISOString() })
         .eq('company_id', params.companyId)
@@ -102,7 +137,7 @@ export async function POST(
         .single());
     } else {
       // Criar
-      ({ data, error } = await supabase
+      ({ data, error } = await auth.serviceSupabase
         .from('icp_configuration')
         .insert([{ ...cleanedData, company_id: parseInt(params.companyId) }])
         .select()
