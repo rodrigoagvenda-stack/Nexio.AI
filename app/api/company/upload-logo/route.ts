@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const supabaseService = await createServiceClient();
 
     // Verificar autenticação
     const {
@@ -17,11 +18,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se usuário é admin
-    const { data: adminUser } = await supabase
+    // Verificar se usuário é admin (usando auth_user_id e serviceClient)
+    const { data: adminUser } = await supabaseService
       .from('admin_users')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
 
@@ -72,8 +73,8 @@ export async function POST(request: NextRequest) {
     const fileName = `${companyId}-${Date.now()}.${fileExt}`;
     const filePath = `company-logos/${fileName}`;
 
-    // Upload para Supabase Storage (usa o mesmo bucket de user-uploads)
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Upload para Supabase Storage (usando serviceClient para bypass de permissões)
+    const { data: uploadData, error: uploadError } = await supabaseService.storage
       .from('user-uploads')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -82,19 +83,25 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
+      if (uploadError.message?.includes('not found') || uploadError.message?.includes('Bucket')) {
+        return NextResponse.json(
+          { success: false, message: 'Bucket de storage não encontrado. Crie o bucket "user-uploads" no Supabase.' },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
-        { success: false, message: 'Erro ao fazer upload da imagem' },
+        { success: false, message: 'Erro ao fazer upload da imagem: ' + uploadError.message },
         { status: 500 }
       );
     }
 
     // Obter URL pública
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseService.storage
       .from('user-uploads')
       .getPublicUrl(filePath);
 
-    // Atualizar URL do logo na empresa
-    const { error: updateError } = await supabase
+    // Atualizar URL do logo na empresa (usando serviceClient)
+    const { error: updateError } = await supabaseService
       .from('companies')
       .update({ image_url: publicUrl })
       .eq('id', companyId);
