@@ -50,10 +50,15 @@ export async function POST(request: NextRequest) {
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
 
+    // Converter File para ArrayBuffer para upload
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     // Upload para Supabase Storage (usando serviceClient para bypass de permissões)
     const { data: uploadData, error: uploadError } = await supabaseService.storage
       .from('user-uploads')
-      .upload(filePath, file, {
+      .upload(filePath, buffer, {
+        contentType: file.type,
         cacheControl: '3600',
         upsert: true,
       });
