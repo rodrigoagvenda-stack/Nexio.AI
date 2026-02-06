@@ -109,12 +109,12 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabaseService
       .from('companies')
       .update({ image_url: publicUrl })
-      .eq('id', companyId);
+      .eq('id', parseInt(companyId));
 
     if (updateError) {
       console.error('Error updating company logo:', updateError);
       return NextResponse.json(
-        { success: false, message: 'Erro ao atualizar logo da empresa' },
+        { success: false, message: 'Erro ao atualizar logo da empresa: ' + updateError.message },
         { status: 500 }
       );
     }
