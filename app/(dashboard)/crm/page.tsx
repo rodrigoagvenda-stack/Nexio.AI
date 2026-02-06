@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, LayoutGrid, Table as TableIcon, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Lead } from '@/types/database.types';
@@ -271,6 +272,8 @@ export default function CRMPage() {
   const [overId, setOverId] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
+  const [deletingMultipleLeads, setDeletingMultipleLeads] = useState(false);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState(0);
@@ -425,9 +428,18 @@ export default function CRMPage() {
     // Persistir no banco
     try {
       const supabase = createClient();
+
+      // Preparar dados para atualização
+      const updateData: any = { status: newStatus };
+
+      // Se o novo status for "Fechado", adicionar closed_at
+      if (newStatus === 'Fechado') {
+        updateData.closed_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
         .from('leads')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', lead.id);
 
       if (error) throw error;
@@ -588,6 +600,47 @@ export default function CRMPage() {
     } catch (error) {
       console.error('Error deleting lead:', error);
       toast.error('Erro ao deletar lead');
+    }
+  };
+
+  const handleToggleSelectLead = (leadId: string) => {
+    setSelectedLeads((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(leadId)) {
+        newSet.delete(leadId);
+      } else {
+        newSet.add(leadId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedLeads.size === paginatedLeads.length) {
+      setSelectedLeads(new Set());
+    } else {
+      setSelectedLeads(new Set(paginatedLeads.map((l) => l.id)));
+    }
+  };
+
+  const handleDeleteMultipleLeads = async () => {
+    if (selectedLeads.size === 0) return;
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .in('id', Array.from(selectedLeads));
+
+      if (error) throw error;
+      toast.success(`${selectedLeads.size} leads deletados com sucesso!`);
+      setSelectedLeads(new Set());
+      setDeletingMultipleLeads(false);
+      fetchLeads();
+    } catch (error) {
+      console.error('Error deleting multiple leads:', error);
+      toast.error('Erro ao deletar leads');
     }
   };
 
@@ -831,6 +884,16 @@ export default function CRMPage() {
           </div>
         </div>
         <div className="flex gap-2 justify-end">
+          {selectedLeads.size > 0 && viewMode === 'table' && (
+            <Button
+              variant="destructive"
+              onClick={() => setDeletingMultipleLeads(true)}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Deletar {selectedLeads.size} selecionado(s)</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={exportToCSV}
@@ -876,41 +939,50 @@ export default function CRMPage() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="hidden md:flex gap-4 overflow-x-auto pb-4">
+            <ScrollArea className="hidden md:block w-full">
+              <div
+                className="flex gap-4 pb-4"
+                style={{
+                  minWidth: 'min-content',
+                  width: 'fit-content'
+                }}
+              >
                 {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
                     <div key={column.id} className="w-[320px] flex-shrink-0">
                       <DroppableColumn
-                    id={`column-${column.id}`}
-                    title={column.title}
-                    count={columnLeads.length}
-                  >
-                    <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                      {columnLeads.map((lead) => (
-                        <SortableLeadCard
-                          key={lead.id}
-                          lead={lead}
-                          onEdit={() => handleOpenModal(lead)}
-                          onDelete={() => setDeletingLead(lead)}
-                        />
-                      ))}
-                    </SortableContext>
-                  </DroppableColumn>
-                </div>
-              );
-            })}
-            </div>
-          <DragOverlay>
-            {activeLead ? (
-              <OrbitCard className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
-                <OrbitCardContent className="p-4">
-                  <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
-                </OrbitCardContent>
-              </OrbitCard>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+                        id={`column-${column.id}`}
+                        title={column.title}
+                        count={columnLeads.length}
+                      >
+                        <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                          {columnLeads.map((lead) => (
+                            <SortableLeadCard
+                              key={lead.id}
+                              lead={lead}
+                              onEdit={() => handleOpenModal(lead)}
+                              onDelete={() => setDeletingLead(lead)}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DroppableColumn>
+                    </div>
+                  );
+                })}
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+            <DragOverlay>
+              {activeLead ? (
+                <OrbitCard className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
+                  <OrbitCardContent className="p-4">
+                    <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
+                  </OrbitCardContent>
+                </OrbitCard>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
 
         {/* Mobile Kanban - Vertical List with Status Selector */}
         <div className="md:hidden space-y-3">
@@ -980,9 +1052,18 @@ export default function CRMPage() {
                         try {
                           const supabase = createClient();
                           const oldStatus = lead.status;
+
+                          // Preparar dados para atualização
+                          const updateData: any = { status: newStatus };
+
+                          // Se o novo status for "Fechado", adicionar closed_at
+                          if (newStatus === 'Fechado') {
+                            updateData.closed_at = new Date().toISOString();
+                          }
+
                           const { error } = await supabase
                             .from('leads')
-                            .update({ status: newStatus })
+                            .update(updateData)
                             .eq('id', lead.id);
 
                           if (error) throw error;
@@ -1068,6 +1149,12 @@ export default function CRMPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
+                      <th className="text-left px-3 py-4 w-12">
+                        <Checkbox
+                          checked={selectedLeads.size === paginatedLeads.length && paginatedLeads.length > 0}
+                          onCheckedChange={handleToggleSelectAll}
+                        />
+                      </th>
                       <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Nome da Empresa</th>
                       <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Segmento</th>
                       <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
@@ -1085,6 +1172,12 @@ export default function CRMPage() {
                         key={lead.id}
                         className="hover:bg-accent/30 transition-colors"
                       >
+                        <td className="px-3 py-4">
+                          <Checkbox
+                            checked={selectedLeads.has(lead.id)}
+                            onCheckedChange={() => handleToggleSelectLead(lead.id)}
+                          />
+                        </td>
                         <td className="px-6 py-4">
                           <div>
                             <p className="font-medium text-sm text-foreground">{lead.company_name}</p>
@@ -1414,15 +1507,24 @@ export default function CRMPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="project_value" className="text-sm font-medium">Valor (R$)</Label>
-                    <Input
-                      id="project_value"
-                      type="number"
-                      value={formData.project_value}
-                      onChange={(e) => setFormData({ ...formData, project_value: parseFloat(e.target.value) || 0 })}
-                      placeholder="0,00"
-                      className="h-11"
-                    />
+                    <Label htmlFor="project_value" className="text-sm font-medium">Valor do Projeto</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                      <Input
+                        id="project_value"
+                        type="text"
+                        value={formData.project_value > 0 ? formData.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                        onChange={(e) => {
+                          // Remove tudo que não é número
+                          const rawValue = e.target.value.replace(/\D/g, '');
+                          // Converte para número (considerando os 2 últimos dígitos como centavos)
+                          const numericValue = rawValue ? parseInt(rawValue, 10) / 100 : 0;
+                          setFormData({ ...formData, project_value: numericValue });
+                        }}
+                        placeholder="0,00"
+                        className="h-11 pl-10"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -1496,6 +1598,29 @@ export default function CRMPage() {
               className="bg-red-500 hover:bg-red-600"
             >
               Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Alert Dialog para Delete Múltiplo */}
+      <AlertDialog open={deletingMultipleLeads} onOpenChange={() => setDeletingMultipleLeads(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar Múltiplos Leads</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar <strong>{selectedLeads.size} leads selecionados</strong>?
+              <br /><br />
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMultipleLeads}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Deletar Todos
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
