@@ -1,16 +1,15 @@
 'use client';
 
+import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
 import { motion } from 'framer-motion';
 
 interface PerformanceData {
@@ -23,25 +22,18 @@ interface PerformanceChartProps {
   data: PerformanceData[];
 }
 
-export function PerformanceChart({ data }: PerformanceChartProps) {
-  // Renderizador customizado para legenda com ícones circulares
-  const renderLegend = (props: any) => {
-    const { payload } = props;
-    return (
-      <div className="flex justify-center gap-6" style={{ paddingTop: '30px' }}>
-        {payload.map((entry: any, index: number) => (
-          <div key={`item-${index}`} className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-sm text-foreground">{entry.value}</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
+const chartConfig = {
+  leads: {
+    label: 'Leads',
+    color: '#EEA130',
+  },
+  fechados: {
+    label: 'Fechados',
+    color: '#191919',
+  },
+} satisfies ChartConfig;
 
+export function PerformanceChart({ data }: PerformanceChartProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -53,46 +45,30 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
         <CardHeader className="flex-shrink-0">
           <CardTitle>Performance de Vendas</CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex items-end pb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+        <CardContent className="flex-1 pb-4">
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <BarChart accessibilityLayer data={data}>
+              <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="name"
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
               />
-              <YAxis
-                className="text-xs"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px',
-                }}
-                labelStyle={{ color: 'hsl(var(--foreground))' }}
-              />
-              <Legend content={renderLegend} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
               <Bar
                 dataKey="leads"
-                name="Total Leads"
-                fill="#9333ea"
+                fill="var(--color-leads)"
                 radius={[4, 4, 0, 0]}
-                animationDuration={1000}
-                animationBegin={200}
               />
               <Bar
                 dataKey="fechados"
-                name="Fechados"
-                fill="#404040"
+                fill="var(--color-fechados)"
                 radius={[4, 4, 0, 0]}
-                animationDuration={1000}
-                animationBegin={400}
               />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </CardContent>
       </Card>
     </motion.div>

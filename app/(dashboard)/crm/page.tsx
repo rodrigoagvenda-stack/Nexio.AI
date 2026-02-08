@@ -204,11 +204,13 @@ function DroppableColumn({
   id,
   title,
   count,
+  totalValue,
   children,
 }: {
   id: string;
   title: string;
   count: number;
+  totalValue?: number;
   children: React.ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -234,12 +236,19 @@ function DroppableColumn({
 
   return (
     <div className="flex flex-col h-[calc(100vh-220px)]">
-      <div className="flex items-center gap-2 mb-3 px-1 flex-shrink-0">
-        <span className="text-sm">{getColumnIcon()}</span>
-        <h3 className="font-medium text-sm text-foreground">{title}</h3>
-        <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
-          {count}
-        </span>
+      <div className="mb-3 px-1 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">{getColumnIcon()}</span>
+          <h3 className="font-medium text-sm text-foreground">{title}</h3>
+          <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
+            {count}
+          </span>
+        </div>
+        {totalValue !== undefined && totalValue > 0 && (
+          <p className="text-xs text-muted-foreground mt-1 ml-7">
+            R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        )}
       </div>
       <div
         ref={setNodeRef}
@@ -565,16 +574,20 @@ export default function CRMPage() {
 
         if (error) throw error;
 
-        // Log de atividade para update
-        if (authUser && company) {
+        // Criar log de atividade
+        if (user && company) {
           await supabase.from('activity_logs').insert({
-            user_id: authUser.id,
+            user_id: user.auth_user_id,
             company_id: company.id,
-            action: 'lead_updated',
-            description: `Lead "${formData.company_name}" foi atualizado`,
-            metadata: { lead_id: editingLead.id, company_name: formData.company_name },
+            action: 'lead_update',
+            description: `Atualizou informações do lead "${formData.company_name}"`,
+            metadata: {
+              lead_id: editingLead.id,
+              lead_name: formData.company_name,
+            },
           });
         }
+
         toast.success(`Lead "${formData.company_name}" atualizado com sucesso!`);
       } else {
         // Insert
@@ -586,16 +599,21 @@ export default function CRMPage() {
 
         if (error) throw error;
 
-        // Log de atividade para criação
-        if (authUser && company) {
+        // Criar log de atividade
+        if (user && company && newLead) {
           await supabase.from('activity_logs').insert({
-            user_id: authUser.id,
+            user_id: user.auth_user_id,
             company_id: company.id,
             action: 'lead_created',
-            description: `Novo lead "${formData.company_name}" foi criado`,
-            metadata: { lead_id: newLead?.id, company_name: formData.company_name, contact_name: formData.contact_name },
+            description: `Criou novo lead "${formData.company_name}"`,
+            metadata: {
+              lead_id: newLead.id,
+              lead_name: formData.company_name,
+              segment: formData.segment,
+            },
           });
         }
+
         toast.success(`Lead "${formData.company_name}" adicionado com sucesso!`);
       }
 
@@ -612,25 +630,31 @@ export default function CRMPage() {
 
     try {
       const supabase = createClient();
+      const leadName = deletingLead.company_name;
+      const leadId = deletingLead.id;
+
       const { error } = await supabase
         .from('leads')
         .delete()
-        .eq('id', deletingLead.id);
+        .eq('id', leadId);
 
       if (error) throw error;
 
-      // Log de atividade para deleção
-      if (authUser && company) {
+      // Criar log de atividade
+      if (user && company) {
         await supabase.from('activity_logs').insert({
-          user_id: authUser.id,
+          user_id: user.auth_user_id,
           company_id: company.id,
           action: 'lead_deleted',
-          description: `Lead "${deletingLead.company_name}" foi deletado`,
-          metadata: { lead_id: deletingLead.id, company_name: deletingLead.company_name },
+          description: `Deletou lead "${leadName}"`,
+          metadata: {
+            lead_id: leadId,
+            lead_name: leadName,
+          },
         });
       }
 
-      toast.success(`Lead "${deletingLead.company_name}" deletado com sucesso!`);
+      toast.success(`Lead "${leadName}" deletado com sucesso!`);
       setDeletingLead(null);
       fetchLeads();
     } catch (error) {
@@ -664,26 +688,13 @@ export default function CRMPage() {
 
     try {
       const supabase = createClient();
-      const leadsCount = selectedLeads.size;
       const { error } = await supabase
         .from('leads')
         .delete()
         .in('id', Array.from(selectedLeads).map(id => parseInt(id)));
 
       if (error) throw error;
-
-      // Log de atividade para deleção múltipla
-      if (authUser && company) {
-        await supabase.from('activity_logs').insert({
-          user_id: authUser.id,
-          company_id: company.id,
-          action: 'leads_bulk_deleted',
-          description: `${leadsCount} leads foram deletados em massa`,
-          metadata: { count: leadsCount, lead_ids: Array.from(selectedLeads) },
-        });
-      }
-
-      toast.success(`${leadsCount} leads deletados com sucesso!`);
+      toast.success(`${selectedLeads.size} leads deletados com sucesso!`);
       setSelectedLeads(new Set());
       setDeletingMultipleLeads(false);
       fetchLeads();
@@ -775,6 +786,12 @@ export default function CRMPage() {
 
   const getLeadsByStatus = (status: string) => {
     return filteredLeads.filter((lead) => lead.status === status);
+  };
+
+  const getTotalValueByStatus = (status: string) => {
+    return filteredLeads
+      .filter((lead) => lead.status === status)
+      .reduce((sum, lead) => sum + (lead.project_value || 0), 0);
   };
 
   // Filtros
@@ -1004,6 +1021,7 @@ export default function CRMPage() {
                         id={`column-${column.id}`}
                         title={column.title}
                         count={columnLeads.length}
+                        totalValue={getTotalValueByStatus(column.id)}
                       >
                         <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                           {columnLeads.map((lead) => (

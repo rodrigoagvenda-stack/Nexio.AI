@@ -4,64 +4,68 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 93%; /* #EDEDED */
     --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
+    --card: 0 0% 95.3%; /* #F3F3F3 */
     --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
+    --popover: 0 0% 95.3%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 270 91% 65%; /* Roxo/lilás #A855F7 */
+    --primary: 36 83% 56%; /* #EEA130 amarelo dourado */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
-    --accent: 270 95% 85%; /* Lilás claro para acentos */
-    --accent-foreground: 270 91% 30%;
+    --accent: 36 83% 90%; /* Dourado claro para acentos */
+    --accent-foreground: 36 83% 25%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 270 91% 65%;
+    --ring: 36 83% 56%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
+    --chart-1: 36 83% 56%; /* #EEA130 */
+    --chart-2: 0 0% 10%; /* #191919 */
+    --sidebar-background: 0 0% 95%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 36 83% 56%;
   }
 
   .dark {
-    --background: 0 0% 0%; /* Preto puro mantido */
+    --background: 0 0% 4.7%; /* #0C0C0C */
     --foreground: 0 0% 98%;
-    --card: 0 0% 4%; /* Cards cinza muito escuro mantido */
+    --card: 0 0% 6.3%; /* #101010 */
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 4%;
+    --popover: 0 0% 6.3%;
     --popover-foreground: 0 0% 98%;
-    --primary: 262 83% 58%; /* Roxo cyber exato #8B5CF6 */
+    --primary: 36 83% 56%; /* #EEA130 amarelo dourado - mesmo */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 8%; /* Cinza escuro mantido */
+    --secondary: 0 0% 8%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 8%;
     --muted-foreground: 0 0% 60%;
-    --accent: 262 70% 30%; /* Roxo profundo para acentos */
-    --accent-foreground: 262 83% 80%;
+    --accent: 36 70% 20%; /* Dourado escuro para acentos */
+    --accent-foreground: 36 83% 80%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 10%; /* Bordas sutis mantidas */
+    --border: 0 0% 10%; /* Bordas sutis */
     --input: 0 0% 8%;
-    --ring: 262 83% 58%;
-    --sidebar-background: 240 5.9% 10%;
+    --ring: 36 83% 56%;
+    --chart-1: 36 83% 56%; /* #EEA130 */
+    --chart-2: 0 0% 10%; /* #191919 */
+    --sidebar-background: 0 0% 6%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 36 83% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent: 0 0% 12%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 36 83% 56%;
   }
   .theme {
     --animate-shiny-text: shiny-text 8s infinite;
@@ -122,7 +126,18 @@
     background-size: 200% 100%;
   }
 
-  /* Scrollbar minimalista com suporte a dark mode */
+  /* Hide scrollbar globally */
+  ::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+  }
+
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  /* Scrollbar minimalista para áreas que precisam de scroll visível */
   .scrollbar-minimal {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;

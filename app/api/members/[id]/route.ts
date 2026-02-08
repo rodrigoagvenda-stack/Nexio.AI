@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export async function PATCH(
   request: NextRequest,
@@ -33,7 +33,7 @@ export async function PATCH(
 
     if (error) throw error;
 
-    // Registrar log no system_logs
+    // Registrar logs
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -45,18 +45,19 @@ export async function PATCH(
       },
     });
 
-    // Registrar log no activity_logs para notificações
-    // Obter usuário autenticado que está realizando a ação
-    const supabaseAuth = await createClient();
-    const { data: { user: authUser } } = await supabaseAuth.auth.getUser();
-
-    if (authUser) {
+    // Criar log de atividade para notificações
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
       await supabase.from('activity_logs').insert({
-        user_id: authUser.id,
+        user_id: currentUser.id,
         company_id: companyId,
         action: 'member_updated',
-        description: `Membro "${updatedUser.name}" foi atualizado`,
-        metadata: { member_name: updatedUser.name, changes: { role, department } },
+        description: `Atualizou informações de ${updatedUser.name}`,
+        metadata: {
+          updated_user_id: userId,
+          updated_user_name: updatedUser.name,
+          changes: { role, department },
+        },
       });
     }
 
@@ -117,7 +118,7 @@ export async function DELETE(
 
     if (dbError) throw dbError;
 
-    // 3. Registrar log no system_logs
+    // 3. Registrar logs
     await supabase.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -129,18 +130,19 @@ export async function DELETE(
       },
     });
 
-    // 4. Registrar log no activity_logs para notificações
-    // Obter usuário autenticado que está realizando a ação
-    const supabaseAuth = await createClient();
-    const { data: { user: authUser } } = await supabaseAuth.auth.getUser();
-
-    if (authUser) {
+    // 4. Criar log de atividade para notificações
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser) {
       await supabase.from('activity_logs').insert({
-        user_id: authUser.id,
+        user_id: currentUser.id,
         company_id: companyId,
-        action: 'member_deleted',
-        description: `Membro "${user?.name}" (${user?.email}) foi removido`,
-        metadata: { deleted_member_name: user?.name, deleted_member_email: user?.email },
+        action: 'member_removed',
+        description: `Removeu ${user?.name} da equipe`,
+        metadata: {
+          removed_user_id: userId,
+          removed_user_name: user?.name,
+          removed_user_email: user?.email,
+        },
       });
     }
 

@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
 
+    console.log('[MEMBERS GET] Company ID:', companyId);
+
     if (!companyId) {
       return NextResponse.json(
         { success: false, message: 'Company ID é obrigatório' },
@@ -13,8 +15,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Usar serviceClient para bypass RLS e ver todos os membros
-    const supabase = await createServiceClient();
+    const supabase = await createClient();
 
     const { data: members, error } = await supabase
       .from('users')
@@ -22,14 +23,20 @@ export async function GET(request: NextRequest) {
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[MEMBERS GET] Error:', error);
+      throw error;
+    }
+
+    console.log('[MEMBERS GET] Found members:', members?.length || 0);
 
     return NextResponse.json({
       success: true,
-      data: members,
+      data: members || [],
+      count: members?.length || 0,
     });
   } catch (error: any) {
-    console.error('Error fetching members:', error);
+    console.error('[MEMBERS GET] Fatal error:', error);
     return NextResponse.json(
       { success: false, message: error.message },
       { status: 500 }
@@ -130,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[INVITE] Usuário criado na tabela com sucesso');
 
-    // 5. Registrar log no system_logs
+    // 5. Registrar logs
     await supabaseService.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
@@ -144,14 +151,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 6. Registrar log no activity_logs para notificações
-    await supabaseService.from('activity_logs').insert({
-      user_id: authUser.user.id,
-      company_id: companyId,
-      action: 'member_invited',
-      description: `Novo membro convidado: ${name} (${email})`,
-      metadata: { member_email: email, role },
-    });
+    // 6. Criar log de atividade para notificações
+    const { data: { user: currentUser } } = await supabaseService.auth.getUser();
+    if (currentUser) {
+      await supabaseService.from('activity_logs').insert({
+        user_id: currentUser.id,
+        company_id: companyId,
+        action: 'member_invited',
+        description: `Convidou ${name} para a equipe`,
+        metadata: {
+          invited_user_id: authUser.user.id,
+          invited_user_name: name,
+          invited_user_email: email,
+          role,
+        },
+      });
+    }
 
     console.log('[INVITE] ✅ Processo completo! Email de convite foi enviado pelo Supabase.');
 

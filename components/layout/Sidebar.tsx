@@ -127,6 +127,8 @@ export function Sidebar({
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={true}
+                scroll={true}
                 className={cn(
                   'group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-200',
                   isActive
@@ -135,6 +137,7 @@ export function Sidebar({
                   isCollapsed && 'justify-center px-2'
                 )}
                 title={isCollapsed ? link.label : undefined}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {!isCollapsed && (
