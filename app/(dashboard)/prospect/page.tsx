@@ -197,7 +197,7 @@ export default function ProspectAIPage() {
   // Se não tem acesso ao Orbit, mostrar mensagem de upgrade
   if (!hasOrbitAccess) {
     return (
-      <div className="h-screen bg-background relative overflow-hidden flex items-center justify-center">
+      <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
         {/* Orb background com efeito React Bits */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-[700px] h-[700px]">
@@ -256,7 +256,7 @@ export default function ProspectAIPage() {
   }
 
   return (
-    <div className="h-screen bg-background relative overflow-hidden flex items-center justify-center">
+    <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
       {/* Orb background com efeito React Bits */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-[700px] h-[700px]">

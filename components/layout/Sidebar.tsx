@@ -1,14 +1,12 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition, useCallback } from 'react';
 import {
   Home,
   UsersRound,
   MessagesSquare,
-  Target,
   Users,
   HelpCircle,
   ShieldCheck,
@@ -19,7 +17,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -30,6 +27,15 @@ interface SidebarProps {
   companyImage?: string;
 }
 
+const links = [
+  { href: '/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/crm', label: 'CRM', icon: UsersRound },
+  { href: '/atendimento', label: 'Atendimento', icon: MessagesSquare },
+  { href: '/prospect', label: 'Orbit', icon: Zap },
+  { href: '/membros', label: 'Membros', icon: Users },
+  { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
+];
+
 export function Sidebar({
   isAdmin = false,
   companyName,
@@ -38,49 +44,38 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
-  const links = [
-    {
-      href: '/dashboard',
-      label: 'Dashboard',
-      icon: Home,
-    },
-    {
-      href: '/crm',
-      label: 'CRM',
-      icon: UsersRound,
-    },
-    {
-      href: '/atendimento',
-      label: 'Atendimento',
-      icon: MessagesSquare,
-    },
-    {
-      href: '/prospect',
-      label: 'Orbit',
-      icon: Zap,
-    },
-    {
-      href: '/membros',
-      label: 'Membros',
-      icon: Users,
-    },
-    {
-      href: '/ajuda',
-      label: 'Ajuda',
-      icon: HelpCircle,
-    },
+  // Prefetch todas as rotas no mount para navegação instantânea
+  useEffect(() => {
+    links.forEach((link) => {
+      router.prefetch(link.href);
+    });
+    if (isAdmin) {
+      router.prefetch('/admin');
+    }
+  }, [router, isAdmin]);
+
+  // Reset navigatingTo quando a navegação completa
+  useEffect(() => {
+    setNavigatingTo(null);
+  }, [pathname]);
+
+  const handleNavigation = useCallback((href: string) => {
+    if (pathname === href) return;
+    setNavigatingTo(href);
+    startTransition(() => {
+      router.push(href);
+    });
+  }, [pathname, router]);
+
+  const allLinks = [
+    ...links,
     ...(isAdmin
-      ? [
-          {
-            href: '/admin',
-            label: 'Admin',
-            icon: ShieldCheck,
-            badge: 'ADMIN' as const,
-          },
-        ]
+      ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' as const }]
       : []),
   ];
 
@@ -99,10 +94,9 @@ export function Sidebar({
 
   return (
     <>
-      {/* Sidebar */}
       <aside
         className={cn(
-          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-[width] duration-300',
+          'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-[width] duration-200',
           isCollapsed ? 'md:w-20' : 'md:w-64'
         )}
       >
@@ -119,19 +113,18 @@ export function Sidebar({
 
         {/* Navigation */}
         <nav className="flex-1 px-4 pt-4 space-y-1 overflow-y-auto">
-          {links.map((link) => {
+          {allLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+            const isNavigating = navigatingTo === link.href;
 
             return (
-              <Link
+              <button
                 key={link.href}
-                href={link.href}
-                prefetch={true}
-                scroll={true}
+                onClick={() => handleNavigation(link.href)}
                 className={cn(
-                  'group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-200',
-                  isActive
+                  'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
+                  isActive || isNavigating
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                   isCollapsed && 'justify-center px-2'
@@ -139,18 +132,18 @@ export function Sidebar({
                 title={isCollapsed ? link.label : undefined}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="h-5 w-5 flex-shrink-0" />
+                <Icon className={cn('h-5 w-5 flex-shrink-0', isNavigating && 'animate-pulse')} />
                 {!isCollapsed && (
                   <>
-                    <span className="text-sm flex-1">{link.label}</span>
-                    {link.badge && (
+                    <span className="text-sm flex-1 text-left">{link.label}</span>
+                    {'badge' in link && link.badge && (
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
                         {link.badge}
                       </span>
                     )}
                   </>
                 )}
-              </Link>
+              </button>
             );
           })}
         </nav>

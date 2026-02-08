@@ -394,8 +394,8 @@ export default function DashboardPage() {
   // Em andamento = leads criados no período que NÃO foram fechados no período
   const emAndamento = Math.max(0, totalLeads - fechados);
   const conversionData = [
-    { name: 'Fechados', value: fechados, color: '#404040' },
-    { name: 'Em andamento', value: emAndamento, color: '#9333ea' },
+    { name: 'Fechados', value: fechados, color: '#191919' },
+    { name: 'Em andamento', value: emAndamento, color: '#30184C' },
   ];
 
   // Dados do funil
@@ -540,12 +540,12 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Performance e Taxa de Conversão */}
+      {/* Performance e Taxa de Conversão - alinhados */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 min-h-[400px]">
+        <div className="lg:col-span-2 h-[280px]">
           <PerformanceChart data={performanceData} />
         </div>
-        <div className="min-h-[400px]">
+        <div className="h-[280px]">
           <ConversionDonut data={conversionData} />
         </div>
       </div>

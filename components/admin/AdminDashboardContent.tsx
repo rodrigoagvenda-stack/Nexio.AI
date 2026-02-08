@@ -42,7 +42,7 @@ export function AdminDashboardContent({
 }: DashboardProps) {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '1y'>('30d');
 
-  const COLORS = ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#06b6d4'];
+  const COLORS = ['#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb'];
 
   return (
     <div className="space-y-8">
@@ -172,8 +172,8 @@ export function AdminDashboardContent({
             <AreaChart data={leadsOverTime}>
               <defs>
                 <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#30184C" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#30184C" stopOpacity={0}/>
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
@@ -186,7 +186,7 @@ export function AdminDashboardContent({
                   borderRadius: '8px',
                 }}
               />
-              <Area type="monotone" dataKey="count" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorLeads)" />
+              <Area type="monotone" dataKey="count" stroke="#30184C" fillOpacity={1} fill="url(#colorLeads)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -227,7 +227,7 @@ export function AdminDashboardContent({
                   borderRadius: '8px',
                 }}
               />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="count" fill="#30184C" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
