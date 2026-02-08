@@ -542,10 +542,10 @@ export default function DashboardPage() {
 
       {/* Performance e Taxa de Conversão - alinhados */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 h-[280px]">
+        <div className="lg:col-span-2">
           <PerformanceChart data={performanceData} />
         </div>
-        <div className="h-[280px]">
+        <div>
           <ConversionDonut data={conversionData} />
         </div>
       </div>

@@ -39,14 +39,13 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="h-full"
     >
-      <Card className="h-full flex flex-col">
+      <Card>
         <CardHeader className="flex-shrink-0">
           <CardTitle>Performance de Vendas</CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 pb-4">
-          <ChartContainer config={chartConfig} className="h-full w-full">
+        <CardContent className="pb-4">
+          <ChartContainer config={chartConfig} className="h-[250px] w-full">
             <BarChart accessibilityLayer data={data}>
               <CartesianGrid vertical={false} />
               <XAxis
