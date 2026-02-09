@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Home,
   UsersRound,
@@ -44,33 +45,8 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [, startTransition] = useTransition();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
-
-  // Prefetch todas as rotas no mount para navegação instantânea
-  useEffect(() => {
-    links.forEach((link) => {
-      router.prefetch(link.href);
-    });
-    if (isAdmin) {
-      router.prefetch('/admin');
-    }
-  }, [router, isAdmin]);
-
-  // Reset navigatingTo quando a navegação completa
-  useEffect(() => {
-    setNavigatingTo(null);
-  }, [pathname]);
-
-  const handleNavigation = useCallback((href: string) => {
-    if (pathname === href) return;
-    setNavigatingTo(href);
-    startTransition(() => {
-      router.push(href);
-    });
-  }, [pathname, router]);
 
   const allLinks = [
     ...links,
@@ -116,15 +92,15 @@ export function Sidebar({
           {allLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-            const isNavigating = navigatingTo === link.href;
 
             return (
-              <button
+              <Link
                 key={link.href}
-                onClick={() => handleNavigation(link.href)}
+                href={link.href}
+                prefetch={true}
                 className={cn(
                   'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
-                  isActive || isNavigating
+                  isActive
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                   isCollapsed && 'justify-center px-2'
@@ -132,7 +108,7 @@ export function Sidebar({
                 title={isCollapsed ? link.label : undefined}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className={cn('h-5 w-5 flex-shrink-0', isNavigating && 'animate-pulse')} />
+                <Icon className="h-5 w-5 flex-shrink-0" />
                 {!isCollapsed && (
                   <>
                     <span className="text-sm flex-1 text-left">{link.label}</span>
@@ -143,7 +119,7 @@ export function Sidebar({
                     )}
                   </>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>

@@ -24,11 +24,11 @@ interface PerformanceChartProps {
 
 const chartConfig = {
   leads: {
-    label: 'Leads',
+    label: 'Leads gerados',
     color: '#30184C',
   },
   fechados: {
-    label: 'Fechados',
+    label: 'Leads fechados',
     color: '#191919',
   },
 } satisfies ChartConfig;
@@ -45,7 +45,7 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
           <CardTitle>Performance de Vendas</CardTitle>
         </CardHeader>
         <CardContent className="pb-4">
-          <ChartContainer config={chartConfig} className="h-[250px] w-full">
+          <ChartContainer config={chartConfig} className="h-[325px] w-full">
             <BarChart accessibilityLayer data={data}>
               <CartesianGrid vertical={false} />
               <XAxis
