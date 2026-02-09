@@ -173,30 +173,37 @@ export async function POST() {
             log(`Extraído: node="${errorNode}", msg="${errorMessage.substring(0, 100)}", wf="${workflowName}"`);
           }
 
-          // Determinar severidade
-          let severity = 'medium';
-          const msg = errorMessage.toLowerCase();
-          if (msg.includes('critical') || msg.includes('fatal')) severity = 'critical';
-          else if (msg.includes('timeout') || msg.includes('connection')) severity = 'high';
-          else if (msg.includes('warning')) severity = 'low';
+          // Montar error_data como JSONB
+          let errorData: Record<string, any> = {};
+          try {
+            errorData = {
+              node: errorNode,
+              message: errorMessage,
+              severity: 'medium',
+              executionUrl: `${instance.url}/execution/${execId}`,
+            };
+            // Adicionar detalhes do erro se existirem
+            if (resultData?.error) {
+              errorData.details = resultData.error;
+            }
+          } catch {
+            errorData = { node: errorNode, message: errorMessage };
+          }
 
-          // Inserir erro COM verificação de resultado
+          // Inserir erro - colunas reais da tabela n8n_errors
           const insertData = {
             instance_id: instance.id,
             execution_id: execId,
             workflow_id: String(execution.workflowId || execution.workflowData?.id || ''),
             workflow_name: String(workflowName).substring(0, 500),
-            error_node: String(errorNode).substring(0, 500),
             error_message: String(errorMessage).substring(0, 5000),
-            severity,
-            notified: false,
-            resolved: false,
-            timestamp: execution.stoppedAt || execution.startedAt || new Date().toISOString(),
+            error_data: errorData,
+            status: 'open',
           };
 
           // Log do primeiro insert para debug
           if (instanceNewErrors === 0 && instanceSkipped === 0 && instanceInsertErrors === 0) {
-            log(`INSERT DATA (primeiro): ${JSON.stringify({ ...insertData, error_details: '(truncado)' })}`);
+            log(`INSERT DATA (primeiro): ${JSON.stringify({ ...insertData, error_data: '(truncado)' })}`);
           }
 
           const { error: insertError } = await supabase.from('n8n_errors').insert(insertData);
@@ -215,7 +222,7 @@ export async function POST() {
         // Atualizar last_check
         await supabase
           .from('n8n_instances')
-          .update({ last_check: new Date().toISOString() })
+          .update({ last_check_at: new Date().toISOString() })
           .eq('id', instance.id);
 
         const result = {

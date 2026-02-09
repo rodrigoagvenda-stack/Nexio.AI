@@ -56,34 +56,38 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 
 interface N8NInstance {
-  id: string;
+  id: number | string;
   name: string;
   url: string;
   api_key: string;
   check_interval: number;
   active: boolean;
-  last_check: string | null;
+  last_check_at: string | null;
+  last_status: string | null;
   created_at: string;
   updated_at: string;
 }
 
 interface N8NError {
   id: string;
-  instance_id: string;
+  instance_id: number;
   execution_id: string;
   workflow_id: string;
   workflow_name: string;
-  error_node: string;
   error_message: string;
-  error_details: string;
-  ai_analysis: string | null;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  notified: boolean;
-  resolved: boolean;
-  timestamp: string;
+  error_data: {
+    node?: string;
+    message?: string;
+    severity?: string;
+    executionUrl?: string;
+    details?: any;
+    ai_analysis?: string;
+  } | null;
+  status: string;
+  resolved_at: string | null;
   created_at: string;
   instance?: {
-    id: string;
+    id: number;
     name: string;
     url: string;
   };
@@ -186,11 +190,16 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
     }
   };
 
+  // Helpers para acessar dados do erro
+  const getErrorNode = (e: N8NError) => e.error_data?.node || 'Unknown';
+  const getErrorSeverity = (e: N8NError) => (e.error_data?.severity || 'medium') as 'low' | 'medium' | 'high' | 'critical';
+  const isResolved = (e: N8NError) => !!e.resolved_at || e.status === 'resolved' || e.status === 'ignored';
+
   // Filtrar erros
   const filteredErrors = errors.filter((error) => {
-    if (filterResolved === 'resolved' && !error.resolved) return false;
-    if (filterResolved === 'unresolved' && error.resolved) return false;
-    if (filterSeverity !== 'all' && error.severity !== filterSeverity) return false;
+    if (filterResolved === 'resolved' && !isResolved(error)) return false;
+    if (filterResolved === 'unresolved' && isResolved(error)) return false;
+    if (filterSeverity !== 'all' && getErrorSeverity(error) !== filterSeverity) return false;
     if (filterWorkflow !== 'all' && error.workflow_name !== filterWorkflow) return false;
     return true;
   });
@@ -330,7 +339,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
     }
   };
 
-  const handleDeleteInstance = async (instanceId: string) => {
+  const handleDeleteInstance = async (instanceId: number | string) => {
     if (!confirm('Tem certeza que deseja remover esta instância? Todos os erros associados serão removidos.')) {
       return;
     }
@@ -358,7 +367,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
 
       await supabase
         .from('n8n_errors')
-        .update({ resolved: true })
+        .update({ resolved_at: new Date().toISOString(), status: 'resolved' })
         .eq('id', errorId);
 
       toast.success('Erro marcado como resolvido!');
@@ -376,7 +385,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
 
       await supabase
         .from('n8n_errors')
-        .update({ notified: true, resolved: true })
+        .update({ resolved_at: new Date().toISOString(), status: 'ignored' })
         .eq('id', errorId);
 
       toast.success('Erro ignorado!');
@@ -410,7 +419,10 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
 
       // Atualizar erro selecionado com análise
       if (selectedError && selectedError.id === errorId) {
-        setSelectedError({ ...selectedError, ai_analysis: data.analysis });
+        setSelectedError({
+          ...selectedError,
+          error_data: { ...selectedError.error_data, ai_analysis: data.analysis },
+        });
       }
 
       await fetchData();
@@ -431,8 +443,8 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
     return active ? 'bg-green-500' : 'bg-gray-500';
   };
 
-  const getInstanceErrors = (instanceId: string) => {
-    return errors.filter(e => e.instance_id === instanceId && !e.resolved);
+  const getInstanceErrors = (instanceId: number | string) => {
+    return errors.filter(e => String(e.instance_id) === String(instanceId) && !isResolved(e));
   };
 
   return (
@@ -575,7 +587,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {formatDate(instance.last_check)}
+                        {formatDate(instance.last_check_at)}
                       </TableCell>
                       <TableCell>
                         {instanceErrors.length > 0 ? (
@@ -739,24 +751,24 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                     <TableCell className="max-w-[150px] truncate">
                       {error.workflow_name}
                     </TableCell>
-                    <TableCell>{error.error_node}</TableCell>
+                    <TableCell>{getErrorNode(error)}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {error.error_message}
                     </TableCell>
                     <TableCell>
-                      <Badge className={severityColors[error.severity]}>
-                        {severityLabels[error.severity]}
+                      <Badge className={severityColors[getErrorSeverity(error)]}>
+                        {severityLabels[getErrorSeverity(error)]}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {error.resolved ? (
+                      {isResolved(error) ? (
                         <Badge className="bg-green-500">Resolvido</Badge>
                       ) : (
                         <Badge className="bg-red-500">Pendente</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {formatDate(error.timestamp)}
+                      {formatDate(error.created_at)}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -923,7 +935,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
               Detalhes do Erro
             </DialogTitle>
             <DialogDescription>
-              {selectedError?.workflow_name} - {formatDate(selectedError?.timestamp || '')}
+              {selectedError?.workflow_name} - {formatDate(selectedError?.created_at || '')}
             </DialogDescription>
           </DialogHeader>
 
@@ -948,13 +960,13 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                 <div>
                   <Label>Node com Erro</Label>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {selectedError.error_node}
+                    {getErrorNode(selectedError)}
                   </p>
                 </div>
                 <div>
                   <Label>Severidade</Label>
-                  <Badge className={`${severityColors[selectedError.severity]} mt-1`}>
-                    {severityLabels[selectedError.severity]}
+                  <Badge className={`${severityColors[getErrorSeverity(selectedError)]} mt-1`}>
+                    {severityLabels[getErrorSeverity(selectedError)]}
                   </Badge>
                 </div>
               </div>
@@ -968,12 +980,12 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                 </div>
               </div>
 
-              {selectedError.error_details && (
+              {selectedError.error_data?.details && (
                 <div>
                   <Label>Detalhes Técnicos</Label>
                   <div className="mt-1 p-3 rounded-lg bg-muted/50 border border-border">
                     <pre className="text-xs text-muted-foreground overflow-x-auto">
-                      {selectedError.error_details}
+                      {JSON.stringify(selectedError.error_data.details, null, 2)}
                     </pre>
                   </div>
                 </div>
@@ -985,7 +997,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                     <Sparkles className="h-4 w-4 text-purple-400" />
                     Análise IA
                   </Label>
-                  {!selectedError.ai_analysis && (
+                  {!selectedError.error_data?.ai_analysis && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -999,9 +1011,9 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                   )}
                 </div>
                 <div className="mt-1 p-4 rounded-lg bg-muted/50 border border-border">
-                  {selectedError.ai_analysis ? (
+                  {selectedError.error_data?.ai_analysis ? (
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {selectedError.ai_analysis}
+                      {selectedError.error_data.ai_analysis}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">
@@ -1026,8 +1038,8 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                 </div>
                 <div>
                   <Label>Status</Label>
-                  <Badge className={`mt-1 ${selectedError.resolved ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {selectedError.resolved ? 'Resolvido' : 'Pendente'}
+                  <Badge className={`mt-1 ${isResolved(selectedError) ? 'bg-green-500' : 'bg-red-500'}`}>
+                    {isResolved(selectedError) ? 'Resolvido' : 'Pendente'}
                   </Badge>
                 </div>
               </div>
@@ -1041,7 +1053,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
             >
               Fechar
             </Button>
-            {selectedError && !selectedError.resolved && (
+            {selectedError && !isResolved(selectedError) && (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -1100,26 +1112,26 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
               <TableBody>
                 {selectedInstance &&
                   errors
-                    .filter(e => e.instance_id === selectedInstance.id)
+                    .filter(e => String(e.instance_id) === String(selectedInstance.id))
                     .map((error) => (
                       <TableRow key={error.id} className="border-border">
                         <TableCell className="text-sm">
-                          {formatDate(error.timestamp)}
+                          {formatDate(error.created_at)}
                         </TableCell>
                         <TableCell className="max-w-[150px] truncate">
                           {error.workflow_name}
                         </TableCell>
-                        <TableCell>{error.error_node}</TableCell>
+                        <TableCell>{getErrorNode(error)}</TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {error.error_message}
                         </TableCell>
                         <TableCell>
-                          <Badge className={severityColors[error.severity]}>
-                            {severityLabels[error.severity]}
+                          <Badge className={severityColors[getErrorSeverity(error)]}>
+                            {severityLabels[getErrorSeverity(error)]}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {error.resolved ? (
+                          {isResolved(error) ? (
                             <Badge className="bg-green-500">Resolvido</Badge>
                           ) : (
                             <Badge className="bg-red-500">Pendente</Badge>
