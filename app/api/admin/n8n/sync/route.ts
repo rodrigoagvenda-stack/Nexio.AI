@@ -132,7 +132,6 @@ export async function POST() {
           // Extrair dados do erro diretamente (includeData=true já traz tudo)
           let errorNode = 'Unknown';
           let errorMessage = 'Erro desconhecido';
-          let errorDetails = '{}';
 
           // workflowData pode estar em diferentes locais dependendo da versão do n8n
           let workflowName = execution.workflowData?.name
@@ -150,11 +149,6 @@ export async function POST() {
               ? nodeRef
               : (nodeRef?.name || nodeRef?.type || 'Unknown');
             errorMessage = resultData.error.message || 'Erro desconhecido';
-            try {
-              errorDetails = JSON.stringify(resultData.error).substring(0, 10000);
-            } catch {
-              errorDetails = `{ "message": "${errorMessage}" }`;
-            }
           } else {
             // Fallback: procurar erro nos runData dos nodes
             const runData = resultData?.runData;
@@ -164,7 +158,6 @@ export async function POST() {
                 if (lastRun?.error) {
                   errorNode = nodeName;
                   errorMessage = lastRun.error.message || 'Erro desconhecido';
-                  errorDetails = JSON.stringify(lastRun.error);
                   break;
                 }
               }
@@ -195,7 +188,6 @@ export async function POST() {
             workflow_name: String(workflowName).substring(0, 500),
             error_node: String(errorNode).substring(0, 500),
             error_message: String(errorMessage).substring(0, 5000),
-            error_details: errorDetails,
             severity,
             notified: false,
             resolved: false,
