@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Users, TrendingUp, DollarSign, AlertTriangle, Activity } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
-import { LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, Tooltip, Area, AreaChart, Line, LineChart, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { ChartConfig, ChartContainer } from '@/components/ui/chart';
 import { Button } from '@/components/ui/button';
 
 interface DashboardProps {
@@ -24,6 +25,20 @@ interface DashboardProps {
   leadsByStatus: { status: string; count: number }[];
 }
 
+const leadsChartConfig = {
+  count: { label: 'Leads', color: '#30184C' },
+} satisfies ChartConfig;
+
+const mrrChartConfig = {
+  mrr: { label: 'MRR', color: '#30184C' },
+} satisfies ChartConfig;
+
+const planChartConfig = {
+  count: { label: 'Empresas', color: '#30184C' },
+} satisfies ChartConfig;
+
+const COLORS = ['#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb', '#191919', '#333333'];
+
 export function AdminDashboardContent({
   activeCompanies,
   totalCompanies,
@@ -42,16 +57,14 @@ export function AdminDashboardContent({
 }: DashboardProps) {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '1y'>('30d');
 
-  const COLORS = ['#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb'];
+  const totalLeadsByStatus = leadsByStatus.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <div className="space-y-8">
-      {/* Hero Header */}
-      <div className="border-b border-white/[0.08] pb-6 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-          Painel Administrativo
-        </h1>
-        <p className="text-sm md:text-base text-muted-foreground">
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold">Painel Administrativo</h1>
+        <p className="text-muted-foreground mt-1">
           Gerencie empresas, usuários e configurações do sistema
         </p>
       </div>
@@ -59,208 +72,220 @@ export function AdminDashboardContent({
       {/* Filtro de Data */}
       <div className="flex gap-2">
         {[
-          { label: 'Últimos 7 dias', value: '7d' as const },
-          { label: 'Últimos 30 dias', value: '30d' as const },
-          { label: 'Últimos 3 meses', value: '3m' as const },
-          { label: 'Este ano', value: '1y' as const },
+          { label: '7 dias', value: '7d' as const },
+          { label: '30 dias', value: '30d' as const },
+          { label: '3 meses', value: '3m' as const },
+          { label: '1 ano', value: '1y' as const },
         ].map((range) => (
           <Button
             key={range.value}
             variant={dateRange === range.value ? 'default' : 'outline'}
             size="sm"
             onClick={() => setDateRange(range.value)}
-            className={dateRange === range.value ? '' : 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.05]'}
           >
             {range.label}
           </Button>
         ))}
       </div>
 
-      {/* Métricas Principais */}
-      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent" />
-          <div className="relative flex items-center justify-between space-y-0 pb-3">
-            <h3 className="text-sm font-semibold">Empresas Ativas</h3>
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Building2 className="h-5 w-5 text-blue-400" />
+      {/* Métricas */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm text-muted-foreground">Empresas Ativas</p>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-bold text-foreground">{activeCompanies}</div>
-            <p className="text-sm text-muted-foreground mt-1">{totalCompanies} total</p>
-          </div>
-        </div>
+            <div className="text-3xl font-bold">{activeCompanies}</div>
+            <p className="text-xs text-muted-foreground mt-1">{totalCompanies} total</p>
+          </CardContent>
+        </Card>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent" />
-          <div className="relative flex items-center justify-between space-y-0 pb-3">
-            <h3 className="text-sm font-semibold">Usuários Ativos</h3>
-            <div className="p-2 bg-purple-500/10 rounded-lg">
-              <Users className="h-5 w-5 text-purple-400" />
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm text-muted-foreground">Usuários Ativos</p>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-bold text-foreground">{activeUsers}</div>
-            <p className="text-sm text-muted-foreground mt-1">{totalUsers} total</p>
-          </div>
-        </div>
+            <div className="text-3xl font-bold">{activeUsers}</div>
+            <p className="text-xs text-muted-foreground mt-1">{totalUsers} total</p>
+          </CardContent>
+        </Card>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent" />
-          <div className="relative flex items-center justify-between space-y-0 pb-3">
-            <h3 className="text-sm font-semibold">Leads Extraídos</h3>
-            <div className="p-2 bg-cyan-500/10 rounded-lg">
-              <TrendingUp className="h-5 w-5 text-cyan-400" />
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm text-muted-foreground">Leads Extraídos</p>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-bold text-foreground">{leadsToday}</div>
-            <p className="text-sm text-muted-foreground mt-1">Hoje • {leadsThisMonth} este mês</p>
-          </div>
-        </div>
+            <div className="text-3xl font-bold">{leadsToday}</div>
+            <p className="text-xs text-muted-foreground mt-1">Hoje · {leadsThisMonth} este mês</p>
+          </CardContent>
+        </Card>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-transparent" />
-          <div className="relative flex items-center justify-between space-y-0 pb-3">
-            <h3 className="text-sm font-semibold">MRR</h3>
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <DollarSign className="h-5 w-5 text-green-400" />
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm text-muted-foreground">MRR</p>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-bold text-green-400">{formatCurrency(mrr)}</div>
-            <p className="text-sm text-muted-foreground mt-1">Monthly Recurring Revenue</p>
-          </div>
-        </div>
+            <div className="text-3xl font-bold">{formatCurrency(mrr)}</div>
+            <p className="text-xs text-muted-foreground mt-1">Monthly Recurring Revenue</p>
+          </CardContent>
+        </Card>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent" />
-          <div className="relative flex items-center justify-between space-y-0 pb-3">
-            <h3 className="text-sm font-semibold">Inadimplentes</h3>
-            <div className="p-2 bg-red-500/10 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-red-400" />
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm text-muted-foreground">Inadimplentes</p>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-bold text-red-400">{inadimplentes}</div>
-            <p className="text-sm text-muted-foreground mt-1">Assinaturas vencidas</p>
-          </div>
-        </div>
+            <div className="text-3xl font-bold">{inadimplentes}</div>
+            <p className="text-xs text-muted-foreground mt-1">Assinaturas vencidas</p>
+          </CardContent>
+        </Card>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-transparent to-transparent" />
-          <div className="relative flex items-center justify-between space-y-0 pb-3">
-            <h3 className="text-sm font-semibold">Briefings Hoje</h3>
-            <div className="p-2 bg-orange-500/10 rounded-lg">
-              <Activity className="h-5 w-5 text-orange-400" />
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between pb-2">
+              <p className="text-sm text-muted-foreground">Briefings Hoje</p>
+              <Activity className="h-4 w-4 text-muted-foreground" />
             </div>
-          </div>
-          <div className="relative">
-            <div className="text-3xl font-bold text-foreground">{briefingsToday}</div>
-            <p className="text-sm text-muted-foreground mt-1">{totalBriefings} total</p>
-          </div>
-        </div>
+            <div className="text-3xl font-bold">{briefingsToday}</div>
+            <p className="text-xs text-muted-foreground mt-1">{totalBriefings} total</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Gráficos */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Leads ao longo do tempo */}
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Leads Extraídos</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={leadsOverTime}>
-              <defs>
-                <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#30184C" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#30184C" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <YAxis stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(0,0,0,0.8)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                }}
-              />
-              <Area type="monotone" dataKey="count" stroke="#30184C" fillOpacity={1} fill="url(#colorLeads)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Leads Extraídos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={leadsChartConfig} className="h-[280px] w-full">
+              <AreaChart data={leadsOverTime}>
+                <defs>
+                  <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#30184C" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#30184C" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                    color: 'hsl(var(--popover-foreground))',
+                  }}
+                />
+                <Area type="monotone" dataKey="count" stroke="#30184C" strokeWidth={2} fillOpacity={1} fill="url(#colorLeads)" />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
 
-        {/* Receita ao longo do tempo */}
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Evolução do MRR</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={revenueOverTime}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <YAxis stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(0,0,0,0.8)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: any) => formatCurrency(value)}
-              />
-              <Line type="monotone" dataKey="mrr" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Evolução do MRR */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Evolução do MRR</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={mrrChartConfig} className="h-[280px] w-full">
+              <LineChart data={revenueOverTime}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                    color: 'hsl(var(--popover-foreground))',
+                  }}
+                  formatter={(value: any) => [formatCurrency(value), 'MRR']}
+                />
+                <Line type="monotone" dataKey="mrr" stroke="#30184C" strokeWidth={2} dot={{ fill: '#30184C', r: 3 }} />
+              </LineChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
 
-        {/* Empresas por plano */}
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Empresas por Plano</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={companiesByPlan}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="name" stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <YAxis stroke="rgba(255,255,255,0.5)" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(0,0,0,0.8)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                }}
-              />
-              <Bar dataKey="count" fill="#30184C" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Empresas por Plano */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Empresas por Plano</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={planChartConfig} className="h-[280px] w-full">
+              <BarChart data={companiesByPlan}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                    color: 'hsl(var(--popover-foreground))',
+                  }}
+                />
+                <Bar dataKey="count" fill="#30184C" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
 
-        {/* Leads por status */}
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Leads por Status</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={leadsByStatus}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="count"
-              >
-                {leadsByStatus.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'rgba(0,0,0,0.8)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '8px',
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Leads por Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Leads por Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={leadsByStatus}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius="40%"
+                    outerRadius="70%"
+                    paddingAngle={2}
+                    dataKey="count"
+                    strokeWidth={0}
+                  >
+                    {leadsByStatus.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                      color: 'hsl(var(--popover-foreground))',
+                    }}
+                    formatter={(value: any, name: string) => [value, name]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend */}
+            <div className="flex flex-wrap justify-center gap-4 mt-4">
+              {leadsByStatus.map((item, index) => (
+                <div key={item.status} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="text-xs text-muted-foreground">
+                    {item.status} ({totalLeadsByStatus > 0 ? Math.round((item.count / totalLeadsByStatus) * 100) : 0}%)
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

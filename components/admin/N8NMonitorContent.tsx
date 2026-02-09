@@ -144,14 +144,15 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
       if (!response.ok) throw new Error(data.error);
 
       if (data.newErrors > 0) {
-        toast.success(`${data.newErrors} novos erros encontrados!`);
+        toast.success(`${data.newErrors} novos erros encontrados! Recarregando...`);
+        // Forçar reload completo para garantir que os dados atualizados apareçam
+        setTimeout(() => window.location.reload(), 500);
       } else {
         toast.info('Nenhum novo erro encontrado');
+        setIsSyncing(false);
       }
-      router.refresh();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao sincronizar');
-    } finally {
       setIsSyncing(false);
     }
   };
@@ -505,10 +506,10 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-white/5 via-transparent to-transparent backdrop-blur-xl">
+        <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
-              <TableRow className="border-white/10 hover:bg-white/5">
+              <TableRow className="border-border">
                 <TableHead>Nome</TableHead>
                 <TableHead>URL</TableHead>
                 <TableHead>Status</TableHead>
@@ -529,7 +530,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
                 paginatedInstances.map((instance) => {
                   const instanceErrors = getInstanceErrors(instance.id);
                   return (
-                    <TableRow key={instance.id} className="border-white/10 hover:bg-white/5">
+                    <TableRow key={instance.id} className="border-border">
                       <TableCell className="font-medium">{instance.name}</TableCell>
                       <TableCell className="max-w-xs truncate">
                         <a
@@ -592,7 +593,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
           {/* Paginação de Instâncias */}
           {filteredInstances.length > 0 && instancesTotalPages > 1 && (
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-border">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -681,10 +682,10 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-white/5 via-transparent to-transparent backdrop-blur-xl">
+        <div className="rounded-lg border bg-card">
           <Table>
             <TableHeader>
-              <TableRow className="border-white/10 hover:bg-white/5">
+              <TableRow className="border-border">
                 <TableHead>Instância</TableHead>
                 <TableHead>Workflow</TableHead>
                 <TableHead>Node</TableHead>
@@ -704,7 +705,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
                 </TableRow>
               ) : (
                 paginatedErrors.map((error) => (
-                  <TableRow key={error.id} className="border-white/10 hover:bg-white/5">
+                  <TableRow key={error.id} className="border-border">
                     <TableCell className="font-medium">
                       {error.instance?.name || 'N/A'}
                     </TableCell>
@@ -747,7 +748,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
           {/* Paginação de Erros */}
           {filteredErrors.length > 0 && errorsTotalPages > 1 && (
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-border">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -795,7 +796,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
       {/* Dialog - Add/Edit Instance */}
       <Dialog open={dialogMode === 'add-instance' || dialogMode === 'edit-instance'} onOpenChange={() => setDialogMode(null)}>
-        <DialogContent className="max-w-2xl bg-gradient-to-br from-gray-900/95 to-gray-800/95 backdrop-blur-xl border-white/10">
+        <DialogContent className="max-w-2xl bg-card border-border">
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'add-instance' ? 'Nova Instância N8N' : 'Editar Instância N8N'}
@@ -888,7 +889,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
       {/* Dialog - View Error */}
       <Dialog open={dialogMode === 'view-error'} onOpenChange={() => setDialogMode(null)}>
-        <DialogContent className="max-w-3xl bg-gradient-to-br from-gray-900/95 to-gray-800/95 backdrop-blur-xl border-white/10">
+        <DialogContent className="max-w-3xl bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-400" />
@@ -943,7 +944,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
               {selectedError.error_details && (
                 <div>
                   <Label>Detalhes Técnicos</Label>
-                  <div className="mt-1 p-3 rounded-lg bg-gray-800/50 border border-white/10">
+                  <div className="mt-1 p-3 rounded-lg bg-muted/50 border border-border">
                     <pre className="text-xs text-muted-foreground overflow-x-auto">
                       {selectedError.error_details}
                     </pre>
@@ -970,7 +971,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
                     </Button>
                   )}
                 </div>
-                <div className="mt-1 p-4 rounded-lg bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20">
+                <div className="mt-1 p-4 rounded-lg bg-muted/50 border border-border">
                   {selectedError.ai_analysis ? (
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                       {selectedError.ai_analysis}
@@ -983,7 +984,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
+              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
                 <div>
                   <Label>Execution ID</Label>
                   <p className="text-xs text-muted-foreground mt-1 font-mono">
@@ -1046,7 +1047,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
       {/* Dialog - Error History */}
       <Dialog open={dialogMode === 'error-history'} onOpenChange={() => setDialogMode(null)}>
-        <DialogContent className="max-w-4xl bg-gradient-to-br from-gray-900/95 to-gray-800/95 backdrop-blur-xl border-white/10">
+        <DialogContent className="max-w-4xl bg-card border-border">
           <DialogHeader>
             <DialogTitle>
               Histórico de Erros - {selectedInstance?.name}
@@ -1059,7 +1060,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
           <div className="max-h-[60vh] overflow-y-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-white/10">
+                <TableRow className="border-border">
                   <TableHead>Data</TableHead>
                   <TableHead>Workflow</TableHead>
                   <TableHead>Node</TableHead>
@@ -1074,7 +1075,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
                   initialErrors
                     .filter(e => e.instance_id === selectedInstance.id)
                     .map((error) => (
-                      <TableRow key={error.id} className="border-white/10">
+                      <TableRow key={error.id} className="border-border">
                         <TableCell className="text-sm">
                           {formatDate(error.timestamp)}
                         </TableCell>
