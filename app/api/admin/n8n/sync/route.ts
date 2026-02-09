@@ -2,8 +2,14 @@ import { createServiceClient, createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { decrypt } from '@/lib/crypto';
 
-// POST /api/admin/n8n/sync - Sincroniza erros do n8n (chamado pelo admin)
+// POST /api/admin/n8n/sync - Sincroniza erros do n8n
 export async function POST() {
+  const logs: string[] = [];
+  const log = (msg: string) => {
+    console.log(`[N8N-SYNC] ${msg}`);
+    logs.push(msg);
+  };
+
   try {
     // Verificar autenticação do admin
     const authSupabase = await createClient();
@@ -15,7 +21,7 @@ export async function POST() {
 
     const { data: adminUser } = await authSupabase
       .from('admin_users')
-      .select('*')
+      .select('id')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
@@ -24,91 +30,146 @@ export async function POST() {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    // Usar service client para bypassar RLS
     const supabase = createServiceClient();
 
     // Buscar instâncias ativas
-    const { data: instances } = await supabase
+    const { data: instances, error: instancesError } = await supabase
       .from('n8n_instances')
       .select('*')
       .eq('active', true);
 
-    if (!instances || instances.length === 0) {
-      return NextResponse.json({
-        message: 'Nenhuma instância ativa para monitorar',
-        newErrors: 0,
-      });
+    if (instancesError) {
+      log(`ERRO ao buscar instâncias: ${instancesError.message}`);
+      return NextResponse.json({ error: instancesError.message, logs }, { status: 500 });
     }
+
+    if (!instances || instances.length === 0) {
+      log('Nenhuma instância ativa');
+      return NextResponse.json({ message: 'Nenhuma instância ativa', newErrors: 0, logs });
+    }
+
+    log(`${instances.length} instância(s) ativa(s) encontrada(s)`);
 
     let totalNewErrors = 0;
     const results = [];
 
     for (const instance of instances) {
       try {
+        // Descriptografar API key
         let apiKey: string;
         try {
           apiKey = decrypt(instance.api_key);
         } catch {
-          // Fallback para base64
-          apiKey = Buffer.from(instance.api_key, 'base64').toString('utf-8');
-        }
-
-        // Buscar execuções com erro no n8n
-        const response = await fetch(
-          `${instance.url}/api/v1/executions?status=error&limit=20`,
-          {
-            headers: { 'X-N8N-API-KEY': apiKey },
-            signal: AbortSignal.timeout(10000),
+          try {
+            apiKey = Buffer.from(instance.api_key, 'base64').toString('utf-8');
+          } catch {
+            apiKey = instance.api_key; // Tentar usar como texto puro
           }
-        );
-
-        if (!response.ok) {
-          results.push({
-            instance: instance.name,
-            status: 'error',
-            message: `HTTP ${response.status}`,
-          });
-          continue;
         }
 
-        const data = await response.json();
-        const executions = data.data || [];
-        let instanceNewErrors = 0;
+        log(`Buscando erros de "${instance.name}" em ${instance.url}`);
 
-        for (const execution of executions) {
+        // Paginar por TODAS as execuções com erro
+        let allExecutions: any[] = [];
+        let cursor: string | undefined;
+        let pageCount = 0;
+        const MAX_PAGES = 10; // Máximo 10 páginas (250 execuções por página)
+
+        do {
+          const url = new URL(`${instance.url}/api/v1/executions`);
+          url.searchParams.set('status', 'error');
+          url.searchParams.set('limit', '250');
+          url.searchParams.set('includeData', 'true'); // OBRIGATÓRIO para receber detalhes do erro
+          if (cursor) url.searchParams.set('cursor', cursor);
+
+          const response = await fetch(url.toString(), {
+            headers: { 'X-N8N-API-KEY': apiKey },
+            signal: AbortSignal.timeout(15000),
+          });
+
+          if (!response.ok) {
+            const body = await response.text();
+            log(`ERRO HTTP ${response.status} de "${instance.name}": ${body.substring(0, 200)}`);
+            results.push({ instance: instance.name, status: 'error', message: `HTTP ${response.status}: ${body.substring(0, 100)}` });
+            break;
+          }
+
+          const responseData = await response.json();
+          log(`Resposta da API (página ${pageCount + 1}): ${JSON.stringify(Object.keys(responseData))}`);
+
+          // N8N API pode retornar { data: [...] } ou diretamente [...]
+          const executions = Array.isArray(responseData) ? responseData : (responseData.data || []);
+          allExecutions = allExecutions.concat(executions);
+
+          // Verificar se há próxima página
+          cursor = responseData.nextCursor;
+          pageCount++;
+
+          log(`Página ${pageCount}: ${executions.length} execuções (cursor: ${cursor || 'fim'})`);
+        } while (cursor && pageCount < MAX_PAGES);
+
+        log(`Total de execuções com erro em "${instance.name}": ${allExecutions.length}`);
+
+        let instanceNewErrors = 0;
+        let instanceSkipped = 0;
+        let instanceInsertErrors = 0;
+
+        for (const execution of allExecutions) {
+          const execId = String(execution.id);
+
           // Verificar se já existe
           const { data: existing } = await supabase
             .from('n8n_errors')
             .select('id')
-            .eq('execution_id', String(execution.id))
-            .single();
+            .eq('execution_id', execId)
+            .maybeSingle(); // maybeSingle ao invés de single (não dá erro se não encontrar)
 
-          if (existing) continue;
+          if (existing) {
+            instanceSkipped++;
+            continue;
+          }
 
-          // Buscar detalhes da execução
+          // Extrair dados do erro diretamente (includeData=true já traz tudo)
           let errorNode = 'Unknown';
           let errorMessage = 'Erro desconhecido';
           let errorDetails = '{}';
-          let workflowName = execution.workflowData?.name || 'Unknown';
 
-          try {
-            const detailResponse = await fetch(
-              `${instance.url}/api/v1/executions/${execution.id}`,
-              {
-                headers: { 'X-N8N-API-KEY': apiKey },
-                signal: AbortSignal.timeout(10000),
+          // workflowData pode estar em diferentes locais dependendo da versão do n8n
+          let workflowName = execution.workflowData?.name
+            || execution.workflowName
+            || execution.data?.workflowData?.name
+            || 'Unknown';
+
+          // resultData com erro - verificar múltiplos formatos
+          const resultData = execution.data?.resultData || execution.resultData;
+
+          if (resultData?.error) {
+            errorNode = resultData.error.node || 'Unknown';
+            errorMessage = resultData.error.message || 'Erro desconhecido';
+            errorDetails = JSON.stringify(resultData.error);
+          } else {
+            // Fallback: procurar erro nos runData dos nodes
+            const runData = resultData?.runData;
+            if (runData) {
+              for (const [nodeName, nodeRuns] of Object.entries(runData as Record<string, any[]>)) {
+                const lastRun = nodeRuns?.[nodeRuns.length - 1];
+                if (lastRun?.error) {
+                  errorNode = nodeName;
+                  errorMessage = lastRun.error.message || 'Erro desconhecido';
+                  errorDetails = JSON.stringify(lastRun.error);
+                  break;
+                }
               }
-            );
-
-            if (detailResponse.ok) {
-              const detail = await detailResponse.json();
-              errorNode = detail.data?.resultData?.error?.node || 'Unknown';
-              errorMessage = detail.data?.resultData?.error?.message || 'Erro desconhecido';
-              errorDetails = JSON.stringify(detail.data?.resultData?.error || {});
-              workflowName = detail.data?.workflowData?.name || workflowName;
             }
-          } catch {
-            // Usar dados básicos se o detalhe falhar
+          }
+
+          // Log do primeiro erro para debug do formato da API
+          if (instanceNewErrors === 0 && instanceSkipped === 0) {
+            log(`Estrutura da execução ${execId}: keys=[${Object.keys(execution).join(',')}]`);
+            if (execution.data) {
+              log(`execution.data keys=[${Object.keys(execution.data).join(',')}]`);
+            }
+            log(`Extraído: node="${errorNode}", msg="${errorMessage.substring(0, 100)}", wf="${workflowName}"`);
           }
 
           // Determinar severidade
@@ -118,11 +179,11 @@ export async function POST() {
           else if (msg.includes('timeout') || msg.includes('connection')) severity = 'high';
           else if (msg.includes('warning')) severity = 'low';
 
-          // Inserir erro
-          await supabase.from('n8n_errors').insert({
+          // Inserir erro COM verificação de resultado
+          const { error: insertError } = await supabase.from('n8n_errors').insert({
             instance_id: instance.id,
-            execution_id: String(execution.id),
-            workflow_id: execution.workflowId || '',
+            execution_id: execId,
+            workflow_id: execution.workflowId || execution.workflowData?.id || '',
             workflow_name: workflowName,
             error_node: errorNode,
             error_message: errorMessage,
@@ -130,11 +191,18 @@ export async function POST() {
             severity,
             notified: false,
             resolved: false,
-            timestamp: execution.stoppedAt || new Date().toISOString(),
+            timestamp: execution.stoppedAt || execution.startedAt || new Date().toISOString(),
           });
 
-          instanceNewErrors++;
-          totalNewErrors++;
+          if (insertError) {
+            instanceInsertErrors++;
+            if (instanceInsertErrors <= 3) {
+              log(`ERRO ao inserir exec ${execId}: ${insertError.message} (code: ${insertError.code})`);
+            }
+          } else {
+            instanceNewErrors++;
+            totalNewErrors++;
+          }
         }
 
         // Atualizar last_check
@@ -143,30 +211,42 @@ export async function POST() {
           .update({ last_check: new Date().toISOString() })
           .eq('id', instance.id);
 
-        results.push({
+        const result = {
           instance: instance.name,
           status: 'success',
+          totalExecutions: allExecutions.length,
           newErrors: instanceNewErrors,
-          totalChecked: executions.length,
-        });
+          skipped: instanceSkipped,
+          insertErrors: instanceInsertErrors,
+        };
+        results.push(result);
+        log(`"${instance.name}": ${instanceNewErrors} novos, ${instanceSkipped} já existentes, ${instanceInsertErrors} falhas de insert`);
+
       } catch (error: any) {
-        results.push({
-          instance: instance.name,
-          status: 'error',
-          message: error.message,
-        });
+        log(`ERRO em "${instance.name}": ${error.message}`);
+        results.push({ instance: instance.name, status: 'error', message: error.message });
       }
     }
+
+    // Verificar total de erros no banco após sync
+    const { count: totalInDb } = await supabase
+      .from('n8n_errors')
+      .select('*', { count: 'exact', head: true });
+
+    log(`Total de erros no banco após sync: ${totalInDb}`);
 
     return NextResponse.json({
       message: 'Sincronização concluída',
       newErrors: totalNewErrors,
+      totalInDb: totalInDb || 0,
       results,
+      logs,
     });
   } catch (error: any) {
+    log(`ERRO GERAL: ${error.message}`);
     console.error('Erro na sincronização N8N:', error);
     return NextResponse.json(
-      { error: error.message || 'Erro na sincronização' },
+      { error: error.message || 'Erro na sincronização', logs },
       { status: 500 }
     );
   }

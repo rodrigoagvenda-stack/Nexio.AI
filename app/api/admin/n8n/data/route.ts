@@ -41,11 +41,13 @@ export async function GET() {
       .from('n8n_errors')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(500);
 
     if (errorsError) {
-      console.error('Erro ao buscar erros:', errorsError);
+      console.error('[N8N-DATA] Erro ao buscar erros:', errorsError.message);
     }
+
+    console.log(`[N8N-DATA] ${instances?.length || 0} instâncias, ${errors?.length || 0} erros encontrados`);
 
     // Mapear instâncias para os erros manualmente
     const instanceMap = new Map(

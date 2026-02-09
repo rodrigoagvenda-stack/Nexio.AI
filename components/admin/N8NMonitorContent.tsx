@@ -156,15 +156,28 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
       const response = await fetch('/api/admin/n8n/sync', { method: 'POST' });
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) throw new Error(data.error || 'Erro na sincronização');
 
-      if (data.newErrors > 0) {
-        toast.success(`${data.newErrors} novos erros encontrados!`);
+      // Mostrar resultado detalhado
+      const { newErrors, totalInDb, results, logs } = data;
+
+      if (newErrors > 0) {
+        toast.success(`${newErrors} novos erros sincronizados! (${totalInDb} total no banco)`);
       } else {
-        toast.info('Nenhum novo erro encontrado');
+        toast.info(`Nenhum erro novo. ${totalInDb} erros no banco.`);
       }
 
-      // Buscar dados atualizados via API (sem reload de página)
+      // Log no console para debug
+      if (logs?.length) {
+        console.group('[N8N Sync Debug]');
+        logs.forEach((l: string) => console.log(l));
+        console.groupEnd();
+      }
+      if (results?.length) {
+        console.table(results);
+      }
+
+      // Buscar dados atualizados via API
       await fetchData();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao sincronizar');
