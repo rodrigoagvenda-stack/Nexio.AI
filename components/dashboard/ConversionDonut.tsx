@@ -62,7 +62,7 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
           <CardTitle>Taxa de conversão geral</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col justify-center">
-          <div className="relative flex-1 min-h-[200px]">
+          <div className="relative flex-1 min-h-[160px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
