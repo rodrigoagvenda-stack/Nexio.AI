@@ -13,8 +13,11 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Zap,
+  Table2,
+  Kanban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -28,9 +31,25 @@ interface SidebarProps {
   companyImage?: string;
 }
 
-const links = [
+interface NavLink {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  children?: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
+}
+
+const links: NavLink[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/crm', label: 'CRM', icon: UsersRound },
+  {
+    href: '/crm',
+    label: 'CRM',
+    icon: UsersRound,
+    children: [
+      { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
+      { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
+    ],
+  },
   { href: '/atendimento', label: 'Atendimento', icon: MessagesSquare },
   { href: '/prospect', label: 'Orbit', icon: Zap },
   { href: '/membros', label: 'Membros', icon: Users },
@@ -47,11 +66,14 @@ export function Sidebar({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [crmExpanded, setCrmExpanded] = useState(
+    pathname === '/crm' || pathname.startsWith('/crm/')
+  );
 
-  const allLinks = [
+  const allLinks: NavLink[] = [
     ...links,
     ...(isAdmin
-      ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' as const }]
+      ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }]
       : []),
   ];
 
@@ -62,7 +84,7 @@ export function Sidebar({
       await supabase.auth.signOut();
       toast.success('Logout realizado com sucesso');
       router.push('/login');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao fazer logout');
       setIsLoggingOut(false);
     }
@@ -92,6 +114,70 @@ export function Sidebar({
           {allLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+            const hasChildren = link.children && link.children.length > 0;
+
+            if (hasChildren) {
+              const isCrmActive = pathname === '/crm' || pathname.startsWith('/crm');
+
+              return (
+                <div key={link.href}>
+                  {/* CRM parent button */}
+                  <button
+                    onClick={() => {
+                      if (isCollapsed) {
+                        router.push(link.href);
+                        return;
+                      }
+                      setCrmExpanded(!crmExpanded);
+                    }}
+                    className={cn(
+                      'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
+                      isCrmActive
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                      isCollapsed && 'justify-center px-2'
+                    )}
+                    title={isCollapsed ? link.label : undefined}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="text-sm flex-1 text-left">{link.label}</span>
+                        <ChevronDown
+                          className={cn(
+                            'h-4 w-4 transition-transform duration-200',
+                            crmExpanded && 'rotate-180'
+                          )}
+                        />
+                      </>
+                    )}
+                  </button>
+
+                  {/* Sub-items */}
+                  {!isCollapsed && crmExpanded && (
+                    <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
+                      {link.children!.map((child) => {
+                        const ChildIcon = child.icon;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            prefetch={true}
+                            className={cn(
+                              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
+                              'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                            )}
+                          >
+                            <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                            <span>{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <Link
@@ -112,7 +198,7 @@ export function Sidebar({
                 {!isCollapsed && (
                   <>
                     <span className="text-sm flex-1 text-left">{link.label}</span>
-                    {'badge' in link && link.badge && (
+                    {link.badge && (
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
                         {link.badge}
                       </span>

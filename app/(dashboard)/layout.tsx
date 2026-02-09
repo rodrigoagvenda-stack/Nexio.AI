@@ -1,7 +1,6 @@
-import { AppSidebar } from '@/components/layout/AppSidebar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { SystemTopBar } from '@/components/SystemTopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -49,23 +48,20 @@ export default async function DashboardLayout({
   const isAdmin = !!adminUser;
 
   return (
-    <SidebarProvider>
-      <AppSidebar
+    <div className="flex h-screen bg-background">
+      <Sidebar
         isAdmin={isAdmin}
         companyName={companyName}
         companyEmail={companyEmail}
         companyImage={companyImage}
       />
-      <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <SystemTopBar />
-        </header>
+      <div className="flex-1 flex flex-col min-w-0">
+        <SystemTopBar />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 pb-[120px] lg:pb-6 w-full">
           {children}
         </main>
-      </SidebarInset>
+      </div>
       <MobileBottomNav />
-    </SidebarProvider>
+    </div>
   );
 }
