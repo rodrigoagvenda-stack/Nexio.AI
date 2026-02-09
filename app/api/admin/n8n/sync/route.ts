@@ -144,9 +144,17 @@ export async function POST() {
           const resultData = execution.data?.resultData || execution.resultData;
 
           if (resultData?.error) {
-            errorNode = resultData.error.node || 'Unknown';
+            // node pode ser string OU objeto { name, type, ... }
+            const nodeRef = resultData.error.node;
+            errorNode = typeof nodeRef === 'string'
+              ? nodeRef
+              : (nodeRef?.name || nodeRef?.type || 'Unknown');
             errorMessage = resultData.error.message || 'Erro desconhecido';
-            errorDetails = JSON.stringify(resultData.error);
+            try {
+              errorDetails = JSON.stringify(resultData.error).substring(0, 10000);
+            } catch {
+              errorDetails = `{ "message": "${errorMessage}" }`;
+            }
           } else {
             // Fallback: procurar erro nos runData dos nodes
             const runData = resultData?.runData;
@@ -164,7 +172,7 @@ export async function POST() {
           }
 
           // Log do primeiro erro para debug do formato da API
-          if (instanceNewErrors === 0 && instanceSkipped === 0) {
+          if (instanceNewErrors === 0 && instanceSkipped === 0 && instanceInsertErrors === 0) {
             log(`Estrutura da execução ${execId}: keys=[${Object.keys(execution).join(',')}]`);
             if (execution.data) {
               log(`execution.data keys=[${Object.keys(execution.data).join(',')}]`);
@@ -180,24 +188,31 @@ export async function POST() {
           else if (msg.includes('warning')) severity = 'low';
 
           // Inserir erro COM verificação de resultado
-          const { error: insertError } = await supabase.from('n8n_errors').insert({
+          const insertData = {
             instance_id: instance.id,
             execution_id: execId,
-            workflow_id: execution.workflowId || execution.workflowData?.id || '',
-            workflow_name: workflowName,
-            error_node: errorNode,
-            error_message: errorMessage,
+            workflow_id: String(execution.workflowId || execution.workflowData?.id || ''),
+            workflow_name: String(workflowName).substring(0, 500),
+            error_node: String(errorNode).substring(0, 500),
+            error_message: String(errorMessage).substring(0, 5000),
             error_details: errorDetails,
             severity,
             notified: false,
             resolved: false,
             timestamp: execution.stoppedAt || execution.startedAt || new Date().toISOString(),
-          });
+          };
+
+          // Log do primeiro insert para debug
+          if (instanceNewErrors === 0 && instanceSkipped === 0 && instanceInsertErrors === 0) {
+            log(`INSERT DATA (primeiro): ${JSON.stringify({ ...insertData, error_details: '(truncado)' })}`);
+          }
+
+          const { error: insertError } = await supabase.from('n8n_errors').insert(insertData);
 
           if (insertError) {
             instanceInsertErrors++;
-            if (instanceInsertErrors <= 3) {
-              log(`ERRO ao inserir exec ${execId}: ${insertError.message} (code: ${insertError.code})`);
+            if (instanceInsertErrors <= 5) {
+              log(`ERRO INSERT exec ${execId}: ${insertError.message} (code: ${insertError.code}, details: ${insertError.details || 'N/A'}, hint: ${insertError.hint || 'N/A'})`);
             }
           } else {
             instanceNewErrors++;
