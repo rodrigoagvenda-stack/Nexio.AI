@@ -889,11 +889,6 @@ export default function CRMPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">CRM</h1>
-      </div>
-
       {/* Filtros e View Toggle */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
