@@ -890,15 +890,8 @@ export default function CRMPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">CRM</h1>
-          <p className="text-muted-foreground mt-1">Planilha de Leads - Gerencie seus leads e oportunidades</p>
-        </div>
-        <Button onClick={() => handleOpenModal()} className="w-full md:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Lead
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">CRM</h1>
       </div>
 
       {/* Filtros e View Toggle */}
@@ -969,6 +962,10 @@ export default function CRMPage() {
           >
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Exportar CSV</span>
+          </Button>
+          <Button onClick={() => handleOpenModal()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Adicionar Lead</span>
           </Button>
         </div>
       </div>
