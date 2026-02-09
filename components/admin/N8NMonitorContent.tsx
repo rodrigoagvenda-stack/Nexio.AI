@@ -144,13 +144,13 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
       if (!response.ok) throw new Error(data.error);
 
       if (data.newErrors > 0) {
-        toast.success(`${data.newErrors} novos erros encontrados! Recarregando...`);
-        // Forçar reload completo para garantir que os dados atualizados apareçam
-        setTimeout(() => window.location.reload(), 500);
+        toast.success(`${data.newErrors} novos erros encontrados!`);
       } else {
         toast.info('Nenhum novo erro encontrado');
-        setIsSyncing(false);
       }
+
+      // Sempre recarregar a página para garantir dados atualizados
+      setTimeout(() => window.location.reload(), 500);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao sincronizar');
       setIsSyncing(false);
