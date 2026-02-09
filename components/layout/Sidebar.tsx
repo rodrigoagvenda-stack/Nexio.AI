@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState } from 'react';
 import {
@@ -63,12 +63,14 @@ export function Sidebar({
   companyImage,
 }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [crmExpanded, setCrmExpanded] = useState(
     pathname === '/crm' || pathname.startsWith('/crm/')
   );
+  const currentView = searchParams.get('view') || 'table';
 
   const allLinks: NavLink[] = [
     ...links,
@@ -158,6 +160,8 @@ export function Sidebar({
                     <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
                       {link.children!.map((child) => {
                         const ChildIcon = child.icon;
+                        const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
+                        const isChildActive = pathname === '/crm' && currentView === childView;
                         return (
                           <Link
                             key={child.href}
@@ -165,7 +169,9 @@ export function Sidebar({
                             prefetch={true}
                             className={cn(
                               'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
-                              'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                              isChildActive
+                                ? 'bg-accent text-accent-foreground'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                             )}
                           >
                             <ChildIcon className="h-4 w-4 flex-shrink-0" />
