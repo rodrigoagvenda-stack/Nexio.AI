@@ -56,6 +56,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils/cn';
 
 interface N8NInstance {
   id: string;
@@ -113,6 +114,8 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterResolved, setFilterResolved] = useState<string>('all');
+  const [filterWorkflow, setFilterWorkflow] = useState<string>('all');
+  const [isSyncing, setIsSyncing] = useState(false);
   const [instancesPage, setInstancesPage] = useState(1);
   const [errorsPage, setErrorsPage] = useState(1);
   const itemsPerPage = 10;
@@ -126,11 +129,39 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
     active: true,
   });
 
+  // Lista de workflows únicos para o filtro
+  const uniqueWorkflows = Array.from(
+    new Set(initialErrors.map(e => e.workflow_name).filter(Boolean))
+  );
+
+  // Sincronizar erros do n8n
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/admin/n8n/sync', { method: 'POST' });
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error);
+
+      if (data.newErrors > 0) {
+        toast.success(`${data.newErrors} novos erros encontrados!`);
+      } else {
+        toast.info('Nenhum novo erro encontrado');
+      }
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao sincronizar');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Filtrar erros
   const filteredErrors = initialErrors.filter((error) => {
     if (filterResolved === 'resolved' && !error.resolved) return false;
     if (filterResolved === 'unresolved' && error.resolved) return false;
     if (filterSeverity !== 'all' && error.severity !== filterSeverity) return false;
+    if (filterWorkflow !== 'all' && error.workflow_name !== filterWorkflow) return false;
     return true;
   });
 
@@ -381,62 +412,66 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Monitor N8N
-          </h1>
-          <p className="text-muted-foreground">
-            Monitore instâncias N8N e gerencie erros de workflows
+          <h1 className="text-3xl font-bold">Monitor N8N</h1>
+          <p className="text-muted-foreground mt-1">
+            Monitore instâncias e erros de workflows
           </p>
         </div>
-        <Button onClick={handleAddInstance} className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Instância
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            <RefreshCw className={cn('h-4 w-4 mr-2', isSyncing && 'animate-spin')} />
+            {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+          </Button>
+          <Button onClick={handleAddInstance}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Instância
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards - Orbit Glassmorphism */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent" />
-          <div className="relative flex items-center justify-between">
+        <div className="rounded-lg border bg-card p-6">
+          <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Instâncias</p>
-              <p className="text-3xl font-bold">{stats.totalInstances}</p>
+              <p className="text-3xl font-bold mt-1">{stats.totalInstances}</p>
             </div>
-            <Server className="h-8 w-8 text-purple-400" />
+            <Server className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-red-500/10 via-transparent to-transparent backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent" />
-          <div className="relative flex items-center justify-between">
+        <div className="rounded-lg border bg-card p-6">
+          <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Erros 24h</p>
-              <p className="text-3xl font-bold text-red-400">{stats.errors24h}</p>
+              <p className="text-3xl font-bold mt-1">{stats.errors24h}</p>
             </div>
-            <AlertCircle className="h-8 w-8 text-red-400" />
+            <AlertCircle className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-green-500/10 via-transparent to-transparent backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent" />
-          <div className="relative flex items-center justify-between">
+        <div className="rounded-lg border bg-card p-6">
+          <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Uptime Médio</p>
-              <p className="text-3xl font-bold text-green-400">{stats.uptimeAverage}%</p>
+              <p className="text-3xl font-bold mt-1">{stats.uptimeAverage}%</p>
             </div>
-            <TrendingUp className="h-8 w-8 text-green-400" />
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent backdrop-blur-xl p-6">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent" />
-          <div className="relative flex items-center justify-between">
+        <div className="rounded-lg border bg-card p-6">
+          <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Instâncias Ativas</p>
-              <p className="text-3xl font-bold text-blue-400">{stats.activeInstances}</p>
+              <p className="text-3xl font-bold mt-1">{stats.activeInstances}</p>
             </div>
-            <Activity className="h-8 w-8 text-blue-400" />
+            <Activity className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
       </div>
@@ -630,6 +665,19 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
                 <SelectItem value="critical">Crítica</SelectItem>
               </SelectContent>
             </Select>
+            {uniqueWorkflows.length > 0 && (
+              <Select value={filterWorkflow} onValueChange={setFilterWorkflow}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Workflow" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Workflows</SelectItem>
+                  {uniqueWorkflows.map((wf) => (
+                    <SelectItem key={wf} value={wf}>{wf}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
