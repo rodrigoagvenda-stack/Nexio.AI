@@ -281,7 +281,7 @@ export default function CRMPage() {
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 9;
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deletingMultipleLeads, setDeletingMultipleLeads] = useState(false);
 

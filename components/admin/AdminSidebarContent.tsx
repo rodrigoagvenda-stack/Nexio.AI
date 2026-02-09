@@ -12,11 +12,9 @@ import {
   Activity,
   HelpCircle,
   LogOut,
-  Shield,
   ArrowLeft,
-  UserCheck,
   Webhook,
-  Server,
+  UserCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -28,22 +26,22 @@ interface AdminSidebarContentProps {
   adminEmail?: string;
 }
 
+const navLinks = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
+  { href: '/admin/usuarios', label: 'Usuários', icon: Users },
+  { href: '/admin/briefing', label: 'Briefing', icon: FileText },
+  { href: '/admin/qualificacao', label: 'Qualificação', icon: UserCheck },
+  { href: '/admin/webhooks', label: 'Webhooks & APIs', icon: Webhook },
+  { href: '/admin/n8n', label: 'Monitor N8N', icon: Activity },
+  { href: '/admin/logs', label: 'Logs', icon: Activity },
+  { href: '/admin/ajuda', label: 'Ajuda', icon: HelpCircle },
+];
+
 export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarContentProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const links = [
-    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
-    { href: '/admin/usuarios', label: 'Usuários', icon: Users },
-    { href: '/admin/briefing', label: 'Briefing', icon: FileText },
-    { href: '/admin/qualificacao', label: 'Qualificação', icon: UserCheck },
-    { href: '/admin/webhooks', label: 'Webhooks & APIs', icon: Webhook },
-    { href: '/admin/n8n', label: 'Monitor N8N', icon: Server },
-    { href: '/admin/logs', label: 'Logs', icon: Activity },
-    { href: '/admin/ajuda', label: 'Ajuda', icon: HelpCircle },
-  ];
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -52,36 +50,29 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
       await supabase.auth.signOut();
       toast.success('Logout realizado com sucesso');
       router.push('/login');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao fazer logout');
       setIsLoggingOut(false);
     }
   }
 
   return (
-    <div className="flex flex-col h-full bg-card border-r border-border">
+    <div className="flex flex-col h-full bg-card">
       {/* Logo */}
-      <div className="flex items-center h-20 px-6 border-b border-border/50">
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg">
-            <Shield className="h-5 w-5 text-white" />
-          </div>
-          <h1 className="text-xl font-normal">
-            nexio<span className="text-primary">.</span>ai
-          </h1>
-        </div>
-      </div>
-
-      {/* Menu Label */}
-      <div className="px-6 pt-6 pb-3">
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Menu
-        </span>
+      <div className="flex items-center h-16 px-6">
+        <h1 className="text-xl">
+          <span className="font-normal text-foreground">nexio</span>
+          <span className="text-primary font-bold">.</span>
+          <span className="font-normal text-foreground">ai</span>
+          <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
+            ADMIN
+          </span>
+        </h1>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {links.map((link) => {
+      <nav className="flex-1 px-4 pt-4 space-y-1 overflow-y-auto">
+        {navLinks.map((link) => {
           const Icon = link.icon;
           const isActive =
             pathname === link.href ||
@@ -91,75 +82,63 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
             <Link
               key={link.href}
               href={link.href}
+              prefetch={true}
               className={cn(
-                'group flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200',
+                'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                  : 'text-muted-foreground hover:bg-accent/50'
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
               )}
+              aria-current={isActive ? 'page' : undefined}
             >
-              <div
-                className={cn(
-                  'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors',
-                  isActive
-                    ? 'bg-primary-foreground/20'
-                    : 'bg-muted/50 group-hover:bg-muted'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-              </div>
-              <span className="font-medium text-sm">{link.label}</span>
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              <span className="text-sm flex-1 text-left">{link.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* User Profile */}
-      <div className="p-4 border-t border-border/50 space-y-3">
+      {/* Admin Profile */}
+      <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/30">
           <div className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <span className="text-xs font-bold text-white">
+            <span className="text-xs font-bold text-primary-foreground">
               {adminName?.charAt(0)?.toUpperCase() || 'A'}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{adminName || 'Admin'}</p>
+            <p className="text-sm font-medium text-foreground truncate">{adminName || 'Admin'}</p>
             <p className="text-xs text-muted-foreground truncate">
               {adminEmail || 'admin@nexio.ai'}
             </p>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/dashboard')}
-            className="flex-1 justify-start gap-2"
-            size="sm"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar ao App
-          </Button>
-        </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-2">
           <ThemeToggle />
           <Button
             variant="ghost"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="flex-1 justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-            size="sm"
+            asChild
+            className="flex-1 justify-start text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            size="default"
           >
-            {isLoggingOut ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <LogOut className="h-4 w-4" />
-            )}
-            Sair
+            <Link href="/dashboard" prefetch={true}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Link>
           </Button>
         </div>
+
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full mt-1 justify-start text-muted-foreground hover:text-foreground hover:bg-accent/50"
+          size="default"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          {isLoggingOut ? 'Saindo...' : 'Sair'}
+        </Button>
       </div>
     </div>
   );
