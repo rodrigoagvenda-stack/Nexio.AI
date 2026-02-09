@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -29,7 +29,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -50,12 +49,10 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
-  Clock,
   Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 
 interface N8NInstance {
@@ -105,8 +102,12 @@ interface N8NMonitorContentProps {
 
 type DialogMode = 'view-instance' | 'add-instance' | 'edit-instance' | 'view-error' | 'error-history' | null;
 
-export function N8NMonitorContent({ instances: initialInstances, errors: initialErrors, stats }: N8NMonitorContentProps) {
-  const router = useRouter();
+export function N8NMonitorContent({ instances: serverInstances, errors: serverErrors, stats: serverStats }: N8NMonitorContentProps) {
+  // Estado local com dados que podem ser atualizados via API
+  const [instances, setInstances] = useState<N8NInstance[]>(serverInstances);
+  const [errors, setErrors] = useState<N8NError[]>(serverErrors);
+  const [stats, setStats] = useState(serverStats);
+
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [selectedInstance, setSelectedInstance] = useState<N8NInstance | null>(null);
   const [selectedError, setSelectedError] = useState<N8NError | null>(null);
@@ -131,8 +132,22 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
   // Lista de workflows únicos para o filtro
   const uniqueWorkflows = Array.from(
-    new Set(initialErrors.map(e => e.workflow_name).filter(Boolean))
+    new Set(errors.map((e: N8NError) => e.workflow_name).filter(Boolean))
   );
+
+  // Buscar dados frescos via API (bypassa problemas de server component)
+  const fetchData = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/n8n/data');
+      if (!response.ok) throw new Error('Erro ao buscar dados');
+      const data = await response.json();
+      setInstances(data.instances);
+      setErrors(data.errors);
+      setStats(data.stats);
+    } catch (error) {
+      console.error('Erro ao atualizar dados N8N:', error);
+    }
+  }, []);
 
   // Sincronizar erros do n8n
   const handleSync = async () => {
@@ -149,16 +164,17 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
         toast.info('Nenhum novo erro encontrado');
       }
 
-      // Sempre recarregar a página para garantir dados atualizados
-      setTimeout(() => window.location.reload(), 500);
+      // Buscar dados atualizados via API (sem reload de página)
+      await fetchData();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao sincronizar');
+    } finally {
       setIsSyncing(false);
     }
   };
 
   // Filtrar erros
-  const filteredErrors = initialErrors.filter((error) => {
+  const filteredErrors = errors.filter((error) => {
     if (filterResolved === 'resolved' && !error.resolved) return false;
     if (filterResolved === 'unresolved' && error.resolved) return false;
     if (filterSeverity !== 'all' && error.severity !== filterSeverity) return false;
@@ -168,8 +184,8 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
   // Filtrar instâncias
   const filteredInstances = filterStatus === 'all'
-    ? initialInstances
-    : initialInstances.filter(i => filterStatus === 'active' ? i.active : !i.active);
+    ? instances
+    : instances.filter(i => filterStatus === 'active' ? i.active : !i.active);
 
   // Paginação de instâncias
   const instancesTotalPages = Math.ceil(filteredInstances.length / itemsPerPage);
@@ -245,8 +261,6 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
     setIsSubmitting(true);
     try {
-      const supabase = createClient();
-
       if (dialogMode === 'add-instance') {
         // Criar nova instância
         const response = await fetch('/api/admin/n8n/instances', {
@@ -294,7 +308,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
       }
 
       setDialogMode(null);
-      router.refresh();
+      await fetchData();
     } catch (error) {
       toast.error('Erro ao salvar instância');
       console.error(error);
@@ -318,7 +332,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
       }
 
       toast.success('Instância removida com sucesso!');
-      router.refresh();
+      await fetchData();
     } catch (error) {
       toast.error('Erro ao remover instância');
       console.error(error);
@@ -336,7 +350,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
       toast.success('Erro marcado como resolvido!');
       setDialogMode(null);
-      router.refresh();
+      await fetchData();
     } catch (error) {
       toast.error('Erro ao resolver');
       console.error(error);
@@ -354,7 +368,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
 
       toast.success('Erro ignorado!');
       setDialogMode(null);
-      router.refresh();
+      await fetchData();
     } catch (error) {
       toast.error('Erro ao ignorar');
       console.error(error);
@@ -386,7 +400,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
         setSelectedError({ ...selectedError, ai_analysis: data.analysis });
       }
 
-      router.refresh();
+      await fetchData();
     } catch (error) {
       toast.error('Erro ao analisar com IA');
       console.error(error);
@@ -405,7 +419,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
   };
 
   const getInstanceErrors = (instanceId: string) => {
-    return initialErrors.filter(e => e.instance_id === instanceId && !e.resolved);
+    return errors.filter(e => e.instance_id === instanceId && !e.resolved);
   };
 
   return (
@@ -1072,7 +1086,7 @@ export function N8NMonitorContent({ instances: initialInstances, errors: initial
               </TableHeader>
               <TableBody>
                 {selectedInstance &&
-                  initialErrors
+                  errors
                     .filter(e => e.instance_id === selectedInstance.id)
                     .map((error) => (
                       <TableRow key={error.id} className="border-border">

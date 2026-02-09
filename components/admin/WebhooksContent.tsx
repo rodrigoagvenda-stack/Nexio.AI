@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Pencil, Trash2, Eye, EyeOff, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -292,382 +294,266 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
     currentPage * itemsPerPage
   )
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Webhooks & APIs</h1>
-        <p className="text-muted-foreground">
-          Gerencie webhooks, configurações de IA e integrações
-        </p>
-      </div>
-
-      {/* AI Configuration Section */}
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-6 backdrop-blur-xl">
-        <h2 className="mb-4 text-xl font-semibold">🤖 Configuração de IA</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ai-provider">Provedor</Label>
+  // Componente interno para renderizar webhook N8N
+  const N8NWebhookCard = ({ title, description, config, setConfig, onSave }: {
+    title: string
+    description: string
+    config: N8NWebhookConfig
+    setConfig: (c: N8NWebhookConfig) => void
+    onSave: () => void
+  }) => (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base">{title}</CardTitle>
+            <CardDescription className="text-xs mt-0.5">{description}</CardDescription>
+          </div>
+          <Badge variant={config.is_active ? 'default' : 'secondary'}>
+            {config.is_active ? 'Ativo' : 'Inativo'}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">URL</Label>
+          <Input
+            value={config.webhook_url}
+            onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
+            placeholder="https://seu-n8n.com/webhook/..."
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="grid gap-3 grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Autenticação</Label>
             <Select
-              value={aiConfig.provider}
-              onValueChange={(value) =>
-                setAIConfig({ ...aiConfig, provider: value })
-              }
+              value={config.auth_type}
+              onValueChange={(value) => setConfig({ ...config, auth_type: value })}
             >
-              <SelectTrigger id="ai-provider">
-                <SelectValue placeholder="Selecione o provedor" />
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="openai">OpenAI</SelectItem>
-                <SelectItem value="anthropic">Anthropic</SelectItem>
+                <SelectItem value="none">Nenhuma</SelectItem>
+                <SelectItem value="basic">Basic Auth</SelectItem>
+                <SelectItem value="bearer">Bearer Token</SelectItem>
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ai-model">Modelo</Label>
-            <Input
-              id="ai-model"
-              value={aiConfig.model}
-              onChange={(e) =>
-                setAIConfig({ ...aiConfig, model: e.target.value })
-              }
-              placeholder="gpt-4, claude-3-opus, etc."
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="ai-key">API Key</Label>
-            <div className="relative">
+          {config.auth_type === 'basic' && (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Usuário</Label>
+                <Input
+                  value={config.auth_username || ''}
+                  onChange={(e) => setConfig({ ...config, auth_username: e.target.value })}
+                  placeholder="Username"
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label className="text-xs">Senha</Label>
+                <Input
+                  type="password"
+                  value={config.auth_password || ''}
+                  onChange={(e) => setConfig({ ...config, auth_password: e.target.value })}
+                  placeholder="Password"
+                  className="h-9 text-sm"
+                />
+              </div>
+            </>
+          )}
+          {config.auth_type === 'bearer' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Token</Label>
               <Input
-                id="ai-key"
-                type={showAIKey ? 'text' : 'password'}
-                value={aiConfig.api_key}
-                onChange={(e) =>
-                  setAIConfig({ ...aiConfig, api_key: e.target.value })
-                }
-                placeholder="sk-..."
-                className="pr-10"
+                type="password"
+                value={config.auth_token || ''}
+                onChange={(e) => setConfig({ ...config, auth_token: e.target.value })}
+                placeholder="Bearer token"
+                className="h-9 text-sm"
               />
-              <button
-                type="button"
-                onClick={() => setShowAIKey(!showAIKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showAIKey ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
             </div>
-          </div>
+          )}
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={handleSaveAIConfig} disabled={loading}>
-            <Save className="mr-2 h-4 w-4" />
-            Salvar Configuração
+        <div className="flex justify-end pt-1">
+          <Button onClick={onSave} disabled={loading} size="sm">
+            <Save className="mr-2 h-3.5 w-3.5" />
+            Salvar
           </Button>
         </div>
-      </div>
+      </CardContent>
+    </Card>
+  )
 
-      {/* N8N Webhooks (Orbit) Section */}
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-6 backdrop-blur-xl">
-        <h2 className="mb-4 text-xl font-semibold">🚀 Webhooks N8N (Orbit)</h2>
-        <p className="text-sm text-muted-foreground mb-6">
-          Configure os webhooks do N8N para extração de leads (Maps), ICP e envio de WhatsApp.
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Integrações</h1>
+        <p className="text-muted-foreground mt-1">
+          Configure webhooks, IA e integrações do sistema
         </p>
+      </div>
 
-        {/* Maps Webhook */}
-        <div className="mb-6 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            🗺️ Webhook Maps (Extração de Leads)
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label>URL do Webhook</Label>
-              <Input
-                value={n8nMaps.webhook_url}
-                onChange={(e) => setN8nMaps({ ...n8nMaps, webhook_url: e.target.value })}
-                placeholder="https://seu-n8n.com/webhook/..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de Autenticação</Label>
-              <Select
-                value={n8nMaps.auth_type}
-                onValueChange={(value) => setN8nMaps({ ...n8nMaps, auth_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="basic">Basic Auth</SelectItem>
-                  <SelectItem value="bearer">Bearer Token</SelectItem>
-                  <SelectItem value="none">Sem autenticação</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {n8nMaps.auth_type === 'basic' && (
-              <>
-                <div className="space-y-2">
-                  <Label>Usuário</Label>
-                  <Input
-                    value={n8nMaps.auth_username || ''}
-                    onChange={(e) => setN8nMaps({ ...n8nMaps, auth_username: e.target.value })}
-                    placeholder="Username"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Senha</Label>
-                  <Input
-                    type="password"
-                    value={n8nMaps.auth_password || ''}
-                    onChange={(e) => setN8nMaps({ ...n8nMaps, auth_password: e.target.value })}
-                    placeholder="Password"
-                  />
-                </div>
-              </>
-            )}
-            {n8nMaps.auth_type === 'bearer' && (
-              <div className="space-y-2 md:col-span-2">
-                <Label>Token</Label>
+      {/* Grid de configurações principais */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Configuração de IA */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Configuração de IA</CardTitle>
+            <CardDescription className="text-xs">Provedor e modelo para análise automática</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Provedor</Label>
+                <Select
+                  value={aiConfig.provider}
+                  onValueChange={(value) => setAIConfig({ ...aiConfig, provider: value })}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI</SelectItem>
+                    <SelectItem value="anthropic">Anthropic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Modelo</Label>
                 <Input
-                  type="password"
-                  value={n8nMaps.auth_token || ''}
-                  onChange={(e) => setN8nMaps({ ...n8nMaps, auth_token: e.target.value })}
-                  placeholder="Bearer token"
+                  value={aiConfig.model}
+                  onChange={(e) => setAIConfig({ ...aiConfig, model: e.target.value })}
+                  placeholder="gpt-4"
+                  className="h-9 text-sm"
                 />
               </div>
-            )}
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => handleSaveN8NWebhook(n8nMaps)} disabled={loading} size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              Salvar Maps
-            </Button>
-          </div>
-        </div>
-
-        {/* ICP Webhook */}
-        <div className="mb-6 p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            🎯 Webhook ICP (Perfil de Cliente Ideal)
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label>URL do Webhook</Label>
-              <Input
-                value={n8nIcp.webhook_url}
-                onChange={(e) => setN8nIcp({ ...n8nIcp, webhook_url: e.target.value })}
-                placeholder="https://seu-n8n.com/webhook/..."
-              />
             </div>
-            <div className="space-y-2">
-              <Label>Tipo de Autenticação</Label>
-              <Select
-                value={n8nIcp.auth_type}
-                onValueChange={(value) => setN8nIcp({ ...n8nIcp, auth_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="basic">Basic Auth</SelectItem>
-                  <SelectItem value="bearer">Bearer Token</SelectItem>
-                  <SelectItem value="none">Sem autenticação</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {n8nIcp.auth_type === 'basic' && (
-              <>
-                <div className="space-y-2">
-                  <Label>Usuário</Label>
-                  <Input
-                    value={n8nIcp.auth_username || ''}
-                    onChange={(e) => setN8nIcp({ ...n8nIcp, auth_username: e.target.value })}
-                    placeholder="Username"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Senha</Label>
-                  <Input
-                    type="password"
-                    value={n8nIcp.auth_password || ''}
-                    onChange={(e) => setN8nIcp({ ...n8nIcp, auth_password: e.target.value })}
-                    placeholder="Password"
-                  />
-                </div>
-              </>
-            )}
-            {n8nIcp.auth_type === 'bearer' && (
-              <div className="space-y-2 md:col-span-2">
-                <Label>Token</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs">API Key</Label>
+              <div className="relative">
                 <Input
-                  type="password"
-                  value={n8nIcp.auth_token || ''}
-                  onChange={(e) => setN8nIcp({ ...n8nIcp, auth_token: e.target.value })}
-                  placeholder="Bearer token"
+                  type={showAIKey ? 'text' : 'password'}
+                  value={aiConfig.api_key}
+                  onChange={(e) => setAIConfig({ ...aiConfig, api_key: e.target.value })}
+                  placeholder="sk-..."
+                  className="h-9 text-sm pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAIKey(!showAIKey)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showAIKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-end pt-1">
+              <Button onClick={handleSaveAIConfig} disabled={loading} size="sm">
+                <Save className="mr-2 h-3.5 w-3.5" />
+                Salvar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Configuração Uazapi */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Uazapi (WhatsApp)</CardTitle>
+            <CardDescription className="text-xs">Configuração da API de mensagens</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Instância</Label>
+                <Input
+                  value={uazapiConfig.instance}
+                  onChange={(e) => setUazapiConfig({ ...uazapiConfig, instance: e.target.value })}
+                  placeholder="Nome da instância"
+                  className="h-9 text-sm"
                 />
               </div>
-            )}
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => handleSaveN8NWebhook(n8nIcp)} disabled={loading} size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              Salvar ICP
-            </Button>
-          </div>
-        </div>
-
-        {/* WhatsApp Webhook */}
-        <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
-          <h3 className="font-medium mb-3 flex items-center gap-2">
-            💬 Webhook WhatsApp (Envio de Mensagens)
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 md:col-span-2">
-              <Label>URL do Webhook</Label>
-              <Input
-                value={n8nWhatsapp.webhook_url}
-                onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, webhook_url: e.target.value })}
-                placeholder="https://seu-n8n.com/webhook/..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de Autenticação</Label>
-              <Select
-                value={n8nWhatsapp.auth_type}
-                onValueChange={(value) => setN8nWhatsapp({ ...n8nWhatsapp, auth_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="basic">Basic Auth</SelectItem>
-                  <SelectItem value="bearer">Bearer Token</SelectItem>
-                  <SelectItem value="none">Sem autenticação</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {n8nWhatsapp.auth_type === 'basic' && (
-              <>
-                <div className="space-y-2">
-                  <Label>Usuário</Label>
-                  <Input
-                    value={n8nWhatsapp.auth_username || ''}
-                    onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, auth_username: e.target.value })}
-                    placeholder="Username"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Senha</Label>
-                  <Input
-                    type="password"
-                    value={n8nWhatsapp.auth_password || ''}
-                    onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, auth_password: e.target.value })}
-                    placeholder="Password"
-                  />
-                </div>
-              </>
-            )}
-            {n8nWhatsapp.auth_type === 'bearer' && (
-              <div className="space-y-2 md:col-span-2">
-                <Label>Token</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Telefone</Label>
                 <Input
-                  type="password"
-                  value={n8nWhatsapp.auth_token || ''}
-                  onChange={(e) => setN8nWhatsapp({ ...n8nWhatsapp, auth_token: e.target.value })}
-                  placeholder="Bearer token"
+                  value={uazapiConfig.phone}
+                  onChange={(e) => setUazapiConfig({ ...uazapiConfig, phone: e.target.value })}
+                  placeholder="+5511999999999"
+                  className="h-9 text-sm"
                 />
               </div>
-            )}
-          </div>
-          <div className="mt-4 flex justify-end">
-            <Button onClick={() => handleSaveN8NWebhook(n8nWhatsapp)} disabled={loading} size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              Salvar WhatsApp
-            </Button>
-          </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">API Token</Label>
+              <div className="relative">
+                <Input
+                  type={showUazapiToken ? 'text' : 'password'}
+                  value={uazapiConfig.api_token}
+                  onChange={(e) => setUazapiConfig({ ...uazapiConfig, api_token: e.target.value })}
+                  placeholder="Token da API"
+                  className="h-9 text-sm pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowUazapiToken(!showUazapiToken)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showUazapiToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex justify-end pt-1">
+              <Button onClick={handleSaveUazapiConfig} disabled={loading} size="sm">
+                <Save className="mr-2 h-3.5 w-3.5" />
+                Salvar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Webhooks N8N */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold">Webhooks N8N</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <N8NWebhookCard
+            title="Maps"
+            description="Extração de leads"
+            config={n8nMaps}
+            setConfig={setN8nMaps}
+            onSave={() => handleSaveN8NWebhook(n8nMaps)}
+          />
+          <N8NWebhookCard
+            title="ICP"
+            description="Perfil de cliente ideal"
+            config={n8nIcp}
+            setConfig={setN8nIcp}
+            onSave={() => handleSaveN8NWebhook(n8nIcp)}
+          />
+          <N8NWebhookCard
+            title="WhatsApp"
+            description="Envio de mensagens"
+            config={n8nWhatsapp}
+            setConfig={setN8nWhatsapp}
+            onSave={() => handleSaveN8NWebhook(n8nWhatsapp)}
+          />
         </div>
       </div>
 
-      {/* Uazapi Configuration Section */}
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-6 backdrop-blur-xl">
-        <h2 className="mb-4 text-xl font-semibold">📱 Configuração Uazapi</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="uazapi-instance">Instância</Label>
-            <Input
-              id="uazapi-instance"
-              value={uazapiConfig.instance}
-              onChange={(e) =>
-                setUazapiConfig({ ...uazapiConfig, instance: e.target.value })
-              }
-              placeholder="Nome da instância"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="uazapi-phone">Telefone</Label>
-            <Input
-              id="uazapi-phone"
-              value={uazapiConfig.phone}
-              onChange={(e) =>
-                setUazapiConfig({ ...uazapiConfig, phone: e.target.value })
-              }
-              placeholder="+5511999999999"
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="uazapi-token">API Token</Label>
-            <div className="relative">
-              <Input
-                id="uazapi-token"
-                type={showUazapiToken ? 'text' : 'password'}
-                value={uazapiConfig.api_token}
-                onChange={(e) =>
-                  setUazapiConfig({
-                    ...uazapiConfig,
-                    api_token: e.target.value,
-                  })
-                }
-                placeholder="Token da API Uazapi"
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowUazapiToken(!showUazapiToken)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showUazapiToken ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={handleSaveUazapiConfig} disabled={loading}>
-            <Save className="mr-2 h-4 w-4" />
-            Salvar Configuração
-          </Button>
-        </div>
-      </div>
-
-      {/* Webhooks Section */}
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-6 backdrop-blur-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">⚙️ Webhooks Genéricos</h2>
-          <Button onClick={handleAddWebhook}>
-            <Plus className="mr-2 h-4 w-4" />
-            Adicionar Webhook
+      {/* Webhooks Genéricos */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Webhooks Genéricos</h2>
+          <Button onClick={handleAddWebhook} size="sm">
+            <Plus className="mr-2 h-3.5 w-3.5" />
+            Adicionar
           </Button>
         </div>
 
-        <div className="rounded-lg border border-white/[0.08]">
+        <Card>
           <Table>
             <TableHeader>
               <TableRow>
@@ -689,31 +575,22 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
                 paginatedWebhooks.map((webhook) => (
                   <TableRow key={webhook.id}>
                     <TableCell className="font-medium">{webhook.name}</TableCell>
-                    <TableCell>{webhook.type}</TableCell>
-                    <TableCell className="max-w-md truncate">
+                    <TableCell className="text-muted-foreground">{webhook.type}</TableCell>
+                    <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
                       {webhook.url}
                     </TableCell>
                     <TableCell>
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ${webhook.is_active ? 'bg-green-500/10 text-green-500' : 'bg-gray-500/10 text-gray-500'}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${webhook.is_active ? 'bg-green-500' : 'bg-gray-500'}`} />
+                      <Badge variant={webhook.is_active ? 'default' : 'secondary'}>
                         {webhook.is_active ? 'Ativo' : 'Inativo'}
-                      </span>
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditWebhook(webhook)}
-                        >
-                          <Pencil className="h-4 w-4" />
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditWebhook(webhook)}>
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteWebhook(webhook.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteWebhook(webhook.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -723,9 +600,8 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
             </TableBody>
           </Table>
 
-          {/* Paginação */}
           {webhooks.length > 0 && totalPages > 1 && (
-            <div className="p-4 border-t border-white/[0.08]">
+            <div className="p-4 border-t">
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -734,30 +610,20 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
                       className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                     />
                   </PaginationItem>
-
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                    if (
-                      page === 1 ||
-                      page === totalPages ||
-                      (page >= currentPage - 1 && page <= currentPage + 1)
-                    ) {
+                    if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
                       return (
                         <PaginationItem key={page}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(page)}
-                            isActive={currentPage === page}
-                            className="cursor-pointer"
-                          >
+                          <PaginationLink onClick={() => setCurrentPage(page)} isActive={currentPage === page} className="cursor-pointer">
                             {page}
                           </PaginationLink>
                         </PaginationItem>
-                      );
+                      )
                     } else if (page === currentPage - 2 || page === currentPage + 2) {
-                      return <PaginationEllipsis key={page} />;
+                      return <PaginationEllipsis key={page} />
                     }
-                    return null;
+                    return null
                   })}
-
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -768,83 +634,38 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
               </Pagination>
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
-      {/* Webhook Dialog */}
+      {/* Dialog Webhook */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingWebhook ? 'Editar Webhook' : 'Adicionar Webhook'}
-            </DialogTitle>
+            <DialogTitle>{editingWebhook ? 'Editar Webhook' : 'Novo Webhook'}</DialogTitle>
             <DialogDescription>
-              {editingWebhook
-                ? 'Atualize as informações do webhook.'
-                : 'Preencha as informações do novo webhook.'}
+              {editingWebhook ? 'Atualize as informações do webhook.' : 'Preencha os dados do novo webhook.'}
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="webhook-name">Nome</Label>
-              <Input
-                id="webhook-name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="Nome do webhook"
-              />
+              <Label>Nome</Label>
+              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Nome do webhook" />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="webhook-type">Tipo</Label>
-              <Input
-                id="webhook-type"
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                placeholder="payment, notification, etc."
-              />
+              <Label>Tipo</Label>
+              <Input value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} placeholder="payment, notification, etc." />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="webhook-url">URL</Label>
-              <Input
-                id="webhook-url"
-                value={formData.url}
-                onChange={(e) =>
-                  setFormData({ ...formData, url: e.target.value })
-                }
-                placeholder="https://exemplo.com/webhook"
-              />
+              <Label>URL</Label>
+              <Input value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} placeholder="https://exemplo.com/webhook" />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="webhook-secret">Secret</Label>
-              <Input
-                id="webhook-secret"
-                type="password"
-                value={formData.secret}
-                onChange={(e) =>
-                  setFormData({ ...formData, secret: e.target.value })
-                }
-                placeholder="Secret para validação"
-              />
+              <Label>Secret</Label>
+              <Input type="password" value={formData.secret} onChange={(e) => setFormData({ ...formData, secret: e.target.value })} placeholder="Secret para validação" />
             </div>
           </div>
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDialogOpen(false)}
-              disabled={loading}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={loading}>Cancelar</Button>
             <Button onClick={handleSaveWebhook} disabled={loading}>
               <Save className="mr-2 h-4 w-4" />
               {editingWebhook ? 'Atualizar' : 'Criar'}
