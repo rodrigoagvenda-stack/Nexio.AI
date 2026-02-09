@@ -46,8 +46,8 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
         <CardHeader className="flex-shrink-0">
           <CardTitle>Performance de Vendas</CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col pb-4">
-          <ChartContainer config={chartConfig} className="flex-1 min-h-[120px] w-full">
+        <CardContent className="flex flex-col pb-4">
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
             <BarChart accessibilityLayer data={data}>
               <CartesianGrid vertical={false} />
               <XAxis
