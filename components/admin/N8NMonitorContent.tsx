@@ -80,6 +80,7 @@ interface N8NError {
     message?: string;
     severity?: string;
     executionUrl?: string;
+    timestamp?: string;
     details?: any;
     ai_analysis?: string;
   } | null;
@@ -191,6 +192,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
   };
 
   // Helpers para acessar dados do erro
+  const getErrorDate = (e: N8NError) => e.error_data?.timestamp || e.created_at;
   const getErrorNode = (e: N8NError) => e.error_data?.node || 'Unknown';
   const getErrorSeverity = (e: N8NError) => (e.error_data?.severity || 'medium') as 'low' | 'medium' | 'high' | 'critical';
   const isResolved = (e: N8NError) => !!e.resolved_at || e.status === 'resolved' || e.status === 'ignored';
@@ -768,7 +770,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {formatDate(error.created_at)}
+                      {formatDate(getErrorDate(error))}
                     </TableCell>
                     <TableCell>
                       <Button
@@ -935,7 +937,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
               Detalhes do Erro
             </DialogTitle>
             <DialogDescription>
-              {selectedError?.workflow_name} - {formatDate(selectedError?.created_at || '')}
+              {selectedError?.workflow_name} - {formatDate(selectedError ? getErrorDate(selectedError) : '')}
             </DialogDescription>
           </DialogHeader>
 
@@ -1116,7 +1118,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                     .map((error) => (
                       <TableRow key={error.id} className="border-border">
                         <TableCell className="text-sm">
-                          {formatDate(error.created_at)}
+                          {formatDate(getErrorDate(error))}
                         </TableCell>
                         <TableCell className="max-w-[150px] truncate">
                           {error.workflow_name}
