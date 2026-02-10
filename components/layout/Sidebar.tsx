@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Home,
   UsersRound,
@@ -63,14 +63,18 @@ export function Sidebar({
   companyImage,
 }: SidebarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [crmExpanded, setCrmExpanded] = useState(
     pathname === '/crm' || pathname.startsWith('/crm/')
   );
-  const currentView = searchParams.get('view') || 'table';
+  const [currentView, setCurrentView] = useState('table');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setCurrentView(params.get('view') || 'table');
+  }, [pathname]);
 
   const allLinks: NavLink[] = [
     ...links,

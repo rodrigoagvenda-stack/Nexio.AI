@@ -25,13 +25,13 @@ const chartConfig = {
   },
   fechados: {
     label: 'Leads fechados',
-    color: '#d8d8d8',
+    color: 'hsl(var(--chart-2))',
   },
 } satisfies ChartConfig;
 
 const legendItems = [
-  { label: 'Leads gerados', color: '#30184C' },
-  { label: 'Leads fechados', color: '#d8d8d8' },
+  { label: 'Leads gerados', color: 'hsl(var(--chart-1))' },
+  { label: 'Leads fechados', color: 'hsl(var(--chart-2))' },
 ];
 
 export function PerformanceChart({ data }: PerformanceChartProps) {
