@@ -1,23 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarInset,
+} from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils/cn';
 import {
   LayoutDashboard,
   Users,
   MapPin,
   MessageSquare,
-  Target,
   UserPlus,
   HelpCircle,
   Columns3,
   Keyboard,
-  Menu,
   ChevronRight,
   BookOpen,
   type LucideIcon,
@@ -160,34 +170,6 @@ const sections: HelpSection[] = [
     ],
   },
   {
-    id: 'lead-pro',
-    title: 'Lead PRO',
-    icon: Target,
-    description: 'Recursos avançados de qualificação',
-    items: [
-      {
-        question: 'O que é o Lead PRO?',
-        answer:
-          'Lead PRO é uma funcionalidade premium disponível nos planos NEXIO GROWTH e NEXIO ADS. Oferece:\n\n**Recursos:**\n• Qualificação automatizada de leads por IA\n• Score de conversão baseado em machine learning\n• Recomendações de ações personalizadas\n• Insights avançados sobre comportamento\n• Priorização inteligente do pipeline\n• Previsão de fechamento\n• Análise de fit com ICP\n• Identificação de red flags',
-      },
-      {
-        question: 'Como funciona o score de conversão?',
-        answer:
-          'O sistema usa IA para analisar diversos fatores e atribuir uma pontuação (0-100) para cada lead:\n\n**Faixas de Score:**\n• **80-100**: Alta probabilidade (prioridade máxima)\n  - Leads prontos para fechar\n  - Foco imediato necessário\n\n• **60-79**: Média-alta probabilidade\n  - Leads qualificados\n  - Nutrição ativa recomendada\n\n• **40-59**: Média probabilidade\n  - Potencial, mas precisa de trabalho\n  - Qualificação adicional necessária\n\n• **0-39**: Baixa probabilidade\n  - Provável perda de tempo\n  - Considerar desqualificar\n\n**Fatores Analisados:**\n• Engajamento (respostas rápidas, interesse demonstrado)\n• Fit com ICP (porte, segmento, localização)\n• Budget disponível\n• Autoridade do contato (decisor ou influenciador)\n• Timing (urgência na compra)\n• Comportamento histórico (leads similares que converteram)',
-      },
-      {
-        question: 'Como usar as recomendações de ações?',
-        answer:
-          'O Lead PRO sugere próximas ações baseadas em IA:\n\n**Tipos de Recomendações:**\n\n1. **Priorização**\n   "Priorize este lead! Score 92 e demonstrou urgência"\n\n2. **Qualificação**\n   "Pergunte sobre budget e autoridade de decisão"\n\n3. **Nurturing**\n   "Envie case de sucesso do segmento X"\n\n4. **Timing**\n   "Aguarde 2 dias antes de fazer follow-up"\n\n5. **Red Flags**\n   "Lead não responde há 14 dias - considere arquivar"\n\n**Como acessar:**\n• Abra o perfil do lead\n• Veja o painel "Insights IA" na lateral direita\n• Clique em "Ver Todas Recomendações"\n• Marque ações como concluídas\n• O sistema aprende com suas decisões',
-      },
-      {
-        question: 'O que é o ICP e como configurar?',
-        answer:
-          'ICP (Ideal Customer Profile) é o perfil do seu cliente ideal:\n\n**Configurar ICP (apenas admin):**\n1. Acesse Admin > Empresas > [Sua Empresa] > "Configurar ICP"\n2. Defina critérios:\n   • **Segmento**: CNAEs de interesse\n   • **Localização**: Estados/cidades prioritárias\n   • **Porte**: Faturamento mínimo e máximo\n   • **Funcionários**: Número de colaboradores\n   • **Budget Típico**: Faixa de investimento\n   • **Ciclo de Venda**: Tempo médio para fechar\n3. Salve as configurações\n\n**Como o ICP é usado:**\n• Score de fit calculado para cada lead\n• Busca automática de empresas similares\n• Filtros de captação baseados no ICP\n• Alertas quando lead fora do ICP\n• Relatórios de desvio do perfil ideal',
-      },
-    ],
-  },
-  {
     id: 'membros',
     title: 'Membros',
     icon: UserPlus,
@@ -308,112 +290,19 @@ function formatAnswer(text: string) {
   });
 }
 
-function SidebarNav({
-  sections: secs,
-  activeId,
-  onSelect,
-}: {
-  sections: HelpSection[];
-  activeId: string;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <nav className="space-y-1 py-2">
-      <div className="px-3 mb-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          <BookOpen className="h-4 w-4" />
-          Documentação
-        </div>
-      </div>
-      {secs.map((section) => {
-        const Icon = section.icon;
-        const isActive = activeId === section.id;
-        return (
-          <button
-            key={section.id}
-            onClick={() => onSelect(section.id)}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-all duration-200 text-left group',
-              isActive
-                ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            )}
-          >
-            <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
-            <span className="truncate">{section.title}</span>
-            {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary" />}
-          </button>
-        );
-      })}
-
-      <Separator className="my-4" />
-
-      <div className="px-3">
-        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-2">
-          <p className="text-xs font-medium text-foreground">Precisa de mais ajuda?</p>
-          <p className="text-xs text-muted-foreground">
-            Entre em contato pelo e-mail{' '}
-            <span className="text-primary font-medium">suporte@nexio.ai</span>
-          </p>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
 export default function AjudaPage() {
   const [activeId, setActiveId] = useState(sections[0].id);
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const activeSection = sections.find((s) => s.id === activeId) || sections[0];
   const ActiveIcon = activeSection.icon;
 
-  const handleSelect = (id: string) => {
-    setActiveId(id);
-    setMobileOpen(false);
-  };
-
   return (
-    <div className="flex h-[calc(100vh-80px)] -m-3 md:-m-6">
-      {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border/50 bg-card/30">
-        <div className="p-4 border-b border-border/50">
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-primary" />
-            Central de Ajuda
-          </h1>
-        </div>
-        <ScrollArea className="flex-1 px-2">
-          <SidebarNav sections={sections} activeId={activeId} onSelect={handleSelect} />
-        </ScrollArea>
-      </aside>
-
-      {/* Sidebar - Mobile */}
-      <div className="md:hidden fixed top-[64px] left-0 right-0 z-20 bg-background border-b border-border/50 px-3 py-2 flex items-center gap-2">
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Menu className="h-4 w-4" />
-              {activeSection.title}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-0">
-            <div className="p-4 border-b border-border/50">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-primary" />
-                Central de Ajuda
-              </h2>
-            </div>
-            <ScrollArea className="h-[calc(100vh-80px)]">
-              <SidebarNav sections={sections} activeId={activeId} onSelect={handleSelect} />
-            </ScrollArea>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* Conteúdo */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto p-6 md:p-10 pt-16 md:pt-10">
+    <SidebarProvider
+      defaultOpen={true}
+      style={{ '--sidebar-width': '16rem' } as React.CSSProperties}
+    >
+      <SidebarInset>
+        <div className="max-w-3xl mx-auto p-6 md:p-10">
           {/* Header da seção */}
           <div className="mb-8">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
@@ -491,7 +380,50 @@ export default function AjudaPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </SidebarInset>
+
+      {/* Sidebar direita - Table of Contents */}
+      <Sidebar side="right" collapsible="none" className="border-l">
+        <SidebarHeader className="p-4">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <HelpCircle className="h-4 w-4 text-primary" />
+            Central de Ajuda
+          </h2>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Table of Contents</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {sections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <SidebarMenuItem key={section.id}>
+                      <SidebarMenuButton
+                        isActive={activeId === section.id}
+                        onClick={() => setActiveId(section.id)}
+                        tooltip={section.description}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{section.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter className="p-4">
+          <div className="rounded-lg border border-border/50 bg-muted/30 p-4 space-y-2">
+            <p className="text-xs font-medium text-foreground">Precisa de mais ajuda?</p>
+            <p className="text-xs text-muted-foreground">
+              Entre em contato pelo e-mail{' '}
+              <span className="text-primary font-medium">suporte@nexio.ai</span>
+            </p>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+    </SidebarProvider>
   );
 }
