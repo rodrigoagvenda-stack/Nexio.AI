@@ -53,12 +53,6 @@ export default function ProspectAIPage() {
   const { company } = useUser();
   const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
 
-  // DEBUG
-  if (company) {
-    console.log('COMPANY PLAN_NAME:', company.plan_name);
-    console.log('COMPANY FULL:', company);
-  }
-
   const hasOrbitAccess = company?.plan_name === 'NEXIO GROWTH' || company?.plan_name === 'NEXIO ADS';
 
   // URL Mode
@@ -198,7 +192,6 @@ export default function ProspectAIPage() {
   if (!hasOrbitAccess) {
     return (
       <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
-        {/* Orb background com efeito React Bits */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-[700px] h-[700px]">
             <Orb hue={270} backgroundColor="hsl(var(--background))" />
@@ -207,7 +200,6 @@ export default function ProspectAIPage() {
 
         <div className="relative max-w-2xl mx-auto px-6">
           <div className="space-y-8 text-center">
-            {/* Hero */}
             <div className="space-y-6">
               <div className="min-h-[60px] md:min-h-[80px] lg:min-h-[100px] flex items-center justify-center w-full">
                 <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-light tracking-tight">
@@ -216,7 +208,6 @@ export default function ProspectAIPage() {
               </div>
             </div>
 
-            {/* Mensagem de upgrade */}
             <Card className="relative p-8 border border-border/40 bg-card/60 backdrop-blur-lg rounded-2xl shadow-2xl">
               <div className="flex flex-col items-center space-y-6">
                 <div className="relative">

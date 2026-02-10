@@ -68,9 +68,26 @@ export async function PATCH(
 
     const body = await request.json();
 
+    // Filtrar apenas campos válidos da tabela companies
+    const allowedFields = [
+      'name', 'email', 'phone', 'image_url',
+      'plan_type', 'plan_name', 'plan_price',
+      'plan_id', 'plan_monthly_limit',
+      'leads_extracted_this_month', 'last_extraction_month',
+      'whatsapp_instance', 'whatsapp_token',
+      'is_active', 'subscription_expires_at',
+    ];
+
+    const updateData: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (key in body) {
+        updateData[key] = body[key];
+      }
+    }
+
     const { data, error } = await auth.serviceSupabase
       .from('companies')
-      .update(body)
+      .update(updateData)
       .eq('id', params.id)
       .select()
       .single();

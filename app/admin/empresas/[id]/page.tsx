@@ -9,9 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Settings, Power, Trash2, Calendar, Target, Info, Upload, X, Camera } from 'lucide-react';
+import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera } from 'lucide-react';
 import { Company } from '@/types/database.types';
-import Link from 'next/link';
 import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
 import {
   AlertDialog,
@@ -24,15 +23,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { createClient } from '@/lib/supabase/client';
-
-interface Plan {
-  id: number;
-  name: string;
-  extraction_limit: number;
-  mql_percentage: number;
-  description: string;
-}
 
 export default function EmpresaDetailPage() {
   const params = useParams();
@@ -40,38 +30,13 @@ export default function EmpresaDetailPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { applyPhoneMask, removeMask } = usePhoneMask();
 
   useEffect(() => {
     fetchCompany();
-    fetchPlans();
   }, [params.id]);
-
-  useEffect(() => {
-    if (company?.plan_id && plans.length > 0) {
-      const plan = plans.find(p => p.id === company.plan_id);
-      setSelectedPlan(plan || null);
-    }
-  }, [company?.plan_id, plans]);
-
-  async function fetchPlans() {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .order('id');
-
-      if (error) throw error;
-      setPlans(data || []);
-    } catch (error) {
-      console.error('Error fetching plans:', error);
-    }
-  }
 
   async function fetchCompany() {
     try {
@@ -217,14 +182,6 @@ export default function EmpresaDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {company.vendagro_plan && (
-            <Link href={`/admin/empresas/${params.id}/icp`}>
-              <Button variant="outline">
-                <Settings className="mr-2 h-4 w-4" />
-                Configurar ICP
-              </Button>
-            </Link>
-          )}
           <Button
             variant={company.is_active ? 'outline' : 'default'}
             onClick={handleToggleStatus}
@@ -445,107 +402,6 @@ export default function EmpresaDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="plan_id">Plano VendAgro</Label>
-              <Select
-                value={company.plan_id?.toString() || 'none'}
-                onValueChange={(value: any) => {
-                  const planId = value === 'none' ? null : parseInt(value);
-                  setCompany({ ...company, plan_id: planId });
-                  const plan = plans.find(p => p.id === planId);
-                  setSelectedPlan(plan || null);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um plano" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem VendAgro</SelectItem>
-                  {plans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id.toString()}>
-                      {plan.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedPlan && (
-              <>
-                {/* Distribuição de Leads e MQLs */}
-                <div className="border-2 border-primary/20 rounded-lg p-4 space-y-3 bg-primary/5">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-semibold">Distribuição Mensal</p>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="text-center">
-                      <p className="text-xs text-muted-foreground">Total</p>
-                      <p className="text-2xl font-bold text-primary">
-                        {selectedPlan.extraction_limit}
-                      </p>
-                      <p className="text-xs">leads/mês</p>
-                    </div>
-                    <div className="text-center border-l pl-3">
-                      <p className="text-xs text-muted-foreground">MQLs ({selectedPlan.mql_percentage}%)</p>
-                      <p className="text-2xl font-bold text-primary">
-                        {Math.floor((selectedPlan.extraction_limit * selectedPlan.mql_percentage) / 100)}
-                      </p>
-                      <p className="text-xs">qualificados</p>
-                    </div>
-                    <div className="text-center border-l pl-3">
-                      <p className="text-xs text-muted-foreground">Normais</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {selectedPlan.extraction_limit - Math.floor((selectedPlan.extraction_limit * selectedPlan.mql_percentage) / 100)}
-                      </p>
-                      <p className="text-xs">leads</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-muted-foreground">{selectedPlan.description}</p>
-                  </div>
-                </div>
-
-                {/* Uso Atual */}
-                <div className="border rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-medium">Uso Este Mês</p>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-3xl font-bold">{company.leads_extracted_this_month || 0}</p>
-                    <p className="text-muted-foreground">/ {selectedPlan.extraction_limit} extraídos</p>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className="bg-primary rounded-full h-2 transition-all"
-                      style={{
-                        width: `${Math.min(100, ((company.leads_extracted_this_month || 0) / selectedPlan.extraction_limit) * 100)}%`
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Restam <strong>{selectedPlan.extraction_limit - (company.leads_extracted_this_month || 0)}</strong> leads
-                  </p>
-                </div>
-
-                {/* Explicação MQL */}
-                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <div className="flex gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">
-                        O que são MQLs?
-                      </p>
-                      <p className="text-xs text-blue-800 dark:text-blue-200">
-                        <strong>MQL (Marketing Qualified Lead)</strong> são leads qualificados pelo marketing
-                        que atendem ao ICP e têm maior chance de conversão. São pré-qualificados e prontos
-                        para abordagem comercial.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </div>

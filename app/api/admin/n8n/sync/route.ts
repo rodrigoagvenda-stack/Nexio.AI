@@ -181,6 +181,7 @@ export async function POST() {
               message: errorMessage,
               severity: 'medium',
               executionUrl: `${instance.url}/execution/${execId}`,
+              timestamp: execution.stoppedAt || execution.startedAt || new Date().toISOString(),
             };
             // Adicionar detalhes do erro se existirem
             if (resultData?.error) {
