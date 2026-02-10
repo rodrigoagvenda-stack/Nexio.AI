@@ -246,10 +246,19 @@ export async function sendWhatsAppMessage(payload: {
       .single();
 
     console.log('[WhatsApp] Webhook config:', webhookConfig);
+    console.log('[WhatsApp] Config error:', configError);
 
     if (configError || !webhookConfig) {
+      console.error('[WhatsApp] ERRO: Webhook não configurado!', { configError, webhookConfig });
       throw new Error('Webhook WhatsApp não configurado. Configure em Admin > Webhooks & APIs.');
     }
+
+    if (!webhookConfig.webhook_url) {
+      console.error('[WhatsApp] ERRO: URL do webhook vazia!');
+      throw new Error('URL do webhook WhatsApp não configurada');
+    }
+
+    console.log('[WhatsApp] ✓ Webhook config OK. URL:', webhookConfig.webhook_url);
 
     // Criar headers
     const headers: Record<string, string> = {
@@ -282,7 +291,22 @@ export async function sendWhatsAppMessage(payload: {
     console.log('[WhatsApp] Response text:', responseText.substring(0, 500));
 
     if (!response.ok) {
-      throw new Error(`N8N request failed: ${response.statusText} - ${responseText}`);
+      console.error('[WhatsApp] ERRO NA RESPOSTA:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: webhookConfig.webhook_url,
+        responsePreview: responseText.substring(0, 500)
+      });
+
+      if (response.status === 404) {
+        throw new Error(
+          `Webhook não encontrado no n8n (404). ` +
+          `Verifique se o workflow está ATIVO em modo PRODUÇÃO. ` +
+          `URL: ${webhookConfig.webhook_url}`
+        );
+      }
+
+      throw new Error(`N8N request failed (${response.status}): ${response.statusText} - ${responseText}`);
     }
 
     // Tratar resposta vazia
