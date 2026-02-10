@@ -137,7 +137,7 @@ export default function BriefPage() {
         <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
           <div className="flex justify-center mb-8">
             <h1 className="text-3xl font-semibold">
-              vend<span className="text-primary">.</span>AI
+              nexio<span className="text-primary">.</span>ai
             </h1>
           </div>
           <h1 className="text-4xl md:text-5xl font-semibold">
@@ -187,7 +187,7 @@ export default function BriefPage() {
       {/* Fixed Logo */}
       <div className="fixed top-6 left-6 z-50">
         <h1 className="text-2xl font-bold">
-          vend<span className="text-primary">.</span>AI
+          nexio<span className="text-primary">.</span>ai
         </h1>
       </div>
 

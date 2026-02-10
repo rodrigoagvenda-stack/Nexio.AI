@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           event: 'test',
-          message: 'Teste de webhook do vend.AI',
+          message: 'Teste de webhook do nexio.ai',
           timestamp: new Date().toISOString(),
         }),
       });
