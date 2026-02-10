@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { OrbitCard, OrbitCardContent } from '@/components/ui/orbit-card';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -265,12 +265,34 @@ function DroppableColumn({
 
 export default function CRMPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { authUser, user, company, loading: userLoading } = useUser();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const viewMode = (searchParams.get('view') === 'kanban' ? 'kanban' : 'table') as 'kanban' | 'table';
+  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('table');
   const [error, setError] = useState<string | null>(null);
+
+  // Atualiza viewMode baseado na URL sem causar bloqueio Suspense
+  useEffect(() => {
+    let lastUrl = window.location.href;
+
+    const checkUrlChange = () => {
+      const currentUrl = window.location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+        setViewMode(view === 'kanban' ? 'kanban' : 'table');
+      }
+    };
+
+    // Atualiza na montagem
+    checkUrlChange();
+
+    // Detecta mudanças na URL a cada 100ms (para clicks no sidebar)
+    const interval = setInterval(checkUrlChange, 100);
+
+    return () => clearInterval(interval);
+  }, []);
   const [hasFetched, setHasFetched] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
