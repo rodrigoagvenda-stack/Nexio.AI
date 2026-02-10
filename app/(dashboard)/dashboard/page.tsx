@@ -394,7 +394,7 @@ export default function DashboardPage() {
   // Em andamento = leads criados no período que NÃO foram fechados no período
   const emAndamento = Math.max(0, totalLeads - fechados);
   const conversionData = [
-    { name: 'Fechados', value: fechados, color: '#191919' },
+    { name: 'Fechados', value: fechados, color: '#d8d8d8' },
     { name: 'Em andamento', value: emAndamento, color: '#30184C' },
   ];
 
