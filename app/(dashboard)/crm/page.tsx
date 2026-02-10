@@ -182,12 +182,14 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
                   <span>1</span>
                 </div>
               )}
-              {lead.project_value && lead.project_value > 0 && (
-                <div className="flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" />
-                  <span>R$ {(lead.project_value / 1000).toFixed(0)}k</span>
-                </div>
-              )}
+              <div className="flex items-center gap-1">
+                <DollarSign className="h-3 w-3" />
+                <span>
+                  {lead.project_value && lead.project_value > 0
+                    ? `R$ ${(lead.project_value / 1000).toFixed(0)}k`
+                    : 'R$ 0,00'}
+                </span>
+              </div>
             </div>
             <div className="text-[10px] text-muted-foreground">
               {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}

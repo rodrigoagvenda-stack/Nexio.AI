@@ -72,9 +72,24 @@ export function Sidebar({
   const [currentView, setCurrentView] = useState('table');
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setCurrentView(params.get('view') || 'table');
-  }, [pathname]);
+    let lastUrl = window.location.href;
+
+    const updateView = () => {
+      const currentUrl = window.location.href;
+      if (currentUrl !== lastUrl) {
+        lastUrl = currentUrl;
+        const params = new URLSearchParams(window.location.search);
+        setCurrentView(params.get('view') || 'table');
+      }
+    };
+
+    updateView(); // Atualiza na montagem
+
+    // Detecta mudanças na URL para atualizar o item ativo do CRM
+    const interval = setInterval(updateView, 100);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const allLinks: NavLink[] = [
     ...links,
