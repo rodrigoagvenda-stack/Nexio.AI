@@ -186,7 +186,7 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
                 <DollarSign className="h-3 w-3" />
                 <span>
                   {lead.project_value && lead.project_value > 0
-                    ? `R$ ${(lead.project_value / 1000).toFixed(0)}k`
+                    ? `R$ ${lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     : 'R$ 0,00'}
                 </span>
               </div>
@@ -759,7 +759,7 @@ export default function CRMPage() {
         lead.email || '',
         lead.priority || '',
         lead.nivel_interesse || '',
-        lead.project_value ? `R$ ${lead.project_value.toFixed(2)}` : '',
+        lead.project_value ? `R$ ${lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '',
         lead.import_source || '',
         lead.notes || '',
         lead.created_at ? new Date(lead.created_at).toLocaleDateString('pt-BR') : ''
