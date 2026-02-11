@@ -130,13 +130,29 @@ export default function AtendimentoPage() {
           filter: `id_da_conversacao=eq.${selectedConversation.id}`,
         },
         (payload) => {
-          // Evitar duplicatas (UI otimista já adicionou)
           setMessages((prev) => {
             const newMessage = payload.new as Message;
-            const exists = prev.some(msg =>
+            // Evitar duplicatas: verificar por ID real ou substituir mensagem otimista (temp)
+            const existsReal = prev.some(msg =>
               typeof msg.id === 'number' && msg.id === newMessage.id
             );
-            return exists ? prev : [...prev, newMessage];
+            if (existsReal) return prev;
+
+            // Se é outbound, pode ser uma mensagem otimista — substituir pelo dado real
+            if (newMessage.direcao === 'outbound') {
+              const tempIndex = prev.findIndex(msg =>
+                typeof msg.id === 'string' &&
+                (msg.id as string).startsWith('temp_') &&
+                msg.carimbo_de_data_e_hora === newMessage.carimbo_de_data_e_hora
+              );
+              if (tempIndex !== -1) {
+                const updated = [...prev];
+                updated[tempIndex] = newMessage;
+                return updated;
+              }
+            }
+
+            return [...prev, newMessage];
           });
           scrollToBottom();
         }
@@ -184,7 +200,7 @@ export default function AtendimentoPage() {
         .from('mensagens_do_whatsapp')
         .select(`
           *,
-          user:users!mensagens_do_whatsapp_sender_user_id_fkey(name)
+          user:users(name)
         `)
         .eq('id_da_conversacao', conversationId)
         .eq('company_id', company!.id) // 🔒 Segurança: garante isolamento por empresa
@@ -225,7 +241,7 @@ export default function AtendimentoPage() {
       tipo_de_mensagem: 'text',
       direcao: 'outbound',
       sender_type: 'human',
-      sender_user_id: user.user_id,
+      sender_user_id: user.auth_user_id,
       status: 'sending', // Status temporário
       carimbo_de_data_e_hora: new Date().toISOString(),
     };
@@ -244,7 +260,7 @@ export default function AtendimentoPage() {
           phoneNumber: selectedConversation.numero_de_telefone,
           message: messageText,
           companyId: company!.id,
-          userId: user.user_id,
+          userId: user.auth_user_id,
         }),
       });
 
@@ -424,6 +440,8 @@ export default function AtendimentoPage() {
   async function handleSendAudio(audioBlob: Blob, duration: number) {
     if (!selectedConversation || !user) return;
 
+    const tempId = `temp_audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     setLoading(true);
     try {
       // 1. Upload do áudio para o Supabase Storage
@@ -444,6 +462,25 @@ export default function AtendimentoPage() {
         .from('whatsapp-media')
         .getPublicUrl(filePath);
 
+      // UI Otimista: Adicionar mensagem de áudio imediatamente
+      const optimisticMessage: Message = {
+        id: tempId,
+        company_id: company!.id,
+        id_da_conversacao: selectedConversation.id,
+        texto_da_mensagem: '🎵 Áudio',
+        tipo_de_mensagem: 'audio',
+        direcao: 'outbound',
+        sender_type: 'human',
+        sender_user_id: user.auth_user_id,
+        status: 'sending',
+        carimbo_de_data_e_hora: new Date().toISOString(),
+        url_da_midia: publicUrl,
+      };
+
+      setMessages(prev => [...prev, optimisticMessage]);
+      setShowAudioRecorder(false);
+      scrollToBottom();
+
       // 3. Enviar via API
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -455,17 +492,24 @@ export default function AtendimentoPage() {
           messageType: 'audio',
           mediaUrl: publicUrl,
           companyId: company!.id,
-          userId: user.user_id,
+          userId: user.auth_user_id,
         }),
       });
 
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      setShowAudioRecorder(false);
+      // Atualizar mensagem otimista com dados reais do servidor
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempId ? { ...data.data, status: 'sent' } : msg
+        )
+      );
       toast.success('Áudio enviado!');
     } catch (error: any) {
       console.error('Error sending audio:', error);
+      // Remover mensagem otimista em caso de erro
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       toast.error(error.message || 'Erro ao enviar áudio');
     } finally {
       setLoading(false);
@@ -474,6 +518,9 @@ export default function AtendimentoPage() {
 
   async function handleSendFile(file: File, type: 'image' | 'document' | 'video', caption?: string) {
     if (!selectedConversation || !user) return;
+
+    const tempId = `temp_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const defaultMessage = type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : '🎥 Vídeo';
 
     setLoading(true);
     try {
@@ -496,8 +543,25 @@ export default function AtendimentoPage() {
         .from('whatsapp-media')
         .getPublicUrl(filePath);
 
+      // UI Otimista: Adicionar mensagem imediatamente
+      const optimisticMessage: Message = {
+        id: tempId,
+        company_id: company!.id,
+        id_da_conversacao: selectedConversation.id,
+        texto_da_mensagem: caption || defaultMessage,
+        tipo_de_mensagem: type,
+        direcao: 'outbound',
+        sender_type: 'human',
+        sender_user_id: user.auth_user_id,
+        status: 'sending',
+        carimbo_de_data_e_hora: new Date().toISOString(),
+        url_da_midia: publicUrl,
+      };
+
+      setMessages(prev => [...prev, optimisticMessage]);
+      scrollToBottom();
+
       // 3. Enviar via API
-      const defaultMessage = type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : '🎥 Vídeo';
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -509,16 +573,24 @@ export default function AtendimentoPage() {
           mediaUrl: publicUrl,
           filename: file.name,
           companyId: company!.id,
-          userId: user.user_id,
+          userId: user.auth_user_id,
         }),
       });
 
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
+      // Atualizar mensagem otimista com dados reais do servidor
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempId ? { ...data.data, status: 'sent' } : msg
+        )
+      );
       toast.success(`${type === 'image' ? 'Imagem' : type === 'document' ? 'Documento' : 'Vídeo'} enviado!`);
     } catch (error: any) {
       console.error(`Error sending ${type}:`, error);
+      // Remover mensagem otimista em caso de erro
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       toast.error(error.message || `Erro ao enviar ${type}`);
     } finally {
       setLoading(false);
@@ -549,16 +621,19 @@ export default function AtendimentoPage() {
   async function handleSendImageWithPreview() {
     if (!imagePreview) return;
 
-    setLoading(true);
+    const file = imagePreview.file;
+    const captionText = imageCaption;
+    const previewUrl = imagePreview.url;
+
+    // Limpar preview imediatamente para UX responsiva
+    setImagePreview(null);
+    setImageCaption('');
+
     try {
-      await handleSendFile(imagePreview.file, 'image', imageCaption);
-      setImagePreview(null);
-      setImageCaption('');
-      URL.revokeObjectURL(imagePreview.url);
+      await handleSendFile(file, 'image', captionText);
+      URL.revokeObjectURL(previewUrl);
     } catch (error) {
       console.error('Error sending image:', error);
-    } finally {
-      setLoading(false);
     }
   }
 

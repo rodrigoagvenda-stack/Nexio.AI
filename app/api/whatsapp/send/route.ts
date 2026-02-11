@@ -36,14 +36,12 @@ export async function POST(request: NextRequest) {
       { data: conversation, error: convCheckError },
       { data: company, error: companyError }
     ] = await Promise.all([
-      // Buscar conversa com lead_id (2 queries em 1)
       supabase
         .from('conversas_do_whatsapp')
         .select('id, company_id, id_do_lead')
         .eq('id', conversationId)
         .eq('company_id', companyId)
         .single(),
-      // Buscar credenciais WhatsApp da empresa
       supabase
         .from('companies')
         .select('whatsapp_instance, whatsapp_token')
@@ -68,29 +66,9 @@ export async function POST(request: NextRequest) {
 
     const leadId = conversation.id_do_lead || null;
 
-    // 4. Enviar mensagem via n8n/WhatsApp
-    const whatsappResult = await sendWhatsAppMessage({
-      number: phoneNumber,
-      text: message || '',
-      messageType: type,
-      mediaUrl: mediaUrl || '',
-      caption: caption || '',
-      filename: filename || '',
-      company_id: parseInt(companyId),
-      url_instancia: company.whatsapp_instance, // URL base da instância UAZapi
-      token: company.whatsapp_token, // Token de autenticação
-      conversa_id: conversationId.toString(),
-      lead_id: leadId ? leadId.toString() : '',
-      message_id: '',
-    });
-
-    if (!whatsappResult.success) {
-      throw new Error('Erro ao enviar mensagem via WhatsApp');
-    }
-
-    // 5. Preparar dados da mensagem
+    // 2. Preparar dados da mensagem
     const messageData: any = {
-      company_id: companyId, // 🔒 Segurança: isolamento por empresa
+      company_id: companyId,
       id_da_conversacao: conversationId,
       texto_da_mensagem: message || (type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : type === 'audio' ? '🎵 Áudio' : type === 'video' ? '🎥 Vídeo' : ''),
       tipo_de_mensagem: type,
@@ -102,12 +80,11 @@ export async function POST(request: NextRequest) {
       url_da_midia: mediaUrl || null,
     };
 
-    // Adicionar lead_id apenas se existir (nem todas conversas têm lead)
     if (leadId) {
       messageData.id_do_lead = leadId;
     }
 
-    // 6. Paralelizar: salvar mensagem + atualizar conversa (reduz latência)
+    // 3. Salvar mensagem + atualizar conversa em paralelo (ANTES do n8n)
     const [
       { data: savedMessage, error: messageError },
       { error: conversationError }
@@ -124,27 +101,29 @@ export async function POST(request: NextRequest) {
           hora_da_ultima_mensagem: new Date().toISOString(),
         })
         .eq('id', conversationId)
-        .eq('company_id', companyId) // 🔒 Segurança: garante isolamento
+        .eq('company_id', companyId)
     ]);
 
     if (messageError) throw messageError;
     if (conversationError) throw conversationError;
 
-    // 7. Registrar log de forma assíncrona (não bloqueia resposta)
-    supabase.from('system_logs').insert({
-      company_id: companyId,
-      type: 'user_action',
-      severity: 'info',
-      message: `Mensagem enviada para ${phoneNumber}`,
-      metadata: {
-        user_id: userId,
-        conversation_id: conversationId,
-        message_length: message.length,
-      },
-    }).then(
-      () => {},
-      (err) => console.error('Error logging message send:', err)
-    );
+    // 4. Disparar n8n em background (fire-and-forget) — não bloqueia a resposta
+    sendWhatsAppMessage({
+      number: phoneNumber,
+      text: message || '',
+      messageType: type,
+      mediaUrl: mediaUrl || '',
+      caption: caption || '',
+      filename: filename || '',
+      company_id: parseInt(companyId),
+      url_instancia: company.whatsapp_instance,
+      token: company.whatsapp_token,
+      conversa_id: conversationId.toString(),
+      lead_id: leadId ? leadId.toString() : '',
+      message_id: savedMessage.id?.toString() || '',
+    }).catch((err) => {
+      console.error('Error sending via n8n (background):', err);
+    });
 
     return NextResponse.json({
       success: true,
