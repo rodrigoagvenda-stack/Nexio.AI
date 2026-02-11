@@ -27,11 +27,33 @@ export function RealTimeActivity() {
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
   const [stageActivities, setStageActivities] = useState<StageActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchRealtimeData();
+    // Buscar company_id uma vez e guardar
+    const init = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // Set up real-time subscription
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userData?.company_id) {
+        setCompanyId(userData.company_id);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    fetchRealtimeData(companyId);
+
     const supabase = createClient();
     const channel = supabase
       .channel('leads-realtime')
@@ -41,9 +63,10 @@ export function RealTimeActivity() {
           event: '*',
           schema: 'public',
           table: 'leads',
+          filter: `company_id=eq.${companyId}`,
         },
         () => {
-          fetchRealtimeData();
+          fetchRealtimeData(companyId);
         }
       )
       .subscribe();
@@ -51,52 +74,43 @@ export function RealTimeActivity() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [companyId]);
 
-  const fetchRealtimeData = async () => {
+  const fetchRealtimeData = async (cId: number) => {
     try {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
 
-      if (!user) return;
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('company_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData?.company_id) return;
-
-      // Fetch recent leads (last 24 hours)
       const oneDayAgo = new Date();
       oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
-      const { data: leadsData } = await supabase
-        .from('leads')
-        .select('id, name, status, created_at, updated_at')
-        .eq('company_id', userData.company_id)
-        .gte('created_at', oneDayAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const stages = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado'];
+
+      // Buscar leads recentes + top 5 por estágio em paralelo
+      const [{ data: leadsData }, ...stageResults] = await Promise.all([
+        supabase
+          .from('leads')
+          .select('id, name, status, created_at, updated_at')
+          .eq('company_id', cId)
+          .gte('created_at', oneDayAgo.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(10),
+        ...stages.map((stage) =>
+          supabase
+            .from('leads')
+            .select('id, name, status, created_at, updated_at', { count: 'exact' })
+            .eq('company_id', cId)
+            .eq('status', stage)
+            .order('updated_at', { ascending: false })
+            .limit(5)
+        ),
+      ]);
 
       setNewLeads(leadsData || []);
 
-      // Fetch all leads and group by stage
-      const { data: allLeadsData } = await supabase
-        .from('leads')
-        .select('id, name, status, created_at, updated_at')
-        .eq('company_id', userData.company_id)
-        .order('updated_at', { ascending: false });
-
-      // Group by stage
-      const stages = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado'];
-      const stageGroups = stages.map((stage) => ({
+      const stageGroups = stages.map((stage, i) => ({
         stage,
-        count: allLeadsData?.filter((l) => l.status === stage).length || 0,
-        leads: allLeadsData?.filter((l) => l.status === stage).slice(0, 5) || [],
+        count: stageResults[i].count || 0,
+        leads: (stageResults[i].data || []) as Lead[],
       }));
 
       setStageActivities(stageGroups);

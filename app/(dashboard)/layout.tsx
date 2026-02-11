@@ -19,32 +19,31 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // 1. Pegar company_id do usuário
-  const { data: userData } = await supabase
-    .from('users')
-    .select('company_id')
-    .eq('auth_user_id', user.id)
-    .single();
+  // Buscar dados do usuário e admin check em paralelo
+  const [{ data: userData }, { data: adminUser }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('company_id')
+      .eq('auth_user_id', user.id)
+      .single(),
+    supabase
+      .from('admin_users')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .single(),
+  ]);
 
-  // 2. Pegar dados da empresa DIRETO (igual admin faz)
+  // Buscar dados da empresa (depende do company_id)
   const { data: companyData } = await supabase
     .from('companies')
-    .select('*')
+    .select('name, email, image_url')
     .eq('id', userData?.company_id || 0)
     .single();
 
   const companyName = companyData?.name;
   const companyEmail = companyData?.email;
   const companyImage = companyData?.image_url;
-
-  // Check if user is admin
-  const { data: adminUser } = await supabase
-    .from('admin_users')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .eq('is_active', true)
-    .single();
-
   const isAdmin = !!adminUser;
 
   return (
