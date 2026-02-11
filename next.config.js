@@ -5,9 +5,20 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'dkvznmmiiiljyrkopiqx.supabase.co',
+        hostname: '*.supabase.co',
       },
     ],
+  },
+  experimental: {
+    // Reduce memory usage during build trace collection
+    outputFileTracingExcludes: {
+      '*': [
+        'node_modules/@swc/core-linux-x64-gnu',
+        'node_modules/@swc/core-linux-x64-musl',
+        'node_modules/@esbuild/linux-x64',
+        'node_modules/sharp',
+      ],
+    },
   },
   // Configuração para subdomínios
   async headers() {

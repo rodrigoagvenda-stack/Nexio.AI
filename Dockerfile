@@ -26,8 +26,8 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 # Disable telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build
-RUN npm run build
+# Build with increased memory limit to avoid OOM during trace collection
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 # Debug: listar o que foi gerado
 RUN ls -la .next/ || echo ".next not found" && \
