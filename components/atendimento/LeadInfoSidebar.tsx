@@ -315,7 +315,18 @@ export function LeadInfoSidebar({
                         : ''
                     }
                     onChange={(e) => {
-                      setEditingProjectValue(e.target.value);
+                      const raw = e.target.value.replace(/\D/g, '');
+                      if (!raw) {
+                        setEditingProjectValue('');
+                        setHasProjectValueChanged(true);
+                        return;
+                      }
+                      const numValue = parseInt(raw) / 100;
+                      const formatted = new Intl.NumberFormat('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }).format(numValue);
+                      setEditingProjectValue(formatted);
                       setHasProjectValueChanged(true);
                     }}
                     className="pl-8"
