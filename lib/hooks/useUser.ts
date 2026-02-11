@@ -12,11 +12,11 @@ export function useUser() {
   useEffect(() => {
     const supabase = createClient();
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserAndCompany(session.user.id);
+    // Get initial user (validates token server-side, more reliable than getSession)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setAuthUser(user ?? null);
+      if (user) {
+        fetchUserAndCompany(user.id);
       } else {
         setLoading(false);
       }
@@ -53,15 +53,11 @@ export function useUser() {
       setUser(userData);
 
       if (userData?.company_id) {
-        const { data: companyData, error: companyError } = await supabase
+        const { data: companyData } = await supabase
           .from('companies')
           .select('id, name, email, plan_type, plan_name, plan_price, is_active, created_at, updated_at')
           .eq('id', userData.company_id)
           .single();
-
-        if (companyError) {
-          console.error('Error fetching company:', companyError);
-        }
 
         if (companyData) {
           setCompany(companyData);
