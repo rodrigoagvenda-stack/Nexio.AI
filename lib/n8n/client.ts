@@ -214,58 +214,51 @@ export async function extractICPLeads(
   }
 }
 
-export async function sendWhatsAppMessage(payload: {
-  number: string;
-  text: string;
-  messageType?: string;
-  mediaUrl?: string;
-  caption?: string;
-  filename?: string;
-  company_id: number;
-  url_instancia: string; // URL base da instância UAZapi
-  token: string; // Token de autenticação
-  conversa_id: string;
-  lead_id: string;
-  message_id: string;
-}): Promise<N8NResponse> {
+export async function sendWhatsAppMessage(
+  payload: {
+    number: string;
+    text: string;
+    messageType?: string;
+    mediaUrl?: string;
+    caption?: string;
+    filename?: string;
+    company_id: number;
+    url_instancia: string;
+    token: string;
+    conversa_id: string;
+    lead_id: string;
+    message_id: string;
+  },
+  webhookConfig?: {
+    webhook_url: string;
+    auth_type?: string;
+    auth_username?: string;
+    auth_password?: string;
+    auth_token?: string;
+  }
+): Promise<N8NResponse> {
   try {
-    console.log('[WhatsApp] Enviando mensagem via n8n:', {
-      number: payload.number,
-      messageType: payload.messageType || 'text',
-      url_instancia: payload.url_instancia,
-    });
+    // Se a config não foi passada, buscar do banco (fallback para chamadas legadas)
+    if (!webhookConfig) {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from('n8n_webhook_config')
+        .select('webhook_url, auth_type, auth_username, auth_password, auth_token')
+        .eq('webhook_type', 'whatsapp')
+        .eq('is_active', true)
+        .single();
 
-    // Buscar configuração do webhook do banco de dados
-    const supabase = await createClient();
-
-    const { data: webhookConfig, error: configError } = await supabase
-      .from('n8n_webhook_config')
-      .select('*')
-      .eq('webhook_type', 'whatsapp')
-      .eq('is_active', true)
-      .single();
-
-    console.log('[WhatsApp] Webhook config:', webhookConfig);
-    console.log('[WhatsApp] Config error:', configError);
-
-    if (configError || !webhookConfig) {
-      console.error('[WhatsApp] ERRO: Webhook não configurado!', { configError, webhookConfig });
-      throw new Error('Webhook WhatsApp não configurado. Configure em Admin > Webhooks & APIs.');
+      if (error || !data?.webhook_url) {
+        throw new Error('Webhook WhatsApp não configurado. Configure em Admin > Webhooks & APIs.');
+      }
+      webhookConfig = data;
     }
-
-    if (!webhookConfig.webhook_url) {
-      console.error('[WhatsApp] ERRO: URL do webhook vazia!');
-      throw new Error('URL do webhook WhatsApp não configurada');
-    }
-
-    console.log('[WhatsApp] ✓ Webhook config OK. URL:', webhookConfig.webhook_url);
 
     // Criar headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    // Adicionar autenticação baseada no tipo
     if (webhookConfig.auth_type === 'basic' && webhookConfig.auth_username && webhookConfig.auth_password) {
       const basicAuth = Buffer.from(
         `${webhookConfig.auth_username}:${webhookConfig.auth_password}`
@@ -283,46 +276,25 @@ export async function sendWhatsAppMessage(payload: {
       body: JSON.stringify(payload),
     });
 
-    console.log('[WhatsApp] Response status:', response.status);
-    console.log('[WhatsApp] Response OK:', response.ok);
-
-    // Pegar texto da resposta PRIMEIRO para debug
-    const responseText = await response.text();
-    console.log('[WhatsApp] Response text:', responseText.substring(0, 500));
-
     if (!response.ok) {
-      console.error('[WhatsApp] ERRO NA RESPOSTA:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: webhookConfig.webhook_url,
-        responsePreview: responseText.substring(0, 500)
-      });
-
+      const responseText = await response.text();
       if (response.status === 404) {
         throw new Error(
-          `Webhook não encontrado no n8n (404). ` +
-          `Verifique se o workflow está ATIVO em modo PRODUÇÃO. ` +
-          `URL: ${webhookConfig.webhook_url}`
+          `Webhook não encontrado no n8n (404). Verifique se o workflow está ATIVO em modo PRODUÇÃO.`
         );
       }
-
-      throw new Error(`N8N request failed (${response.status}): ${response.statusText} - ${responseText}`);
+      throw new Error(`N8N request failed (${response.status}): ${responseText.substring(0, 200)}`);
     }
 
-    // Tratar resposta vazia
+    const responseText = await response.text();
+
     if (!responseText || responseText.trim() === '') {
-      console.warn('[WhatsApp] n8n retornou resposta vazia! Considerando sucesso.');
       return { success: true, message: 'Mensagem enviada (webhook executado)' };
     }
 
-    // Tentar parsear como JSON
     try {
-      const result = JSON.parse(responseText);
-      console.log('[WhatsApp] Resultado parseado:', result);
-      return result;
-    } catch (parseError) {
-      console.error('[WhatsApp] ERRO ao parsear JSON:', parseError);
-      console.error('[WhatsApp] Resposta completa:', responseText);
+      return JSON.parse(responseText);
+    } catch {
       throw new Error(`n8n retornou resposta inválida: ${responseText.substring(0, 200)}`);
     }
   } catch (error) {

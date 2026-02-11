@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 1. Paralelizar queries iniciais (conversa + company) para reduzir latência
+    // 1. Paralelizar queries iniciais (conversa + company + webhook config)
     const [
       { data: conversation, error: convCheckError },
-      { data: company, error: companyError }
+      { data: company, error: companyError },
+      { data: webhookConfig, error: webhookError }
     ] = await Promise.all([
       supabase
         .from('conversas_do_whatsapp')
@@ -46,6 +47,12 @@ export async function POST(request: NextRequest) {
         .from('companies')
         .select('whatsapp_instance, whatsapp_token')
         .eq('id', companyId)
+        .single(),
+      supabase
+        .from('n8n_webhook_config')
+        .select('webhook_url, auth_type, auth_username, auth_password, auth_token')
+        .eq('webhook_type', 'whatsapp')
+        .eq('is_active', true)
         .single()
     ]);
 
@@ -60,6 +67,13 @@ export async function POST(request: NextRequest) {
     if (companyError || !company?.whatsapp_instance || !company?.whatsapp_token) {
       return NextResponse.json(
         { success: false, message: 'Credenciais WhatsApp não configuradas' },
+        { status: 400 }
+      );
+    }
+
+    if (webhookError || !webhookConfig?.webhook_url) {
+      return NextResponse.json(
+        { success: false, message: 'Webhook WhatsApp não configurado. Configure em Admin > Webhooks & APIs.' },
         { status: 400 }
       );
     }
@@ -108,20 +122,23 @@ export async function POST(request: NextRequest) {
     if (conversationError) throw conversationError;
 
     // 4. Disparar n8n em background (fire-and-forget) — não bloqueia a resposta
-    sendWhatsAppMessage({
-      number: phoneNumber,
-      text: message || '',
-      messageType: type,
-      mediaUrl: mediaUrl || '',
-      caption: caption || '',
-      filename: filename || '',
-      company_id: parseInt(companyId),
-      url_instancia: company.whatsapp_instance,
-      token: company.whatsapp_token,
-      conversa_id: conversationId.toString(),
-      lead_id: leadId ? leadId.toString() : '',
-      message_id: savedMessage.id?.toString() || '',
-    }).catch((err) => {
+    sendWhatsAppMessage(
+      {
+        number: phoneNumber,
+        text: message || '',
+        messageType: type,
+        mediaUrl: mediaUrl || '',
+        caption: caption || '',
+        filename: filename || '',
+        company_id: parseInt(companyId),
+        url_instancia: company.whatsapp_instance,
+        token: company.whatsapp_token,
+        conversa_id: conversationId.toString(),
+        lead_id: leadId ? leadId.toString() : '',
+        message_id: savedMessage.id?.toString() || '',
+      },
+      webhookConfig
+    ).catch((err) => {
       console.error('Error sending via n8n (background):', err);
     });
 
