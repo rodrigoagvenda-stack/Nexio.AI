@@ -1213,7 +1213,7 @@ export default function CRMPage() {
       ) : (
         <>
           {/* Desktop Table View */}
-          <OrbitCard className="hidden md:block border-border/50 dark:bg-[#1e1e1e]">
+          <OrbitCard className="hidden md:block border-border/50 dark:bg-[#121212]">
             <OrbitCardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
