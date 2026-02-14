@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { UserRoundPlus, MessageCircleMore, ChartGantt, Handshake, CircleDollarSign } from 'lucide-react';
+import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign } from 'lucide-react';
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, isWithinInterval } from 'date-fns';
 
 interface DateRange {
@@ -521,14 +521,14 @@ export default function DashboardPage() {
           title="Taxa de conversão"
           value={taxaConversao}
           subtitle={`Leads convertidos`}
-          icon={ChartGantt}
+          icon={TrendingUp}
           format="percentage"
         />
         <MetricCard
           title="Em Negociação"
           value={faturamentoEmNegociacao}
           subtitle={`Valor em pipeline`}
-          icon={Handshake}
+          icon={Users}
           format="currency"
         />
         <MetricCard
