@@ -143,8 +143,8 @@ export default function NovaEmpresaPage() {
                         </div>
                         <div>
                           <p className="font-semibold text-foreground">{plan.name}</p>
-                          <p className="text-2xl font-bold text-foreground mt-1">
-                            {plan.price}
+                          <p className="text-lg font-bold mt-1">
+                            <span className="text-white">{plan.price}</span>
                             <span className="text-sm font-normal text-muted-foreground">/mês</span>
                           </p>
                         </div>
