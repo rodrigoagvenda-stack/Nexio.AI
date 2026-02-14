@@ -16,7 +16,7 @@ import {
   ChevronDown,
   LogOut,
   Bot,
-  Zap,
+  Settings,
   Table2,
   Kanban,
 } from 'lucide-react';
@@ -55,7 +55,7 @@ const links: NavLink[] = [
   { href: '/prospect', label: 'Orbit', icon: Bot },
   { href: '/membros', label: 'Membros', icon: UserCog },
   { href: '/ajuda', label: 'Ajuda', icon: Info },
-  { href: '/configuracao', label: 'Configuração', icon: Zap },
+  { href: '/configuracoes', label: 'Configuração', icon: Settings },
 ];
 
 export const Sidebar = memo(function Sidebar({
@@ -68,16 +68,17 @@ export const Sidebar = memo(function Sidebar({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [crmExpanded, setCrmExpanded] = useState(
-    pathname === '/crm' || pathname.startsWith('/crm/')
-  );
+  const [crmExpanded, setCrmExpanded] = useState(false);
   const [currentView, setCurrentView] = useState('table');
 
-  // 🚀 Performance: Atualizar view apenas quando pathname ou search params mudam
+  // 🚀 Performance: Atualizar CRM expanded state apenas quando pathname muda
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setCurrentView(params.get('view') || 'table');
-  }, [pathname]); // Reage apenas a mudanças reais de navegação
+    if (pathname === '/crm' || pathname.startsWith('/crm/')) {
+      setCrmExpanded(true);
+      const params = new URLSearchParams(window.location.search);
+      setCurrentView(params.get('view') || 'table');
+    }
+  }, [pathname]);
 
   const allLinks: NavLink[] = [
     ...links,

@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   LogOut,
   Bot,
-  Zap,
+  Settings,
   ChevronRight,
   Table2,
   Kanban,
@@ -63,7 +63,7 @@ const navItems = [
   { href: '/prospect', label: 'Orbit', icon: Bot },
   { href: '/membros', label: 'Membros', icon: UserCog },
   { href: '/ajuda', label: 'Ajuda', icon: Info },
-  { href: '/configuracao', label: 'Configuração', icon: Zap },
+  { href: '/configuracoes', label: 'Configuração', icon: Settings },
 ];
 
 export function AppSidebar({
