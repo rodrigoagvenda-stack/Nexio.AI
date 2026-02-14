@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, PartyPopper, ArrowRight } from 'lucide-react';
+import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, PartyPopper } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
 
@@ -510,16 +510,9 @@ export default function ProspectAIPage() {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="sm:flex-1">
-              Ok
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => router.push('/crm')}
-              className="sm:flex-1 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700"
-            >
-              Abrir tabela
-              <ArrowRight className="ml-2 h-4 w-4" />
+          <AlertDialogFooter>
+            <AlertDialogAction className="w-full bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700">
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
