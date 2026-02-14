@@ -99,11 +99,6 @@ export function AppSidebar({
       : []),
   ];
 
-  // 🚀 Performance: Prefetch agressivo ao passar o mouse
-  const handleMouseEnter = (href: string) => {
-    router.prefetch(href);
-  };
-
   async function handleLogout() {
     setIsLoggingOut(true);
     try {
@@ -179,7 +174,6 @@ export function AppSidebar({
                                     <Link
                                       href={child.href}
                                       prefetch={true}
-                                      onMouseEnter={() => handleMouseEnter(child.href)}
                                     >
                                       <ChildIcon />
                                       <span>{child.label}</span>
@@ -201,7 +195,6 @@ export function AppSidebar({
                       <Link
                         href={item.href}
                         prefetch={true}
-                        onMouseEnter={() => handleMouseEnter(item.href)}
                       >
                         <Icon />
                         <span>{item.label}</span>

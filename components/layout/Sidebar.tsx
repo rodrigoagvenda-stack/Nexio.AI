@@ -141,11 +141,6 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [router]);
 
-  // 🚀 Performance: Prefetch agressivo ao passar o mouse
-  const handleMouseEnter = useCallback((href: string) => {
-    router.prefetch(href);
-  }, [router]);
-
   return (
     <>
       <aside
@@ -221,7 +216,6 @@ export const Sidebar = memo(function Sidebar({
                             key={child.href}
                             href={child.href}
                             prefetch={true}
-                            onMouseEnter={() => handleMouseEnter(child.href)}
                             className={cn(
                               'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
                               isChildActive
@@ -245,7 +239,6 @@ export const Sidebar = memo(function Sidebar({
                 key={link.href}
                 href={link.href}
                 prefetch={true}
-                onMouseEnter={() => handleMouseEnter(link.href)}
                 className={cn(
                   'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
                   isActive
