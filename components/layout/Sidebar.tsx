@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import {
@@ -66,10 +66,10 @@ export const Sidebar = memo(function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [crmExpanded, setCrmExpanded] = useState(false);
-  const [currentView, setCurrentView] = useState<'table' | 'kanban'>('table');
 
   // 🚀 Performance: Computar se está na rota CRM
   const isCrmRoute = useMemo(() =>
@@ -77,34 +77,18 @@ export const Sidebar = memo(function Sidebar({
     [pathname]
   );
 
-  // 🚀 Auto-expandir CRM e atualizar view quando estiver na rota
+  // 🚀 Obter view atual da URL usando useSearchParams
+  const currentView = useMemo(() => {
+    if (!isCrmRoute) return 'table';
+    const view = searchParams.get('view');
+    return view === 'kanban' ? 'kanban' : 'table';
+  }, [isCrmRoute, searchParams]);
+
+  // 🚀 Auto-expandir CRM quando estiver na rota
   useEffect(() => {
     if (isCrmRoute) {
       setCrmExpanded(true);
-      // Atualizar currentView baseado na URL
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        const view = params.get('view');
-        setCurrentView(view === 'kanban' ? 'kanban' : 'table');
-      }
     }
-  }, [isCrmRoute, pathname]); // Adiciona pathname para reagir a mudanças de URL
-
-  // Verificar mudanças na URL a cada intervalo (fallback para navegação do sidebar)
-  useEffect(() => {
-    if (!isCrmRoute) return;
-
-    const checkUrlChange = () => {
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        const view = params.get('view');
-        const newView = view === 'kanban' ? 'kanban' : 'table';
-        setCurrentView(newView);
-      }
-    };
-
-    const interval = setInterval(checkUrlChange, 100);
-    return () => clearInterval(interval);
   }, [isCrmRoute]);
 
   // 🚀 Performance: Memoizar array de links
