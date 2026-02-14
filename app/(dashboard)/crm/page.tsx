@@ -37,7 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
 import {
@@ -365,13 +365,13 @@ export default function CRMPage() {
         .select('*')
         .eq('company_id', user?.company_id)
         .order('created_at', { ascending: false })
-        .limit(500); // 🚀 Performance: Carrega apenas 500 leads mais recentes
+        .limit(100); // 🚀 Performance: Carrega apenas 100 leads iniciais (reduzido de 500 para melhor UX)
 
       if (error) throw error;
       setLeads(data || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
-      toast.error('Erro ao carregar leads');
+      toast({ title: 'Erro ao carregar leads', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -495,11 +495,11 @@ export default function CRMPage() {
       }
 
       console.log('✅ Status atualizado no banco com sucesso!');
-      toast.success(`Lead movido para "${newStatus}"!`);
+      toast({ title: 'Lead movido!', description: `Lead movido para "${newStatus}"` });
       console.groupEnd();
     } catch (error) {
       console.error('❌ Erro ao atualizar no banco:', error);
-      toast.error('Erro ao atualizar lead');
+      toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
       // Reverter mudança otimista
       fetchLeads();
       console.groupEnd();
@@ -549,22 +549,22 @@ export default function CRMPage() {
   const handleSaveLead = async () => {
     // Validar campos obrigatórios
     if (!formData.company_name.trim()) {
-      toast.error('Nome da empresa é obrigatório');
+      toast({ title: 'Campo obrigatório', description: 'Nome da empresa é obrigatório', variant: 'destructive' });
       setCurrentStep(0);
       return;
     }
     if (!formData.segment) {
-      toast.error('Segmento é obrigatório');
+      toast({ title: 'Campo obrigatório', description: 'Segmento é obrigatório', variant: 'destructive' });
       setCurrentStep(0);
       return;
     }
     if (!formData.nivel_interesse) {
-      toast.error('Nível de interesse é obrigatório');
+      toast({ title: 'Campo obrigatório', description: 'Nível de interesse é obrigatório', variant: 'destructive' });
       setCurrentStep(2);
       return;
     }
     if (!formData.import_source) {
-      toast.error('Fonte de importação é obrigatória');
+      toast({ title: 'Campo obrigatório', description: 'Fonte de importação é obrigatória', variant: 'destructive' });
       setCurrentStep(2);
       return;
     }
@@ -574,7 +574,7 @@ export default function CRMPage() {
 
       // Verificar se temos os dados necessários
       if (!user?.company_id) {
-        toast.error('Erro: company_id não encontrado. Faça login novamente.');
+        toast({ title: 'Erro de autenticação', description: 'company_id não encontrado. Faça login novamente.', variant: 'destructive' });
         console.error('Missing company_id. User:', user, 'AuthUser:', authUser);
         return;
       }
@@ -612,7 +612,10 @@ export default function CRMPage() {
           });
         }
 
-        toast.success(`Lead "${formData.company_name}" atualizado com sucesso!`);
+        toast({
+          title: 'Lead atualizado!',
+          description: `Lead "${formData.company_name}" foi atualizado com sucesso.`,
+        });
       } else {
         // Insert
         const { data: newLead, error } = await supabase
@@ -638,14 +641,21 @@ export default function CRMPage() {
           });
         }
 
-        toast.success(`Lead "${formData.company_name}" adicionado com sucesso!`);
+        toast({
+          title: 'Lead criado!',
+          description: `Lead "${formData.company_name}" foi adicionado com sucesso.`,
+        });
       }
 
       setShowModal(false);
       fetchLeads();
     } catch (error: any) {
       console.error('Error saving lead:', error);
-      toast.error(error.message || 'Erro ao salvar lead');
+      toast({
+        title: 'Erro ao salvar lead',
+        description: error.message || 'Ocorreu um erro ao tentar salvar o lead.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -678,12 +688,12 @@ export default function CRMPage() {
         });
       }
 
-      toast.success(`Lead "${leadName}" deletado com sucesso!`);
+      toast({ title: 'Lead deletado!', description: `Lead "${leadName}" foi removido com sucesso.` });
       setDeletingLead(null);
       fetchLeads();
     } catch (error) {
       console.error('Error deleting lead:', error);
-      toast.error('Erro ao deletar lead');
+      toast({ title: 'Erro ao deletar lead', variant: 'destructive' });
     }
   };
 
@@ -718,13 +728,13 @@ export default function CRMPage() {
         .in('id', Array.from(selectedLeads).map(id => parseInt(id)));
 
       if (error) throw error;
-      toast.success(`${selectedLeads.size} leads deletados com sucesso!`);
+      toast({ title: 'Leads deletados!', description: `${selectedLeads.size} leads foram removidos com sucesso.` });
       setSelectedLeads(new Set());
       setDeletingMultipleLeads(false);
       fetchLeads();
     } catch (error) {
       console.error('Error deleting multiple leads:', error);
-      toast.error('Erro ao deletar leads');
+      toast({ title: 'Erro ao deletar leads', variant: 'destructive' });
     }
   };
 
@@ -791,10 +801,10 @@ export default function CRMPage() {
       link.click();
       document.body.removeChild(link);
 
-      toast.success(`${filteredLeads.length} leads exportados com sucesso!`);
+      toast({ title: 'Exportação concluída!', description: `${filteredLeads.length} leads foram exportados com sucesso.` });
     } catch (error) {
       console.error('Error exporting CSV:', error);
-      toast.error('Erro ao exportar CSV');
+      toast({ title: 'Erro ao exportar CSV', variant: 'destructive' });
     }
   };
 
@@ -1155,10 +1165,10 @@ export default function CRMPage() {
                             });
                           }
 
-                          toast.success(`Status atualizado para "${newStatus}"!`);
+                          toast({ title: 'Status atualizado!', description: `Status alterado para "${newStatus}"` });
                         } catch (error) {
                           console.error('Error updating status:', error);
-                          toast.error('Erro ao atualizar status');
+                          toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
                           fetchLeads(); // Revert on error
                         }
                       }}
@@ -1625,11 +1635,11 @@ export default function CRMPage() {
                 onClick={() => {
                   if (currentStep === 0) {
                     if (!formData.company_name.trim()) {
-                      toast.error('Nome da empresa é obrigatório');
+                      toast({ title: 'Campo obrigatório', description: 'Nome da empresa é obrigatório', variant: 'destructive' });
                       return;
                     }
                     if (!formData.segment) {
-                      toast.error('Segmento é obrigatório');
+                      toast({ title: 'Campo obrigatório', description: 'Segmento é obrigatório', variant: 'destructive' });
                       return;
                     }
                   }

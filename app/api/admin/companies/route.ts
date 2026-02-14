@@ -28,24 +28,33 @@ export async function GET(request: NextRequest) {
     // Usar service client para bypassar RLS e ver todas as empresas
     const serviceSupabase = createServiceClient();
 
-    // Buscar parâmetros de query
+    // 🚀 PAGINAÇÃO: Buscar parâmetros de query
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Buscar empresas (usando service client para admin ver todas)
-    let query = serviceSupabase.from('companies').select('*').order('created_at', { ascending: false });
+    // 🚀 OTIMIZAÇÃO: Buscar empresas com paginação
+    let query = serviceSupabase
+      .from('companies')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) throw error;
 
     return NextResponse.json({
       success: true,
       data: data || [],
+      total: count || 0,
+      limit,
+      offset
     });
   } catch (error: any) {
     console.error('Error fetching companies:', error);

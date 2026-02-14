@@ -4,6 +4,10 @@ import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
+// 🔥 FORÇA RENDERIZAÇÃO DINÂMICA - SEM CACHE
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -46,6 +50,13 @@ export default async function DashboardLayout({
   const companyImage = companyData?.image_url;
   const planName = companyData?.plan_name;
   const isAdmin = !!adminUser;
+
+  console.log('🔍 [Layout] Company Data:', {
+    companyId: userData?.company_id,
+    planName,
+    companyName,
+    rawData: companyData
+  });
 
   return (
     <div className="flex h-screen bg-background">

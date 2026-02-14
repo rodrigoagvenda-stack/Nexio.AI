@@ -46,6 +46,7 @@ interface AppSidebarProps {
   companyName?: string;
   companyEmail?: string;
   companyImage?: string;
+  planName?: string;
 }
 
 const navItems = [
@@ -71,17 +72,37 @@ export function AppSidebar({
   companyName,
   companyEmail,
   companyImage,
+  planName,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // 🔥 FILTRAR ORBIT BASEADO NO PLANO
+  const planNameUpper = planName?.toUpperCase() || '';
+  const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
+
+  console.log('🔍 [AppSidebar] Plan Name:', planName, '| Has Orbit:', hasOrbitAccess);
+
+  const filteredNavItems = navItems.filter(item => {
+    if (item.href === '/prospect' && !hasOrbitAccess) {
+      console.log('❌ [AppSidebar] Removendo Orbit - sem acesso');
+      return false;
+    }
+    return true;
+  });
+
   const allItems = [
-    ...navItems,
+    ...filteredNavItems,
     ...(isAdmin
       ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck }]
       : []),
   ];
+
+  // 🚀 Performance: Prefetch agressivo ao passar o mouse
+  const handleMouseEnter = (href: string) => {
+    router.prefetch(href);
+  };
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -155,7 +176,11 @@ export function AppSidebar({
                               return (
                                 <SidebarMenuSubItem key={child.href}>
                                   <SidebarMenuSubButton asChild isActive={isChildActive}>
-                                    <Link href={child.href} prefetch={true}>
+                                    <Link
+                                      href={child.href}
+                                      prefetch={true}
+                                      onMouseEnter={() => handleMouseEnter(child.href)}
+                                    >
                                       <ChildIcon />
                                       <span>{child.label}</span>
                                     </Link>
@@ -173,7 +198,11 @@ export function AppSidebar({
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild tooltip={item.label} isActive={isActive}>
-                      <Link href={item.href} prefetch={true}>
+                      <Link
+                        href={item.href}
+                        prefetch={true}
+                        onMouseEnter={() => handleMouseEnter(item.href)}
+                      >
                         <Icon />
                         <span>{item.label}</span>
                       </Link>

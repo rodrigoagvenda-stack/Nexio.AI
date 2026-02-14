@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/format';
 import {
@@ -75,7 +75,7 @@ export default function UsuariosPage() {
       setCompanies(companiesData.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Erro ao carregar dados');
+      toast({ title: 'Erro ao carregar dados', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export default function UsuariosPage() {
 
   async function handleCreateUser() {
     if (!newUser.name || !newUser.email || !newUser.password || !newUser.company_id) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast({ title: 'Campos obrigatórios', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
 
@@ -99,12 +99,12 @@ export default function UsuariosPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('Usuário criado com sucesso!');
+      toast({ title: 'Usuário criado!', description: 'O usuário foi criado com sucesso.' });
       setIsDialogOpen(false);
       setNewUser({ name: '', email: '', password: '', company_id: '', department: '' });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar usuário');
+      toast({ title: 'Erro ao criar usuário', description: error.message || 'Ocorreu um erro ao criar o usuário', variant: 'destructive' });
     } finally {
       setCreating(false);
     }
@@ -120,10 +120,10 @@ export default function UsuariosPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success(`Usuário ${userName} deletado com sucesso!`);
+      toast({ title: 'Usuário deletado!', description: `Usuário ${userName} foi removido com sucesso.` });
       fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao deletar usuário');
+      toast({ title: 'Erro ao deletar usuário', description: error.message || 'Ocorreu um erro ao deletar o usuário', variant: 'destructive' });
     }
   }
 

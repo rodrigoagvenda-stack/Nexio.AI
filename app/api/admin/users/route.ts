@@ -28,18 +28,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
-    // Buscar TODOS os usuários de TODAS as empresas
-    const { data: users, error } = await serviceSupabase
+    // 🚀 PAGINAÇÃO: Ler parâmetros da URL
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
+
+    // 🚀 OTIMIZAÇÃO: Buscar apenas campos necessários com paginação
+    const { data: users, error, count } = await serviceSupabase
       .from('users')
       .select(`
-        *,
+        id,
+        name,
+        email,
+        department,
+        role,
+        is_active,
+        created_at,
         company:companies(name)
-      `)
-      .order('created_at', { ascending: false });
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, data: users || [] });
+    return NextResponse.json({
+      success: true,
+      data: users || [],
+      total: count || 0,
+      limit,
+      offset
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message },
