@@ -97,6 +97,10 @@ export async function POST(request: NextRequest) {
       throw new Error('Erro ao criar usuário: ' + authError.message);
     }
 
+    if (!authData?.user?.id) {
+      throw new Error('Erro ao criar usuário: ID não retornado do Auth');
+    }
+
     // 2. Criar user na tabela users
     const { data: userData, error: userError } = await serviceSupabase
       .from('users')
@@ -108,13 +112,23 @@ export async function POST(request: NextRequest) {
           name: name,
           email: email,
           department: department || null,
+          role: 'member',
           is_active: true,
         },
       ])
       .select()
       .single();
 
-    if (userError) throw userError;
+    if (userError) {
+      console.error('User table error:', userError);
+      // Tentar deletar usuário do Auth se falhar ao criar na tabela
+      try {
+        await serviceSupabase.auth.admin.deleteUser(authData.user.id);
+      } catch (deleteError) {
+        console.error('Failed to rollback auth user:', deleteError);
+      }
+      throw new Error('Erro ao criar usuário na tabela: ' + userError.message);
+    }
 
     return NextResponse.json({
       success: true,
