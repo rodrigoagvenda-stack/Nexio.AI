@@ -142,8 +142,11 @@ export default function NovaEmpresaPage() {
                           {isSelected && <Check className="h-5 w-5 text-primary" />}
                         </div>
                         <div>
-                          <p className="font-semibold">{plan.name}</p>
-                          <p className="text-lg font-bold text-primary">{plan.price}<span className="text-sm text-muted-foreground">/mês</span></p>
+                          <p className="font-semibold text-foreground">{plan.name}</p>
+                          <p className="text-2xl font-bold text-foreground mt-1">
+                            {plan.price}
+                            <span className="text-sm font-normal text-muted-foreground">/mês</span>
+                          </p>
                         </div>
                         <ul className="space-y-1">
                           {plan.features.map((feature) => (

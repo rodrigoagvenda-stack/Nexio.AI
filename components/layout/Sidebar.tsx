@@ -95,8 +95,9 @@ export const Sidebar = memo(function Sidebar({
 
   // 🚀 Performance: Memoizar array de links
   const allLinks = useMemo<NavLink[]>(() => {
-    // Verificar se o usuário tem acesso ao Orbit
-    const hasOrbitAccess = planName === 'NEXIO GROWTH' || planName === 'NEXIO ADS';
+    // Verificar se o usuário tem acesso ao Orbit (mais robusto)
+    const planNameUpper = planName?.toUpperCase() || '';
+    const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
 
     // Filtrar links baseado no plano
     const filteredLinks = links.filter(link => {
