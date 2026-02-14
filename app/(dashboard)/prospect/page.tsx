@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, PartyPopper, ArrowRight } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
@@ -92,15 +92,24 @@ export default function ProspectAIPage() {
 
   const validateManualForm = (): boolean => {
     if (!cidade.trim()) {
-      toast.error('Por favor, informe a cidade');
+      toast({
+        variant: "destructive",
+        description: "Por favor, informe a cidade",
+      });
       return false;
     }
     if (!estado) {
-      toast.error('Por favor, selecione o estado');
+      toast({
+        variant: "destructive",
+        description: "Por favor, selecione o estado",
+      });
       return false;
     }
     if (!nicho && !customNicho.trim()) {
-      toast.error('Por favor, selecione ou digite um nicho');
+      toast({
+        variant: "destructive",
+        description: "Por favor, selecione ou digite um nicho",
+      });
       return false;
     }
     return true;
@@ -108,7 +117,10 @@ export default function ProspectAIPage() {
 
   const handleExtract = async () => {
     if (!company?.id) {
-      toast.error('Erro ao identificar sua empresa');
+      toast({
+        variant: "destructive",
+        description: "Erro ao identificar sua empresa",
+      });
       return;
     }
 
@@ -121,12 +133,18 @@ export default function ProspectAIPage() {
 
       if (activeTab === 'url') {
         if (!mapsUrl.trim()) {
-          toast.error('Por favor, cole a URL do Google Maps');
+          toast({
+            variant: "destructive",
+            description: "Por favor, cole a URL do Google Maps",
+          });
           return;
         }
 
         if (!validateUrl(mapsUrl)) {
-          toast.error('URL inválida. Use uma URL do Google Maps (.com ou .com.br)');
+          toast({
+            variant: "destructive",
+            description: "URL inválida. Use uma URL do Google Maps (.com ou .com.br)",
+          });
           return;
         }
 
@@ -144,7 +162,10 @@ export default function ProspectAIPage() {
         const encodedQuery = encodeURIComponent(query);
         finalUrl = `https://www.google.com.br/maps/search/${encodedQuery}`;
 
-        toast.info(`Buscando: ${query}`);
+        toast({
+          variant: "info",
+          description: `Buscando: ${query}`,
+        });
       }
 
       setProgress(20);
@@ -198,7 +219,10 @@ export default function ProspectAIPage() {
 
     } catch (error: any) {
       console.error('Extraction error:', error);
-      toast.error(error.message || 'Erro ao extrair leads. Tente novamente.');
+      toast({
+        variant: "destructive",
+        description: error.message || "Erro ao extrair leads. Tente novamente.",
+      });
     } finally {
       setExtracting(false);
       setProgress(0);
@@ -466,21 +490,18 @@ export default function ProspectAIPage() {
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
-                <div className="relative bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 p-4 rounded-full">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
+                <div className="relative bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 p-4 rounded-full">
                   <PartyPopper className="h-8 w-8 text-white" />
                 </div>
               </div>
             </div>
             <AlertDialogTitle className="text-center text-2xl">
-              Parabéns! 🎉
+              Extração concluída com sucesso
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center space-y-3">
-              <p className="text-base">
-                Extração concluída com sucesso!
-              </p>
-              <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-4">
-                <p className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+              <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
+                <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
                   {extractedCount}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -495,7 +516,7 @@ export default function ProspectAIPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => router.push('/crm')}
-              className="sm:flex-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 hover:from-green-500 hover:via-emerald-600 hover:to-green-700"
+              className="sm:flex-1 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700"
             >
               Abrir tabela
               <ArrowRight className="ml-2 h-4 w-4" />
