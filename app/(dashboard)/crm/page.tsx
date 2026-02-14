@@ -238,7 +238,7 @@ function DroppableColumn({
 
   return (
     <div className="flex flex-col h-[calc(100vh-220px)]">
-      <div className="mb-3 px-1 flex-shrink-0">
+      <div className="mb-3 px-2 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-sm">{getColumnIcon()}</span>
           <h3 className="font-medium text-sm text-foreground">{title}</h3>
@@ -254,7 +254,7 @@ function DroppableColumn({
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 rounded-lg p-2 overflow-y-auto transition-all ${
+        className={`flex-1 rounded-lg px-2 overflow-y-auto transition-all ${
           isOver ? 'bg-accent/50' : 'bg-transparent'
         }`}
       >
