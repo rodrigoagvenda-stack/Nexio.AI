@@ -246,11 +246,9 @@ function DroppableColumn({
             {count}
           </span>
         </div>
-        {totalValue !== undefined && totalValue > 0 && (
-          <p className="text-xs text-muted-foreground mt-1 ml-7">
-            R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground mt-1 ml-7">
+          R$ {(totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </p>
       </div>
       <div
         ref={setNodeRef}
