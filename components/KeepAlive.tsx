@@ -1,26 +1,35 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
- * Componente que mantém o servidor acordado fazendo pings periódicos
- * Evita "cold start" após períodos de inatividade
+ * Componente que mantém o servidor e banco de dados acordados.
+ * Faz ping real no Supabase via /api/health a cada 4 minutos.
+ * Evita cold start e conexões mortas após inatividade.
  */
 export function KeepAlive() {
-  useEffect(() => {
-    // Fazer ping inicial após 1 minuto (dar tempo do app carregar)
-    const initialTimeout = setTimeout(() => {
-      fetch('/api/health', { method: 'GET' }).catch(() => {
-        // Silenciar erros - é só um heartbeat
-      });
-    }, 60000); // 1 minuto
+  const isFirstRun = useRef(true);
 
-    // Fazer ping a cada 5 minutos para manter servidor acordado
-    const interval = setInterval(() => {
-      fetch('/api/health', { method: 'GET' }).catch(() => {
-        // Silenciar erros - é só um heartbeat
-      });
-    }, 5 * 60 * 1000); // 5 minutos
+  useEffect(() => {
+    const ping = async () => {
+      try {
+        const res = await fetch('/api/health', { method: 'GET' });
+        if (!res.ok) {
+          console.warn('[KeepAlive] Health check retornou:', res.status);
+        }
+      } catch {
+        // Silenciar erros de rede - é só um heartbeat
+      }
+    };
+
+    // Primeiro ping após 30s (dar tempo do app carregar)
+    const initialTimeout = setTimeout(() => {
+      ping();
+      isFirstRun.current = false;
+    }, 30000);
+
+    // Pings a cada 4 minutos para manter servidor + banco acordados
+    const interval = setInterval(ping, 4 * 60 * 1000);
 
     return () => {
       clearTimeout(initialTimeout);
@@ -28,6 +37,5 @@ export function KeepAlive() {
     };
   }, []);
 
-  // Componente não renderiza nada
   return null;
 }
