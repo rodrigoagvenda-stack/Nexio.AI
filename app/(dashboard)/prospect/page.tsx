@@ -17,18 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Link2, Zap, Loader2, MapPin, Lock, Sparkles } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
 
@@ -80,10 +70,6 @@ export default function ProspectAIPage() {
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentAction, setCurrentAction] = useState('');
-
-  // Success Dialog
-  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
-  const [extractedCount, setExtractedCount] = useState(0);
 
   const validateUrl = (url: string): boolean => {
     const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
@@ -206,9 +192,12 @@ export default function ProspectAIPage() {
       setProgress(100);
       setCurrentAction('Concluído!');
 
-      // Mostrar Alert Dialog de sucesso
-      setExtractedCount(data.extractedCount);
-      setSuccessDialogOpen(true);
+      // Mostrar Toast de sucesso
+      toast({
+        variant: "default",
+        title: "Extração concluída com sucesso!",
+        description: `${data.extractedCount} leads foram extraídos e estão disponíveis na tabela de leads do CRM.`,
+      });
 
       // Reset
       setMapsUrl('');
@@ -484,34 +473,6 @@ export default function ProspectAIPage() {
         </div>
       </div>
 
-      {/* Success Dialog */}
-      <AlertDialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
-        <AlertDialogContent className="max-w-md border-border/40 bg-card/95 backdrop-blur-lg mx-auto">
-          <AlertDialogHeader>
-            <div className="flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-16 w-16 text-emerald-500" strokeWidth={2} />
-            </div>
-            <AlertDialogTitle className="text-center text-2xl">
-              Extração concluída com sucesso
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center space-y-3">
-              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-4">
-                <p className="text-3xl font-bold text-emerald-500">
-                  {extractedCount}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  leads extraídos e prontos para uso
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
