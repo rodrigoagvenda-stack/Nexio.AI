@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
@@ -58,6 +58,13 @@ export default function EmpresaDetailPage() {
 
     setSaving(true);
     try {
+      console.log('🔍 [Admin] Salvando empresa:', {
+        plan_type: company.plan_type,
+        plan_name: company.plan_name,
+        plan_price: company.plan_price,
+        fullCompany: company
+      });
+
       const response = await fetch(`/api/admin/companies/${params.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -68,10 +75,20 @@ export default function EmpresaDetailPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('Empresa atualizada com sucesso!');
+      console.log('✅ [Admin] Resposta do servidor:', data.data);
+
+      toast({
+        title: 'Empresa atualizada!',
+        description: 'As alterações foram salvas com sucesso.',
+      });
       setCompany(data.data);
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao atualizar empresa');
+      console.error('❌ [Admin] Erro ao salvar:', error);
+      toast({
+        title: 'Erro ao atualizar empresa',
+        description: error.message || 'Ocorreu um erro ao salvar as alterações',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
