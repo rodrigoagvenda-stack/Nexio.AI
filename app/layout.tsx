@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { KeepAlive } from "@/components/KeepAlive";
 
 export const metadata: Metadata = {
   title: "nexio.ai - CRM Inteligente com IA",
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className="font-roboto antialiased">
         {children}
         <Toaster />
+        <KeepAlive />
       </body>
     </html>
   );

@@ -46,6 +46,14 @@ export function createServiceClient() {
         autoRefreshToken: false,
         persistSession: false,
       },
+      db: {
+        schema: 'public',
+      },
+      global: {
+        headers: {
+          'x-application-name': 'nexio-crm',
+        },
+      },
     }
   )
 }
