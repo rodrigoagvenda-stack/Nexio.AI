@@ -16,6 +16,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validar formato do leadId se fornecido
+    if (leadId && (isNaN(Number(leadId)) || leadId.includes(':'))) {
+      console.error('Invalid leadId format:', leadId);
+      return NextResponse.json(
+        { success: false, message: 'Formato inválido de leadId' },
+        { status: 400 }
+      );
+    }
+
     const supabase = await createClient();
 
     let query = supabase
@@ -33,14 +42,22 @@ export async function GET(request: NextRequest) {
 
     // Filter by lead or conversation
     if (leadId) {
-      query = query.eq('lead_id', leadId);
+      query = query.eq('lead_id', Number(leadId));
     } else if (conversationId) {
       query = query.eq('conversation_id', conversationId);
     }
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      throw error;
+    }
 
     return NextResponse.json({
       success: true,
