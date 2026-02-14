@@ -10,10 +10,10 @@ import {
   MessageSquare,
   UserPlus,
   Columns3,
-  Keyboard,
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -40,12 +40,12 @@ const sections: HelpSection[] = [
       {
         question: 'O que é o Dashboard?',
         answer:
-          'O Dashboard é sua página inicial, onde você encontra um resumo das principais métricas do seu CRM:\n\n• Total de leads cadastrados\n• Conversões recentes\n• Atendimentos em andamento\n• Próximas tarefas e compromissos\n• Gráficos de desempenho e funil de vendas',
+          'O Dashboard é sua página inicial com um resumo em tempo real do seu CRM:\n\n• **Total de leads** cadastrados na base\n• **Leads por estágio** do funil (Lead novo, Em contato, Interessado, etc.)\n• **Conversões recentes** — leads que fecharam\n• **Valor total do pipeline** — soma dos valores de projeto\n• **Gráfico do funil** — visualização da distribuição por estágio\n• **Atividades recentes** — últimas movimentações no CRM',
       },
       {
-        question: 'Como usar os gráficos e métricas?',
+        question: 'Como interpretar as métricas?',
         answer:
-          'Os gráficos mostram a evolução do seu funil de vendas ao longo do tempo. Você pode:\n\n• Filtrar por período (semanal, mensal, anual)\n• Analisar taxa de conversão por estágio\n• Acompanhar performance da equipe\n• Identificar gargalos no funil\n• Exportar relatórios em PDF',
+          'Cada card do Dashboard mostra uma métrica importante:\n\n• **Leads Ativos** — Total de leads que não estão em "Fechado" ou "Perdido"\n• **Taxa de Conversão** — Percentual de leads que chegaram a "Fechado"\n• **Valor do Pipeline** — Soma de todos os valores de projeto ativos\n• **Leads por Origem** — De onde seus leads estão vindo (PEG, LinkedIn, Meta Ads, etc.)\n\nUse essas métricas para identificar gargalos e otimizar seu funil de vendas.',
       },
     ],
   },
@@ -53,65 +53,37 @@ const sections: HelpSection[] = [
     id: 'crm',
     title: 'CRM',
     icon: Users,
-    description: 'Gestão de leads e clientes',
+    description: 'Gestão de leads e oportunidades',
     items: [
       {
         question: 'Como cadastrar um novo lead?',
         answer:
-          'Para cadastrar um novo lead, siga os passos:\n\n1. Acesse **CRM** no menu lateral\n2. Clique no botão **+ Novo Lead** no topo da página\n3. Preencha as informações obrigatórias:\n   • Nome completo\n   • E-mail\n   • Telefone/WhatsApp\n   • Empresa (opcional)\n   • Origem do lead\n4. Adicione informações complementares como cargo, site, redes sociais\n5. Clique em **Salvar Lead**\n\nO lead será automaticamente adicionado ao estágio "Novo Lead" do funil.',
+          'O cadastro é feito em 3 etapas simples:\n\n**Etapa 1 — Empresa:**\n1. Clique em **+ Adicionar Lead** no topo da página\n2. Preencha o **Nome da Empresa** (obrigatório)\n3. Selecione o **Segmento** (E-commerce, Saúde, Educação, Tecnologia, etc.)\n4. Adicione o site ou Instagram (opcional)\n\n**Etapa 2 — Contato:**\n5. Nome do contato, WhatsApp e e-mail\n\n**Etapa 3 — Detalhes:**\n6. Prioridade (Alta, Média, Baixa)\n7. Nível de interesse (Quente, Morno, Frio)\n8. Fonte de importação (PEG, LinkedIn, Meta Ads, Google Ads, etc.)\n9. Valor do projeto em R$\n10. Observações\n\nO lead será criado automaticamente no estágio **Lead novo**.',
       },
       {
-        question: 'Como organizar leads no funil de vendas?',
+        question: 'Quais são os estágios do funil?',
         answer:
-          'O funil é organizado em estágios sequenciais:\n\n• **Novo Lead** — Primeiro contato realizado\n• **Qualificado** — Lead com potencial confirmado (BANT)\n• **Reunião Agendada** — Primeira reunião marcada\n• **Proposta Enviada** — Orçamento ou proposta comercial enviada\n• **Negociação** — Em processo de fechamento e ajustes\n• **Ganho** — Venda concluída com sucesso\n• **Perdido** — Não converteu (arquivado)\n\n**Como mover leads:**\n• Arraste e solte os cards entre os estágios (drag & drop)\n• Ou clique no lead > **Alterar Estágio** > Selecione o novo estágio',
+          'O funil possui 7 estágios:\n\n• **Lead novo** — Acabou de entrar na base\n• **Em contato** — Primeiro contato foi realizado\n• **Interessado** — Demonstrou interesse no produto/serviço\n• **Proposta enviada** — Recebeu orçamento ou proposta comercial\n• **Fechado** — Venda concluída com sucesso\n• **Perdido** — Não converteu\n• **Remarketing** — Para reativar no futuro\n\n**Como mover leads:**\n• No **Kanban**: arraste e solte o card entre as colunas\n• No **Mobile**: use o seletor de status dentro do card\n• A mudança é salva automaticamente no banco de dados',
       },
       {
-        question: 'Como alternar entre visualização Tabela e Kanban?',
+        question: 'Como alternar entre Planilha e Kanban?',
         answer:
-          'No topo da página CRM você encontra dois botões:\n\n• **Tabela** — Visualização em lista com todas as informações em colunas. Ideal para análise detalhada, ordenação por coluna, exportação de dados e filtros avançados.\n\n• **Kanban** — Visualização em quadros por estágio. Ideal para movimentação rápida de leads, visão visual do pipeline, gestão ágil do funil e identificar gargalos.',
+          'No menu lateral, dentro de **CRM**, você tem dois sub-itens:\n\n• **Planilha** — Visualização em tabela com todas as colunas. Ideal para:\n   • Ver muitos leads de uma vez\n   • Selecionar múltiplos leads (checkbox)\n   • Deletar em massa\n   • Exportar para CSV\n   • Paginação com 9 leads por página\n\n• **Kanban** — Visualização em quadros por estágio. Ideal para:\n   • Arrastar leads entre estágios (drag & drop)\n   • Ver o valor total por coluna\n   • Visão rápida do pipeline\n   • Contagem de leads por estágio',
       },
       {
-        question: 'Como editar informações de um lead?',
+        question: 'Como editar ou deletar um lead?',
         answer:
-          'Clique no card do lead (em qualquer visualização) para abrir a página de detalhes. Lá você pode:\n\n• **Editar Dados Pessoais** — Nome, e-mail, telefone, cargo\n• **Informações da Empresa** — Nome, CNPJ, site, faturamento\n• **Adicionar Notas** — Observações sobre reuniões e conversas\n• **Registrar Interações** — Ligações, e-mails, reuniões\n• **Anexar Arquivos** — Propostas, contratos, apresentações\n• **Ver Histórico Completo** — Timeline de todas as atividades\n• **Atribuir Responsável** — Definir membro da equipe responsável\n• **Adicionar Tags** — Categorizar e segmentar o lead',
+          '**Editar:**\n• No Kanban: passe o mouse sobre o card e clique no ícone de lápis\n• Na Planilha: clique no ícone de lápis na coluna "Ações"\n• O formulário de 3 etapas abrirá com os dados preenchidos\n\n**Deletar individual:**\n• Clique no ícone de lixeira no card ou na tabela\n• Confirme na caixa de diálogo\n\n**Deletar em massa (só na Planilha):**\n1. Marque os checkboxes dos leads que deseja deletar\n2. Clique no botão **Deletar X selecionado(s)**\n3. Confirme a exclusão\n\n**Atenção:** A exclusão é permanente e não pode ser desfeita.',
       },
       {
-        question: 'O que são tags e como usá-las?',
+        question: 'Como exportar leads para CSV?',
         answer:
-          'Tags são etiquetas coloridas que ajudam a categorizar seus leads.\n\n**Exemplos de tags:**\n• **Por Prioridade** — Alta (vermelho), Média (amarelo), Baixa (verde)\n• **Por Origem** — Site, Indicação, Evento, Redes Sociais\n• **Por Produto** — CRM, Automação, Consultoria\n\n**Como usar:**\n1. Abra o lead\n2. Clique em **Adicionar Tag**\n3. Selecione uma tag existente ou crie uma nova\n4. Use tags para filtrar e segmentar sua lista de leads',
+          'Na página do CRM, clique no botão **Exportar CSV** no topo.\n\nO arquivo exportado inclui:\n• Nome da Empresa e Nome do Contato\n• Segmento e Status\n• Website/Instagram\n• WhatsApp e E-mail\n• Prioridade e Nível de Interesse\n• Valor do Projeto\n• Fonte de Importação\n• Observações\n• Data de Criação\n\nOs filtros ativos (busca, status, prioridade) são respeitados na exportação. Se você filtrou por "Alta prioridade", só esses leads serão exportados.',
       },
       {
-        question: 'Como usar os filtros avançados?',
+        question: 'Como usar os filtros?',
         answer:
-          'Na visualização em Tabela, você tem acesso a filtros poderosos:\n\n• **Por Estágio** — Filtre por um ou mais estágios do funil\n• **Por Responsável** — Veja leads de um vendedor específico\n• **Por Tag** — Filtre por uma ou múltiplas tags\n• **Por Data** — Leads criados/atualizados em um período\n• **Por Origem** — Canal de entrada do lead\n• **Por Status** — Ativo, Ganho, Perdido\n\nVocê pode combinar múltiplos filtros e salvar combinações como **Visões Personalizadas**.',
-      },
-    ],
-  },
-  {
-    id: 'captacao',
-    title: 'Captação',
-    icon: MapPin,
-    description: 'Prospecção e captação de leads',
-    items: [
-      {
-        question: 'O que é a ferramenta de Captação?',
-        answer:
-          'A Captação (disponível nos planos NEXIO GROWTH e NEXIO ADS) permite prospectar novos leads de forma automatizada:\n\n• Busca de empresas por filtros avançados\n• Integração com bases de dados públicas\n• Qualificação automática por IA\n• Importação em massa de leads\n• Enriquecimento de dados\n• Validação de e-mails e telefones',
-      },
-      {
-        question: 'Como funciona a busca de empresas?',
-        answer:
-          'O processo de busca funciona em 4 etapas:\n\n**Etapa 1 — Defina seus critérios:**\n• Localização (cidade, estado, região)\n• Segmento de mercado (CNAE)\n• Porte da empresa (ME, EPP, Grande)\n• Faturamento estimado\n\n**Etapa 2 — Execute a busca:**\n• Clique em **Buscar Empresas** e aguarde o processamento\n\n**Etapa 3 — Analise os resultados:**\n• Visualize a lista de empresas encontradas\n• Veja o score de fit com seu ICP\n• Acesse dados de contato disponíveis\n\n**Etapa 4 — Importe para o CRM:**\n• Selecione as empresas de interesse e clique em **Importar Selecionadas**',
-      },
-      {
-        question: 'Como importar leads em massa?',
-        answer:
-          'Você pode importar uma planilha (CSV ou Excel) com vários leads de uma vez.\n\n**Prepare sua planilha** com as colunas: Nome (obrigatório), E-mail (obrigatório), Telefone, Empresa, Cargo.\n\n**Passo a passo:**\n1. Acesse Captação > **Importar Planilha**\n2. Faça upload do arquivo (.csv, .xlsx, .xls)\n3. Mapeie as colunas da planilha com os campos do CRM\n4. Configure opções: pular duplicados, atribuir responsável, adicionar tags\n5. Confirme a importação e aguarde o processamento\n\nTodos os leads serão criados no estágio **Novo Lead**.',
-      },
-      {
-        question: 'Qual a diferença entre os planos?',
-        answer:
-          '**NEXIO SALES** — R$ 1.600/mês\n• CRM completo, Chat IA, Funil de vendas\n• Sem recursos de captação/extração\n\n**NEXIO GROWTH** — R$ 2.000/mês\n• Tudo do Sales + 500 leads inclusos/mês\n• Busca avançada, importação em massa, enriquecimento de dados\n• Leads extras: R$ 1/lead ou R$ 400 por pacote de +500\n\n**NEXIO ADS** — R$ 2.600/mês\n• Tudo do Growth + Gestão de Tráfego Pago integrada\n• Campanhas Google Ads e Meta Ads\n• Otimização automática e relatórios de ROI',
+          'No topo da página do CRM você tem 3 filtros:\n\n• **Busca** — Pesquise por nome da empresa, nome do contato ou e-mail\n• **Status** — Filtre por estágio do funil (Lead novo, Em contato, Interessado, etc.)\n• **Prioridade** — Filtre por Alta, Média ou Baixa\n\nVocê pode combinar os filtros. Por exemplo: buscar "Tecnologia" + Status "Interessado" + Prioridade "Alta".\n\nClique em **Limpar** para remover todos os filtros de uma vez.',
       },
     ],
   },
@@ -119,32 +91,80 @@ const sections: HelpSection[] = [
     id: 'atendimento',
     title: 'Atendimento',
     icon: MessageSquare,
-    description: 'Comunicação com leads e clientes',
+    description: 'Chat WhatsApp integrado com SDR por IA',
     items: [
       {
-        question: 'Como funciona o Atendimento?',
+        question: 'O que é o módulo de Atendimento?',
         answer:
-          'O módulo de Atendimento centraliza todas as conversas com seus leads e clientes.\n\n**Canais Integrados:**\n• WhatsApp Business (via Uazapi)\n• Chat IA dentro do CRM\n• Telefone (registro manual)\n\n**Recursos:**\n• Histórico completo de conversas\n• Respostas rápidas (templates)\n• Chat IA para qualificação automática\n• Agendamento de follow-ups\n• Notificações em tempo real\n• Transferência entre atendentes',
+          'O Atendimento é um **chat espelhado do WhatsApp** dentro do CRM, voltado 100% para **conversão de leads**.\n\nEle funciona com um **SDR virtual (IA)** que conversa com seus leads automaticamente pelo WhatsApp, coletando informações, identificando dores, quebrando objeções e qualificando o lead para a equipe comercial.\n\n**O que você vê na tela:**\n• **Painel esquerdo** — Lista de todas as conversas do WhatsApp\n• **Painel central** — Chat em tempo real (mensagens da IA e do lead)\n• **Painel direito** — Informações do lead, resumo IA, notas, tags, mídia e agenda',
       },
       {
-        question: 'Como integrar o WhatsApp?',
+        question: 'Como funciona o SDR por IA?',
         answer:
-          '**Configuração Inicial (apenas admin):**\n1. Acesse **Configurações > Integrações > WhatsApp**\n2. Contrate uma conta no Uazapi.com\n3. Insira as credenciais: API Token, Nome da instância, Número do telefone\n4. Teste a conexão e salve as configurações\n\n**Para usar o WhatsApp integrado:**\n• Envie mensagens direto do perfil do lead\n• Receba notificações de novas mensagens\n• Veja histórico completo de conversas\n• Use templates de mensagens pré-aprovadas\n• Anexe imagens, documentos e áudios',
+          'O SDR (Sales Development Representative) é uma **IA que conversa pelo WhatsApp** como se fosse um vendedor real.\n\n**O que ele faz automaticamente:**\n• Responde mensagens dos leads em tempo real\n• Faz perguntas estratégicas para qualificar o lead\n• Coleta informações: nome, empresa, cargo, necessidades\n• Identifica **dores e objeções** do lead\n• Apresenta seus produtos/serviços\n• Tenta agendar reuniões ou fechar vendas\n\n**Resumo do Lead (o ouro):**\n• O SDR gera automaticamente um **resumo completo** do lead\n• Inclui: informações coletadas, dores identificadas, objeções levantadas, nível de interesse\n• Esse resumo fica disponível na aba lateral do chat\n• Você pode copiar o resumo e compartilhar com a equipe\n\nAs mensagens enviadas pela IA aparecem com o ícone de **robô** e a tag **"IA"** no chat.',
       },
       {
-        question: 'Como funciona o Chat IA?',
+        question: 'Como interromper o SDR e enviar mensagem manualmente?',
         answer:
-          'O Chat IA é um assistente inteligente que ajuda na qualificação de leads.\n\n**Funcionalidades:**\n• Responde perguntas frequentes automaticamente\n• Qualifica leads com perguntas estratégicas\n• Sugere próximos passos na venda\n• Analisa sentimento do lead\n• Identifica objeções e sugere respostas\n\n**Configurar IA (apenas admin):**\n• Acesse **Admin > Webhooks & APIs > Configuração de IA**\n• Escolha o provedor (OpenAI ou Anthropic)\n• Configure o modelo e insira a API Key\n• Defina o tom de voz e instruções personalizadas',
+          'Você pode **assumir a conversa** a qualquer momento:\n\n1. Abra a conversa no Atendimento\n2. Digite sua mensagem na caixa de texto na parte inferior\n3. Clique em **Enviar** ou pressione **Enter**\n\nSua mensagem será enviada como **humano** (aparece com ícone de pessoa no chat, sem a tag "IA").\n\n**Para atribuir/transferir o chat:**\n• Clique no botão **Atribuir** no topo do chat\n• Selecione o membro da equipe que vai assumir\n• Adicione uma nota explicando o motivo (opcional)\n• O chat mostrará o badge "Atribuído" na lista\n\nIsso é útil quando o lead precisa de atendimento humano personalizado ou quando a IA não consegue resolver uma objeção específica.',
       },
       {
-        question: 'Como agendar um follow-up?',
+        question: 'Que tipos de mídia posso enviar?',
         answer:
-          'Ao visualizar um lead, clique em **Agendar Follow-up**:\n\n1. Preencha: Data e Hora, Tipo (Ligação, Reunião, E-mail, WhatsApp), Assunto e Observações\n2. Clique em **Salvar**\n\nVocê receberá notificações 1 hora antes e no momento do follow-up. Gerencie todos os follow-ups no **Dashboard > Próximas Atividades**.',
+          'Você pode enviar 5 tipos de mídia pelo chat:\n\n• **Texto** — Mensagens de texto normais. Use Shift+Enter para quebrar linha.\n\n• **Imagens** — Fotos e prints. Aceita qualquer formato de imagem. Você pode adicionar uma legenda antes de enviar.\n\n• **Áudios** — Grave áudios direto pelo sistema. Clique no microfone, grave, pause se precisar, ouça antes de enviar e confirme. O áudio aparece com um player de ondas sonoras.\n\n• **Vídeos** — Envie vídeos curtos. Aparece com player de reprodução no chat.\n\n• **Documentos** — PDFs, Word, Excel, TXT. Ideal para enviar propostas, contratos e orçamentos. O documento fica disponível para download.\n\nTodos os arquivos são salvos de forma segura e ficam disponíveis na aba **Mídia** do painel lateral.',
       },
       {
-        question: 'Como usar templates de mensagens?',
+        question: 'Como gravar e enviar áudios?',
         answer:
-          'Templates (ou Respostas Rápidas) aceleram seu atendimento.\n\n**Criar um template:**\n1. Acesse **Configurações > Respostas Rápidas**\n2. Clique em **+ Novo Template**\n3. Defina: Nome/Atalho (ex: /ola), Categoria, Conteúdo com variáveis dinâmicas ({{nome}}, {{empresa}})\n\n**Usar um template:**\n• Durante uma conversa, digite **/** e o atalho\n• Ou clique no ícone de template e selecione\n• As variáveis serão preenchidas automaticamente',
+          'Para gravar um áudio:\n\n1. Clique no ícone de **microfone** ao lado da caixa de texto\n2. A gravação inicia automaticamente com um timer\n3. Você pode **pausar** e **retomar** a gravação\n4. Ao finalizar, **ouça o áudio** antes de enviar\n5. Clique em **Enviar** para mandar ou no **X** para descartar\n\nNo chat, o áudio aparece com um **player visual com ondas sonoras**, botão play/pause e a duração total.',
+      },
+      {
+        question: 'O que é o Resumo do Lead?',
+        answer:
+          'O Resumo do Lead é o **recurso mais valioso** do Atendimento.\n\nÉ um texto gerado automaticamente pela IA com tudo que foi coletado durante a conversa:\n\n• **Informações do contato** — Nome, empresa, cargo, segmento\n• **Necessidades identificadas** — O que o lead precisa\n• **Dores e problemas** — Quais são as frustrações do lead\n• **Objeções levantadas** — Preço, prazo, concorrência, etc.\n• **Nível de interesse** — Quente, morno ou frio\n• **Próximos passos** — O que foi combinado\n\n**Onde ver o resumo:**\n• No painel lateral direito do chat, seção **"nexio.ai resumo"**\n• O resumo tem um badge **"IA"** e a nota **"Gerado automaticamente"**\n• Você pode **copiar** o resumo com um clique\n\nEsse resumo permite que qualquer vendedor da equipe pegue a conversa e saiba exatamente onde parou, sem precisar ler todas as mensagens.',
+      },
+      {
+        question: 'Como usar Respostas Rápidas (Templates)?',
+        answer:
+          'Templates aceleram o atendimento com mensagens pré-prontas.\n\n**Para usar durante uma conversa:**\n• Digite **/** na caixa de texto\n• Uma lista de templates aparece filtrada pelo que você digitar\n• Use as setas **↑↓** para navegar e **Enter** para selecionar\n• O template é inserido automaticamente\n\n**Variáveis dinâmicas disponíveis:**\n• **{{nome}}** — Nome do contato\n• **{{empresa}}** — Nome da empresa do lead\n• **{{telefone}}** — Telefone do lead\n• **{{usuario}}** — Seu nome\n• **{{minha_empresa}}** — Nome da sua empresa\n\n**Categorias de templates:**\n• Saudação, Follow-up, Preço, Agendamento, Encerramento, Geral\n\n**Criar templates:**\n• Acesse o gerenciador de templates dentro do Atendimento\n• Defina: nome, atalho (ex: /ola), categoria e conteúdo',
+      },
+      {
+        question: 'Como agendar mensagens?',
+        answer:
+          'Você pode programar mensagens para serem enviadas em um horário específico:\n\n1. Clique no ícone de **calendário** no topo do chat\n2. Selecione a **data** e o **horário** de envio\n3. Digite a **mensagem** que será enviada\n4. Confirme o agendamento\n\n**Regras:**\n• A data/hora deve ser no futuro\n• O sistema avisa se o horário for fora do comercial (8h-18h)\n• Você pode confirmar mesmo fora do horário comercial\n\n**Gerenciar agendamentos:**\n• Na aba **Agenda** do painel lateral, veja todas as mensagens programadas\n• Cada agendamento mostra: data, tipo (texto ou mídia), preview e quem agendou\n• Você pode **cancelar** agendamentos pendentes',
+      },
+      {
+        question: 'O que posso fazer com mensagens no chat?',
+        answer:
+          'Ao clicar com botão direito ou usar o menu de uma mensagem, você tem várias ações:\n\n• **Reagir** — Adicione reações com emojis (👍 ❤️ 😂 😮 😢 🙏)\n• **Editar** — Altere o texto de mensagens enviadas por você\n• **Encaminhar** — Envie a mensagem para outras conversas\n• **Fixar** — Destaque mensagens importantes (aparece com 📌)\n• **Deletar para mim** — Remove da sua visualização\n• **Deletar para todos** — Remove do WhatsApp do lead também\n\nAs reações aparecem como emojis abaixo da mensagem. Mensagens editadas mostram a tag "Editada".',
+      },
+      {
+        question: 'Como usar Tags nas conversas?',
+        answer:
+          'Tags ajudam a organizar e categorizar seus leads visualmente.\n\n**Na aba Tags do painel lateral:**\n• Veja as tags já atribuídas ao lead\n• Clique em **+** para adicionar uma tag existente\n• Clique em **X** para remover uma tag\n• Crie novas tags com nome e cor personalizada\n\n**16 cores disponíveis** incluindo vermelho, verde, azul, roxo Nexio, rosa, entre outras.\n\nAs tags aparecem na lista de conversas para identificação visual rápida. Por exemplo: "VIP" em verde para clientes prioritários.',
+      },
+      {
+        question: 'Onde vejo as mídias enviadas e recebidas?',
+        answer:
+          'Na aba **Mídia** do painel lateral direito, você encontra uma galeria com todos os arquivos trocados na conversa.\n\n**Filtros disponíveis:**\n• **Todas** — Todos os tipos de mídia\n• **Imagens** — Fotos e prints (com preview e lightbox)\n• **Vídeos** — Vídeos enviados e recebidos\n• **Áudio** — Áudios gravados\n• **Documentos** — PDFs, Word, Excel, etc.\n\nCada item tem botão de **download** e as imagens podem ser ampliadas em tela cheia.',
+      },
+    ],
+  },
+  {
+    id: 'captacao',
+    title: 'Orbit (Captação)',
+    icon: MapPin,
+    description: 'Prospecção e extração de leads',
+    items: [
+      {
+        question: 'O que é o Orbit?',
+        answer:
+          'O Orbit é a ferramenta de **captação e extração de leads** do Nexio. Disponível apenas nos planos **NEXIO GROWTH** e **NEXIO ADS**.\n\nCom ele você pode buscar empresas por localização e segmento, e importar diretamente para o seu CRM.\n\nSe você está no plano **NEXIO SALES**, o menu Orbit não aparece no sistema.',
+      },
+      {
+        question: 'Qual a diferença entre os planos?',
+        answer:
+          '**NEXIO SALES** — R$ 1.600/mês\n• CRM completo com Planilha e Kanban\n• Chat WhatsApp com SDR por IA\n• Funil de vendas e Dashboard\n• Sem acesso ao Orbit (captação/extração)\n\n**NEXIO GROWTH** — R$ 2.000/mês\n• Tudo do Sales + acesso ao Orbit\n• 500 leads inclusos por mês\n• Busca por localização e segmento\n• Leads extras: R$ 1/lead ou R$ 400 por pacote de +500\n\n**NEXIO ADS** — R$ 2.600/mês\n• Tudo do Growth + Gestão de Tráfego Pago\n• Campanhas Google Ads e Meta Ads integradas\n• Otimização automática e relatórios de ROI',
       },
     ],
   },
@@ -157,17 +177,17 @@ const sections: HelpSection[] = [
       {
         question: 'Como adicionar membros à equipe?',
         answer:
-          'Apenas administradores podem adicionar novos membros.\n\n1. Acesse **Membros** no menu\n2. Clique em **+ Novo Membro**\n3. Preencha: Nome completo, E-mail corporativo, Departamento, Função/Cargo\n4. Defina as permissões\n5. Clique em **Enviar Convite**\n\nO novo membro receberá um e-mail com instruções de acesso.',
+          'Apenas administradores podem adicionar novos membros.\n\n1. Acesse **Membros** no menu lateral\n2. Clique em **+ Novo Membro**\n3. Preencha nome completo e e-mail corporativo\n4. Defina a função e permissões\n5. Clique em **Enviar Convite**\n\nO novo membro receberá um e-mail com instruções para criar sua senha e acessar o sistema.',
       },
       {
         question: 'Quais são os níveis de permissão?',
         answer:
-          'Existem 3 níveis de permissão:\n\n**Visualizador** — Ver todos os leads e relatórios. Não pode editar ou criar. Ideal para Diretores e Analistas.\n\n**Vendedor** — Ver e editar seus próprios leads, criar novos leads, registrar interações, mover leads no funil. Ideal para Vendedores e SDRs.\n\n**Administrador** — Acesso total ao CRM da empresa. Gerenciar membros, configurar integrações, acessar relatórios completos. Ideal para Gerentes e Coordenadores.',
+          'Existem 3 níveis de permissão:\n\n**Vendedor** — Acessa o CRM, vê e edita seus leads, usa o chat de Atendimento, move leads no funil. Ideal para vendedores e SDRs.\n\n**Gerente** — Tudo do Vendedor + vê leads de toda a equipe, acessa relatórios completos, pode atribuir leads entre vendedores.\n\n**Administrador** — Acesso total. Gerencia membros, configura integrações (WhatsApp, IA), acessa painel Admin, configura planos e dados da empresa.',
       },
       {
-        question: 'Como atribuir leads para outros membros?',
+        question: 'Como atribuir conversas para membros da equipe?',
         answer:
-          '**Atribuição Individual:**\n• Abra o lead > **Atribuir para** > Selecione o membro > **Confirmar**\n\n**Atribuição em Massa:**\n• Na Tabela do CRM, selecione múltiplos leads > **Ações em Massa > Atribuir** > Selecione o responsável\n\n**Rodízio Automático (Round Robin):**\n• Acesse **Configurações > Atribuição de Leads**\n• Ative **Rodízio Automático** e defina a lista de vendedores\n• Novos leads serão distribuídos automaticamente de forma equilibrada',
+          'No módulo de Atendimento, cada conversa pode ser atribuída a um membro:\n\n1. Abra a conversa no chat\n2. Clique no botão **Atribuir** no topo\n3. Selecione o membro da equipe (veja quantos chats ativos cada um tem)\n4. Adicione uma nota explicando o motivo (opcional)\n5. Confirme a atribuição\n\nO chat mostrará o badge **"Atribuído"** na lista de conversas. Para transferir para outro membro, clique em **Transferir** e selecione o novo responsável.',
       },
     ],
   },
@@ -175,30 +195,45 @@ const sections: HelpSection[] = [
     id: 'kanban',
     title: 'Kanban',
     icon: Columns3,
-    description: 'Visualizar e organizar seu pipeline',
+    description: 'Visualização em quadros do funil',
     items: [
       {
-        question: 'Como usar o Kanban efetivamente?',
+        question: 'Como usar o Kanban?',
         answer:
-          'O Kanban é uma visualização em quadros que facilita a gestão ágil do funil.\n\n**Como usar:**\n• **Arraste e solte** leads entre colunas para mudar o estágio\n• **Clique no card** para ver detalhes e editar\n• **Use cores e tags** para identificação visual rápida\n• **Veja contadores** no topo de cada coluna\n• **Filtre** por responsável, tag ou período\n\n**Boas Práticas:**\n• Revise o Kanban diariamente\n• Identifique gargalos (colunas cheias)\n• Defina metas de conversão por estágio',
+          'O Kanban mostra seus leads organizados em colunas por estágio do funil.\n\n**Cada coluna mostra:**\n• Nome do estágio com ícone\n• Contador de leads\n• Valor total em R$ dos leads naquele estágio\n\n**Cada card mostra:**\n• Iniciais da empresa\n• Nome da empresa e contato\n• Tags de prioridade (Alta, Média, Baixa)\n• Nível de interesse (Quente, Morno, Frio)\n• Segmento\n• Telefone e valor do projeto\n• Data de criação\n\n**Para mover um lead:**\n• Clique e segure o card\n• Arraste para a coluna do novo estágio\n• Solte — a mudança é salva automaticamente\n• Um toast confirma: "Lead movido para [estágio]"',
       },
       {
-        question: 'Como personalizar os estágios do funil?',
+        question: 'Como funciona no celular?',
         answer:
-          'Administradores podem customizar os estágios em **Configurações > Funil de Vendas**.\n\n**Ações Disponíveis:**\n• **Adicionar Estágio** — Crie etapas como "Demo Agendada", "POC em Andamento"\n• **Renomear Estágio** — Adapte à sua linguagem (ex: "Qualificado" → "BANT Confirmado")\n• **Reordenar** — Arraste estágios para mudar a sequência\n• **Definir Cores** — Personalize cores de cada estágio\n• **Arquivar** — Desative estágios não utilizados\n\n**Nota:** "Ganho" e "Perdido" são fixos e não podem ser removidos.',
+          'No celular o Kanban se adapta para uma **lista vertical** em vez de colunas horizontais.\n\n**Cada card no mobile mostra:**\n• Nome da empresa e contato\n• Telefone e valor do projeto\n• **Seletor de status** — um dropdown para mudar o estágio diretamente\n• Prioridade e nível de interesse\n• Segmento\n• Botões de editar e deletar\n\nComo não dá pra arrastar no celular, o seletor de status substitui o drag & drop. A mudança é salva automaticamente ao selecionar o novo estágio.',
       },
     ],
   },
   {
-    id: 'atalhos',
-    title: 'Atalhos de Teclado',
-    icon: Keyboard,
-    description: 'Trabalhe mais rápido com atalhos',
+    id: 'faq',
+    title: 'Dúvidas Frequentes',
+    icon: HelpCircle,
+    description: 'Perguntas comuns e soluções',
     items: [
       {
-        question: 'Quais atalhos estão disponíveis?',
+        question: 'O sistema está lento, o que fazer?',
         answer:
-          '**Navegação:**\n• **Ctrl + H** — Ir para Dashboard\n• **Ctrl + K** — Buscar leads\n• **Ctrl + /** — Abrir esta ajuda\n\n**CRM:**\n• **Ctrl + N** — Criar novo lead\n• **Ctrl + T** — Alternar Tabela/Kanban\n\nEsses atalhos funcionam em qualquer página do sistema.',
+          'Se o sistema estiver demorando para carregar:\n\n• **Primeira vez do dia** — O primeiro acesso pode demorar alguns segundos enquanto o servidor "acorda". Depois disso, fica rápido.\n• **CRM com muitos leads** — O sistema carrega até 100 leads por vez. Use os filtros para encontrar leads específicos.\n• **Conexão lenta** — Verifique sua internet. O sistema precisa de conexão estável para funcionar.\n• **Limpar cache** — Pressione Ctrl+Shift+R para forçar atualização.',
+      },
+      {
+        question: 'Não estou recebendo mensagens do WhatsApp no chat',
+        answer:
+          'Verifique os seguintes pontos:\n\n1. A integração do WhatsApp está configurada? (Configurações > WhatsApp)\n2. O número do WhatsApp está correto nas configurações?\n3. A instância do UAZapi está ativa e conectada?\n4. O webhook está configurado corretamente?\n\nSe tudo estiver correto e ainda não funcionar, entre em contato com o suporte: **suporte@nexio.ai**',
+      },
+      {
+        question: 'Como alterar os dados da minha empresa?',
+        answer:
+          'Apenas administradores podem alterar dados da empresa.\n\n1. Acesse **Configurações** no menu lateral\n2. Edite os campos: nome da empresa, e-mail, logo, etc.\n3. Salve as alterações\n\nSe você não é admin, peça para o administrador da conta fazer as alterações.',
+      },
+      {
+        question: 'Perdi minha senha, como recuperar?',
+        answer:
+          'Na tela de login:\n\n1. Clique em **Esqueci minha senha**\n2. Digite seu e-mail cadastrado\n3. Verifique sua caixa de entrada (e spam)\n4. Clique no link de recuperação\n5. Defina uma nova senha\n\nO link expira em 24 horas. Se não receber o e-mail, verifique se está usando o mesmo e-mail cadastrado no sistema.',
       },
     ],
   },
