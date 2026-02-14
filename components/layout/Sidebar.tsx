@@ -83,11 +83,12 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [isCrmRoute]);
 
-  const currentView = useMemo(() => {
-    if (!isCrmRoute) return 'table';
+  // Computar currentView diretamente sem useMemo problemático
+  const getCurrentView = () => {
+    if (typeof window === 'undefined' || !isCrmRoute) return 'table';
     const params = new URLSearchParams(window.location.search);
     return params.get('view') || 'table';
-  }, [isCrmRoute]);
+  };
 
   // 🚀 Performance: Memoizar array de links
   const allLinks = useMemo<NavLink[]>(() => [
@@ -186,7 +187,7 @@ export const Sidebar = memo(function Sidebar({
                       {link.children!.map((child) => {
                         const ChildIcon = child.icon;
                         const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
-                        const isChildActive = pathname === '/crm' && currentView === childView;
+                        const isChildActive = pathname === '/crm' && getCurrentView() === childView;
                         return (
                           <Link
                             key={child.href}
