@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/hooks/useUser';
 import { Card } from '@/components/ui/card';
 import TextType from '@/components/TextType';
@@ -16,8 +17,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Link2, Zap, Loader2, MapPin, Lock, Sparkles } from 'lucide-react';
+import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, PartyPopper, ArrowRight } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
 
@@ -51,6 +62,7 @@ const NICHOS = [
 
 export default function ProspectAIPage() {
   const { company } = useUser();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
 
   const hasOrbitAccess = company?.plan_name === 'NEXIO GROWTH' || company?.plan_name === 'NEXIO ADS';
@@ -68,6 +80,10 @@ export default function ProspectAIPage() {
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentAction, setCurrentAction] = useState('');
+
+  // Success Dialog
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [extractedCount, setExtractedCount] = useState(0);
 
   const validateUrl = (url: string): boolean => {
     const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
@@ -169,7 +185,9 @@ export default function ProspectAIPage() {
       setProgress(100);
       setCurrentAction('Concluído!');
 
-      toast.success(`${data.extractedCount} leads extraídos com sucesso!`);
+      // Mostrar Alert Dialog de sucesso
+      setExtractedCount(data.extractedCount);
+      setSuccessDialogOpen(true);
 
       // Reset
       setMapsUrl('');
@@ -441,6 +459,50 @@ export default function ProspectAIPage() {
           </div>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <AlertDialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <AlertDialogContent className="max-w-md border-border/40 bg-card/95 backdrop-blur-lg">
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
+                <div className="relative bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 p-4 rounded-full">
+                  <PartyPopper className="h-8 w-8 text-white" />
+                </div>
+              </div>
+            </div>
+            <AlertDialogTitle className="text-center text-2xl">
+              Parabéns! 🎉
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-3">
+              <p className="text-base">
+                Extração concluída com sucesso!
+              </p>
+              <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-4">
+                <p className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+                  {extractedCount}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  leads extraídos e prontos para uso
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="sm:flex-1">
+              Ok
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => router.push('/crm')}
+              className="sm:flex-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 hover:from-green-500 hover:via-emerald-600 hover:to-green-700"
+            >
+              Abrir tabela
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
