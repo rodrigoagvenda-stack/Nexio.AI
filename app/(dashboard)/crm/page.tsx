@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
 import { useRouter } from 'next/navigation';
@@ -366,7 +366,8 @@ export default function CRMPage() {
         .from('leads')
         .select('*')
         .eq('company_id', user?.company_id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500); // 🚀 Performance: Carrega apenas 500 leads mais recentes
 
       if (error) throw error;
       setLeads(data || []);
@@ -809,28 +810,47 @@ export default function CRMPage() {
     { id: 'Remarketing', title: 'Remarketing' },
   ];
 
+  // Filtros
+  // 🚀 Performance: Memoizar filtragem para evitar re-computação desnecessária
+  const filteredLeads = useMemo(() => {
+    return leads.filter(lead => {
+      const matchesSearch =
+        lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter;
+      const matchesPriority = priorityFilter === 'Todas' || lead.priority === priorityFilter;
+
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [leads, searchTerm, statusFilter, priorityFilter]);
+
+  // 🚀 Performance: Pré-computar leads por status para evitar filtrar múltiplas vezes
+  const leadsByStatus = useMemo(() => {
+    const statusMap = new Map<string, typeof filteredLeads>();
+    const valueMap = new Map<string, number>();
+
+    filteredLeads.forEach((lead) => {
+      const status = lead.status;
+      if (!statusMap.has(status)) {
+        statusMap.set(status, []);
+        valueMap.set(status, 0);
+      }
+      statusMap.get(status)!.push(lead);
+      valueMap.set(status, (valueMap.get(status) || 0) + (lead.project_value || 0));
+    });
+
+    return { statusMap, valueMap };
+  }, [filteredLeads]);
+
   const getLeadsByStatus = (status: string) => {
-    return filteredLeads.filter((lead) => lead.status === status);
+    return leadsByStatus.statusMap.get(status) || [];
   };
 
   const getTotalValueByStatus = (status: string) => {
-    return filteredLeads
-      .filter((lead) => lead.status === status)
-      .reduce((sum, lead) => sum + (lead.project_value || 0), 0);
+    return leadsByStatus.valueMap.get(status) || 0;
   };
-
-  // Filtros
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch =
-      lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter;
-    const matchesPriority = priorityFilter === 'Todas' || lead.priority === priorityFilter;
-
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
 
   // Pagination
   const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
