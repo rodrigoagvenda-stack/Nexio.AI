@@ -134,11 +134,6 @@ const sections: HelpSection[] = [
           'Você pode programar mensagens para serem enviadas em um horário específico:\n\n1. Clique no ícone de **calendário** no topo do chat\n2. Selecione a **data** e o **horário** de envio\n3. Digite a **mensagem** que será enviada\n4. Confirme o agendamento\n\n**Regras:**\n• A data/hora deve ser no futuro\n• O sistema avisa se o horário for fora do comercial (8h-18h)\n• Você pode confirmar mesmo fora do horário comercial\n\n**Gerenciar agendamentos:**\n• Na aba **Agenda** do painel lateral, veja todas as mensagens programadas\n• Cada agendamento mostra: data, tipo (texto ou mídia), preview e quem agendou\n• Você pode **cancelar** agendamentos pendentes',
       },
       {
-        question: 'O que posso fazer com mensagens no chat?',
-        answer:
-          'Ao clicar com botão direito ou usar o menu de uma mensagem, você tem várias ações:\n\n• **Reagir** — Adicione reações com emojis (👍 ❤️ 😂 😮 😢 🙏)\n• **Editar** — Altere o texto de mensagens enviadas por você\n• **Encaminhar** — Envie a mensagem para outras conversas\n• **Fixar** — Destaque mensagens importantes (aparece com 📌)\n• **Deletar para mim** — Remove da sua visualização\n• **Deletar para todos** — Remove do WhatsApp do lead também\n\nAs reações aparecem como emojis abaixo da mensagem. Mensagens editadas mostram a tag "Editada".',
-      },
-      {
         question: 'Como usar Tags nas conversas?',
         answer:
           'Tags ajudam a organizar e categorizar seus leads visualmente.\n\n**Na aba Tags do painel lateral:**\n• Veja as tags já atribuídas ao lead\n• Clique em **+** para adicionar uma tag existente\n• Clique em **X** para remover uma tag\n• Crie novas tags com nome e cor personalizada\n\n**16 cores disponíveis** incluindo vermelho, verde, azul, roxo Nexio, rosa, entre outras.\n\nAs tags aparecem na lista de conversas para identificação visual rápida. Por exemplo: "VIP" em verde para clientes prioritários.',
