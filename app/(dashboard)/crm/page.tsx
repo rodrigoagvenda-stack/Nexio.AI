@@ -723,7 +723,7 @@ export default function CRMPage() {
     }
   }, [selectedLeads]);
 
-  const exportToCSV = useCallback(() => {
+  const exportToCSV = () => {
     try {
       // Cabeçalhos do CSV
       const headers = [
@@ -791,7 +791,7 @@ export default function CRMPage() {
       console.error('Error exporting CSV:', error);
       toast({ title: 'Erro ao exportar CSV', variant: 'destructive' });
     }
-  }, [filteredLeads]);
+  };
 
   const columns = [
     { id: 'Lead novo', title: 'Lead novo' },
