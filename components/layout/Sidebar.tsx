@@ -68,12 +68,20 @@ export const Sidebar = memo(function Sidebar({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [crmExpanded, setCrmExpanded] = useState(false);
 
-  // 🚀 Performance: Computar estados derivados diretamente do pathname (sem state extra)
+  // 🚀 Performance: Computar se está na rota CRM
   const isCrmRoute = useMemo(() =>
     pathname === '/crm' || pathname.startsWith('/crm/'),
     [pathname]
   );
+
+  // 🚀 Auto-expandir CRM quando estiver na rota
+  useEffect(() => {
+    if (isCrmRoute) {
+      setCrmExpanded(true);
+    }
+  }, [isCrmRoute]);
 
   const currentView = useMemo(() => {
     if (!isCrmRoute) return 'table';
@@ -141,11 +149,12 @@ export const Sidebar = memo(function Sidebar({
               return (
                 <div key={link.href}>
                   {/* CRM parent button */}
-                  <Link
-                    href={isCollapsed ? link.href : '#'}
-                    onClick={(e) => {
-                      if (!isCollapsed) {
-                        e.preventDefault();
+                  <button
+                    onClick={() => {
+                      if (isCollapsed) {
+                        router.push(link.href);
+                      } else {
+                        setCrmExpanded(!crmExpanded);
                       }
                     }}
                     className={cn(
@@ -164,15 +173,15 @@ export const Sidebar = memo(function Sidebar({
                         <ChevronDown
                           className={cn(
                             'h-4 w-4 transition-transform duration-200',
-                            isCrmRoute && 'rotate-180'
+                            crmExpanded && 'rotate-180'
                           )}
                         />
                       </>
                     )}
-                  </Link>
+                  </button>
 
                   {/* Sub-items */}
-                  {!isCollapsed && isCrmRoute && (
+                  {!isCollapsed && crmExpanded && (
                     <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
                       {link.children!.map((child) => {
                         const ChildIcon = child.icon;
