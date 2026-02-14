@@ -187,8 +187,8 @@ export default function Orb({
     const container = ctnDom.current;
     if (!container) return;
 
-    // 🚀 Performance: Reduzir devicePixelRatio para melhorar performance
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // 🚀 Performance: Reduzir devicePixelRatio para melhorar performance (reduzido em 50%)
+    const dpr = 1;
 
     const renderer = new Renderer({
       alpha: true,
@@ -220,7 +220,7 @@ export default function Orb({
 
     function resize() {
       if (!container) return;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = 1; // 🚀 Performance: Fixar DPR em 1 para melhor performance
       const width = container.clientWidth;
       const height = container.clientHeight;
       renderer.setSize(width * dpr, height * dpr);
