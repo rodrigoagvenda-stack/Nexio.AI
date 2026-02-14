@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home,
-  UsersRound,
-  MessagesSquare,
-  Users,
-  HelpCircle,
+  ChartLine,
+  ChartPie,
+  MessageCircleMore,
+  UserRoundCog,
+  Info,
   ShieldCheck,
   LogOut,
-  Zap,
+  Bot,
+  Bolt,
   ChevronRight,
   Table2,
   Kanban,
@@ -36,7 +37,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useState } from 'react';
 
@@ -48,20 +49,21 @@ interface AppSidebarProps {
 }
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/dashboard', label: 'Dashboard', icon: ChartLine },
   {
     href: '/crm',
     label: 'CRM',
-    icon: UsersRound,
+    icon: ChartPie,
     children: [
       { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
       { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
     ],
   },
-  { href: '/atendimento', label: 'Atendimento', icon: MessagesSquare },
-  { href: '/prospect', label: 'Orbit', icon: Zap },
-  { href: '/membros', label: 'Membros', icon: Users },
-  { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
+  { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMore },
+  { href: '/prospect', label: 'Orbit', icon: Bot },
+  { href: '/membros', label: 'Membros', icon: UserRoundCog },
+  { href: '/ajuda', label: 'Ajuda', icon: Info },
+  { href: '/configuracao', label: 'Configuração', icon: Bolt },
 ];
 
 export function AppSidebar({
@@ -86,10 +88,16 @@ export function AppSidebar({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      toast.success('Logout realizado com sucesso');
+      toast({
+        title: 'Logout realizado com sucesso',
+        variant: 'default',
+      });
       router.push('/login');
     } catch {
-      toast.error('Erro ao fazer logout');
+      toast({
+        title: 'Erro ao fazer logout',
+        variant: 'destructive',
+      });
       setIsLoggingOut(false);
     }
   }

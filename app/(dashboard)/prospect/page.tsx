@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, CheckCircle } from 'lucide-react';
+import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, CircleCheckBig } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
 
@@ -490,9 +490,9 @@ export default function ProspectAIPage() {
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
-                <div className="relative bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 p-4 rounded-full">
-                  <CheckCircle className="h-8 w-8 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
+                <div className="relative bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 p-4 rounded-full">
+                  <CircleCheckBig className="h-8 w-8 text-white" />
                 </div>
               </div>
             </div>
@@ -500,8 +500,8 @@ export default function ProspectAIPage() {
               Extração concluída com sucesso
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center space-y-3">
-              <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
-                <p className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+              <div className="bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-500/20 rounded-lg p-4">
+                <p className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
                   {extractedCount}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -511,7 +511,7 @@ export default function ProspectAIPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction className="w-full bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700">
+            <AlertDialogAction className="w-full bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 hover:from-emerald-500 hover:via-green-600 hover:to-emerald-700">
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -5,23 +5,24 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect, memo } from 'react';
 import {
-  Home,
-  UsersRound,
-  MessagesSquare,
-  Users,
-  HelpCircle,
+  ChartLine,
+  ChartPie,
+  MessageCircleMore,
+  UserRoundCog,
+  Info,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   LogOut,
-  Zap,
+  Bot,
+  Bolt,
   Table2,
   Kanban,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface SidebarProps {
@@ -40,20 +41,21 @@ interface NavLink {
 }
 
 const links: NavLink[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/dashboard', label: 'Dashboard', icon: ChartLine },
   {
     href: '/crm',
     label: 'CRM',
-    icon: UsersRound,
+    icon: ChartPie,
     children: [
       { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
       { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
     ],
   },
-  { href: '/atendimento', label: 'Atendimento', icon: MessagesSquare },
-  { href: '/prospect', label: 'Orbit', icon: Zap },
-  { href: '/membros', label: 'Membros', icon: Users },
-  { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
+  { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMore },
+  { href: '/prospect', label: 'Orbit', icon: Bot },
+  { href: '/membros', label: 'Membros', icon: UserRoundCog },
+  { href: '/ajuda', label: 'Ajuda', icon: Info },
+  { href: '/configuracao', label: 'Configuração', icon: Bolt },
 ];
 
 export const Sidebar = memo(function Sidebar({
@@ -89,10 +91,16 @@ export const Sidebar = memo(function Sidebar({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      toast.success('Logout realizado com sucesso');
+      toast({
+        title: 'Logout realizado com sucesso',
+        variant: 'default',
+      });
       router.push('/login');
     } catch {
-      toast.error('Erro ao fazer logout');
+      toast({
+        title: 'Erro ao fazer logout',
+        variant: 'destructive',
+      });
       setIsLoggingOut(false);
     }
   }
