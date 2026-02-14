@@ -3,15 +3,15 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  ChartLine,
-  ChartPie,
-  MessageCircleMore,
-  UserRoundCog,
+  TrendingUp,
+  PieChart,
+  MessageCircle,
+  UserCog,
   Info,
   ShieldCheck,
   LogOut,
   Bot,
-  Bolt,
+  Zap,
   ChevronRight,
   Table2,
   Kanban,
@@ -49,21 +49,21 @@ interface AppSidebarProps {
 }
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: ChartLine },
+  { href: '/dashboard', label: 'Dashboard', icon: TrendingUp },
   {
     href: '/crm',
     label: 'CRM',
-    icon: ChartPie,
+    icon: PieChart,
     children: [
       { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
       { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
     ],
   },
-  { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMore },
+  { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
   { href: '/prospect', label: 'Orbit', icon: Bot },
-  { href: '/membros', label: 'Membros', icon: UserRoundCog },
+  { href: '/membros', label: 'Membros', icon: UserCog },
   { href: '/ajuda', label: 'Ajuda', icon: Info },
-  { href: '/configuracao', label: 'Configuração', icon: Bolt },
+  { href: '/configuracao', label: 'Configuração', icon: Zap },
 ];
 
 export function AppSidebar({

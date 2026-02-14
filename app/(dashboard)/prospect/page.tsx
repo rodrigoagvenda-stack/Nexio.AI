@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from '@/components/ui/use-toast';
-import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, CircleCheckBig } from 'lucide-react';
+import { Link2, Zap, Loader2, MapPin, Lock, Sparkles, CheckCircle2 } from 'lucide-react';
 
 const LEAD_LIMITS = [10, 25, 50, 100, 200, 500];
 
@@ -492,7 +492,7 @@ export default function ProspectAIPage() {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 rounded-full blur-xl opacity-40 animate-pulse"></div>
                 <div className="relative bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 p-4 rounded-full">
-                  <CircleCheckBig className="h-8 w-8 text-white" />
+                  <CheckCircle2 className="h-8 w-8 text-white" />
                 </div>
               </div>
             </div>

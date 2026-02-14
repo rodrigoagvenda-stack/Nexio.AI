@@ -5,10 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect, memo } from 'react';
 import {
-  ChartLine,
-  ChartPie,
-  MessageCircleMore,
-  UserRoundCog,
+  TrendingUp,
+  PieChart,
+  MessageCircle,
+  UserCog,
   Info,
   ShieldCheck,
   ChevronLeft,
@@ -16,7 +16,7 @@ import {
   ChevronDown,
   LogOut,
   Bot,
-  Bolt,
+  Zap,
   Table2,
   Kanban,
 } from 'lucide-react';
@@ -41,21 +41,21 @@ interface NavLink {
 }
 
 const links: NavLink[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: ChartLine },
+  { href: '/dashboard', label: 'Dashboard', icon: TrendingUp },
   {
     href: '/crm',
     label: 'CRM',
-    icon: ChartPie,
+    icon: PieChart,
     children: [
       { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
       { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
     ],
   },
-  { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMore },
+  { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
   { href: '/prospect', label: 'Orbit', icon: Bot },
-  { href: '/membros', label: 'Membros', icon: UserRoundCog },
+  { href: '/membros', label: 'Membros', icon: UserCog },
   { href: '/ajuda', label: 'Ajuda', icon: Info },
-  { href: '/configuracao', label: 'Configuração', icon: Bolt },
+  { href: '/configuracao', label: 'Configuração', icon: Zap },
 ];
 
 export const Sidebar = memo(function Sidebar({
