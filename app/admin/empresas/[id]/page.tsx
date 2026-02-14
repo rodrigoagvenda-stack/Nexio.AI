@@ -47,7 +47,7 @@ export default function EmpresaDetailPage() {
 
       setCompany(data.data);
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao carregar empresa');
+      toast({ title: 'Erro ao carregar empresa', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -109,12 +109,13 @@ export default function EmpresaDetailPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success(
-        `Empresa ${!company.is_active ? 'ativada' : 'desativada'} com sucesso!`
-      );
+      toast({
+        title: `Empresa ${!company.is_active ? 'ativada' : 'desativada'}!`,
+        description: 'O status foi alterado com sucesso.',
+      });
       setCompany(data.data);
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao alterar status');
+      toast({ title: 'Erro ao alterar status', description: error.message, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -133,10 +134,10 @@ export default function EmpresaDetailPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('Empresa deletada com sucesso!');
+      toast({ title: 'Empresa deletada!', description: 'A empresa foi removida com sucesso.' });
       router.push('/admin/empresas');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao deletar empresa');
+      toast({ title: 'Erro ao deletar empresa', description: error.message, variant: 'destructive' });
       setSaving(false);
     }
   }
@@ -160,13 +161,13 @@ export default function EmpresaDetailPage() {
 
       if (data.success) {
         setCompany({ ...company, image_url: data.logoUrl });
-        toast.success('Logo carregado com sucesso!');
+        toast({ title: 'Logo carregado!', description: 'A imagem foi enviada com sucesso.' });
       } else {
-        toast.error(data.message || 'Erro ao fazer upload');
+        toast({ title: 'Erro ao fazer upload', description: data.message, variant: 'destructive' });
       }
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error('Erro ao fazer upload da imagem');
+      toast({ title: 'Erro ao fazer upload', description: 'Não foi possível enviar a imagem', variant: 'destructive' });
     } finally {
       setUploading(false);
     }
