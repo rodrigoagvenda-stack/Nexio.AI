@@ -694,13 +694,13 @@ export default function CRMPage() {
     });
   }, []);
 
-  const handleToggleSelectAll = useCallback(() => {
+  const handleToggleSelectAll = () => {
     if (selectedLeads.size === paginatedLeads.length) {
       setSelectedLeads(new Set());
     } else {
       setSelectedLeads(new Set(paginatedLeads.map((l) => String(l.id))));
     }
-  }, [selectedLeads.size, paginatedLeads]);
+  };
 
   const handleDeleteMultipleLeads = useCallback(async () => {
     if (selectedLeads.size === 0) return;
