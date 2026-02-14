@@ -489,12 +489,7 @@ export default function ProspectAIPage() {
         <AlertDialogContent className="max-w-md border-border/40 bg-card/95 backdrop-blur-lg mx-auto">
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse"></div>
-                <div className="relative bg-emerald-500 p-3 rounded-full">
-                  <CheckCircle2 className="h-10 w-10 text-white" strokeWidth={2.5} />
-                </div>
-              </div>
+              <CheckCircle2 className="h-16 w-16 text-emerald-500" strokeWidth={2} />
             </div>
             <AlertDialogTitle className="text-center text-2xl">
               Extração concluída com sucesso
