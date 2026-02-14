@@ -77,6 +77,13 @@ export function SalesFunnel({ stages, totalLeads }: SalesFunnelProps) {
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '6px',
                 }}
+                labelStyle={{
+                  color: 'hsl(var(--primary))',
+                  fontWeight: 600,
+                }}
+                itemStyle={{
+                  color: 'hsl(var(--primary))',
+                }}
                 cursor={{ fill: 'hsl(var(--accent))' }}
               />
               <Bar
