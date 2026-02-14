@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/hooks/useUser';
 import { Card } from '@/components/ui/card';
@@ -70,6 +70,13 @@ export default function ProspectAIPage() {
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentAction, setCurrentAction] = useState('');
+  const [orbLoaded, setOrbLoaded] = useState(false);
+
+  // Carregar Orb com delay para evitar animação bugada
+  useEffect(() => {
+    const timer = setTimeout(() => setOrbLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const validateUrl = (url: string): boolean => {
     const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
@@ -225,7 +232,15 @@ export default function ProspectAIPage() {
       <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-[700px] h-[700px]">
-            <Orb hue={270} backgroundColor="hsl(var(--background))" />
+            {orbLoaded ? (
+              <div className="animate-in fade-in duration-500">
+                <Orb hue={270} backgroundColor="hsl(var(--background))" />
+              </div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -282,7 +297,15 @@ export default function ProspectAIPage() {
       {/* Orb background com efeito React Bits */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-[700px] h-[700px]">
-          <Orb hue={270} backgroundColor="hsl(var(--background))" />
+          {orbLoaded ? (
+            <div className="animate-in fade-in duration-500">
+              <Orb hue={270} backgroundColor="hsl(var(--background))" />
+            </div>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+            </div>
+          )}
         </div>
       </div>
 
