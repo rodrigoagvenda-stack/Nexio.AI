@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -64,8 +64,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
-// Componente de card draggable para o Kanban
-function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
+// 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
+const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: {
@@ -199,10 +199,10 @@ function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () =
       </OrbitCard>
     </div>
   );
-}
+});
 
-// Componente de coluna droppable
-function DroppableColumn({
+// 🚀 PERFORMANCE: Componente memoizado para evitar re-renders
+const DroppableColumn = memo(function DroppableColumn({
   id,
   title,
   count,
@@ -261,7 +261,7 @@ function DroppableColumn({
       </div>
     </div>
   );
-}
+});
 
 export default function CRMPage() {
   const router = useRouter();
@@ -360,17 +360,19 @@ export default function CRMPage() {
     }
   }
 
-  const handleDragStart = (event: DragStartEvent) => {
+  // 🚀 PERFORMANCE: Memoizar handlers para evitar re-renders
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveDragId(event.active.id as number);
     setOverId(null);
-  };
+  }, []);
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
-    setOverId(over?.id ?? null);
-  };
+  // 🚀 PERFORMANCE: Remover handleDragOver - causava 100+ re-renders/segundo!
+  // const handleDragOver = (event: DragOverEvent) => {
+  //   const { over } = event;
+  //   setOverId(over?.id ?? null);
+  // };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setOverId(null);
     const { active, over } = event;
     setActiveDragId(null);
@@ -487,9 +489,9 @@ export default function CRMPage() {
       fetchLeads();
       console.groupEnd();
     }
-  };
+  }, [leads, user, company]);
 
-  const handleOpenModal = (lead?: Lead) => {
+  const handleOpenModal = useCallback((lead?: Lead) => {
     if (lead) {
       setEditingLead(lead);
       setFormData({
@@ -527,9 +529,9 @@ export default function CRMPage() {
     }
     setCurrentStep(0); // Reset stepper to first step
     setShowModal(true);
-  };
+  }, []);
 
-  const handleSaveLead = async () => {
+  const handleSaveLead = useCallback(async () => {
     // Validar campos obrigatórios
     if (!formData.company_name.trim()) {
       toast({ title: 'Campo obrigatório', description: 'Nome da empresa é obrigatório', variant: 'destructive' });
@@ -640,9 +642,9 @@ export default function CRMPage() {
         variant: 'destructive',
       });
     }
-  };
+  }, [formData, editingLead, user, company, authUser]);
 
-  const handleDeleteLead = async () => {
+  const handleDeleteLead = useCallback(async () => {
     if (!deletingLead) return;
 
     try {
@@ -678,9 +680,9 @@ export default function CRMPage() {
       console.error('Error deleting lead:', error);
       toast({ title: 'Erro ao deletar lead', variant: 'destructive' });
     }
-  };
+  }, [deletingLead, user, company]);
 
-  const handleToggleSelectLead = (leadId: string) => {
+  const handleToggleSelectLead = useCallback((leadId: string) => {
     setSelectedLeads((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(leadId)) {
@@ -690,17 +692,17 @@ export default function CRMPage() {
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const handleToggleSelectAll = () => {
+  const handleToggleSelectAll = useCallback(() => {
     if (selectedLeads.size === paginatedLeads.length) {
       setSelectedLeads(new Set());
     } else {
       setSelectedLeads(new Set(paginatedLeads.map((l) => String(l.id))));
     }
-  };
+  }, [selectedLeads.size, paginatedLeads]);
 
-  const handleDeleteMultipleLeads = async () => {
+  const handleDeleteMultipleLeads = useCallback(async () => {
     if (selectedLeads.size === 0) return;
 
     try {
@@ -719,9 +721,9 @@ export default function CRMPage() {
       console.error('Error deleting multiple leads:', error);
       toast({ title: 'Erro ao deletar leads', variant: 'destructive' });
     }
-  };
+  }, [selectedLeads]);
 
-  const exportToCSV = () => {
+  const exportToCSV = useCallback(() => {
     try {
       // Cabeçalhos do CSV
       const headers = [
@@ -789,7 +791,7 @@ export default function CRMPage() {
       console.error('Error exporting CSV:', error);
       toast({ title: 'Erro ao exportar CSV', variant: 'destructive' });
     }
-  };
+  }, [filteredLeads]);
 
   const columns = [
     { id: 'Lead novo', title: 'Lead novo' },
@@ -998,7 +1000,6 @@ export default function CRMPage() {
             sensors={sensors}
             collisionDetection={pointerWithin}
             onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
             <ScrollArea className="hidden md:block w-full">
