@@ -30,6 +30,7 @@ interface SidebarProps {
   companyName?: string;
   companyEmail?: string;
   companyImage?: string;
+  planName?: string;
 }
 
 interface NavLink {
@@ -63,6 +64,7 @@ export const Sidebar = memo(function Sidebar({
   companyName,
   companyEmail,
   companyImage,
+  planName,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -92,12 +94,26 @@ export const Sidebar = memo(function Sidebar({
   }, [isCrmRoute]);
 
   // 🚀 Performance: Memoizar array de links
-  const allLinks = useMemo<NavLink[]>(() => [
-    ...links,
-    ...(isAdmin
-      ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }]
-      : []),
-  ], [isAdmin]);
+  const allLinks = useMemo<NavLink[]>(() => {
+    // Verificar se o usuário tem acesso ao Orbit
+    const hasOrbitAccess = planName === 'NEXIO GROWTH' || planName === 'NEXIO ADS';
+
+    // Filtrar links baseado no plano
+    const filteredLinks = links.filter(link => {
+      // Remover Orbit se não tiver acesso
+      if (link.href === '/prospect' && !hasOrbitAccess) {
+        return false;
+      }
+      return true;
+    });
+
+    return [
+      ...filteredLinks,
+      ...(isAdmin
+        ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }]
+        : []),
+    ];
+  }, [isAdmin, planName]);
 
   // 🚀 Performance: Memoizar função de logout
   const handleLogout = useCallback(async () => {

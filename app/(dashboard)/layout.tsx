@@ -37,13 +37,14 @@ export default async function DashboardLayout({
   // Buscar dados da empresa (depende do company_id)
   const { data: companyData } = await supabase
     .from('companies')
-    .select('name, email, image_url')
+    .select('name, email, image_url, plan_name')
     .eq('id', userData?.company_id || 0)
     .single();
 
   const companyName = companyData?.name;
   const companyEmail = companyData?.email;
   const companyImage = companyData?.image_url;
+  const planName = companyData?.plan_name;
   const isAdmin = !!adminUser;
 
   return (
@@ -53,6 +54,7 @@ export default async function DashboardLayout({
         companyName={companyName}
         companyEmail={companyEmail}
         companyImage={companyImage}
+        planName={planName}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
