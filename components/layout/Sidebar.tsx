@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, memo } from 'react';
 import {
   Home,
   UsersRound,
@@ -56,7 +56,7 @@ const links: NavLink[] = [
   { href: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ];
 
-export function Sidebar({
+export const Sidebar = memo(function Sidebar({
   isAdmin = false,
   companyName,
   companyEmail,
@@ -71,25 +71,11 @@ export function Sidebar({
   );
   const [currentView, setCurrentView] = useState('table');
 
+  // 🚀 Performance: Atualizar view apenas quando pathname ou search params mudam
   useEffect(() => {
-    let lastUrl = window.location.href;
-
-    const updateView = () => {
-      const currentUrl = window.location.href;
-      if (currentUrl !== lastUrl) {
-        lastUrl = currentUrl;
-        const params = new URLSearchParams(window.location.search);
-        setCurrentView(params.get('view') || 'table');
-      }
-    };
-
-    updateView(); // Atualiza na montagem
-
-    // Detecta mudanças na URL para atualizar o item ativo do CRM
-    const interval = setInterval(updateView, 100);
-
-    return () => clearInterval(interval);
-  }, []);
+    const params = new URLSearchParams(window.location.search);
+    setCurrentView(params.get('view') || 'table');
+  }, [pathname]); // Reage apenas a mudanças reais de navegação
 
   const allLinks: NavLink[] = [
     ...links,
@@ -301,4 +287,4 @@ export function Sidebar({
       <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-64')} />
     </>
   );
-}
+});

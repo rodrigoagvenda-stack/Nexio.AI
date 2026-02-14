@@ -192,7 +192,8 @@ export default function AtendimentoPage() {
           lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)
         `)
         .eq('company_id', company!.id)
-        .order('hora_da_ultima_mensagem', { ascending: false });
+        .order('hora_da_ultima_mensagem', { ascending: false })
+        .limit(50); // 🚀 Performance: Carrega apenas 50 conversas mais recentes
 
       if (error) throw error;
       setConversations(data || []);
@@ -211,10 +212,11 @@ export default function AtendimentoPage() {
         `)
         .eq('id_da_conversacao', conversationId)
         .eq('company_id', company!.id) // 🔒 Segurança: garante isolamento por empresa
-        .order('carimbo_de_data_e_hora', { ascending: true });
+        .order('carimbo_de_data_e_hora', { ascending: false })
+        .limit(100); // 🚀 Performance: Carrega apenas últimas 100 mensagens
 
       if (error) throw error;
-      setMessages(data || []);
+      setMessages((data || []).reverse()); // Reverter para ordem correta
     } catch (error) {
       console.error('Error fetching messages:', error);
     }

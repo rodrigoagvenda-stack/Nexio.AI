@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
@@ -49,6 +49,7 @@ export function LeadInfoSidebar({
   const [copiedResumo, setCopiedResumo] = useState(false);
   const [editingProjectValue, setEditingProjectValue] = useState<string>('');
   const [hasProjectValueChanged, setHasProjectValueChanged] = useState(false);
+  const [activeTab, setActiveTab] = useState('dados'); // 🚀 Performance: Track active tab
 
   async function handleFieldUpdate(field: string, value: any) {
     setUpdating(true);
@@ -87,7 +88,7 @@ export function LeadInfoSidebar({
           <CardHeader className="border-b flex-shrink-0">
             <CardTitle className="text-base">Informações do Lead</CardTitle>
           </CardHeader>
-          <Tabs defaultValue="dados" className="flex-1 flex flex-col overflow-hidden">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
             <TabsList className="w-full justify-start px-4 pt-2">
               <TabsTrigger value="dados" className="text-xs">Dados</TabsTrigger>
               <TabsTrigger value="notas" className="text-xs">
