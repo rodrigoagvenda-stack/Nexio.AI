@@ -159,7 +159,14 @@ export default function AtendimentoPage() {
       )
       .subscribe();
 
-    // Marcar como lido
+    // Marcar como lido (UI Otimista + Backend)
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === selectedConversation.id
+          ? { ...conv, contagem_nao_lida: 0 }
+          : conv
+      )
+    );
     markAsRead(selectedConversation.id);
 
     return () => {
