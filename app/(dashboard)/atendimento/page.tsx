@@ -853,7 +853,7 @@ export default function AtendimentoPage() {
                 className="rounded-lg max-h-96 max-w-md object-contain"
                 loading="lazy"
               />
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && (
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && msg.texto_da_mensagem !== '[Imagem]' && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}
             </div>
@@ -869,7 +869,7 @@ export default function AtendimentoPage() {
               >
                 Seu navegador não suporta vídeo.
               </video>
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎥') && (
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎥') && msg.texto_da_mensagem !== '[Vídeo]' && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}
             </div>
@@ -882,7 +882,7 @@ export default function AtendimentoPage() {
                 src={msg.url_da_midia}
                 isOutbound={msg.direcao === 'outbound'}
               />
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎵') && (
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎵') && msg.texto_da_mensagem !== '[Áudio]' && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}
             </div>
@@ -905,7 +905,7 @@ export default function AtendimentoPage() {
                 </div>
                 <Download className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               </a>
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📄') && (
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📄') && msg.texto_da_mensagem !== '[Documento]' && msg.texto_da_mensagem !== '[PDF]' && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}
             </div>
