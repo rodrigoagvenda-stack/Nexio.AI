@@ -187,7 +187,14 @@ export default function Orb({
     const container = ctnDom.current;
     if (!container) return;
 
-    const renderer = new Renderer({ alpha: true, premultipliedAlpha: false });
+    // 🚀 Performance: Reduzir devicePixelRatio para melhorar performance
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    const renderer = new Renderer({
+      alpha: true,
+      premultipliedAlpha: false,
+      dpr: dpr
+    });
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
     container.appendChild(gl.canvas);
@@ -255,8 +262,20 @@ export default function Orb({
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mouseleave', handleMouseLeave);
 
+    // 🚀 Performance: Pausar animação quando página não está visível
+    let isVisible = !document.hidden;
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (isVisible) {
+        lastTime = performance.now();
+        rafId = requestAnimationFrame(update);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     let rafId;
     const update = t => {
+      if (!isVisible) return;
       rafId = requestAnimationFrame(update);
       const dt = (t - lastTime) * 0.001;
       lastTime = t;
@@ -280,13 +299,16 @@ export default function Orb({
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', resize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseleave', handleMouseLeave);
-      container.removeChild(gl.canvas);
+      if (container.contains(gl.canvas)) {
+        container.removeChild(gl.canvas);
+      }
       gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hue, hoverIntensity, rotateOnHover, forceHoverState, backgroundColor]);
+  }, []); // 🚀 Performance: Remove dependencies to avoid recreating WebGL context
 
   return <div ref={ctnDom} className="orb-container" />;
 }
