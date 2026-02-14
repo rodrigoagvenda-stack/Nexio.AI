@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import {
   TrendingUp,
   PieChart,
@@ -68,26 +68,29 @@ export const Sidebar = memo(function Sidebar({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [crmExpanded, setCrmExpanded] = useState(false);
-  const [currentView, setCurrentView] = useState('table');
 
-  // 🚀 Performance: Atualizar CRM expanded state apenas quando pathname muda
-  useEffect(() => {
-    if (pathname === '/crm' || pathname.startsWith('/crm/')) {
-      setCrmExpanded(true);
-      const params = new URLSearchParams(window.location.search);
-      setCurrentView(params.get('view') || 'table');
-    }
-  }, [pathname]);
+  // 🚀 Performance: Computar estados derivados diretamente do pathname (sem state extra)
+  const isCrmRoute = useMemo(() =>
+    pathname === '/crm' || pathname.startsWith('/crm/'),
+    [pathname]
+  );
 
-  const allLinks: NavLink[] = [
+  const currentView = useMemo(() => {
+    if (!isCrmRoute) return 'table';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view') || 'table';
+  }, [isCrmRoute]);
+
+  // 🚀 Performance: Memoizar array de links
+  const allLinks = useMemo<NavLink[]>(() => [
     ...links,
     ...(isAdmin
       ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }]
       : []),
-  ];
+  ], [isAdmin]);
 
-  async function handleLogout() {
+  // 🚀 Performance: Memoizar função de logout
+  const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
       const supabase = createClient();
@@ -104,7 +107,7 @@ export const Sidebar = memo(function Sidebar({
       });
       setIsLoggingOut(false);
     }
-  }
+  }, [router]);
 
   return (
     <>
@@ -138,13 +141,12 @@ export const Sidebar = memo(function Sidebar({
               return (
                 <div key={link.href}>
                   {/* CRM parent button */}
-                  <button
-                    onClick={() => {
-                      if (isCollapsed) {
-                        router.push(link.href);
-                        return;
+                  <Link
+                    href={isCollapsed ? link.href : '#'}
+                    onClick={(e) => {
+                      if (!isCollapsed) {
+                        e.preventDefault();
                       }
-                      setCrmExpanded(!crmExpanded);
                     }}
                     className={cn(
                       'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
@@ -162,15 +164,15 @@ export const Sidebar = memo(function Sidebar({
                         <ChevronDown
                           className={cn(
                             'h-4 w-4 transition-transform duration-200',
-                            crmExpanded && 'rotate-180'
+                            isCrmRoute && 'rotate-180'
                           )}
                         />
                       </>
                     )}
-                  </button>
+                  </Link>
 
                   {/* Sub-items */}
-                  {!isCollapsed && crmExpanded && (
+                  {!isCollapsed && isCrmRoute && (
                     <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
                       {link.children!.map((child) => {
                         const ChildIcon = child.icon;
