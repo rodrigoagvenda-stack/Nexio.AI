@@ -69,6 +69,7 @@ export const Sidebar = memo(function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [crmExpanded, setCrmExpanded] = useState(false);
+  const [currentView, setCurrentView] = useState<'table' | 'kanban'>('table');
 
   // 🚀 Performance: Computar se está na rota CRM
   const isCrmRoute = useMemo(() =>
@@ -76,19 +77,35 @@ export const Sidebar = memo(function Sidebar({
     [pathname]
   );
 
-  // 🚀 Auto-expandir CRM quando estiver na rota
+  // 🚀 Auto-expandir CRM e atualizar view quando estiver na rota
   useEffect(() => {
     if (isCrmRoute) {
       setCrmExpanded(true);
+      // Atualizar currentView baseado na URL
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+        setCurrentView(view === 'kanban' ? 'kanban' : 'table');
+      }
     }
-  }, [isCrmRoute]);
+  }, [isCrmRoute, pathname]); // Adiciona pathname para reagir a mudanças de URL
 
-  // Computar currentView diretamente sem useMemo problemático
-  const getCurrentView = () => {
-    if (typeof window === 'undefined' || !isCrmRoute) return 'table';
-    const params = new URLSearchParams(window.location.search);
-    return params.get('view') || 'table';
-  };
+  // Verificar mudanças na URL a cada intervalo (fallback para navegação do sidebar)
+  useEffect(() => {
+    if (!isCrmRoute) return;
+
+    const checkUrlChange = () => {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+        const newView = view === 'kanban' ? 'kanban' : 'table';
+        setCurrentView(newView);
+      }
+    };
+
+    const interval = setInterval(checkUrlChange, 100);
+    return () => clearInterval(interval);
+  }, [isCrmRoute]);
 
   // 🚀 Performance: Memoizar array de links
   const allLinks = useMemo<NavLink[]>(() => [
@@ -187,7 +204,7 @@ export const Sidebar = memo(function Sidebar({
                       {link.children!.map((child) => {
                         const ChildIcon = child.icon;
                         const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
-                        const isChildActive = pathname === '/crm' && getCurrentView() === childView;
+                        const isChildActive = pathname === '/crm' && currentView === childView;
                         return (
                           <Link
                             key={child.href}
