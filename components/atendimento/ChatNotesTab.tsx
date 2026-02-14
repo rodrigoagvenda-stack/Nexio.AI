@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Pin, Trash2, Edit2, Save, X } from 'lucide-react';
+import { Pin, Trash2, Edit2, Save, X, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateTime } from '@/lib/utils/format';
 import type { ChatNote } from '@/types/database.types';
@@ -14,9 +14,10 @@ interface ChatNotesTabProps {
   leadId: number;
   companyId: number;
   userId: string;
+  aiSummary?: string | null;
 }
 
-export function ChatNotesTab({ leadId, companyId, userId }: ChatNotesTabProps) {
+export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotesTabProps) {
   const [notes, setNotes] = useState<ChatNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
@@ -146,6 +147,27 @@ export function ChatNotesTab({ leadId, companyId, userId }: ChatNotesTabProps) {
 
   return (
     <div className="space-y-4">
+      {/* Resumo da IA */}
+      {aiSummary && (
+        <>
+          <div className="relative p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                Resumo da IA
+              </h3>
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Auto-gerado
+              </Badge>
+            </div>
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+              {aiSummary}
+            </p>
+          </div>
+          <Separator />
+        </>
+      )}
+
       {/* Nova Nota */}
       <div className="space-y-2">
         <Textarea

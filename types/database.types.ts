@@ -104,6 +104,7 @@ export interface Lead {
   cargo?: Cargo;
   project_value?: number;
   notes?: string;
+  resumo_ia?: string;
   created_at: string;
   updated_at: string;
 }
