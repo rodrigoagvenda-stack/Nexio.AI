@@ -66,20 +66,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
 
   return (
     <>
-      <style jsx>{`
-        @keyframes audioPulse {
-          0%, 100% {
-            transform: scaleY(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scaleY(1.3);
-            opacity: 0.9;
-          }
-        }
-      `}</style>
-
-      <div className="flex items-center gap-2 w-full">
+    <div className="flex items-center gap-2 w-full">
         <audio ref={audioRef} src={src} preload="metadata" />
 
       {/* Play/Pause Button */}
@@ -108,12 +95,15 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
           {[...Array(40)].map((_, i) => {
             const isActive = (i / 40) * 100 <= progress;
             const heights = [8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 12, 8];
-            const height = heights[i];
+            const baseHeight = heights[i];
+            const animatedHeight = isPlaying && isActive
+              ? baseHeight * (1 + 0.3 * Math.sin((currentTime * 4 + i * 0.5)))
+              : baseHeight;
 
             return (
               <div
                 key={i}
-                className={`w-[3px] rounded-full transition-all ${
+                className={`w-[3px] rounded-full transition-[height] duration-150 ${
                   isActive
                     ? isOutbound
                       ? 'bg-white'
@@ -123,10 +113,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
                       : 'bg-gray-400'
                 }`}
                 style={{
-                  height: `${height}px`,
-                  animation: isPlaying && isActive
-                    ? `audioPulse ${0.8 + (i % 3) * 0.2}s ease-in-out infinite`
-                    : 'none'
+                  height: `${animatedHeight}px`,
                 }}
               />
             );
@@ -141,6 +128,5 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
         {formatTime(currentTime || duration)}
       </span>
       </div>
-    </>
   );
 }
