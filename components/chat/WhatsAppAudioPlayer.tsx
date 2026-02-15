@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -14,6 +14,40 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
   const [playbackTime, setPlaybackTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Sanitiza a URL removendo prefixo '=' do n8n e espaços
+  const audioSrc = useMemo(() => {
+    let cleanUrl = (src || '').trim();
+    if (cleanUrl.startsWith('=')) {
+      cleanUrl = cleanUrl.substring(1);
+    }
+    console.log('[AudioPlayer] URL original:', src, '| URL limpa:', cleanUrl);
+    return cleanUrl;
+  }, [src]);
+
+  // Fallback: tenta extensões alternativas se a URL original falhar
+  const triedExtensions = useRef<Set<string>>(new Set());
+
+  const handleAudioError = () => {
+    if (!audioSrc) return;
+    const extensions = ['.webm', '.mp3', '.ogg'];
+    const currentSrc = audioRef.current?.src || audioSrc;
+    const currentExt = extensions.find(ext => currentSrc.endsWith(ext));
+    if (!currentExt) return;
+
+    triedExtensions.current.add(currentExt);
+    const baseUrl = currentSrc.slice(0, -currentExt.length);
+
+    for (const ext of extensions) {
+      if (!triedExtensions.current.has(ext)) {
+        console.log('[AudioPlayer] Tentando extensão alternativa:', ext);
+        if (audioRef.current) {
+          audioRef.current.src = baseUrl + ext;
+        }
+        return;
+      }
+    }
+  };
 
   const togglePlay = async () => {
     if (!audioRef.current) return;
@@ -44,7 +78,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
     <div className="flex items-center gap-2 w-full">
       <audio
         ref={audioRef}
-        src={src}
+        src={audioSrc}
         preload="auto"
         onLoadedMetadata={(e) => {
           const audio = e.currentTarget;
@@ -61,6 +95,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
         onTimeUpdate={(e) => {
           setPlaybackTime(Math.floor(e.currentTarget.currentTime));
         }}
+        onError={handleAudioError}
         onEnded={() => {
           setIsPlaying(false);
           setPlaybackTime(0);
