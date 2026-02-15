@@ -65,7 +65,6 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <>
     <div className="flex items-center gap-2 w-full">
         <audio ref={audioRef} src={src} preload="metadata" />
 
