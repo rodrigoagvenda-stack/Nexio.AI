@@ -44,8 +44,8 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
     <div className="flex items-center gap-2 w-full">
       <audio
         ref={audioRef}
+        src={src}
         preload="auto"
-        crossOrigin="anonymous"
         onLoadedMetadata={(e) => {
           const audio = e.currentTarget;
           if (audio.duration && isFinite(audio.duration)) {
@@ -65,14 +65,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
           setIsPlaying(false);
           setPlaybackTime(0);
         }}
-        onError={(e) => {
-          console.error('[AudioPlayer] Erro ao carregar audio:', e.currentTarget.error);
-        }}
-      >
-        <source src={src} type="audio/webm;codecs=opus" />
-        <source src={src} type="audio/webm" />
-        <source src={src} type="audio/ogg;codecs=opus" />
-      </audio>
+      />
 
       {/* Play/Pause Button */}
       <Button
