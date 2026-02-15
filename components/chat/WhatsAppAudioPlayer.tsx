@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -11,80 +11,19 @@ interface WhatsAppAudioPlayerProps {
 
 export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [playbackTime, setPlaybackTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [animTick, setAnimTick] = useState(0);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const rafRef = useRef<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Animation loop using requestAnimationFrame for smooth updates
-  const animate = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio && !audio.paused) {
-      setCurrentTime(audio.currentTime);
-      setAnimTick(prev => prev + 1);
-      rafRef.current = requestAnimationFrame(animate);
-    }
-  }, []);
+  const togglePlay = () => {
+    if (!audioRef.current) return;
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
-    };
-
-    const handleDurationChange = () => {
-      if (audio.duration && isFinite(audio.duration)) {
-        setDuration(audio.duration);
-      }
-    };
-
-    const handlePlay = () => {
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
       setIsPlaying(true);
-      rafRef.current = requestAnimationFrame(animate);
-    };
-
-    const handlePause = () => {
-      setIsPlaying(false);
-      cancelAnimationFrame(rafRef.current);
-    };
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-      cancelAnimationFrame(rafRef.current);
-    };
-
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('durationchange', handleDurationChange);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('ended', handleEnded);
-
-    return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('durationchange', handleDurationChange);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('ended', handleEnded);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [animate]);
-
-  const togglePlay = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    try {
-      if (isPlaying) {
-        audio.pause();
-      } else {
-        await audio.play();
-      }
-    } catch (err) {
-      console.warn('[AudioPlayer] Play failed:', err);
     }
   };
 
@@ -95,11 +34,34 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const progress = duration > 0 ? (playbackTime / duration) * 100 : 0;
 
   return (
     <div className="flex items-center gap-2 w-full">
-        <audio ref={audioRef} src={src} preload="auto" />
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="auto"
+        onLoadedMetadata={(e) => {
+          const audio = e.currentTarget;
+          if (audio.duration && isFinite(audio.duration)) {
+            setDuration(audio.duration);
+          }
+        }}
+        onDurationChange={(e) => {
+          const audio = e.currentTarget;
+          if (audio.duration && isFinite(audio.duration)) {
+            setDuration(audio.duration);
+          }
+        }}
+        onTimeUpdate={(e) => {
+          setPlaybackTime(Math.floor(e.currentTarget.currentTime));
+        }}
+        onEnded={() => {
+          setIsPlaying(false);
+          setPlaybackTime(0);
+        }}
+      />
 
       {/* Play/Pause Button */}
       <Button
@@ -122,20 +84,15 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
 
       {/* Waveform / Progress Container */}
       <div className="flex-1 flex flex-col gap-1">
-        {/* Waveform bars */}
         <div className="flex items-center gap-[2px] h-8">
           {[...Array(40)].map((_, i) => {
-            const isActive = (i / 40) * 100 <= progress;
             const heights = [8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 12, 8];
-            const baseHeight = heights[i];
-            const animatedHeight = isPlaying && isActive
-              ? baseHeight * (1 + 0.3 * Math.sin((animTick * 0.08 + i * 0.7)))
-              : baseHeight;
+            const isActive = (i / 40) * 100 <= progress;
 
             return (
               <div
                 key={i}
-                className={`w-[3px] rounded-full transition-[height] duration-150 ${
+                className={`w-[3px] rounded-full transition-colors ${
                   isActive
                     ? isOutbound
                       ? 'bg-white'
@@ -145,7 +102,10 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
                       : 'bg-gray-400'
                 }`}
                 style={{
-                  height: `${animatedHeight}px`,
+                  height: `${heights[i]}px`,
+                  animation: isPlaying && isActive
+                    ? `audioPulse ${0.8 + (i % 3) * 0.2}s ease-in-out infinite`
+                    : 'none'
                 }}
               />
             );
@@ -157,8 +117,21 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
       <span className={`text-xs tabular-nums flex-shrink-0 ${
         isOutbound ? 'opacity-80' : 'text-muted-foreground'
       }`}>
-        {formatTime(currentTime || duration)}
+        {formatTime(isPlaying ? playbackTime : duration)}
       </span>
-      </div>
+
+      <style jsx>{`
+        @keyframes audioPulse {
+          0%, 100% {
+            transform: scaleY(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scaleY(1.3);
+            opacity: 0.9;
+          }
+        }
+      `}</style>
+    </div>
   );
 }
