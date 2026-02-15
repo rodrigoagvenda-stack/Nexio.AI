@@ -15,15 +15,19 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!audioRef.current) return;
 
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.error('[AudioPlayer] Erro ao reproduzir:', err);
+      }
     }
   };
 
@@ -40,8 +44,8 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
     <div className="flex items-center gap-2 w-full">
       <audio
         ref={audioRef}
-        src={src}
         preload="auto"
+        crossOrigin="anonymous"
         onLoadedMetadata={(e) => {
           const audio = e.currentTarget;
           if (audio.duration && isFinite(audio.duration)) {
@@ -61,7 +65,14 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
           setIsPlaying(false);
           setPlaybackTime(0);
         }}
-      />
+        onError={(e) => {
+          console.error('[AudioPlayer] Erro ao carregar audio:', e.currentTarget.error);
+        }}
+      >
+        <source src={src} type="audio/webm;codecs=opus" />
+        <source src={src} type="audio/webm" />
+        <source src={src} type="audio/ogg;codecs=opus" />
+      </audio>
 
       {/* Play/Pause Button */}
       <Button
