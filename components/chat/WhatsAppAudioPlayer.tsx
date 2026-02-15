@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -13,7 +13,19 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [animTick, setAnimTick] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const rafRef = useRef<number>(0);
+
+  // Animation loop using requestAnimationFrame for smooth updates
+  const animate = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      setCurrentTime(audio.currentTime);
+      setAnimTick(prev => prev + 1);
+      rafRef.current = requestAnimationFrame(animate);
+    }
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -23,36 +35,57 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
       setDuration(audio.duration);
     };
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
+    const handleDurationChange = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
+
+    const handlePlay = () => {
+      setIsPlaying(true);
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    const handlePause = () => {
+      setIsPlaying(false);
+      cancelAnimationFrame(rafRef.current);
     };
 
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      cancelAnimationFrame(rafRef.current);
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('durationchange', handleDurationChange);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('durationchange', handleDurationChange);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('ended', handleEnded);
+      cancelAnimationFrame(rafRef.current);
     };
-  }, []);
+  }, [animate]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play();
+    try {
+      if (isPlaying) {
+        audio.pause();
+      } else {
+        await audio.play();
+      }
+    } catch (err) {
+      console.warn('[AudioPlayer] Play failed:', err);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const formatTime = (seconds: number) => {
@@ -66,7 +99,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
 
   return (
     <div className="flex items-center gap-2 w-full">
-        <audio ref={audioRef} src={src} preload="metadata" />
+        <audio ref={audioRef} src={src} preload="auto" />
 
       {/* Play/Pause Button */}
       <Button
@@ -96,7 +129,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
             const heights = [8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 20, 24, 20, 16, 12, 8, 12, 16, 20, 16, 12, 8, 12, 16, 12, 8];
             const baseHeight = heights[i];
             const animatedHeight = isPlaying && isActive
-              ? baseHeight * (1 + 0.3 * Math.sin((currentTime * 4 + i * 0.5)))
+              ? baseHeight * (1 + 0.3 * Math.sin((animTick * 0.08 + i * 0.7)))
               : baseHeight;
 
             return (
