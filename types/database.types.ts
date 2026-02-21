@@ -15,6 +15,8 @@ export interface Company {
   last_extraction_month?: string;
   whatsapp_instance?: string;
   whatsapp_token?: string;
+  webhook_maps_url?: string;
+  webhook_whatsapp_url?: string;
   is_active: boolean;
   subscription_expires_at?: string;
   created_at: string;

@@ -1,0 +1,128 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+
+// GET: Buscar config + perguntas da empresa pelo slug (para renderizar o formulário público)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { slug: string } }
+) {
+  try {
+    const supabase = await createClient();
+
+    const { data: config, error: configError } = await supabase
+      .from('briefing_company_config')
+      .select('id, company_id, slug, is_active, primary_color, logo_url, title, description')
+      .eq('slug', params.slug)
+      .eq('is_active', true)
+      .single();
+
+    if (configError || !config) {
+      return NextResponse.json(
+        { success: false, message: 'Briefing não encontrado ou inativo' },
+        { status: 404 }
+      );
+    }
+
+    const { data: questions, error: questionsError } = await supabase
+      .from('briefing_questions')
+      .select('id, label, field_key, question_type, options, is_required, order_index')
+      .eq('company_id', config.company_id)
+      .order('order_index', { ascending: true });
+
+    if (questionsError) throw questionsError;
+
+    return NextResponse.json({
+      success: true,
+      data: { config, questions: questions || [] },
+    });
+  } catch (error: any) {
+    console.error('Error fetching briefing:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || 'Erro ao carregar briefing' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST: Receber respostas do briefing
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { slug: string } }
+) {
+  try {
+    const supabase = await createClient();
+    const body = await request.json();
+    const { answers } = body;
+
+    if (!answers || typeof answers !== 'object') {
+      return NextResponse.json(
+        { success: false, message: 'Respostas inválidas' },
+        { status: 400 }
+      );
+    }
+
+    // Buscar config da empresa
+    const { data: config, error: configError } = await supabase
+      .from('briefing_company_config')
+      .select('id, company_id, webhook_url, is_active')
+      .eq('slug', params.slug)
+      .eq('is_active', true)
+      .single();
+
+    if (configError || !config) {
+      return NextResponse.json(
+        { success: false, message: 'Briefing não encontrado ou inativo' },
+        { status: 404 }
+      );
+    }
+
+    // Salvar resposta
+    const { data: response, error: responseError } = await supabase
+      .from('briefing_responses')
+      .insert({
+        company_id: config.company_id,
+        answers,
+        submitted_at: new Date().toISOString(),
+        webhook_sent: false,
+      })
+      .select()
+      .single();
+
+    if (responseError) throw responseError;
+
+    // Disparar webhook em background (se configurado)
+    if (config.webhook_url) {
+      fetch(config.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          briefing_response_id: response.id,
+          company_id: config.company_id,
+          slug: params.slug,
+          answers,
+          submitted_at: response.submitted_at,
+        }),
+      })
+        .then(async (res) => {
+          await supabase
+            .from('briefing_responses')
+            .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
+            .eq('id', response.id);
+        })
+        .catch((err) => {
+          console.error('[Briefing] Erro ao disparar webhook:', err);
+        });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Briefing enviado com sucesso!',
+    });
+  } catch (error: any) {
+    console.error('Error submitting briefing:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || 'Erro ao enviar briefing' },
+      { status: 500 }
+    );
+  }
+}

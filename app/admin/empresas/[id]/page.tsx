@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
+import { BriefingCompanyConfig } from '@/components/admin/BriefingCompanyConfig';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -496,14 +497,14 @@ export default function EmpresaDetailPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4">
               <div className="space-y-2">
-                <Label htmlFor="whatsapp_instance">Nome da Instância</Label>
+                <Label htmlFor="whatsapp_instance">URL da Instância</Label>
                 <Input
                   id="whatsapp_instance"
                   value={company.whatsapp_instance || ''}
                   onChange={(e) =>
                     setCompany({ ...company, whatsapp_instance: e.target.value })
                   }
-                  placeholder="Ex: minha-empresa"
+                  placeholder="https://empresa.uazapi.com"
                 />
               </div>
 
@@ -522,6 +523,33 @@ export default function EmpresaDetailPage() {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Webhooks N8N</CardTitle>
+          <CardDescription>Automações exclusivas desta empresa</CardDescription>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="webhook_maps_url">Webhook Extração de Leads (Maps)</Label>
+            <Input
+              id="webhook_maps_url"
+              value={company.webhook_maps_url || ''}
+              onChange={(e) => setCompany({ ...company, webhook_maps_url: e.target.value })}
+              placeholder="https://n8n.empresa.com/webhook/extrair-leads"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="webhook_whatsapp_url">Webhook Envio WhatsApp</Label>
+            <Input
+              id="webhook_whatsapp_url"
+              value={company.webhook_whatsapp_url || ''}
+              onChange={(e) => setCompany({ ...company, webhook_whatsapp_url: e.target.value })}
+              placeholder="https://n8n.empresa.com/webhook/send-manual-message"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={saving}>
           {saving ? (
@@ -534,6 +562,14 @@ export default function EmpresaDetailPage() {
           )}
         </Button>
       </div>
+
+      {/* Briefing multi-tenant */}
+      {company && (
+        <BriefingCompanyConfig
+          companyId={company.id}
+          companyName={company.name}
+        />
+      )}
     </div>
   );
 }

@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, phone, plan_type, whatsapp_instance, whatsapp_token } = body;
+    const { name, email, phone, plan_type, whatsapp_instance, whatsapp_token, webhook_maps_url, webhook_whatsapp_url } = body;
 
     if (!name || !email || !plan_type) {
       return NextResponse.json(
@@ -127,6 +127,8 @@ export async function POST(request: NextRequest) {
           plan_type,
           whatsapp_instance,
           whatsapp_token,
+          webhook_maps_url: webhook_maps_url || null,
+          webhook_whatsapp_url: webhook_whatsapp_url || null,
           is_active: true,
         },
       ])

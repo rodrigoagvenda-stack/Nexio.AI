@@ -21,6 +21,8 @@ export default function NovaEmpresaPage() {
     plan_type: 'basic' as 'basic' | 'performance' | 'advanced',
     whatsapp_instance: '',
     whatsapp_token: '',
+    webhook_maps_url: '',
+    webhook_whatsapp_url: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,6 +38,8 @@ export default function NovaEmpresaPage() {
         plan_type: formData.plan_type,
         whatsapp_instance: formData.whatsapp_instance || null,
         whatsapp_token: formData.whatsapp_token || null,
+        webhook_maps_url: formData.webhook_maps_url || null,
+        webhook_whatsapp_url: formData.webhook_whatsapp_url || null,
       };
 
       const response = await fetch('/api/admin/companies', {
@@ -166,14 +170,14 @@ export default function NovaEmpresaPage() {
               <h3 className="font-semibold">WhatsApp (UAZap)</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="whatsapp_instance">Nome da Instância</Label>
+                <Label htmlFor="whatsapp_instance">URL da Instância</Label>
                 <Input
                   id="whatsapp_instance"
                   value={formData.whatsapp_instance}
                   onChange={(e) =>
                     setFormData({ ...formData, whatsapp_instance: e.target.value })
                   }
-                  placeholder="vendai-instance"
+                  placeholder="https://empresa.uazapi.com"
                 />
               </div>
 
@@ -186,6 +190,35 @@ export default function NovaEmpresaPage() {
                     setFormData({ ...formData, whatsapp_token: e.target.value })
                   }
                   placeholder="abc123xyz"
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-semibold">Webhooks N8N</h3>
+              <p className="text-xs text-muted-foreground">Configurações de automação exclusivas desta empresa</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="webhook_maps_url">Webhook Extração de Leads (Maps)</Label>
+                <Input
+                  id="webhook_maps_url"
+                  value={formData.webhook_maps_url}
+                  onChange={(e) =>
+                    setFormData({ ...formData, webhook_maps_url: e.target.value })
+                  }
+                  placeholder="https://n8n.empresa.com/webhook/extrair-leads"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="webhook_whatsapp_url">Webhook Envio WhatsApp</Label>
+                <Input
+                  id="webhook_whatsapp_url"
+                  value={formData.webhook_whatsapp_url}
+                  onChange={(e) =>
+                    setFormData({ ...formData, webhook_whatsapp_url: e.target.value })
+                  }
+                  placeholder="https://n8n.empresa.com/webhook/send-manual-message"
                 />
               </div>
             </div>

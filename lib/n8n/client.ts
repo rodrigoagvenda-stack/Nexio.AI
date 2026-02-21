@@ -14,49 +14,28 @@ export async function extractLeadsFromMaps(
   try {
     console.log('[Maps] Iniciando extração para company_id:', companyId);
 
-    // Buscar configuração do webhook do banco de dados
+    // Buscar webhook_maps_url direto da empresa
     const supabase = await createClient();
-    console.log('[Maps] Supabase client criado');
 
-    const { data: webhookConfig, error: configError } = await supabase
-      .from('n8n_webhook_config')
-      .select('*')
-      .eq('webhook_type', 'maps')
-      .eq('is_active', true)
+    const { data: companyData, error: companyError } = await supabase
+      .from('companies')
+      .select('webhook_maps_url')
+      .eq('id', companyId)
       .single();
 
-    console.log('[Maps] Webhook config:', webhookConfig);
-    console.log('[Maps] Config error:', configError);
-
-    if (configError || !webhookConfig) {
-      throw new Error('Webhook Maps não configurado. Configure em Admin > Webhooks & APIs.');
+    if (companyError || !companyData?.webhook_maps_url) {
+      throw new Error('Webhook Maps não configurado para esta empresa. Configure em Admin > Empresas.');
     }
 
-    console.log('[Maps] Webhook URL:', webhookConfig.webhook_url);
-    console.log('[Maps] Auth type:', webhookConfig.auth_type);
+    const webhookUrl = companyData.webhook_maps_url;
+    console.log('[Maps] Webhook URL:', webhookUrl);
 
-    // Criar headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    // Adicionar autenticação baseada no tipo
-    if (webhookConfig.auth_type === 'basic' && webhookConfig.auth_username && webhookConfig.auth_password) {
-      const basicAuth = Buffer.from(
-        `${webhookConfig.auth_username}:${webhookConfig.auth_password}`
-      ).toString('base64');
-      headers['Authorization'] = `Basic ${basicAuth}`;
-      console.log('[Maps] Basic Auth configurado');
-    } else if (webhookConfig.auth_type === 'bearer' && webhookConfig.auth_token) {
-      headers['Authorization'] = `Bearer ${webhookConfig.auth_token}`;
-      console.log('[Maps] Bearer Auth configurado');
-    } else if (webhookConfig.auth_token) {
-      headers['x-webhook-secret'] = webhookConfig.auth_token;
-      console.log('[Maps] Webhook secret configurado');
-    }
-
     console.log('[Maps] Enviando requisição para n8n...');
-    const response = await fetch(webhookConfig.webhook_url, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -238,20 +217,19 @@ export async function sendWhatsAppMessage(
   }
 ): Promise<N8NResponse> {
   try {
-    // Se a config não foi passada, buscar do banco (fallback para chamadas legadas)
+    // Se a config não foi passada, buscar webhook_whatsapp_url da empresa
     if (!webhookConfig) {
       const supabase = await createClient();
-      const { data, error } = await supabase
-        .from('n8n_webhook_config')
-        .select('webhook_url, auth_type, auth_username, auth_password, auth_token')
-        .eq('webhook_type', 'whatsapp')
-        .eq('is_active', true)
+      const { data: companyData, error } = await supabase
+        .from('companies')
+        .select('webhook_whatsapp_url')
+        .eq('id', payload.company_id)
         .single();
 
-      if (error || !data?.webhook_url) {
-        throw new Error('Webhook WhatsApp não configurado. Configure em Admin > Webhooks & APIs.');
+      if (error || !companyData?.webhook_whatsapp_url) {
+        throw new Error('Webhook WhatsApp não configurado para esta empresa. Configure em Admin > Empresas.');
       }
-      webhookConfig = data;
+      webhookConfig = { webhook_url: companyData.webhook_whatsapp_url };
     }
 
     // Criar headers

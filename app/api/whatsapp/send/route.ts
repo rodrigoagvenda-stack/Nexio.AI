@@ -31,11 +31,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // 1. Paralelizar queries iniciais (conversa + company + webhook config)
+    // 1. Buscar conversa + empresa em paralelo (webhook agora fica na empresa)
     const [
       { data: conversation, error: convCheckError },
       { data: company, error: companyError },
-      { data: webhookConfig, error: webhookError }
     ] = await Promise.all([
       supabase
         .from('conversas_do_whatsapp')
@@ -45,15 +44,9 @@ export async function POST(request: NextRequest) {
         .single(),
       supabase
         .from('companies')
-        .select('whatsapp_instance, whatsapp_token')
+        .select('whatsapp_instance, whatsapp_token, webhook_whatsapp_url')
         .eq('id', companyId)
         .single(),
-      supabase
-        .from('n8n_webhook_config')
-        .select('webhook_url, auth_type, auth_username, auth_password, auth_token')
-        .eq('webhook_type', 'whatsapp')
-        .eq('is_active', true)
-        .single()
     ]);
 
     // Validações de segurança
@@ -71,9 +64,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (webhookError || !webhookConfig?.webhook_url) {
+    if (!company.webhook_whatsapp_url) {
       return NextResponse.json(
-        { success: false, message: 'Webhook WhatsApp não configurado. Configure em Admin > Webhooks & APIs.' },
+        { success: false, message: 'Webhook WhatsApp não configurado para esta empresa. Configure em Admin > Empresas.' },
         { status: 400 }
       );
     }
@@ -137,7 +130,7 @@ export async function POST(request: NextRequest) {
         lead_id: leadId ? leadId.toString() : '',
         message_id: savedMessage.id?.toString() || '',
       },
-      webhookConfig
+      { webhook_url: company.webhook_whatsapp_url }
     ).catch((err) => {
       console.error('Error sending via n8n (background):', err);
     });
