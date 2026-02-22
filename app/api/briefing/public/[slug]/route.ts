@@ -90,28 +90,33 @@ export async function POST(
 
     if (responseError) throw responseError;
 
-    // Disparar webhook em background (se configurado)
+    // Disparar webhook (aguardado antes de retornar — evita corte em serverless)
     if (config.webhook_url) {
-      fetch(config.webhook_url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          briefing_response_id: response.id,
-          company_id: config.company_id,
-          slug: params.slug,
-          answers,
-          submitted_at: response.submitted_at,
-        }),
-      })
-        .then(async (res) => {
-          await supabase
-            .from('briefing_mt_responses')
-            .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
-            .eq('id', response.id);
-        })
-        .catch((err) => {
-          console.error('[Briefing] Erro ao disparar webhook:', err);
-        });
+      try {
+        const webhookRes = await Promise.race([
+          fetch(config.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              briefing_response_id: response.id,
+              company_id: config.company_id,
+              slug: params.slug,
+              answers,
+              submitted_at: response.submitted_at,
+            }),
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('webhook timeout')), 8000)
+          ),
+        ]);
+        await supabase
+          .from('briefing_mt_responses')
+          .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
+          .eq('id', response.id);
+        console.log('[Briefing] Webhook disparado, status:', (webhookRes as Response).status);
+      } catch (err) {
+        console.error('[Briefing] Erro ao disparar webhook:', err);
+      }
     }
 
     return NextResponse.json({
