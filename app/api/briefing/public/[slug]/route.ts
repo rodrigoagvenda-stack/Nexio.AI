@@ -64,7 +64,7 @@ export async function POST(
     // Buscar config da empresa
     const { data: config, error: configError } = await supabase
       .from('briefing_company_config')
-      .select('id, company_id, webhook_url, is_active')
+      .select('id, company_id, is_active')
       .eq('slug', params.slug)
       .eq('is_active', true)
       .single();
@@ -75,6 +75,15 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    // Buscar webhook_whatsapp_url da empresa
+    const { data: company } = await supabase
+      .from('companies')
+      .select('webhook_whatsapp_url')
+      .eq('id', config.company_id)
+      .single();
+
+    const webhookUrl = company?.webhook_whatsapp_url || null;
 
     // Salvar resposta
     const { data: response, error: responseError } = await supabase
@@ -91,10 +100,10 @@ export async function POST(
     if (responseError) throw responseError;
 
     // Disparar webhook (aguardado antes de retornar — evita corte em serverless)
-    if (config.webhook_url) {
+    if (webhookUrl) {
       try {
         const webhookRes = await Promise.race([
-          fetch(config.webhook_url, {
+          fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
