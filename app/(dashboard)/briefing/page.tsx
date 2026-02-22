@@ -369,7 +369,7 @@ export default function BriefingPage() {
 
               {questions.map((q) => (
                 <div key={q.id} className="border rounded-lg p-3">
-                  {editingQuestion?.id === q.id ? (
+                  {editingQuestion !== null && editingQuestion.id === q.id ? (
                     <div className="space-y-3">
                       <div className="grid md:grid-cols-2 gap-3">
                         <div className="space-y-1">
