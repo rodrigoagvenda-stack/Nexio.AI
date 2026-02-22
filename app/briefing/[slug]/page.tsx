@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ArrowRight, Loader2, Check } from 'lucide-react';
 
 interface BriefingConfig {
@@ -206,7 +205,7 @@ export default function BriefingPublicPage() {
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
         <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url && (
-            <img src={config.logo_url} alt="Logo" className="h-12 object-contain mx-auto" />
+            <img src={config.logo_url} alt="Logo" className="h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '240px' }} />
           )}
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
@@ -227,7 +226,7 @@ export default function BriefingPublicPage() {
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
         <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url && (
-            <img src={config.logo_url} alt="Logo" className="h-12 object-contain mx-auto" />
+            <img src={config.logo_url} alt="Logo" className="h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '240px' }} />
           )}
           <p className="text-5xl">😕</p>
           <h1 className="text-3xl font-semibold">Algo deu errado</h1>
@@ -250,7 +249,7 @@ export default function BriefingPublicPage() {
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
         <div className={`max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url ? (
-            <img src={config.logo_url} alt="Logo" className="h-14 object-contain mx-auto" />
+            <img src={config.logo_url} alt="Logo" className="h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '240px' }} />
           ) : (
             <div className="h-1 w-16 mx-auto rounded-full" style={{ backgroundColor: primaryColor }} />
           )}
@@ -282,9 +281,9 @@ export default function BriefingPublicPage() {
   return (
     <div className={`min-h-screen ${bgClass} ${textClass}`} onKeyDown={handleKeyDown}>
       {/* Logo fixo */}
-      <div className="fixed top-6 left-6 z-50">
+      <div className="fixed top-5 left-6 z-50">
         {config.logo_url ? (
-          <img src={config.logo_url} alt="Logo" className="h-8 object-contain" />
+          <img src={config.logo_url} alt="Logo" className="h-10 md:h-12 w-auto object-contain" style={{ maxWidth: '160px' }} />
         ) : (
           <div className="h-1 w-10 rounded-full" style={{ backgroundColor: primaryColor }} />
         )}
@@ -299,7 +298,7 @@ export default function BriefingPublicPage() {
       </div>
 
       {/* Conteúdo */}
-      <div className="flex items-center justify-center min-h-screen p-4 pt-20">
+      <div className="flex items-center justify-center min-h-screen px-6 sm:px-10 md:px-8 pt-24 pb-10">
         <div className="max-w-2xl w-full animate-in fade-in duration-300">
           {/* Contador */}
           <div className="mb-4">
@@ -318,12 +317,12 @@ export default function BriefingPublicPage() {
             {/* TEXT */}
             {q.question_type === 'text' && (
               <>
-                <Input
+                <input
                   value={answers[q.field_key] || ''}
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
                   placeholder="Digite aqui..."
-                  className={`text-xl h-14 bg-transparent border-0 rounded-none focus-visible:ring-0 px-0 placeholder:opacity-40 border-b ${borderClass}`}
                   autoFocus
+                  className={`w-full text-xl bg-transparent outline-none border-b-2 py-3 px-1 placeholder:opacity-40 ${borderClass} ${textClass}`}
                 />
                 {actionBtn}
               </>
@@ -337,8 +336,8 @@ export default function BriefingPublicPage() {
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
                   placeholder="Digite aqui..."
                   rows={4}
-                  className={`w-full text-xl bg-transparent border-0 border-b rounded-none focus:outline-none px-0 resize-none placeholder:opacity-40 ${borderClass} ${textClass}`}
                   autoFocus
+                  className={`w-full text-xl bg-transparent border-b-2 outline-none py-3 px-1 resize-none placeholder:opacity-40 ${borderClass} ${textClass}`}
                 />
                 {actionBtn}
               </>
