@@ -9,10 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { useUser } from '@/lib/hooks/useUser';
+import { generateBriefingMtPDF } from '@/lib/pdf/briefing-mt-generator';
 import {
   Loader2, Copy, Check, ExternalLink, Trash2, Eye, FileText,
-  Plus, GripVertical, Camera, X, Sun, Moon, ChevronDown, ChevronUp,
+  Plus, GripVertical, Camera, X, Sun, Moon, Download,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,6 +71,7 @@ function formatDate(iso: string) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BriefingPage() {
+  const { company } = useUser();
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [config, setConfig] = useState<BriefingConfig>({ slug: '', is_active: false, primary_color: '#7c3aed', theme: 'dark' });
   const [questions, setQuestions] = useState<BriefingQuestion[]>([]);
@@ -76,7 +80,8 @@ export default function BriefingPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expandedResponse, setExpandedResponse] = useState<number | null>(null);
+  const [selectedResponse, setSelectedResponse] = useState<BriefingResponse | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Questions state
@@ -239,6 +244,31 @@ export default function BriefingPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleDownloadPDF(response: BriefingResponse) {
+    setDownloadingPdf(true);
+    try {
+      const blob = await generateBriefingMtPDF({
+        companyName: company?.name || 'Empresa',
+        title: config.title || 'Briefing',
+        primaryColor: config.primary_color || '#7c3aed',
+        logoUrl: config.logo_url,
+        questions,
+        answers: response.answers,
+        submittedAt: response.submitted_at,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `briefing-${response.id}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({ title: 'Erro ao gerar PDF', description: err.message, variant: 'destructive' });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   if (loadingConfig) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -300,10 +330,7 @@ export default function BriefingPage() {
             <div className="space-y-3">
               {responses.map((r) => (
                 <Card key={r.id} className="overflow-hidden">
-                  <div
-                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/40 transition-colors"
-                    onClick={() => setExpandedResponse(expandedResponse === r.id ? null : r.id)}
-                  >
+                  <div className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <FileText className="h-4 w-4 text-primary" />
@@ -316,31 +343,34 @@ export default function BriefingPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedResponse(r)}
+                        className="gap-1.5"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Ver
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadPDF(r)}
+                        disabled={downloadingPdf}
+                        className="gap-1.5"
+                      >
+                        {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        PDF
+                      </Button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteResponse(r.id); }}
+                        onClick={() => handleDeleteResponse(r.id)}
                         disabled={deletingId === r.id}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded"
                       >
                         {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </button>
-                      {expandedResponse === r.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </div>
-
-                  {expandedResponse === r.id && (
-                    <div className="border-t px-4 py-4 bg-muted/20">
-                      <div className="grid md:grid-cols-2 gap-3">
-                        {Object.entries(r.answers).map(([key, value]) => (
-                          <div key={key} className="space-y-1">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{key.replace(/_/g, ' ')}</p>
-                            <p className="text-sm">
-                              {Array.isArray(value) ? value.join(', ') : String(value || '—')}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </Card>
               ))}
             </div>
@@ -574,6 +604,83 @@ export default function BriefingPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ─── MODAL: VISUALIZAR RESPOSTA ─────────────────────────────────── */}
+      <Dialog open={!!selectedResponse} onOpenChange={(open) => { if (!open) setSelectedResponse(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+          {selectedResponse && (
+            <>
+              {/* Barra colorida do topo */}
+              <div className="h-1.5 w-full rounded-t-lg" style={{ backgroundColor: config.primary_color || '#7c3aed' }} />
+
+              {/* Cabeçalho com branding */}
+              <div className="px-6 pt-5 pb-4 border-b">
+                <div className="flex items-start gap-4">
+                  {config.logo_url ? (
+                    <img src={config.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-lg shrink-0" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: `${config.primary_color}20` }}>
+                      <FileText className="h-6 w-6" style={{ color: config.primary_color || '#7c3aed' }} />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="text-xl font-bold leading-tight">{config.title || 'Briefing'}</DialogTitle>
+                    <p className="text-sm text-muted-foreground mt-0.5">{company?.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{formatDate(selectedResponse.submitted_at)}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownloadPDF(selectedResponse)}
+                    disabled={downloadingPdf}
+                    className="gap-1.5 shrink-0"
+                  >
+                    {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    PDF
+                  </Button>
+                </div>
+              </div>
+
+              {/* Respostas */}
+              <div className="px-6 py-5 space-y-5">
+                {questions.length > 0 ? (
+                  questions.map((q) => {
+                    const val = selectedResponse.answers[q.field_key];
+                    const display = Array.isArray(val)
+                      ? val.join(', ')
+                      : val != null && String(val).trim() !== '' ? String(val) : null;
+                    return (
+                      <div key={q.field_key} className="space-y-1.5">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{q.label}</p>
+                        <p className="text-sm leading-relaxed">
+                          {display ?? <span className="text-muted-foreground italic">Não informado</span>}
+                        </p>
+                        <div className="border-b border-border/50" />
+                      </div>
+                    );
+                  })
+                ) : (
+                  Object.entries(selectedResponse.answers).map(([key, value]) => (
+                    <div key={key} className="space-y-1.5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{key.replace(/_/g, ' ')}</p>
+                      <p className="text-sm leading-relaxed">
+                        {Array.isArray(value) ? value.join(', ') : String(value || '—')}
+                      </p>
+                      <div className="border-b border-border/50" />
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-3 border-t bg-muted/30 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">nexio<span style={{ color: config.primary_color || '#7c3aed' }}>.</span>ai</p>
+                <p className="text-xs text-muted-foreground">Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
