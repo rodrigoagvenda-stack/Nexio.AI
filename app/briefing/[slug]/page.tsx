@@ -4,12 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Loader2, Check } from 'lucide-react';
 
 interface BriefingConfig {
   id: number;
@@ -31,6 +26,9 @@ interface BriefingQuestion {
   order_index: number;
 }
 
+const UNDERLINE_CLASS =
+  'text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 placeholder:text-muted-foreground/50';
+
 export default function BriefingPublicPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -38,6 +36,7 @@ export default function BriefingPublicPage() {
   const [config, setConfig] = useState<BriefingConfig | null>(null);
   const [questions, setQuestions] = useState<BriefingQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [currentStep, setCurrentStep] = useState(-1); // -1 = welcome
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -60,34 +59,74 @@ export default function BriefingPublicPage() {
       setConfig(data.data.config);
       setQuestions(data.data.questions);
 
-      // Inicializar respostas
-      const initialAnswers: Record<string, any> = {};
+      const initial: Record<string, any> = {};
       data.data.questions.forEach((q: BriefingQuestion) => {
-        initialAnswers[q.field_key] = q.question_type === 'multiselect' ? [] : '';
+        initial[q.field_key] = isMulti(q.question_type) ? [] : '';
       });
-      setAnswers(initialAnswers);
-    } catch (err) {
+      setAnswers(initial);
+    } catch {
       setError('Erro ao carregar briefing');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function isMulti(type: string) {
+    return type === 'multiselect' || type === 'checkbox';
+  }
 
-    // Validar campos obrigatórios
-    for (const q of questions) {
-      if (q.is_required) {
-        const val = answers[q.field_key];
-        const empty = !val || (Array.isArray(val) && val.length === 0) || val === '';
-        if (empty) {
-          alert(`O campo "${q.label}" é obrigatório.`);
-          return;
-        }
-      }
+  function isChoices(type: string) {
+    return ['select', 'radio', 'multiselect', 'checkbox'].includes(type);
+  }
+
+  const totalSteps = questions.length;
+  const progress = currentStep === -1 ? 0 : ((currentStep + 1) / totalSteps) * 100;
+  const primaryColor = config?.primary_color || '#7c3aed';
+
+  const currentQuestion = questions[currentStep] ?? null;
+
+  function canAdvance() {
+    if (!currentQuestion) return false;
+    if (!currentQuestion.is_required) return true;
+    const val = answers[currentQuestion.field_key];
+    if (isMulti(currentQuestion.question_type)) return Array.isArray(val) && val.length > 0;
+    return !!val && val !== '';
+  }
+
+  function setAnswer(key: string, value: any) {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function toggleMulti(key: string, opt: string) {
+    setAnswers((prev) => {
+      const cur: string[] = prev[key] || [];
+      return {
+        ...prev,
+        [key]: cur.includes(opt) ? cur.filter((v) => v !== opt) : [...cur, opt],
+      };
+    });
+  }
+
+  function nextStep() {
+    if (currentStep === -1) {
+      setCurrentStep(0);
+      return;
     }
+    if (!canAdvance()) return;
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep((p) => p + 1);
+    } else {
+      handleSubmit();
+    }
+  }
 
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !isChoices(currentQuestion?.question_type ?? '')) {
+      nextStep();
+    }
+  }
+
+  async function handleSubmit() {
     setSubmitting(true);
     try {
       const res = await fetch(`/api/briefing/public/${slug}`, {
@@ -95,10 +134,8 @@ export default function BriefingPublicPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers }),
       });
-
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
-
       setSubmitted(true);
     } catch (err: any) {
       alert(err.message || 'Erro ao enviar. Tente novamente.');
@@ -107,184 +144,242 @@ export default function BriefingPublicPage() {
     }
   }
 
-  function setAnswer(fieldKey: string, value: any) {
-    setAnswers((prev) => ({ ...prev, [fieldKey]: value }));
-  }
-
-  function toggleMultiselect(fieldKey: string, option: string) {
-    setAnswers((prev) => {
-      const current: string[] = prev[fieldKey] || [];
-      return {
-        ...prev,
-        [fieldKey]: current.includes(option)
-          ? current.filter((v) => v !== option)
-          : [...current, option],
-      };
-    });
-  }
-
-  const primaryColor = config?.primary_color || '#7c3aed';
-
+  // ─── Loading ─────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
+  // ─── Error ───────────────────────────────────────────────
   if (error || !config) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-2xl font-bold text-gray-800">😕 Briefing não encontrado</p>
-          <p className="text-gray-500 mt-2">{error || 'Este link pode estar inativo ou incorreto.'}</p>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <p className="text-4xl">😕</p>
+          <h2 className="text-2xl font-semibold">Briefing não encontrado</h2>
+          <p className="text-muted-foreground">{error || 'Este link pode estar inativo ou incorreto.'}</p>
         </div>
       </div>
     );
   }
 
+  // ─── Success ─────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md px-6">
-          <CheckCircle2 className="h-16 w-16 mx-auto mb-4" style={{ color: primaryColor }} />
-          <h2 className="text-2xl font-bold text-gray-800">Enviado com sucesso!</h2>
-          <p className="text-gray-500 mt-2">Obrigado pelo preenchimento. Entraremos em contato em breve.</p>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500">
+          {config.logo_url && (
+            <img src={config.logo_url} alt="Logo" className="h-12 object-contain mx-auto" />
+          )}
+          <h1 className="text-4xl md:text-5xl font-semibold">Enviado com sucesso!</h1>
+          <p className="text-lg text-muted-foreground">
+            Obrigado pelo preenchimento. Entraremos em contato em breve.
+          </p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-10">
-          {config.logo_url && (
-            <img
-              src={config.logo_url}
-              alt="Logo"
-              className="h-16 object-contain mx-auto mb-6"
-            />
+  // ─── Welcome Screen ──────────────────────────────────────
+  if (currentStep === -1) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
+          {config.logo_url ? (
+            <img src={config.logo_url} alt="Logo" className="h-14 object-contain mx-auto" />
+          ) : (
+            <div className="h-1 w-16 mx-auto rounded-full" style={{ backgroundColor: primaryColor }} />
           )}
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-4xl md:text-5xl font-semibold">
             {config.title || 'Preencha seu briefing'}
           </h1>
           {config.description && (
-            <p className="text-gray-500 mt-2 text-lg">{config.description}</p>
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto">{config.description}</p>
           )}
-          {/* Linha colorida */}
-          <div className="h-1 w-24 mx-auto mt-4 rounded-full" style={{ backgroundColor: primaryColor }} />
+          <Button
+            size="lg"
+            onClick={nextStep}
+            className="text-base px-8 py-6 text-white"
+            style={{ backgroundColor: primaryColor }}
+          >
+            Começar
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
         </div>
+      </div>
+    );
+  }
 
-        {/* Formulário */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
-          {questions.map((q) => (
-            <div key={q.id} className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                {q.label}
-                {q.is_required && <span className="text-red-500 ml-1">*</span>}
-              </Label>
+  const q = currentQuestion!;
+  const isLast = currentStep === totalSteps - 1;
 
-              {q.question_type === 'text' && (
+  // ─── Question Screens ────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-background" onKeyDown={handleKeyDown}>
+      {/* Logo fixo */}
+      <div className="fixed top-6 left-6 z-50">
+        {config.logo_url ? (
+          <img src={config.logo_url} alt="Logo" className="h-8 object-contain" />
+        ) : (
+          <div className="h-1 w-10 rounded-full" style={{ backgroundColor: primaryColor }} />
+        )}
+      </div>
+
+      {/* Barra de progresso */}
+      <div className="fixed top-0 left-0 right-0 h-1 bg-muted z-50">
+        <div
+          className="h-full transition-all duration-300"
+          style={{ width: `${progress}%`, backgroundColor: primaryColor }}
+        />
+      </div>
+
+      {/* Conteúdo */}
+      <div className="flex items-center justify-center min-h-screen p-4 pt-20">
+        <div className="max-w-2xl w-full animate-in fade-in duration-300">
+          {/* Contador */}
+          <div className="mb-4">
+            <span className="text-sm text-muted-foreground">
+              {currentStep + 1} → {totalSteps}
+            </span>
+          </div>
+
+          <div className="space-y-6">
+            {/* Label da pergunta */}
+            <h2 className="text-3xl md:text-4xl font-medium leading-snug">
+              {q.label}
+              {q.is_required && <span className="text-red-500 ml-1 text-2xl">*</span>}
+            </h2>
+
+            {/* TEXT */}
+            {q.question_type === 'text' && (
+              <>
                 <Input
                   value={answers[q.field_key] || ''}
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
-                  required={q.is_required}
-                  className="border-gray-200 focus:border-gray-400"
-                  style={{ '--ring-color': primaryColor } as any}
+                  placeholder="Digite aqui..."
+                  className={UNDERLINE_CLASS}
+                  autoFocus
                 />
-              )}
+                <Button
+                  size="lg"
+                  onClick={nextStep}
+                  disabled={q.is_required && !answers[q.field_key]}
+                  className="text-white"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  {isLast
+                    ? submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : 'Enviar'
+                    : <>OK <ArrowRight className="ml-2 h-5 w-5" /></>}
+                </Button>
+              </>
+            )}
 
-              {q.question_type === 'textarea' && (
-                <Textarea
+            {/* TEXTAREA */}
+            {q.question_type === 'textarea' && (
+              <>
+                <textarea
                   value={answers[q.field_key] || ''}
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
-                  required={q.is_required}
+                  placeholder="Digite aqui..."
                   rows={4}
-                  className="border-gray-200"
+                  className="w-full text-xl bg-transparent border-0 border-b border-border rounded-none focus:outline-none focus:border-primary px-0 resize-none placeholder:text-muted-foreground/50"
+                  autoFocus
                 />
-              )}
-
-              {q.question_type === 'select' && q.options && (
-                <Select
-                  value={answers[q.field_key] || ''}
-                  onValueChange={(val) => setAnswer(q.field_key, val)}
+                <Button
+                  size="lg"
+                  onClick={nextStep}
+                  disabled={q.is_required && !answers[q.field_key]}
+                  className="text-white"
+                  style={{ backgroundColor: primaryColor }}
                 >
-                  <SelectTrigger className="border-gray-200">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {q.options.map((opt) => (
-                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+                  {isLast
+                    ? submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : 'Enviar'
+                    : <>OK <ArrowRight className="ml-2 h-5 w-5" /></>}
+                </Button>
+              </>
+            )}
 
-              {q.question_type === 'radio' && q.options && (
-                <RadioGroup
-                  value={answers[q.field_key] || ''}
-                  onValueChange={(val) => setAnswer(q.field_key, val)}
-                  className="space-y-2"
-                >
-                  {q.options.map((opt) => (
-                    <div key={opt} className="flex items-center gap-2">
-                      <RadioGroupItem
-                        value={opt}
-                        id={`${q.field_key}_${opt}`}
-                        style={{ accentColor: primaryColor }}
-                      />
-                      <Label htmlFor={`${q.field_key}_${opt}`} className="font-normal cursor-pointer">
-                        {opt}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-              )}
-
-              {(q.question_type === 'multiselect' || q.question_type === 'checkbox') && q.options && (
-                <div className="space-y-2">
-                  {q.options.map((opt) => {
-                    const checked = (answers[q.field_key] || []).includes(opt);
-                    return (
-                      <div key={opt} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`${q.field_key}_${opt}`}
-                          checked={checked}
-                          onCheckedChange={() => toggleMultiselect(q.field_key, opt)}
-                          style={{ accentColor: primaryColor }}
-                        />
-                        <Label htmlFor={`${q.field_key}_${opt}`} className="font-normal cursor-pointer">
-                          {opt}
-                        </Label>
+            {/* SELECT / RADIO — escolha única, avança automático */}
+            {(q.question_type === 'select' || q.question_type === 'radio') && q.options && (
+              <div className="space-y-3">
+                {q.options.map((opt, idx) => {
+                  const selected = answers[q.field_key] === opt;
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => {
+                        setAnswer(q.field_key, opt);
+                        setTimeout(nextStep, 300);
+                      }}
+                      className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                    >
+                      <div
+                        className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-semibold transition-colors"
+                        style={
+                          selected
+                            ? { backgroundColor: primaryColor, color: '#fff' }
+                            : { backgroundColor: 'var(--muted)' }
+                        }
+                      >
+                        {String.fromCharCode(65 + idx)}
                       </div>
+                      <span className="text-lg">{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* MULTISELECT / CHECKBOX — múltipla escolha */}
+            {(q.question_type === 'multiselect' || q.question_type === 'checkbox') && q.options && (
+              <>
+                <div className="space-y-3">
+                  {q.options.map((opt, idx) => {
+                    const selected = (answers[q.field_key] || []).includes(opt);
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => toggleMulti(q.field_key, opt)}
+                        className="w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4"
+                        style={
+                          selected
+                            ? { borderColor: primaryColor, backgroundColor: `${primaryColor}15` }
+                            : { borderColor: 'var(--border)' }
+                        }
+                      >
+                        <div
+                          className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-semibold transition-colors"
+                          style={
+                            selected
+                              ? { backgroundColor: primaryColor, color: '#fff' }
+                              : { backgroundColor: 'var(--muted)' }
+                          }
+                        >
+                          {selected ? <Check className="h-5 w-5" /> : String.fromCharCode(65 + idx)}
+                        </div>
+                        <span className="text-lg">{opt}</span>
+                      </button>
                     );
                   })}
                 </div>
-              )}
-            </div>
-          ))}
-
-          <div className="pt-4">
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="w-full h-12 text-base font-semibold text-white"
-              style={{ backgroundColor: primaryColor }}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                'Enviar Briefing'
-              )}
-            </Button>
+                <Button
+                  size="lg"
+                  onClick={nextStep}
+                  disabled={(q.is_required && (answers[q.field_key] || []).length === 0) || submitting}
+                  className="text-white"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  {isLast
+                    ? submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : 'Enviar'
+                    : <>OK <ArrowRight className="ml-2 h-5 w-5" /></>}
+                </Button>
+              </>
+            )}
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
