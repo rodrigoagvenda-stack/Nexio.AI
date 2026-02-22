@@ -31,15 +31,7 @@ export async function GET(request: NextRequest) {
 
     let query = service
       .from('briefing_responses')
-      .select(`
-        id,
-        company_id,
-        answers,
-        submitted_at,
-        webhook_sent,
-        webhook_sent_at,
-        companies ( id, name )
-      `, { count: 'exact' })
+      .select('id, company_id, answers, submitted_at, webhook_sent, webhook_sent_at', { count: 'exact' })
       .order('submitted_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -51,9 +43,29 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
+    // Buscar nomes das empresas separadamente para evitar problema de schema cache
+    const companyIds = [...new Set((data || []).map((r: any) => r.company_id))];
+    let companiesMap: Record<number, string> = {};
+
+    if (companyIds.length > 0) {
+      const { data: companies } = await service
+        .from('companies')
+        .select('id, name')
+        .in('id', companyIds);
+
+      if (companies) {
+        companiesMap = Object.fromEntries(companies.map((c: any) => [c.id, c.name]));
+      }
+    }
+
+    const enriched = (data || []).map((r: any) => ({
+      ...r,
+      companies: { id: r.company_id, name: companiesMap[r.company_id] || `Empresa #${r.company_id}` },
+    }));
+
     return NextResponse.json({
       success: true,
-      data: data || [],
+      data: enriched,
       pagination: { page, limit, total: count || 0 },
     });
   } catch (error: any) {
