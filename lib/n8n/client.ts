@@ -32,13 +32,10 @@ export async function extractLeadsFromMaps(
     }
 
     const webhookUrl = companyData.webhook_maps_url;
-    console.log('[Maps] Webhook URL:', webhookUrl);
-
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    console.log('[Maps] Enviando requisição para n8n...');
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers,
@@ -49,31 +46,27 @@ export async function extractLeadsFromMaps(
       }),
     });
 
-    console.log('[Maps] Response status:', response.status);
-    console.log('[Maps] Response OK:', response.ok);
-
-    // Pegar o texto da resposta PRIMEIRO para debug
     const responseText = await response.text();
-    console.log('[Maps] Response text (primeiros 500 chars):', responseText.substring(0, 500));
 
     if (!response.ok) {
-      throw new Error(`N8N request failed: ${response.statusText} - ${responseText}`);
+      console.error(`[Maps] N8N request failed (${response.status}):`, responseText.substring(0, 500));
+      if (response.status === 404) {
+        throw new Error('Workflow de extração não encontrado no n8n. Verifique se o workflow está ativo em modo Produção.');
+      }
+      throw new Error(`Falha ao acionar automação de extração (status ${response.status}). Verifique o workflow no n8n.`);
     }
 
-    // Tratar resposta vazia
     if (!responseText || responseText.trim() === '') {
       console.warn('[Maps] n8n retornou resposta vazia! Considerando sucesso.');
       return { success: true, message: 'Webhook executado (resposta vazia)', data: {} };
     }
 
-    // Tentar parsear como JSON
     try {
       const result = JSON.parse(responseText);
-      console.log('[Maps] Resultado parseado:', result);
       return result;
     } catch (parseError) {
-      console.error('[Maps] ERRO ao parsear JSON:', parseError);
-      throw new Error(`n8n retornou resposta inválida: ${responseText.substring(0, 200)}`);
+      console.error('[Maps] ERRO ao parsear JSON:', parseError, responseText.substring(0, 200));
+      throw new Error('Automação de extração retornou resposta inválida. Verifique o workflow no n8n.');
     }
   } catch (error) {
     console.error('[Maps] ERRO na extração:', error);
@@ -91,7 +84,6 @@ export async function extractICPLeads(
 
     // Buscar configuração do webhook do banco de dados
     const supabase = await createClient();
-    console.log('[ICP] Supabase client criado');
 
     const { data: webhookConfig, error: configError } = await supabase
       .from('n8n_webhook_config')
@@ -100,15 +92,9 @@ export async function extractICPLeads(
       .eq('is_active', true)
       .single();
 
-    console.log('[ICP] Webhook config:', webhookConfig);
-    console.log('[ICP] Config error:', configError);
-
     if (configError || !webhookConfig) {
       throw new Error('Webhook ICP não configurado. Configure em Admin > N8N.');
     }
-
-    console.log('[ICP] Webhook URL:', webhookConfig.webhook_url);
-    console.log('[ICP] Auth type:', webhookConfig.auth_type);
 
     // Criar headers
     const headers: Record<string, string> = {
@@ -121,10 +107,8 @@ export async function extractICPLeads(
         `${webhookConfig.auth_username}:${webhookConfig.auth_password}`
       ).toString('base64');
       headers['Authorization'] = `Basic ${basicAuth}`;
-      console.log('[ICP] Basic Auth configurado');
     }
 
-    console.log('[ICP] Enviando requisição para n8n...');
     const response = await fetch(webhookConfig.webhook_url, {
       method: 'POST',
       headers,
@@ -163,20 +147,16 @@ export async function extractICPLeads(
       }),
     });
 
-    console.log('[ICP] Response status:', response.status);
-    console.log('[ICP] Response OK:', response.ok);
-    console.log('[ICP] Response headers:', Object.fromEntries(response.headers.entries()));
-
-    // Pegar o texto da resposta PRIMEIRO para debug
     const responseText = await response.text();
-    console.log('[ICP] Response text (primeiros 500 chars):', responseText.substring(0, 500));
-    console.log('[ICP] Response text length:', responseText.length);
 
     if (!response.ok) {
-      throw new Error(`N8N request failed: ${response.statusText} - ${responseText}`);
+      console.error(`[ICP] N8N request failed (${response.status}):`, responseText.substring(0, 500));
+      if (response.status === 404) {
+        throw new Error('Workflow ICP não encontrado no n8n. Verifique se o workflow está ativo em modo Produção.');
+      }
+      throw new Error(`Falha ao acionar automação ICP (status ${response.status}). Verifique o workflow no n8n.`);
     }
 
-    // Tentar parsear como JSON
     if (!responseText || responseText.trim() === '') {
       console.warn('[ICP] n8n retornou resposta vazia! Considerando sucesso.');
       return { success: true, message: 'Webhook executado (resposta vazia)', data: {} };
@@ -184,12 +164,10 @@ export async function extractICPLeads(
 
     try {
       const result = JSON.parse(responseText);
-      console.log('[ICP] Resultado parseado:', result);
       return result;
     } catch (parseError) {
-      console.error('[ICP] ERRO ao parsear JSON:', parseError);
-      console.error('[ICP] Texto completo da resposta:', responseText);
-      throw new Error(`n8n retornou resposta inválida (não é JSON): ${responseText.substring(0, 200)}`);
+      console.error('[ICP] ERRO ao parsear JSON:', parseError, responseText.substring(0, 200));
+      throw new Error('Automação ICP retornou resposta inválida. Verifique o workflow no n8n.');
     }
   } catch (error) {
     console.error('[ICP] ERRO na extração:', error);
@@ -263,12 +241,11 @@ export async function sendWhatsAppMessage(
 
     if (!response.ok) {
       const responseText = await response.text();
+      console.error(`[WhatsApp] N8N request failed (${response.status}):`, responseText.substring(0, 500));
       if (response.status === 404) {
-        throw new Error(
-          `Webhook não encontrado no n8n (404). Verifique se o workflow está ATIVO em modo PRODUÇÃO.`
-        );
+        throw new Error('Workflow WhatsApp não encontrado no n8n. Verifique se o workflow está ativo em modo Produção.');
       }
-      throw new Error(`N8N request failed (${response.status}): ${responseText.substring(0, 200)}`);
+      throw new Error(`Falha ao enviar mensagem via automação (status ${response.status}). Verifique o workflow no n8n.`);
     }
 
     const responseText = await response.text();
@@ -280,7 +257,8 @@ export async function sendWhatsAppMessage(
     try {
       return JSON.parse(responseText);
     } catch {
-      throw new Error(`n8n retornou resposta inválida: ${responseText.substring(0, 200)}`);
+      console.error('[WhatsApp] Resposta inválida do n8n:', responseText.substring(0, 200));
+      throw new Error('Automação WhatsApp retornou resposta inválida. Verifique o workflow no n8n.');
     }
   } catch (error) {
     console.error('Error calling n8n WhatsApp send:', error);
