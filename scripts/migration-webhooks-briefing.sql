@@ -9,7 +9,9 @@
 
 ALTER TABLE companies
   ADD COLUMN IF NOT EXISTS webhook_maps_url TEXT,
-  ADD COLUMN IF NOT EXISTS webhook_whatsapp_url TEXT;
+  ADD COLUMN IF NOT EXISTS webhook_whatsapp_url TEXT,
+  ADD COLUMN IF NOT EXISTS webhook_maps_enabled BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS webhook_whatsapp_enabled BOOLEAN DEFAULT FALSE;
 
 -- -----------------------------------------------------
 -- FASE 2: Briefing multi-tenant

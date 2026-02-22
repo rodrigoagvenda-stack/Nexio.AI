@@ -75,6 +75,8 @@ export async function PATCH(
       'plan_id', 'plan_monthly_limit',
       'leads_extracted_this_month', 'last_extraction_month',
       'whatsapp_instance', 'whatsapp_token',
+      'webhook_maps_url', 'webhook_maps_enabled',
+      'webhook_whatsapp_url', 'webhook_whatsapp_enabled',
       'is_active', 'subscription_expires_at',
     ];
 

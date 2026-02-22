@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera } from 'lucide-react';
 import { Company } from '@/types/database.types';
@@ -528,24 +529,61 @@ export default function EmpresaDetailPage() {
           <CardTitle>Webhooks N8N</CardTitle>
           <CardDescription>Automações exclusivas desta empresa</CardDescription>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="webhook_maps_url">Webhook Extração de Leads (Maps)</Label>
-            <Input
-              id="webhook_maps_url"
-              value={company.webhook_maps_url || ''}
-              onChange={(e) => setCompany({ ...company, webhook_maps_url: e.target.value })}
-              placeholder="https://n8n.empresa.com/webhook/extrair-leads"
-            />
+        <CardContent className="space-y-4">
+          {/* Webhook Maps */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">Extração de Leads (Maps)</p>
+                <p className="text-xs text-muted-foreground">Usado na captura de leads via Google Maps</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={company.webhook_maps_enabled ? 'default' : 'secondary'}>
+                  {company.webhook_maps_enabled ? 'Ativo' : 'Inativo'}
+                </Badge>
+                <Switch
+                  checked={!!company.webhook_maps_enabled}
+                  onCheckedChange={(v) => setCompany({ ...company, webhook_maps_enabled: v })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="webhook_maps_url" className="text-xs">URL do Webhook</Label>
+              <Input
+                id="webhook_maps_url"
+                value={company.webhook_maps_url || ''}
+                onChange={(e) => setCompany({ ...company, webhook_maps_url: e.target.value })}
+                placeholder="https://n8n.empresa.com/webhook/extrair-leads"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="webhook_whatsapp_url">Webhook Envio WhatsApp</Label>
-            <Input
-              id="webhook_whatsapp_url"
-              value={company.webhook_whatsapp_url || ''}
-              onChange={(e) => setCompany({ ...company, webhook_whatsapp_url: e.target.value })}
-              placeholder="https://n8n.empresa.com/webhook/send-manual-message"
-            />
+
+          {/* Webhook WhatsApp */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">Envio de Mensagens (WhatsApp)</p>
+                <p className="text-xs text-muted-foreground">Usado no envio manual de mensagens via WhatsApp</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={company.webhook_whatsapp_enabled ? 'default' : 'secondary'}>
+                  {company.webhook_whatsapp_enabled ? 'Ativo' : 'Inativo'}
+                </Badge>
+                <Switch
+                  checked={!!company.webhook_whatsapp_enabled}
+                  onCheckedChange={(v) => setCompany({ ...company, webhook_whatsapp_enabled: v })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="webhook_whatsapp_url" className="text-xs">URL do Webhook</Label>
+              <Input
+                id="webhook_whatsapp_url"
+                value={company.webhook_whatsapp_url || ''}
+                onChange={(e) => setCompany({ ...company, webhook_whatsapp_url: e.target.value })}
+                placeholder="https://n8n.empresa.com/webhook/send-manual-message"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

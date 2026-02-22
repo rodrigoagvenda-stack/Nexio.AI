@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     // Buscar nomes das empresas separadamente para evitar problema de schema cache
-    const companyIds = [...new Set((data || []).map((r: any) => r.company_id))];
+    const companyIds = Array.from(new Set((data || []).map((r: any) => r.company_id)));
     let companiesMap: Record<number, string> = {};
 
     if (companyIds.length > 0) {

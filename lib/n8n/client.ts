@@ -19,12 +19,16 @@ export async function extractLeadsFromMaps(
 
     const { data: companyData, error: companyError } = await supabase
       .from('companies')
-      .select('webhook_maps_url')
+      .select('webhook_maps_url, webhook_maps_enabled')
       .eq('id', companyId)
       .single();
 
     if (companyError || !companyData?.webhook_maps_url) {
       throw new Error('Webhook Maps não configurado para esta empresa. Configure em Admin > Empresas.');
+    }
+
+    if (!companyData.webhook_maps_enabled) {
+      throw new Error('Webhook Maps está desativado para esta empresa. Ative em Admin > Empresas.');
     }
 
     const webhookUrl = companyData.webhook_maps_url;
@@ -222,12 +226,15 @@ export async function sendWhatsAppMessage(
       const supabase = await createClient();
       const { data: companyData, error } = await supabase
         .from('companies')
-        .select('webhook_whatsapp_url')
+        .select('webhook_whatsapp_url, webhook_whatsapp_enabled')
         .eq('id', payload.company_id)
         .single();
 
       if (error || !companyData?.webhook_whatsapp_url) {
         throw new Error('Webhook WhatsApp não configurado para esta empresa. Configure em Admin > Empresas.');
+      }
+      if (!companyData.webhook_whatsapp_enabled) {
+        throw new Error('Webhook WhatsApp está desativado para esta empresa. Ative em Admin > Empresas.');
       }
       webhookConfig = { webhook_url: companyData.webhook_whatsapp_url };
     }
