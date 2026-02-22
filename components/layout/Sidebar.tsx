@@ -142,7 +142,7 @@ export const Sidebar = memo(function Sidebar({
       <aside
         className={cn(
           'hidden md:fixed md:inset-y-0 md:z-50 md:flex md:flex-col bg-card border-r border-border transition-[width] duration-200',
-          isCollapsed ? 'md:w-20' : 'md:w-64'
+          isCollapsed ? 'md:w-20' : 'md:w-56'
         )}
       >
         {/* Logo */}
@@ -324,7 +324,7 @@ export const Sidebar = memo(function Sidebar({
       </aside>
 
       {/* Spacer for content */}
-      <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-64')} />
+      <div className={cn('hidden md:block', isCollapsed ? 'md:w-20' : 'md:w-56')} />
     </>
   );
 });

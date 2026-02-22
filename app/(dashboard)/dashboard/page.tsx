@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign } from 'lucide-react';
+import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign, Bot } from 'lucide-react';
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, isWithinInterval } from 'date-fns';
 
 interface DateRange {
@@ -17,6 +17,7 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { RecentSales } from '@/components/dashboard/RecentSales';
+import { OutboundPerformance } from '@/components/dashboard/OutboundPerformance';
 
 interface Lead {
   id: string;
@@ -24,6 +25,9 @@ interface Lead {
   project_value: number;
   created_at: string;
   closed_at: string | null;
+  outbound_responded: boolean;
+  outbound_meeting: boolean;
+  outbound_followups: number;
 }
 
 export default function DashboardPage() {
@@ -61,7 +65,7 @@ export default function DashboardPage() {
 
       const { data: leadsData } = await supabase
         .from('leads')
-        .select('id, status, project_value, created_at, closed_at')
+        .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
         .eq('company_id', userData.company_id)
         .order('created_at', { ascending: true });
 
@@ -126,9 +130,9 @@ export default function DashboardPage() {
     }
   };
 
-  // Métricas - Corrigidas conforme PRD
-  // Novos leads e em atendimento são filtrados por created_at (já feito pelo filterLeadsByPeriod)
+  // Métricas base
   const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
+  const outboundAtivos = filteredLeads.filter((l) => l.status === 'Outbound').length;
   const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
 
   // Para leads fechados, filtramos TODOS os leads por closed_at dentro do período
@@ -168,9 +172,20 @@ export default function DashboardPage() {
     .filter((l) => l.status !== 'Fechado' && l.status !== 'Perdido')
     .reduce((sum, l) => sum + (l.project_value || 0), 0);
 
-  // Taxa de conversão: fechados / total de leads CRIADOS no período (filteredLeads)
+  // Taxa de conversão: fechados / total leads no período (inclui Outbound + Lead novo + demais)
   const totalLeads = filteredLeads.length;
   const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
+
+  // Métricas IA Outbound
+  const outboundAbordados = filteredLeads.filter(
+    (l) => l.status === 'Outbound' || l.outbound_responded || l.outbound_meeting || (l.outbound_followups || 0) > 0
+  ).length;
+  const outboundRetornaram = filteredLeads.filter((l) => l.outbound_responded).length;
+  const outboundReuniao = filteredLeads.filter((l) => l.outbound_meeting).length;
+  const outboundFechados = leadsClosedInPeriod.filter(
+    (l) => l.outbound_responded || l.outbound_meeting
+  ).length;
+  const outboundFollowups = filteredLeads.reduce((sum, l) => sum + (l.outbound_followups || 0), 0);
 
   // Debug: ver status dos leads
   const statusCount = filteredLeads.reduce((acc, l) => {
@@ -401,6 +416,11 @@ export default function DashboardPage() {
   // Dados do funil
   const funnelStages = [
     {
+      label: 'Outbound',
+      count: filteredLeads.filter((l) => l.status === 'Outbound').length,
+      color: 'bg-violet-600',
+    },
+    {
       label: 'Lead novo',
       count: filteredLeads.filter((l) => l.status === 'Lead novo').length,
       color: 'bg-blue-500',
@@ -502,7 +522,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Cards de Métricas */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           title="Novos leads"
           value={novosLeads}
@@ -511,30 +531,37 @@ export default function DashboardPage() {
           format="number"
         />
         <MetricCard
+          title="Outbound IA"
+          value={outboundAtivos}
+          subtitle="Leads em prospecção"
+          icon={Bot}
+          format="number"
+        />
+        <MetricCard
           title="Em atendimento"
           value={emAtendimento}
-          subtitle={`Leads em atendimento`}
+          subtitle="Leads em atendimento"
           icon={MessageCircleMore}
           format="number"
         />
         <MetricCard
           title="Taxa de conversão"
           value={taxaConversao}
-          subtitle={`Leads convertidos`}
+          subtitle="Leads convertidos"
           icon={TrendingUp}
           format="percentage"
         />
         <MetricCard
           title="Em Negociação"
           value={faturamentoEmNegociacao}
-          subtitle={`Valor em pipeline`}
+          subtitle="Valor em pipeline"
           icon={Users}
           format="currency"
         />
         <MetricCard
           title="Faturamento"
           value={faturamento}
-          subtitle={`Faturamento em negócios`}
+          subtitle="Faturamento em negócios"
           icon={CircleDollarSign}
           format="currency"
         />
@@ -559,6 +586,15 @@ export default function DashboardPage() {
           <RecentSales />
         </div>
       </div>
+
+      {/* IA Outbound */}
+      <OutboundPerformance
+        abordados={outboundAbordados}
+        retornaram={outboundRetornaram}
+        reuniao={outboundReuniao}
+        fechados={outboundFechados}
+        followups={outboundFollowups}
+      />
     </div>
   );
 }
