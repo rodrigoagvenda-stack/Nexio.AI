@@ -41,6 +41,7 @@ export default function BriefingPublicPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     fetchBriefing();
@@ -144,7 +145,7 @@ export default function BriefingPublicPage() {
       if (!data.success) throw new Error(data.message);
       setSubmitted(true);
     } catch (err: any) {
-      alert(err.message || 'Erro ao enviar. Tente novamente.');
+      setSubmitError(err.message || 'Erro ao enviar. Tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -215,6 +216,29 @@ export default function BriefingPublicPage() {
           </div>
           <h1 className="text-4xl md:text-5xl font-semibold">Enviado!</h1>
           <p className={`text-lg whitespace-pre-wrap ${mutedClass}`}>{successMsg}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Submit Error ─────────────────────────────────────────
+  if (submitError) {
+    return (
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
+        <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
+          {config.logo_url && (
+            <img src={config.logo_url} alt="Logo" className="h-12 object-contain mx-auto" />
+          )}
+          <p className="text-5xl">😕</p>
+          <h1 className="text-3xl font-semibold">Algo deu errado</h1>
+          <p className={`text-base ${mutedClass}`}>Não foi possível enviar suas respostas. Por favor, tente novamente.</p>
+          <Button
+            onClick={() => setSubmitError('')}
+            className="text-white"
+            style={{ backgroundColor: primaryColor }}
+          >
+            Tentar novamente
+          </Button>
         </div>
       </div>
     );
