@@ -11,6 +11,7 @@ interface BriefingConfig {
   company_id: number;
   slug: string;
   primary_color: string;
+  theme: 'dark' | 'light';
   logo_url?: string;
   title?: string;
   description?: string;
@@ -26,8 +27,6 @@ interface BriefingQuestion {
   order_index: number;
 }
 
-const UNDERLINE_CLASS =
-  'text-xl h-14 bg-transparent border-0 border-b border-border rounded-none focus-visible:ring-0 focus-visible:border-primary px-0 placeholder:text-muted-foreground/50';
 
 export default function BriefingPublicPage() {
   const params = useParams();
@@ -82,6 +81,12 @@ export default function BriefingPublicPage() {
   const totalSteps = questions.length;
   const progress = currentStep === -1 ? 0 : ((currentStep + 1) / totalSteps) * 100;
   const primaryColor = config?.primary_color || '#7c3aed';
+  const isDark = (config?.theme ?? 'dark') === 'dark';
+  const bgClass = isDark ? 'bg-[#0a0a0a]' : 'bg-white';
+  const textClass = isDark ? 'text-white' : 'text-gray-900';
+  const mutedClass = isDark ? 'text-gray-400' : 'text-gray-500';
+  const borderClass = isDark ? 'border-gray-700' : 'border-gray-200';
+  const hoverClass = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50';
 
   const currentQuestion = questions[currentStep] ?? null;
 
@@ -166,16 +171,42 @@ export default function BriefingPublicPage() {
     );
   }
 
+  const submitBtn = (
+    <Button
+      size="lg"
+      onClick={nextStep}
+      disabled={!canAdvance() || submitting}
+      className="text-white"
+      style={{ backgroundColor: primaryColor }}
+    >
+      {submitting
+        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+        : <>Enviar</>}
+    </Button>
+  );
+
+  const nextBtn = (
+    <Button
+      size="lg"
+      onClick={nextStep}
+      disabled={!canAdvance()}
+      className="text-white"
+      style={{ backgroundColor: primaryColor }}
+    >
+      OK <ArrowRight className="ml-2 h-5 w-5" />
+    </Button>
+  );
+
   // ─── Success ─────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500">
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
+        <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url && (
             <img src={config.logo_url} alt="Logo" className="h-12 object-contain mx-auto" />
           )}
           <h1 className="text-4xl md:text-5xl font-semibold">Enviado com sucesso!</h1>
-          <p className="text-lg text-muted-foreground">
+          <p className={`text-lg ${mutedClass}`}>
             Obrigado pelo preenchimento. Entraremos em contato em breve.
           </p>
         </div>
@@ -186,8 +217,8 @@ export default function BriefingPublicPage() {
   // ─── Welcome Screen ──────────────────────────────────────
   if (currentStep === -1) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500">
+      <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
+        <div className={`max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url ? (
             <img src={config.logo_url} alt="Logo" className="h-14 object-contain mx-auto" />
           ) : (
@@ -197,7 +228,7 @@ export default function BriefingPublicPage() {
             {config.title || 'Preencha seu briefing'}
           </h1>
           {config.description && (
-            <p className="text-lg text-muted-foreground max-w-xl mx-auto">{config.description}</p>
+            <p className={`text-lg max-w-xl mx-auto ${mutedClass}`}>{config.description}</p>
           )}
           <Button
             size="lg"
@@ -215,10 +246,11 @@ export default function BriefingPublicPage() {
 
   const q = currentQuestion!;
   const isLast = currentStep === totalSteps - 1;
+  const actionBtn = isLast ? submitBtn : nextBtn;
 
   // ─── Question Screens ────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background" onKeyDown={handleKeyDown}>
+    <div className={`min-h-screen ${bgClass} ${textClass}`} onKeyDown={handleKeyDown}>
       {/* Logo fixo */}
       <div className="fixed top-6 left-6 z-50">
         {config.logo_url ? (
@@ -229,7 +261,7 @@ export default function BriefingPublicPage() {
       </div>
 
       {/* Barra de progresso */}
-      <div className="fixed top-0 left-0 right-0 h-1 bg-muted z-50">
+      <div className={`fixed top-0 left-0 right-0 h-1 z-50 ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
         <div
           className="h-full transition-all duration-300"
           style={{ width: `${progress}%`, backgroundColor: primaryColor }}
@@ -241,7 +273,7 @@ export default function BriefingPublicPage() {
         <div className="max-w-2xl w-full animate-in fade-in duration-300">
           {/* Contador */}
           <div className="mb-4">
-            <span className="text-sm text-muted-foreground">
+            <span className={`text-sm ${mutedClass}`}>
               {currentStep + 1} → {totalSteps}
             </span>
           </div>
@@ -260,20 +292,10 @@ export default function BriefingPublicPage() {
                   value={answers[q.field_key] || ''}
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
                   placeholder="Digite aqui..."
-                  className={UNDERLINE_CLASS}
+                  className={`text-xl h-14 bg-transparent border-0 rounded-none focus-visible:ring-0 px-0 placeholder:opacity-40 border-b ${borderClass}`}
                   autoFocus
                 />
-                <Button
-                  size="lg"
-                  onClick={nextStep}
-                  disabled={q.is_required && !answers[q.field_key]}
-                  className="text-white"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {isLast
-                    ? submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : 'Enviar'
-                    : <>OK <ArrowRight className="ml-2 h-5 w-5" /></>}
-                </Button>
+                {actionBtn}
               </>
             )}
 
@@ -285,20 +307,10 @@ export default function BriefingPublicPage() {
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
                   placeholder="Digite aqui..."
                   rows={4}
-                  className="w-full text-xl bg-transparent border-0 border-b border-border rounded-none focus:outline-none focus:border-primary px-0 resize-none placeholder:text-muted-foreground/50"
+                  className={`w-full text-xl bg-transparent border-0 border-b rounded-none focus:outline-none px-0 resize-none placeholder:opacity-40 ${borderClass} ${textClass}`}
                   autoFocus
                 />
-                <Button
-                  size="lg"
-                  onClick={nextStep}
-                  disabled={q.is_required && !answers[q.field_key]}
-                  className="text-white"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {isLast
-                    ? submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : 'Enviar'
-                    : <>OK <ArrowRight className="ml-2 h-5 w-5" /></>}
-                </Button>
+                {actionBtn}
               </>
             )}
 
@@ -310,19 +322,15 @@ export default function BriefingPublicPage() {
                   return (
                     <button
                       key={opt}
-                      onClick={() => {
-                        setAnswer(q.field_key, opt);
-                        setTimeout(nextStep, 300);
-                      }}
-                      className="w-full text-left p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-all flex items-center gap-4 group"
+                      onClick={() => { setAnswer(q.field_key, opt); setTimeout(nextStep, 300); }}
+                      className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 ${borderClass} ${hoverClass}`}
+                      style={selected ? { borderColor: primaryColor } : {}}
                     >
                       <div
                         className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-semibold transition-colors"
-                        style={
-                          selected
-                            ? { backgroundColor: primaryColor, color: '#fff' }
-                            : { backgroundColor: 'var(--muted)' }
-                        }
+                        style={selected
+                          ? { backgroundColor: primaryColor, color: '#fff' }
+                          : { backgroundColor: isDark ? '#1f1f1f' : '#f3f4f6' }}
                       >
                         {String.fromCharCode(65 + idx)}
                       </div>
@@ -343,20 +351,14 @@ export default function BriefingPublicPage() {
                       <button
                         key={opt}
                         onClick={() => toggleMulti(q.field_key, opt)}
-                        className="w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4"
-                        style={
-                          selected
-                            ? { borderColor: primaryColor, backgroundColor: `${primaryColor}15` }
-                            : { borderColor: 'var(--border)' }
-                        }
+                        className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 ${borderClass}`}
+                        style={selected ? { borderColor: primaryColor, backgroundColor: `${primaryColor}18` } : {}}
                       >
                         <div
                           className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center font-semibold transition-colors"
-                          style={
-                            selected
-                              ? { backgroundColor: primaryColor, color: '#fff' }
-                              : { backgroundColor: 'var(--muted)' }
-                          }
+                          style={selected
+                            ? { backgroundColor: primaryColor, color: '#fff' }
+                            : { backgroundColor: isDark ? '#1f1f1f' : '#f3f4f6' }}
                         >
                           {selected ? <Check className="h-5 w-5" /> : String.fromCharCode(65 + idx)}
                         </div>
@@ -365,17 +367,7 @@ export default function BriefingPublicPage() {
                     );
                   })}
                 </div>
-                <Button
-                  size="lg"
-                  onClick={nextStep}
-                  disabled={(q.is_required && (answers[q.field_key] || []).length === 0) || submitting}
-                  className="text-white"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {isLast
-                    ? submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : 'Enviar'
-                    : <>OK <ArrowRight className="ml-2 h-5 w-5" /></>}
-                </Button>
+                {actionBtn}
               </>
             )}
           </div>

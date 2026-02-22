@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Trash2, GripVertical, Copy, Check, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, Trash2, GripVertical, Copy, Check, ExternalLink, Camera, X, Sun, Moon } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface BriefingConfig {
@@ -17,6 +17,7 @@ interface BriefingConfig {
   slug: string;
   is_active: boolean;
   primary_color: string;
+  theme: 'dark' | 'light';
   logo_url?: string;
   title?: string;
   description?: string;
@@ -71,8 +72,11 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
     slug: slugify(companyName),
     is_active: false,
     primary_color: '#7c3aed',
+    theme: 'dark',
     title: `Briefing ${companyName}`,
   });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [questions, setQuestions] = useState<BriefingQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -208,6 +212,26 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/admin/briefing/upload-logo', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      setConfig((prev) => ({ ...prev, logo_url: data.url }));
+      toast.success('Logo carregado!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao fazer upload');
+    } finally {
+      setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center gap-2 py-4 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando configuração de briefing...</div>;
   }
@@ -291,14 +315,71 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
                 placeholder="Subtítulo do formulário"
               />
             </div>
+            {/* Logo upload */}
             <div className="space-y-2">
-              <Label>URL do Logo</Label>
-              <Input
-                value={config.logo_url || ''}
-                onChange={(e) => setConfig({ ...config, logo_url: e.target.value })}
-                placeholder="https://..."
-              />
+              <Label>Logo do formulário</Label>
+              <div className="flex items-center gap-3">
+                {config.logo_url ? (
+                  <div className="relative w-16 h-16 rounded-lg border overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                    <img src={config.logo_url} alt="Logo" className="object-contain w-full h-full" />
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config, logo_url: '' })}
+                      className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-lg border border-dashed bg-muted flex items-center justify-center shrink-0">
+                    <Camera className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                  >
+                    {uploadingLogo ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : <><Camera className="mr-2 h-4 w-4" />{config.logo_url ? 'Trocar logo' : 'Fazer upload'}</>}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP — máx. 5MB</p>
+                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleLogoUpload}
+                />
+              </div>
             </div>
+
+            {/* Tema dark/light */}
+            <div className="space-y-2">
+              <Label>Tema do formulário</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, theme: 'dark' })}
+                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${config.theme === 'dark' ? 'border-primary bg-primary/10' : 'border-border'}`}
+                >
+                  <Moon className="h-4 w-4" />
+                  <span className="text-sm font-medium">Dark</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, theme: 'light' })}
+                  className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${config.theme === 'light' ? 'border-primary bg-primary/10' : 'border-border'}`}
+                >
+                  <Sun className="h-4 w-4" />
+                  <span className="text-sm font-medium">Light</span>
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Webhook (ao receber resposta)</Label>
               <Input
@@ -335,7 +416,7 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
             <p className="text-center text-muted-foreground py-6">Nenhuma pergunta configurada</p>
           ) : (
             <div className="space-y-2">
-              {questions.map((q, idx) => (
+              {questions.map((q) => (
                 <div key={q.id} className="border rounded-lg p-3">
                   {editingQuestion !== null && editingQuestion.id === q.id ? (
                     <div className="space-y-3">

@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS briefing_company_config (
   title TEXT DEFAULT 'Preencha seu briefing',
   description TEXT,
   webhook_url TEXT,
+  theme TEXT DEFAULT 'dark',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT unique_company_briefing UNIQUE (company_id)
@@ -56,6 +57,10 @@ CREATE TABLE IF NOT EXISTS briefing_responses (
   webhook_sent_at TIMESTAMPTZ
 );
 
+-- Adiciona coluna theme caso a tabela já existia (idempotente)
+ALTER TABLE briefing_company_config
+  ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dark';
+
 -- Trigger updated_at para briefing_company_config
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -70,6 +75,12 @@ CREATE TRIGGER update_briefing_company_config_updated_at
 ALTER TABLE briefing_company_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE briefing_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE briefing_responses ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "briefing_config_public_read" ON briefing_company_config;
+DROP POLICY IF EXISTS "briefing_config_service_all" ON briefing_company_config;
+DROP POLICY IF EXISTS "briefing_questions_public_read" ON briefing_questions;
+DROP POLICY IF EXISTS "briefing_questions_service_all" ON briefing_questions;
+DROP POLICY IF EXISTS "briefing_responses_service_all" ON briefing_responses;
 
 CREATE POLICY "briefing_config_public_read" ON briefing_company_config
   FOR SELECT USING (is_active = true);

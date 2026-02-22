@@ -44,7 +44,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { slug, is_active, primary_color, logo_url, title, description, webhook_url } = body;
+    const { slug, is_active, primary_color, theme, logo_url, title, description, webhook_url } = body;
     const companyId = parseInt(params.companyId);
 
     const service = createServiceClient();
@@ -57,6 +57,7 @@ export async function POST(
           slug: slug || `empresa-${companyId}`,
           is_active: is_active ?? false,
           primary_color: primary_color || '#7c3aed',
+          theme: theme || 'dark',
           logo_url: logo_url || null,
           title: title || null,
           description: description || null,
