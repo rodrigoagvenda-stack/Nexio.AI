@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
 // GET: Buscar config + perguntas da empresa pelo slug (para renderizar o formulário público)
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
   try {
-    const supabase = await createClient();
+    const service = createServiceClient();
 
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await service
       .from('briefing_company_config')
       .select('id, company_id, slug, is_active, primary_color, theme, logo_url, title, description, success_message')
       .eq('slug', params.slug)
@@ -23,7 +23,7 @@ export async function GET(
       );
     }
 
-    const { data: questions, error: questionsError } = await supabase
+    const { data: questions, error: questionsError } = await service
       .from('briefing_questions')
       .select('id, label, field_key, question_type, options, is_required, order_index')
       .eq('company_id', config.company_id)
@@ -50,7 +50,7 @@ export async function POST(
   { params }: { params: { slug: string } }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const body = await request.json();
     const { answers } = body;
 
