@@ -19,6 +19,7 @@ import {
   Settings,
   Table2,
   Kanban,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -31,6 +32,7 @@ interface SidebarProps {
   companyEmail?: string;
   companyImage?: string;
   planName?: string;
+  hasBriefing?: boolean;
 }
 
 interface NavLink {
@@ -65,6 +67,7 @@ export const Sidebar = memo(function Sidebar({
   companyEmail,
   companyImage,
   planName,
+  hasBriefing = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -95,31 +98,24 @@ export const Sidebar = memo(function Sidebar({
 
   // 🚀 Performance: Memoizar array de links
   const allLinks = useMemo<NavLink[]>(() => {
-    // Verificar se o usuário tem acesso ao Orbit (mais robusto)
     const planNameUpper = planName?.toUpperCase() || '';
     const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
 
-    console.log('🔍 [Sidebar] Plan Name:', planName, '| Upper:', planNameUpper, '| Has Orbit:', hasOrbitAccess);
-
-    // Filtrar links baseado no plano
     const filteredLinks = links.filter(link => {
-      // Remover Orbit se não tiver acesso
-      if (link.href === '/prospect' && !hasOrbitAccess) {
-        console.log('❌ [Sidebar] Removendo Orbit - sem acesso ao plano');
-        return false;
-      }
+      if (link.href === '/prospect' && !hasOrbitAccess) return false;
       return true;
     });
 
-    console.log('✅ [Sidebar] Links filtrados:', filteredLinks.map(l => l.label).join(', '));
-
     return [
       ...filteredLinks,
+      ...(hasBriefing
+        ? [{ href: '/briefing', label: 'Briefing', icon: FileText }]
+        : []),
       ...(isAdmin
         ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }]
         : []),
     ];
-  }, [isAdmin, planName]);
+  }, [isAdmin, planName, hasBriefing]);
 
   // 🚀 Performance: Memoizar função de logout
   const handleLogout = useCallback(async () => {

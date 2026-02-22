@@ -38,18 +38,27 @@ export default async function DashboardLayout({
       .single(),
   ]);
 
-  // Buscar dados da empresa (depende do company_id)
-  const { data: companyData } = await supabase
-    .from('companies')
-    .select('name, email, image_url, plan_name')
-    .eq('id', userData?.company_id || 0)
-    .single();
+  // Buscar dados da empresa e briefing config em paralelo
+  const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
+    supabase
+      .from('companies')
+      .select('name, email, image_url, plan_name')
+      .eq('id', userData?.company_id || 0)
+      .single(),
+    supabase
+      .from('briefing_company_config')
+      .select('is_active')
+      .eq('company_id', userData?.company_id || 0)
+      .eq('is_active', true)
+      .maybeSingle(),
+  ]);
 
   const companyName = companyData?.name;
   const companyEmail = companyData?.email;
   const companyImage = companyData?.image_url;
   const planName = companyData?.plan_name;
   const isAdmin = !!adminUser;
+  const hasBriefing = !!briefingConfig;
 
   console.log('🔍 [Layout] Company Data:', {
     companyId: userData?.company_id,
@@ -66,6 +75,7 @@ export default async function DashboardLayout({
         companyEmail={companyEmail}
         companyImage={companyImage}
         planName={planName}
+        hasBriefing={hasBriefing}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
