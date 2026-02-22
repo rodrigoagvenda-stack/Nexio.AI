@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const service = createServiceClient();
 
     let query = service
-      .from('briefing_responses')
+      .from('briefing_mt_responses')
       .select('id, company_id, answers, submitted_at, webhook_sent, webhook_sent_at', { count: 'exact' })
       .order('submitted_at', { ascending: false })
       .range(offset, offset + limit - 1);

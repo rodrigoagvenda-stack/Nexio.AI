@@ -78,7 +78,7 @@ export async function POST(
 
     // Salvar resposta
     const { data: response, error: responseError } = await supabase
-      .from('briefing_responses')
+      .from('briefing_mt_responses')
       .insert({
         company_id: config.company_id,
         answers,
@@ -105,7 +105,7 @@ export async function POST(
       })
         .then(async (res) => {
           await supabase
-            .from('briefing_responses')
+            .from('briefing_mt_responses')
             .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
             .eq('id', response.id);
         })
