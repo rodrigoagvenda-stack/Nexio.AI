@@ -49,26 +49,42 @@ export async function POST(
 
     const service = createServiceClient();
 
-    const { data, error } = await service
+    const payload = {
+      slug: slug || `empresa-${companyId}`,
+      is_active: is_active ?? false,
+      primary_color: primary_color || '#7c3aed',
+      theme: theme || 'dark',
+      logo_url: logo_url || null,
+      title: title || null,
+      description: description || null,
+      webhook_url: webhook_url || null,
+      success_message: success_message || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Verificar se já existe registro para esta empresa
+    const { data: existing } = await service
       .from('briefing_company_config')
-      .upsert(
-        {
-          company_id: companyId,
-          slug: slug || `empresa-${companyId}`,
-          is_active: is_active ?? false,
-          primary_color: primary_color || '#7c3aed',
-          theme: theme || 'dark',
-          logo_url: logo_url || null,
-          title: title || null,
-          description: description || null,
-          webhook_url: webhook_url || null,
-          success_message: success_message || null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'company_id' }
-      )
-      .select()
-      .single();
+      .select('id')
+      .eq('company_id', companyId)
+      .maybeSingle();
+
+    let data, error;
+
+    if (existing) {
+      ({ data, error } = await service
+        .from('briefing_company_config')
+        .update(payload)
+        .eq('company_id', companyId)
+        .select()
+        .single());
+    } else {
+      ({ data, error } = await service
+        .from('briefing_company_config')
+        .insert({ company_id: companyId, ...payload })
+        .select()
+        .single());
+    }
 
     if (error) throw error;
 
