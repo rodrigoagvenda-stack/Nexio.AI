@@ -15,9 +15,8 @@ import { FilterButtons, FilterPeriod } from '@/components/dashboard/FilterButton
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
-import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
+import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
-import { OutboundPerformance } from '@/components/dashboard/OutboundPerformance';
 
 interface Lead {
   id: string;
@@ -177,9 +176,6 @@ export default function DashboardPage() {
   const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
 
   // Métricas IA Outbound
-  const outboundAbordados = filteredLeads.filter(
-    (l) => l.status === 'Outbound' || l.outbound_responded || l.outbound_meeting || (l.outbound_followups || 0) > 0
-  ).length;
   const outboundRetornaram = filteredLeads.filter((l) => l.outbound_responded).length;
   const outboundReuniao = filteredLeads.filter((l) => l.outbound_meeting).length;
   const outboundFechados = leadsClosedInPeriod.filter(
@@ -413,13 +409,17 @@ export default function DashboardPage() {
     { name: 'Em andamento', value: emAndamento, color: 'hsl(var(--chart-1))' },
   ];
 
-  // Dados do funil
+  // Funil Outbound (aba separada)
+  const outboundStages = [
+    { label: 'Extraídos',          count: outboundAtivos },
+    { label: 'Abordados',          count: 0 },                 // coluna a ser fornecida
+    { label: 'Retornaram contato', count: outboundRetornaram },
+    { label: 'Conversão',          count: outboundReuniao },
+    { label: 'Fechados',           count: outboundFechados },
+  ];
+
+  // Dados do funil principal (sem Outbound — fica na aba própria)
   const funnelStages = [
-    {
-      label: 'Outbound',
-      count: filteredLeads.filter((l) => l.status === 'Outbound').length,
-      color: 'bg-violet-600',
-    },
     {
       label: 'Lead novo',
       count: filteredLeads.filter((l) => l.status === 'Lead novo').length,
@@ -577,24 +577,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Funil de Vendas e Vendas Recentes */}
+      {/* Funil de Vendas (com abas) e Vendas Recentes */}
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SalesFunnel stages={funnelStages} totalLeads={totalLeads} />
+          <SalesFunnelTabs
+            stages={funnelStages}
+            outboundStages={outboundStages}
+            followupsTotal={outboundFollowups}
+            followupsResponded={outboundRetornaram}
+          />
         </div>
         <div className="h-[500px]">
           <RecentSales />
         </div>
       </div>
-
-      {/* IA Outbound */}
-      <OutboundPerformance
-        abordados={outboundAbordados}
-        retornaram={outboundRetornaram}
-        reuniao={outboundReuniao}
-        fechados={outboundFechados}
-        followups={outboundFollowups}
-      />
     </div>
   );
 }
