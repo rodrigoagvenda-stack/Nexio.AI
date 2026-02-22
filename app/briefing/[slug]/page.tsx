@@ -15,6 +15,7 @@ interface BriefingConfig {
   logo_url?: string;
   title?: string;
   description?: string;
+  success_message?: string;
 }
 
 interface BriefingQuestion {
@@ -199,16 +200,21 @@ export default function BriefingPublicPage() {
 
   // ─── Success ─────────────────────────────────────────────
   if (submitted) {
+    const successMsg = config.success_message || 'Obrigado pelo preenchimento! Entraremos em contato em breve.';
     return (
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
         <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url && (
             <img src={config.logo_url} alt="Logo" className="h-12 object-contain mx-auto" />
           )}
-          <h1 className="text-4xl md:text-5xl font-semibold">Enviado com sucesso!</h1>
-          <p className={`text-lg ${mutedClass}`}>
-            Obrigado pelo preenchimento. Entraremos em contato em breve.
-          </p>
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
+            style={{ backgroundColor: `${primaryColor}22` }}
+          >
+            <Check className="h-8 w-8" style={{ color: primaryColor }} />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-semibold">Enviado!</h1>
+          <p className={`text-lg whitespace-pre-wrap ${mutedClass}`}>{successMsg}</p>
         </div>
       </div>
     );

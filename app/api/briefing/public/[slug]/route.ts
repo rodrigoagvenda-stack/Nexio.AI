@@ -11,7 +11,7 @@ export async function GET(
 
     const { data: config, error: configError } = await supabase
       .from('briefing_company_config')
-      .select('id, company_id, slug, is_active, primary_color, logo_url, title, description')
+      .select('id, company_id, slug, is_active, primary_color, theme, logo_url, title, description, success_message')
       .eq('slug', params.slug)
       .eq('is_active', true)
       .single();

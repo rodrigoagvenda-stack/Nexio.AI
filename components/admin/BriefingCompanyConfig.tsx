@@ -22,6 +22,7 @@ interface BriefingConfig {
   title?: string;
   description?: string;
   webhook_url?: string;
+  success_message?: string;
 }
 
 interface BriefingQuestion {
@@ -495,6 +496,21 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
               ))}
             </div>
           )}
+
+          {/* Mensagem final */}
+          <div className="border rounded-lg p-4 space-y-3 mt-2">
+            <div>
+              <p className="font-medium text-sm">Página final</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Mensagem exibida após o envio do formulário</p>
+            </div>
+            <textarea
+              className="w-full border rounded-md p-3 text-sm min-h-[80px] bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              value={config.success_message ?? 'Obrigado pelo preenchimento! Entraremos em contato em breve.'}
+              onChange={(e) => setConfig({ ...config, success_message: e.target.value })}
+              placeholder="Obrigado pelo preenchimento! Entraremos em contato em breve."
+            />
+            <p className="text-xs text-muted-foreground">Salve a configuração principal acima para aplicar.</p>
+          </div>
 
           {/* Formulário de nova pergunta */}
           {showAddQuestion && (

@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS briefing_responses (
 ALTER TABLE briefing_company_config
   ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dark';
 
+-- Mensagem final customizável após envio do briefing
+ALTER TABLE briefing_company_config
+  ADD COLUMN IF NOT EXISTS success_message TEXT DEFAULT 'Obrigado pelo preenchimento! Entraremos em contato em breve.';
+
 -- Trigger updated_at para briefing_company_config
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
