@@ -794,6 +794,7 @@ export default function CRMPage() {
   };
 
   const columns = [
+    { id: 'Outbound', title: 'Outbound' },
     { id: 'Lead novo', title: 'Lead novo' },
     { id: 'Em contato', title: 'Em contato' },
     { id: 'Interessado', title: 'Interessado' },
