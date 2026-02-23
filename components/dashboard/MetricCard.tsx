@@ -10,7 +10,7 @@ interface MetricCardProps {
   subtitle: string;
   icon: LucideIcon;
   format?: 'number' | 'currency' | 'percentage';
-  highlight?: { bg: string };
+  highlight?: { bg: string; text?: string };
 }
 
 export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight }: MetricCardProps) {
@@ -61,17 +61,17 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
         <div
           className={highlight ? 'p-2.5 rounded-lg' : 'p-2.5 rounded-lg bg-primary/10'}
-          style={highlight ? { backgroundColor: 'rgba(255,255,255,0.15)' } : undefined}
+          style={highlight ? { backgroundColor: highlight.text ? `${highlight.text}22` : 'rgba(255,255,255,0.15)' } : undefined}
         >
           <Icon
             className={highlight ? 'h-5 w-5' : 'h-5 w-5 text-primary'}
-            style={highlight ? { color: 'rgba(255,255,255,0.9)' } : undefined}
+            style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
           />
         </div>
         <div className="flex-1">
           <p
             className={highlight ? 'text-sm' : 'text-sm text-muted-foreground'}
-            style={highlight ? { color: 'rgba(255,255,255,0.7)' } : undefined}
+            style={highlight ? { color: highlight.text ? `${highlight.text}bb` : 'rgba(255,255,255,0.7)' } : undefined}
           >
             {title}
           </p>
@@ -80,13 +80,13 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
       <CardContent className="pt-0">
         <div
           className={highlight ? 'text-3xl font-bold mb-1' : 'text-3xl font-bold text-foreground mb-1'}
-          style={highlight ? { color: '#ffffff' } : undefined}
+          style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
         >
           {formattedValue()}
         </div>
         <p
           className={highlight ? 'text-xs' : 'text-xs text-muted-foreground'}
-          style={highlight ? { color: 'rgba(255,255,255,0.6)' } : undefined}
+          style={highlight ? { color: highlight.text ? `${highlight.text}99` : 'rgba(255,255,255,0.6)' } : undefined}
         >
           {subtitle}
         </p>
