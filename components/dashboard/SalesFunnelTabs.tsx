@@ -81,7 +81,7 @@ export function SalesFunnelTabs({ stages, outboundStages, followupsTotal, follow
       <Card className="h-full flex flex-col">
         <CardContent className="flex-1 pt-6">
           <Tabs defaultValue="vendas" className="h-full flex flex-col">
-            <TabsList className="mb-4">
+            <TabsList className="mb-4 self-start">
               <TabsTrigger value="vendas">Funil de Vendas</TabsTrigger>
               <TabsTrigger value="outbound">Funil Outbound</TabsTrigger>
               <TabsTrigger value="followups">Followups</TabsTrigger>

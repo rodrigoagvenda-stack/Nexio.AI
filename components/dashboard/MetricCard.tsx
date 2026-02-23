@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -56,7 +56,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
   return (
     <Card
       className="border-border hover:shadow-md transition-all"
-      style={highlight ? { backgroundColor: highlight.bg, borderColor: 'transparent' } : undefined}
+      style={highlight ? { background: highlight.bg, borderColor: 'transparent' } : undefined}
     >
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
         <div
