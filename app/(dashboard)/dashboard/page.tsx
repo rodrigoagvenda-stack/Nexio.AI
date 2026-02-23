@@ -529,7 +529,6 @@ export default function DashboardPage() {
           subtitle="Leads em prospecção"
           icon={Bot}
           format="number"
-          highlight={{ bg: 'linear-gradient(to right, #c084fc, #ec4899, #9333ea)', text: '#0c0c0c' }}
         />
         <MetricCard
           title="Novos leads"
