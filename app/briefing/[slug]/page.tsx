@@ -230,7 +230,7 @@ export default function BriefingPublicPage() {
           )}
           <p className="text-5xl">😕</p>
           <h1 className="text-3xl font-semibold">Algo deu errado</h1>
-          <p className={`text-base ${mutedClass}`}>Não foi possível enviar suas respostas. Por favor, tente novamente.</p>
+          <p className={`text-base ${mutedClass}`}>{submitError}</p>
           <Button
             onClick={() => setSubmitError('')}
             className="text-white"
