@@ -91,34 +91,41 @@ export async function POST(
       .single();
 
     if (responseError) throw responseError;
+    if (!response) throw new Error('Falha ao salvar resposta no banco de dados');
 
-    // Disparar webhook (aguardado antes de retornar — evita corte em serverless)
+    // Disparar webhook
     if (webhookUrl) {
-      try {
-        const webhookRes = await Promise.race([
-          fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              briefing_response_id: response.id,
-              company_id: config.company_id,
-              slug: params.slug,
-              answers,
-              submitted_at: response.submitted_at,
-            }),
+      console.log('[Briefing] Disparando webhook para:', webhookUrl);
+      const webhookRes = await Promise.race([
+        fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            briefing_response_id: response.id,
+            company_id: config.company_id,
+            slug: params.slug,
+            answers,
+            submitted_at: response.submitted_at,
           }),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('webhook timeout')), 8000)
-          ),
-        ]);
-        await supabase
-          .from('briefing_mt_responses')
-          .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
-          .eq('id', response.id);
-        console.log('[Briefing] Webhook disparado, status:', (webhookRes as Response).status);
-      } catch (err) {
-        console.error('[Briefing] Erro ao disparar webhook:', err);
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('webhook timeout após 8s')), 8000)
+        ),
+      ]);
+
+      if (!webhookRes.ok) {
+        const errText = await webhookRes.text();
+        throw new Error(`Webhook retornou erro ${webhookRes.status}: ${errText.substring(0, 200)}`);
       }
+
+      await supabase
+        .from('briefing_mt_responses')
+        .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
+        .eq('id', response.id);
+
+      console.log('[Briefing] Webhook disparado com sucesso, status:', webhookRes.status);
+    } else {
+      console.warn('[Briefing] Nenhum webhook_url configurado para slug:', params.slug);
     }
 
     return NextResponse.json({
