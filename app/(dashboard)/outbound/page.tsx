@@ -111,6 +111,8 @@ export default function OutboundPage() {
   const [limits, setLimits] = useState<OutboundLimit>({});
   const [editingTemplate, setEditingTemplate] = useState<number | null>(null);
   const [templateDraft, setTemplateDraft] = useState<Partial<Template>>({});
+  const [totalEnviadas, setTotalEnviadas] = useState(0);
+  const [totalAbordados, setTotalAbordados] = useState(0);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loadingLimits, setLoadingLimits] = useState(true);
@@ -170,6 +172,22 @@ export default function OutboundPage() {
     }
   }, [company?.id]);
 
+  const fetchOutboundStats = useCallback(async () => {
+    if (!company?.id) return;
+    const { data: enviadasRows } = await supabase
+      .from('outbound_campaigns')
+      .select('id')
+      .eq('company_id', company.id)
+      .eq('status', 'enviado');
+    const { data: abordadosRows } = await supabase
+      .from('outbound_campaigns')
+      .select('lead_id')
+      .eq('company_id', company.id)
+      .gt('tentativas', 0);
+    setTotalEnviadas(enviadasRows?.length ?? 0);
+    setTotalAbordados(new Set(abordadosRows?.map((r: any) => r.lead_id)).size);
+  }, [company?.id]);
+
   const fetchLimits = useCallback(async () => {
     if (!company?.id) return;
     setLoadingLimits(true);
@@ -196,8 +214,9 @@ export default function OutboundPage() {
       fetchCampaigns();
       fetchTemplates();
       fetchLimits();
+      fetchOutboundStats();
     }
-  }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits]);
+  }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits, fetchOutboundStats]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -326,10 +345,21 @@ export default function OutboundPage() {
         <TabsContent value="campanhas" className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Criadas automaticamente pela IA</p>
-            <Button variant="outline" size="sm" onClick={fetchCampaigns} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => { fetchCampaigns(); fetchOutboundStats(); }} className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />
               Atualizar
             </Button>
+          </div>
+
+          <div className="flex gap-6 px-1">
+            <div>
+              <p className="text-2xl font-bold">{totalEnviadas}</p>
+              <p className="text-xs text-muted-foreground">Total enviadas</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{totalAbordados}</p>
+              <p className="text-xs text-muted-foreground">Leads abordados</p>
+            </div>
           </div>
 
           {loadingCampaigns ? (
@@ -355,7 +385,7 @@ export default function OutboundPage() {
                 const isExpanded = expandedCampaign === campaign.id;
                 const errors = campaignErrors[campaign.id] || [];
                 const name = campaign.nome || campaign.name || `Campanha #${campaign.id}`;
-                const enviadas = campaign.total_enviadas ?? campaign.mensagens_enviadas ?? 0;
+                const enviadas = campaign.tentativas ?? 0;
                 const respondidas = campaign.total_respondidas ?? campaign.respostas ?? 0;
                 const erros = campaign.total_erros ?? campaign.erros ?? 0;
                 const taxa = enviadas > 0 ? Math.round((respondidas / enviadas) * 100) : 0;

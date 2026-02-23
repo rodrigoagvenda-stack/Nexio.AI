@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [outboundAbordados, setOutboundAbordados] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -69,6 +70,14 @@ export default function DashboardPage() {
         .order('created_at', { ascending: true });
 
       setLeads(leadsData || []);
+
+      // Abordados: distinct lead_ids em outbound_campaigns com tentativas > 0
+      const { data: abordadosRows } = await supabase
+        .from('outbound_campaigns')
+        .select('lead_id')
+        .eq('company_id', userData.company_id)
+        .gt('tentativas', 0);
+      setOutboundAbordados(new Set(abordadosRows?.map((r: any) => r.lead_id)).size);
     } catch (error) {
       console.error('Error fetching leads:', error);
     } finally {
@@ -412,7 +421,7 @@ export default function DashboardPage() {
   // Funil Outbound (aba separada)
   const outboundStages = [
     { label: 'Extraídos',          count: outboundAtivos },
-    { label: 'Abordados',          count: 0 },                 // coluna a ser fornecida
+    { label: 'Abordados',          count: outboundAbordados },
     { label: 'Retornaram contato', count: outboundRetornaram },
     { label: 'Conversão',          count: outboundReuniao },
     { label: 'Fechados',           count: outboundFechados },
