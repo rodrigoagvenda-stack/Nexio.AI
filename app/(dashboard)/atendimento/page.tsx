@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, BotOff, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -82,6 +82,7 @@ export default function AtendimentoPage() {
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const [assignDialog, setAssignDialog] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAiActive, setIsAiActive] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1099,6 +1100,22 @@ export default function AtendimentoPage() {
                         <ExternalLink className="h-4 w-4" />
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsAiActive(!isAiActive)}
+                      title={isAiActive ? 'Pausar IA' : 'Retomar IA'}
+                      className={isAiActive
+                        ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600'
+                        : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600'
+                      }
+                    >
+                      {isAiActive ? (
+                        <><Bot className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA ativa</span></>
+                      ) : (
+                        <><BotOff className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA pausada</span></>
+                      )}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

@@ -3,7 +3,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -110,273 +109,10 @@ export function LeadInfoSidebar({
             </TabsList>
 
             {/* Aba: Dados */}
-            <TabsContent value="dados" className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-minimal mt-0">
-            {/* Dados Básicos */}
-            <div>
-              <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                Empresa
-              </h4>
-              <p className="text-sm font-medium">{lead.company_name}</p>
-              {lead.contact_name && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Contato: {lead.contact_name}
-                </p>
-              )}
-            </div>
+            <TabsContent value="dados" className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-minimal mt-0">
 
-            <Separator />
-
-            {/* Telefone */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Telefone:</span>
-              </div>
-              <p className="text-sm font-medium pl-6">{phone}</p>
-            </div>
-
-            {/* Email */}
-            {lead.email && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Email:</span>
-                </div>
-                <p className="text-sm font-medium pl-6">{lead.email}</p>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Status (Nível de Interesse) */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Status</Label>
-              <Select
-                value={lead.nivel_interesse}
-                onValueChange={(value) => handleFieldUpdate('nivel_interesse', value)}
-                disabled={updating}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
-                  <SelectItem value="Morno 🌡️">Morno 🌡️</SelectItem>
-                  <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Estágio */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Estágio</Label>
-              <Select
-                value={lead.status}
-                onValueChange={(value) => handleFieldUpdate('status', value)}
-                disabled={updating}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Lead novo">Lead novo</SelectItem>
-                  <SelectItem value="Em contato">Em contato</SelectItem>
-                  <SelectItem value="Interessado">Interessado</SelectItem>
-                  <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
-                  <SelectItem value="Fechado">Fechado</SelectItem>
-                  <SelectItem value="Perdido">Perdido</SelectItem>
-                  <SelectItem value="Remarketing">Remarketing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Prioridade */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Prioridade</Label>
-              <Select
-                value={lead.priority}
-                onValueChange={(value) => handleFieldUpdate('priority', value)}
-                disabled={updating}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Alta">Alta</SelectItem>
-                  <SelectItem value="Média">Média</SelectItem>
-                  <SelectItem value="Baixa">Baixa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Segmento */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Segmento</Label>
-              <Select
-                value={lead.segment || undefined}
-                onValueChange={(value) => handleFieldUpdate('segment', value)}
-                disabled={updating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="E-commerce">E-commerce</SelectItem>
-                  <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
-                  <SelectItem value="Educação">Educação</SelectItem>
-                  <SelectItem value="Alimentação">Alimentação</SelectItem>
-                  <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
-                  <SelectItem value="Imobiliária">Imobiliária</SelectItem>
-                  <SelectItem value="Advocacia">Advocacia</SelectItem>
-                  <SelectItem value="Consultoria">Consultoria</SelectItem>
-                  <SelectItem value="Tecnologia">Tecnologia</SelectItem>
-                  <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
-                  <SelectItem value="Arquitetura">Arquitetura</SelectItem>
-                  <SelectItem value="Outros">Outros</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Origem */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Origem</Label>
-              <Select
-                value={lead.import_source || undefined}
-                onValueChange={(value) => handleFieldUpdate('import_source', value)}
-                disabled={updating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PEG">PEG</SelectItem>
-                  <SelectItem value="Linkedin">Linkedin</SelectItem>
-                  <SelectItem value="Interno">Interno</SelectItem>
-                  <SelectItem value="Meta Ads">Meta Ads</SelectItem>
-                  <SelectItem value="Google Ads">Google Ads</SelectItem>
-                  <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
-                  <SelectItem value="Indicação">Indicação</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                  <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
-                  <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Cargo */}
-            {lead.cargo && (
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Cargo</Label>
-                <Select
-                  value={lead.cargo}
-                  onValueChange={(value) => handleFieldUpdate('cargo', value)}
-                  disabled={updating}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Proprietário/Dono">Proprietário/Dono</SelectItem>
-                    <SelectItem value="Gerente Comercial">Gerente Comercial</SelectItem>
-                    <SelectItem value="Vendedor">Vendedor</SelectItem>
-                    <SelectItem value="Representante Comercial">
-                      Representante Comercial
-                    </SelectItem>
-                    <SelectItem value="Consultor de Vendas">Consultor de Vendas</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Valor do Projeto */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">
-                Valor do Projeto
-              </Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    R$
-                  </span>
-                  <Input
-                    type="text"
-                    placeholder="0,00"
-                    value={
-                      hasProjectValueChanged
-                        ? editingProjectValue
-                        : lead.project_value
-                        ? new Intl.NumberFormat('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          }).format(lead.project_value)
-                        : ''
-                    }
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/\D/g, '');
-                      if (!raw) {
-                        setEditingProjectValue('');
-                        setHasProjectValueChanged(true);
-                        return;
-                      }
-                      const numValue = parseInt(raw) / 100;
-                      const formatted = new Intl.NumberFormat('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }).format(numValue);
-                      setEditingProjectValue(formatted);
-                      setHasProjectValueChanged(true);
-                    }}
-                    className="pl-8"
-                    disabled={updating}
-                  />
-                </div>
-                {hasProjectValueChanged && (
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      const value = editingProjectValue.replace(/\D/g, '');
-                      const numValue = value ? parseFloat(value) / 100 : null;
-                      await handleFieldUpdate('project_value', numValue);
-                      setHasProjectValueChanged(false);
-                      setEditingProjectValue('');
-                    }}
-                    disabled={updating}
-                    className="shrink-0"
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Tags */}
-            {tags.length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                    <Tag className="h-4 w-4" />
-                    Etiquetas
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Nota SDR (Read-only) */}
-            {lead.notes && (
-              <>
-                <Separator />
+              {/* AI Resumo — topo, destaque */}
+              {lead.notes && (
                 <div className="space-y-2">
                   <button
                     onClick={() => setIsResumoExpanded(!isResumoExpanded)}
@@ -384,35 +120,21 @@ export function LeadInfoSidebar({
                   >
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-primary" />
-                      <h4 className="text-sm font-semibold text-primary">
-                        nexio.ai resumo
-                      </h4>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                        IA
-                      </Badge>
+                      <span className="text-sm font-semibold text-primary">nexio.ai resumo</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">IA</Badge>
                     </div>
-                    {isResumoExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-primary" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-primary" />
-                    )}
+                    {isResumoExpanded
+                      ? <ChevronUp className="h-4 w-4 text-primary" />
+                      : <ChevronDown className="h-4 w-4 text-primary" />
+                    }
                   </button>
-
                   {isResumoExpanded && (
-                    <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/20 space-y-3">
-                      <div className="relative">
-                        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                          {lead.notes}
-                        </p>
-                      </div>
+                    <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-3 border border-primary/20 space-y-3">
+                      <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{lead.notes}</p>
                       <div className="flex items-center justify-between pt-2 border-t border-primary/20">
-                        <p className="text-xs text-muted-foreground italic">
-                          Gerado automaticamente
-                        </p>
+                        <p className="text-xs text-muted-foreground italic">Gerado automaticamente</p>
                         <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs gap-1"
+                          size="sm" variant="ghost" className="h-7 text-xs gap-1"
                           onClick={() => {
                             navigator.clipboard.writeText(lead.notes || '');
                             setCopiedResumo(true);
@@ -420,24 +142,190 @@ export function LeadInfoSidebar({
                             setTimeout(() => setCopiedResumo(false), 2000);
                           }}
                         >
-                          {copiedResumo ? (
-                            <>
-                              <Check className="h-3 w-3" />
-                              Copiado
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-3 w-3" />
-                              Copiar
-                            </>
-                          )}
+                          {copiedResumo ? <><Check className="h-3 w-3" />Copiado</> : <><Copy className="h-3 w-3" />Copiar</>}
                         </Button>
                       </div>
                     </div>
                   )}
                 </div>
-              </>
-            )}
+              )}
+
+              {/* Bloco de contato */}
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Building2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{lead.company_name}</p>
+                    {lead.contact_name && (
+                      <p className="text-xs text-muted-foreground truncate">{lead.contact_name}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span>{phone}</span>
+                </div>
+                {lead.email && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{lead.email}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Pipeline */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pipeline</p>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Select value={lead.nivel_interesse} onValueChange={(v) => handleFieldUpdate('nivel_interesse', v)} disabled={updating}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Quente 🔥">Quente 🔥</SelectItem>
+                      <SelectItem value="Morno 🌡️">Morno 🌡️</SelectItem>
+                      <SelectItem value="Frio ❄️">Frio ❄️</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Estágio</Label>
+                  <Select value={lead.status} onValueChange={(v) => handleFieldUpdate('status', v)} disabled={updating}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Lead novo">Lead novo</SelectItem>
+                      <SelectItem value="Em contato">Em contato</SelectItem>
+                      <SelectItem value="Interessado">Interessado</SelectItem>
+                      <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
+                      <SelectItem value="Fechado">Fechado</SelectItem>
+                      <SelectItem value="Perdido">Perdido</SelectItem>
+                      <SelectItem value="Remarketing">Remarketing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Classificação */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Classificação</p>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Prioridade</Label>
+                  <Select value={lead.priority} onValueChange={(v) => handleFieldUpdate('priority', v)} disabled={updating}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Alta">Alta</SelectItem>
+                      <SelectItem value="Média">Média</SelectItem>
+                      <SelectItem value="Baixa">Baixa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Segmento</Label>
+                  <Select value={lead.segment || undefined} onValueChange={(v) => handleFieldUpdate('segment', v)} disabled={updating}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="E-commerce">E-commerce</SelectItem>
+                      <SelectItem value="Saúde/Medicina">Saúde/Medicina</SelectItem>
+                      <SelectItem value="Educação">Educação</SelectItem>
+                      <SelectItem value="Alimentação">Alimentação</SelectItem>
+                      <SelectItem value="Beleza/Estética">Beleza/Estética</SelectItem>
+                      <SelectItem value="Imobiliária">Imobiliária</SelectItem>
+                      <SelectItem value="Advocacia">Advocacia</SelectItem>
+                      <SelectItem value="Consultoria">Consultoria</SelectItem>
+                      <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                      <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
+                      <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                      <SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Origem</Label>
+                  <Select value={lead.import_source || undefined} onValueChange={(v) => handleFieldUpdate('import_source', v)} disabled={updating}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PEG">PEG</SelectItem>
+                      <SelectItem value="Linkedin">Linkedin</SelectItem>
+                      <SelectItem value="Interno">Interno</SelectItem>
+                      <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                      <SelectItem value="Google Ads">Google Ads</SelectItem>
+                      <SelectItem value="Site/Landing Page">Site/Landing Page</SelectItem>
+                      <SelectItem value="Indicação">Indicação</SelectItem>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                      <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                      <SelectItem value="E-mail Marketing">E-mail Marketing</SelectItem>
+                      <SelectItem value="Evento/Feira">Evento/Feira</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {lead.cargo && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Cargo</Label>
+                    <Select value={lead.cargo} onValueChange={(v) => handleFieldUpdate('cargo', v)} disabled={updating}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Proprietário/Dono">Proprietário/Dono</SelectItem>
+                        <SelectItem value="Gerente Comercial">Gerente Comercial</SelectItem>
+                        <SelectItem value="Vendedor">Vendedor</SelectItem>
+                        <SelectItem value="Representante Comercial">Representante Comercial</SelectItem>
+                        <SelectItem value="Consultor de Vendas">Consultor de Vendas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* Financeiro */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Financeiro</p>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Valor do Projeto</Label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                      <Input
+                        type="text" placeholder="0,00"
+                        value={hasProjectValueChanged ? editingProjectValue : lead.project_value
+                          ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(lead.project_value)
+                          : ''}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          if (!raw) { setEditingProjectValue(''); setHasProjectValueChanged(true); return; }
+                          const numValue = parseInt(raw) / 100;
+                          setEditingProjectValue(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numValue));
+                          setHasProjectValueChanged(true);
+                        }}
+                        className="pl-8 h-8 text-xs" disabled={updating}
+                      />
+                    </div>
+                    {hasProjectValueChanged && (
+                      <Button size="sm" className="shrink-0 h-8"
+                        onClick={async () => {
+                          const value = editingProjectValue.replace(/\D/g, '');
+                          await handleFieldUpdate('project_value', value ? parseFloat(value) / 100 : null);
+                          setHasProjectValueChanged(false);
+                          setEditingProjectValue('');
+                        }}
+                        disabled={updating}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Etiquetas */}
+              {tags.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Etiquetas</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </TabsContent>
 
             {/* Aba: Notas */}
