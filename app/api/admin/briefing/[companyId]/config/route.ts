@@ -44,7 +44,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { slug, is_active, primary_color, theme, logo_url, title, description, webhook_url, success_message } = body;
+    const { slug, is_active, primary_color, theme, logo_url, title, description, webhook_url, success_message, whatsapp_required } = body;
     const companyId = parseInt(params.companyId);
 
     const service = createServiceClient();
@@ -59,6 +59,7 @@ export async function POST(
       description: description || null,
       webhook_url: webhook_url || null,
       success_message: success_message || null,
+      whatsapp_required: whatsapp_required ?? true,
       updated_at: new Date().toISOString(),
     };
 

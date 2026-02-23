@@ -23,6 +23,7 @@ interface BriefingConfig {
   description?: string;
   webhook_url?: string;
   success_message?: string;
+  whatsapp_required?: boolean;
 }
 
 interface BriefingQuestion {
@@ -387,6 +388,17 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
                 value={config.webhook_url || ''}
                 onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
                 placeholder="https://n8n.empresa.com/webhook/briefing"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Solicitar WhatsApp</Label>
+                <p className="text-xs text-muted-foreground">Exibe campo obrigatório de WhatsApp com bandeira BR</p>
+              </div>
+              <Switch
+                checked={config.whatsapp_required ?? true}
+                onCheckedChange={(v) => setConfig({ ...config, whatsapp_required: v })}
               />
             </div>
           </div>

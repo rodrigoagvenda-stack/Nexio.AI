@@ -15,6 +15,7 @@ interface BriefingConfig {
   title?: string;
   description?: string;
   success_message?: string;
+  whatsapp_required?: boolean;
 }
 
 interface BriefingQuestion {
@@ -63,6 +64,9 @@ export default function BriefingPublicPage() {
       data.data.questions.forEach((q: BriefingQuestion) => {
         initial[q.field_key] = isMulti(q.question_type) ? [] : '';
       });
+      if (data.data.config.whatsapp_required !== false) {
+        initial['whatsapp'] = '';
+      }
       setAnswers(initial);
     } catch {
       setError('Erro ao carregar briefing');
@@ -79,7 +83,21 @@ export default function BriefingPublicPage() {
     return ['select', 'radio', 'multiselect', 'checkbox'].includes(type);
   }
 
-  const totalSteps = questions.length;
+  function interpolate(text: string) {
+    return text.replace(/\{\{(\w+)\}\}/g, (_, key) => answers[key] || `{{${key}}}`);
+  }
+
+  function formatPhone(raw: string) {
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    return digits;
+  }
+
+  const hasWhatsapp = config?.whatsapp_required !== false;
+  const whatsappStep = hasWhatsapp ? questions.length : -99; // índice do step de whatsapp
+  const totalSteps = questions.length + (hasWhatsapp ? 1 : 0);
   const progress = currentStep === -1 ? 0 : ((currentStep + 1) / totalSteps) * 100;
   const primaryColor = config?.primary_color || '#7c3aed';
   const isDark = (config?.theme ?? 'dark') === 'dark';
@@ -89,9 +107,14 @@ export default function BriefingPublicPage() {
   const borderClass = isDark ? 'border-gray-700' : 'border-gray-200';
   const hoverClass = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50';
 
-  const currentQuestion = questions[currentStep] ?? null;
+  const isWhatsappStep = hasWhatsapp && currentStep === whatsappStep;
+  const currentQuestion = !isWhatsappStep ? (questions[currentStep] ?? null) : null;
 
   function canAdvance() {
+    if (isWhatsappStep) {
+      const digits = (answers['whatsapp'] || '').replace(/\D/g, '');
+      return digits.length >= 10;
+    }
     if (!currentQuestion) return false;
     if (!currentQuestion.is_required) return true;
     const val = answers[currentQuestion.field_key];
@@ -127,7 +150,7 @@ export default function BriefingPublicPage() {
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !isChoices(currentQuestion?.question_type ?? '')) {
+    if (e.key === 'Enter' && (isWhatsappStep || !isChoices(currentQuestion?.question_type ?? ''))) {
       nextStep();
     }
   }
@@ -135,10 +158,16 @@ export default function BriefingPublicPage() {
   async function handleSubmit() {
     setSubmitting(true);
     try {
+      // Formatar whatsapp com código do país antes de enviar
+      const finalAnswers = { ...answers };
+      if (finalAnswers['whatsapp']) {
+        const digits = finalAnswers['whatsapp'].replace(/\D/g, '');
+        finalAnswers['whatsapp'] = digits.startsWith('55') ? digits : `55${digits}`;
+      }
       const res = await fetch(`/api/briefing/public/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers: finalAnswers }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
@@ -273,9 +302,66 @@ export default function BriefingPublicPage() {
     );
   }
 
-  const q = currentQuestion!;
   const isLast = currentStep === totalSteps - 1;
   const actionBtn = isLast ? submitBtn : nextBtn;
+
+  // ─── WhatsApp Step ────────────────────────────────────────
+  if (isWhatsappStep) {
+    const phoneVal = answers['whatsapp'] || '';
+    const canGo = phoneVal.replace(/\D/g, '').length >= 10;
+    return (
+      <div className={`min-h-screen ${bgClass} ${textClass}`} onKeyDown={handleKeyDown}>
+        <div className="fixed top-5 left-6 z-50">
+          {config.logo_url ? (
+            <img src={config.logo_url} alt="Logo" className="h-10 md:h-12 w-auto object-contain" style={{ maxWidth: '160px' }} />
+          ) : (
+            <div className="h-1 w-10 rounded-full" style={{ backgroundColor: primaryColor }} />
+          )}
+        </div>
+        <div className={`fixed top-0 left-0 right-0 h-1 z-50 ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+          <div className="h-full transition-all duration-300" style={{ width: `${progress}%`, backgroundColor: primaryColor }} />
+        </div>
+        <div className="flex items-center justify-center min-h-screen px-6 sm:px-10 md:px-8 pt-24 pb-10">
+          <div className="max-w-2xl w-full animate-in fade-in duration-300">
+            <div className="mb-4">
+              <span className={`text-sm ${mutedClass}`}>{currentStep + 1} → {totalSteps}</span>
+            </div>
+            <div className="space-y-6">
+              <h2 className="text-3xl md:text-4xl font-medium leading-snug">
+                Qual o seu WhatsApp? <span className="text-red-500 ml-1 text-2xl">*</span>
+              </h2>
+              <div className={`flex items-center border-b-2 ${borderClass} py-2 gap-3`}>
+                <span className="flex items-center gap-1.5 text-xl shrink-0 select-none">
+                  🇧🇷 <span className={`text-base font-medium ${mutedClass}`}>+55</span>
+                </span>
+                <input
+                  type="tel"
+                  value={formatPhone(phoneVal)}
+                  onChange={(e) => setAnswer('whatsapp', e.target.value.replace(/\D/g, ''))}
+                  placeholder="(11) 99999-9999"
+                  autoFocus
+                  className={`flex-1 text-xl bg-transparent outline-none placeholder:opacity-40 ${textClass}`}
+                />
+              </div>
+              <Button
+                size="lg"
+                onClick={nextStep}
+                disabled={!canGo || submitting}
+                className="text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {submitting
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                  : <>Enviar</>}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const q = currentQuestion!;
 
   // ─── Question Screens ────────────────────────────────────
   return (
@@ -310,7 +396,7 @@ export default function BriefingPublicPage() {
           <div className="space-y-6">
             {/* Label da pergunta */}
             <h2 className="text-3xl md:text-4xl font-medium leading-snug">
-              {q.label}
+              {interpolate(q.label)}
               {q.is_required && <span className="text-red-500 ml-1 text-2xl">*</span>}
             </h2>
 

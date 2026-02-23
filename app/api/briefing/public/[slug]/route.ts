@@ -11,7 +11,7 @@ export async function GET(
 
     const { data: config, error: configError } = await service
       .from('briefing_company_config')
-      .select('id, company_id, slug, is_active, primary_color, theme, logo_url, title, description, success_message')
+      .select('id, company_id, slug, is_active, primary_color, theme, logo_url, title, description, success_message, whatsapp_required')
       .eq('slug', params.slug)
       .eq('is_active', true)
       .single();
