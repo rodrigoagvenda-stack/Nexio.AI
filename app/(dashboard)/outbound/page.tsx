@@ -178,10 +178,11 @@ export default function OutboundPage() {
         .from('outbound_limits')
         .select('*')
         .eq('company_id', company.id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
       if (error) throw error;
-      if (data) {
-        setLimits(data);
+      if (data && data.length > 0) {
+        setLimits(data[0]);
       }
     } catch (err: any) {
       console.error('fetchLimits:', err);

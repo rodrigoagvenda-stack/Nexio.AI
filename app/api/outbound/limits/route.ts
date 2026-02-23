@@ -22,25 +22,13 @@ export async function POST(request: NextRequest) {
 
     const serviceSupabase = createServiceClient();
 
-    // Verificar se já existe row para esta empresa
-    const { data: existing } = await serviceSupabase
+    // UPDATE por company_id (cobre múltiplas rows se houver duplicatas)
+    const { error: updateError } = await serviceSupabase
       .from('outbound_limits')
-      .select('id')
-      .eq('company_id', company_id)
-      .maybeSingle();
+      .update({ limite_diario })
+      .eq('company_id', Number(company_id));
 
-    if (existing?.id) {
-      const { error } = await serviceSupabase
-        .from('outbound_limits')
-        .update({ limite_diario })
-        .eq('id', existing.id);
-      if (error) throw error;
-    } else {
-      const { error } = await serviceSupabase
-        .from('outbound_limits')
-        .insert({ company_id, limite_diario });
-      if (error) throw error;
-    }
+    if (updateError) throw updateError;
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
