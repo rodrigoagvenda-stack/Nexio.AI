@@ -78,20 +78,19 @@ export async function POST(
 
     const webhookUrl = config.webhook_url || null;
 
-    // Buscar lead pelo WhatsApp (se disponível nas respostas)
+    // Buscar lead pelo WhatsApp (normalização universal: strip não-dígitos, compara últimos 8)
     let leadId: number | null = null;
-    const whatsappNumber = answers['whatsapp'] || null;
-    if (whatsappNumber) {
-      const { data: lead } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('company_id', config.company_id)
-        .eq('whatsapp', whatsappNumber)
-        .maybeSingle();
+    const whatsappRaw = answers['whatsapp'] || null;
+    if (whatsappRaw) {
+      const { data: leadRows } = await supabase
+        .rpc('match_lead_by_phone', {
+          company_id_param: config.company_id,
+          phone_param: whatsappRaw,
+        });
 
+      const lead = leadRows?.[0] ?? null;
       if (lead) {
         leadId = lead.id;
-        // Marcar briefing como preenchido
         await supabase
           .from('leads')
           .update({ briefing_preenchido: true, briefing_preenchido_em: new Date().toISOString() })
