@@ -14,6 +14,8 @@ import {
   ChevronRight,
   BookOpen,
   HelpCircle,
+  Megaphone,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -201,6 +203,62 @@ const sections: HelpSection[] = [
         question: 'Como funciona no celular?',
         answer:
           'No celular o Kanban se adapta para uma **lista vertical** em vez de colunas horizontais.\n\n**Cada card no mobile mostra:**\n• Nome da empresa e contato\n• Telefone e valor do projeto\n• **Seletor de status** — um dropdown para mudar o estágio diretamente\n• Prioridade e nível de interesse\n• Segmento\n• Botões de editar e deletar\n\nComo não dá pra arrastar no celular, o seletor de status substitui o drag & drop. A mudança é salva automaticamente ao selecionar o novo estágio.',
+      },
+    ],
+  },
+  {
+    id: 'outbound',
+    title: 'Outbound',
+    icon: Megaphone,
+    description: 'Campanhas, templates e limites de disparo',
+    items: [
+      {
+        question: 'O que é o módulo Outbound?',
+        answer:
+          'O Outbound é o módulo de **campanhas de mensagens em massa** via WhatsApp. Com ele você pode:\n\n• **Campanhas** — Visualize todas as campanhas disparadas, veja status (enviado, respondido, erro), expanda cada campanha para ver os erros detalhados com paginação\n• **Templates** — Gerencie os templates de mensagem usados nas campanhas. Templates globais (disponíveis para todas as empresas) e templates da sua empresa\n• **Configurações** — Defina o limite diário de disparos para proteger sua conta WhatsApp de banimentos\n\nAcesse pelo menu lateral em **Ferramentas → Outbound**.',
+      },
+      {
+        question: 'Como visualizar campanhas e erros?',
+        answer:
+          'Na aba **Campanhas**:\n\n**Cards de campanha:**\n• Nome/ID da campanha\n• Status: Ativa, Pausada, Concluída\n• Total enviadas, respondidas e erros\n• Data de criação\n\n**Expandir campanha:**\n• Clique em **Ver Erros** para ver os detalhes de falhas\n• Os erros são exibidos em páginas de 6 itens com botões Anterior/Próximo\n• Cada erro mostra: ID do lead, mensagem de erro e data/hora\n\n**Paginação de campanhas:**\n• Máximo de 6 campanhas por página\n• Use os botões **Anterior** e **Próximo** para navegar',
+      },
+      {
+        question: 'Como gerenciar templates?',
+        answer:
+          'Na aba **Templates** você vê todos os templates disponíveis:\n\n• **Templates globais** (sem empresa vinculada) — disponíveis para todas as contas\n• **Templates da empresa** — exclusivos da sua conta\n\n**Cada template exibe:**\n• Nome e categoria\n• Preview do conteúdo\n• Botão de copiar conteúdo\n• Ações de editar e deletar (apenas templates da empresa)\n\nTemplates são criados e gerenciados pelo time Nexio ou admin da conta.',
+      },
+      {
+        question: 'Como configurar o limite diário de disparos?',
+        answer:
+          'Na aba **Configurações**, você encontra dois cards:\n\n**Limite de Disparos:**\n• Define o número máximo de mensagens enviadas por dia\n• Recomendado: comece com valores baixos (50-100/dia) e aumente gradualmente\n• Muitos disparos de uma vez podem acionar proteção do WhatsApp\n• Clique em **Salvar limite** para aplicar\n\n**Boas Práticas:**\n• Respeite os limites do WhatsApp Business\n• Use intervalos entre disparos\n• Monitore a taxa de erros nas campanhas\n• Se a taxa de erro for alta, reduza o limite diário',
+      },
+    ],
+  },
+  {
+    id: 'briefing',
+    title: 'Briefing',
+    icon: FileText,
+    description: 'Formulário de briefing personalizado da sua empresa',
+    items: [
+      {
+        question: 'O que é o Briefing?',
+        answer:
+          'O Briefing é um **formulário público personalizado** exclusivo da sua empresa, acessível por uma URL única.\n\nCom ele você coleta informações importantes de potenciais clientes antes de uma reunião ou proposta.\n\n**O que você pode configurar:**\n• URL própria no formato `nexio.ai/briefing/sua-empresa`\n• Cor primária e logo da empresa (branding)\n• Título e descrição do formulário\n• Perguntas totalmente customizadas\n• Webhook para receber respostas em tempo real\n\nO menu **Briefing** aparece no sidebar apenas se o admin ativar o briefing para sua empresa.',
+      },
+      {
+        question: 'Como acessar e configurar o Briefing?',
+        answer:
+          'Acesse **Briefing** no menu lateral (seção Gestão).\n\nA página tem 3 abas:\n\n**Aba Respostas:**\n• Lista todas as respostas recebidas\n• Clique em **Ver** para ver os detalhes de uma resposta\n• Clique em **PDF** para baixar a resposta em PDF\n• Botão de lixeira para remover respostas\n\n**Aba Formulário:**\n• Adicione, edite e remova perguntas\n• Tipos de pergunta: texto curto, texto longo, seleção única, múltiplas escolhas, radio, checkbox\n• Defina se a pergunta é obrigatória\n\n**Aba Configurações:**\n• Ative/desative o briefing\n• Configure slug (parte da URL)\n• Escolha tema (claro/escuro)\n• Personalize cor primária e logo',
+      },
+      {
+        question: 'Como compartilhar o link do Briefing?',
+        answer:
+          'No topo da página de Briefing, quando há um slug configurado, aparece a **URL do seu briefing**.\n\n• Clique no ícone de **copiar** para copiar o link\n• Clique no ícone de **link externo** para abrir em nova aba e visualizar o formulário\n\nO formulário público é **acessível sem login** — qualquer pessoa com o link pode preencher.\n\nCompartilhe via WhatsApp, e-mail, proposta comercial ou assinatura de e-mail.',
+      },
+      {
+        question: 'Como baixar respostas em PDF?',
+        answer:
+          'Na aba **Respostas**, cada resposta tem um botão **PDF**.\n\nO PDF gerado inclui:\n• Logo e nome da empresa (branding)\n• Título e data do preenchimento\n• Todas as perguntas e respostas formatadas\n\nO download é feito direto no navegador, sem precisar de nenhuma configuração adicional.',
       },
     ],
   },
