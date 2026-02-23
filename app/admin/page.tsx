@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { AdminDashboardContent } from '@/components/admin/AdminDashboardContent';
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Buscar métricas
   const { data: companies } = await supabase.from('companies').select('*');
