@@ -11,7 +11,7 @@ interface DateRange {
 }
 
 import { MetricCard } from '@/components/dashboard/MetricCard';
-import { FilterButtons, FilterPeriod } from '@/components/dashboard/FilterButtons';
+import { FilterPeriod } from '@/components/dashboard/FilterButtons';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
@@ -524,17 +524,18 @@ export default function DashboardPage() {
       {/* Cards de Métricas */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard
-          title="Novos leads"
-          value={novosLeads}
-          subtitle={`${novosLeads} novos leads`}
-          icon={UserRoundPlus}
-          format="number"
-        />
-        <MetricCard
           title="Outbound IA"
           value={outboundAtivos}
           subtitle="Leads em prospecção"
           icon={Bot}
+          format="number"
+          highlight={{ bg: '#31184e' }}
+        />
+        <MetricCard
+          title="Novos leads"
+          value={novosLeads}
+          subtitle={`${novosLeads} novos leads`}
+          icon={UserRoundPlus}
           format="number"
         />
         <MetricCard
@@ -552,7 +553,7 @@ export default function DashboardPage() {
           format="percentage"
         />
         <MetricCard
-          title="Em Negociação"
+          title="Em negociação"
           value={faturamentoEmNegociacao}
           subtitle="Valor em pipeline"
           icon={Users}

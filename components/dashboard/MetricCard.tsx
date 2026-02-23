@@ -10,9 +10,10 @@ interface MetricCardProps {
   subtitle: string;
   icon: LucideIcon;
   format?: 'number' | 'currency' | 'percentage';
+  highlight?: { bg: string };
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number' }: MetricCardProps) {
+export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight }: MetricCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -53,18 +54,42 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
   };
 
   return (
-    <Card className="bg-card border-border hover:shadow-md transition-all">
+    <Card
+      className="border-border hover:shadow-md transition-all"
+      style={highlight ? { backgroundColor: highlight.bg, borderColor: 'transparent' } : undefined}
+    >
       <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
-        <div className="p-2.5 rounded-lg bg-primary/10">
-          <Icon className="h-5 w-5 text-primary" />
+        <div
+          className={highlight ? 'p-2.5 rounded-lg' : 'p-2.5 rounded-lg bg-primary/10'}
+          style={highlight ? { backgroundColor: 'rgba(255,255,255,0.15)' } : undefined}
+        >
+          <Icon
+            className={highlight ? 'h-5 w-5' : 'h-5 w-5 text-primary'}
+            style={highlight ? { color: 'rgba(255,255,255,0.9)' } : undefined}
+          />
         </div>
         <div className="flex-1">
-          <p className="text-sm text-muted-foreground">{title}</p>
+          <p
+            className={highlight ? 'text-sm' : 'text-sm text-muted-foreground'}
+            style={highlight ? { color: 'rgba(255,255,255,0.7)' } : undefined}
+          >
+            {title}
+          </p>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="text-3xl font-bold text-foreground mb-1">{formattedValue()}</div>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <div
+          className={highlight ? 'text-3xl font-bold mb-1' : 'text-3xl font-bold text-foreground mb-1'}
+          style={highlight ? { color: '#ffffff' } : undefined}
+        >
+          {formattedValue()}
+        </div>
+        <p
+          className={highlight ? 'text-xs' : 'text-xs text-muted-foreground'}
+          style={highlight ? { color: 'rgba(255,255,255,0.6)' } : undefined}
+        >
+          {subtitle}
+        </p>
       </CardContent>
     </Card>
   );

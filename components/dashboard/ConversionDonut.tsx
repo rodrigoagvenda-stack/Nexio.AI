@@ -88,18 +88,15 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
                   ))}
                 </Pie>
                 <Tooltip
+                  wrapperStyle={{ zIndex: 10 }}
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: '#1e1529',
+                    border: '1px solid #3b2d5e',
                     borderRadius: '6px',
-                    color: 'hsl(var(--popover-foreground))',
+                    color: '#f3f0ff',
                   }}
-                  itemStyle={{
-                    color: 'hsl(var(--popover-foreground))',
-                  }}
-                  labelStyle={{
-                    color: 'hsl(var(--popover-foreground))',
-                  }}
+                  itemStyle={{ color: '#d4b8ff' }}
+                  labelStyle={{ color: '#a78bfa', fontWeight: 600 }}
                 />
               </PieChart>
             </ResponsiveContainer>
