@@ -109,7 +109,6 @@ export default function OutboundPage() {
   const CAMPAIGNS_PER_PAGE = 6;
   const [templates, setTemplates] = useState<Template[]>([]);
   const [limits, setLimits] = useState<OutboundLimit>({});
-  const [limitsId, setLimitsId] = useState<number | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<number | null>(null);
   const [templateDraft, setTemplateDraft] = useState<Partial<Template>>({});
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
@@ -183,7 +182,6 @@ export default function OutboundPage() {
       if (error) throw error;
       if (data) {
         setLimits(data);
-        setLimitsId(data.id ?? null);
       }
     } catch (err: any) {
       console.error('fetchLimits:', err);
@@ -215,14 +213,15 @@ export default function OutboundPage() {
     if (!company?.id) return;
     setSavingLimits(true);
     try {
-      const { error } = await supabase
-        .from('outbound_limits')
-        .upsert(
-          { company_id: company.id, limite_diario: limits.limite_diario },
-          { onConflict: 'company_id' }
-        );
-      if (error) throw error;
-      // Re-fetch para sincronizar id e métricas
+      const res = await fetch('/api/outbound/limits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company_id: company.id, limite_diario: limits.limite_diario }),
+      });
+      if (!res.ok) {
+        const { message } = await res.json().catch(() => ({}));
+        throw new Error(message || 'Erro ao salvar');
+      }
       await fetchLimits();
       toast.success('Configurações salvas!');
     } catch (err: any) {
@@ -672,10 +671,12 @@ export default function OutboundPage() {
                       Máximo de mensagens enviadas por dia pela IA
                     </p>
                   </div>
-                  <Button onClick={handleSaveLimits} disabled={savingLimits} className="w-full gap-1.5 mt-auto">
-                    <Save className="h-4 w-4" />
-                    {savingLimits ? 'Salvando...' : 'Salvar configurações'}
-                  </Button>
+                  <div className="mt-auto pt-4">
+                    <Button onClick={handleSaveLimits} disabled={savingLimits} className="w-full gap-1.5">
+                      <Save className="h-4 w-4" />
+                      {savingLimits ? 'Salvando...' : 'Salvar configurações'}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -731,15 +732,12 @@ export default function OutboundPage() {
                       </div>
                     );
                   })}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-1.5 mt-auto pt-3"
-                    onClick={fetchLimits}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Atualizar métricas
-                  </Button>
+                  <div className="mt-auto pt-4">
+                    <Button variant="outline" className="w-full gap-1.5" onClick={fetchLimits}>
+                      <RefreshCw className="h-4 w-4" />
+                      Atualizar métricas
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
