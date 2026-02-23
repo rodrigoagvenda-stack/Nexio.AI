@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, BotOff, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -1113,7 +1113,7 @@ export default function AtendimentoPage() {
                       {isAiActive ? (
                         <><Bot className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA ativa</span></>
                       ) : (
-                        <><BotOff className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA pausada</span></>
+                        <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA pausada</span></>
                       )}
                     </Button>
                     <Button
