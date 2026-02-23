@@ -44,23 +44,48 @@ interface NavLink {
   children?: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
 }
 
-const links: NavLink[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: TrendingUp },
+interface NavSection {
+  label: string;
+  links: NavLink[];
+}
+
+const navSections: NavSection[] = [
   {
-    href: '/crm',
-    label: 'CRM',
-    icon: PieChart,
-    children: [
-      { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
-      { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
+    label: 'Principal',
+    links: [
+      { href: '/dashboard', label: 'Dashboard', icon: TrendingUp },
     ],
   },
-  { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
-  { href: '/prospect', label: 'Orbit', icon: Bot },
-  { href: '/outbound', label: 'Outbound', icon: Megaphone },
-  { href: '/membros', label: 'Membros', icon: UserCog },
-  { href: '/ajuda', label: 'Ajuda', icon: Info },
-  { href: '/configuracoes', label: 'Configuração', icon: Settings },
+  {
+    label: 'Ferramentas',
+    links: [
+      {
+        href: '/crm',
+        label: 'CRM',
+        icon: PieChart,
+        children: [
+          { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
+          { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
+        ],
+      },
+      { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
+      { href: '/prospect', label: 'Orbit', icon: Bot },
+      { href: '/outbound', label: 'Outbound', icon: Megaphone },
+    ],
+  },
+  {
+    label: 'Gestão',
+    links: [
+      { href: '/membros', label: 'Membros', icon: UserCog },
+    ],
+  },
+  {
+    label: 'Sistema',
+    links: [
+      { href: '/ajuda', label: 'Ajuda', icon: Info },
+      { href: '/configuracoes', label: 'Configuração', icon: Settings },
+    ],
+  },
 ];
 
 export const Sidebar = memo(function Sidebar({
@@ -98,25 +123,41 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [isCrmRoute]);
 
-  // 🚀 Performance: Memoizar array de links
-  const allLinks = useMemo<NavLink[]>(() => {
+  // 🚀 Performance: Memoizar seções de navegação
+  const allSections = useMemo<NavSection[]>(() => {
     const planNameUpper = planName?.toUpperCase() || '';
     const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
 
-    const filteredLinks = links.filter(link => {
-      if (link.href === '/prospect' && !hasOrbitAccess) return false;
-      return true;
-    });
+    const sections = navSections.map(section => ({
+      ...section,
+      links: section.links.filter(link => {
+        if (link.href === '/prospect' && !hasOrbitAccess) return false;
+        return true;
+      }),
+    })).filter(section => section.links.length > 0);
 
-    return [
-      ...filteredLinks,
-      ...(hasBriefing
-        ? [{ href: '/briefing', label: 'Briefing', icon: FileText }]
-        : []),
-      ...(isAdmin
-        ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }]
-        : []),
-    ];
+    // Adicionar Briefing e Admin na seção Gestão / Sistema
+    return sections.map(section => {
+      if (section.label === 'Gestão') {
+        return {
+          ...section,
+          links: [
+            ...section.links,
+            ...(hasBriefing ? [{ href: '/briefing', label: 'Briefing', icon: FileText }] : []),
+          ],
+        };
+      }
+      if (section.label === 'Sistema') {
+        return {
+          ...section,
+          links: [
+            ...section.links,
+            ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }] : []),
+          ],
+        };
+      }
+      return section;
+    });
   }, [isAdmin, planName, hasBriefing]);
 
   // 🚀 Performance: Memoizar função de logout
@@ -159,108 +200,122 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 pt-4 space-y-1 overflow-y-auto">
-          {allLinks.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-            const hasChildren = link.children && link.children.length > 0;
+        <nav className="flex-1 px-4 pt-4 overflow-y-auto space-y-4">
+          {allSections.map((section) => (
+            <div key={section.label}>
+              {/* Section label */}
+              {!isCollapsed && (
+                <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 select-none">
+                  {section.label}
+                </p>
+              )}
+              {isCollapsed && (
+                <div className="mx-auto w-6 border-t border-border/50 mb-1" />
+              )}
 
-            if (hasChildren) {
-              const isCrmActive = pathname === '/crm' || pathname.startsWith('/crm');
+              <div className="space-y-0.5">
+                {section.links.map((link) => {
+                  const Icon = link.icon;
+                  const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                  const hasChildren = link.children && link.children.length > 0;
 
-              return (
-                <div key={link.href}>
-                  {/* CRM parent button */}
-                  <button
-                    onClick={() => {
-                      if (isCollapsed) {
-                        router.push(link.href);
-                      } else {
-                        setCrmExpanded(!crmExpanded);
-                      }
-                    }}
-                    className={cn(
-                      'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
-                      isCrmActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                      isCollapsed && 'justify-center px-2'
-                    )}
-                    title={isCollapsed ? link.label : undefined}
-                  >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    {!isCollapsed && (
-                      <>
-                        <span className="text-sm flex-1 text-left">{link.label}</span>
-                        <ChevronDown
+                  if (hasChildren) {
+                    const isCrmActive = pathname === '/crm' || pathname.startsWith('/crm');
+
+                    return (
+                      <div key={link.href}>
+                        <button
+                          onClick={() => {
+                            if (isCollapsed) {
+                              router.push(link.href);
+                            } else {
+                              setCrmExpanded(!crmExpanded);
+                            }
+                          }}
                           className={cn(
-                            'h-4 w-4 transition-transform duration-200',
-                            crmExpanded && 'rotate-180'
+                            'w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
+                            isCrmActive
+                              ? 'bg-accent text-accent-foreground'
+                              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                            isCollapsed && 'justify-center px-2'
                           )}
-                        />
-                      </>
-                    )}
-                  </button>
+                          title={isCollapsed ? link.label : undefined}
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          {!isCollapsed && (
+                            <>
+                              <span className="text-sm flex-1 text-left">{link.label}</span>
+                              <ChevronDown
+                                className={cn(
+                                  'h-3.5 w-3.5 transition-transform duration-200',
+                                  crmExpanded && 'rotate-180'
+                                )}
+                              />
+                            </>
+                          )}
+                        </button>
 
-                  {/* Sub-items */}
-                  {!isCollapsed && crmExpanded && (
-                    <div className="ml-4 mt-1 space-y-1 border-l border-border pl-4">
-                      {link.children!.map((child) => {
-                        const ChildIcon = child.icon;
-                        const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
-                        const isChildActive = pathname === '/crm' && currentView === childView;
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            prefetch={true}
-                            className={cn(
-                              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
-                              isChildActive
-                                ? 'bg-accent text-accent-foreground'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                            )}
-                          >
-                            <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                            <span>{child.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+                        {!isCollapsed && crmExpanded && (
+                          <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
+                            {link.children!.map((child) => {
+                              const ChildIcon = child.icon;
+                              const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
+                              const isChildActive = pathname === '/crm' && currentView === childView;
+                              return (
+                                <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  prefetch={true}
+                                  className={cn(
+                                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
+                                    isChildActive
+                                      ? 'bg-accent text-accent-foreground'
+                                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                                  )}
+                                >
+                                  <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span>{child.label}</span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                prefetch={true}
-                className={cn(
-                  'w-full group flex items-center gap-3 px-3 py-3 rounded-lg transition-colors duration-100',
-                  isActive
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                  isCollapsed && 'justify-center px-2'
-                )}
-                title={isCollapsed ? link.label : undefined}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {!isCollapsed && (
-                  <>
-                    <span className="text-sm flex-1 text-left">{link.label}</span>
-                    {link.badge && (
-                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
-                        {link.badge}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      prefetch={true}
+                      className={cn(
+                        'w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
+                        isActive
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                        isCollapsed && 'justify-center px-2'
+                      )}
+                      title={isCollapsed ? link.label : undefined}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {!isCollapsed && (
+                        <>
+                          <span className="text-sm flex-1 text-left">{link.label}</span>
+                          {link.badge && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
+                              {link.badge}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Company Profile */}
