@@ -78,6 +78,27 @@ export async function POST(
 
     const webhookUrl = config.webhook_url || null;
 
+    // Buscar lead pelo WhatsApp (se disponível nas respostas)
+    let leadId: number | null = null;
+    const whatsappNumber = answers['whatsapp'] || null;
+    if (whatsappNumber) {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('company_id', config.company_id)
+        .eq('whatsapp', whatsappNumber)
+        .maybeSingle();
+
+      if (lead) {
+        leadId = lead.id;
+        // Marcar briefing como preenchido
+        await supabase
+          .from('leads')
+          .update({ briefing_preenchido: true, briefing_preenchido_em: new Date().toISOString() })
+          .eq('id', leadId);
+      }
+    }
+
     // Salvar resposta
     const { data: response, error: responseError } = await supabase
       .from('briefing_mt_responses')
@@ -104,6 +125,7 @@ export async function POST(
             briefing_response_id: response.id,
             company_id: config.company_id,
             slug: params.slug,
+            lead_id: leadId,
             answers,
             submitted_at: response.submitted_at,
           }),
