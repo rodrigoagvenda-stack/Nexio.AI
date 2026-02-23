@@ -19,6 +19,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   AlertCircle,
   CheckCircle2,
   TrendingUp,
@@ -103,6 +105,8 @@ export default function OutboundPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [campaignErrors, setCampaignErrors] = useState<Record<number, CampaignError[]>>({});
   const [expandedCampaign, setExpandedCampaign] = useState<number | null>(null);
+  const [campaignPage, setCampaignPage] = useState(0);
+  const CAMPAIGNS_PER_PAGE = 6;
   const [templates, setTemplates] = useState<Template[]>([]);
   const [limits, setLimits] = useState<OutboundLimit>({});
   const [limitsId, setLimitsId] = useState<number | null>(null);
@@ -137,7 +141,7 @@ export default function OutboundPage() {
   const fetchCampaignErrors = useCallback(async (campaignId: number) => {
     try {
       const { data, error } = await supabase
-        .from('outbound_campaigns_erros')
+        .from('outbound_campaigns_errors')
         .select('*')
         .eq('campaign_id', campaignId)
         .order('created_at', { ascending: false })
@@ -345,8 +349,9 @@ export default function OutboundPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {campaigns.map((campaign) => {
+            <div className="space-y-3">
+              <div className="space-y-2">
+              {campaigns.slice(campaignPage * CAMPAIGNS_PER_PAGE, (campaignPage + 1) * CAMPAIGNS_PER_PAGE).map((campaign) => {
                 const isExpanded = expandedCampaign === campaign.id;
                 const errors = campaignErrors[campaign.id] || [];
                 const name = campaign.nome || campaign.name || `Campanha #${campaign.id}`;
@@ -454,6 +459,41 @@ export default function OutboundPage() {
                   </Card>
                 );
               })}
+              </div>
+
+              {/* Paginação */}
+              {campaigns.length > CAMPAIGNS_PER_PAGE && (
+                <div className="flex items-center justify-between pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    {campaignPage * CAMPAIGNS_PER_PAGE + 1}–
+                    {Math.min((campaignPage + 1) * CAMPAIGNS_PER_PAGE, campaigns.length)} de{' '}
+                    {campaigns.length} campanhas
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={campaignPage === 0}
+                      onClick={() => { setCampaignPage((p) => p - 1); setExpandedCampaign(null); }}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">
+                      {campaignPage + 1} / {Math.ceil(campaigns.length / CAMPAIGNS_PER_PAGE)}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled={(campaignPage + 1) * CAMPAIGNS_PER_PAGE >= campaigns.length}
+                      onClick={() => { setCampaignPage((p) => p + 1); setExpandedCampaign(null); }}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
