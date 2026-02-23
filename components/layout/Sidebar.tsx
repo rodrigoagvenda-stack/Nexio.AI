@@ -20,6 +20,7 @@ import {
   Table2,
   Kanban,
   FileText,
+  Megaphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -56,6 +57,7 @@ const links: NavLink[] = [
   },
   { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
   { href: '/prospect', label: 'Orbit', icon: Bot },
+  { href: '/outbound', label: 'Outbound', icon: Megaphone },
   { href: '/membros', label: 'Membros', icon: UserCog },
   { href: '/ajuda', label: 'Ajuda', icon: Info },
   { href: '/configuracoes', label: 'Configuração', icon: Settings },
