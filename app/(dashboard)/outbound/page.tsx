@@ -647,14 +647,14 @@ export default function OutboundPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {/* Limite de disparos */}
-              <Card>
+              <Card className="flex flex-col">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Zap className="h-4 w-4 text-primary" />
                     Limite de Disparos
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="flex flex-col flex-1 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-sm">Limite diário de mensagens</Label>
                     <Input
@@ -672,7 +672,7 @@ export default function OutboundPage() {
                       Máximo de mensagens enviadas por dia pela IA
                     </p>
                   </div>
-                  <Button onClick={handleSaveLimits} disabled={savingLimits} className="w-full gap-1.5">
+                  <Button onClick={handleSaveLimits} disabled={savingLimits} className="w-full gap-1.5 mt-auto">
                     <Save className="h-4 w-4" />
                     {savingLimits ? 'Salvando...' : 'Salvar configurações'}
                   </Button>
@@ -680,14 +680,14 @@ export default function OutboundPage() {
               </Card>
 
               {/* Métricas de hoje */}
-              <Card>
+              <Card className="flex flex-col">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-primary" />
                     Métricas de Hoje
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-0">
+                <CardContent className="flex flex-col flex-1 space-y-0">
                   {[
                     {
                       icon: Send,
@@ -734,7 +734,7 @@ export default function OutboundPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full gap-1.5 mt-3"
+                    className="w-full gap-1.5 mt-auto pt-3"
                     onClick={fetchLimits}
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
