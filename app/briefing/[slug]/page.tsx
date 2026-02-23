@@ -17,6 +17,7 @@ interface BriefingConfig {
   success_message?: string;
   whatsapp_required?: boolean;
   whatsapp_label?: string;
+  whatsapp_order_index?: number;
 }
 
 interface BriefingQuestion {
@@ -97,8 +98,24 @@ export default function BriefingPublicPage() {
   }
 
   const hasWhatsapp = config?.whatsapp_required !== false;
-  const whatsappStep = hasWhatsapp ? questions.length : -99; // índice do step de whatsapp
-  const totalSteps = questions.length + (hasWhatsapp ? 1 : 0);
+
+  // Build ordered steps by sorting questions + whatsapp by their order_index
+  type StepDef =
+    | { type: 'question'; question: BriefingQuestion }
+    | { type: 'whatsapp' };
+
+  const stepsArray: StepDef[] = [
+    ...questions.map(q => ({ type: 'question' as const, question: q, _key: q.order_index })),
+    ...(hasWhatsapp ? [{ type: 'whatsapp' as const, _key: config?.whatsapp_order_index ?? 9999 }] : []),
+  ]
+    .sort((a, b) => a._key - b._key)
+    .map(({ _key: _k, ...rest }) => rest as StepDef);
+
+  const totalSteps = stepsArray.length;
+  const currentStepDef = currentStep >= 0 ? stepsArray[currentStep] : null;
+  const isWhatsappStep = currentStepDef?.type === 'whatsapp';
+  const currentQuestion = currentStepDef?.type === 'question' ? currentStepDef.question : null;
+
   const progress = currentStep === -1 ? 0 : ((currentStep + 1) / totalSteps) * 100;
   const primaryColor = config?.primary_color || '#7c3aed';
   const isDark = (config?.theme ?? 'dark') === 'dark';
@@ -107,9 +124,6 @@ export default function BriefingPublicPage() {
   const mutedClass = isDark ? 'text-gray-400' : 'text-gray-500';
   const borderClass = isDark ? 'border-gray-700' : 'border-gray-200';
   const hoverClass = isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50';
-
-  const isWhatsappStep = hasWhatsapp && currentStep === whatsappStep;
-  const currentQuestion = !isWhatsappStep ? (questions[currentStep] ?? null) : null;
 
   function canAdvance() {
     if (isWhatsappStep) {

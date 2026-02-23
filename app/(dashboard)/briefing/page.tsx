@@ -35,6 +35,7 @@ interface BriefingConfig {
   description?: string;
   success_message?: string;
   whatsapp_label?: string;
+  whatsapp_order_index?: number;
 }
 
 interface BriefingQuestion {
@@ -54,6 +55,10 @@ interface BriefingResponse {
   webhook_sent: boolean;
 }
 
+type SortableListItem =
+  | { itemId: number; type: 'question'; q: BriefingQuestion; order_index: number }
+  | { itemId: 'whatsapp'; type: 'whatsapp'; order_index: number };
+
 const QUESTION_TYPES = [
   { value: 'text', label: 'Texto curto' },
   { value: 'textarea', label: 'Texto longo' },
@@ -71,6 +76,14 @@ function fieldKeyify(text: string) {
 }
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function buildCombinedList(questions: BriefingQuestion[], whatsappOrderIndex: number): SortableListItem[] {
+  const items: SortableListItem[] = [
+    ...questions.map(q => ({ itemId: q.id!, type: 'question' as const, q, order_index: q.order_index })),
+    { itemId: 'whatsapp' as const, type: 'whatsapp' as const, order_index: whatsappOrderIndex },
+  ];
+  return items.sort((a, b) => a.order_index - b.order_index);
 }
 
 // ─── SortableQuestionItem ─────────────────────────────────────────────────────
@@ -162,6 +175,83 @@ function SortableQuestionItem({
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SortableWhatsappItem ─────────────────────────────────────────────────────
+
+function SortableWhatsappItem({
+  config,
+  editingWhatsappLabel,
+  setEditingWhatsappLabel,
+  whatsappLabelInput,
+  setWhatsappLabelInput,
+  handleSaveWhatsappLabel,
+  saving,
+}: {
+  config: BriefingConfig;
+  editingWhatsappLabel: boolean;
+  setEditingWhatsappLabel: (v: boolean) => void;
+  whatsappLabelInput: string;
+  setWhatsappLabelInput: (v: string) => void;
+  handleSaveWhatsappLabel: () => void;
+  saving: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: 'whatsapp' });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className="border rounded-lg p-3 bg-muted/30">
+      {editingWhatsappLabel ? (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Texto da pergunta de WhatsApp</Label>
+            <Input
+              value={whatsappLabelInput}
+              onChange={(e) => setWhatsappLabelInput(e.target.value)}
+              placeholder="Qual o seu WhatsApp?"
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSaveWhatsappLabel} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setEditingWhatsappLabel(false)}>Cancelar</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <button
+            {...attributes}
+            {...listeners}
+            className="text-muted-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none p-0.5"
+            title="Arrastar para reordenar"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm">🇧🇷 {config.whatsapp_label || 'Qual o seu WhatsApp?'}</p>
+            <div className="flex gap-2 mt-1 flex-wrap">
+              <Badge variant="outline" className="text-xs">Telefone</Badge>
+              <Badge className="text-xs">Obrigatório</Badge>
+              <Badge variant="secondary" className="text-xs">Campo fixo</Badge>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setWhatsappLabelInput(config.whatsapp_label || '');
+              setEditingWhatsappLabel(true);
+            }}
+          >
+            Editar
+          </Button>
         </div>
       )}
     </div>
@@ -275,24 +365,42 @@ export default function BriefingPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = questions.findIndex(q => q.id === active.id);
-    const newIndex = questions.findIndex(q => q.id === over.id);
-    const reordered = arrayMove(questions, oldIndex, newIndex).map((q, idx) => ({ ...q, order_index: idx }));
-    setQuestions(reordered);
+    const currentCombined = buildCombinedList(questions, config.whatsapp_order_index ?? questions.length);
+
+    const oldIndex = currentCombined.findIndex(item => item.itemId === active.id);
+    const newIndex = currentCombined.findIndex(item => item.itemId === over.id);
+
+    const reordered = arrayMove(currentCombined, oldIndex, newIndex).map((item, idx) => ({ ...item, order_index: idx }));
+
+    const updatedQuestions = reordered
+      .filter((item): item is SortableListItem & { type: 'question' } => item.type === 'question')
+      .map(item => ({ ...item.q, order_index: item.order_index }));
+
+    const whatsappItem = reordered.find(item => item.type === 'whatsapp');
+    const newWhatsappIndex = whatsappItem?.order_index ?? questions.length;
+
+    setQuestions(updatedQuestions);
+    setConfig(prev => ({ ...prev, whatsapp_order_index: newWhatsappIndex }));
 
     try {
-      await Promise.all(
-        reordered.map(q =>
+      await Promise.all([
+        ...updatedQuestions.map(q =>
           fetch(`/api/user/briefing/questions/${q.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(q),
           })
-        )
-      );
+        ),
+        fetch('/api/user/briefing/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...config, whatsapp_order_index: newWhatsappIndex }),
+        }),
+      ]);
     } catch (err: any) {
-      toast({ title: 'Erro ao reordenar perguntas', description: err.message, variant: 'destructive' });
+      toast({ title: 'Erro ao reordenar', description: err.message, variant: 'destructive' });
       fetchQuestions();
+      fetchConfig();
     }
   }
 
@@ -342,7 +450,7 @@ export default function BriefingPage() {
       const res = await fetch('/api/user/briefing/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newQuestion, options: needsOptions ? parsedOptions : null, order_index: questions.length }),
+        body: JSON.stringify({ ...newQuestion, options: needsOptions ? parsedOptions : null, order_index: questions.length + 1 }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
@@ -428,6 +536,7 @@ export default function BriefingPage() {
   }
 
   const needsOptions = ['select', 'multiselect', 'radio', 'checkbox'].includes(newQuestion.question_type || '');
+  const combinedList = buildCombinedList(questions, config.whatsapp_order_index ?? questions.length);
 
   return (
     <div className="space-y-6">
@@ -493,30 +602,13 @@ export default function BriefingPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedResponse(r)}
-                        className="gap-1.5"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Ver
+                      <Button size="sm" variant="outline" onClick={() => setSelectedResponse(r)} className="gap-1.5">
+                        <Eye className="h-3.5 w-3.5" />Ver
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadPDF(r)}
-                        disabled={downloadingPdf}
-                        className="gap-1.5"
-                      >
-                        {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        PDF
+                      <Button size="sm" variant="outline" onClick={() => handleDownloadPDF(r)} disabled={downloadingPdf} className="gap-1.5">
+                        {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}PDF
                       </Button>
-                      <button
-                        onClick={() => handleDeleteResponse(r.id)}
-                        disabled={deletingId === r.id}
-                        className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded"
-                      >
+                      <button onClick={() => handleDeleteResponse(r.id)} disabled={deletingId === r.id} className="text-muted-foreground hover:text-destructive transition-colors p-1.5 rounded">
                         {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </button>
                     </div>
@@ -534,7 +626,7 @@ export default function BriefingPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Perguntas</CardTitle>
-                  <CardDescription>{questions.length} pergunta{questions.length !== 1 ? 's' : ''} configurada{questions.length !== 1 ? 's' : ''}</CardDescription>
+                  <CardDescription>{questions.length} pergunta{questions.length !== 1 ? 's' : ''} + WhatsApp</CardDescription>
                 </div>
                 <Button size="sm" onClick={() => setShowAddQuestion(!showAddQuestion)}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -544,73 +636,43 @@ export default function BriefingPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {questions.length === 0 && !showAddQuestion && (
-                <p className="text-center text-muted-foreground py-8 text-sm">Nenhuma pergunta ainda. Clique em Adicionar para começar.</p>
+                <p className="text-center text-muted-foreground py-4 text-sm">Nenhuma pergunta ainda. Clique em Adicionar para começar.</p>
               )}
 
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={questions.map(q => q.id!).filter(Boolean)} strategy={verticalListSortingStrategy}>
+                <SortableContext
+                  items={combinedList.map(item => item.itemId)}
+                  strategy={verticalListSortingStrategy}
+                >
                   <div className="space-y-2">
-                    {questions.map((q) => (
-                      <SortableQuestionItem
-                        key={q.id}
-                        q={q}
-                        editingQuestion={editingQuestion}
-                        setEditingQuestion={setEditingQuestion}
-                        editOptionsInput={editOptionsInput}
-                        setEditOptionsInput={setEditOptionsInput}
-                        handleSaveEdit={handleSaveEdit}
-                        handleDeleteQuestion={handleDeleteQuestion}
-                      />
-                    ))}
+                    {combinedList.map(item =>
+                      item.type === 'whatsapp' ? (
+                        <SortableWhatsappItem
+                          key="whatsapp"
+                          config={config}
+                          editingWhatsappLabel={editingWhatsappLabel}
+                          setEditingWhatsappLabel={setEditingWhatsappLabel}
+                          whatsappLabelInput={whatsappLabelInput}
+                          setWhatsappLabelInput={setWhatsappLabelInput}
+                          handleSaveWhatsappLabel={handleSaveWhatsappLabel}
+                          saving={saving}
+                        />
+                      ) : (
+                        <SortableQuestionItem
+                          key={item.q.id}
+                          q={item.q}
+                          editingQuestion={editingQuestion}
+                          setEditingQuestion={setEditingQuestion}
+                          editOptionsInput={editOptionsInput}
+                          setEditOptionsInput={setEditOptionsInput}
+                          handleSaveEdit={handleSaveEdit}
+                          handleDeleteQuestion={handleDeleteQuestion}
+                        />
+                      )
+                    )}
                   </div>
                 </SortableContext>
               </DndContext>
-
-              {/* Campo WhatsApp fixo */}
-              <div className="border rounded-lg p-3 bg-muted/30">
-                {editingWhatsappLabel ? (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Texto da pergunta de WhatsApp</Label>
-                      <Input
-                        value={whatsappLabelInput}
-                        onChange={(e) => setWhatsappLabelInput(e.target.value)}
-                        placeholder="Qual o seu WhatsApp?"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSaveWhatsappLabel} disabled={saving}>
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Salvar
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingWhatsappLabel(false)}>Cancelar</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">🇧🇷 {config.whatsapp_label || 'Qual o seu WhatsApp?'}</p>
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        <Badge variant="outline" className="text-xs">Telefone</Badge>
-                        <Badge className="text-xs">Obrigatório</Badge>
-                        <Badge variant="secondary" className="text-xs">Campo fixo</Badge>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setWhatsappLabelInput(config.whatsapp_label || '');
-                        setEditingWhatsappLabel(true);
-                      }}
-                    >
-                      Editar
-                    </Button>
-                  </div>
-                )}
-              </div>
 
               {/* Mensagem final */}
               <div className="border rounded-lg p-4 space-y-2 mt-2">
@@ -761,10 +823,7 @@ export default function BriefingPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
           {selectedResponse && (
             <>
-              {/* Barra colorida do topo */}
               <div className="h-1.5 w-full rounded-t-lg" style={{ backgroundColor: config.primary_color || '#7c3aed' }} />
-
-              {/* Cabeçalho com branding */}
               <div className="px-6 pt-5 pb-4 border-b">
                 <div className="flex items-start gap-4">
                   {config.logo_url ? (
@@ -779,33 +838,20 @@ export default function BriefingPage() {
                     <p className="text-sm text-muted-foreground mt-0.5">{company?.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">{formatDate(selectedResponse.submitted_at)}</p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDownloadPDF(selectedResponse)}
-                    disabled={downloadingPdf}
-                    className="gap-1.5 shrink-0"
-                  >
-                    {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    PDF
+                  <Button size="sm" variant="outline" onClick={() => handleDownloadPDF(selectedResponse)} disabled={downloadingPdf} className="gap-1.5 shrink-0">
+                    {downloadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}PDF
                   </Button>
                 </div>
               </div>
-
-              {/* Respostas */}
               <div className="px-6 py-5 space-y-5">
                 {questions.length > 0 ? (
                   questions.map((q) => {
                     const val = selectedResponse.answers[q.field_key];
-                    const display = Array.isArray(val)
-                      ? val.join(', ')
-                      : val != null && String(val).trim() !== '' ? String(val) : null;
+                    const display = Array.isArray(val) ? val.join(', ') : val != null && String(val).trim() !== '' ? String(val) : null;
                     return (
                       <div key={q.field_key} className="space-y-1.5">
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{q.label}</p>
-                        <p className="text-sm leading-relaxed">
-                          {display ?? <span className="text-muted-foreground italic">Não informado</span>}
-                        </p>
+                        <p className="text-sm leading-relaxed">{display ?? <span className="text-muted-foreground italic">Não informado</span>}</p>
                         <div className="border-b border-border/50" />
                       </div>
                     );
@@ -814,16 +860,12 @@ export default function BriefingPage() {
                   Object.entries(selectedResponse.answers).map(([key, value]) => (
                     <div key={key} className="space-y-1.5">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{key.replace(/_/g, ' ')}</p>
-                      <p className="text-sm leading-relaxed">
-                        {Array.isArray(value) ? value.join(', ') : String(value || '—')}
-                      </p>
+                      <p className="text-sm leading-relaxed">{Array.isArray(value) ? value.join(', ') : String(value || '—')}</p>
                       <div className="border-b border-border/50" />
                     </div>
                   ))
                 )}
               </div>
-
-              {/* Footer */}
               <div className="px-6 py-3 border-t bg-muted/30 flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">nexio<span style={{ color: config.primary_color || '#7c3aed' }}>.</span>ai</p>
                 <p className="text-xs text-muted-foreground">Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
