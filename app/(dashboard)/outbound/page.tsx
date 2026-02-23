@@ -157,7 +157,7 @@ export default function OutboundPage() {
         .from('outbound_templates')
         .select('*')
         .or(`company_id.eq.${company.id},company_id.is.null`)
-        .order('performance_score', { ascending: false });
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setTemplates(data || []);
     } catch (err: any) {
@@ -211,23 +211,18 @@ export default function OutboundPage() {
     if (!company?.id) return;
     setSavingLimits(true);
     try {
-      if (limitsId) {
-        const { error } = await supabase
-          .from('outbound_limits')
-          .update({ limite_diario: limits.limite_diario })
-          .eq('id', limitsId);
-        if (error) throw error;
-      } else {
-        const { data, error } = await supabase
-          .from('outbound_limits')
-          .insert({ company_id: company.id, limite_diario: limits.limite_diario })
-          .select()
-          .single();
-        if (error) throw error;
-        setLimitsId(data.id);
-      }
+      const { error } = await supabase
+        .from('outbound_limits')
+        .upsert(
+          { company_id: company.id, limite_diario: limits.limite_diario },
+          { onConflict: 'company_id' }
+        );
+      if (error) throw error;
+      // Re-fetch para sincronizar id e métricas
+      await fetchLimits();
       toast.success('Configurações salvas!');
-    } catch {
+    } catch (err: any) {
+      console.error('handleSaveLimits error:', err);
       toast.error('Erro ao salvar configurações');
     } finally {
       setSavingLimits(false);
