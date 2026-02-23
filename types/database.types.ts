@@ -55,6 +55,16 @@ export type Segmento =
   | 'Tecnologia'
   | 'Moda/Fashion'
   | 'Arquitetura'
+  | 'Auto Escola'
+  | 'Restaurante'
+  | 'Academia'
+  | 'Farmácia'
+  | 'Padaria'
+  | 'Supermercado'
+  | 'Floricultural'
+  | 'Hotel/Pousada'
+  | 'Oficina Mecânica'
+  | 'Pet Shop'
   | 'Outros';
 
 export type Prioridade = 'Alta' | 'Média' | 'Baixa';
@@ -109,6 +119,7 @@ export interface Lead {
   cargo?: Cargo;
   project_value?: number;
   notes?: string;
+  mql_resumo?: string;
   resumo_ia?: string;
   created_at: string;
   updated_at: string;

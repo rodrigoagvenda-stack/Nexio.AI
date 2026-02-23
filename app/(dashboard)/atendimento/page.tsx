@@ -114,6 +114,13 @@ export default function AtendimentoPage() {
     };
   }, [company?.id]);
 
+  // Sincronizar estado da IA com company.is_active
+  useEffect(() => {
+    if (company !== null) {
+      setIsAiActive(company.is_active ?? true);
+    }
+  }, [company]);
+
   // Carregar mensagens quando selecionar conversa
   useEffect(() => {
     if (!selectedConversation) return;
@@ -1103,7 +1110,26 @@ export default function AtendimentoPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsAiActive(!isAiActive)}
+                      onClick={async () => {
+                        const newValue = !isAiActive;
+                        setIsAiActive(newValue);
+                        try {
+                          const res = await fetch('/api/company/ai-toggle', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ is_active: newValue }),
+                          });
+                          if (!res.ok) {
+                            setIsAiActive(!newValue);
+                            toast.error('Erro ao atualizar IA');
+                          } else {
+                            toast.success(newValue ? 'IA ativada' : 'IA pausada');
+                          }
+                        } catch {
+                          setIsAiActive(!newValue);
+                          toast.error('Erro ao atualizar IA');
+                        }
+                      }}
                       title={isAiActive ? 'Pausar IA' : 'Retomar IA'}
                       className={isAiActive
                         ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600'

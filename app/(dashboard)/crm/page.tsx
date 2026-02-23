@@ -307,6 +307,7 @@ export default function CRMPage() {
     import_source: 'Interno',
     project_value: 0,
     notes: '',
+    mql_resumo: '',
     cargo: '',
   });
 
@@ -507,6 +508,7 @@ export default function CRMPage() {
         import_source: lead.import_source || 'Interno',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
+        mql_resumo: lead.mql_resumo || '',
         cargo: lead.cargo || '',
       });
     } else {
@@ -524,6 +526,7 @@ export default function CRMPage() {
         import_source: 'Interno',
         project_value: 0,
         notes: '',
+        mql_resumo: '',
         cargo: '',
       });
     }
@@ -1464,6 +1467,16 @@ export default function CRMPage() {
                       <SelectItem value="Tecnologia">Tecnologia</SelectItem>
                       <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
                       <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                      <SelectItem value="Auto Escola">Auto Escola</SelectItem>
+                      <SelectItem value="Restaurante">Restaurante</SelectItem>
+                      <SelectItem value="Academia">Academia</SelectItem>
+                      <SelectItem value="Farmácia">Farmácia</SelectItem>
+                      <SelectItem value="Padaria">Padaria</SelectItem>
+                      <SelectItem value="Supermercado">Supermercado</SelectItem>
+                      <SelectItem value="Floricultural">Floricultural</SelectItem>
+                      <SelectItem value="Hotel/Pousada">Hotel/Pousada</SelectItem>
+                      <SelectItem value="Oficina Mecânica">Oficina Mecânica</SelectItem>
+                      <SelectItem value="Pet Shop">Pet Shop</SelectItem>
                       <SelectItem value="Outros">Outros</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1600,6 +1613,16 @@ export default function CRMPage() {
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Adicione observações sobre este lead..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="mql_resumo" className="text-sm font-medium">Observação MQL</Label>
+                  <textarea
+                    id="mql_resumo"
+                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={formData.mql_resumo}
+                    onChange={(e) => setFormData({ ...formData, mql_resumo: e.target.value })}
+                    placeholder="Resumo de qualificação MQL..."
                   />
                 </div>
               </div>

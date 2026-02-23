@@ -34,6 +34,7 @@ export async function PATCH(
       'email',
       'website_or_instagram',
       'notes',
+      'mql_resumo',
     ];
 
     if (!allowedFields.includes(field)) {

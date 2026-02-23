@@ -234,6 +234,16 @@ export function LeadInfoSidebar({
                       <SelectItem value="Tecnologia">Tecnologia</SelectItem>
                       <SelectItem value="Moda/Fashion">Moda/Fashion</SelectItem>
                       <SelectItem value="Arquitetura">Arquitetura</SelectItem>
+                      <SelectItem value="Auto Escola">Auto Escola</SelectItem>
+                      <SelectItem value="Restaurante">Restaurante</SelectItem>
+                      <SelectItem value="Academia">Academia</SelectItem>
+                      <SelectItem value="Farmácia">Farmácia</SelectItem>
+                      <SelectItem value="Padaria">Padaria</SelectItem>
+                      <SelectItem value="Supermercado">Supermercado</SelectItem>
+                      <SelectItem value="Floricultural">Floricultural</SelectItem>
+                      <SelectItem value="Hotel/Pousada">Hotel/Pousada</SelectItem>
+                      <SelectItem value="Oficina Mecânica">Oficina Mecânica</SelectItem>
+                      <SelectItem value="Pet Shop">Pet Shop</SelectItem>
                       <SelectItem value="Outros">Outros</SelectItem>
                     </SelectContent>
                   </Select>
