@@ -322,6 +322,15 @@ export default function CRMPage() {
     })
   );
 
+  // Helper: registrar log via API (service client, bypassa RLS)
+  const logActivity = (payload: { user_id?: string; company_id: number; action: string; description: string; metadata?: object }) => {
+    fetch('/api/activity-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {}); // fire-and-forget, nunca bloqueia o fluxo principal
+  };
+
   useEffect(() => {
     if (!userLoading && !hasFetched) {
       if (!user) {
@@ -463,9 +472,9 @@ export default function CRMPage() {
 
       if (error) throw error;
 
-      // Criar log de atividade
+      // Criar log de atividade (fire-and-forget via API — bypassa RLS)
       if (user && company) {
-        await supabase.from('activity_logs').insert({
+        logActivity({
           user_id: user.auth_user_id,
           company_id: company.id,
           action: 'lead_status_change',
@@ -586,9 +595,9 @@ export default function CRMPage() {
 
         if (error) throw error;
 
-        // Criar log de atividade
+        // Criar log de atividade (fire-and-forget via API — bypassa RLS)
         if (user && company) {
-          await supabase.from('activity_logs').insert({
+          logActivity({
             user_id: user.auth_user_id,
             company_id: company.id,
             action: 'lead_update',
@@ -614,9 +623,9 @@ export default function CRMPage() {
 
         if (error) throw error;
 
-        // Criar log de atividade
+        // Criar log de atividade (fire-and-forget via API — bypassa RLS)
         if (user && company && newLead) {
-          await supabase.from('activity_logs').insert({
+          logActivity({
             user_id: user.auth_user_id,
             company_id: company.id,
             action: 'lead_created',
@@ -662,9 +671,9 @@ export default function CRMPage() {
 
       if (error) throw error;
 
-      // Criar log de atividade
+      // Criar log de atividade (fire-and-forget via API — bypassa RLS)
       if (user && company) {
-        await supabase.from('activity_logs').insert({
+        logActivity({
           user_id: user.auth_user_id,
           company_id: company.id,
           action: 'lead_deleted',
@@ -1136,9 +1145,9 @@ export default function CRMPage() {
 
                           if (error) throw error;
 
-                          // Criar log de atividade
+                          // Criar log de atividade (fire-and-forget via API — bypassa RLS)
                           if (user && company) {
-                            await supabase.from('activity_logs').insert({
+                            logActivity({
                               user_id: user.auth_user_id,
                               company_id: company.id,
                               action: 'lead_status_change',
