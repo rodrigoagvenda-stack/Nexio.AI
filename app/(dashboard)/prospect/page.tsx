@@ -51,7 +51,7 @@ const NICHOS = [
 ];
 
 export default function ProspectAIPage() {
-  const { company } = useUser();
+  const { company, loading: userLoading } = useUser();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
 
@@ -218,6 +218,20 @@ export default function ProspectAIPage() {
       setCurrentAction('');
     }
   };
+
+  // Aguardar dados do usuário antes de decidir o que mostrar
+  if (userLoading) {
+    return (
+      <div className="h-[calc(100vh-64px)] -m-3 md:-m-6 bg-background relative overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[700px] h-[700px]">
+            <Orb hue={270} backgroundColor="hsl(var(--background))" />
+          </div>
+        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary/50 relative" />
+      </div>
+    );
+  }
 
   // Se não tem acesso ao Orbit, mostrar mensagem de upgrade
   if (!hasOrbitAccess) {
