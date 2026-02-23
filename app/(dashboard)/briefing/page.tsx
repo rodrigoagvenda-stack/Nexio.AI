@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +34,7 @@ interface BriefingConfig {
   title?: string;
   description?: string;
   success_message?: string;
+  whatsapp_label?: string;
 }
 
 interface BriefingQuestion {
@@ -68,6 +73,101 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// ─── SortableQuestionItem ─────────────────────────────────────────────────────
+
+function SortableQuestionItem({
+  q,
+  editingQuestion,
+  setEditingQuestion,
+  editOptionsInput,
+  setEditOptionsInput,
+  handleSaveEdit,
+  handleDeleteQuestion,
+}: {
+  q: BriefingQuestion;
+  editingQuestion: BriefingQuestion | null;
+  setEditingQuestion: (q: BriefingQuestion | null) => void;
+  editOptionsInput: string;
+  setEditOptionsInput: (s: string) => void;
+  handleSaveEdit: () => void;
+  handleDeleteQuestion: (id: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: q.id! });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const isEditing = editingQuestion !== null && editingQuestion.id === q.id;
+
+  return (
+    <div ref={setNodeRef} style={style} className="border rounded-lg p-3">
+      {isEditing ? (
+        <div className="space-y-3">
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Pergunta</Label>
+              <Input value={editingQuestion.label} onChange={(e) => setEditingQuestion({ ...editingQuestion, label: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Chave (field_key)</Label>
+              <Input value={editingQuestion.field_key} onChange={(e) => setEditingQuestion({ ...editingQuestion, field_key: fieldKeyify(e.target.value) })} />
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Tipo</Label>
+              <Select value={editingQuestion.question_type} onValueChange={(v: any) => setEditingQuestion({ ...editingQuestion, question_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{QUESTION_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 mt-5">
+              <Switch checked={editingQuestion.is_required} onCheckedChange={(v) => setEditingQuestion({ ...editingQuestion, is_required: v })} />
+              <Label className="text-xs">Obrigatório</Label>
+            </div>
+          </div>
+          {['select', 'multiselect', 'radio', 'checkbox'].includes(editingQuestion.question_type) && (
+            <div className="space-y-1">
+              <Label className="text-xs">Opções (uma por linha)</Label>
+              <textarea
+                className="w-full border rounded p-2 text-sm min-h-[80px] bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                value={editOptionsInput || (editingQuestion.options || []).join('\n')}
+                onChange={(e) => setEditOptionsInput(e.target.value)}
+                placeholder={'Opção 1\nOpção 2\nOpção 3'}
+              />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSaveEdit}>Salvar</Button>
+            <Button size="sm" variant="outline" onClick={() => { setEditingQuestion(null); setEditOptionsInput(''); }}>Cancelar</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <button
+            {...attributes}
+            {...listeners}
+            className="text-muted-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none p-0.5"
+            title="Arrastar para reordenar"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate">{q.label}</p>
+            <div className="flex gap-2 mt-1 flex-wrap">
+              <Badge variant="outline" className="text-xs">{QUESTION_TYPES.find(t => t.value === q.question_type)?.label}</Badge>
+              {q.is_required && <Badge className="text-xs">Obrigatório</Badge>}
+            </div>
+          </div>
+          <div className="flex gap-1 shrink-0">
+            <Button size="sm" variant="ghost" onClick={() => { setEditingQuestion(q); setEditOptionsInput(''); }}>Editar</Button>
+            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => q.id && handleDeleteQuestion(q.id)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BriefingPage() {
@@ -90,8 +190,11 @@ export default function BriefingPage() {
   const [optionsInput, setOptionsInput] = useState('');
   const [editingQuestion, setEditingQuestion] = useState<BriefingQuestion | null>(null);
   const [editOptionsInput, setEditOptionsInput] = useState('');
+  const [editingWhatsappLabel, setEditingWhatsappLabel] = useState(false);
+  const [whatsappLabelInput, setWhatsappLabelInput] = useState('');
 
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const sensors = useSensors(useSensor(PointerSensor));
 
   const briefingUrl = typeof window !== 'undefined' ? `${window.location.origin}/briefing/${config.slug}` : `/briefing/${config.slug}`;
 
@@ -143,6 +246,53 @@ export default function BriefingPage() {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveWhatsappLabel() {
+    const updatedConfig = { ...config, whatsapp_label: whatsappLabelInput.trim() || undefined };
+    setConfig(updatedConfig);
+    setEditingWhatsappLabel(false);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/user/briefing/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedConfig),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+      setConfig(data.data);
+      toast({ title: 'Pergunta de WhatsApp atualizada!' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = questions.findIndex(q => q.id === active.id);
+    const newIndex = questions.findIndex(q => q.id === over.id);
+    const reordered = arrayMove(questions, oldIndex, newIndex).map((q, idx) => ({ ...q, order_index: idx }));
+    setQuestions(reordered);
+
+    try {
+      await Promise.all(
+        reordered.map(q =>
+          fetch(`/api/user/briefing/questions/${q.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(q),
+          })
+        )
+      );
+    } catch (err: any) {
+      toast({ title: 'Erro ao reordenar perguntas', description: err.message, variant: 'destructive' });
+      fetchQuestions();
     }
   }
 
@@ -397,82 +547,69 @@ export default function BriefingPage() {
                 <p className="text-center text-muted-foreground py-8 text-sm">Nenhuma pergunta ainda. Clique em Adicionar para começar.</p>
               )}
 
-              {questions.map((q) => (
-                <div key={q.id} className="border rounded-lg p-3">
-                  {editingQuestion !== null && editingQuestion.id === q.id ? (
-                    <div className="space-y-3">
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Pergunta</Label>
-                          <Input value={editingQuestion.label} onChange={(e) => setEditingQuestion({ ...editingQuestion, label: e.target.value })} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Chave (field_key)</Label>
-                          <Input value={editingQuestion.field_key} onChange={(e) => setEditingQuestion({ ...editingQuestion, field_key: fieldKeyify(e.target.value) })} />
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Tipo</Label>
-                          <Select value={editingQuestion.question_type} onValueChange={(v: any) => setEditingQuestion({ ...editingQuestion, question_type: v })}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>{QUESTION_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex items-center gap-2 mt-5">
-                          <Switch checked={editingQuestion.is_required} onCheckedChange={(v) => setEditingQuestion({ ...editingQuestion, is_required: v })} />
-                          <Label className="text-xs">Obrigatório</Label>
-                        </div>
-                      </div>
-                      {['select', 'multiselect', 'radio', 'checkbox'].includes(editingQuestion.question_type) && (
-                        <div className="space-y-1">
-                          <Label className="text-xs">Opções (uma por linha)</Label>
-                          <textarea
-                            className="w-full border rounded p-2 text-sm min-h-[80px] bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                            value={editOptionsInput || (editingQuestion.options || []).join('\n')}
-                            onChange={(e) => setEditOptionsInput(e.target.value)}
-                            placeholder={'Opção 1\nOpção 2\nOpção 3'}
-                          />
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSaveEdit}>Salvar</Button>
-                        <Button size="sm" variant="outline" onClick={() => { setEditingQuestion(null); setEditOptionsInput(''); }}>Cancelar</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{q.label}</p>
-                        <div className="flex gap-2 mt-1 flex-wrap">
-                          <Badge variant="outline" className="text-xs">{QUESTION_TYPES.find(t => t.value === q.question_type)?.label}</Badge>
-                          {q.is_required && <Badge className="text-xs">Obrigatório</Badge>}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => { setEditingQuestion(q); setEditOptionsInput(''); }}>Editar</Button>
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => q.id && handleDeleteQuestion(q.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={questions.map(q => q.id!).filter(Boolean)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {questions.map((q) => (
+                      <SortableQuestionItem
+                        key={q.id}
+                        q={q}
+                        editingQuestion={editingQuestion}
+                        setEditingQuestion={setEditingQuestion}
+                        editOptionsInput={editOptionsInput}
+                        setEditOptionsInput={setEditOptionsInput}
+                        handleSaveEdit={handleSaveEdit}
+                        handleDeleteQuestion={handleDeleteQuestion}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
 
               {/* Campo WhatsApp fixo */}
-              <div className="border rounded-lg p-4 flex items-center gap-3 bg-muted/30">
-                <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">🇧🇷 WhatsApp</p>
-                  <div className="flex gap-2 mt-1 flex-wrap">
-                    <Badge variant="outline" className="text-xs">Telefone</Badge>
-                    <Badge className="text-xs">Obrigatório</Badge>
-                    <Badge variant="secondary" className="text-xs">Campo fixo</Badge>
+              <div className="border rounded-lg p-3 bg-muted/30">
+                {editingWhatsappLabel ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Texto da pergunta de WhatsApp</Label>
+                      <Input
+                        value={whatsappLabelInput}
+                        onChange={(e) => setWhatsappLabelInput(e.target.value)}
+                        placeholder="Qual o seu WhatsApp?"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleSaveWhatsappLabel} disabled={saving}>
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingWhatsappLabel(false)}>Cancelar</Button>
+                    </div>
                   </div>
-                </div>
-                <span className="text-xs text-muted-foreground shrink-0 pr-1">🔒</span>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">🇧🇷 {config.whatsapp_label || 'Qual o seu WhatsApp?'}</p>
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        <Badge variant="outline" className="text-xs">Telefone</Badge>
+                        <Badge className="text-xs">Obrigatório</Badge>
+                        <Badge variant="secondary" className="text-xs">Campo fixo</Badge>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setWhatsappLabelInput(config.whatsapp_label || '');
+                        setEditingWhatsappLabel(true);
+                      }}
+                    >
+                      Editar
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Mensagem final */}

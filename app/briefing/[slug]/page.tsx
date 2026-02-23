@@ -16,6 +16,7 @@ interface BriefingConfig {
   description?: string;
   success_message?: string;
   whatsapp_required?: boolean;
+  whatsapp_label?: string;
 }
 
 interface BriefingQuestion {
@@ -328,7 +329,7 @@ export default function BriefingPublicPage() {
             </div>
             <div className="space-y-6">
               <h2 className="text-3xl md:text-4xl font-medium leading-snug">
-                Qual o seu WhatsApp? <span className="text-red-500 ml-1 text-2xl">*</span>
+                {config.whatsapp_label || 'Qual o seu WhatsApp?'} <span className="text-red-500 ml-1 text-2xl">*</span>
               </h2>
               <div className={`flex items-center border-b-2 ${borderClass} py-2 gap-3`}>
                 <span className="flex items-center gap-1.5 text-xl shrink-0 select-none">
