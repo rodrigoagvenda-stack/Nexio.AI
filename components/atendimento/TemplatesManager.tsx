@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Copy } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 interface Template {
   id: number;
@@ -91,7 +91,7 @@ export function TemplatesManager({ companyId, userId }: TemplatesManagerProps) {
       }
     } catch (error) {
       console.error('Error fetching templates:', error);
-      toast.error('Erro ao carregar templates');
+      toast({ title: 'Erro ao carregar templates', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -117,12 +117,12 @@ export function TemplatesManager({ companyId, userId }: TemplatesManagerProps) {
 
   async function handleSave() {
     if (!formName.trim() || !formContent.trim()) {
-      toast.error('Preencha nome e conteúdo do template');
+      toast({ title: 'Preencha nome e conteúdo do template', variant: 'destructive' });
       return;
     }
 
     if (formShortcut && !formShortcut.startsWith('/')) {
-      toast.error('Atalho deve começar com /');
+      toast({ title: 'Atalho deve começar com /', variant: 'destructive' });
       return;
     }
 
@@ -150,19 +150,19 @@ export function TemplatesManager({ companyId, userId }: TemplatesManagerProps) {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(
+        toast({ title: 
           editingTemplate
             ? 'Template atualizado com sucesso'
             : 'Template criado com sucesso'
-        );
+         });
         setDialogOpen(false);
         fetchTemplates();
       } else {
-        toast.error(data.message || 'Erro ao salvar template');
+        toast({ title: data.message || 'Erro ao salvar template', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      toast.error('Erro ao salvar template');
+      toast({ title: 'Erro ao salvar template', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -180,20 +180,20 @@ export function TemplatesManager({ companyId, userId }: TemplatesManagerProps) {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Template excluído com sucesso');
+        toast({ title: 'Template excluído com sucesso' });
         fetchTemplates();
       } else {
-        toast.error(data.message || 'Erro ao excluir template');
+        toast({ title: data.message || 'Erro ao excluir template', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error deleting template:', error);
-      toast.error('Erro ao excluir template');
+      toast({ title: 'Erro ao excluir template', variant: 'destructive' });
     }
   }
 
   function copyToClipboard(content: string) {
     navigator.clipboard.writeText(content);
-    toast.success('Conteúdo copiado!');
+    toast({ title: 'Conteúdo copiado!' });
   }
 
   const filteredTemplates =

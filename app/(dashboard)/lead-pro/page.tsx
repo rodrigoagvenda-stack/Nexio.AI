@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Target, Loader2, Trash2, Edit, Download, AlertCircle } from 'lucide-react';
 import {
   Dialog,
@@ -135,7 +135,7 @@ export default function LeadProPage() {
       setExtractionsRemaining(remaining);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error('Erro ao carregar dados');
+      toast({ title: 'Erro ao carregar dados', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ export default function LeadProPage() {
 
   async function handleExtract() {
     if (!icpConfig) {
-      toast.error('ICP não configurado. Entre em contato com o admin.');
+      toast({ title: 'ICP não configurado. Entre em contato com o admin.', variant: 'destructive' });
       return;
     }
 
@@ -165,7 +165,7 @@ export default function LeadProPage() {
         throw new Error(data.message);
       }
 
-      toast.success(`${data.extractedCount || 0} leads extraídos com sucesso!`);
+      toast({ title: `${data.extractedCount || 0} leads extraídos com sucesso!` });
 
       // Criar notificação
       const supabase = createClient();
@@ -180,7 +180,7 @@ export default function LeadProPage() {
       await fetchData();
     } catch (error: any) {
       console.error('[FRONTEND] Erro ao extrair leads:', error);
-      toast.error(error.message || 'Erro ao extrair leads');
+      toast({ title: error.message || 'Erro ao extrair leads', variant: 'destructive' });
     } finally {
       setExtracting(false);
     }
@@ -207,11 +207,11 @@ export default function LeadProPage() {
 
       if (error) throw error;
 
-      toast.success('Lead atualizado com sucesso!');
+      toast({ title: 'Lead atualizado com sucesso!' });
       setEditingLead(null);
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao atualizar lead');
+      toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
     }
   }
 
@@ -227,11 +227,11 @@ export default function LeadProPage() {
 
       if (error) throw error;
 
-      toast.success('Lead excluído com sucesso!');
+      toast({ title: 'Lead excluído com sucesso!' });
       setDeletingLead(null);
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao excluir lead');
+      toast({ title: 'Erro ao excluir lead', variant: 'destructive' });
     }
   }
 

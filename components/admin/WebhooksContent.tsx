@@ -30,7 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
-import { toast } from 'sonner'
+import { toast } from '@/components/ui/use-toast';
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import {
@@ -164,11 +164,11 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
         if (error) throw error
       }
 
-      toast.success(`Webhook ${config.webhook_type} salvo com sucesso`)
+      toast({ title: `Webhook ${config.webhook_type} salvo com sucesso` })
       router.refresh()
     } catch (error) {
       console.error('Error saving N8N webhook:', error)
-      toast.error('Erro ao salvar webhook N8N')
+      toast({ title: 'Erro ao salvar webhook N8N', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -187,11 +187,11 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
         })
 
       if (error) throw error
-      toast.success('Configuração de IA salva com sucesso')
+      toast({ title: 'Configuração de IA salva com sucesso' })
       router.refresh()
     } catch (error) {
       console.error('Error saving AI config:', error)
-      toast.error('Erro ao salvar configuração de IA')
+      toast({ title: 'Erro ao salvar configuração de IA', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -210,11 +210,11 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
         })
 
       if (error) throw error
-      toast.success('Configuração Uazapi salva com sucesso')
+      toast({ title: 'Configuração Uazapi salva com sucesso' })
       router.refresh()
     } catch (error) {
       console.error('Error saving Uazapi config:', error)
-      toast.error('Erro ao salvar configuração Uazapi')
+      toast({ title: 'Erro ao salvar configuração Uazapi', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -237,11 +237,11 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
       const { error } = await supabase.from('webhook_configs').delete().eq('id', id)
 
       if (error) throw error
-      toast.success('Webhook removido com sucesso')
+      toast({ title: 'Webhook removido com sucesso' })
       router.refresh()
     } catch (error) {
       console.error('Error deleting webhook:', error)
-      toast.error('Erro ao remover webhook')
+      toast({ title: 'Erro ao remover webhook', variant: 'destructive' })
     }
   }
 
@@ -260,7 +260,7 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
           .eq('id', editingWebhook.id)
 
         if (error) throw error
-        toast.success('Webhook atualizado com sucesso')
+        toast({ title: 'Webhook atualizado com sucesso' })
       } else {
         const { error } = await supabase
           .from('webhook_configs')
@@ -275,13 +275,13 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
           ])
 
         if (error) throw error
-        toast.success('Webhook criado com sucesso')
+        toast({ title: 'Webhook criado com sucesso' })
       }
       setIsDialogOpen(false)
       router.refresh()
     } catch (error) {
       console.error('Error saving webhook:', error)
-      toast.error('Erro ao salvar webhook')
+      toast({ title: 'Erro ao salvar webhook', variant: 'destructive' })
     } finally {
       setLoading(false)
     }

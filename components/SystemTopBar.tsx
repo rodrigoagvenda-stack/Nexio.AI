@@ -23,7 +23,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 interface Notification {
   id: string;
@@ -52,7 +52,7 @@ export function SystemTopBar() {
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    toast.success('Logout realizado com sucesso!');
+    toast({ title: 'Logout realizado com sucesso!' });
     router.push('/login');
     router.refresh();
   };

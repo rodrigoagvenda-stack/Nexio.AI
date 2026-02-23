@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MapPin, Loader2, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useUser } from '@/lib/hooks/useUser';
 import CountUp from 'react-countup';
 
@@ -30,12 +30,12 @@ export default function CaptacaoPage() {
 
   const handleExtract = async () => {
     if (!mapsUrl || !mapsUrl.includes('google.com/maps')) {
-      toast.error('Por favor, insira uma URL válida do Google Maps');
+      toast({ title: 'Por favor, insira uma URL válida do Google Maps', variant: 'destructive' });
       return;
     }
 
     if (!company?.id) {
-      toast.error('Erro ao identificar empresa');
+      toast({ title: 'Erro ao identificar empresa', variant: 'destructive' });
       return;
     }
 
@@ -76,10 +76,10 @@ export default function CaptacaoPage() {
       }, 100);
 
       setExtractedCount(targetCount);
-      toast.success('Leads extraídos com sucesso!');
+      toast({ title: 'Leads extraídos com sucesso!' });
     } catch (error: any) {
       console.error('Extraction error:', error);
-      toast.error(error.message);
+      toast({ title: error.message, variant: 'destructive' });
       setShowModal(false);
     } finally {
       setLoading(false);

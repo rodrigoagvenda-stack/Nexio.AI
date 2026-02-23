@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Bug, CheckCircle, Clock, AlertCircle, Eye } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useRouter } from 'next/navigation';
 
 interface BugData {
@@ -134,11 +134,11 @@ export function MonitorBugsContent({ bugs: initialBugs, stats }: MonitorBugsCont
         .update(updateData)
         .eq('id', selectedBug.id);
 
-      toast.success('Bug atualizado com sucesso!');
+      toast({ title: 'Bug atualizado com sucesso!' });
       setIsDialogOpen(false);
       router.refresh();
     } catch (error) {
-      toast.error('Erro ao atualizar bug');
+      toast({ title: 'Erro ao atualizar bug', variant: 'destructive' });
       console.error(error);
     } finally {
       setIsUpdating(false);

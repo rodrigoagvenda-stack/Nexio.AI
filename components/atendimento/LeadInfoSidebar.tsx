@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image, ChevronDown, ChevronUp, Copy, Check, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ChatNotesTab } from './ChatNotesTab';
 import { TagsManager } from './TagsManager';
 import { AgendaTab } from './AgendaTab';
@@ -66,7 +66,7 @@ export function LeadInfoSidebar({
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast.success(`${field} atualizado!`);
+      toast({ title: `${field} atualizado!` });
 
       // Notificar componente pai
       if (onLeadUpdate && data.data) {
@@ -74,7 +74,7 @@ export function LeadInfoSidebar({
       }
     } catch (error: any) {
       console.error(`Error updating ${field}:`, error);
-      toast.error(error.message || `Erro ao atualizar ${field}`);
+      toast({ title: error.message || `Erro ao atualizar ${field}`, variant: 'destructive' });
     } finally {
       setUpdating(false);
     }
@@ -138,7 +138,7 @@ export function LeadInfoSidebar({
                           onClick={() => {
                             navigator.clipboard.writeText(lead.notes || '');
                             setCopiedResumo(true);
-                            toast.success('Resumo copiado!');
+                            toast({ title: 'Resumo copiado!' });
                             setTimeout(() => setCopiedResumo(false), 2000);
                           }}
                         >

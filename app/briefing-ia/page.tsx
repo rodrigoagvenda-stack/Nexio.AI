@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Loader2, CheckCircle2, Sparkles, Building2, TrendingUp, DollarSign, Target, Clock, Mail, Phone, Globe, Instagram as InstagramIcon } from 'lucide-react';
 import { BriefingFormData } from '@/types/briefing';
 import { cn } from '@/lib/utils/cn';
@@ -49,7 +49,7 @@ export default function BriefingIAPage() {
       if (!response.ok) throw new Error(data.message);
 
       setSuccess(true);
-      toast.success('Briefing enviado com sucesso!');
+      toast({ title: 'Briefing enviado com sucesso!' });
 
       // Reset form after 3 seconds
       setTimeout(() => {
@@ -73,7 +73,7 @@ export default function BriefingIAPage() {
       }, 3000);
     } catch (error: any) {
       console.error('Error submitting briefing:', error);
-      toast.error(error.message || 'Erro ao enviar briefing');
+      toast({ title: error.message || 'Erro ao enviar briefing', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

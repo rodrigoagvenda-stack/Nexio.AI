@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Loader2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,16 +44,16 @@ export default function LoginPage() {
             await supabase.auth.signOut();
             throw new Error('Você não tem permissão de administrador');
           }
-          toast.success('Bem-vindo, Admin!');
+          toast({ title: 'Bem-vindo, Admin!' });
           window.location.href = '/admin';
         } else {
-          toast.success('Login realizado com sucesso!');
+          toast({ title: 'Login realizado com sucesso!' });
           window.location.href = '/dashboard';
         }
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error.message || 'Email ou senha incorretos');
+      toast({ title: error.message || 'Email ou senha incorretos', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

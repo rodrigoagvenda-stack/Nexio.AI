@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Copy, Settings, Eye, FileText, CheckCircle2, XCircle, UserCheck } from 'lucide-react';
 import { BriefingResponse } from '@/types/briefing';
 import { formatDateTime } from '@/lib/utils/format';
@@ -40,7 +40,7 @@ export default function BriefingListPage() {
       setTotal(data.total || 0);
     } catch (error: any) {
       console.error('Error fetching responses:', error);
-      toast.error(error.message || 'Erro ao carregar respostas');
+      toast({ title: error.message || 'Erro ao carregar respostas', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -48,12 +48,12 @@ export default function BriefingListPage() {
 
   const copyFormUrl = () => {
     navigator.clipboard.writeText(formUrl);
-    toast.success('Link copiado!');
+    toast({ title: 'Link copiado!' });
   };
 
   const copyQualificacaoUrl = () => {
     navigator.clipboard.writeText(qualificacaoUrl);
-    toast.success('Link copiado!');
+    toast({ title: 'Link copiado!' });
   };
 
   // Pagination

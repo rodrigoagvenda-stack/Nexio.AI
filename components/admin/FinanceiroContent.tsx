@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useRouter } from 'next/navigation';
 
 interface TransacaoData {
@@ -80,7 +80,7 @@ export function FinanceiroContent({ transacoes: initialTransacoes, stats }: Fina
 
   const handleCreateTransacao = async () => {
     if (!categoria || !valor || !descricao) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
 
@@ -98,12 +98,12 @@ export function FinanceiroContent({ transacoes: initialTransacoes, stats }: Fina
         status: 'concluida',
       });
 
-      toast.success('Transação criada com sucesso!');
+      toast({ title: 'Transação criada com sucesso!' });
       setIsDialogOpen(false);
       resetForm();
       router.refresh();
     } catch (error) {
-      toast.error('Erro ao criar transação');
+      toast({ title: 'Erro ao criar transação', variant: 'destructive' });
       console.error(error);
     } finally {
       setIsSubmitting(false);

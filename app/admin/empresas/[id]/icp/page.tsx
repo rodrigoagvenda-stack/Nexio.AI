@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function ICPConfigPage() {
@@ -86,10 +86,10 @@ export default function ICPConfigPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('ICP configurado com sucesso!');
+      toast({ title: 'ICP configurado com sucesso!' });
       router.push(`/admin/empresas/${params.id}`);
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar ICP');
+      toast({ title: error.message || 'Erro ao salvar ICP', variant: 'destructive' });
     } finally {
       setSaving(false);
     }

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import {
   Megaphone,
   FileText,
@@ -224,10 +224,10 @@ export default function OutboundPage() {
         throw new Error(message || 'Erro ao salvar');
       }
       await fetchLimits();
-      toast.success('Configurações salvas!');
+      toast({ title: 'Configurações salvas!' });
     } catch (err: any) {
       console.error('handleSaveLimits error:', err);
-      toast.error('Erro ao salvar configurações');
+      toast({ title: 'Erro ao salvar configurações', variant: 'destructive' });
     } finally {
       setSavingLimits(false);
     }
@@ -242,10 +242,10 @@ export default function OutboundPage() {
         .update({ ativo: newValue })
         .eq('id', template.id);
       if (error) throw error;
-      toast.success(newValue ? 'Template ativado' : 'Template desativado');
+      toast({ title: newValue ? 'Template ativado' : 'Template desativado' });
     } catch {
       setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, ativo: !newValue } : t)));
-      toast.error('Erro ao atualizar template');
+      toast({ title: 'Erro ao atualizar template', variant: 'destructive' });
     }
   };
 
@@ -283,9 +283,9 @@ export default function OutboundPage() {
         prev.map((t) => (t.id === templateId ? { ...t, ...templateDraft, exemplos: exemplosValue } : t))
       );
       setEditingTemplate(null);
-      toast.success('Template atualizado!');
+      toast({ title: 'Template atualizado!' });
     } catch {
-      toast.error('Erro ao salvar template');
+      toast({ title: 'Erro ao salvar template', variant: 'destructive' });
     } finally {
       setSavingTemplate(false);
     }

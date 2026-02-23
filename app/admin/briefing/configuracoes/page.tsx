@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { BriefingConfig } from '@/types/briefing';
 import { formatDateTime } from '@/lib/utils/format';
@@ -35,7 +35,7 @@ export default function BriefingConfigPage() {
       setConfig(data.data || {});
     } catch (error: any) {
       console.error('Error fetching config:', error);
-      toast.error(error.message || 'Erro ao carregar configuração');
+      toast({ title: error.message || 'Erro ao carregar configuração', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -54,11 +54,11 @@ export default function BriefingConfigPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('Configuração salva com sucesso!');
+      toast({ title: 'Configuração salva com sucesso!' });
       setConfig(data.data);
     } catch (error: any) {
       console.error('Error saving config:', error);
-      toast.error(error.message || 'Erro ao salvar configuração');
+      toast({ title: error.message || 'Erro ao salvar configuração', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -74,16 +74,16 @@ export default function BriefingConfigPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Webhook testado com sucesso!');
+        toast({ title: 'Webhook testado com sucesso!' });
       } else {
-        toast.error('Falha ao testar webhook');
+        toast({ title: 'Falha ao testar webhook', variant: 'destructive' });
       }
 
       // Atualizar configuração para pegar novo status de teste
       await fetchConfig();
     } catch (error: any) {
       console.error('Error testing webhook:', error);
-      toast.error(error.message || 'Erro ao testar webhook');
+      toast({ title: error.message || 'Erro ao testar webhook', variant: 'destructive' });
     } finally {
       setTesting(false);
     }

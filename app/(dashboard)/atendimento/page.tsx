@@ -11,7 +11,7 @@ import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, Pa
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { AudioRecorder } from '@/components/chat/AudioRecorder';
 import { WhatsAppAudioPlayer } from '@/components/chat/WhatsAppAudioPlayer';
 import { MessageContextMenu } from '@/components/chat/MessageContextMenu';
@@ -290,13 +290,13 @@ export default function AtendimentoPage() {
           msg.id === tempId ? { ...data.data, status: 'sent' } : msg
         )
       );
-      toast.success('Mensagem enviada!');
+      toast({ title: 'Mensagem enviada!' });
     } catch (error: any) {
       console.error('Error sending message:', error);
       // Remover mensagem otimista em caso de erro
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       setNewMessage(messageText); // Restaurar texto
-      toast.error(error.message || 'Erro ao enviar mensagem');
+      toast({ title: error.message || 'Erro ao enviar mensagem', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -305,9 +305,9 @@ export default function AtendimentoPage() {
   async function handleCopyMessage(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('Mensagem copiada!');
+      toast({ title: 'Mensagem copiada!' });
     } catch (error) {
-      toast.error('Erro ao copiar mensagem');
+      toast({ title: 'Erro ao copiar mensagem', variant: 'destructive' });
     }
   }
 
@@ -330,10 +330,10 @@ export default function AtendimentoPage() {
       if (!data.success) throw new Error(data.message);
 
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      toast.success('Mensagem apagada para você');
+      toast({ title: 'Mensagem apagada para você' });
     } catch (error: any) {
       console.error('Error deleting message:', error);
-      toast.error(error.message || 'Erro ao apagar mensagem');
+      toast({ title: error.message || 'Erro ao apagar mensagem', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -358,10 +358,10 @@ export default function AtendimentoPage() {
       if (!data.success) throw new Error(data.message);
 
       setMessages(prev => prev.filter(msg => msg.id !== messageId));
-      toast.success('Mensagem apagada para todos');
+      toast({ title: 'Mensagem apagada para todos' });
     } catch (error: any) {
       console.error('Error deleting message for everyone:', error);
-      toast.error(error.message || 'Erro ao apagar mensagem');
+      toast({ title: error.message || 'Erro ao apagar mensagem', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -386,11 +386,11 @@ export default function AtendimentoPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast.success(data.message);
+      toast({ title: data.message });
       setForwardDialog({ open: false, messageId: null });
     } catch (error: any) {
       console.error('Error forwarding message:', error);
-      toast.error(error.message || 'Erro ao encaminhar mensagem');
+      toast({ title: error.message || 'Erro ao encaminhar mensagem', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -434,7 +434,7 @@ export default function AtendimentoPage() {
       }
     } catch (error: any) {
       console.error('Error sending reaction:', error);
-      toast.error(error.message || 'Erro ao enviar reação');
+      toast({ title: error.message || 'Erro ao enviar reação', variant: 'destructive' });
       // Reverter mudança otimista em caso de erro
       setMessages(prev =>
         prev.map(msg => {
@@ -522,12 +522,12 @@ export default function AtendimentoPage() {
           msg.id === tempId ? { ...data.data, status: 'sent' } : msg
         )
       );
-      toast.success('Áudio enviado!');
+      toast({ title: 'Áudio enviado!' });
     } catch (error: any) {
       console.error('Error sending audio:', error);
       // Remover mensagem otimista em caso de erro
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
-      toast.error(error.message || 'Erro ao enviar áudio');
+      toast({ title: error.message || 'Erro ao enviar áudio', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -603,12 +603,12 @@ export default function AtendimentoPage() {
           msg.id === tempId ? { ...data.data, status: 'sent' } : msg
         )
       );
-      toast.success(`${type === 'image' ? 'Imagem' : type === 'document' ? 'Documento' : 'Vídeo'} enviado!`);
+      toast({ title: `${type === 'image' ? 'Imagem' : type === 'document' ? 'Documento' : 'Vídeo'} enviado!` });
     } catch (error: any) {
       console.error(`Error sending ${type}:`, error);
       // Remover mensagem otimista em caso de erro
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
-      toast.error(error.message || `Erro ao enviar ${type}`);
+      toast({ title: error.message || `Erro ao enviar ${type}`, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -683,10 +683,10 @@ export default function AtendimentoPage() {
       setMessages(prev =>
         prev.map(msg => msg.id === messageId ? data.data : msg)
       );
-      toast.success('Mensagem editada!');
+      toast({ title: 'Mensagem editada!' });
     } catch (error: any) {
       console.error('Error editing message:', error);
-      toast.error(error.message || 'Erro ao editar mensagem');
+      toast({ title: error.message || 'Erro ao editar mensagem', variant: 'destructive' });
       throw error;
     }
   }
@@ -712,10 +712,10 @@ export default function AtendimentoPage() {
       setMessages(prev =>
         prev.map(msg => msg.id === messageId ? data.data : msg)
       );
-      toast.success(isPinned ? 'Mensagem fixada!' : 'Mensagem desafixada!');
+      toast({ title: isPinned ? 'Mensagem fixada!' : 'Mensagem desafixada!' });
     } catch (error: any) {
       console.error('Error pinning message:', error);
-      toast.error(error.message || 'Erro ao fixar mensagem');
+      toast({ title: error.message || 'Erro ao fixar mensagem', variant: 'destructive' });
     }
   }
 
@@ -770,11 +770,11 @@ export default function AtendimentoPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast.success('Mensagem agendada com sucesso!');
+      toast({ title: 'Mensagem agendada com sucesso!' });
       setNewMessage('');
     } catch (error: any) {
       console.error('Error scheduling message:', error);
-      toast.error(error.message || 'Erro ao agendar mensagem');
+      toast({ title: error.message || 'Erro ao agendar mensagem', variant: 'destructive' });
       throw error;
     }
   }
@@ -1121,13 +1121,13 @@ export default function AtendimentoPage() {
                           });
                           if (!res.ok) {
                             setIsAiActive(!newValue);
-                            toast.error('Erro ao atualizar IA');
+                            toast({ title: 'Erro ao atualizar IA', variant: 'destructive' });
                           } else {
-                            toast.success(newValue ? 'IA ativada' : 'IA pausada');
+                            toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
                           }
                         } catch {
                           setIsAiActive(!newValue);
-                          toast.error('Erro ao atualizar IA');
+                          toast({ title: 'Erro ao atualizar IA', variant: 'destructive' });
                         }
                       }}
                       title={isAiActive ? 'Pausar IA' : 'Retomar IA'}
@@ -1446,12 +1446,12 @@ export default function AtendimentoPage() {
         onSelectDocument={() => handleFileSelect('document')}
         onSelectImage={() => handleFileSelect('image')}
         onSelectVideo={() => handleFileSelect('video')}
-        onSelectCamera={() => toast.info('Câmera em breve')}
+        onSelectCamera={() => toast({ title: 'Câmera em breve' })}
         onSelectAudio={() => setShowAudioRecorder(true)}
-        onSelectContact={() => toast.info('Contato em breve')}
-        onSelectPoll={() => toast.info('Enquete em breve')}
-        onSelectEvent={() => toast.info('Evento em breve')}
-        onSelectSticker={() => toast.info('Figurinha em breve')}
+        onSelectContact={() => toast({ title: 'Contato em breve' })}
+        onSelectPoll={() => toast({ title: 'Enquete em breve' })}
+        onSelectEvent={() => toast({ title: 'Evento em breve' })}
+        onSelectSticker={() => toast({ title: 'Figurinha em breve' })}
       />
 
       {/* Delete Message Dialog */}

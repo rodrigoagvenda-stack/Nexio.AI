@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import {
   Copy,
   Settings,
@@ -73,7 +73,7 @@ export default function LeadQualificationListPage() {
       setTotal(data.total || 0);
     } catch (error: any) {
       console.error('Error fetching responses:', error);
-      toast.error(error.message || 'Erro ao carregar respostas');
+      toast({ title: error.message || 'Erro ao carregar respostas', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export default function LeadQualificationListPage() {
 
   const copyFormUrl = () => {
     navigator.clipboard.writeText(formUrl);
-    toast.success('Link copiado!');
+    toast({ title: 'Link copiado!' });
   };
 
   const handleDelete = async (id: number) => {
@@ -95,12 +95,12 @@ export default function LeadQualificationListPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('Resposta deletada com sucesso');
+      toast({ title: 'Resposta deletada com sucesso' });
       setResponses((prev) => prev.filter((r) => r.id !== id));
       setTotal((prev) => prev - 1);
     } catch (error: any) {
       console.error('Error deleting response:', error);
-      toast.error(error.message || 'Erro ao deletar resposta');
+      toast({ title: error.message || 'Erro ao deletar resposta', variant: 'destructive' });
     } finally {
       setDeletingId(null);
     }
@@ -108,7 +108,7 @@ export default function LeadQualificationListPage() {
 
   const handleDownloadCSV = () => {
     if (responses.length === 0) {
-      toast.error('Nenhuma resposta para exportar');
+      toast({ title: 'Nenhuma resposta para exportar', variant: 'destructive' });
       return;
     }
 
@@ -167,7 +167,7 @@ export default function LeadQualificationListPage() {
     link.click();
     document.body.removeChild(link);
 
-    toast.success('CSV exportado com sucesso!');
+    toast({ title: 'CSV exportado com sucesso!' });
   };
 
   // Pagination

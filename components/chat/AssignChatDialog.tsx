@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { UserCircle, MessageSquare, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 interface TeamMember {
   id: number;
@@ -76,11 +76,11 @@ export function AssignChatDialog({
       if (data.success) {
         setTeam(data.team);
       } else {
-        toast.error('Erro ao carregar equipe');
+        toast({ title: 'Erro ao carregar equipe', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error fetching team:', error);
-      toast.error('Erro ao carregar equipe');
+      toast({ title: 'Erro ao carregar equipe', variant: 'destructive' });
     } finally {
       setLoadingTeam(false);
     }
@@ -88,7 +88,7 @@ export function AssignChatDialog({
 
   async function handleAssign() {
     if (!selectedUser) {
-      toast.error('Selecione um membro da equipe');
+      toast({ title: 'Selecione um membro da equipe', variant: 'destructive' });
       return;
     }
 
@@ -109,17 +109,17 @@ export function AssignChatDialog({
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message);
+        toast({ title: data.message });
         onSuccess();
         onOpenChange(false);
         setSelectedUser('');
         setNotes('');
       } else {
-        toast.error(data.message || 'Erro ao atribuir chat');
+        toast({ title: data.message || 'Erro ao atribuir chat', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error assigning chat:', error);
-      toast.error('Erro ao atribuir chat');
+      toast({ title: 'Erro ao atribuir chat', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -138,15 +138,15 @@ export function AssignChatDialog({
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Chat desatribuído com sucesso');
+        toast({ title: 'Chat desatribuído com sucesso' });
         onSuccess();
         onOpenChange(false);
       } else {
-        toast.error(data.message || 'Erro ao desatribuir chat');
+        toast({ title: data.message || 'Erro ao desatribuir chat', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error unassigning chat:', error);
-      toast.error('Erro ao desatribuir chat');
+      toast({ title: 'Erro ao desatribuir chat', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

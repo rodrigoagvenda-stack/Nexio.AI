@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Pin, Trash2, Edit2, Save, X, Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { formatDateTime } from '@/lib/utils/format';
 import type { ChatNote } from '@/types/database.types';
 
@@ -44,7 +44,7 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotes
 
   async function handleCreateNote() {
     if (!newNoteText.trim()) {
-      toast.error('Digite o texto da nota');
+      toast({ title: 'Digite o texto da nota', variant: 'destructive' });
       return;
     }
 
@@ -67,9 +67,9 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotes
 
       setNotes((prev) => [data.data, ...prev]);
       setNewNoteText('');
-      toast.success('Nota adicionada!');
+      toast({ title: 'Nota adicionada!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar nota');
+      toast({ title: error.message || 'Erro ao criar nota', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -97,9 +97,9 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotes
         prev.map((note) => (note.id === noteId ? data.data : note))
       );
       setEditingNoteId(null);
-      toast.success('Nota atualizada!');
+      toast({ title: 'Nota atualizada!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao atualizar nota');
+      toast({ title: error.message || 'Erro ao atualizar nota', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -119,9 +119,9 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotes
       if (!data.success) throw new Error(data.message);
 
       setNotes((prev) => prev.filter((note) => note.id !== noteId));
-      toast.success('Nota deletada!');
+      toast({ title: 'Nota deletada!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao deletar nota');
+      toast({ title: error.message || 'Erro ao deletar nota', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

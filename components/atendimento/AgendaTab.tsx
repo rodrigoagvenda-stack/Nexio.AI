@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, X, Edit2, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { formatDateTime } from '@/lib/utils/format';
 
 interface ScheduledMessage {
@@ -50,7 +50,7 @@ export function AgendaTab({ chatId, leadId, companyId }: AgendaTabProps) {
       }
     } catch (error) {
       console.error('Error fetching scheduled messages:', error);
-      toast.error('Erro ao carregar agendamentos');
+      toast({ title: 'Erro ao carregar agendamentos', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -69,13 +69,13 @@ export function AgendaTab({ chatId, leadId, companyId }: AgendaTabProps) {
 
       if (data.success) {
         setScheduledMessages(prev => prev.filter(msg => msg.id !== id));
-        toast.success('Agendamento cancelado');
+        toast({ title: 'Agendamento cancelado' });
       } else {
         throw new Error(data.message);
       }
     } catch (error: any) {
       console.error('Error cancelling schedule:', error);
-      toast.error(error.message || 'Erro ao cancelar agendamento');
+      toast({ title: error.message || 'Erro ao cancelar agendamento', variant: 'destructive' });
     } finally {
       setCancellingId(null);
     }

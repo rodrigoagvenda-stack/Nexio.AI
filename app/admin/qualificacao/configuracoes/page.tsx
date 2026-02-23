@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Save, Loader2, Zap, CheckCircle2, XCircle } from 'lucide-react';
 import { LeadQualificationConfig } from '@/types/lead-qualification';
 import { formatDateTime } from '@/lib/utils/format';
@@ -39,7 +39,7 @@ export default function LeadQualificationConfigPage() {
       setIsActive(data.data?.is_active || false);
     } catch (error: any) {
       console.error('Error fetching config:', error);
-      toast.error(error.message || 'Erro ao carregar configuração');
+      toast({ title: error.message || 'Erro ao carregar configuração', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -63,9 +63,9 @@ export default function LeadQualificationConfigPage() {
       if (!response.ok) throw new Error(data.message);
 
       setConfig(data.data);
-      toast.success('Configuração salva com sucesso!');
+      toast({ title: 'Configuração salva com sucesso!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar configuração');
+      toast({ title: error.message || 'Erro ao salvar configuração', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -73,7 +73,7 @@ export default function LeadQualificationConfigPage() {
 
   async function handleTest() {
     if (!webhookUrl) {
-      toast.error('Configure a URL do webhook primeiro');
+      toast({ title: 'Configure a URL do webhook primeiro', variant: 'destructive' });
       return;
     }
 
@@ -86,15 +86,15 @@ export default function LeadQualificationConfigPage() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Webhook testado com sucesso!');
+        toast({ title: 'Webhook testado com sucesso!' });
       } else {
-        toast.error(data.message || 'Falha no teste do webhook');
+        toast({ title: data.message || 'Falha no teste do webhook', variant: 'destructive' });
       }
 
       // Recarregar config para atualizar status do teste
       await fetchConfig();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao testar webhook');
+      toast({ title: error.message || 'Erro ao testar webhook', variant: 'destructive' });
     } finally {
       setTesting(false);
     }

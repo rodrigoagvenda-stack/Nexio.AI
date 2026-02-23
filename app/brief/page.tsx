@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { BriefingFormData } from '@/types/briefing';
 
@@ -85,13 +85,13 @@ export default function BriefPage() {
         setCurrentStep((prev) => prev + 1);
       }
     } else {
-      toast.error('Por favor, preencha este campo antes de continuar');
+      toast({ title: 'Por favor, preencha este campo antes de continuar', variant: 'destructive' });
     }
   };
 
   const handleSubmit = async () => {
     if (!validateCurrentStep()) {
-      toast.error('Por favor, preencha todos os campos obrigatórios');
+      toast({ title: 'Por favor, preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
 
@@ -111,10 +111,10 @@ export default function BriefPage() {
       }
 
       setIsSuccess(true);
-      toast.success('Briefing enviado com sucesso!');
+      toast({ title: 'Briefing enviado com sucesso!' });
     } catch (error: any) {
       console.error('Error submitting briefing:', error);
-      toast.error(error.message || 'Erro ao enviar briefing');
+      toast({ title: error.message || 'Erro ao enviar briefing', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }

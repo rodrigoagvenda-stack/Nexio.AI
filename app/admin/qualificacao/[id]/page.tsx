@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import {
   ArrowLeft,
   Loader2,
@@ -57,7 +57,7 @@ export default function LeadQualificationDetailPage() {
       setResponse(found);
     } catch (error: any) {
       console.error('Error fetching response:', error);
-      toast.error(error.message || 'Erro ao carregar resposta');
+      toast({ title: error.message || 'Erro ao carregar resposta', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

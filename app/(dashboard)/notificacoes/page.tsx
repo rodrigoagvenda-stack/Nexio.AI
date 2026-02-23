@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Bell, CheckCheck, Loader2 } from 'lucide-react';
 
 interface Notification {
@@ -96,10 +96,10 @@ export default function NotificacoesPage() {
         prev.map((n) => ({ ...n, read: true }))
       );
 
-      toast.success('Todas as notificações marcadas como lidas');
+      toast({ title: 'Todas as notificações marcadas como lidas' });
     } catch (error) {
       console.error('Error marking all as read:', error);
-      toast.error('Erro ao marcar notificações como lidas');
+      toast({ title: 'Erro ao marcar notificações como lidas', variant: 'destructive' });
     } finally {
       setMarkingAllRead(false);
     }

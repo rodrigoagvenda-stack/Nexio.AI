@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Loader2, Building2, TrendingUp, Zap, Check } from 'lucide-react';
 
 export default function NovaEmpresaPage() {
@@ -52,11 +52,11 @@ export default function NovaEmpresaPage() {
 
       if (!response.ok) throw new Error(data.message);
 
-      toast.success('Empresa criada com sucesso!');
+      toast({ title: 'Empresa criada com sucesso!' });
       router.push('/admin/empresas');
     } catch (error: any) {
       console.error('Error creating company:', error);
-      toast.error(error.message || 'Erro ao criar empresa');
+      toast({ title: error.message || 'Erro ao criar empresa', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

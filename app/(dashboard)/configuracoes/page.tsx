@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { User, Lock, Settings, Camera } from 'lucide-react';
 
 export default function ConfiguracoesPage() {
@@ -55,15 +55,15 @@ export default function ConfiguracoesPage() {
 
       if (data.success) {
         setPhotoUrl(data.photoUrl);
-        toast.success('Foto atualizada com sucesso!');
+        toast({ title: 'Foto atualizada com sucesso!' });
         // Recarregar página para atualizar avatar no header
         window.location.reload();
       } else {
-        toast.error(data.message || 'Erro ao fazer upload');
+        toast({ title: data.message || 'Erro ao fazer upload', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error uploading photo:', error);
-      toast.error('Erro ao fazer upload da foto');
+      toast({ title: 'Erro ao fazer upload da foto', variant: 'destructive' });
     } finally {
       setUploadingPhoto(false);
     }
@@ -83,10 +83,10 @@ export default function ConfiguracoesPage() {
         .eq('auth_user_id', authUser?.id);
 
       if (error) throw error;
-      toast.success('Perfil atualizado com sucesso!');
+      toast({ title: 'Perfil atualizado com sucesso!' });
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast.error('Erro ao atualizar perfil');
+      toast({ title: 'Erro ao atualizar perfil', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

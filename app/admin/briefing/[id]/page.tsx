@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, FileDown } from 'lucide-react';
 import { BriefingResponse } from '@/types/briefing';
 import { formatDateTime } from '@/lib/utils/format';
@@ -30,7 +30,7 @@ export default function BriefingDetailPage() {
       setResponse(data.data);
     } catch (error: any) {
       console.error('Error fetching response:', error);
-      toast.error(error.message || 'Erro ao carregar resposta');
+      toast({ title: error.message || 'Erro ao carregar resposta', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -52,10 +52,10 @@ export default function BriefingDetailPage() {
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success('PDF baixado com sucesso!');
+      toast({ title: 'PDF baixado com sucesso!' });
     } catch (error: any) {
       console.error('Error generating PDF:', error);
-      toast.error('Erro ao gerar PDF');
+      toast({ title: 'Erro ao gerar PDF', variant: 'destructive' });
     } finally {
       setDownloading(false);
     }

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, Settings, Bell } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useUser } from '@/lib/hooks/useUser';
 
 export function Header() {
@@ -22,7 +22,7 @@ export function Header() {
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    toast.success('Logout realizado com sucesso!');
+    toast({ title: 'Logout realizado com sucesso!' });
     router.push('/login');
     router.refresh();
   };

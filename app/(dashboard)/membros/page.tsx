@@ -45,7 +45,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
 import { formatDateTime } from '@/lib/utils/format';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { SimplePagination } from '@/components/ui/pagination-simple';
 
 interface Member {
@@ -102,7 +102,7 @@ export default function MembrosPage() {
       setMembers(data.data || []);
     } catch (error: any) {
       console.error('Error fetching members:', error);
-      toast.error('Erro ao carregar membros');
+      toast({ title: 'Erro ao carregar membros', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -124,13 +124,13 @@ export default function MembrosPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast.success('Membro convidado com sucesso!');
+      toast({ title: 'Membro convidado com sucesso!' });
       setInviteDialogOpen(false);
       setInviteForm({ name: '', email: '', role: 'member', department: '' });
       fetchMembers();
     } catch (error: any) {
       console.error('Error inviting member:', error);
-      toast.error(error.message || 'Erro ao convidar membro');
+      toast({ title: error.message || 'Erro ao convidar membro', variant: 'destructive' });
     }
   }
 
@@ -151,13 +151,13 @@ export default function MembrosPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast.success('Membro atualizado com sucesso!');
+      toast({ title: 'Membro atualizado com sucesso!' });
       setEditDialogOpen(false);
       setSelectedMember(null);
       fetchMembers();
     } catch (error: any) {
       console.error('Error updating member:', error);
-      toast.error(error.message || 'Erro ao atualizar membro');
+      toast({ title: error.message || 'Erro ao atualizar membro', variant: 'destructive' });
     }
   }
 
@@ -174,13 +174,13 @@ export default function MembrosPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast.success('Membro removido com sucesso!');
+      toast({ title: 'Membro removido com sucesso!' });
       setDeleteDialogOpen(false);
       setSelectedMember(null);
       fetchMembers();
     } catch (error: any) {
       console.error('Error deleting member:', error);
-      toast.error(error.message || 'Erro ao remover membro');
+      toast({ title: error.message || 'Erro ao remover membro', variant: 'destructive' });
     }
   }
 

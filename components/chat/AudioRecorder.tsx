@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, Trash2, Pause, Send, Play, Square } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 interface AudioRecorderProps {
   onSendAudio: (audioBlob: Blob, duration: number) => void;
@@ -80,7 +80,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
       }, 1000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      toast.error('Não foi possível acessar o microfone');
+      toast({ title: 'Não foi possível acessar o microfone', variant: 'destructive' });
       onCancel();
     }
   };

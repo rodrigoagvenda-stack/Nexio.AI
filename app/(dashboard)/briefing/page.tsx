@@ -140,7 +140,7 @@ export default function BriefingPage() {
       setConfig(data.data);
       toast({ title: 'Configuração salva!' });
     } catch (err: any) {
-      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' });
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -159,7 +159,7 @@ export default function BriefingPage() {
       setConfig(prev => ({ ...prev, logo_url: data.url }));
       toast({ title: 'Logo enviado!' });
     } catch (err: any) {
-      toast({ title: 'Erro no upload', description: err.message, variant: 'destructive' });
+      toast({ title: err.message || 'Erro no upload', variant: 'destructive' });
     } finally {
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = '';

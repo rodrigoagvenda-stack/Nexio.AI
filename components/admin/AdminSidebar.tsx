@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface AdminSidebarProps {
@@ -49,10 +49,10 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      toast.success('Logout realizado com sucesso');
+      toast({ title: 'Logout realizado com sucesso' });
       router.push('/login');
     } catch {
-      toast.error('Erro ao fazer logout');
+      toast({ title: 'Erro ao fazer logout', variant: 'destructive' });
       setIsLoggingOut(false);
     }
   }

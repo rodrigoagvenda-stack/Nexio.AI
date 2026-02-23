@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Plus, X, Edit2, Trash2, Check } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import type { Tag, LeadTag } from '@/types/database.types';
 
 interface TagsManagerProps {
@@ -73,7 +73,7 @@ export function TagsManager({
 
   async function handleCreateTag() {
     if (!newTagName.trim()) {
-      toast.error('Digite o nome da tag');
+      toast({ title: 'Digite o nome da tag', variant: 'destructive' });
       return;
     }
 
@@ -96,9 +96,9 @@ export function TagsManager({
       setNewTagName('');
       setNewTagColor(DEFAULT_COLORS[0]);
       setShowNewTagForm(false);
-      toast.success('Tag criada!');
+      toast({ title: 'Tag criada!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar tag');
+      toast({ title: error.message || 'Erro ao criar tag', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -124,9 +124,9 @@ export function TagsManager({
       const updatedTags = [...currentTags, tag.tag_name];
       if (onTagsUpdate) onTagsUpdate(updatedTags);
 
-      toast.success('Tag atribuída!');
+      toast({ title: 'Tag atribuída!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao atribuir tag');
+      toast({ title: error.message || 'Erro ao atribuir tag', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -152,9 +152,9 @@ export function TagsManager({
       const updatedTags = currentTags.filter((t) => t !== tag.tag_name);
       if (onTagsUpdate) onTagsUpdate(updatedTags);
 
-      toast.success('Tag removida!');
+      toast({ title: 'Tag removida!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao remover tag');
+      toast({ title: error.message || 'Erro ao remover tag', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -175,9 +175,9 @@ export function TagsManager({
       if (!data.success) throw new Error(data.message);
 
       setAllTags((prev) => prev.filter((t) => t.id !== tagId));
-      toast.success('Tag deletada!');
+      toast({ title: 'Tag deletada!' });
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao deletar tag');
+      toast({ title: error.message || 'Erro ao deletar tag', variant: 'destructive' });
     } finally {
       setLoading(false);
     }

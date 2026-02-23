@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Image, Video, File, Music, Loader2, Download, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 interface MediaMessage {
   id: number;
@@ -49,7 +49,7 @@ export function MidiaTab({ chatId, companyId }: MidiaTabProps) {
       }
     } catch (error) {
       console.error('Error fetching media:', error);
-      toast.error('Erro ao carregar mídia');
+      toast({ title: 'Erro ao carregar mídia', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -166,7 +166,7 @@ export function MidiaTab({ chatId, companyId }: MidiaTabProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => toast.info('Download em lote em breve')}
+              onClick={() => toast({ title: 'Download em lote em breve' })}
             >
               <Download className="h-4 w-4 mr-1" />
               Baixar Todas

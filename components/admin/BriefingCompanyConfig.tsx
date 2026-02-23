@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, Trash2, GripVertical, Copy, Check, ExternalLink, Camera, X, Sun, Moon } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 interface BriefingConfig {
   id?: number;
@@ -136,21 +136,21 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       setConfig(data.data);
-      toast.success('Configuração de briefing salva!');
+      toast({ title: 'Configuração de briefing salva!' });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao salvar');
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   }
 
   async function handleAddQuestion() {
-    if (!newQuestion.label) return toast.error('Informe o nome da pergunta');
-    if (!newQuestion.field_key) return toast.error('Informe a chave do campo');
+    if (!newQuestion.label) return toast({ title: 'Informe o nome da pergunta', variant: 'destructive' });
+    if (!newQuestion.field_key) return toast({ title: 'Informe a chave do campo', variant: 'destructive' });
 
     const needsOptions = ['select', 'multiselect', 'radio', 'checkbox'].includes(newQuestion.question_type || '');
     const parsedOptions = optionsInput ? optionsInput.split('\n').map(o => o.trim()).filter(Boolean) : [];
-    if (needsOptions && parsedOptions.length === 0) return toast.error('Adicione pelo menos uma opção');
+    if (needsOptions && parsedOptions.length === 0) return toast({ title: 'Adicione pelo menos uma opção', variant: 'destructive' });
 
     try {
       const res = await fetch(`/api/admin/briefing/${companyId}/questions`, {
@@ -168,9 +168,9 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
       setNewQuestion({ label: '', field_key: '', question_type: 'text', options: [], is_required: false });
       setOptionsInput('');
       setShowAddQuestion(false);
-      toast.success('Pergunta adicionada!');
+      toast({ title: 'Pergunta adicionada!' });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao adicionar pergunta');
+      toast({ title: err.message || 'Erro ao adicionar pergunta', variant: 'destructive' });
     }
   }
 
@@ -180,9 +180,9 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       setQuestions(prev => prev.filter(q => q.id !== id));
-      toast.success('Pergunta removida!');
+      toast({ title: 'Pergunta removida!' });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao remover');
+      toast({ title: err.message || 'Erro ao remover', variant: 'destructive' });
     }
   }
 
@@ -201,9 +201,9 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
       if (!data.success) throw new Error(data.message);
       setQuestions(prev => prev.map(q => q.id === editingQuestion.id ? data.data : q));
       setEditingQuestion(null);
-      toast.success('Pergunta atualizada!');
+      toast({ title: 'Pergunta atualizada!' });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao atualizar');
+      toast({ title: err.message || 'Erro ao atualizar', variant: 'destructive' });
     }
   }
 
@@ -224,9 +224,9 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       setConfig((prev) => ({ ...prev, logo_url: data.url }));
-      toast.success('Logo carregado!');
+      toast({ title: 'Logo carregado!' });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao fazer upload');
+      toast({ title: err.message || 'Erro ao fazer upload', variant: 'destructive' });
     } finally {
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = '';

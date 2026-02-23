@@ -52,7 +52,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils/cn';
 
 interface N8NInstance {
@@ -167,9 +167,9 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
       const { newErrors, totalInDb, results, logs } = data;
 
       if (newErrors > 0) {
-        toast.success(`${newErrors} novos erros sincronizados! (${totalInDb} total no banco)`);
+        toast({ title: `${newErrors} novos erros sincronizados! (${totalInDb} total no banco)` });
       } else {
-        toast.info(`Nenhum erro novo. ${totalInDb} erros no banco.`);
+        toast({ title: `Nenhum erro novo. ${totalInDb} erros no banco.` });
       }
 
       // Log no console para debug
@@ -185,7 +185,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
       // Buscar dados atualizados via API
       await fetchData();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao sincronizar');
+      toast({ title: error.message || 'Erro ao sincronizar', variant: 'destructive' });
     } finally {
       setIsSyncing(false);
     }
@@ -279,7 +279,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
 
   const handleSaveInstance = async () => {
     if (!instanceForm.name || !instanceForm.url || !instanceForm.api_key) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
       return;
     }
 
@@ -303,7 +303,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
           throw new Error('Erro ao criar instância');
         }
 
-        toast.success('Instância criada com sucesso!');
+        toast({ title: 'Instância criada com sucesso!' });
       } else if (dialogMode === 'edit-instance' && selectedInstance) {
         // Atualizar instância existente
         const updateData: any = {
@@ -328,13 +328,13 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
           throw new Error('Erro ao atualizar instância');
         }
 
-        toast.success('Instância atualizada com sucesso!');
+        toast({ title: 'Instância atualizada com sucesso!' });
       }
 
       setDialogMode(null);
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao salvar instância');
+      toast({ title: 'Erro ao salvar instância', variant: 'destructive' });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -355,10 +355,10 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
         throw new Error('Erro ao remover instância');
       }
 
-      toast.success('Instância removida com sucesso!');
+      toast({ title: 'Instância removida com sucesso!' });
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao remover instância');
+      toast({ title: 'Erro ao remover instância', variant: 'destructive' });
       console.error(error);
     }
   };
@@ -372,11 +372,11 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
         .update({ resolved_at: new Date().toISOString(), status: 'resolved' })
         .eq('id', errorId);
 
-      toast.success('Erro marcado como resolvido!');
+      toast({ title: 'Erro marcado como resolvido!' });
       setDialogMode(null);
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao resolver');
+      toast({ title: 'Erro ao resolver', variant: 'destructive' });
       console.error(error);
     }
   };
@@ -390,17 +390,17 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
         .update({ resolved_at: new Date().toISOString(), status: 'ignored' })
         .eq('id', errorId);
 
-      toast.success('Erro ignorado!');
+      toast({ title: 'Erro ignorado!' });
       setDialogMode(null);
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao ignorar');
+      toast({ title: 'Erro ao ignorar', variant: 'destructive' });
       console.error(error);
     }
   };
 
   const handleReprocessError = async (error: N8NError) => {
-    toast.info('Função de reprocessamento será implementada com a API do N8N');
+    toast({ title: 'Função de reprocessamento será implementada com a API do N8N' });
   };
 
   const handleAnalyzeWithAI = async (errorId: string) => {
@@ -417,7 +417,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
       }
 
       const data = await response.json();
-      toast.success('Análise IA concluída!');
+      toast({ title: 'Análise IA concluída!' });
 
       // Atualizar erro selecionado com análise
       if (selectedError && selectedError.id === errorId) {
@@ -429,7 +429,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
 
       await fetchData();
     } catch (error) {
-      toast.error('Erro ao analisar com IA');
+      toast({ title: 'Erro ao analisar com IA', variant: 'destructive' });
       console.error(error);
     } finally {
       setIsSubmitting(false);

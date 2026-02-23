@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Plus, Eye, Settings, Trash2, Building2, TrendingUp, Zap } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { formatDateTime } from '@/lib/utils/format';
@@ -44,7 +44,7 @@ export default function EmpresasListPage() {
       setCompanies(data.data || []);
     } catch (error: any) {
       console.error('Error fetching companies:', error);
-      toast.error(error.message || 'Erro ao carregar empresas');
+      toast({ title: error.message || 'Erro ao carregar empresas', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
