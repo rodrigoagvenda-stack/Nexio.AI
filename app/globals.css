@@ -137,10 +137,10 @@
     -ms-overflow-style: none; /* IE/Edge */
   }
 
-  /* Scrollbar minimalista para áreas que precisam de scroll visível */
+  /* Scrollbar minimalista — light mode (padrão) */
   .scrollbar-minimal {
     scrollbar-width: thin;
-    scrollbar-color: #191919 transparent;
+    scrollbar-color: #a0a0a0 transparent;
   }
 
   .scrollbar-minimal::-webkit-scrollbar {
@@ -153,25 +153,25 @@
   }
 
   .scrollbar-minimal::-webkit-scrollbar-thumb {
-    background: #191919;
+    background: #a0a0a0;
     border-radius: 3px;
   }
 
   .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
-    background: #2a2a2a;
-  }
-
-  /* Light mode: scrollbar mais visível */
-  :root .scrollbar-minimal {
-    scrollbar-color: #a0a0a0 transparent;
-  }
-
-  :root .scrollbar-minimal::-webkit-scrollbar-thumb {
-    background: #a0a0a0;
-  }
-
-  :root .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
     background: #808080;
+  }
+
+  /* Dark mode override */
+  .dark .scrollbar-minimal {
+    scrollbar-color: #3a3a3a transparent;
+  }
+
+  .dark .scrollbar-minimal::-webkit-scrollbar-thumb {
+    background: #3a3a3a;
+  }
+
+  .dark .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
+    background: #555555;
   }
 
   /* Background pattern do chat estilo WhatsApp */
