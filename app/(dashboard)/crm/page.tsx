@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, RefreshCw, Repeat2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -226,14 +226,16 @@ const DroppableColumn = memo(function DroppableColumn({
   const getColumnIcon = () => {
     const status = id.replace('column-', '');
     switch (status) {
-      case 'Triagem': return '🔍';
-      case 'Lead novo': return '🔵';
-      case 'Em contato': return '💬';
-      case 'Interessado': return '⭐';
-      case 'Proposta enviada': return '📄';
-      case 'Fechado': return '✅';
-      case 'Perdido': return '❌';
-      default: return '📋';
+      case 'Triagem':         return <Filter        className="h-4 w-4 text-orange-500" />;
+      case 'Outbound':        return <Megaphone     className="h-4 w-4 text-primary" />;
+      case 'Lead novo':       return <UserPlus      className="h-4 w-4 text-blue-500" />;
+      case 'Em contato':      return <MessageCircle className="h-4 w-4 text-pink-500" />;
+      case 'Interessado':     return <Star          className="h-4 w-4 text-purple-500" />;
+      case 'Proposta enviada':return <FileText      className="h-4 w-4 text-cyan-500" />;
+      case 'Fechado':         return <CheckCircle2  className="h-4 w-4 text-green-500" />;
+      case 'Perdido':         return <XCircle       className="h-4 w-4 text-red-500" />;
+      case 'Remarketing':     return <Repeat2       className="h-4 w-4 text-yellow-500" />;
+      default:                return <Filter        className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -241,7 +243,7 @@ const DroppableColumn = memo(function DroppableColumn({
     <div className="flex flex-col h-[calc(100vh-220px)]">
       <div className="mb-3 px-2 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm">{getColumnIcon()}</span>
+          {getColumnIcon()}
           <h3 className="font-medium text-sm text-foreground">{title}</h3>
           <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
             {count}
