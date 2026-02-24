@@ -857,6 +857,64 @@ export default function AtendimentoPage() {
       .slice(0, 2) || '??';
   };
 
+  const renderTextWithLinks = (text: string) => {
+    if (!text) return null;
+    const parts: { type: 'text' | 'url'; content: string }[] = [];
+    let lastIndex = 0;
+    const regex = /https?:\/\/[^\s]+/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+      }
+      parts.push({ type: 'url', content: match[0] });
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+    if (parts.length === 0) parts.push({ type: 'text', content: text });
+
+    return (
+      <div className="space-y-2">
+        {parts.map((part, i) => {
+          if (part.type === 'text') {
+            return part.content
+              ? <p key={i} className="text-sm whitespace-pre-wrap">{part.content}</p>
+              : null;
+          }
+          const url = part.content;
+          const isGoogleMeet = url.includes('meet.google.com');
+          const isGoogleCalendar = url.includes('calendar.google.com') || url.includes('google.com/calendar');
+          if (isGoogleMeet || isGoogleCalendar) {
+            return (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block mt-1">
+                <div className="flex items-center gap-3 p-3 bg-background/60 rounded-xl border border-border hover:bg-background/90 transition-colors">
+                  <div className="h-10 w-10 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
+                    <span className="text-xl">{isGoogleMeet ? '🎥' : '📅'}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">{isGoogleMeet ? 'Google Meet' : 'Google Agenda'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isGoogleMeet ? 'Entrar na videochamada' : 'Ver evento na agenda'}
+                    </p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                </div>
+              </a>
+            );
+          }
+          return (
+            <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+              className="text-blue-400 hover:underline text-sm break-all">
+              {url}
+            </a>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderMessageContent = (msg: Message) => {
     // Se tem mídia, renderiza o preview
     if (msg.url_da_midia) {
@@ -929,12 +987,12 @@ export default function AtendimentoPage() {
           );
 
         default:
-          return <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>;
+          return renderTextWithLinks(msg.texto_da_mensagem || '');
       }
     }
 
     // Se não tem mídia, só renderiza o texto
-    return <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>;
+    return renderTextWithLinks(msg.texto_da_mensagem || '');
   };
 
   return (
