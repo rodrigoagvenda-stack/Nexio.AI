@@ -133,7 +133,7 @@ export function LinkPreviewCard({ url }: { url: string }) {
   if (meta) {
     return (
       <a href={url} target="_blank" rel="noopener noreferrer" className="block mt-2">
-        <div className="rounded-xl border border-border overflow-hidden bg-background/60 hover:bg-background/80 transition-colors">
+        <div className="max-w-sm rounded-xl border border-border overflow-hidden bg-background/60 hover:bg-background/80 transition-colors">
           {meta.image && (
             <img
               src={meta.image}
