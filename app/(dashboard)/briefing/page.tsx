@@ -19,7 +19,7 @@ import { useUser } from '@/lib/hooks/useUser';
 import { generateBriefingMtPDF } from '@/lib/pdf/briefing-mt-generator';
 import {
   Loader2, Copy, Check, ExternalLink, Trash2, Eye, FileText,
-  Plus, GripVertical, Camera, X, Sun, Moon, Download,
+  Plus, GripVertical, Camera, X, Sun, Moon, Download, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -273,6 +273,8 @@ export default function BriefingPage() {
   const [selectedResponse, setSelectedResponse] = useState<BriefingResponse | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [responsePage, setResponsePage] = useState(1);
+  const RESPONSES_PER_PAGE = 6;
 
   // Questions state
   const [showAddQuestion, setShowAddQuestion] = useState(false);
@@ -587,7 +589,7 @@ export default function BriefingPage() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {responses.map((r) => (
+              {responses.slice((responsePage - 1) * RESPONSES_PER_PAGE, responsePage * RESPONSES_PER_PAGE).map((r) => (
                 <Card key={r.id} className="overflow-hidden">
                   <div className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
@@ -615,6 +617,38 @@ export default function BriefingPage() {
                   </div>
                 </Card>
               ))}
+
+              {/* Paginação */}
+              {responses.length > RESPONSES_PER_PAGE && (
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    {(responsePage - 1) * RESPONSES_PER_PAGE + 1}–{Math.min(responsePage * RESPONSES_PER_PAGE, responses.length)} de {responses.length} respostas
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setResponsePage((p) => p - 1)}
+                      disabled={responsePage === 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">
+                      {responsePage} / {Math.ceil(responses.length / RESPONSES_PER_PAGE)}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setResponsePage((p) => p + 1)}
+                      disabled={responsePage >= Math.ceil(responses.length / RESPONSES_PER_PAGE)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
