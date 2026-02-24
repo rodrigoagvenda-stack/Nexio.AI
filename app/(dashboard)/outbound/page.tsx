@@ -326,15 +326,15 @@ export default function OutboundPage() {
       </div>
 
       {/* Aviso de horário de operação */}
-      <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-        <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+      <div className="flex gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+        <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 shrink-0" />
         <div className="space-y-1 text-sm">
           <p className="font-semibold text-foreground">Atualização — Orbit.AI</p>
           <p className="text-muted-foreground leading-relaxed">
             O Orbit.AI está configurado para operar de <strong className="text-foreground">segunda a sexta, das 9h às 18h</strong> (horário de Brasília/Bahia).
             Fora desse período, o sistema entra em repouso automaticamente, retomando as operações no próximo horário disponível.
           </p>
-          <a href="/ajuda?tab=outbound" className="inline-block text-amber-500 hover:text-amber-400 underline underline-offset-2 text-xs font-medium mt-0.5">
+          <a href="/ajuda?tab=outbound" className="inline-block text-red-400 hover:text-red-300 underline underline-offset-2 text-xs font-medium mt-0.5">
             Saiba mais na página de FAQ, aba Outbound →
           </a>
         </div>
