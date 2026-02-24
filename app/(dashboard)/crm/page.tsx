@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, RefreshCw, Repeat2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, Maximize2, Sparkles } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -282,6 +282,7 @@ export default function CRMPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [showMqlModal, setShowMqlModal] = useState(false);
   const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -1412,7 +1413,7 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50 bg-[#0a0a0a]">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50 bg-background">
           {/* Header minimalista */}
           <div className="px-6 py-5 border-b border-border/50">
             <DialogTitle className="text-lg font-medium">
@@ -1632,10 +1633,21 @@ export default function CRMPage() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="mql_resumo" className="text-sm font-medium">Observação MQL</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mql_resumo" className="text-sm font-medium flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+                      Observação MQL
+                    </Label>
+                    {formData.mql_resumo && (
+                      <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowMqlModal(true)}>
+                        <Maximize2 className="h-3 w-3" />
+                        Expandir
+                      </Button>
+                    )}
+                  </div>
                   <textarea
                     id="mql_resumo"
-                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none bg-muted/50 cursor-default select-text"
+                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input text-sm resize-none bg-muted/50 cursor-default select-text"
                     value={formData.mql_resumo}
                     readOnly
                     placeholder="Gerado automaticamente pela IA..."
@@ -1729,6 +1741,21 @@ export default function CRMPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog: Visualizar Observação MQL */}
+      <Dialog open={showMqlModal} onOpenChange={setShowMqlModal}>
+        <DialogContent className="sm:max-w-lg bg-background">
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-purple-500" />
+            Observação MQL
+          </DialogTitle>
+          <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+              {formData.mql_resumo || 'Nenhuma observação MQL gerada ainda.'}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
