@@ -60,12 +60,12 @@ const sections: HelpSection[] = [
       {
         question: 'Como cadastrar um novo lead?',
         answer:
-          'O cadastro é feito em 3 etapas simples:\n\n**Etapa 1 — Empresa:**\n1. Clique em **+ Adicionar Lead** no topo da página\n2. Preencha o **Nome da Empresa** (obrigatório)\n3. Selecione o **Segmento** (E-commerce, Saúde, Educação, Tecnologia, etc.)\n4. Adicione o site ou Instagram (opcional)\n\n**Etapa 2 — Contato:**\n5. Nome do contato, WhatsApp e e-mail\n\n**Etapa 3 — Detalhes:**\n6. Prioridade (Alta, Média, Baixa)\n7. Nível de interesse (Quente, Morno, Frio)\n8. Fonte de importação (PEG, LinkedIn, Meta Ads, Google Ads, etc.)\n9. Valor do projeto em R$\n10. Observações\n\nO lead será criado automaticamente no estágio **Lead novo**.',
+          'O cadastro é feito em 3 etapas simples:\n\n**Etapa 1 — Empresa:**\n1. Clique em **+ Adicionar Lead** no topo da página\n2. Preencha o **Nome da Empresa** (obrigatório)\n3. Selecione o **Segmento** (E-commerce, Saúde, Educação, Tecnologia, etc.)\n4. Adicione o site ou Instagram (opcional)\n\n**Etapa 2 — Contato:**\n5. Nome do contato, WhatsApp e e-mail\n\n**Etapa 3 — Detalhes:**\n6. Prioridade (Alta, Média, Baixa)\n7. Nível de interesse (Quente, Morno, Frio)\n8. Fonte de importação (PEG, LinkedIn, Meta Ads, Google Ads, etc.)\n9. Valor do projeto em R$\n10. Observações\n\nO lead será criado automaticamente no estágio **Lead novo**.\n\n> **Leads captados pelo Orbit** entram diretamente no estágio **Triagem**, não em Lead novo.',
       },
       {
         question: 'Quais são os estágios do funil?',
         answer:
-          'O funil possui 7 estágios:\n\n• **Lead novo** — Acabou de entrar na base\n• **Em contato** — Primeiro contato foi realizado\n• **Interessado** — Demonstrou interesse no produto/serviço\n• **Proposta enviada** — Recebeu orçamento ou proposta comercial\n• **Fechado** — Venda concluída com sucesso\n• **Perdido** — Não converteu\n• **Remarketing** — Para reativar no futuro\n\n**Como mover leads:**\n• No **Kanban**: arraste e solte o card entre as colunas\n• No **Mobile**: use o seletor de status dentro do card\n• A mudança é salva automaticamente no banco de dados',
+          'O funil possui 9 estágios:\n\n• **Triagem** 🔍 — Leads captados pelo Orbit chegam aqui primeiro. O usuário avalia quais se encaixam no ICP antes de avançar\n• **Outbound** 📣 — Leads aprovados na triagem que entram no processo de prospecção ativa pelo Orbit.AI\n• **Lead novo** 🔵 — Leads adicionados manualmente que ainda não foram contactados\n• **Em contato** 💬 — Primeiro contato realizado\n• **Interessado** ⭐ — Demonstrou interesse no produto/serviço\n• **Proposta enviada** 📄 — Recebeu orçamento ou proposta comercial\n• **Fechado** ✅ — Venda concluída com sucesso\n• **Perdido** ❌ — Não converteu\n• **Remarketing** 🔁 — Para reativar no futuro\n\n**Como mover leads:**\n• No **Kanban**: arraste e solte o card entre as colunas\n• No **Mobile**: use o seletor de status dentro do card\n• A mudança é salva automaticamente no banco de dados',
       },
       {
         question: 'Como alternar entre Planilha e Kanban?',
@@ -200,6 +200,11 @@ const sections: HelpSection[] = [
           'O Kanban mostra seus leads organizados em colunas por estágio do funil.\n\n**Cada coluna mostra:**\n• Nome do estágio com ícone\n• Contador de leads\n• Valor total em R$ dos leads naquele estágio\n\n**Cada card mostra:**\n• Iniciais da empresa\n• Nome da empresa e contato\n• Tags de prioridade (Alta, Média, Baixa)\n• Nível de interesse (Quente, Morno, Frio)\n• Segmento\n• Telefone e valor do projeto\n• Data de criação\n\n**Para mover um lead:**\n• Clique e segure o card\n• Arraste para a coluna do novo estágio\n• Solte — a mudança é salva automaticamente\n• Um toast confirma: "Lead movido para [estágio]"',
       },
       {
+        question: 'O que é a coluna Triagem e por que ela existe?',
+        answer:
+          'A **Triagem** é o primeiro estágio do funil e funciona como uma **porta de entrada para leads captados pelo Orbit**.\n\nTodo lead extraído automaticamente pelo Orbit (via Google Maps ou outras fontes) chega primeiro na coluna Triagem — não em Lead novo. Isso é intencional e estratégico.\n\n**Por que isso é importante?**\n\nNem todo lead captado automaticamente é ideal para o seu negócio. Antes de iniciar o processo de prospecção ativa, o usuário deve avaliar se aquele lead:\n• Se encaixa no seu **ICP (Perfil de Cliente Ideal)**\n• Tem o porte, segmento e potencial certos\n• Vale ser abordado agora ou descartado\n\n**O fluxo correto é:**\n1. 🔍 **Triagem** — Lead chega aqui vindo do Orbit\n2. ✅ Aprovado no ICP → arraste para **Outbound** (o Orbit.AI inicia a prospecção)\n3. ❌ Reprovado → mova para **Perdido** ou delete\n\nEssa etapa garante que o Orbit.AI só aborde empresas que realmente fazem sentido para você, aumentando a taxa de conversão e evitando desperdício de contatos.',
+      },
+      {
         question: 'Como funciona no celular?',
         answer:
           'No celular o Kanban se adapta para uma **lista vertical** em vez de colunas horizontais.\n\n**Cada card no mobile mostra:**\n• Nome da empresa e contato\n• Telefone e valor do projeto\n• **Seletor de status** — um dropdown para mudar o estágio diretamente\n• Prioridade e nível de interesse\n• Segmento\n• Botões de editar e deletar\n\nComo não dá pra arrastar no celular, o seletor de status substitui o drag & drop. A mudança é salva automaticamente ao selecionar o novo estágio.',
@@ -212,6 +217,11 @@ const sections: HelpSection[] = [
     icon: Megaphone,
     description: 'Campanhas, templates e limites de disparo',
     items: [
+      {
+        question: 'Quais são as etapas do Funil Outbound?',
+        answer:
+          'O **Funil Outbound** no Dashboard mostra a jornada completa de um lead desde a captação até o fechamento. São 6 etapas:\n\n1. 🔍 **Triagem** — Leads recém-captados pelo Orbit. Aguardando avaliação do ICP pelo usuário antes de avançar\n2. 📣 **Extraídos** — Leads aprovados na triagem e movidos para a coluna Outbound, prontos para prospecção\n3. 📲 **Abordados** — Leads que já receberam ao menos uma mensagem pelo Orbit.AI (tentativas > 0)\n4. 💬 **Retornaram contato** — Leads que responderam à abordagem\n5. 📅 **Conversão** — Leads que chegaram à etapa de reunião/negociação\n6. ✅ **Fechados** — Leads que converteram em clientes\n\nEsse funil é visível na aba **Funil Outbound** dentro do Dashboard e reflete os dados em tempo real do seu CRM e campanhas.',
+      },
       {
         question: 'O que é o módulo Outbound?',
         answer:
