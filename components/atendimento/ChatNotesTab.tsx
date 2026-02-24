@@ -15,9 +15,10 @@ interface ChatNotesTabProps {
   companyId: number;
   userId: string;
   aiSummary?: string | null;
+  isOutbound?: boolean;
 }
 
-export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotesTabProps) {
+export function ChatNotesTab({ leadId, companyId, userId, aiSummary, isOutbound = false }: ChatNotesTabProps) {
   const [notes, setNotes] = useState<ChatNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
@@ -145,29 +146,36 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary }: ChatNotes
     handleUpdateNote(noteId, { noteText: editingText });
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Resumo da IA */}
-      {aiSummary && (
-        <>
-          <div className="relative p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
-                Resumo da IA
-              </h3>
-              <Badge variant="secondary" className="ml-auto text-xs">
-                Auto-gerado
-              </Badge>
-            </div>
+  // Lead Outbound: exibe apenas Observação MQL (read-only), sem notas manuais
+  if (isOutbound) {
+    return (
+      <div className="space-y-4">
+        <div className="relative p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-purple-500" />
+            <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+              Observação MQL
+            </h3>
+            <Badge variant="secondary" className="ml-auto text-xs">
+              Gerado pela IA
+            </Badge>
+          </div>
+          {aiSummary ? (
             <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
               {aiSummary}
             </p>
-          </div>
-          <Separator />
-        </>
-      )}
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              A IA ainda não gerou uma observação para este lead.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
+  return (
+    <div className="space-y-4">
       {/* Nova Nota */}
       <div className="space-y-2">
         <Textarea

@@ -298,10 +298,7 @@ export function LeadInfoSidebar({
                           ? new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(lead.project_value)
                           : ''}
                         onChange={(e) => {
-                          const raw = e.target.value.replace(/\D/g, '');
-                          if (!raw) { setEditingProjectValue(''); setHasProjectValueChanged(true); return; }
-                          const numValue = parseInt(raw) / 100;
-                          setEditingProjectValue(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numValue));
+                          setEditingProjectValue(e.target.value);
                           setHasProjectValueChanged(true);
                         }}
                         className="pl-8 h-8 text-xs" disabled={updating}
@@ -310,8 +307,10 @@ export function LeadInfoSidebar({
                     {hasProjectValueChanged && (
                       <Button size="sm" className="shrink-0 h-8"
                         onClick={async () => {
-                          const value = editingProjectValue.replace(/\D/g, '');
-                          await handleFieldUpdate('project_value', value ? parseFloat(value) / 100 : null);
+                          // Suporta: "1900", "1.900", "1900,50", "1.900,50"
+                          const cleaned = editingProjectValue.replace(/\./g, '').replace(',', '.');
+                          const value = parseFloat(cleaned);
+                          await handleFieldUpdate('project_value', isNaN(value) ? null : value);
                           setHasProjectValueChanged(false);
                           setEditingProjectValue('');
                         }}
@@ -345,6 +344,7 @@ export function LeadInfoSidebar({
                 companyId={companyId}
                 userId={userId}
                 aiSummary={lead.resumo_ia}
+                isOutbound={lead.status === 'Outbound'}
               />
             </TabsContent>
 
