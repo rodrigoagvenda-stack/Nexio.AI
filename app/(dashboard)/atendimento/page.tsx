@@ -1259,7 +1259,7 @@ export default function AtendimentoPage() {
                           className={`${
                             msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
                               ? 'w-fit'
-                              : 'w-fit max-w-[75%]'
+                              : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
                               ? 'bg-purple-500/30 text-foreground border border-purple-500/20'
