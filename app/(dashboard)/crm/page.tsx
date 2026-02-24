@@ -1619,24 +1619,26 @@ export default function CRMPage() {
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
-                  <textarea
-                    id="notes"
-                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Adicione observações sobre este lead..."
-                  />
-                </div>
+                {editingLead?.status !== 'Triagem' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
+                    <textarea
+                      id="notes"
+                      className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Adicione observações sobre este lead..."
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="mql_resumo" className="text-sm font-medium">Observação MQL</Label>
                   <textarea
                     id="mql_resumo"
-                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none bg-muted/50 cursor-default select-text"
                     value={formData.mql_resumo}
-                    onChange={(e) => setFormData({ ...formData, mql_resumo: e.target.value })}
-                    placeholder="Resumo de qualificação MQL..."
+                    readOnly
+                    placeholder="Gerado automaticamente pela IA..."
                   />
                 </div>
               </div>
