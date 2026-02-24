@@ -140,6 +140,7 @@ export default function DashboardPage() {
 
   // Métricas base
   const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
+  const triagem = filteredLeads.filter((l) => l.status === 'Triagem').length;
   const outboundAtivos = filteredLeads.filter((l) => l.status === 'Outbound').length;
   const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
 
@@ -420,6 +421,7 @@ export default function DashboardPage() {
 
   // Funil Outbound (aba separada)
   const outboundStages = [
+    { label: 'Triagem',            count: triagem },
     { label: 'Extraídos',          count: outboundAtivos },
     { label: 'Abordados',          count: outboundAbordados },
     { label: 'Retornaram contato', count: outboundRetornaram },
