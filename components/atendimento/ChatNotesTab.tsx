@@ -15,10 +15,11 @@ interface ChatNotesTabProps {
   companyId: number;
   userId: string;
   aiSummary?: string | null;
+  resumoIa?: string | null;
   isOutbound?: boolean;
 }
 
-export function ChatNotesTab({ leadId, companyId, userId, aiSummary, isOutbound = false }: ChatNotesTabProps) {
+export function ChatNotesTab({ leadId, companyId, userId, aiSummary, resumoIa, isOutbound = false }: ChatNotesTabProps) {
   const [notes, setNotes] = useState<ChatNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
@@ -294,6 +295,27 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary, isOutbound 
           ))
         )}
       </div>
+
+      {/* Resumo da IA */}
+      {resumoIa && (
+        <>
+          <Separator />
+          <div className="relative p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                Resumo da IA
+              </h3>
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Gerado pela IA
+              </Badge>
+            </div>
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
+              {resumoIa}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
