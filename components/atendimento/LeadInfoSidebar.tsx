@@ -343,7 +343,7 @@ export function LeadInfoSidebar({
                 leadId={lead.id}
                 companyId={companyId}
                 userId={userId}
-                aiSummary={lead.resumo_ia}
+                aiSummary={lead.mql_resumo}
                 isOutbound={lead.status === 'Outbound'}
               />
             </TabsContent>
