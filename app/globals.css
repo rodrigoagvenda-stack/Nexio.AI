@@ -34,6 +34,8 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --scrollbar-thumb: #a0a0a0;
+    --scrollbar-thumb-hover: #808080;
   }
 
   .dark {
@@ -66,6 +68,8 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --scrollbar-thumb: #3a3a3a;
+    --scrollbar-thumb-hover: #555555;
   }
   .theme {
     --animate-shiny-text: shiny-text 8s infinite;
@@ -137,10 +141,10 @@
     -ms-overflow-style: none; /* IE/Edge */
   }
 
-  /* Scrollbar minimalista — light mode (padrão) */
+  /* Scrollbar minimalista — cor via variável CSS (muda com light/dark) */
   .scrollbar-minimal {
     scrollbar-width: thin;
-    scrollbar-color: #a0a0a0 transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   .scrollbar-minimal::-webkit-scrollbar {
@@ -153,25 +157,12 @@
   }
 
   .scrollbar-minimal::-webkit-scrollbar-thumb {
-    background: #a0a0a0;
+    background: var(--scrollbar-thumb);
     border-radius: 3px;
   }
 
   .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
-    background: #808080;
-  }
-
-  /* Dark mode override */
-  .dark .scrollbar-minimal {
-    scrollbar-color: #3a3a3a transparent;
-  }
-
-  .dark .scrollbar-minimal::-webkit-scrollbar-thumb {
-    background: #3a3a3a;
-  }
-
-  .dark .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
-    background: #555555;
+    background: var(--scrollbar-thumb-hover);
   }
 
   /* Background pattern do chat estilo WhatsApp */
