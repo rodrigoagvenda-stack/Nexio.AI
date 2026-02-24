@@ -255,7 +255,7 @@ const DroppableColumn = memo(function DroppableColumn({
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 rounded-lg px-2 overflow-y-auto transition-all ${
+        className={`flex-1 rounded-lg px-2 overflow-y-auto scrollbar-minimal transition-all ${
           isOver ? 'bg-accent/50' : 'bg-transparent'
         }`}
       >
