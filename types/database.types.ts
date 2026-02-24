@@ -83,6 +83,7 @@ export type FonteImportacao =
   | 'Evento/Feira';
 
 export type EstagioLead =
+  | 'Triagem'
   | 'Outbound'
   | 'Lead novo'
   | 'Em contato'

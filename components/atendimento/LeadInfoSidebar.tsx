@@ -192,6 +192,7 @@ export function LeadInfoSidebar({
                   <Select value={lead.status} onValueChange={(v) => handleFieldUpdate('status', v)} disabled={updating}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="Triagem">Triagem</SelectItem>
                       <SelectItem value="Lead novo">Lead novo</SelectItem>
                       <SelectItem value="Em contato">Em contato</SelectItem>
                       <SelectItem value="Interessado">Interessado</SelectItem>

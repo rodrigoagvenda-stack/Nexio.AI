@@ -226,6 +226,7 @@ const DroppableColumn = memo(function DroppableColumn({
   const getColumnIcon = () => {
     const status = id.replace('column-', '');
     switch (status) {
+      case 'Triagem': return '🔍';
       case 'Lead novo': return '🔵';
       case 'Em contato': return '💬';
       case 'Interessado': return '⭐';
@@ -806,6 +807,7 @@ export default function CRMPage() {
   };
 
   const columns = [
+    { id: 'Triagem', title: 'Triagem' },
     { id: 'Outbound', title: 'Outbound' },
     { id: 'Lead novo', title: 'Lead novo' },
     { id: 'Em contato', title: 'Em contato' },
@@ -871,6 +873,7 @@ export default function CRMPage() {
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
+      case 'Triagem': return 'bg-orange-500/20 text-orange-700';
       case 'Lead novo': return 'bg-blue-500/20 text-blue-700';
       case 'Em contato': return 'bg-pink-500/20 text-pink-700';
       case 'Interessado': return 'bg-purple-500/20 text-purple-700';
