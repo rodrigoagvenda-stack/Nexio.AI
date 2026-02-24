@@ -232,6 +232,11 @@ const sections: HelpSection[] = [
         answer:
           'Na aba **Configurações**, você encontra dois cards:\n\n**Limite de Disparos:**\n• Define o número máximo de mensagens enviadas por dia\n• Recomendado: comece com valores baixos (50-100/dia) e aumente gradualmente\n• Muitos disparos de uma vez podem acionar proteção do WhatsApp\n• Clique em **Salvar limite** para aplicar\n\n**Boas Práticas:**\n• Respeite os limites do WhatsApp Business\n• Use intervalos entre disparos\n• Monitore a taxa de erros nas campanhas\n• Se a taxa de erro for alta, reduza o limite diário',
       },
+      {
+        question: 'Por que o Orbit.AI só opera de segunda a sexta, das 9h às 18h?',
+        answer:
+          'O Orbit.AI foi configurado para operar exclusivamente em **horário comercial: segunda a sexta, das 9h às 18h** (horário de Brasília/Bahia). Fora desse período, o sistema entra em repouso automaticamente e retoma as operações no próximo horário disponível.\n\n**Por que essa configuração?**\n\nContatos realizados fora do horário comercial tendem a gerar **experiências negativas para o lead** — ninguém quer receber uma abordagem comercial à noite, de madrugada ou no fim de semana. Além disso, essa prática vai contra as **boas práticas de outbound** e pode comprometer a reputação do número, aumentando o risco de bloqueios e denúncias.\n\n**Os benefícios são claros:**\n• ✅ Abordagens mais assertivas e bem recebidas\n• ✅ Taxas de resposta mais altas\n• ✅ Experiência mais profissional para o prospectado\n• ✅ Menor risco de bloqueio ou denúncia do número\n• ✅ Alinhamento com as boas práticas de prospecção ativa\n\nAo respeitar o horário comercial, garantimos que cada contato seja feito no momento certo — quando o lead está disponível, receptivo e mais propenso a responder positivamente.',
+      },
     ],
   },
   {
