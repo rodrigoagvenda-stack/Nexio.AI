@@ -24,6 +24,7 @@ import { QuickReplyMenu } from '@/components/chat/QuickReplyMenu';
 import { AssignChatDialog } from '@/components/chat/AssignChatDialog';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import { LinkPreviewCard } from '@/components/chat/LinkPreviewCard';
+import { ExpandableMessage } from '@/components/chat/ExpandableMessage';
 import type { Lead } from '@/types/database.types';
 
 interface Conversation {
@@ -876,7 +877,7 @@ export default function AtendimentoPage() {
     }
     if (parts.length === 0) parts.push({ type: 'text', content: text });
 
-    return (
+    const content = (
       <div className="space-y-1">
         {parts.map((part, i) =>
           part.type === 'text'
@@ -885,6 +886,8 @@ export default function AtendimentoPage() {
         )}
       </div>
     );
+
+    return <ExpandableMessage text={text}>{content}</ExpandableMessage>;
   };
 
   const renderMessageContent = (msg: Message) => {
