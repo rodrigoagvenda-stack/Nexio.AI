@@ -457,24 +457,22 @@ export default function CRMPage() {
         : l
     ));
 
-    // Persistir no banco
+    // Persistir no banco via API (handle outbound_campaigns unique constraint)
     try {
-      const supabase = createClient();
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: user?.company_id,
+          field: 'status',
+          value: newStatus,
+        }),
+      });
 
-      // Preparar dados para atualização
-      const updateData: any = { status: newStatus };
-
-      // Se o novo status for "Fechado", adicionar closed_at
-      if (newStatus === 'Fechado') {
-        updateData.closed_at = new Date().toISOString();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `HTTP ${res.status}`);
       }
-
-      const { error } = await supabase
-        .from('leads')
-        .update(updateData)
-        .eq('id', lead.id);
-
-      if (error) throw error;
 
       // Criar log de atividade (fire-and-forget via API — bypassa RLS)
       if (user && company) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function PATCH(
   request: NextRequest,
@@ -58,6 +58,16 @@ export async function PATCH(
     // Se o status está sendo alterado de "Fechado" para outro, limpar closed_at
     if (field === 'status' && value !== 'Fechado') {
       updateData.closed_at = null;
+    }
+
+    // Se movendo para "Outbound", remover registro existente em outbound_campaigns
+    // para evitar conflito de unique_campaign_id (trigger re-insere após o update)
+    if (field === 'status' && value === 'Outbound') {
+      const serviceClient = createServiceClient();
+      await serviceClient
+        .from('outbound_campaigns')
+        .delete()
+        .eq('campaign_id', parseInt(leadId));
     }
 
     // Executar update com filtro de company_id (segurança)
