@@ -1123,6 +1123,21 @@ export default function CRMPage() {
 
         {/* Mobile Kanban - Vertical List with Status Selector */}
         <div className="md:hidden space-y-3">
+          {leads.filter(l => l.status === 'Triagem').length > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                <Filter className="h-4 w-4" />
+                <span className="font-medium">{leads.filter(l => l.status === 'Triagem').length} lead(s) em Triagem</span>
+              </div>
+              <button
+                onClick={() => setShowPromoteConfirm(true)}
+                className="flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
+              >
+                <Megaphone className="h-3 w-3" />
+                Promover todos
+              </button>
+            </div>
+          )}
           {filteredLeads.map((lead) => (
             <OrbitCard key={lead.id} className="hover:shadow-lg transition-shadow">
               <OrbitCardContent className="p-4">
