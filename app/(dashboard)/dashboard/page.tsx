@@ -138,11 +138,13 @@ export default function DashboardPage() {
     }
   };
 
-  // Métricas base
+  // Métricas base (período filtrado)
   const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
-  const triagem = filteredLeads.filter((l) => l.status === 'Triagem').length;
-  const outboundAtivos = filteredLeads.filter((l) => l.status === 'Outbound').length;
   const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
+
+  // Estado atual do pipeline (independente do período — reflete situação real agora)
+  const triagem = leads.filter((l) => l.status === 'Triagem').length;
+  const outboundAtivos = leads.filter((l) => l.status === 'Outbound').length;
 
   // Para leads fechados, filtramos TODOS os leads por closed_at dentro do período
   const now = new Date();
