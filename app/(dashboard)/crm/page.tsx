@@ -208,12 +208,14 @@ const DroppableColumn = memo(function DroppableColumn({
   count,
   totalValue,
   children,
+  onPromoteAll,
 }: {
   id: string;
   title: string;
   count: number;
   totalValue?: number;
   children: React.ReactNode;
+  onPromoteAll?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
@@ -248,6 +250,16 @@ const DroppableColumn = memo(function DroppableColumn({
           <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
             {count}
           </span>
+          {onPromoteAll && count > 0 && (
+            <button
+              onClick={onPromoteAll}
+              title="Mover todos para Outbound"
+              className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
+            >
+              <Megaphone className="h-3 w-3" />
+              Promover todos
+            </button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-1 ml-7">
           R$ {(totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -289,6 +301,8 @@ export default function CRMPage() {
   const [priorityFilter, setPriorityFilter] = useState('Todas');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<string | number | null>(null);
+  const [showPromoteConfirm, setShowPromoteConfirm] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -334,6 +348,47 @@ export default function CRMPage() {
       body: JSON.stringify(payload),
     }).catch(() => {}); // fire-and-forget, nunca bloqueia o fluxo principal
   };
+
+  // Mover todos os leads de Triagem → Outbound em paralelo
+  const handlePromoteAllTriagem = useCallback(async () => {
+    const triagemLeads = leads.filter(l => l.status === 'Triagem');
+    if (!triagemLeads.length || !user?.company_id) return;
+
+    setIsPromoting(true);
+
+    // Atualização otimista
+    setLeads(prev => prev.map(l => l.status === 'Triagem' ? { ...l, status: 'Outbound' } : l));
+
+    try {
+      await Promise.all(
+        triagemLeads.map(lead =>
+          fetch(`/api/leads/${lead.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: user.company_id, field: 'status', value: 'Outbound' }),
+          })
+        )
+      );
+
+      toast({ title: `${triagemLeads.length} lead(s) promovido(s) para Outbound!` });
+
+      if (user && company) {
+        logActivity({
+          user_id: user.auth_user_id,
+          company_id: company.id,
+          action: 'triagem_promote_all',
+          description: `Promoveu ${triagemLeads.length} lead(s) de Triagem para Outbound`,
+          metadata: { count: triagemLeads.length },
+        });
+      }
+    } catch {
+      toast({ title: 'Erro ao promover leads', variant: 'destructive' });
+      fetchLeads(); // revert
+    } finally {
+      setIsPromoting(false);
+      setShowPromoteConfirm(false);
+    }
+  }, [leads, user, company]);
 
   useEffect(() => {
     if (!userLoading && !hasFetched) {
@@ -1036,6 +1091,7 @@ export default function CRMPage() {
                         title={column.title}
                         count={columnLeads.length}
                         totalValue={getTotalValueByStatus(column.id)}
+                        onPromoteAll={column.id === 'Triagem' ? () => setShowPromoteConfirm(true) : undefined}
                       >
                         <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                           {columnLeads.map((lead) => (
@@ -1690,6 +1746,30 @@ export default function CRMPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Alert Dialog — Promover todos Triagem → Outbound */}
+      <AlertDialog open={showPromoteConfirm} onOpenChange={setShowPromoteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Promover todos para Outbound</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os <strong>{leads.filter(l => l.status === 'Triagem').length} leads</strong> da coluna Triagem serão movidos para <strong>Outbound</strong> e entrarão na fila do Orbit.AI.
+              <br /><br />
+              Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPromoting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePromoteAllTriagem}
+              disabled={isPromoting}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {isPromoting ? 'Promovendo...' : 'Promover todos'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Alert Dialog para Delete */}
       <AlertDialog open={!!deletingLead} onOpenChange={() => setDeletingLead(null)}>
