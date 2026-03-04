@@ -1618,6 +1618,25 @@ export default function CRMPage() {
             {/* Step 3: Detalhes */}
             {currentStep === 2 && (
               <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="status" className="text-sm font-medium">Estágio</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Triagem">Triagem</SelectItem>
+                      <SelectItem value="Lead novo">Lead novo</SelectItem>
+                      <SelectItem value="Em contato">Em contato</SelectItem>
+                      <SelectItem value="Interessado">Interessado</SelectItem>
+                      <SelectItem value="Proposta enviada">Proposta enviada</SelectItem>
+                      <SelectItem value="Fechado">Fechado</SelectItem>
+                      <SelectItem value="Perdido">Perdido</SelectItem>
+                      <SelectItem value="Remarketing">Remarketing</SelectItem>
+                      <SelectItem value="Outbound">Outbound</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="priority" className="text-sm font-medium">Prioridade</Label>
