@@ -604,8 +604,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Funil de Vendas (com abas) e Vendas Recentes */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3 items-start">
+        <div className="lg:col-span-2 h-[500px]">
           <SalesFunnelTabs
             stages={funnelStages}
             outboundStages={outboundStages}

@@ -19,7 +19,7 @@ interface SalesFunnelTabsProps {
 
 const salesColors   = ['#1a0c2e', '#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb'];
 const outboundColors = ['#4c1d95', '#5b21b6', '#7c3aed', '#8b5cf6', '#a78bfa'];
-const noshowColors   = ['#0f766e', '#0d9488', '#14b8a6', '#2dd4bf'];
+const noshowColors   = ['#4c1d95', '#6d28d9', '#8b5cf6', '#a78bfa'];
 
 // Estágios Anti Noshow em ordem fixa — chaves flexíveis para casar com valores do DB
 const NOSHOW_STAGES = [
