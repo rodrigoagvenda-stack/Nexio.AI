@@ -313,7 +313,7 @@ export default function OutboundPage() {
         .select('id, nome, empresa, call_status, meet_url, call_agendada_para')
         .eq('company_id', company.id)
         .not('call_status', 'is', null)
-        .order('call_agendada_para', { ascending: true, nullsFirst: false });
+        .order('call_agendada_para', { ascending: true });
       if (error) throw error;
       setMeetings(data || []);
     } catch (err: any) {
@@ -452,12 +452,12 @@ export default function OutboundPage() {
   const noShows = meetings.filter((m) => m.call_status === 'no_show');
 
   const proximasMeetings = meetings.filter((m) => {
-    const futuro = m.call_agendada_para && new Date(m.call_agendada_para) >= todayStart;
-    return futuro && ['agendada', 'confirmada'].includes(m.call_status);
+    if (!m.call_agendada_para) return false;
+    return new Date(m.call_agendada_para) >= todayStart;
   });
   const passadasMeetings = meetings.filter((m) => {
-    const passada = !m.call_agendada_para || new Date(m.call_agendada_para) < todayStart;
-    return passada || ['realizada', 'no_show', 'cancelada'].includes(m.call_status);
+    if (!m.call_agendada_para) return true;
+    return new Date(m.call_agendada_para) < todayStart;
   });
   const displayedMeetings = meetingFilter === 'proximas' ? proximasMeetings : passadasMeetings;
 
