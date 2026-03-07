@@ -37,6 +37,11 @@ import {
   BarChart3,
   Target,
   Repeat2,
+  Calendar,
+  Video,
+  Copy,
+  Clock,
+  CalendarCheck,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/format';
 
@@ -75,6 +80,15 @@ interface Template {
   ativo: boolean;
   performance_score?: number;
   [key: string]: any;
+}
+
+interface Meeting {
+  id: string;
+  nome?: string;
+  empresa?: string;
+  call_status: string;
+  meet_url?: string;
+  call_agendada_para?: string;
 }
 
 interface OutboundLimit {
@@ -141,6 +155,23 @@ function CampaignStatusBadge({ status }: { status?: string }) {
   return <Badge variant="secondary" className="text-xs">{status || 'Pendente'}</Badge>;
 }
 
+function MeetingStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'agendada':
+      return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-xs">Agendada</Badge>;
+    case 'confirmada':
+      return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Confirmada</Badge>;
+    case 'realizada':
+      return <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-xs">Realizada</Badge>;
+    case 'no_show':
+      return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-xs">No-show</Badge>;
+    case 'cancelada':
+      return <Badge className="bg-zinc-500/15 text-zinc-500 border-zinc-500/30 text-xs">Cancelada</Badge>;
+    default:
+      return <Badge variant="secondary" className="text-xs">{status}</Badge>;
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OutboundPage() {
@@ -161,10 +192,13 @@ export default function OutboundPage() {
   const [totalEnviadas, setTotalEnviadas] = useState(0);
   const [totalAbordados, setTotalAbordados] = useState(0);
   const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingFilter, setMeetingFilter] = useState<'proximas' | 'passadas'>('proximas');
 
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loadingLimits, setLoadingLimits] = useState(true);
+  const [loadingMeetings, setLoadingMeetings] = useState(true);
   const [savingLimits, setSavingLimits] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
@@ -270,6 +304,25 @@ export default function OutboundPage() {
     setAntiNoshowCounts(counts);
   }, [company?.id]);
 
+  const fetchMeetings = useCallback(async () => {
+    if (!company?.id) return;
+    setLoadingMeetings(true);
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, nome, empresa, call_status, meet_url, call_agendada_para')
+        .eq('company_id', company.id)
+        .eq('call_de_vendas', true)
+        .order('call_agendada_para', { ascending: true });
+      if (error) throw error;
+      setMeetings(data || []);
+    } catch (err: any) {
+      console.error('fetchMeetings:', err);
+    } finally {
+      setLoadingMeetings(false);
+    }
+  }, [company?.id]);
+
   useEffect(() => {
     if (company?.id) {
       fetchCampaigns();
@@ -277,8 +330,9 @@ export default function OutboundPage() {
       fetchLimits();
       fetchOutboundStats();
       fetchAntiNoshow();
+      fetchMeetings();
     }
-  }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits, fetchOutboundStats, fetchAntiNoshow]);
+  }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits, fetchOutboundStats, fetchAntiNoshow, fetchMeetings]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -379,6 +433,34 @@ export default function OutboundPage() {
   const enviadas_hoje = limits.mensagens_enviadas_hoje ?? 0;
   const taxa = limits.taxa_resposta !== undefined ? `${Number(limits.taxa_resposta).toFixed(1)}%` : '—';
 
+  // Meeting stats
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd   = new Date(todayStart.getTime() + 86400000);
+  const weekEnd    = new Date(todayStart.getTime() + 7 * 86400000);
+
+  const meetingsHoje   = meetings.filter((m) => {
+    if (!m.call_agendada_para) return false;
+    const d = new Date(m.call_agendada_para);
+    return d >= todayStart && d < todayEnd;
+  });
+  const meetingsSemana = meetings.filter((m) => {
+    if (!m.call_agendada_para) return false;
+    const d = new Date(m.call_agendada_para);
+    return d >= todayStart && d < weekEnd;
+  });
+  const noShows = meetings.filter((m) => m.call_status === 'no_show');
+
+  const proximasMeetings = meetings.filter((m) => {
+    const futuro = m.call_agendada_para && new Date(m.call_agendada_para) >= todayStart;
+    return futuro && ['agendada', 'confirmada'].includes(m.call_status);
+  });
+  const passadasMeetings = meetings.filter((m) => {
+    const passada = !m.call_agendada_para || new Date(m.call_agendada_para) < todayStart;
+    return passada || ['realizada', 'no_show', 'cancelada'].includes(m.call_status);
+  });
+  const displayedMeetings = meetingFilter === 'proximas' ? proximasMeetings : passadasMeetings;
+
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -390,7 +472,7 @@ export default function OutboundPage() {
           Automação
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Outbound, Anti Noshow e Remarketing via IA
+          Outbound, Reuniões, Anti Noshow e Remarketing via IA
         </p>
       </div>
 
@@ -428,6 +510,15 @@ export default function OutboundPage() {
           <TabsTrigger value="campanhas" className="gap-1.5">
             <Send className="h-3.5 w-3.5" />
             Campanhas
+          </TabsTrigger>
+          <TabsTrigger value="reunioes" className="gap-1.5">
+            <Calendar className="h-3.5 w-3.5" />
+            Reuniões
+            {meetingsHoje.length > 0 && (
+              <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
+                {meetingsHoje.length}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="noshow" className="gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -613,6 +704,120 @@ export default function OutboundPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Reuniões ──────────────────────────────────────────────────────── */}
+        <TabsContent value="reunioes" className="space-y-4">
+          {/* KPI cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <KpiCard icon={Calendar}     label="Hoje"         value={meetingsHoje.length}   sub="reuniões agendadas" />
+            <KpiCard icon={CalendarCheck} label="Esta semana" value={meetingsSemana.length}  sub="próximos 7 dias" />
+            <KpiCard icon={Video}        label="Total"        value={meetings.length}        sub="todas as reuniões" />
+            <KpiCard icon={AlertCircle}  label="No-shows"     value={noShows.length}         color={noShows.length > 0 ? 'text-red-500' : ''} />
+          </div>
+
+          {/* Filtro */}
+          <div className="flex items-center justify-between">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setMeetingFilter('proximas')}
+                className={`px-4 py-1.5 text-sm transition-colors ${
+                  meetingFilter === 'proximas'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50'
+                }`}
+              >
+                Próximas ({proximasMeetings.length})
+              </button>
+              <button
+                onClick={() => setMeetingFilter('passadas')}
+                className={`px-4 py-1.5 text-sm transition-colors border-l border-border ${
+                  meetingFilter === 'passadas'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50'
+                }`}
+              >
+                Passadas ({passadasMeetings.length})
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchMeetings} className="gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Atualizar
+            </Button>
+          </div>
+
+          {/* Lista */}
+          {loadingMeetings ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-lg bg-accent/30 animate-pulse" />)}
+            </div>
+          ) : displayedMeetings.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                <Calendar className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  {meetingFilter === 'proximas' ? 'Nenhuma reunião próxima' : 'Nenhuma reunião passada'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {displayedMeetings.map((m) => (
+                <Card key={m.id} className="overflow-hidden">
+                  <div className="px-4 py-3 flex items-center gap-4">
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-sm truncate">{m.nome || 'Lead sem nome'}</span>
+                        {m.empresa && (
+                          <span className="text-xs text-muted-foreground truncate">· {m.empresa}</span>
+                        )}
+                        <MeetingStatusBadge status={m.call_status} />
+                      </div>
+                      {m.call_agendada_para && (
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(m.call_agendada_para).toLocaleString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Meet link */}
+                    {m.meet_url ? (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={m.meet_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
+                        >
+                          <Video className="h-3.5 w-3.5" />
+                          Entrar
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            navigator.clipboard.writeText(m.meet_url!);
+                            toast({ title: 'Link copiado!' });
+                          }}
+                          title="Copiar link"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50 shrink-0">Sem link</span>
+                    )}
+                  </div>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
