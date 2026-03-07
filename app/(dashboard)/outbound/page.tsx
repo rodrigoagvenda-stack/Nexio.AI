@@ -13,9 +13,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-} from 'recharts';
-import {
   Megaphone,
   FileText,
   Settings,
@@ -37,6 +34,9 @@ import {
   Users,
   Activity,
   ShieldCheck,
+  BarChart3,
+  Target,
+  Repeat2,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/format';
 
@@ -386,11 +386,11 @@ export default function OutboundPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          <Megaphone className="h-6 w-6 text-primary" />
-          Outbound
+          <Zap className="h-6 w-6 text-primary" />
+          Automação
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Automação de abordagem, Anti Noshow e Remarketing via IA
+          Outbound, Anti Noshow e Remarketing via IA
         </p>
       </div>
 
@@ -620,9 +620,7 @@ export default function OutboundPage() {
         {/* ── Anti Noshow ───────────────────────────────────────────────────── */}
         <TabsContent value="noshow" className="space-y-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Mensagens de confirmação enviadas por etapa</p>
-            </div>
+            <p className="text-sm text-muted-foreground">Mensagens de confirmação enviadas por etapa</p>
             <div className="flex items-center gap-3">
               {noshowTotal > 0 && (
                 <span className="text-sm font-semibold">{noshowTotal} disparos</span>
@@ -634,69 +632,56 @@ export default function OutboundPage() {
             </div>
           </div>
 
-          {noshowTotal === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-14 gap-3 text-center">
-                <ShieldCheck className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">Nenhum disparo Anti Noshow registrado</p>
-                <p className="text-xs text-muted-foreground/60 max-w-xs">
-                  Os disparos aparecem aqui conforme a IA envia mensagens de confirmação de reunião
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-6">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={noshowData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12}
-                      tickLine={false} axisLine={false} width={110} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px' }}
-                      labelStyle={{ color: 'hsl(var(--primary))', fontWeight: 600 }}
-                      itemStyle={{ color: 'hsl(var(--primary))' }}
-                      cursor={{ fill: 'hsl(var(--accent))' }}
-                    />
-                    <Bar dataKey="quantidade" radius={[0, 4, 4, 0]} animationDuration={900}>
-                      {noshowData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {noshowData.map((d) => (
+              <Card key={d.name}>
+                <CardContent className="pt-5 pb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
+                    <span className="text-xs text-muted-foreground">{d.name}</span>
+                  </div>
+                  <p className="text-2xl font-bold">{d.quantidade}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">disparos</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-          {/* Tabela resumo */}
-          {noshowTotal > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {noshowData.map((d, i) => (
-                <Card key={d.name}>
-                  <CardContent className="pt-4 pb-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                      <span className="text-xs text-muted-foreground truncate">{d.name}</span>
-                    </div>
-                    <p className="text-xl font-bold">{d.quantidade}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          {noshowTotal === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Os disparos aparecem aqui conforme a IA envia mensagens de confirmação de reunião
+            </p>
           )}
         </TabsContent>
 
         {/* ── Remarketing ───────────────────────────────────────────────────── */}
-        <TabsContent value="remarketing">
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-              <Bell className="h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm font-medium text-muted-foreground">Remarketing em breve</p>
-              <p className="text-xs text-muted-foreground/60 max-w-xs">
-                Campanhas de reengajamento para leads que não fecharam serão configuradas em breve.
-              </p>
-            </CardContent>
-          </Card>
+        <TabsContent value="remarketing" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">Reengajamento de leads que não fecharam</p>
+            <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs">Em breve</Badge>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { icon: Repeat2,   label: 'Reengajados',      value: '—', color: '#8b5cf6' },
+              { icon: Send,      label: 'Mensagens enviadas', value: '—', color: '#6d28d9' },
+              { icon: Target,    label: 'Taxa de resposta',  value: '—', color: '#a78bfa' },
+              { icon: BarChart3, label: 'Convertidos',       value: '—', color: '#4c1d95' },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <Card key={item.label} className="opacity-60">
+                  <CardContent className="pt-5 pb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="text-xs text-muted-foreground">{item.label}</span>
+                    </div>
+                    <p className="text-2xl font-bold text-muted-foreground">{item.value}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </TabsContent>
 
         {/* ── Templates ─────────────────────────────────────────────────────── */}

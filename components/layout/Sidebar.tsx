@@ -70,7 +70,7 @@ const navSections: NavSection[] = [
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
       { href: '/prospect', label: 'Orbit', icon: Bot },
-      { href: '/outbound', label: 'Outbound', icon: Megaphone },
+      { href: '/outbound', label: 'Automação', icon: Megaphone },
     ],
   },
   {
