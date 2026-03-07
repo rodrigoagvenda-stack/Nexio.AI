@@ -312,8 +312,8 @@ export default function OutboundPage() {
         .from('leads')
         .select('id, nome, empresa, call_status, meet_url, call_agendada_para')
         .eq('company_id', company.id)
-        .eq('call_de_vendas', true)
-        .order('call_agendada_para', { ascending: true });
+        .not('call_status', 'is', null)
+        .order('call_agendada_para', { ascending: true, nullsFirst: false });
       if (error) throw error;
       setMeetings(data || []);
     } catch (err: any) {
@@ -490,20 +490,6 @@ export default function OutboundPage() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard icon={Send} label="Total enviadas" value={totalEnviadas} />
-        <KpiCard icon={Users} label="Leads abordados" value={totalAbordados} />
-        <KpiCard
-          icon={Activity}
-          label="Enviadas hoje"
-          value={enviadas_hoje}
-          sub={limits.limite_diario ? `Limite: ${limits.limite_diario}` : undefined}
-          color={(limits.mensagens_nao_respondidas_seguidas ?? 0) >= 5 ? 'text-red-500' : ''}
-        />
-        <KpiCard icon={MessageSquare} label="Taxa de resposta" value={taxa} color="text-emerald-600" />
-      </div>
-
       {/* Tabs */}
       <Tabs defaultValue="campanhas" className="space-y-4">
         <TabsList className="self-start flex-wrap h-auto gap-1">
@@ -539,7 +525,21 @@ export default function OutboundPage() {
         </TabsList>
 
         {/* ── Campanhas ─────────────────────────────────────────────────────── */}
-        <TabsContent value="campanhas" className="space-y-3">
+        <TabsContent value="campanhas" className="space-y-4">
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KpiCard icon={Send} label="Total enviadas" value={totalEnviadas} />
+            <KpiCard icon={Users} label="Leads abordados" value={totalAbordados} />
+            <KpiCard
+              icon={Activity}
+              label="Enviadas hoje"
+              value={enviadas_hoje}
+              sub={limits.limite_diario ? `Limite: ${limits.limite_diario}` : undefined}
+              color={(limits.mensagens_nao_respondidas_seguidas ?? 0) >= 5 ? 'text-red-500' : ''}
+            />
+            <KpiCard icon={MessageSquare} label="Taxa de resposta" value={taxa} color="text-emerald-600" />
+          </div>
+
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">Criadas automaticamente pela IA</p>
             <Button variant="outline" size="sm" onClick={() => { fetchCampaigns(); fetchOutboundStats(); }} className="gap-1.5">
