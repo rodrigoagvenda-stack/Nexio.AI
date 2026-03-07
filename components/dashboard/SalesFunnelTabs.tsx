@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Sector } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion } from 'framer-motion';
+import { Bell } from 'lucide-react';
 
 interface FunnelStage {
   label: string;
@@ -14,22 +14,27 @@ interface FunnelStage {
 interface SalesFunnelTabsProps {
   stages: FunnelStage[];
   outboundStages: FunnelStage[];
-  followupsTotal: number;
-  followupsResponded: number;
+  antiNoshowCounts: Record<string, number>;
 }
 
-const salesColors  = ['#1a0c2e', '#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb'];
+const salesColors   = ['#1a0c2e', '#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb'];
 const outboundColors = ['#4c1d95', '#5b21b6', '#7c3aed', '#8b5cf6', '#a78bfa'];
+const noshowColors   = ['#0f766e', '#0d9488', '#14b8a6', '#2dd4bf'];
 
-const renderActiveShape = (props: any) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-  return (
-    <g>
-      <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8}
-        startAngle={startAngle} endAngle={endAngle} fill={fill} />
-    </g>
-  );
-};
+// Estágios Anti Noshow em ordem fixa — chaves flexíveis para casar com valores do DB
+const NOSHOW_STAGES = [
+  { label: '24h antes',   keys: ['24h', '24h_antes',  'antecipacao', '24'] },
+  { label: '2h antes',    keys: ['2h',  '2h_antes',   'reforco']          },
+  { label: '15min antes', keys: ['15min','15min_antes','15']               },
+  { label: '5min após',   keys: ['5min','5min_apos',  '5min_após','resgate','5'] },
+];
+
+function resolveNoshowCount(counts: Record<string, number>, keys: string[]): number {
+  for (const [k, v] of Object.entries(counts)) {
+    if (keys.some(key => k.toLowerCase().includes(key.toLowerCase()))) return v;
+  }
+  return 0;
+}
 
 function FunnelBarChart({ data }: { data: { name: string; quantidade: number; fill: string }[] }) {
   return (
@@ -53,9 +58,7 @@ function FunnelBarChart({ data }: { data: { name: string; quantidade: number; fi
   );
 }
 
-export function SalesFunnelTabs({ stages, outboundStages, followupsTotal, followupsResponded }: SalesFunnelTabsProps) {
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
-
+export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: SalesFunnelTabsProps) {
   const salesData = stages.map((s, i) => ({
     name: s.label, quantidade: s.count, fill: salesColors[i % salesColors.length],
   }));
@@ -64,12 +67,11 @@ export function SalesFunnelTabs({ stages, outboundStages, followupsTotal, follow
     name: s.label, quantidade: s.count, fill: outboundColors[i % outboundColors.length],
   }));
 
-  const safeTotal = Math.max(followupsTotal, 1);
-  const responseRate = Math.round((followupsResponded / safeTotal) * 100);
-  const donutData = [
-    { name: 'Followups feitos',  value: followupsTotal,     color: '#7c3aed' },
-    { name: 'Taxa de resposta',  value: followupsResponded, color: 'hsl(var(--chart-2))' },
-  ];
+  const noshowData = NOSHOW_STAGES.map((s, i) => ({
+    name: s.label,
+    quantidade: resolveNoshowCount(antiNoshowCounts, s.keys),
+    fill: noshowColors[i],
+  }));
 
   return (
     <motion.div
@@ -84,7 +86,8 @@ export function SalesFunnelTabs({ stages, outboundStages, followupsTotal, follow
             <TabsList className="mb-4 self-start">
               <TabsTrigger value="vendas">Funil de Vendas</TabsTrigger>
               <TabsTrigger value="outbound">Funil Outbound</TabsTrigger>
-              <TabsTrigger value="followups">Followups</TabsTrigger>
+              <TabsTrigger value="noshow">Anti Noshow</TabsTrigger>
+              <TabsTrigger value="remarketing">Remarketing</TabsTrigger>
             </TabsList>
 
             <TabsContent value="vendas">
@@ -95,60 +98,16 @@ export function SalesFunnelTabs({ stages, outboundStages, followupsTotal, follow
               <FunnelBarChart data={outboundData} />
             </TabsContent>
 
-            <TabsContent value="followups" className="flex flex-col items-center justify-center">
-              <div className="relative w-full h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      activeIndex={activeIndex}
-                      activeShape={renderActiveShape}
-                      data={donutData}
-                      cx="50%" cy="50%"
-                      innerRadius="52%" outerRadius="82%"
-                      paddingAngle={2}
-                      dataKey="value"
-                      strokeWidth={0}
-                      animationDuration={1000}
-                      animationBegin={300}
-                      onMouseEnter={(_, i) => setActiveIndex(i)}
-                      onMouseLeave={() => setActiveIndex(undefined)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '6px', color: 'hsl(var(--popover-foreground))' }}
-                      itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <motion.div
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, delay: 0.8 }}
-                >
-                  <div className="text-center">
-                    <div className="text-4xl lg:text-5xl font-bold text-foreground">{responseRate}%</div>
-                    <div className="text-xs text-muted-foreground mt-1">Taxa de resposta</div>
-                  </div>
-                </motion.div>
-              </div>
+            <TabsContent value="noshow">
+              <FunnelBarChart data={noshowData} />
+            </TabsContent>
 
-              <div className="mt-6 flex justify-center gap-6">
-                {donutData.map((entry, i) => (
-                  <motion.div
-                    key={i}
-                    className="flex items-center gap-2"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.5 + i * 0.1 }}
-                  >
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                    <span className="text-sm text-foreground">{entry.name}</span>
-                  </motion.div>
-                ))}
-              </div>
+            <TabsContent value="remarketing" className="flex flex-col items-center justify-center h-[340px] gap-3">
+              <Bell className="h-10 w-10 text-muted-foreground/30" />
+              <p className="text-sm font-medium text-muted-foreground">Remarketing em breve</p>
+              <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
+                As métricas de Remarketing serão configuradas em breve.
+              </p>
             </TabsContent>
           </Tabs>
         </CardContent>

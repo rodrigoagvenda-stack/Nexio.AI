@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [outboundAbordados, setOutboundAbordados] = useState(0);
+  const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -78,6 +79,18 @@ export default function DashboardPage() {
         .eq('company_id', userData.company_id)
         .gt('tentativas', 0);
       setOutboundAbordados(new Set(abordadosRows?.map((r: any) => r.lead_id)).size);
+
+      // Anti Noshow: contar disparos por momento
+      const { data: followLogsData } = await supabase
+        .from('follow_logs')
+        .select('momento')
+        .eq('company_id', userData.company_id);
+
+      const counts: Record<string, number> = {};
+      (followLogsData || []).forEach((r: any) => {
+        if (r.momento) counts[r.momento] = (counts[r.momento] || 0) + 1;
+      });
+      setAntiNoshowCounts(counts);
     } catch (error) {
       console.error('Error fetching leads:', error);
     } finally {
@@ -596,8 +609,7 @@ export default function DashboardPage() {
           <SalesFunnelTabs
             stages={funnelStages}
             outboundStages={outboundStages}
-            followupsTotal={outboundFollowups}
-            followupsResponded={outboundRetornaram}
+            antiNoshowCounts={antiNoshowCounts}
           />
         </div>
         <div className="h-[500px]">
