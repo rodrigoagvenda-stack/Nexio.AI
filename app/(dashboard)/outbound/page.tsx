@@ -84,8 +84,8 @@ interface Template {
 
 interface Meeting {
   id: string;
-  nome?: string;
-  empresa?: string;
+  contact_name?: string;
+  company_name?: string;
   call_status: string;
   meet_url?: string;
   call_agendada_para?: string;
@@ -310,7 +310,7 @@ export default function OutboundPage() {
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('id, nome, empresa, call_status, meet_url, call_agendada_para')
+        .select('id, contact_name, company_name, call_status, meet_url, call_agendada_para')
         .eq('company_id', company.id)
         .not('call_status', 'is', null)
         .order('call_agendada_para', { ascending: true });
@@ -770,9 +770,9 @@ export default function OutboundPage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm truncate">{m.nome || 'Lead sem nome'}</span>
-                        {m.empresa && (
-                          <span className="text-xs text-muted-foreground truncate">· {m.empresa}</span>
+                        <span className="font-medium text-sm truncate">{m.company_name || m.contact_name || 'Lead sem nome'}</span>
+                        {m.contact_name && m.company_name && (
+                          <span className="text-xs text-muted-foreground truncate">· {m.contact_name}</span>
                         )}
                         <MeetingStatusBadge status={m.call_status} />
                       </div>
