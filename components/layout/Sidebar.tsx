@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useTheme } from 'next-themes';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
@@ -104,7 +103,19 @@ export const Sidebar = memo(function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [crmExpanded, setCrmExpanded] = useState(false);
-  const { resolvedTheme } = useTheme();
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    setTheme(saved || system);
+
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    });
+    observer.observe(document.documentElement, { attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // 🚀 Performance: Computar se está na rota CRM
   const isCrmRoute = useMemo(() =>
@@ -195,7 +206,7 @@ export const Sidebar = memo(function Sidebar({
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
             <Image
-              src={resolvedTheme === 'dark'
+              src={theme === 'dark'
                 ? 'https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png'
                 : 'https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png'
               }
