@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OrbEffect } from '@/components/auth/OrbEffect';
@@ -97,9 +98,16 @@ export default function LoginPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <h1 className="text-3xl font-light tracking-tight text-white">
-              nexio<span className="text-[#30184C]">.</span>ai
-            </h1>
+            <div className="flex justify-center">
+              <Image
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
+                alt="Nexio.AI"
+                width={120}
+                height={40}
+                className="object-contain"
+                unoptimized
+              />
+            </div>
             <AnimatePresence mode="wait">
               <motion.p
                 key={loginMode}

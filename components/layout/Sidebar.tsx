@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
@@ -102,6 +104,7 @@ export const Sidebar = memo(function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [crmExpanded, setCrmExpanded] = useState(false);
+  const { resolvedTheme } = useTheme();
 
   // 🚀 Performance: Computar se está na rota CRM
   const isCrmRoute = useMemo(() =>
@@ -191,11 +194,17 @@ export const Sidebar = memo(function Sidebar({
         {/* Logo */}
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
-            <h1 className="text-xl">
-              <span className="font-normal text-foreground">nexio</span>
-              <span className="text-primary font-bold">.</span>
-              <span className="font-normal text-foreground">ai</span>
-            </h1>
+            <Image
+              src={resolvedTheme === 'dark'
+                ? 'https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png'
+                : 'https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png'
+              }
+              alt="Nexio.AI"
+              width={100}
+              height={32}
+              className="object-contain"
+              unoptimized
+            />
           )}
         </div>
 
