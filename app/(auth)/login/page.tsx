@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OrbEffect } from '@/components/auth/OrbEffect';
@@ -99,13 +98,10 @@ export default function LoginPage() {
             transition={{ delay: 0.2 }}
           >
             <div className="flex justify-center">
-              <Image
+              <img
                 src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
                 alt="Nexio.AI"
-                width={120}
-                height={40}
-                className="object-contain"
-                unoptimized
+                style={{ height: '36px', width: 'auto' }}
               />
             </div>
             <AnimatePresence mode="wait">

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
@@ -205,16 +204,13 @@ export const Sidebar = memo(function Sidebar({
         {/* Logo */}
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
-            <Image
+            <img
               src={theme === 'dark'
                 ? 'https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png'
                 : 'https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png'
               }
               alt="Nexio.AI"
-              width={100}
-              height={32}
-              className="object-contain"
-              unoptimized
+              style={{ height: '28px', width: 'auto' }}
             />
           )}
         </div>
