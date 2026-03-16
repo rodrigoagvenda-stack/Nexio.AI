@@ -49,15 +49,20 @@ import { formatDateTime } from '@/lib/utils/format';
 
 interface Campaign {
   id: number;
+  campaign_id?: number;
+  lead_id?: number;
   company_id: number;
   nome?: string;
   name?: string;
   status?: string;
   created_at: string;
   template_id?: number;
-  total_enviadas?: number;
-  total_respondidas?: number;
+  tentativas?: number;
   total_erros?: number;
+  respondeu_em?: string | null;
+  converteu_em?: string | null;
+  ultima_abordagem?: string | null;
+  proximo_contato_em?: string | null;
   [key: string]: any;
 }
 
@@ -191,6 +196,7 @@ export default function OutboundPage() {
 
   const [totalEnviadas, setTotalEnviadas] = useState(0);
   const [totalAbordados, setTotalAbordados] = useState(0);
+  const [totalRespondidas, setTotalRespondidas] = useState(0);
   const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [meetingFilter, setMeetingFilter] = useState<'proximas' | 'passadas'>('proximas');
@@ -267,8 +273,14 @@ export default function OutboundPage() {
       .select('lead_id')
       .eq('company_id', company.id)
       .gt('tentativas', 0);
+    const { data: respondidasRows } = await supabase
+      .from('outbound_campaigns')
+      .select('id')
+      .eq('company_id', company.id)
+      .not('respondeu_em', 'is', null);
     setTotalEnviadas(enviadasRows?.length ?? 0);
     setTotalAbordados(new Set(abordadosRows?.map((r: any) => r.lead_id)).size);
+    setTotalRespondidas(respondidasRows?.length ?? 0);
   }, [company?.id]);
 
   const fetchLimits = useCallback(async () => {
@@ -421,6 +433,22 @@ export default function OutboundPage() {
     }
   };
 
+  const handleMarkConverted = async (campaignId: number) => {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('outbound_campaigns')
+      .update({ converteu_em: now })
+      .eq('id', campaignId);
+    if (error) {
+      toast({ title: 'Erro ao marcar conversão', variant: 'destructive' });
+      return;
+    }
+    setCampaigns((prev) =>
+      prev.map((c) => (c.id === campaignId ? { ...c, converteu_em: now } : c))
+    );
+    toast({ title: 'Lead marcado como convertido!' });
+  };
+
   // ─── Derived data ────────────────────────────────────────────────────────────
 
   const noshowData = NOSHOW_STAGES.map((s, i) => ({
@@ -527,9 +555,10 @@ export default function OutboundPage() {
         {/* ── Campanhas ─────────────────────────────────────────────────────── */}
         <TabsContent value="campanhas" className="space-y-4">
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <KpiCard icon={Send} label="Total enviadas" value={totalEnviadas} />
             <KpiCard icon={Users} label="Leads abordados" value={totalAbordados} />
+            <KpiCard icon={MessageSquare} label="Responderam" value={totalRespondidas} color="text-emerald-600" />
             <KpiCard
               icon={Activity}
               label="Enviadas hoje"
@@ -570,11 +599,12 @@ export default function OutboundPage() {
                 {campaigns.slice(campaignPage * CAMPAIGNS_PER_PAGE, (campaignPage + 1) * CAMPAIGNS_PER_PAGE).map((campaign) => {
                   const isExpanded = expandedCampaign === campaign.id;
                   const errors = campaignErrors[campaign.id] || [];
-                  const name = campaign.nome || campaign.name || `Campanha #${campaign.id}`;
+                  const leadId = campaign.campaign_id || campaign.lead_id || campaign.id;
+                  const name = campaign.nome || campaign.name || `Lead #${leadId}`;
                   const enviadas = campaign.tentativas ?? 0;
-                  const respondidas = campaign.total_respondidas ?? campaign.respostas ?? 0;
+                  const respondeu = !!campaign.respondeu_em;
+                  const converteu = !!campaign.converteu_em;
                   const erros = campaign.total_erros ?? campaign.erros ?? 0;
-                  const taxaC = enviadas > 0 ? Math.round((respondidas / enviadas) * 100) : 0;
 
                   return (
                     <Card key={campaign.id} className="overflow-hidden">
@@ -593,19 +623,23 @@ export default function OutboundPage() {
                             </p>
                           </div>
 
-                          <div className="hidden sm:flex items-center gap-5 text-center">
+                          <div className="hidden sm:flex items-center gap-4 text-center">
                             <div>
-                              <p className="text-[10px] text-muted-foreground">Enviadas</p>
+                              <p className="text-[10px] text-muted-foreground">Tentativas</p>
                               <p className="text-sm font-semibold">{enviadas}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] text-muted-foreground">Responderam</p>
-                              <p className="text-sm font-semibold text-emerald-600">{respondidas}</p>
+                              {respondeu ? (
+                                <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Respondeu</Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs text-muted-foreground">Sem resposta</Badge>
+                              )}
                             </div>
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Taxa</p>
-                              <p className="text-sm font-semibold text-primary">{taxaC}%</p>
-                            </div>
+                            {converteu && (
+                              <div>
+                                <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-xs">Convertido</Badge>
+                              </div>
+                            )}
                             {erros > 0 && (
                               <div>
                                 <p className="text-[10px] text-muted-foreground">Erros</p>
@@ -625,11 +659,10 @@ export default function OutboundPage() {
                       {isExpanded && (
                         <div className="border-t border-border/50 px-4 py-3 space-y-3 bg-accent/10">
                           {/* Stats mobile */}
-                          <div className="grid grid-cols-4 gap-2 sm:hidden text-center">
+                          <div className="grid grid-cols-3 gap-2 sm:hidden text-center">
                             {[
-                              { label: 'Enviadas', value: enviadas, color: '' },
-                              { label: 'Responderam', value: respondidas, color: 'text-emerald-600' },
-                              { label: 'Taxa', value: `${taxaC}%`, color: 'text-primary' },
+                              { label: 'Tentativas', value: enviadas, color: '' },
+                              { label: 'Respondeu', value: respondeu ? 'Sim' : 'Não', color: respondeu ? 'text-emerald-600' : '' },
                               { label: 'Erros', value: erros, color: erros > 0 ? 'text-red-500' : '' },
                             ].map((stat) => (
                               <div key={stat.label} className="bg-background rounded-lg p-2">
@@ -639,6 +672,44 @@ export default function OutboundPage() {
                             ))}
                           </div>
 
+                          {/* Timeline */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                              <p className="text-muted-foreground mb-0.5">Última abordagem</p>
+                              <p className="font-medium">{campaign.ultima_abordagem ? formatDateTime(campaign.ultima_abordagem) : '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground mb-0.5">Próximo contato</p>
+                              <p className="font-medium">{campaign.proximo_contato_em ? formatDateTime(campaign.proximo_contato_em) : '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground mb-0.5">Respondeu em</p>
+                              <p className={`font-medium ${respondeu ? 'text-emerald-600' : ''}`}>
+                                {campaign.respondeu_em ? formatDateTime(campaign.respondeu_em) : '—'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground mb-0.5">Converteu em</p>
+                              <p className={`font-medium ${converteu ? 'text-purple-600' : ''}`}>
+                                {campaign.converteu_em ? formatDateTime(campaign.converteu_em) : '—'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Ação de conversão */}
+                          {!converteu && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 gap-1.5"
+                              onClick={() => handleMarkConverted(campaign.id)}
+                            >
+                              <TrendingUp className="h-3 w-3" />
+                              Marcar como convertido
+                            </Button>
+                          )}
+
+                          {/* Erros */}
                           {errors.length > 0 ? (
                             <div>
                               <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
