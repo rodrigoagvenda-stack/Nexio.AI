@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const serviceSupabase = createServiceClient();
 
     const {
       data: { user },
@@ -24,7 +25,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Buscar company_id do usuário
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await serviceSupabase
       .from('users')
       .select('company_id')
       .eq('auth_user_id', user.id)
@@ -37,7 +38,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await serviceSupabase
       .from('companies')
       .update({ is_active })
       .eq('id', userData.company_id)
