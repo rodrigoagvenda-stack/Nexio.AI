@@ -606,96 +606,106 @@ export default function OutboundPage() {
                   const converteu = !!campaign.converteu_em;
                   const erros = campaign.total_erros ?? campaign.erros ?? 0;
 
+                  const isOverdue = !!(campaign.proximo_contato_em && new Date(campaign.proximo_contato_em) < new Date());
+
                   return (
-                    <Card key={campaign.id} className="overflow-hidden">
+                    <div key={campaign.id} className={`rounded-xl border bg-card transition-all ${isExpanded ? 'shadow-sm' : 'hover:border-border/80'}`}>
+                      {/* Row */}
                       <div
-                        className="px-4 py-3 cursor-pointer hover:bg-accent/20 transition-colors"
+                        className="px-4 py-3.5 cursor-pointer"
                         onClick={() => handleExpandCampaign(campaign.id)}
                       >
                         <div className="flex items-center gap-3">
+                          {/* Status dot */}
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${
+                            converteu ? 'bg-purple-500' :
+                            respondeu ? 'bg-emerald-500' :
+                            erros > 0 ? 'bg-red-500' : 'bg-muted-foreground/30'
+                          }`} />
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-sm truncate">{name}</span>
+                              <span className="font-medium text-sm">{name}</span>
                               <CampaignStatusBadge status={campaign.status} />
+                              {erros > 0 && (
+                                <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs gap-1">
+                                  <AlertCircle className="h-2.5 w-2.5" />{erros} erro{erros > 1 ? 's' : ''}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {campaign.created_at ? formatDateTime(campaign.created_at) : '—'}
+                              Criada em {campaign.created_at ? formatDateTime(campaign.created_at) : '—'}
+                              {enviadas > 0 && <span className="ml-2 text-muted-foreground/60">· {enviadas} tentativa{enviadas > 1 ? 's' : ''}</span>}
                             </p>
                           </div>
 
-                          <div className="hidden sm:flex items-center gap-4 text-center">
-                            <div>
-                              <p className="text-[10px] text-muted-foreground">Tentativas</p>
-                              <p className="text-sm font-semibold">{enviadas}</p>
-                            </div>
-                            <div>
-                              {respondeu ? (
-                                <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Respondeu</Badge>
-                              ) : (
-                                <Badge variant="secondary" className="text-xs text-muted-foreground">Sem resposta</Badge>
-                              )}
-                            </div>
-                            {converteu && (
-                              <div>
-                                <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-xs">Convertido</Badge>
-                              </div>
+                          <div className="hidden sm:flex items-center gap-2">
+                            {respondeu ? (
+                              <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs gap-1">
+                                <CheckCircle2 className="h-2.5 w-2.5" />Respondeu
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs text-muted-foreground/60 border-dashed">Sem resposta</Badge>
                             )}
-                            {erros > 0 && (
-                              <div>
-                                <p className="text-[10px] text-muted-foreground">Erros</p>
-                                <p className="text-sm font-semibold text-red-500">{erros}</p>
-                              </div>
+                            {converteu && (
+                              <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/20 text-xs gap-1">
+                                <TrendingUp className="h-2.5 w-2.5" />Convertido
+                              </Badge>
                             )}
                           </div>
 
                           {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <ChevronUp className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                           ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <ChevronDown className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                           )}
                         </div>
                       </div>
 
                       {isExpanded && (
-                        <div className="border-t border-border/50 px-4 py-3 space-y-3 bg-accent/10">
-                          {/* Stats mobile */}
-                          <div className="grid grid-cols-3 gap-2 sm:hidden text-center">
+                        <div className="border-t border-border/40 px-4 py-4 space-y-4">
+                          {/* Timeline grid */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                             {[
-                              { label: 'Tentativas', value: enviadas, color: '' },
-                              { label: 'Respondeu', value: respondeu ? 'Sim' : 'Não', color: respondeu ? 'text-emerald-600' : '' },
-                              { label: 'Erros', value: erros, color: erros > 0 ? 'text-red-500' : '' },
-                            ].map((stat) => (
-                              <div key={stat.label} className="bg-background rounded-lg p-2">
-                                <p className="text-[10px] text-muted-foreground">{stat.label}</p>
-                                <p className={`text-sm font-semibold ${stat.color}`}>{stat.value}</p>
+                              {
+                                icon: Clock,
+                                label: 'Última abordagem',
+                                value: campaign.ultima_abordagem ? formatDateTime(campaign.ultima_abordagem) : null,
+                                color: '',
+                              },
+                              {
+                                icon: CalendarCheck,
+                                label: 'Próximo contato',
+                                value: campaign.proximo_contato_em ? formatDateTime(campaign.proximo_contato_em) : null,
+                                color: isOverdue ? 'text-red-500' : '',
+                                extra: isOverdue ? <span className="text-[10px] text-red-500 font-medium">Atrasado</span> : null,
+                              },
+                              {
+                                icon: MessageSquare,
+                                label: 'Respondeu em',
+                                value: campaign.respondeu_em ? formatDateTime(campaign.respondeu_em) : null,
+                                color: 'text-emerald-600',
+                              },
+                              {
+                                icon: TrendingUp,
+                                label: 'Converteu em',
+                                value: campaign.converteu_em ? formatDateTime(campaign.converteu_em) : null,
+                                color: 'text-purple-600',
+                              },
+                            ].map(({ icon: Icon, label, value, color, extra }) => (
+                              <div key={label} className="flex items-start gap-2.5">
+                                <div className="p-1.5 rounded-md bg-muted/60 mt-0.5">
+                                  <Icon className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{label}</p>
+                                  <p className={`text-xs font-medium ${value ? color : 'text-muted-foreground/40'}`}>
+                                    {value ?? '—'}
+                                  </p>
+                                  {extra}
+                                </div>
                               </div>
                             ))}
-                          </div>
-
-                          {/* Timeline */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                            <div>
-                              <p className="text-muted-foreground mb-0.5">Última abordagem</p>
-                              <p className="font-medium">{campaign.ultima_abordagem ? formatDateTime(campaign.ultima_abordagem) : '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground mb-0.5">Próximo contato</p>
-                              <p className={`font-medium ${campaign.proximo_contato_em && new Date(campaign.proximo_contato_em) < new Date() ? 'text-red-500' : ''}`}>
-                                {campaign.proximo_contato_em ? formatDateTime(campaign.proximo_contato_em) : '—'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground mb-0.5">Respondeu em</p>
-                              <p className={`font-medium ${respondeu ? 'text-emerald-600' : ''}`}>
-                                {campaign.respondeu_em ? formatDateTime(campaign.respondeu_em) : '—'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground mb-0.5">Converteu em</p>
-                              <p className={`font-medium ${converteu ? 'text-purple-600' : ''}`}>
-                                {campaign.converteu_em ? formatDateTime(campaign.converteu_em) : '—'}
-                              </p>
-                            </div>
                           </div>
 
                           {/* Ação de conversão */}
@@ -703,8 +713,8 @@ export default function OutboundPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs h-7 gap-1.5"
-                              onClick={() => handleMarkConverted(campaign.id)}
+                              className="text-xs h-7 gap-1.5 border-purple-500/30 text-purple-600 hover:bg-purple-500/5"
+                              onClick={(e) => { e.stopPropagation(); handleMarkConverted(campaign.id); }}
                             >
                               <TrendingUp className="h-3 w-3" />
                               Marcar como convertido
@@ -744,7 +754,7 @@ export default function OutboundPage() {
                           )}
                         </div>
                       )}
-                    </Card>
+                    </div>
                   );
                 })}
               </div>
