@@ -680,7 +680,9 @@ export default function OutboundPage() {
                             </div>
                             <div>
                               <p className="text-muted-foreground mb-0.5">Próximo contato</p>
-                              <p className="font-medium">{campaign.proximo_contato_em ? formatDateTime(campaign.proximo_contato_em) : '—'}</p>
+                              <p className={`font-medium ${campaign.proximo_contato_em && new Date(campaign.proximo_contato_em) < new Date() ? 'text-red-500' : ''}`}>
+                                {campaign.proximo_contato_em ? formatDateTime(campaign.proximo_contato_em) : '—'}
+                              </p>
                             </div>
                             <div>
                               <p className="text-muted-foreground mb-0.5">Respondeu em</p>
