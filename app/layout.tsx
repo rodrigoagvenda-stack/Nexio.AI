@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: "nexio.ai - CRM Inteligente com IA",
   description: "Sistema completo de CRM com automação e inteligência artificial",
   icons: {
-    icon: "https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/Fivecon%20-%20NEXIO.png",
+    icon: "https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/Fivecon%20-%20NEXIO%20-%20Branca.png",
   },
 };
 
