@@ -280,7 +280,7 @@ export default function LoginPage() {
           >
             Precisa de ajuda?{' '}
             <a
-              href="mailto:suporte@nexio.ai"
+              href="mailto:contato@nexioai.online"
               className="text-zinc-400 hover:text-white transition-colors"
             >
               Entre em contato
@@ -289,14 +289,23 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom brand */}
-        <motion.p
-          className="text-center text-[11px] text-zinc-700 mt-4"
+        <motion.div
+          className="text-center mt-4 space-y-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          &copy; {new Date().getFullYear()} Nexio.AI — Todos os direitos reservados
-        </motion.p>
+          <p className="text-[11px] text-zinc-700">
+            &copy; {new Date().getFullYear()} Nexio.AI — Todos os direitos reservados
+          </p>
+          <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-700">
+            <a href="/termos" className="hover:text-zinc-400 transition-colors">Termos de Uso</a>
+            <span>·</span>
+            <a href="/privacidade" className="hover:text-zinc-400 transition-colors">Privacidade</a>
+            <span>·</span>
+            <a href="/cookies" className="hover:text-zinc-400 transition-colors">Cookies</a>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );
