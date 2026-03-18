@@ -99,9 +99,9 @@ export default function LoginPage() {
           >
             <div className="flex justify-center">
               <img
-                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/render/image/public/branding/nexio-branca.png?width=320&quality=100"
                 alt="Nexio.AI"
-                style={{ height: '36px', width: 'auto' }}
+                style={{ height: '40px', width: 'auto', display: 'block' }}
               />
             </div>
             <AnimatePresence mode="wait">

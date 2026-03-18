@@ -206,16 +206,16 @@ export const Sidebar = memo(function Sidebar({
           {!isCollapsed && (
             <>
               <img
-                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/render/image/public/branding/nexio-branca.png?width=280&quality=100"
                 alt="Nexio.AI"
                 className="hidden dark:block"
-                style={{ height: '34px', width: 'auto', display: 'block', imageRendering: 'auto' }}
+                style={{ height: '34px', width: 'auto', display: 'block' }}
               />
               <img
-                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png"
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/render/image/public/branding/nexio-black.png?width=280&quality=100"
                 alt="Nexio.AI"
                 className="block dark:hidden"
-                style={{ height: '34px', width: 'auto', display: 'block', imageRendering: 'auto' }}
+                style={{ height: '34px', width: 'auto', display: 'block' }}
               />
             </>
           )}
