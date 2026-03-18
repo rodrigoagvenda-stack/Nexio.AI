@@ -53,50 +53,43 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
 
     // Meta strip
     metaStrip: {
-      backgroundColor: '#f8f7ff',
       borderBottom: 1,
       borderBottomColor: '#e5e7eb',
       padding: '10 40',
       flexDirection: 'row',
       gap: 24,
     },
-    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    metaDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: color, marginRight: 6 },
+    metaItem: { flexDirection: 'row', alignItems: 'center' },
     metaText: { fontSize: 9, color: '#6b7280' },
     metaBold: { fontSize: 9, color: '#111827', fontFamily: 'Helvetica-Bold' },
 
     // Body
-    body: { padding: '28 40 0 40' },
+    body: { padding: '24 40 0 40' },
     sectionTitle: {
-      fontSize: 9,
+      fontSize: 8,
       fontFamily: 'Helvetica-Bold',
-      color: color,
+      color: '#9ca3af',
       textTransform: 'uppercase',
       letterSpacing: 1,
-      marginBottom: 12,
-      marginTop: 4,
+      marginBottom: 10,
     },
 
     // QA grid
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 0 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap' },
     qaBlockFull: {
       width: '100%',
-      backgroundColor: '#f9fafb',
-      borderRadius: 6,
-      padding: '10 14',
-      marginBottom: 8,
-      borderLeft: 3,
-      borderLeftColor: color,
+      borderBottom: 1,
+      borderBottomColor: '#f3f4f6',
+      paddingTop: 10,
+      paddingBottom: 10,
     },
     qaBlockHalf: {
-      width: '48%',
-      backgroundColor: '#f9fafb',
-      borderRadius: 6,
-      padding: '10 14',
-      marginBottom: 8,
-      marginRight: '2%',
-      borderLeft: 3,
-      borderLeftColor: color,
+      width: '50%',
+      borderBottom: 1,
+      borderBottomColor: '#f3f4f6',
+      paddingTop: 10,
+      paddingBottom: 10,
+      paddingRight: 16,
     },
     qaLabel: {
       fontSize: 8,
@@ -104,7 +97,7 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
       fontFamily: 'Helvetica-Bold',
       textTransform: 'uppercase',
       letterSpacing: 0.5,
-      marginBottom: 4,
+      marginBottom: 3,
     },
     qaValue: { fontSize: 11, color: '#111827', lineHeight: 1.4 },
     qaEmpty: { fontSize: 10, color: '#d1d5db', fontStyle: 'italic' },
@@ -161,13 +154,11 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
         {/* Meta strip */}
         <View style={styles.metaStrip}>
           <View style={styles.metaItem}>
-            <View style={styles.metaDot} />
             <Text style={styles.metaText}>Empresa: </Text>
             <Text style={styles.metaBold}>{companyName}</Text>
           </View>
           <View style={styles.metaItem}>
-            <View style={styles.metaDot} />
-            <Text style={styles.metaText}>Formulário: </Text>
+            <Text style={styles.metaText}>  ·  Formulário: </Text>
             <Text style={styles.metaBold}>{title || 'Briefing'}</Text>
           </View>
         </View>
