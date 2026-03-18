@@ -204,18 +204,20 @@ export const Sidebar = memo(function Sidebar({
         {/* Logo */}
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
-            <img
-              src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
-              alt="Nexio.AI"
-              className="hidden dark:block"
-              style={{ height: '28px', width: 'auto' }}
-            />
-            <img
-              src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png"
-              alt="Nexio.AI"
-              className="block dark:hidden"
-              style={{ height: '28px', width: 'auto' }}
-            />
+            <>
+              <img
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
+                alt="Nexio.AI"
+                className="hidden dark:block"
+                style={{ height: '28px', width: 'auto' }}
+              />
+              <img
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png"
+                alt="Nexio.AI"
+                className="block dark:hidden"
+                style={{ height: '28px', width: 'auto' }}
+              />
+            </>
           )}
         </div>
 
