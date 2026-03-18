@@ -99,7 +99,7 @@ export default function LoginPage() {
           >
             <div className="flex justify-center">
               <img
-                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
+                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio%20ai%20logo%20branca.png"
                 alt="Nexio.AI"
                 style={{ height: '40px', width: 'auto', display: 'block' }}
               />
