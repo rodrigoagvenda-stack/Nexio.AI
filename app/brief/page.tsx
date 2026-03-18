@@ -184,12 +184,14 @@ export default function BriefPage() {
   // Question Screens
   return (
     <div className="min-h-screen bg-background">
-      {/* Fixed Logo */}
-      <div className="fixed top-6 left-6 z-50">
-        <h1 className="text-2xl font-bold">
-          nexio<span className="text-primary">.</span>ai
-        </h1>
-      </div>
+      {/* Fixed Logo — hidden on last step */}
+      {currentStep < totalSteps - 1 && (
+        <div className="fixed top-6 left-6 z-50">
+          <h1 className="text-2xl font-bold">
+            nexio<span className="text-primary">.</span>ai
+          </h1>
+        </div>
+      )}
 
       {/* Progress Bar */}
       <div className="fixed top-0 left-0 right-0 h-1 bg-muted z-50">
