@@ -37,19 +37,21 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
 
     // Header
     header: {
-      backgroundColor: color,
-      padding: '32 40 28 40',
+      backgroundColor: '#ffffff',
+      padding: '32 40 20 40',
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
+      borderBottom: 2,
+      borderBottomColor: color,
     },
     headerLeft: { flex: 1 },
     headerRight: { alignItems: 'flex-end' },
     logo: { width: 80, height: 28, objectFit: 'contain', marginBottom: 8 },
-    titleText: { fontSize: 24, fontFamily: 'Helvetica-Bold', color: '#ffffff', lineHeight: 1.2 },
-    companyText: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 },
-    dateLabel: { fontSize: 9, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
-    dateValue: { fontSize: 10, color: '#ffffff', fontFamily: 'Helvetica-Bold' },
+    titleText: { fontSize: 22, fontFamily: 'Helvetica-Bold', color: '#111827', lineHeight: 1.2 },
+    companyText: { fontSize: 11, color: '#6b7280', marginTop: 4 },
+    dateLabel: { fontSize: 8, color: '#9ca3af', marginTop: 2 },
+    dateValue: { fontSize: 10, color: '#111827', fontFamily: 'Helvetica-Bold' },
 
     // Meta strip
     metaStrip: {
