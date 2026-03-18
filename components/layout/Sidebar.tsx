@@ -209,13 +209,13 @@ export const Sidebar = memo(function Sidebar({
                 src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-branca.png"
                 alt="Nexio.AI"
                 className="hidden dark:block"
-                style={{ height: '28px', width: 'auto' }}
+                style={{ height: '34px', width: 'auto', display: 'block', imageRendering: 'auto' }}
               />
               <img
                 src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio-black.png"
                 alt="Nexio.AI"
                 className="block dark:hidden"
-                style={{ height: '28px', width: 'auto' }}
+                style={{ height: '34px', width: 'auto', display: 'block', imageRendering: 'auto' }}
               />
             </>
           )}
