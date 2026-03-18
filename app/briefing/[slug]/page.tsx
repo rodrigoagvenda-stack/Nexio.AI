@@ -24,7 +24,7 @@ interface BriefingQuestion {
   id: number;
   label: string;
   field_key: string;
-  question_type: 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox';
+  question_type: 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'currency' | 'url';
   options?: string[];
   is_required: boolean;
   order_index: number;
@@ -439,6 +439,44 @@ export default function BriefingPublicPage() {
                   rows={4}
                   autoFocus
                   className={`w-full text-xl bg-transparent border-b-2 outline-none py-3 px-1 resize-none placeholder:opacity-40 ${borderClass} ${textClass}`}
+                />
+                {actionBtn}
+              </>
+            )}
+
+            {/* CURRENCY */}
+            {q.question_type === 'currency' && (
+              <>
+                <div className="relative">
+                  <span className={`absolute left-1 bottom-3 text-xl font-medium opacity-60 ${textClass}`}>R$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={answers[q.field_key] || ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      const formatted = raw ? Number(raw).toLocaleString('pt-BR') : '';
+                      setAnswer(q.field_key, formatted);
+                    }}
+                    placeholder="0"
+                    autoFocus
+                    className={`w-full text-xl bg-transparent outline-none border-b-2 py-3 pl-10 pr-1 placeholder:opacity-40 ${borderClass} ${textClass}`}
+                  />
+                </div>
+                {actionBtn}
+              </>
+            )}
+
+            {/* URL */}
+            {q.question_type === 'url' && (
+              <>
+                <input
+                  type="url"
+                  value={answers[q.field_key] || ''}
+                  onChange={(e) => setAnswer(q.field_key, e.target.value)}
+                  placeholder="https://..."
+                  autoFocus
+                  className={`w-full text-xl bg-transparent outline-none border-b-2 py-3 px-1 placeholder:opacity-40 ${borderClass} ${textClass}`}
                 />
                 {actionBtn}
               </>
