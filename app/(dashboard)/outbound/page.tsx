@@ -42,6 +42,8 @@ import {
   Copy,
   Clock,
   CalendarCheck,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/format';
 
@@ -193,6 +195,8 @@ export default function OutboundPage() {
   const [limits, setLimits] = useState<OutboundLimit>({});
   const [editingTemplate, setEditingTemplate] = useState<number | null>(null);
   const [templateDraft, setTemplateDraft] = useState<Partial<Template>>({});
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [newTemplateDraft, setNewTemplateDraft] = useState({ categoria: '', prompt_sistema: '', exemplos: '' });
 
   const [totalEnviadas, setTotalEnviadas] = useState(0);
   const [totalAbordados, setTotalAbordados] = useState(0);
@@ -431,6 +435,41 @@ export default function OutboundPage() {
     } finally {
       setSavingTemplate(false);
     }
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!company?.id || !newTemplateDraft.categoria.trim() || !newTemplateDraft.prompt_sistema.trim()) {
+      toast({ title: 'Preencha categoria e prompt', variant: 'destructive' });
+      return;
+    }
+    setSavingTemplate(true);
+    try {
+      let exemplosValue: any = null;
+      if (newTemplateDraft.exemplos.trim()) {
+        try { exemplosValue = JSON.parse(newTemplateDraft.exemplos); } catch { exemplosValue = newTemplateDraft.exemplos; }
+      }
+      const { data, error } = await supabase
+        .from('outbound_templates')
+        .insert({ company_id: company.id, categoria: newTemplateDraft.categoria, prompt_sistema: newTemplateDraft.prompt_sistema, exemplos: exemplosValue, ativo: true })
+        .select()
+        .single();
+      if (error) throw error;
+      setTemplates((prev) => [...prev, data]);
+      setCreatingTemplate(false);
+      setNewTemplateDraft({ categoria: '', prompt_sistema: '', exemplos: '' });
+      toast({ title: 'Template criado!' });
+    } catch {
+      toast({ title: 'Erro ao criar template', variant: 'destructive' });
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: number) => {
+    const { error } = await supabase.from('outbound_templates').delete().eq('id', templateId);
+    if (error) { toast({ title: 'Erro ao excluir template', variant: 'destructive' }); return; }
+    setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+    toast({ title: 'Template excluído' });
   };
 
   const handleMarkConverted = async (campaignId: number) => {
@@ -978,11 +1017,58 @@ export default function OutboundPage() {
             <p className="text-sm text-muted-foreground">
               Prompts que a IA usa para gerar mensagens de abordagem
             </p>
-            <Button variant="outline" size="sm" onClick={fetchTemplates} className="gap-1.5">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Atualizar
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={fetchTemplates} className="gap-1.5">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Atualizar
+              </Button>
+              <Button size="sm" onClick={() => setCreatingTemplate(true)} className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" />
+                Novo template
+              </Button>
+            </div>
           </div>
+
+          {creatingTemplate && (
+            <Card>
+              <CardContent className="pt-4 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Categoria / Nome</Label>
+                  <Input
+                    value={newTemplateDraft.categoria}
+                    onChange={(e) => setNewTemplateDraft((d) => ({ ...d, categoria: e.target.value }))}
+                    className="h-9 text-sm"
+                    placeholder="ex: primeira_abordagem"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Prompt do Sistema</Label>
+                  <Textarea
+                    value={newTemplateDraft.prompt_sistema}
+                    onChange={(e) => setNewTemplateDraft((d) => ({ ...d, prompt_sistema: e.target.value }))}
+                    className="min-h-[100px] text-sm resize-y"
+                    placeholder="Instruções para a IA gerar a mensagem de abordagem..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Exemplos (JSON — opcional)</Label>
+                  <Textarea
+                    value={newTemplateDraft.exemplos}
+                    onChange={(e) => setNewTemplateDraft((d) => ({ ...d, exemplos: e.target.value }))}
+                    className="min-h-[60px] text-xs font-mono resize-y"
+                    placeholder='[{"entrada": "...", "saida": "..."}]'
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCreatingTemplate(false)}>Cancelar</Button>
+                  <Button size="sm" onClick={handleCreateTemplate} disabled={savingTemplate} className="gap-1.5">
+                    <Save className="h-3.5 w-3.5" />
+                    {savingTemplate ? 'Criando...' : 'Criar'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {loadingTemplates ? (
             <div className="space-y-3">
@@ -996,7 +1082,7 @@ export default function OutboundPage() {
                 <FileText className="h-10 w-10 text-muted-foreground/30" />
                 <p className="text-sm font-medium text-muted-foreground">Nenhum template encontrado</p>
                 <p className="text-xs text-muted-foreground/60 max-w-xs">
-                  Os templates são configurados pela equipe Nexio e aparecem aqui para edição
+                  Crie templates para a IA usar ao abordar leads automaticamente
                 </p>
               </CardContent>
             </Card>
@@ -1047,9 +1133,14 @@ export default function OutboundPage() {
                             </span>
                           </div>
                           {!isEditing ? (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(template)}>
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(template)}>
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteTemplate(template.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           ) : (
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingTemplate(null)}>
                               <X className="h-3.5 w-3.5" />
