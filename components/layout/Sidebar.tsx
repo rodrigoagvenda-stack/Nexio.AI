@@ -34,6 +34,7 @@ interface SidebarProps {
   companyImage?: string;
   planName?: string;
   hasBriefing?: boolean;
+  brandLogoUrl?: string | null;
 }
 
 interface NavLink {
@@ -95,6 +96,7 @@ export const Sidebar = memo(function Sidebar({
   companyImage,
   planName,
   hasBriefing = false,
+  brandLogoUrl,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -203,21 +205,13 @@ export const Sidebar = memo(function Sidebar({
       >
         {/* Logo */}
         <div className="flex items-center h-16 px-6">
-          {!isCollapsed && (
-            <>
-              <img
-                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio%20ai%20logo%20branca.png"
-                alt="Nexio.AI"
-                className="hidden dark:block h-10 w-auto object-contain"
-                style={{ maxWidth: '160px' }}
-              />
-              <img
-                src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio%20ai%20logo%20blac.png"
-                alt="Nexio.AI"
-                className="block dark:hidden h-10 w-auto object-contain"
-                style={{ maxWidth: '160px' }}
-              />
-            </>
+          {!isCollapsed && brandLogoUrl && (
+            <img
+              src={brandLogoUrl}
+              alt="Nexio.AI"
+              className="h-10 w-auto object-contain"
+              style={{ maxWidth: '160px' }}
+            />
           )}
         </div>
 

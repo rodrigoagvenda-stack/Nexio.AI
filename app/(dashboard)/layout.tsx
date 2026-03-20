@@ -47,7 +47,7 @@ export default async function DashboardLayout({
       .single(),
     supabase
       .from('briefing_company_config')
-      .select('is_active')
+      .select('is_active, logo_url')
       .eq('company_id', userData?.company_id || 0)
       .eq('is_active', true)
       .maybeSingle(),
@@ -59,6 +59,7 @@ export default async function DashboardLayout({
   const planName = companyData?.plan_name;
   const isAdmin = !!adminUser;
   const hasBriefing = !!briefingConfig;
+  const brandLogoUrl = briefingConfig?.logo_url || null;
 
   console.log('🔍 [Layout] Company Data:', {
     companyId: userData?.company_id,
@@ -76,6 +77,7 @@ export default async function DashboardLayout({
         companyImage={companyImage}
         planName={planName}
         hasBriefing={hasBriefing}
+        brandLogoUrl={brandLogoUrl}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
