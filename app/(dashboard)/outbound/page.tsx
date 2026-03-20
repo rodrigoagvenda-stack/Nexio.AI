@@ -65,6 +65,11 @@ interface Campaign {
   converteu_em?: string | null;
   ultima_abordagem?: string | null;
   proximo_contato_em?: string | null;
+  lead?: {
+    contact_name?: string;
+    company_name?: string;
+    whatsapp?: string;
+  };
   [key: string]: any;
 }
 
@@ -220,7 +225,7 @@ export default function OutboundPage() {
     try {
       const { data, error } = await supabase
         .from('outbound_campaigns')
-        .select('*')
+        .select('*, lead:leads!outbound_campaigns_campaign_id_fkey(contact_name, company_name, whatsapp)')
         .eq('company_id', company.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -639,7 +644,9 @@ export default function OutboundPage() {
                   const isExpanded = expandedCampaign === campaign.id;
                   const errors = campaignErrors[campaign.id] || [];
                   const leadId = campaign.campaign_id || campaign.lead_id || campaign.id;
-                  const name = campaign.nome || campaign.name || `Lead #${leadId}`;
+                  const leadName = campaign.lead?.contact_name || campaign.lead?.company_name;
+                  const leadPhone = campaign.lead?.whatsapp;
+                  const name = campaign.nome || campaign.name || leadName || `Lead #${leadId}`;
                   const enviadas = campaign.tentativas ?? 0;
                   const respondeu = !!campaign.respondeu_em;
                   const converteu = !!campaign.converteu_em;
@@ -673,6 +680,7 @@ export default function OutboundPage() {
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
+                              {leadPhone && <span className="mr-2">{leadPhone}</span>}
                               Criada em {campaign.created_at ? formatDateTime(campaign.created_at) : '—'}
                               {enviadas > 0 && <span className="ml-2 text-muted-foreground/60">· {enviadas} tentativa{enviadas > 1 ? 's' : ''}</span>}
                             </p>
