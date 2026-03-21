@@ -132,10 +132,10 @@ export async function POST(request: NextRequest) {
       throw new Error('Erro ao criar usuário: ID não retornado do Auth');
     }
 
-    // 2. Criar user na tabela users
+    // 2. Criar/atualizar user na tabela users (upsert para lidar com trigger automático)
     const { data: userData, error: userError } = await serviceSupabase
       .from('users')
-      .insert([
+      .upsert(
         {
           auth_user_id: authData.user.id,
           user_id: authData.user.id,
@@ -146,7 +146,8 @@ export async function POST(request: NextRequest) {
           role: 'member',
           is_active: true,
         },
-      ])
+        { onConflict: 'email' }
+      )
       .select()
       .single();
 
