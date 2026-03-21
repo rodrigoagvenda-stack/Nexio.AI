@@ -132,34 +132,47 @@ export async function POST(request: NextRequest) {
       throw new Error('Erro ao criar usuário: ID não retornado do Auth');
     }
 
-    // 2. Criar/atualizar user na tabela users (upsert para lidar com trigger automático)
-    const { data: userData, error: userError } = await serviceSupabase
+    // 2. Atualizar ou inserir user na tabela users
+    // Primeiro tenta update (caso trigger já tenha criado a linha)
+    const { data: updatedUser, error: updateError } = await serviceSupabase
       .from('users')
-      .upsert(
-        {
-          auth_user_id: authData.user.id,
-          user_id: authData.user.id,
-          company_id: parseInt(company_id),
-          name: name,
-          email: email,
-          department: department || null,
-          role: 'member',
-          is_active: true,
-        },
-        { onConflict: 'email' }
-      )
+      .update({
+        company_id: parseInt(company_id),
+        name,
+        email,
+        department: department || null,
+        role: 'member',
+        is_active: true,
+      })
+      .eq('auth_user_id', authData.user.id)
       .select()
       .single();
 
-    if (userError) {
-      console.error('User table error:', userError);
-      // Tentar deletar usuário do Auth se falhar ao criar na tabela
-      try {
-        await serviceSupabase.auth.admin.deleteUser(authData.user.id);
-      } catch (deleteError) {
-        console.error('Failed to rollback auth user:', deleteError);
+    let userData = updatedUser;
+
+    // Se não achou linha (trigger não rodou), faz insert
+    if (updateError) {
+      const { data: insertedUser, error: insertError } = await serviceSupabase
+        .from('users')
+        .insert({
+          auth_user_id: authData.user.id,
+          user_id: authData.user.id,
+          company_id: parseInt(company_id),
+          name,
+          email,
+          department: department || null,
+          role: 'member',
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('User table error:', insertError);
+        await serviceSupabase.auth.admin.deleteUser(authData.user.id).catch(() => {});
+        throw new Error('Erro ao criar usuário na tabela: ' + insertError.message);
       }
-      throw new Error('Erro ao criar usuário na tabela: ' + userError.message);
+      userData = insertedUser;
     }
 
     return NextResponse.json({
