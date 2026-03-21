@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
     const { data: updatedUser, error: updateError } = await serviceSupabase
       .from('users')
       .update({
+        user_id: authData.user.id,
         company_id: parseInt(company_id),
         name,
         email,
