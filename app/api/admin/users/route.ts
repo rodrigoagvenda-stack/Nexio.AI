@@ -79,9 +79,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
     }
 
-    const { data: adminUser } = await supabase
+    const serviceSupabase = createServiceClient();
+
+    const { data: adminUser } = await serviceSupabase
       .from('admin_users')
-      .select('*')
+      .select('id')
       .eq('auth_user_id', user.id)
       .eq('is_active', true)
       .single();
@@ -100,8 +102,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Usar service client para criar user
-    const serviceSupabase = createServiceClient();
+    // 0. Verificar se email já existe na tabela users
+    const { data: existingUser } = await serviceSupabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingUser) {
+      return NextResponse.json(
+        { success: false, message: 'Este email já está cadastrado no sistema' },
+        { status: 409 }
+      );
+    }
 
     // 1. Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await serviceSupabase.auth.admin.createUser({
