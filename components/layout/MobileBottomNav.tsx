@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Users, Phone, Target, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Phone, Target, Settings, FileText, Zap } from 'lucide-react';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
@@ -16,14 +16,14 @@ export function MobileBottomNav() {
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/crm', label: 'CRM', icon: Users },
     { href: '/atendimento', label: 'Chat', icon: Phone },
-    { href: '/lead-pro', label: 'PRO', icon: Target },
-    { href: '/configuracoes', label: 'Mais', icon: Settings },
+    { href: '/outbound', label: 'Orbit', icon: Zap },
+    { href: '/briefing', label: 'Briefing', icon: FileText },
   ];
 
   return (
     <nav className="fixed bottom-[15px] left-1/2 -translate-x-1/2 z-50 md:hidden">
-      <div className="bg-background/80 backdrop-blur-xl border border-border rounded-full px-6 pt-[25px] pb-[15px] shadow-2xl">
-        <div className="flex items-center gap-8">
+      <div className="bg-background/80 backdrop-blur-xl border border-border rounded-full px-4 pt-[25px] pb-[15px] shadow-2xl">
+        <div className="flex items-center gap-5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');

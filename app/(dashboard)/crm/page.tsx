@@ -1067,6 +1067,12 @@ export default function CRMPage() {
         </OrbitCard>
       ) : viewMode === 'kanban' ? (
         <>
+          {/* Mobile banner — visible only on small screens */}
+          <div className="md:hidden flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
+            <Maximize2 className="h-4 w-4 shrink-0" />
+            <span>Use o modo <strong className="text-foreground">planilha</strong> no celular para melhor experiência</span>
+          </div>
+
           {/* Desktop Kanban */}
           <DndContext
             sensors={sensors}

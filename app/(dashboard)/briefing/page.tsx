@@ -564,7 +564,7 @@ export default function BriefingPage() {
       </div>
 
       <Tabs defaultValue="respostas">
-        <TabsList>
+        <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="respostas">
             Respostas
             {responses.length > 0 && (
@@ -593,7 +593,7 @@ export default function BriefingPage() {
             <div className="space-y-3">
               {responses.slice((responsePage - 1) * RESPONSES_PER_PAGE, responsePage * RESPONSES_PER_PAGE).map((r) => (
                 <Card key={r.id} className="overflow-hidden">
-                  <div className="flex items-center justify-between p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <FileText className="h-4 w-4 text-primary" />
@@ -605,7 +605,7 @@ export default function BriefingPage() {
                         <p className="text-xs text-muted-foreground">{formatDate(r.submitted_at)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 ml-12 sm:ml-0">
                       <Button size="sm" variant="outline" onClick={() => setSelectedResponse(r)} className="gap-1.5">
                         <Eye className="h-3.5 w-3.5" />Ver
                       </Button>

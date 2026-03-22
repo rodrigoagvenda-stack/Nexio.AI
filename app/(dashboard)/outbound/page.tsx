@@ -564,7 +564,7 @@ export default function OutboundPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="campanhas" className="space-y-4">
-        <TabsList className="self-start flex-wrap h-auto gap-1">
+        <TabsList className="self-start flex-wrap h-auto gap-1 w-full sm:w-auto overflow-x-auto">
           <TabsTrigger value="campanhas" className="gap-1.5">
             <Send className="h-3.5 w-3.5" />
             Campanhas
@@ -896,7 +896,7 @@ export default function OutboundPage() {
             <div className="space-y-2">
               {displayedMeetings.map((m) => (
                 <Card key={m.id} className="overflow-hidden">
-                  <div className="px-4 py-3 flex items-center gap-4">
+                  <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

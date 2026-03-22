@@ -485,7 +485,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header com Filtros */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-3xl font-bold text-foreground">Overview</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Overview</h1>
         <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
           <div className="flex gap-2 flex-wrap">
             <button
@@ -605,14 +605,14 @@ export default function DashboardPage() {
 
       {/* Funil de Vendas (com abas) e Vendas Recentes */}
       <div className="grid gap-6 lg:grid-cols-3 items-start">
-        <div className="lg:col-span-2 h-[500px]">
+        <div className="lg:col-span-2 h-auto md:h-[500px]">
           <SalesFunnelTabs
             stages={funnelStages}
             outboundStages={outboundStages}
             antiNoshowCounts={antiNoshowCounts}
           />
         </div>
-        <div className="h-[500px]">
+        <div className="h-auto md:h-[500px]">
           <RecentSales />
         </div>
       </div>

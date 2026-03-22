@@ -38,7 +38,8 @@ function resolveNoshowCount(counts: Record<string, number>, keys: string[]): num
 
 function FunnelBarChart({ data }: { data: { name: string; quantidade: number; fill: string }[] }) {
   return (
-    <ResponsiveContainer width="100%" height={290}>
+    <div className="h-[200px] md:h-[290px]">
+    <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
         <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
@@ -55,6 +56,7 @@ function FunnelBarChart({ data }: { data: { name: string; quantidade: number; fi
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -83,7 +85,7 @@ export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: Sa
       <Card className="h-full flex flex-col overflow-hidden">
         <CardContent className="flex-1 pt-6">
           <Tabs defaultValue="vendas" className="h-full flex flex-col">
-            <TabsList className="mb-4 self-start">
+            <TabsList className="mb-4 self-start flex-wrap h-auto gap-0.5 w-full sm:w-auto">
               <TabsTrigger value="vendas">Funil de Vendas</TabsTrigger>
               <TabsTrigger value="outbound">Funil Outbound</TabsTrigger>
               <TabsTrigger value="noshow">Anti Noshow</TabsTrigger>
@@ -102,7 +104,7 @@ export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: Sa
               <FunnelBarChart data={noshowData} />
             </TabsContent>
 
-            <TabsContent value="remarketing" className="flex flex-col items-center justify-center h-[290px] gap-3">
+            <TabsContent value="remarketing" className="flex flex-col items-center justify-center h-[200px] md:h-[290px] gap-3">
               <Bell className="h-10 w-10 text-muted-foreground/30" />
               <p className="text-sm font-medium text-muted-foreground">Remarketing em breve</p>
               <p className="text-xs text-muted-foreground/60 max-w-xs text-center">

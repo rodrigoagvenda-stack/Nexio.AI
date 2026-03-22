@@ -79,7 +79,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
       </CardHeader>
       <CardContent className="pt-0">
         <div
-          className={highlight ? 'text-3xl font-bold mb-1' : 'text-3xl font-bold text-foreground mb-1'}
+          className={highlight ? 'text-2xl md:text-3xl font-bold mb-1' : 'text-2xl md:text-3xl font-bold text-foreground mb-1'}
           style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
         >
           {formattedValue()}
