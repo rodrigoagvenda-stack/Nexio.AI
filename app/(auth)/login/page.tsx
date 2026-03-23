@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
+import { Cross, Loader2 } from "lucide-react"
 import type { Profile } from "@/types/database.types"
 
 export default function LoginPage() {
@@ -23,18 +24,13 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 
-      // Buscar perfil do usuário
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
         .single<Profile>()
 
       if (profileError) throw profileError
@@ -48,11 +44,6 @@ export default function LoginPage() {
         })
         return
       }
-
-      toast({
-        title: "Login realizado com sucesso!",
-        description: `Bem-vindo(a), ${profile?.nome || 'Usuário'}`,
-      })
 
       router.push("/dashboard")
       router.refresh()
@@ -68,53 +59,67 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 to-primary-900 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-primary flex items-center justify-center mb-2">
-            <span className="text-2xl text-white font-bold">⛪</span>
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+      <div className="w-full max-w-sm space-y-6">
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+            <Cross className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
           </div>
-          <CardTitle className="text-2xl">Sistema de Gestão</CardTitle>
-          <CardDescription>
-            Faça login para acessar o sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          <div className="text-center">
+            <h1 className="text-xl font-semibold">IPVB Sistema</h1>
+            <p className="text-sm text-muted-foreground">Igreja Pentecostal Vale da Bênção</p>
+          </div>
+        </div>
+
+        {/* Card */}
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base">Entrar</CardTitle>
+            <CardDescription>Acesse sua conta para continuar</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  "Entrar"
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

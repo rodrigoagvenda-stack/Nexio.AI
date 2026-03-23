@@ -5,64 +5,64 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 30 10% 26%;
+    --foreground: 222 14% 12%;
 
-    /* Cores da Igreja Pentecostal Vale da Bênção */
-    --primary: 37 26% 68%; /* Dourado/Bege #C4B896 */
-    --primary-foreground: 30 10% 26%;
+    --primary: 152 83% 19%;          /* #085832 verde IPVB */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 10% 26%; /* Marrom #4A4139 */
-    --secondary-foreground: 37 26% 68%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 14% 12%;
 
-    --accent: 16 100% 60%; /* Laranja/Fogo #FF6B35 */
-    --accent-foreground: 0 0% 100%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8% 46%;
 
-    --muted: 37 20% 95%;
-    --muted-foreground: 30 5% 45%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 222 14% 12%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 152 83% 19%;
 
     --card: 0 0% 100%;
-    --card-foreground: 30 10% 26%;
+    --card-foreground: 222 14% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 30 10% 26%;
+    --popover-foreground: 222 14% 12%;
 
-    --border: 37 20% 90%;
-    --input: 37 20% 90%;
-    --ring: 37 26% 68%;
-
-    --success: 16 100% 60%; /* Laranja da logo */
-    --warning: 38 92% 50%;
-    --destructive: 0 84% 60%;
-    --info: 37 26% 68%; /* Dourado da logo */
-
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 30 10% 10%;
-    --foreground: 37 26% 90%;
+    --background: 222 14% 8%;
+    --foreground: 210 20% 96%;
 
-    --primary: 37 26% 68%;
-    --primary-foreground: 30 10% 10%;
+    --primary: 152 60% 40%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 30 10% 20%;
-    --secondary-foreground: 37 26% 90%;
+    --secondary: 217 19% 16%;
+    --secondary-foreground: 210 20% 96%;
 
-    --accent: 16 100% 60%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 217 19% 14%;
+    --muted-foreground: 215 14% 52%;
 
-    --muted: 30 10% 15%;
-    --muted-foreground: 37 20% 60%;
+    --accent: 217 19% 16%;
+    --accent-foreground: 210 20% 96%;
 
-    --card: 30 10% 12%;
-    --card-foreground: 37 26% 90%;
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --popover: 30 10% 12%;
-    --popover-foreground: 37 26% 90%;
+    --border: 217 19% 18%;
+    --input: 217 19% 18%;
+    --ring: 152 60% 40%;
 
-    --border: 30 10% 20%;
-    --input: 30 10% 20%;
-    --ring: 37 26% 68%;
+    --card: 222 14% 10%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 222 14% 10%;
+    --popover-foreground: 210 20% 96%;
   }
 }
 
@@ -71,98 +71,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
-@layer components {
-  .gradient-card {
-    background: linear-gradient(135deg, #C4B896 0%, #D4C8A6 100%);
-  }
-
-  .gradient-card-orange {
-    background: linear-gradient(135deg, #FF6B35 0%, #FF8555 100%);
-  }
-
-  .gradient-card-success {
-    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  }
-
-  .stat-card {
-    @apply relative overflow-hidden rounded-xl bg-card p-6 shadow-sm transition-all hover:shadow-md;
-  }
-
-  .stat-card::before {
-    content: '';
-    @apply absolute -right-4 -top-4 h-24 w-24 rounded-full bg-primary/5;
-  }
-
-  .sidebar-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all;
-    @apply text-muted-foreground hover:bg-muted hover:text-foreground;
-  }
-
-  .sidebar-item.active {
-    @apply bg-primary/10 text-primary;
-  }
-
-  .chart-container {
-    @apply rounded-xl bg-card p-6 shadow-sm;
-  }
-
-  .gradient-text {
-    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
-  }
-
-  @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-slide-up {
-    animation: slideUp 0.3s ease-out;
-  }
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-muted/30;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-primary/30;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary/50;
-}
-
-.loading-spinner {
-  border: 3px solid rgba(196, 184, 150, 0.1);
-  border-radius: 50%;
-  border-top-color: #C4B896;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply rounded-full bg-border; }
+::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/30; }
