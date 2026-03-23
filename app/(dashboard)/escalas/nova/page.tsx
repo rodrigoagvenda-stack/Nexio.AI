@@ -52,7 +52,7 @@ export default function NovaEscalaPage() {
       if (!res.ok) throw new Error(json.error || "Erro ao gerar escala")
 
       toast({ title: "Escala gerada com sucesso!" })
-      router.push("/escalas")
+      router.push(`/escalas/${json.data.id}`)
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message })
     } finally {

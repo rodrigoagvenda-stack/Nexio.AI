@@ -1,9 +1,28 @@
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Calendar, Users } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Plus, Calendar } from "lucide-react"
 import Link from "next/link"
-import { formatDate } from "@/lib/utils"
+
+const STATUS_LABELS: Record<string, string> = {
+  rascunho: "Rascunho",
+  confirmando: "Confirmando",
+  finalizada: "Finalizada",
+  enviada: "Enviada",
+}
+
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  rascunho: "secondary",
+  confirmando: "default",
+  finalizada: "default",
+  enviada: "outline",
+}
+
+const MESES = [
+  "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+]
 
 export default async function EscalasPage() {
   const supabase = await createClient()
@@ -22,11 +41,11 @@ export default async function EscalasPage() {
   if (profile?.igreja_id) {
     const { data } = await (supabase as any)
       .from("escalas")
-      .select("*, ministerio:ministerio_id(nome, cor)")
+      .select("id, mes, ano, status, data_geracao")
       .eq("igreja_id", profile.igreja_id)
-      .gte("data", new Date().toISOString().split('T')[0])
-      .order("data")
-      .limit(10)
+      .order("ano", { ascending: false })
+      .order("mes", { ascending: false })
+      .limit(20)
 
     escalas = data || []
   }
@@ -35,10 +54,8 @@ export default async function EscalasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Escalas</h2>
-          <p className="text-muted-foreground">
-            Gerencie as escalas de cultos e eventos
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">Escalas</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Gerencie as escalas de cultos e eventos</p>
         </div>
         <Link href="/escalas/nova">
           <Button>
@@ -51,8 +68,8 @@ export default async function EscalasPage() {
       {escalas.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <Calendar className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhuma escala programada</h3>
+            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhuma escala encontrada</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Crie a primeira escala para seus cultos e eventos
             </p>
@@ -65,29 +82,22 @@ export default async function EscalasPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {escalas.map((escala) => (
             <Link key={escala.id} href={`/escalas/${escala.id}`}>
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>{escala.tipo}</CardTitle>
-                      <CardDescription className="flex items-center gap-2 mt-1">
-                        <Calendar className="h-4 w-4" />
-                        {formatDate(escala.data)} {escala.hora_inicio && `às ${escala.hora_inicio}`}
-                      </CardDescription>
-                    </div>
-                    {escala.ministerio && (
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: escala.ministerio.cor }}
-                        ></div>
-                        <span className="text-sm">{escala.ministerio.nome}</span>
-                      </div>
-                    )}
+                    <CardTitle className="text-base">
+                      {MESES[escala.mes]} {escala.ano}
+                    </CardTitle>
+                    <Badge variant={STATUS_VARIANT[escala.status] ?? "secondary"}>
+                      {STATUS_LABELS[escala.status] ?? escala.status}
+                    </Badge>
                   </div>
+                  <CardDescription className="text-xs">
+                    Gerada em {new Date(escala.data_geracao).toLocaleDateString("pt-BR")}
+                  </CardDescription>
                 </CardHeader>
               </Card>
             </Link>
