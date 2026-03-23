@@ -15,7 +15,7 @@ interface MembroFormData {
   email: string
   telefone: string
   data_nascimento: string
-  sexo: "masculino" | "feminino" | ""
+  sexo: "M" | "F" | ""
   estado_civil: "solteiro" | "casado" | "divorciado" | "viuvo" | ""
   cargo: string
   dizimista: boolean
@@ -112,7 +112,7 @@ export function MembroForm() {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || "Erro ao salvar membro")
+        throw new Error(error.error || "Erro ao salvar membro")
       }
 
       router.push("/membros")
@@ -213,8 +213,8 @@ export function MembroForm() {
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">Selecione...</option>
-                <option value="masculino">Masculino</option>
-                <option value="feminino">Feminino</option>
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
               </select>
             </div>
             <div className="space-y-2">
