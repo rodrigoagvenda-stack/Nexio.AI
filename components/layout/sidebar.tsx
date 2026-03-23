@@ -37,7 +37,7 @@ const navigation = [
   { name: "Financeiro",        href: "/financeiro",  icon: Wallet,          roles: ["admin","pastor","tesoureiro"] },
   { name: "Eventos",           href: "/eventos",     icon: CalendarDays,    roles: ["admin","pastor","secretaria"] },
   { name: "Comunicação",       href: "/comunicacao", icon: MessageSquare,   roles: ["admin","pastor","secretaria"] },
-  { name: "Pedidos de Oração", href: "/pedidos",     icon: HandHeart,       roles: ["admin","pastor","lider_ministerio"] },
+  { name: "Pedidos de Oração", href: "/pedidos-oracao", icon: HandHeart,     roles: ["admin","pastor","lider_ministerio"] },
 ]
 
 const adminNavigation = [
