@@ -47,14 +47,15 @@ export function ConfiguracoesClient({ profile }: Props) {
     if (!profile?.igreja?.id) return
     setIgrejaLoading(true)
     try {
-      const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
         .from("igrejas")
         .update({
           nome: igrejaForm.nome,
           tipo: igrejaForm.tipo,
           email: igrejaForm.email || null,
           telefone: igrejaForm.telefone || null,
-        } as any)
+        })
         .eq("id", profile.igreja.id)
 
       if (error) throw error
@@ -71,9 +72,10 @@ export function ConfiguracoesClient({ profile }: Props) {
   const savePerfil = async () => {
     setPerfilLoading(true)
     try {
-      const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
         .from("profiles")
-        .update({ nome: perfilForm.nome, telefone: perfilForm.telefone || null } as any)
+        .update({ nome: perfilForm.nome, telefone: perfilForm.telefone || null })
         .eq("id", profile.id)
 
       if (error) throw error
