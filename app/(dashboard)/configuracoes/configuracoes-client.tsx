@@ -54,7 +54,7 @@ export function ConfiguracoesClient({ profile }: Props) {
           tipo: igrejaForm.tipo,
           email: igrejaForm.email || null,
           telefone: igrejaForm.telefone || null,
-        })
+        } as any)
         .eq("id", profile.igreja.id)
 
       if (error) throw error
@@ -73,7 +73,7 @@ export function ConfiguracoesClient({ profile }: Props) {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ nome: perfilForm.nome, telefone: perfilForm.telefone || null })
+        .update({ nome: perfilForm.nome, telefone: perfilForm.telefone || null } as any)
         .eq("id", profile.id)
 
       if (error) throw error
