@@ -42,6 +42,7 @@ export default function NovaEscalaPage() {
 
       if (!profile?.igreja_id) throw new Error("Igreja não encontrada")
 
+      // Try automatic generation first
       const res = await fetch("/api/escalas/gerar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,10 +50,31 @@ export default function NovaEscalaPage() {
       })
 
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || "Erro ao gerar escala")
 
-      toast({ title: "Escala gerada com sucesso!" })
-      router.push(`/escalas/${json.data.id}`)
+      if (res.ok && json.data?.id) {
+        toast({ title: "Escala gerada com sucesso!" })
+        router.push(`/escalas/${json.data.id}`)
+        return
+      }
+
+      // Fallback: create a blank escala so the user can add rows manually
+      const blankRes = await fetch("/api/escalas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mes,
+          ano,
+          igreja_id: profile.igreja_id,
+          status: "rascunho",
+          data_geracao: new Date().toISOString(),
+        }),
+      })
+
+      const blankJson = await blankRes.json()
+      if (!blankRes.ok) throw new Error(blankJson.error || "Erro ao criar escala")
+
+      toast({ title: "Escala criada. Adicione os cultos manualmente." })
+      router.push(`/escalas/${blankJson.data.id}`)
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message })
     } finally {
