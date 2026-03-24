@@ -209,6 +209,7 @@ const DroppableColumn = memo(function DroppableColumn({
   totalValue,
   children,
   onPromoteAll,
+  onDemoteAll,
 }: {
   id: string;
   title: string;
@@ -216,6 +217,7 @@ const DroppableColumn = memo(function DroppableColumn({
   totalValue?: number;
   children: React.ReactNode;
   onPromoteAll?: () => void;
+  onDemoteAll?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
@@ -258,6 +260,16 @@ const DroppableColumn = memo(function DroppableColumn({
             >
               <Megaphone className="h-3 w-3" />
               Promover todos
+            </button>
+          )}
+          {onDemoteAll && count > 0 && (
+            <button
+              onClick={onDemoteAll}
+              title="Voltar todos para Triagem"
+              className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
+            >
+              <Filter className="h-3 w-3" />
+              Voltar todos
             </button>
           )}
         </div>
@@ -303,6 +315,8 @@ export default function CRMPage() {
   const [overId, setOverId] = useState<string | number | null>(null);
   const [showPromoteConfirm, setShowPromoteConfirm] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
+  const [showDemoteConfirm, setShowDemoteConfirm] = useState(false);
+  const [isDemoting, setIsDemoting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -348,6 +362,47 @@ export default function CRMPage() {
       body: JSON.stringify(payload),
     }).catch(() => {}); // fire-and-forget, nunca bloqueia o fluxo principal
   };
+
+  // Mover todos os leads de Outbound → Triagem em paralelo
+  const handleDemoteAllOutbound = useCallback(async () => {
+    const outboundLeads = leads.filter(l => l.status === 'Outbound');
+    if (!outboundLeads.length || !user?.company_id) return;
+
+    setIsDemoting(true);
+
+    // Atualização otimista
+    setLeads(prev => prev.map(l => l.status === 'Outbound' ? { ...l, status: 'Triagem' } : l));
+
+    try {
+      await Promise.all(
+        outboundLeads.map(lead =>
+          fetch(`/api/leads/${lead.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: user.company_id, field: 'status', value: 'Triagem' }),
+          })
+        )
+      );
+
+      toast({ title: `${outboundLeads.length} lead(s) voltaram para Triagem!` });
+
+      if (user && company) {
+        logActivity({
+          user_id: user.auth_user_id,
+          company_id: company.id,
+          action: 'outbound_demote_all',
+          description: `Voltou ${outboundLeads.length} lead(s) de Outbound para Triagem`,
+          metadata: { count: outboundLeads.length },
+        });
+      }
+    } catch {
+      toast({ title: 'Erro ao voltar leads', variant: 'destructive' });
+      fetchLeads(); // revert
+    } finally {
+      setIsDemoting(false);
+      setShowDemoteConfirm(false);
+    }
+  }, [leads, user, company]);
 
   // Mover todos os leads de Triagem → Outbound em paralelo
   const handlePromoteAllTriagem = useCallback(async () => {
@@ -1098,6 +1153,7 @@ export default function CRMPage() {
                         count={columnLeads.length}
                         totalValue={getTotalValueByStatus(column.id)}
                         onPromoteAll={column.id === 'Triagem' ? () => setShowPromoteConfirm(true) : undefined}
+                        onDemoteAll={column.id === 'Outbound' ? () => setShowDemoteConfirm(true) : undefined}
                       >
                         <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                           {columnLeads.map((lead) => (
@@ -1806,6 +1862,30 @@ export default function CRMPage() {
               className="bg-orange-500 hover:bg-orange-600"
             >
               {isPromoting ? 'Promovendo...' : 'Promover todos'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Alert Dialog — Voltar todos Outbound → Triagem */}
+      <AlertDialog open={showDemoteConfirm} onOpenChange={setShowDemoteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Voltar todos para Triagem</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os <strong>{leads.filter(l => l.status === 'Outbound').length} leads</strong> da coluna Outbound serão movidos de volta para <strong>Triagem</strong>.
+              <br /><br />
+              Deseja continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDemoting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDemoteAllOutbound}
+              disabled={isDemoting}
+              className="bg-orange-500 hover:bg-orange-600"
+            >
+              {isDemoting ? 'Voltando...' : 'Voltar todos'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
