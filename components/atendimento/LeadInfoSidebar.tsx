@@ -88,7 +88,7 @@ export function LeadInfoSidebar({
             <CardTitle className="text-base">Informações do Lead</CardTitle>
           </CardHeader>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="w-full justify-start px-4 pt-2">
+            <TabsList className="w-full justify-start px-4 pt-2 overflow-x-auto flex-nowrap scrollbar-minimal">
               <TabsTrigger value="dados" className="text-xs">Dados</TabsTrigger>
               <TabsTrigger value="notas" className="text-xs">
                 <StickyNote className="h-3 w-3 mr-1" />
