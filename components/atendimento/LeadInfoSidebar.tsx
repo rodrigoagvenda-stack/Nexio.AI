@@ -81,7 +81,7 @@ export function LeadInfoSidebar({
   }
 
   return (
-    <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
+    <Card className="hidden md:flex md:col-span-4 lg:col-span-3 flex-col overflow-hidden">
       {lead ? (
         <>
           <CardHeader className="border-b flex-shrink-0">

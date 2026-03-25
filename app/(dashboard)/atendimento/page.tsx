@@ -1130,7 +1130,7 @@ export default function AtendimentoPage() {
         </Card>
 
         {/* Área de Chat */}
-        <Card className={`col-span-12 ${isSidebarOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex flex-col overflow-hidden ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
+        <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
@@ -1503,7 +1503,7 @@ export default function AtendimentoPage() {
               }}
             />
           ) : (
-            <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
+            <Card className="hidden md:flex md:col-span-4 lg:col-span-3 flex-col overflow-hidden">
               <div className="flex-1 flex items-center justify-center p-6">
                 <p className="text-sm text-muted-foreground text-center">
                   Selecione uma conversa para ver as informações do lead

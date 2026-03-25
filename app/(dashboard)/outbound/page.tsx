@@ -536,7 +536,7 @@ export default function OutboundPage() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 px-2 md:px-4">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
@@ -686,7 +686,7 @@ export default function OutboundPage() {
                             </p>
                           </div>
 
-                          <div className="hidden sm:flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                             {respondeu ? (
                               <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs gap-1">
                                 <CheckCircle2 className="h-2.5 w-2.5" />Respondeu
