@@ -1116,10 +1116,10 @@ export default function AtendimentoPage() {
                             )}
                           </>
                         )}
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-auto">
+                          {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground mt-1 block">
-                        {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
                     </div>
                   </div>
                   </button>
