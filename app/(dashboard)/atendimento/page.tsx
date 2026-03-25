@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -83,6 +84,8 @@ export default function AtendimentoPage() {
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const [assignDialog, setAssignDialog] = useState(false);
+  const [deleteConvDialog, setDeleteConvDialog] = useState<{ open: boolean; conv: Conversation | null }>({ open: false, conv: null });
+  const [isDeletingConv, setIsDeletingConv] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiActive, setIsAiActive] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -229,6 +232,37 @@ export default function AtendimentoPage() {
       setMessages((data || []).reverse()); // Reverter para ordem correta
     } catch (error) {
       console.error('Error fetching messages:', error);
+    }
+  }
+
+  async function handleDeleteConversation(conv: Conversation) {
+    setIsDeletingConv(true);
+    try {
+      // 1. Apaga todas as mensagens da conversa
+      await supabase
+        .from('mensagens_do_whatsapp')
+        .delete()
+        .eq('id_da_conversacao', conv.id)
+        .eq('company_id', company!.id);
+
+      // 2. Apaga a conversa
+      await supabase
+        .from('conversas_do_whatsapp')
+        .delete()
+        .eq('id', conv.id)
+        .eq('company_id', company!.id);
+
+      setConversations(prev => prev.filter(c => c.id !== conv.id));
+      if (selectedConversation?.id === conv.id) {
+        setSelectedConversation(null);
+        setMessages([]);
+      }
+      toast({ title: 'Conversa apagada' });
+    } catch {
+      toast({ title: 'Erro ao apagar conversa', variant: 'destructive' });
+    } finally {
+      setIsDeletingConv(false);
+      setDeleteConvDialog({ open: false, conv: null });
     }
   }
 
@@ -997,15 +1031,22 @@ export default function AtendimentoPage() {
               </p>
             ) : (
               filteredConversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors relative ${
+                  className={`group w-full text-left p-3 rounded-lg border transition-colors relative ${
                     selectedConversation?.id === conv.id
                       ? 'bg-muted border-border'
                       : 'hover:bg-accent'
                   }`}
                 >
+                  <button
+                    className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
+                    title="Apagar conversa"
+                    onClick={(e) => { e.stopPropagation(); setDeleteConvDialog({ open: true, conv }); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </button>
+                  <button className="w-full text-left" onClick={() => setSelectedConversation(conv)}>
                   <div className="flex items-start gap-3">
                     <div className="relative">
                       <Avatar>
@@ -1081,7 +1122,8 @@ export default function AtendimentoPage() {
                       </div>
                     </div>
                   </div>
-                </button>
+                  </button>
+                </div>
               ))
             )}
           </CardContent>
@@ -1553,6 +1595,28 @@ export default function AtendimentoPage() {
           onSuccess={fetchConversations}
         />
       )}
+
+      {/* AlertDialog — Apagar conversa */}
+      <AlertDialog open={deleteConvDialog.open} onOpenChange={(open) => !open && setDeleteConvDialog({ open: false, conv: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar conversa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as mensagens com <strong>{deleteConvDialog.conv?.nome_do_contato || deleteConvDialog.conv?.numero_de_telefone}</strong> serão apagadas permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingConv}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConvDialog.conv && handleDeleteConversation(deleteConvDialog.conv)}
+              disabled={isDeletingConv}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingConv ? 'Apagando...' : 'Apagar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

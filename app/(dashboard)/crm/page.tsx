@@ -1658,8 +1658,16 @@ export default function CRMPage() {
                   <Input
                     id="whatsapp"
                     value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    placeholder="(00) 00000-0000"
+                    onChange={(e) => {
+                      // Remove tudo que não é dígito
+                      let digits = e.target.value.replace(/\D/g, '');
+                      // Adiciona 55 se não começar com 55
+                      if (digits.length > 0 && !digits.startsWith('55')) {
+                        digits = '55' + digits;
+                      }
+                      setFormData({ ...formData, whatsapp: digits });
+                    }}
+                    placeholder="55981680532"
                     className="h-11"
                   />
                 </div>
