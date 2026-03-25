@@ -1665,9 +1665,12 @@ export default function CRMPage() {
                       if (digits.length > 0 && !digits.startsWith('55')) {
                         digits = '55' + digits;
                       }
+                      // Limita a 13 dígitos (55 + DDD + 9 dígitos)
+                      digits = digits.slice(0, 13);
                       setFormData({ ...formData, whatsapp: digits });
                     }}
                     placeholder="55981680532"
+                    maxLength={13}
                     className="h-11"
                   />
                 </div>

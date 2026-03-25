@@ -1061,13 +1061,10 @@ export default function AtendimentoPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center mb-1">
                         <p className="font-semibold truncate">
                           {conv.nome_do_contato || conv.numero_de_telefone}
                         </p>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                          {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
                       </div>
                       {conv.lead && (
                         <div className="flex items-center gap-1 mb-1">
@@ -1120,6 +1117,9 @@ export default function AtendimentoPage() {
                           </>
                         )}
                       </div>
+                      <span className="text-[10px] text-muted-foreground mt-1 block">
+                        {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                   </button>
