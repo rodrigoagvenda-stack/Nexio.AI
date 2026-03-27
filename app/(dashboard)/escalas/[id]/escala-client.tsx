@@ -296,60 +296,101 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
   return (
     <>
       {/* ─── PRINT-ONLY DOCUMENT ─────────────────────────────────────────────── */}
-      <div className="hidden print:block font-sans text-black">
-        {/* Print header */}
-        <div className="text-center border-b-2 border-black pb-4 mb-6">
-          <div className="text-3xl mb-1">✝</div>
-          <h1 className="text-2xl font-bold uppercase tracking-wide">{igrejaNome}</h1>
-          <p className="text-base font-semibold uppercase tracking-wider mt-1">
-            Escala de Cultos — {MESES[escala.mes].toUpperCase()} {escala.ano}
-          </p>
-          <p className="text-xs text-gray-500 mt-0.5">Status: {statusLabel}</p>
+      <div className="hidden print:block" style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111", background: "white" }}>
+
+        {/* Letterhead */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 14, borderBottom: "3px solid #1a4a2e", marginBottom: 22 }}>
+          <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            <rect x="18" y="3" width="8" height="38" rx="2" fill="#1a4a2e"/>
+            <rect x="5" y="14" width="34" height="8" rx="2" fill="#1a4a2e"/>
+          </svg>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a4a2e", letterSpacing: 0.5, textTransform: "uppercase" }}>
+              {igrejaNome || "Igreja Pentecostal Vale da Bênção"}
+            </div>
+            <div style={{ fontSize: 10, color: "#777", marginTop: 2 }}>Sistema de Gestão para Igrejas</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 10, color: "#888" }}>
+            <div>Emitido em</div>
+            <div style={{ fontWeight: 600, color: "#444" }}>{printDate}</div>
+          </div>
         </div>
 
-        {/* Print table */}
-        <table className="w-full text-sm border-collapse">
+        {/* Document title block */}
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#888", letterSpacing: 3, textTransform: "uppercase", marginBottom: 6 }}>
+            Escala de Cultos
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#1a4a2e", letterSpacing: 1 }}>
+            {MESES[escala.mes]} {escala.ano}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <span style={{ display: "inline-block", padding: "3px 14px", border: "1px solid #bbb", borderRadius: 20, fontSize: 10, color: "#666" }}>
+              {statusLabel}
+            </span>
+          </div>
+        </div>
+
+        {/* Table */}
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
           <thead>
-            <tr className="border border-black bg-gray-100">
-              <th className="border border-black px-3 py-2 text-left font-bold">Data</th>
-              <th className="border border-black px-3 py-2 text-left font-bold">Dia</th>
-              <th className="border border-black px-3 py-2 text-left font-bold">Tipo</th>
-              <th className="border border-black px-3 py-2 text-left font-bold">Oração</th>
-              <th className="border border-black px-3 py-2 text-left font-bold">Louvor</th>
-              <th className="border border-black px-3 py-2 text-left font-bold">Pregação</th>
-              <th className="border border-black px-3 py-2 text-left font-bold">Obs.</th>
+            <tr>
+              {[
+                { label: "Data",          w: "10%" },
+                { label: "Dia da Semana", w: "15%" },
+                { label: "Tipo",          w: "10%" },
+                { label: "Oração",        w: "16%" },
+                { label: "Louvor",        w: "16%" },
+                { label: "Pregação",      w: "16%" },
+                { label: "Observações",   w: "17%" },
+              ].map(({ label, w }) => (
+                <th key={label} style={{ backgroundColor: "#1a4a2e", color: "white", padding: "8px 10px", textAlign: "left", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, border: "1px solid #0f3320", width: w }}>
+                  {label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="border border-black px-3 py-4 text-center text-gray-500">
+                <td colSpan={7} style={{ padding: 20, textAlign: "center", color: "#999", border: "1px solid #ddd" }}>
                   Nenhum culto registrado nesta escala.
                 </td>
               </tr>
             )}
             {rows.map((row, idx) => {
-              const orNome = row.membro_oracao?.nome ?? (row.membro_oracao_id ? memberName(row.membro_oracao_id) : "—")
-              const lovNome = row.membro_louvor?.nome ?? (row.membro_louvor_id ? memberName(row.membro_louvor_id) : "—")
+              const orNome  = row.membro_oracao?.nome   ?? (row.membro_oracao_id   ? memberName(row.membro_oracao_id)   : "—")
+              const lovNome = row.membro_louvor?.nome   ?? (row.membro_louvor_id   ? memberName(row.membro_louvor_id)   : "—")
               const pregNome = row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "—")
+              const bg = idx % 2 === 0 ? "#f4faf5" : "#ffffff"
+              const cell: React.CSSProperties = { padding: "7px 10px", border: "1px solid #d0e8d4", verticalAlign: "middle" }
               return (
-                <tr key={row._key} style={{ backgroundColor: idx % 2 === 0 ? "#f9f9f9" : "#ffffff" }}>
-                  <td className="border border-black px-3 py-2 whitespace-nowrap font-medium">{formatDate(row.data_culto)}</td>
-                  <td className="border border-black px-3 py-2 whitespace-nowrap">{DIAS[row.dia_semana] ?? "—"}</td>
-                  <td className="border border-black px-3 py-2 whitespace-nowrap">{row.tipo_culto || "—"}</td>
-                  <td className="border border-black px-3 py-2">{orNome || "—"}</td>
-                  <td className="border border-black px-3 py-2">{lovNome || "—"}</td>
-                  <td className="border border-black px-3 py-2">{pregNome || "—"}</td>
-                  <td className="border border-black px-3 py-2 text-gray-600">{row.observacoes || "—"}</td>
+                <tr key={row._key} style={{ backgroundColor: bg }}>
+                  <td style={{ ...cell, fontWeight: 600, whiteSpace: "nowrap" }}>{formatDate(row.data_culto)}</td>
+                  <td style={{ ...cell, whiteSpace: "nowrap" }}>{DIAS[row.dia_semana] ?? "—"}</td>
+                  <td style={{ ...cell, whiteSpace: "nowrap", color: "#555" }}>{row.tipo_culto || "—"}</td>
+                  <td style={cell}>{orNome}</td>
+                  <td style={cell}>{lovNome}</td>
+                  <td style={cell}>{pregNome}</td>
+                  <td style={{ ...cell, color: "#666" }}>{row.observacoes || "—"}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
 
-        {/* Print footer */}
-        <div className="text-center text-xs text-gray-500 mt-6 pt-3 border-t border-gray-400">
-          Gerado em {printDate}
+        <div style={{ marginTop: 8, textAlign: "right", fontSize: 10, color: "#aaa" }}>
+          {rows.length} culto{rows.length !== 1 ? "s" : ""} nesta escala
+        </div>
+
+        {/* Footer */}
+        <div style={{ marginTop: 40, paddingTop: 14, borderTop: "1px solid #ddd", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div style={{ fontSize: 9, color: "#bbb" }}>IPVB Sistema · ipvb.com.br</div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ width: 220, borderTop: "1px solid #999", marginBottom: 5 }} />
+            <div style={{ fontSize: 9, color: "#999" }}>Assinatura do Responsável</div>
+          </div>
+          <div style={{ fontSize: 9, color: "#bbb" }}>Pág. 1</div>
         </div>
       </div>
 
