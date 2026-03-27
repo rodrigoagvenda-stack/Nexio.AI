@@ -75,7 +75,7 @@ export default function IgrejasPage() {
     setForm({
       nome: ig.nome, tipo: ig.tipo,
       telefone: ig.telefone ?? "", email: ig.email ?? "",
-      endereco: ig.endereco ?? { rua: "", cidade: "", estado: "" },
+      endereco: { rua: ig.endereco?.rua ?? "", cidade: ig.endereco?.cidade ?? "", estado: ig.endereco?.estado ?? "" },
     })
     // Fetch cultos regulares
     try {
