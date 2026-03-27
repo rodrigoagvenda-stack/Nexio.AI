@@ -474,8 +474,8 @@ export default function CRMPage() {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      // Closer e SDR Closer só veem seus próprios leads atribuídos
-      if (user?.role === 'closer' || user?.role === 'sdr_closer') {
+      // Closer puro só vê seus próprios leads atribuídos
+      if (user?.role === 'closer') {
         query = query.eq('user_id', user.user_id);
       }
 
