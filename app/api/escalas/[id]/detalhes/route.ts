@@ -46,7 +46,17 @@ export async function POST(
 
     const { data, error } = await (supabase as any)
       .from("escalas_detalhes")
-      .insert({ ...body, escala_id: params.id })
+      .insert({
+        escala_id: params.id,
+        data_culto: body.data_culto,
+        dia_semana: body.dia_semana ?? 0,
+        horario: body.horario || "",
+        tipo_culto: body.tipo_culto || "",
+        membro_oracao_id: body.membro_oracao_id || null,
+        membro_louvor_id: body.membro_louvor_id || null,
+        membro_pregacao_id: body.membro_pregacao_id || null,
+        observacoes: body.observacoes || null,
+      })
       .select()
       .single()
 

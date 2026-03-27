@@ -21,9 +21,13 @@ export function AppShell({ user, children }: AppShellProps) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      <Sidebar user={user} mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div data-sidebar>
+        <Sidebar user={user} mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      </div>
       <div className="lg:pl-64 flex flex-col min-h-screen">
-        <Header user={user} onMenuOpen={() => setSidebarOpen(true)} />
+        <div data-header>
+          <Header user={user} onMenuOpen={() => setSidebarOpen(true)} />
+        </div>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>

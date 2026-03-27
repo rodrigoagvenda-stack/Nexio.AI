@@ -40,3 +40,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { id, ...body } = await request.json()
+
+    if (!id) return NextResponse.json({ error: "id obrigatório" }, { status: 400 })
+
+    const { data, error } = await (supabase as any)
+      .from("igrejas")
+      .update(body)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

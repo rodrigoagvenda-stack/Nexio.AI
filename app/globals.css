@@ -2,6 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+@media print {
+  /* Oculta toda a UI do sistema */
+  [data-sidebar],
+  [data-header],
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+
+  /* Remove padding/margin do layout */
+  body,
+  main,
+  .print-content {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Oculta botões e controles */
+  button,
+  [role="button"],
+  a[href] {
+    display: none !important;
+  }
+
+  /* Garante que a tabela ocupe a página toda */
+  table {
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
