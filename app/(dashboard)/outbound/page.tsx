@@ -564,12 +564,12 @@ export default function OutboundPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="campanhas" className="space-y-4">
-        <TabsList className="self-start flex-wrap h-auto gap-1 w-full sm:w-auto overflow-x-auto">
-          <TabsTrigger value="campanhas" className="gap-1.5">
+        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+          <TabsTrigger value="campanhas" className="gap-1.5 flex-shrink-0">
             <Send className="h-3.5 w-3.5" />
             Campanhas
           </TabsTrigger>
-          <TabsTrigger value="reunioes" className="gap-1.5">
+          <TabsTrigger value="reunioes" className="gap-1.5 flex-shrink-0">
             <Calendar className="h-3.5 w-3.5" />
             Reuniões
             {meetingsHoje.length > 0 && (
@@ -578,19 +578,19 @@ export default function OutboundPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="noshow" className="gap-1.5">
+          <TabsTrigger value="noshow" className="gap-1.5 flex-shrink-0">
             <ShieldCheck className="h-3.5 w-3.5" />
             Anti Noshow
           </TabsTrigger>
-          <TabsTrigger value="remarketing" className="gap-1.5">
+          <TabsTrigger value="remarketing" className="gap-1.5 flex-shrink-0">
             <Bell className="h-3.5 w-3.5" />
             Remarketing
           </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-1.5">
+          <TabsTrigger value="templates" className="gap-1.5 flex-shrink-0">
             <FileText className="h-3.5 w-3.5" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="configuracoes" className="gap-1.5">
+          <TabsTrigger value="configuracoes" className="gap-1.5 flex-shrink-0">
             <Settings className="h-3.5 w-3.5" />
             Configurações
           </TabsTrigger>

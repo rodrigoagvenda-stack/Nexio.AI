@@ -58,34 +58,34 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
       className="border-border hover:shadow-md transition-all"
       style={highlight ? { background: highlight.bg, borderColor: 'transparent' } : undefined}
     >
-      <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-3">
+      <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2 px-3 pt-3 md:px-6 md:pt-6">
         <div
-          className={highlight ? 'p-2.5 rounded-lg' : 'p-2.5 rounded-lg bg-primary/10'}
+          className={highlight ? 'p-2 rounded-lg flex-shrink-0' : 'p-2 rounded-lg bg-primary/10 flex-shrink-0'}
           style={highlight ? { backgroundColor: highlight.text ? `${highlight.text}22` : 'rgba(255,255,255,0.15)' } : undefined}
         >
           <Icon
-            className={highlight ? 'h-5 w-5' : 'h-5 w-5 text-primary'}
+            className={highlight ? 'h-4 w-4 md:h-5 md:w-5' : 'h-4 w-4 md:h-5 md:w-5 text-primary'}
             style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
           />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <p
-            className={highlight ? 'text-sm' : 'text-sm text-muted-foreground'}
+            className={highlight ? 'text-xs md:text-sm truncate' : 'text-xs md:text-sm text-muted-foreground truncate'}
             style={highlight ? { color: highlight.text ? `${highlight.text}bb` : 'rgba(255,255,255,0.7)' } : undefined}
           >
             {title}
           </p>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 px-3 pb-3 md:px-6 md:pb-6">
         <div
-          className={highlight ? 'text-2xl md:text-3xl font-bold mb-1' : 'text-2xl md:text-3xl font-bold text-foreground mb-1'}
+          className={highlight ? 'text-lg md:text-2xl font-bold mb-0.5 truncate' : 'text-lg md:text-2xl font-bold text-foreground mb-0.5 truncate'}
           style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
         >
           {formattedValue()}
         </div>
         <p
-          className={highlight ? 'text-xs' : 'text-xs text-muted-foreground'}
+          className={highlight ? 'text-[10px] md:text-xs' : 'text-[10px] md:text-xs text-muted-foreground'}
           style={highlight ? { color: highlight.text ? `${highlight.text}99` : 'rgba(255,255,255,0.6)' } : undefined}
         >
           {subtitle}

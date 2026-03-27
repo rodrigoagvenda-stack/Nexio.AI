@@ -1198,8 +1198,9 @@ export default function AtendimentoPage() {
                   {/* Ações mobile: info + more */}
                   <div className="flex lg:hidden items-center gap-1">
                     {selectedConversation.lead && (
-                      <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setMobileLeadInfoOpen(true)}>
-                        <Info className="h-5 w-5" />
+                      <Button variant="outline" size="sm" className="flex-shrink-0 gap-1.5 text-xs h-8" onClick={() => setMobileLeadInfoOpen(true)}>
+                        <Info className="h-3.5 w-3.5" />
+                        Lead
                       </Button>
                     )}
                     <DropdownMenu>
