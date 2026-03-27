@@ -1497,6 +1497,7 @@ export default function AtendimentoPage() {
                 userId={user!.user_id}
                 chatId={selectedConversation.id}
                 tags={selectedConversation.etiquetas || []}
+                className="flex flex-col h-full overflow-hidden border-0 shadow-none rounded-none"
                 onLeadUpdate={(updatedLead) => {
                   setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);
                   fetchConversations();

@@ -88,7 +88,7 @@ function FunnelBarChart({ data, isMobile }: { data: { name: string; quantidade: 
                 dataKey="name"
                 position="insideLeft"
                 style={{ fill: '#fff', fontSize: 10, fontWeight: 600 }}
-                formatter={(v: string) => v}
+                formatter={(v: string) => v.length > 14 ? v.slice(0, 13) + '…' : v}
               />
             )}
           </Bar>
@@ -133,7 +133,7 @@ export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: Sa
         <CardContent className="flex-1 pt-4 md:pt-6 px-3 md:px-6">
           <Tabs defaultValue="vendas" className="h-full flex flex-col">
             <TabsList
-              className="mb-3 flex w-full overflow-x-auto flex-nowrap sm:flex-wrap sm:w-auto h-auto gap-0.5"
+              className="mb-3 flex w-full overflow-x-auto flex-nowrap sm:flex-wrap sm:w-auto h-auto gap-0.5 !justify-start"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               <TabsTrigger value="vendas" className="flex-shrink-0 text-xs md:text-sm">Funil de Vendas</TabsTrigger>

@@ -564,7 +564,7 @@ export default function OutboundPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="campanhas" className="space-y-4">
-        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto !justify-start" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
           <TabsTrigger value="campanhas" className="gap-1.5 flex-shrink-0">
             <Send className="h-3.5 w-3.5" />
             Campanhas

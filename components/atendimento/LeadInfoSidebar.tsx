@@ -29,6 +29,7 @@ interface LeadInfoSidebarProps {
   userId: string;
   chatId?: number;
   tags?: string[];
+  className?: string;
   onLeadUpdate?: (updatedLead: Lead) => void;
   onTagsUpdate?: (tags: string[]) => void;
 }
@@ -40,6 +41,7 @@ export function LeadInfoSidebar({
   userId,
   chatId,
   tags = [],
+  className,
   onLeadUpdate,
   onTagsUpdate,
 }: LeadInfoSidebarProps) {
@@ -81,14 +83,14 @@ export function LeadInfoSidebar({
   }
 
   return (
-    <Card className="hidden md:flex md:col-span-4 lg:col-span-3 flex-col overflow-hidden">
+    <Card className={className ?? "hidden md:flex md:col-span-4 lg:col-span-3 flex-col overflow-hidden"}>
       {lead ? (
         <>
           <CardHeader className="border-b flex-shrink-0">
             <CardTitle className="text-base">Informações do Lead</CardTitle>
           </CardHeader>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="w-full justify-start px-4 pt-2 overflow-x-auto flex-nowrap scrollbar-minimal">
+            <TabsList className="w-full !justify-start px-4 pt-2 overflow-x-auto flex-nowrap scrollbar-minimal">
               <TabsTrigger value="dados" className="text-xs">Dados</TabsTrigger>
               <TabsTrigger value="notas" className="text-xs">
                 <StickyNote className="h-3 w-3 mr-1" />
