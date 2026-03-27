@@ -93,7 +93,7 @@ function avatarColor(name: string): string {
 
 function MemberChip({ name }: { name: string }) {
   if (!name || name === "—") {
-    return <span className="text-gray-400 text-xs italic">—</span>
+    return <span className="text-muted-foreground text-xs italic">—</span>
   }
   const initials = getInitials(name)
   const bg = avatarColor(name)
@@ -105,7 +105,7 @@ function MemberChip({ name }: { name: string }) {
       >
         {initials}
       </span>
-      <span className="text-sm text-gray-800 leading-tight">{name}</span>
+      <span className="text-sm leading-tight">{name}</span>
     </span>
   )
 }
@@ -296,55 +296,111 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
   return (
     <>
       {/* ─── PRINT-ONLY DOCUMENT ─────────────────────────────────────────────── */}
-      <div className="hidden print:block" style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#111", background: "white" }}>
+      <div className="hidden print:block" style={{ fontFamily: "'Lato', 'Segoe UI', sans-serif", background: "white", colorScheme: "light" }}>
 
-        {/* Letterhead */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, paddingBottom: 14, borderBottom: "3px solid #1a4a2e", marginBottom: 22 }}>
-          <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-            <rect x="18" y="3" width="8" height="38" rx="2" fill="#1a4a2e"/>
-            <rect x="5" y="14" width="34" height="8" rx="2" fill="#1a4a2e"/>
-          </svg>
+        {/* ── HEADER ── */}
+        <div style={{
+          background: "linear-gradient(160deg, #1a4330 0%, #2b6347 60%, #1e4d35 100%)",
+          padding: "0 40px",
+          display: "flex",
+          alignItems: "center",
+          gap: 24,
+          minHeight: 110,
+          position: "relative",
+          overflow: "hidden",
+          WebkitPrintColorAdjust: "exact",
+          printColorAdjust: "exact",
+        }}>
+          {/* Gold glow corner */}
+          <div style={{
+            position: "absolute", right: -60, top: -60,
+            width: 240, height: 240, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(201,168,76,.15) 0%, transparent 70%)",
+            pointerEvents: "none",
+          }} />
+
+          {/* Dove logo circle */}
+          <div style={{
+            flexShrink: 0, width: 72, height: 72, borderRadius: "50%",
+            background: "rgba(255,255,255,.13)",
+            border: "1.5px solid rgba(255,255,255,.3)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width={42} height={42}>
+              <path d="M40 10 C38.5 16 35 19 37 26 C38 30 40 32 40 32 C40 32 42 30 43 26 C45 19 41.5 16 40 10Z" fill="#e8c87a"/>
+              <ellipse cx="38" cy="50" rx="13" ry="8" fill="white" opacity=".95"/>
+              <circle cx="50" cy="45" r="7" fill="white" opacity=".95"/>
+              <path d="M56.5 44.5 L63 45.5 L56.5 46.5Z" fill="#c9a84c"/>
+              <circle cx="52.5" cy="44" r="1.4" fill="#1e4d35"/>
+              <path d="M25 47 C15 39 13 29 20 27 C27 25 33 36 36 46Z" fill="white" opacity=".8"/>
+              <path d="M27 55 C23 61 19 67 17 72" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
+              <path d="M31 57 C28 64 26 69 25 74" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
+              <path d="M35 58 C34 65 33 70 34 75" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".7"/>
+            </svg>
+          </div>
+
+          {/* Title block */}
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#1a4a2e", letterSpacing: 0.5, textTransform: "uppercase" }}>
+            <p style={{
+              fontFamily: "'Montserrat', sans-serif", fontWeight: 400, fontSize: 10.5,
+              letterSpacing: 3.5, textTransform: "uppercase",
+              color: "#e8c87a", marginBottom: 7, opacity: .9,
+            }}>
               {igrejaNome || "Igreja Pentecostal Vale da Bênção"}
-            </div>
-            <div style={{ fontSize: 10, color: "#777", marginTop: 2 }}>Sistema de Gestão para Igrejas</div>
+            </p>
+            <h1 style={{
+              fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
+              fontSize: 22, color: "white", lineHeight: 1.25, letterSpacing: -.2,
+            }}>
+              Escala de Cultos &nbsp;|&nbsp; <span style={{ color: "#e8c87a", fontWeight: 800 }}>{mesAnoLabel}</span>
+            </h1>
           </div>
-          <div style={{ textAlign: "right", fontSize: 10, color: "#888" }}>
-            <div>Emitido em</div>
-            <div style={{ fontWeight: 600, color: "#444" }}>{printDate}</div>
-          </div>
-        </div>
 
-        {/* Document title block */}
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#888", letterSpacing: 3, textTransform: "uppercase", marginBottom: 6 }}>
-            Escala de Cultos
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#1a4a2e", letterSpacing: 1 }}>
+          {/* Month badge */}
+          <div style={{
+            background: "rgba(201,168,76,.18)",
+            border: "1px solid rgba(201,168,76,.55)",
+            borderRadius: 6, padding: "7px 18px",
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: 2.5,
+            textTransform: "uppercase", color: "#e8c87a", whiteSpace: "nowrap",
+          }}>
             {MESES[escala.mes]} {escala.ano}
           </div>
-          <div style={{ marginTop: 8 }}>
-            <span style={{ display: "inline-block", padding: "3px 14px", border: "1px solid #bbb", borderRadius: 20, fontSize: 10, color: "#666" }}>
-              {statusLabel}
-            </span>
-          </div>
         </div>
 
-        {/* Table */}
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+        {/* ── GOLD ACCENT BAR ── */}
+        <div style={{
+          height: 4,
+          background: "linear-gradient(90deg, #c9a84c 0%, #e8c87a 50%, #c9a84c 100%)",
+          WebkitPrintColorAdjust: "exact",
+          printColorAdjust: "exact",
+        }} />
+
+        {/* ── TABLE ── */}
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>
+            <tr style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
               {[
-                { label: "Data",          w: "10%" },
-                { label: "Dia da Semana", w: "15%" },
-                { label: "Tipo",          w: "10%" },
-                { label: "Oração",        w: "16%" },
-                { label: "Louvor",        w: "16%" },
-                { label: "Pregação",      w: "16%" },
-                { label: "Observações",   w: "17%" },
+                { label: "Data",          w: "11%" },
+                { label: "Dia da Semana", w: "16%" },
+                { label: "Oração",        w: "18%" },
+                { label: "Louvor",        w: "18%" },
+                { label: "Pregação",      w: "18%" },
+                { label: "Observações",   w: "19%" },
               ].map(({ label, w }) => (
-                <th key={label} style={{ backgroundColor: "#1a4a2e", color: "white", padding: "8px 10px", textAlign: "left", fontWeight: 600, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, border: "1px solid #0f3320", width: w }}>
+                <th key={label} style={{
+                  backgroundColor: "#1e4d35",
+                  color: "white",
+                  fontFamily: "'Lato', sans-serif",
+                  fontWeight: 700, fontSize: 11.5,
+                  letterSpacing: 1.5, textTransform: "uppercase",
+                  padding: "14px 18px", textAlign: "left",
+                  borderRight: "1px solid rgba(255,255,255,.08)",
+                  whiteSpace: "nowrap", width: w,
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}>
                   {label}
                 </th>
               ))}
@@ -353,45 +409,87 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ padding: 20, textAlign: "center", color: "#999", border: "1px solid #ddd" }}>
+                <td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#999", border: "1px solid #d0ddd6", fontSize: 13 }}>
                   Nenhum culto registrado nesta escala.
                 </td>
               </tr>
             )}
             {rows.map((row, idx) => {
-              const orNome  = row.membro_oracao?.nome   ?? (row.membro_oracao_id   ? memberName(row.membro_oracao_id)   : "—")
-              const lovNome = row.membro_louvor?.nome   ?? (row.membro_louvor_id   ? memberName(row.membro_louvor_id)   : "—")
-              const pregNome = row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "—")
-              const bg = idx % 2 === 0 ? "#f4faf5" : "#ffffff"
-              const cell: React.CSSProperties = { padding: "7px 10px", border: "1px solid #d0e8d4", verticalAlign: "middle" }
+              const orNome   = row.membro_oracao?.nome    ?? (row.membro_oracao_id    ? memberName(row.membro_oracao_id)    : "—")
+              const lovNome  = row.membro_louvor?.nome    ?? (row.membro_louvor_id    ? memberName(row.membro_louvor_id)    : "—")
+              const pregNome = row.membro_pregacao?.nome  ?? (row.membro_pregacao_id  ? memberName(row.membro_pregacao_id)  : "—")
+
+              const bg: React.CSSProperties = idx % 2 === 0
+                ? { backgroundColor: "#f7f9f6", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }
+                : { backgroundColor: "#ffffff" }
+
+              // Day badge style
+              const dow = row.dia_semana
+              let badgeBg = "#f5f0e6", badgeColor = "#7a6020"
+              if (dow === 0) { badgeBg = "#ddeef9"; badgeColor = "#1a6fa8" }
+              else if (dow === 3) { badgeBg = "#d5f0ea"; badgeColor = "#1a8a6f" }
+              else if (dow === 5) { badgeBg = "#f5f0e6"; badgeColor = "#7a6020" }
+
+              const cell: React.CSSProperties = { padding: "13px 18px", borderBottom: "1px solid #d0ddd6", borderRight: "1px solid #d0ddd6", verticalAlign: "middle", fontSize: 13.5 }
+
+              const PersonCell = ({ name }: { name: string }) => (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#3a7a57", flexShrink: 0, opacity: .6, display: "inline-block" }} />
+                  {name === "—" ? <em style={{ color: "#999" }}>—</em> : name}
+                </span>
+              )
+
               return (
-                <tr key={row._key} style={{ backgroundColor: bg }}>
-                  <td style={{ ...cell, fontWeight: 600, whiteSpace: "nowrap" }}>{formatDate(row.data_culto)}</td>
-                  <td style={{ ...cell, whiteSpace: "nowrap" }}>{DIAS[row.dia_semana] ?? "—"}</td>
-                  <td style={{ ...cell, whiteSpace: "nowrap", color: "#555" }}>{row.tipo_culto || "—"}</td>
-                  <td style={cell}>{orNome}</td>
-                  <td style={cell}>{lovNome}</td>
-                  <td style={cell}>{pregNome}</td>
-                  <td style={{ ...cell, color: "#666" }}>{row.observacoes || "—"}</td>
+                <tr key={row._key} style={bg}>
+                  <td style={{ ...cell, fontWeight: 700, fontSize: 13, color: "#2b6347", letterSpacing: .5, whiteSpace: "nowrap" }}>
+                    {formatDate(row.data_culto)}
+                  </td>
+                  <td style={{ ...cell }}>
+                    <span style={{
+                      display: "inline-block", padding: "3px 10px",
+                      borderRadius: 20, fontSize: 12, fontWeight: 700,
+                      letterSpacing: .5, whiteSpace: "nowrap",
+                      backgroundColor: badgeBg, color: badgeColor,
+                      WebkitPrintColorAdjust: "exact", printColorAdjust: "exact",
+                    }}>
+                      {DIAS[dow] ?? "—"}
+                    </span>
+                  </td>
+                  <td style={{ ...cell, color: "#1a2e24" }}><PersonCell name={orNome} /></td>
+                  <td style={{ ...cell, color: "#1a2e24" }}><PersonCell name={lovNome} /></td>
+                  <td style={{ ...cell, color: "#1a2e24" }}><PersonCell name={pregNome} /></td>
+                  <td style={{ ...cell, color: "#5a7060", fontStyle: "italic", borderRight: "none" }}>{row.observacoes || "—"}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
 
-        <div style={{ marginTop: 8, textAlign: "right", fontSize: 10, color: "#aaa" }}>
-          {rows.length} culto{rows.length !== 1 ? "s" : ""} nesta escala
+        {/* ── FOOTER ── */}
+        <div style={{
+          backgroundColor: "#1e4d35",
+          padding: "14px 40px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 8,
+          WebkitPrintColorAdjust: "exact", printColorAdjust: "exact",
+        }}>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,.5)", letterSpacing: 1, textTransform: "uppercase" }}>
+            {igrejaNome} &mdash; {mesAnoLabel}
+          </p>
+          <div style={{ display: "flex", gap: 16 }}>
+            {[
+              { label: "Domingo",      color: "#1a6fa8" },
+              { label: "Quarta-feira", color: "#1a8a6f" },
+              { label: "Sexta-feira",  color: "#c9a84c" },
+            ].map(({ label, color }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: color, display: "inline-block", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }} />
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ marginTop: 40, paddingTop: 14, borderTop: "1px solid #ddd", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div style={{ fontSize: 9, color: "#bbb" }}>IPVB Sistema · ipvb.com.br</div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 220, borderTop: "1px solid #999", marginBottom: 5 }} />
-            <div style={{ fontSize: 9, color: "#999" }}>Assinatura do Responsável</div>
-          </div>
-          <div style={{ fontSize: 9, color: "#bbb" }}>Pág. 1</div>
-        </div>
       </div>
 
       {/* ─── SCREEN LAYOUT ───────────────────────────────────────────────────── */}
@@ -486,7 +584,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
         {/* ── EDIT MODE ── */}
         {editMode ? (
           <div className="space-y-4">
-            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+            <div className="overflow-x-auto rounded-xl border border-border shadow-sm bg-card">
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr style={{ backgroundColor: "#1a4a2e" }}>
@@ -504,9 +602,9 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                 <tbody>
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-10 text-center text-gray-400 text-sm">
+                      <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground text-sm">
                         Nenhum culto adicionado. Clique em{" "}
-                        <span className="font-semibold text-gray-600">"Adicionar Culto"</span>{" "}
+                        <span className="font-semibold">"Adicionar Culto"</span>{" "}
                         para começar.
                       </td>
                     </tr>
@@ -530,7 +628,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                             type="date"
                             value={row.data_culto}
                             onChange={e => updateRow(row._key, "data_culto", e.target.value)}
-                            className="h-8 w-36 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                            className="h-8 w-36 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition"
                           />
                         </td>
                         <td className={`px-4 py-2 whitespace-nowrap text-xs ${style.dayTextClass}`}>
@@ -540,7 +638,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                           <select
                             value={row.membro_oracao_id}
                             onChange={e => updateRow(row._key, "membro_oracao_id", e.target.value)}
-                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                            className="h-8 w-44 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition"
                           >
                             <option value="">— Nenhum —</option>
                             {membros.map(m => (
@@ -552,7 +650,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                           <select
                             value={row.membro_louvor_id}
                             onChange={e => updateRow(row._key, "membro_louvor_id", e.target.value)}
-                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                            className="h-8 w-44 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition"
                           >
                             <option value="">— Nenhum —</option>
                             {membros.map(m => (
@@ -564,7 +662,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                           <select
                             value={row.membro_pregacao_id}
                             onChange={e => updateRow(row._key, "membro_pregacao_id", e.target.value)}
-                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                            className="h-8 w-44 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition"
                           >
                             <option value="">— Nenhum —</option>
                             {membros.map(m => (
@@ -578,7 +676,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                             value={row.observacoes}
                             onChange={e => updateRow(row._key, "observacoes", e.target.value)}
                             placeholder="Observações..."
-                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                            className="h-8 w-44 rounded-lg border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition"
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -623,11 +721,11 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
           </div>
         ) : (
           /* ── VIEW MODE ── */
-          <div className="rounded-xl border border-gray-200 shadow-sm overflow-hidden bg-white">
+          <div className="rounded-xl border border-border shadow-sm overflow-hidden bg-card">
             {rows.length === 0 ? (
-              <div className="py-16 text-center text-gray-400">
-                <div className="text-4xl mb-3 opacity-30">✝</div>
-                <p className="text-sm font-medium text-gray-500">Nenhum culto nesta escala.</p>
+              <div className="py-16 text-center text-muted-foreground">
+                <div className="text-4xl mb-3 opacity-20">✝</div>
+                <p className="text-sm font-medium">Nenhum culto nesta escala.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -655,7 +753,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                       return (
                         <tr
                           key={row._key}
-                          className="border-t border-gray-100 transition-colors"
+                          className="border-t border-border transition-colors"
                           style={{ backgroundColor: bg }}
                           onMouseEnter={e => (e.currentTarget.style.filter = "brightness(0.97)")}
                           onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}
@@ -665,14 +763,14 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                             className="w-1 p-0"
                             style={{ backgroundColor: style.borderColor, minWidth: 4 }}
                           />
-                          <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-800">
+                          <td className="px-4 py-3 whitespace-nowrap font-semibold">
                             {formatDate(row.data_culto)}
                           </td>
                           <td className={`px-4 py-3 whitespace-nowrap text-sm ${style.dayTextClass}`}>
                             {DIAS[row.dia_semana] ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">
-                            {row.tipo_culto || <span className="text-gray-400 italic text-xs">—</span>}
+                          <td className="px-4 py-3 text-muted-foreground text-sm whitespace-nowrap">
+                            {row.tipo_culto || <span className="italic text-xs">—</span>}
                           </td>
                           <td className="px-4 py-3">
                             <MemberChip name={orNome} />
@@ -683,8 +781,8 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                           <td className="px-4 py-3">
                             <MemberChip name={pregNome} />
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-sm max-w-[160px] truncate" title={row.observacoes || ""}>
-                            {row.observacoes || <span className="text-gray-300 italic text-xs">—</span>}
+                          <td className="px-4 py-3 text-muted-foreground text-sm max-w-[160px] truncate" title={row.observacoes || ""}>
+                            {row.observacoes || <span className="italic text-xs opacity-40">—</span>}
                           </td>
                         </tr>
                       )
