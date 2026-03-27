@@ -147,15 +147,16 @@ export const Sidebar = memo(function Sidebar({
 
     const isCloser = userRole === 'closer';
     const isSdr = userRole === 'sdr';
+    const isSdrCloser = userRole === 'sdr_closer';
 
     const sections = navSections.map(section => ({
       ...section,
       links: section.links.filter(link => {
         if (link.href === '/prospect' && !hasOrbitAccess) return false;
-        // Closer não acessa Orbit, Automação, Membros
+        // Closer puro: sem Orbit, Automação, Membros
         if (isCloser && (link.href === '/prospect' || link.href === '/outbound' || link.href === '/membros')) return false;
-        // SDR não acessa Membros
-        if (isSdr && link.href === '/membros') return false;
+        // SDR e SDR Closer: sem Membros
+        if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
         return true;
       }),
     })).filter(section => section.links.length > 0);

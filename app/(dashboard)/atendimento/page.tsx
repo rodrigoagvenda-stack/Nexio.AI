@@ -208,8 +208,8 @@ export default function AtendimentoPage() {
         .order('hora_da_ultima_mensagem', { ascending: false })
         .limit(50);
 
-      // Closer só vê conversas dos seus leads atribuídos
-      if (user?.role === 'closer') {
+      // Closer e SDR Closer só veem conversas dos seus leads atribuídos
+      if (user?.role === 'closer' || user?.role === 'sdr_closer') {
         query = query.eq('lead.user_id', user.user_id);
       }
 

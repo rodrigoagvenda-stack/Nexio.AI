@@ -231,6 +231,7 @@ export default function MembrosPage() {
       manager: { label: 'Gerente', variant: 'secondary' },
       sdr: { label: 'SDR', variant: 'outline' },
       closer: { label: 'Closer', variant: 'outline' },
+      sdr_closer: { label: 'SDR Closer', variant: 'outline' },
     };
 
     const config = variants[role] || { label: 'Membro', variant: 'outline' };
@@ -398,6 +399,7 @@ export default function MembrosPage() {
                   <SelectContent>
                     <SelectItem value="sdr">SDR</SelectItem>
                     <SelectItem value="closer">Closer</SelectItem>
+                    <SelectItem value="sdr_closer">SDR Closer</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
@@ -446,6 +448,7 @@ export default function MembrosPage() {
                   <SelectContent>
                     <SelectItem value="sdr">SDR</SelectItem>
                     <SelectItem value="closer">Closer</SelectItem>
+                    <SelectItem value="sdr_closer">SDR Closer</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>

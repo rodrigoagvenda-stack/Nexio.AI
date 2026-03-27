@@ -35,7 +35,7 @@ export interface User {
   photo_url?: string;
   description?: string;
   department?: string;
-  role?: 'admin' | 'manager' | 'sdr' | 'closer';
+  role?: 'admin' | 'manager' | 'sdr' | 'closer' | 'sdr_closer';
   is_active: boolean;
   last_login?: string;
   created_at: string;
