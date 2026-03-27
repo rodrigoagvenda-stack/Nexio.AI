@@ -1,6 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
+
+    const serviceSupabase = createServiceClient();
+
+    const { data: adminUser } = await serviceSupabase
+      .from('admin_users')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    if (!adminUser) return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
+
+    const body = await req.json();
+    const { name, role, department, is_active, company_id } = body;
+
+    const { data, error } = await serviceSupabase
+      .from('users')
+      .update({
+        ...(name !== undefined && { name }),
+        ...(role !== undefined && { role }),
+        ...(department !== undefined && { department }),
+        ...(is_active !== undefined && { is_active }),
+        ...(company_id !== undefined && { company_id: parseInt(company_id) }),
+      })
+      .eq('id', params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, data });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
