@@ -12,8 +12,38 @@ export async function POST(request: Request) {
 
     const { mes, ano, igreja_id } = await request.json()
 
-    // Chamar função SQL para gerar escala automaticamente
-    const { data, error } = await (supabase as any).rpc("gerar_escala_automatica", {
+    // Verifica se já existe escala para esse mês/ano/igreja
+    const { data: existente } = await (supabase as any)
+      .from("escalas")
+      .select("id")
+      .eq("mes", mes)
+      .eq("ano", ano)
+      .eq("igreja_id", igreja_id)
+      .single()
+
+    if (existente?.id) {
+      // Verifica se tem cultos (detalhes)
+      const { count } = await (supabase as any)
+        .from("escalas_detalhes")
+        .select("id", { count: "exact", head: true })
+        .eq("escala_id", existente.id)
+
+      if (count && count > 0) {
+        // Já tem cultos — apenas redireciona para ela
+        const { data: escala } = await (supabase as any)
+          .from("escalas")
+          .select("id, mes, ano, status, data_geracao, igreja_id")
+          .eq("id", existente.id)
+          .single()
+        return NextResponse.json({ data: escala, message: "Escala já existe com cultos." })
+      }
+
+      // Está vazia — deleta para poder gerar nova
+      await (supabase as any).from("escalas").delete().eq("id", existente.id)
+    }
+
+    // Gerar nova escala via função SQL
+    const { data: novaId, error } = await (supabase as any).rpc("gerar_escala_automatica", {
       p_mes: mes,
       p_ano: ano,
       p_igreja_id: igreja_id,
@@ -22,29 +52,15 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    // Buscar escala gerada com detalhes
-    const { data: escala, error: escalaError } = await supabase
+    const { data: escala, error: escalaError } = await (supabase as any)
       .from("escalas")
-      .select(`
-        *,
-        escalas_detalhes(
-          *,
-          membro_oracao:membros!membro_oracao_id(id, nome, telefone),
-          membro_louvor:membros!membro_louvor_id(id, nome, telefone),
-          membro_pregacao:membros!membro_pregacao_id(id, nome, telefone),
-          membro_som:membros!membro_som_id(id, nome, telefone),
-          membro_recepcao:membros!membro_recepcao_id(id, nome, telefone)
-        )
-      `)
-      .eq("id", data)
-      .single() as any
+      .select("id, mes, ano, status, data_geracao, igreja_id")
+      .eq("id", novaId)
+      .single()
 
     if (escalaError) throw escalaError
 
-    return NextResponse.json({
-      data: escala,
-      message: "Escala gerada com sucesso!"
-    })
+    return NextResponse.json({ data: escala, message: "Escala gerada com sucesso!" })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
