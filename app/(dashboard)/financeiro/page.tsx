@@ -19,6 +19,14 @@ interface Lancamento {
   valor: number
   forma_pagamento: string
   status: string
+  categorias_financeiras?: { nome: string; cor: string }
+}
+
+interface Categoria {
+  id: string
+  nome: string
+  tipo: string
+  cor: string
 }
 
 const FORMAS = ["dinheiro", "pix", "transferencia", "debito", "credito", "boleto", "cheque"]
@@ -26,6 +34,7 @@ const FORMAS = ["dinheiro", "pix", "transferencia", "debito", "credito", "boleto
 const EMPTY_FORM = {
   tipo: "entrada" as "entrada" | "saida",
   data: new Date().toISOString().split("T")[0],
+  categoria_id: "",
   descricao: "",
   valor: "",
   forma_pagamento: "pix",
@@ -39,6 +48,7 @@ export default function FinanceiroPage() {
 
   const [igrejaId, setIgrejaId] = useState("")
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
   const [stats, setStats] = useState({ entradas: 0, saidas: 0, saldo: 0 })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -48,6 +58,11 @@ export default function FinanceiroPage() {
   const [exportando, setExportando] = useState(false)
 
   useEffect(() => {
+    fetch("/api/financeiro/categorias")
+      .then(r => r.json())
+      .then(j => setCategorias(j.data ?? []))
+      .catch(() => {})
+
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       ;(supabase as any).from("profiles").select("igreja_id").eq("id", user.id).single()
@@ -86,9 +101,20 @@ export default function FinanceiroPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtroTipo, igrejaId])
 
+  // Quando muda o tipo, reseta categoria_id para forçar seleção compatível
+  function setTipo(tipo: "entrada" | "saida") {
+    setForm(f => ({ ...f, tipo, categoria_id: "" }))
+  }
+
+  const categoriasFiltradas = categorias.filter(c => c.tipo === form.tipo)
+
   async function handleSave() {
-    if (!form.descricao || !form.valor || !form.data) {
-      toast({ variant: "destructive", title: "Preencha descrição, valor e data" })
+    if (!form.categoria_id) {
+      toast({ variant: "destructive", title: "Selecione uma categoria" })
+      return
+    }
+    if (!form.valor || !form.data) {
+      toast({ variant: "destructive", title: "Preencha valor e data" })
       return
     }
     setSaving(true)
@@ -100,7 +126,8 @@ export default function FinanceiroPage() {
           igreja_id: igrejaId,
           tipo: form.tipo,
           data: form.data,
-          descricao: form.descricao,
+          categoria_id: form.categoria_id,
+          descricao: form.descricao || categorias.find(c => c.id === form.categoria_id)?.nome || "",
           valor: parseFloat(String(form.valor).replace(",", ".")),
           forma_pagamento: form.forma_pagamento,
           status: form.status,
@@ -279,14 +306,34 @@ export default function FinanceiroPage() {
               </Button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Tipo */}
               <div className="flex gap-2">
-                <Button type="button" variant={form.tipo === "entrada" ? "default" : "outline"} className="flex-1" onClick={() => setForm(f => ({ ...f, tipo: "entrada" }))}>
+                <Button type="button" variant={form.tipo === "entrada" ? "default" : "outline"} className="flex-1" onClick={() => setTipo("entrada")}>
                   <TrendingUp className="mr-2 h-4 w-4" /> Entrada
                 </Button>
-                <Button type="button" variant={form.tipo === "saida" ? "destructive" : "outline"} className="flex-1" onClick={() => setForm(f => ({ ...f, tipo: "saida" }))}>
+                <Button type="button" variant={form.tipo === "saida" ? "destructive" : "outline"} className="flex-1" onClick={() => setTipo("saida")}>
                   <TrendingDown className="mr-2 h-4 w-4" /> Saída
                 </Button>
               </div>
+
+              {/* Categoria */}
+              <div className="space-y-2">
+                <Label>Categoria *</Label>
+                <select
+                  value={form.categoria_id}
+                  onChange={e => setForm(f => ({ ...f, categoria_id: e.target.value }))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione uma categoria...</option>
+                  {categoriasFiltradas.map(c => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                  {categoriasFiltradas.length === 0 && (
+                    <option disabled>Nenhuma categoria cadastrada</option>
+                  )}
+                </select>
+              </div>
+
               <div className="grid gap-4 grid-cols-2">
                 <div className="space-y-2">
                   <Label>Data *</Label>
@@ -297,10 +344,13 @@ export default function FinanceiroPage() {
                   <Input value={form.valor} onChange={e => setForm(f => ({ ...f, valor: e.target.value }))} placeholder="0,00" />
                 </div>
               </div>
+
+              {/* Descrição opcional */}
               <div className="space-y-2">
-                <Label>Descrição *</Label>
-                <Input value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Ex: Dízimos do culto..." />
+                <Label>Descrição <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                <Input value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Ex: Dízimos do culto de domingo..." />
               </div>
+
               <div className="grid gap-4 grid-cols-2">
                 <div className="space-y-2">
                   <Label>Forma de pagamento</Label>
@@ -317,6 +367,7 @@ export default function FinanceiroPage() {
                   </select>
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label>Observações</Label>
                 <Input value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} placeholder="Opcional" />
