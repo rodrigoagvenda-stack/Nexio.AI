@@ -35,6 +35,7 @@ interface SidebarProps {
   planName?: string;
   hasBriefing?: boolean;
   brandLogoUrl?: string | null;
+  userRole?: string;
 }
 
 interface NavLink {
@@ -97,6 +98,7 @@ export const Sidebar = memo(function Sidebar({
   planName,
   hasBriefing = false,
   brandLogoUrl,
+  userRole,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -143,10 +145,17 @@ export const Sidebar = memo(function Sidebar({
     const planNameUpper = planName?.toUpperCase() || '';
     const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
 
+    const isCloser = userRole === 'closer';
+    const isSdr = userRole === 'sdr';
+
     const sections = navSections.map(section => ({
       ...section,
       links: section.links.filter(link => {
         if (link.href === '/prospect' && !hasOrbitAccess) return false;
+        // Closer não acessa Orbit, Automação, Membros
+        if (isCloser && (link.href === '/prospect' || link.href === '/outbound' || link.href === '/membros')) return false;
+        // SDR não acessa Membros
+        if (isSdr && link.href === '/membros') return false;
         return true;
       }),
     })).filter(section => section.links.length > 0);

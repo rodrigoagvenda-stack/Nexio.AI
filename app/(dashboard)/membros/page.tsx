@@ -229,10 +229,11 @@ export default function MembrosPage() {
     const variants: Record<string, { label: string; variant: any }> = {
       admin: { label: 'Admin', variant: 'default' },
       manager: { label: 'Gerente', variant: 'secondary' },
-      member: { label: 'Membro', variant: 'outline' },
+      sdr: { label: 'SDR', variant: 'outline' },
+      closer: { label: 'Closer', variant: 'outline' },
     };
 
-    const config = variants[role] || variants.member;
+    const config = variants[role] || { label: 'Membro', variant: 'outline' };
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
@@ -395,7 +396,8 @@ export default function MembrosPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="member">Membro</SelectItem>
+                    <SelectItem value="sdr">SDR</SelectItem>
+                    <SelectItem value="closer">Closer</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
@@ -442,7 +444,8 @@ export default function MembrosPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="member">Membro</SelectItem>
+                    <SelectItem value="sdr">SDR</SelectItem>
+                    <SelectItem value="closer">Closer</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>

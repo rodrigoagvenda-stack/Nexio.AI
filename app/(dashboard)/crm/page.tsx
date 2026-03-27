@@ -467,12 +467,19 @@ export default function CRMPage() {
   async function fetchLeads() {
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
         .select('*')
         .eq('company_id', user?.company_id)
         .order('created_at', { ascending: false })
-        .limit(100); // 🚀 Performance: Carrega apenas 100 leads iniciais (reduzido de 500 para melhor UX)
+        .limit(100);
+
+      // Closer só vê seus próprios leads atribuídos
+      if (user?.role === 'closer') {
+        query = query.eq('user_id', user.user_id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setLeads(data || []);

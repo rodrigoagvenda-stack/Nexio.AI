@@ -198,7 +198,7 @@ export default function AtendimentoPage() {
 
   async function fetchConversations() {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('conversas_do_whatsapp')
         .select(`
           *,
@@ -206,7 +206,14 @@ export default function AtendimentoPage() {
         `)
         .eq('company_id', company!.id)
         .order('hora_da_ultima_mensagem', { ascending: false })
-        .limit(50); // 🚀 Performance: Carrega apenas 50 conversas mais recentes
+        .limit(50);
+
+      // Closer só vê conversas dos seus leads atribuídos
+      if (user?.role === 'closer') {
+        query = query.eq('lead.user_id', user.user_id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setConversations(data || []);
