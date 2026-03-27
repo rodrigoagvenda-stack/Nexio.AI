@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2 } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2, MoreVertical, Info } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
@@ -85,6 +87,7 @@ export default function AtendimentoPage() {
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const [assignDialog, setAssignDialog] = useState(false);
   const [deleteConvDialog, setDeleteConvDialog] = useState<{ open: boolean; conv: Conversation | null }>({ open: false, conv: null });
+  const [mobileLeadInfoOpen, setMobileLeadInfoOpen] = useState(false);
   const [isDeletingConv, setIsDeletingConv] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiActive, setIsAiActive] = useState(true);
@@ -1141,141 +1144,98 @@ export default function AtendimentoPage() {
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
-              <CardHeader className="border-b flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="lg:hidden"
-                      onClick={() => setSelectedConversation(null)}
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>
-                        {getInitials(
-                          selectedConversation.nome_do_contato ||
-                            selectedConversation.numero_de_telefone
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold">
-                        {selectedConversation.nome_do_contato ||
-                          selectedConversation.numero_de_telefone}
-                      </h3>
-                      {selectedConversation.lead && (
-                        <p className="text-sm text-muted-foreground">
-                          {selectedConversation.lead.company_name}
-                        </p>
-                      )}
-                      {selectedConversation.assigned_to && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                          <UserCircle2 className="h-3 w-3" />
-                          <span>Atribuído a você</span>
-                        </div>
-                      )}
-                    </div>
+              <CardHeader className="border-b flex-shrink-0 px-3 py-3">
+                <div className="flex items-center gap-2">
+                  {/* Voltar (mobile) */}
+                  <Button variant="ghost" size="icon" className="lg:hidden flex-shrink-0 -ml-1" onClick={() => setSelectedConversation(null)}>
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+
+                  {/* Avatar */}
+                  <Avatar className="h-9 w-9 flex-shrink-0">
+                    <AvatarFallback className="text-sm">
+                      {getInitials(selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone)}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Nome + empresa */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">
+                      {selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {selectedConversation.lead?.company_name || selectedConversation.numero_de_telefone}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {selectedConversation.numero_de_telefone && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')}
-                        title="Abrir no WhatsApp"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    )}
+
+                  {/* Ações desktop */}
+                  <div className="hidden lg:flex items-center gap-2">
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="outline" size="sm"
                       onClick={async () => {
                         const newValue = !isAiActive;
                         setIsAiActive(newValue);
                         try {
-                          const res = await fetch('/api/company/ai-toggle', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ is_active: newValue }),
-                          });
-                          if (!res.ok) {
-                            setIsAiActive(!newValue);
-                            toast({ title: 'Erro ao atualizar IA', variant: 'destructive' });
-                          } else {
-                            toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
-                          }
-                        } catch {
-                          setIsAiActive(!newValue);
-                          toast({ title: 'Erro ao atualizar IA', variant: 'destructive' });
-                        }
+                          const res = await fetch('/api/company/ai-toggle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: newValue }) });
+                          if (!res.ok) { setIsAiActive(!newValue); toast({ title: 'Erro ao atualizar IA', variant: 'destructive' }); }
+                          else toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
+                        } catch { setIsAiActive(!newValue); toast({ title: 'Erro ao atualizar IA', variant: 'destructive' }); }
                       }}
-                      title={isAiActive ? 'Pausar IA' : 'Retomar IA'}
-                      className={isAiActive
-                        ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600'
-                        : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600'
-                      }
+                      className={isAiActive ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10' : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10'}
                     >
-                      {isAiActive ? (
-                        <><Bot className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA ativa</span></>
-                      ) : (
-                        <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA pausada</span></>
-                      )}
+                      {isAiActive ? <><Bot className="h-4 w-4 mr-1.5" /><span className="text-xs">IA ativa</span></> : <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="text-xs">IA pausada</span></>}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setScheduleDialog(true)}
-                      title="Agendar mensagem"
-                    >
-                      <Clock className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" onClick={() => setScheduleDialog(true)} title="Agendar"><Clock className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => setAssignDialog(true)}>
+                      <UserCircle2 className="h-4 w-4 mr-1.5" />
+                      {selectedConversation.assigned_to ? 'Transferir' : 'Atribuir'}
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAssignDialog(true)}
-                      title={selectedConversation.assigned_to ? "Transferir atendimento" : "Atribuir atendimento"}
-                    >
-                      <UserCircle2 className="h-4 w-4 mr-2" />
-                      <span className="hidden sm:inline">{selectedConversation.assigned_to ? "Transferir" : "Atribuir"}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                      title={isSidebarOpen ? "Fechar sidebar" : "Abrir sidebar"}
-                      className="hidden lg:flex"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                       {isSidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                     </Button>
-                    {selectedConversation.etiquetas?.slice(0, 2).map((tag) => (
-                      <Badge key={tag} variant="secondary" className="hidden md:flex">
-                        {tag}
-                      </Badge>
-                    ))}
+                  </div>
+
+                  {/* Ações mobile: info + more */}
+                  <div className="flex lg:hidden items-center gap-1">
+                    {selectedConversation.lead && (
+                      <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setMobileLeadInfoOpen(true)}>
+                        <Info className="h-5 w-5" />
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                          <MoreVertical className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={async () => {
+                          const newValue = !isAiActive;
+                          setIsAiActive(newValue);
+                          try {
+                            const res = await fetch('/api/company/ai-toggle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: newValue }) });
+                            if (!res.ok) { setIsAiActive(!newValue); toast({ title: 'Erro ao atualizar IA', variant: 'destructive' }); }
+                            else toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
+                          } catch { setIsAiActive(!newValue); }
+                        }}>
+                          {isAiActive ? <><PauseCircle className="h-4 w-4 mr-2 text-amber-500" />Pausar IA</> : <><Bot className="h-4 w-4 mr-2 text-emerald-500" />Ativar IA</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setScheduleDialog(true)}>
+                          <Clock className="h-4 w-4 mr-2" />Agendar mensagem
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setAssignDialog(true)}>
+                          <UserCircle2 className="h-4 w-4 mr-2" />{selectedConversation.assigned_to ? 'Transferir' : 'Atribuir'}
+                        </DropdownMenuItem>
+                        {selectedConversation.numero_de_telefone && (
+                          <DropdownMenuItem onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')}>
+                            <ExternalLink className="h-4 w-4 mr-2" />Abrir no WhatsApp
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
-
-                {selectedConversation.lead && (
-                  <div className="flex gap-4 mt-4 text-sm">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Phone className="h-4 w-4" />
-                      {selectedConversation.numero_de_telefone}
-                    </div>
-                    {selectedConversation.lead.email && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Mail className="h-4 w-4" />
-                        {selectedConversation.lead.email}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <Tag className="h-4 w-4" />
-                      <Badge variant="outline">{selectedConversation.lead.status}</Badge>
-                    </div>
-                  </div>
-                )}
               </CardHeader>
 
               {/* Mensagens */}
@@ -1520,6 +1480,35 @@ export default function AtendimentoPage() {
           )
         )}
       </div>
+
+      {/* Mobile Lead Info Sheet */}
+      <Sheet open={mobileLeadInfoOpen} onOpenChange={setMobileLeadInfoOpen}>
+        <SheetContent side="bottom" className="h-[85vh] p-0 lg:hidden rounded-t-2xl">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <SheetTitle className="text-sm">Informações do Lead</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto h-full pb-20">
+            {selectedConversation?.lead && (
+              <LeadInfoSidebar
+                lead={selectedConversation.lead}
+                phone={selectedConversation.numero_de_telefone}
+                companyId={company!.id}
+                userId={user!.user_id}
+                chatId={selectedConversation.id}
+                tags={selectedConversation.etiquetas || []}
+                onLeadUpdate={(updatedLead) => {
+                  setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);
+                  fetchConversations();
+                }}
+                onTagsUpdate={(updatedTags) => {
+                  setSelectedConversation((prev) => prev ? { ...prev, etiquetas: updatedTags } : prev);
+                  fetchConversations();
+                }}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Attachment Options Dialog */}
       <AttachmentOptionsDialog
