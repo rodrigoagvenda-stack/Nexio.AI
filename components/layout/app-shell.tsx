@@ -12,19 +12,20 @@ interface AppShellProps {
 
 export function AppShell({ user, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   return (
     <div className="min-h-screen bg-background">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-      <div data-sidebar>
-        <Sidebar user={user} mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      </div>
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <Sidebar
+        user={user}
+        mobileOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(v => !v)}
+      />
+      <div
+        className={`flex flex-col min-h-screen transition-all duration-300 ${collapsed ? "lg:pl-[60px]" : "lg:pl-56"}`}
+      >
         <div data-header>
           <Header user={user} onMenuOpen={() => setSidebarOpen(true)} />
         </div>
