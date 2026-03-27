@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 
-export function LogoutButton() {
+interface LogoutButtonProps {
+  iconOnly?: boolean
+}
+
+export function LogoutButton({ iconOnly = false }: LogoutButtonProps) {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
@@ -26,6 +30,21 @@ export function LogoutButton() {
         description: error.message,
       })
     }
+  }
+
+  if (iconOnly) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleLogout}
+        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+        title="Sair"
+        aria-label="Sair"
+      >
+        <LogOut className="h-4 w-4" />
+      </Button>
+    )
   }
 
   return (
