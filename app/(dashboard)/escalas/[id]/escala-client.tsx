@@ -146,6 +146,7 @@ interface EscalaClientProps {
     ano: number
     status: string
     data_geracao: string
+    igreja_id?: string
   }
   detalhes: any[]
   membros: { id: string; nome: string }[]
@@ -296,7 +297,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
         body: JSON.stringify({
           mes: escala.mes,
           ano: escala.ano,
-          igreja_id: profile.igreja_id,
+          igreja_id: escala.igreja_id ?? profile?.igreja_id,
         }),
       })
       const j = await res.json()
