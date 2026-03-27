@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Plus, Trash2, Eye, Pencil, Printer, Loader2, Info } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Eye, Pencil, Printer, Loader2, Info, Sparkles } from "lucide-react"
 import Link from "next/link"
 
 const DIAS = [
@@ -184,6 +184,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
   const [rows, setRows] = useState<RowData[]>(() => detalhes.map(detalheToRow))
   const [deletedIds, setDeletedIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   const igrejaNome: string = profile?.igrejas?.nome ?? profile?.igreja?.nome ?? "IPVB"
 
@@ -283,6 +284,30 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
       toast({ variant: "destructive", title: "Erro ao salvar", description: e.message })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleGerar = async () => {
+    setGenerating(true)
+    try {
+      const res = await fetch("/api/escalas/gerar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mes: escala.mes,
+          ano: escala.ano,
+          igreja_id: profile.igreja_id,
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? "Erro ao gerar escala")
+      toast({ title: "Escala gerada com sucesso!" })
+      router.push(`/escalas/${j.data.id}`)
+      router.refresh()
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao gerar", description: e.message })
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -495,89 +520,79 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
       {/* ─── SCREEN LAYOUT ───────────────────────────────────────────────────── */}
       <div className="print:hidden space-y-5">
 
-        {/* ── Hero header card ── */}
-        <div
-          className="rounded-2xl overflow-hidden shadow-lg"
-          style={{ background: "linear-gradient(135deg, #1a4a2e 0%, #2d7a4f 100%)" }}
-        >
-          <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
-            {/* Left: back + title */}
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <Link href="/escalas">
-                <button className="mt-0.5 rounded-full p-1.5 text-white/70 hover:text-white hover:bg-white/15 transition-colors shrink-0">
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-              </Link>
-              <div className="min-w-0">
-                <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">
-                  {igrejaNome}
-                </p>
-                <h1 className="text-white text-2xl font-bold leading-tight tracking-tight">
-                  Escala de Cultos
-                </h1>
-                <p className="text-emerald-200 text-base font-semibold mt-0.5">
-                  {mesAnoLabel}
-                </p>
-              </div>
-            </div>
-
-            {/* Right: status badge + action buttons */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusStyle}`}>
-                {statusLabel}
-              </span>
-
-              {!editMode && (
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium bg-white/10 text-white hover:bg-white/20 border border-white/20 transition-colors"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  Imprimir
-                </button>
-              )}
-
-              <button
-                onClick={() => setEditMode(v => !v)}
-                className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium bg-white text-[#1a4a2e] hover:bg-emerald-50 transition-colors font-semibold shadow"
-              >
-                {editMode ? (
-                  <><Eye className="h-3.5 w-3.5" />Visualizar</>
-                ) : (
-                  <><Pencil className="h-3.5 w-3.5" />Editar</>
-                )}
+        {/* ── Clean page header ── */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link href="/escalas">
+              <button className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors">
+                <ArrowLeft className="h-4 w-4" />
               </button>
+            </Link>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold tracking-tight">Escala de Cultos</h1>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${statusStyle}`}>
+                  {statusLabel}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">{mesAnoLabel}</p>
             </div>
           </div>
 
-          {/* Stats strip */}
-          <div className="border-t border-white/10 px-6 py-2.5 flex gap-6">
-            <div className="text-center">
-              <p className="text-white text-lg font-bold leading-none">{rows.length}</p>
-              <p className="text-white/55 text-[11px] mt-0.5">Cultos</p>
-            </div>
-            <div className="text-center">
-              <p className="text-white text-lg font-bold leading-none">{membros.length}</p>
-              <p className="text-white/55 text-[11px] mt-0.5">Membros</p>
-            </div>
-            {escala.data_geracao && (
-              <div className="text-center">
-                <p className="text-white text-base font-semibold leading-none">{formatDate(escala.data_geracao.split("T")[0])}</p>
-                <p className="text-white/55 text-[11px] mt-0.5">Gerada em</p>
-              </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {rows.length === 0 && (
+              <button
+                onClick={handleGerar}
+                disabled={generating}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                {generating
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Gerando...</>
+                  : <><Sparkles className="h-3.5 w-3.5" />Gerar Automaticamente</>
+                }
+              </button>
             )}
+            {!editMode && rows.length > 0 && (
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium border border-border bg-card hover:bg-muted transition-colors"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Imprimir
+              </button>
+            )}
+            <button
+              onClick={() => setEditMode(v => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium border border-border bg-card hover:bg-muted transition-colors"
+            >
+              {editMode
+                ? <><Eye className="h-3.5 w-3.5" />Visualizar</>
+                : <><Pencil className="h-3.5 w-3.5" />Editar</>
+              }
+            </button>
           </div>
         </div>
 
-        {/* ── Empty info banner (view mode only) ── */}
+        {/* ── Empty state ── */}
         {!editMode && rows.length === 0 && (
-          <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3.5">
-            <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-            <p className="text-sm text-blue-800 leading-relaxed">
-              A escala é gerada automaticamente com base nos ministérios dos membros cadastrados.
-              Adicione membros às funções (Oração, Louvor, Pregação...) em{" "}
-              <strong>Membros → Funções</strong>.
+          <div className="bg-card border border-border rounded-2xl p-12 text-center">
+            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="text-base font-semibold mb-1">Nenhum culto nesta escala</h3>
+            <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
+              Clique em <strong>Gerar Automaticamente</strong> para preencher a escala com base nos membros e suas funções cadastradas.
             </p>
+            <button
+              onClick={handleGerar}
+              disabled={generating}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors shadow-sm"
+            >
+              {generating
+                ? <><Loader2 className="h-4 w-4 animate-spin" />Gerando...</>
+                : <><Sparkles className="h-4 w-4" />Gerar Automaticamente</>
+              }
+            </button>
           </div>
         )}
 
