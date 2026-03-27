@@ -508,7 +508,7 @@ export default function FinanceiroPage() {
                               style={{
                                 backgroundColor: cat.cor ? `${cat.cor}22` : undefined,
                                 color: cat.cor ?? undefined,
-                                ringColor: cat.cor ? `${cat.cor}55` : undefined,
+                                outline: cat.cor ? `1px solid ${cat.cor}55` : undefined,
                               }}
                             >
                               {cat.nome}
