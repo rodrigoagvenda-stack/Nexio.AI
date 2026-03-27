@@ -225,7 +225,7 @@ export default function OutboundPage() {
     try {
       const { data, error } = await supabase
         .from('outbound_campaigns')
-        .select('*, lead:leads!outbound_campaigns_campaign_id_fkey(contact_name, company_name, whatsapp)')
+        .select('*, lead:leads!lead_id(contact_name, company_name, whatsapp)')
         .eq('company_id', company.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
