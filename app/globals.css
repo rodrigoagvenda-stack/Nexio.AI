@@ -3,11 +3,17 @@
 @tailwind utilities;
 
 @page {
-  size: A4;
-  margin: 18mm 20mm 15mm 20mm;
+  margin: 15mm 18mm;
 }
 
 @media print {
+  /* Zera animações — sem isso elementos ficam em opacity:0 e a página sai em branco */
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+  }
+
   /* Oculta toda a UI do sistema */
   [data-sidebar],
   [data-header],

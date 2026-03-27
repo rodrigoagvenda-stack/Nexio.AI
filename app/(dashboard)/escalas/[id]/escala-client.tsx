@@ -4,7 +4,8 @@ import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Plus, Trash2, Eye, Pencil, Printer, Loader2, Info, Sparkles } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Eye, Pencil, Printer, Loader2, Info, Sparkles, AlertTriangle } from "lucide-react"
+import { useEffect } from "react"
 import Link from "next/link"
 
 const DIAS = [
@@ -186,6 +187,17 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
   const [deletedIds, setDeletedIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Força orientação paisagem ao imprimir esta página
+  useEffect(() => {
+    const style = document.createElement("style")
+    style.id = "escala-print-landscape"
+    style.textContent = "@media print { @page { size: A4 landscape; margin: 10mm 15mm; } }"
+    document.head.appendChild(style)
+    return () => { document.getElementById("escala-print-landscape")?.remove() }
+  }, [])
 
   const igrejaNome: string = profile?.igrejas?.nome ?? profile?.igreja?.nome ?? "IPVB"
 
@@ -309,6 +321,22 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
       toast({ variant: "destructive", title: "Erro ao gerar", description: e.message })
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/escalas/${escala.id}`, { method: "DELETE" })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? "Erro ao deletar escala")
+      toast({ title: "Escala deletada." })
+      router.push("/escalas")
+      router.refresh()
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao deletar", description: e.message })
+      setDeleting(false)
+      setConfirmDelete(false)
     }
   }
 
@@ -571,7 +599,49 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                 : <><Pencil className="h-3.5 w-3.5" />Editar</>
               }
             </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-card hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors text-muted-foreground"
+              title="Deletar escala"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </div>
+
+          {/* Delete confirmation dialog */}
+          {confirmDelete && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+              <div className="bg-card border border-border rounded-2xl shadow-xl p-6 max-w-sm w-full">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Deletar escala?</p>
+                    <p className="text-xs text-muted-foreground">Escala de {mesAnoLabel}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mb-5">
+                  Todos os cultos desta escala serão removidos permanentemente. Esta ação não pode ser desfeita.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 rounded-lg bg-destructive text-destructive-foreground px-4 py-2 text-sm font-semibold hover:bg-destructive/90 disabled:opacity-60 transition-colors"
+                  >
+                    {deleting ? "Deletando..." : "Deletar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Empty state ── */}
