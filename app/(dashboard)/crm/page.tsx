@@ -317,6 +317,8 @@ export default function CRMPage() {
   const [isPromoting, setIsPromoting] = useState(false);
   const [showDemoteConfirm, setShowDemoteConfirm] = useState(false);
   const [isDemoting, setIsDemoting] = useState(false);
+  const [mobileColumnPages, setMobileColumnPages] = useState<Record<string, number>>({});
+  const MOBILE_PAGE_SIZE = 6;
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -1129,11 +1131,7 @@ export default function CRMPage() {
         </OrbitCard>
       ) : viewMode === 'kanban' ? (
         <>
-          {/* Mobile banner — visible only on small screens */}
-          <div className="md:hidden flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2.5 text-sm text-muted-foreground">
-            <Maximize2 className="h-4 w-4 shrink-0" />
-            <span>Use o modo <strong className="text-foreground">planilha</strong> no celular para melhor experiência</span>
-          </div>
+          {/* Mobile Kanban - Horizontal snap scroll, one column per screen */}
 
           {/* Desktop Kanban */}
           <DndContext
@@ -1190,177 +1188,91 @@ export default function CRMPage() {
             </DragOverlay>
           </DndContext>
 
-        {/* Mobile Kanban - Vertical List with Status Selector */}
-        <div className="md:hidden space-y-3">
-          {leads.filter(l => l.status === 'Triagem').length > 0 && (
-            <div className="flex items-center justify-between rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3">
-              <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
-                <Filter className="h-4 w-4" />
-                <span className="font-medium">{leads.filter(l => l.status === 'Triagem').length} lead(s) em Triagem</span>
-              </div>
-              <button
-                onClick={() => setShowPromoteConfirm(true)}
-                className="flex items-center gap-1 rounded-md px-3 py-1 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
-              >
-                <Megaphone className="h-3 w-3" />
-                Promover todos
-              </button>
-            </div>
-          )}
-          {filteredLeads.map((lead) => (
-            <OrbitCard key={lead.id} className="hover:shadow-lg transition-shadow">
-              <OrbitCardContent className="p-4">
-                <div className="space-y-3">
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <h4 className="font-semibold text-sm flex-1">{lead.company_name}</h4>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => handleOpenModal(lead)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setDeletingLead(lead)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                      </Button>
-                    </div>
+        {/* Mobile Kanban - Horizontal snap scroll */}
+        <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none' }}>
+          {columns.map((column) => {
+            const colLeads = getLeadsByStatus(column.id);
+            const page = mobileColumnPages[column.id] || 0;
+            const totalPages = Math.ceil(colLeads.length / MOBILE_PAGE_SIZE);
+            const pageLeads = colLeads.slice(page * MOBILE_PAGE_SIZE, (page + 1) * MOBILE_PAGE_SIZE);
+
+            return (
+              <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col gap-2">
+                {/* Column header */}
+                <div className="flex items-center justify-between px-1 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{column.title}</span>
+                    <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded-full">{colLeads.length}</span>
                   </div>
-
-                  {/* Contact Info */}
-                  {lead.contact_name && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {lead.contact_name}
-                    </p>
+                  {column.id === 'Triagem' && colLeads.length > 0 && (
+                    <button onClick={() => setShowPromoteConfirm(true)} className="flex items-center gap-1 text-xs text-orange-500 bg-orange-500/10 px-2 py-1 rounded-md">
+                      <Megaphone className="h-3 w-3" />Promover
+                    </button>
                   )}
-                  {lead.whatsapp && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {lead.whatsapp}
-                    </p>
-                  )}
-                  {lead.project_value && lead.project_value > 0 && (
-                    <p className="text-sm font-semibold text-primary flex items-center gap-1">
-                      <DollarSign className="h-4 w-4" />
-                      R$ {lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  )}
-
-                  {/* Status Selector */}
-                  <div>
-                    <Label htmlFor={`status-${lead.id}`} className="text-xs text-muted-foreground">
-                      Status
-                    </Label>
-                    <Select
-                      value={lead.status}
-                      onValueChange={async (newStatus) => {
-                        // Update optimistically
-                        setLeads(prevLeads =>
-                          prevLeads.map(l =>
-                            l.id === lead.id ? { ...l, status: newStatus as Lead['status'] } : l
-                          )
-                        );
-
-                        // Persist to database
-                        try {
-                          const supabase = createClient();
-                          const oldStatus = lead.status;
-
-                          // Preparar dados para atualização
-                          const updateData: any = { status: newStatus };
-
-                          // Se o novo status for "Fechado", adicionar closed_at
-                          if (newStatus === 'Fechado') {
-                            updateData.closed_at = new Date().toISOString();
-                          }
-
-                          const { error } = await supabase
-                            .from('leads')
-                            .update(updateData)
-                            .eq('id', lead.id);
-
-                          if (error) throw error;
-
-                          // Criar log de atividade (fire-and-forget via API — bypassa RLS)
-                          if (user && company) {
-                            logActivity({
-                              user_id: user.auth_user_id,
-                              company_id: company.id,
-                              action: 'lead_status_change',
-                              description: `Alterou status do lead "${lead.company_name}" de "${oldStatus}" para "${newStatus}"`,
-                              metadata: {
-                                lead_id: lead.id,
-                                old_status: oldStatus,
-                                new_status: newStatus,
-                                lead_name: lead.company_name,
-                                contact_name: lead.contact_name,
-                              },
-                            });
-                          }
-
-                          toast({ title: 'Status atualizado!', description: `Status alterado para "${newStatus}"` });
-                        } catch (error) {
-                          console.error('Error updating status:', error);
-                          toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
-                          fetchLeads(); // Revert on error
-                        }
-                      }}
-                    >
-                      <SelectTrigger id={`status-${lead.id}`} className="mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {columns.map((col) => (
-                          <SelectItem key={col.id} value={col.id}>
-                            {col.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Priority and Interest Level */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      lead.priority === 'Alta' ? 'bg-red-500/20 text-red-700' :
-                      lead.priority === 'Média' ? 'bg-primary/20 text-primary' :
-                      'bg-gray-500/20 text-gray-700'
-                    }`}>
-                      {lead.priority}
-                    </span>
-                    {lead.nivel_interesse && (
-                      <span className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
-                        lead.nivel_interesse.includes('Quente') ? 'bg-red-500/10 text-red-600' :
-                        lead.nivel_interesse.includes('Morno') ? 'bg-blue-500/10 text-blue-600' :
-                        'bg-gray-500/10 text-gray-600'
-                      }`}>
-                        {lead.nivel_interesse.includes('Quente') && <Flame className="h-3 w-3" />}
-                        {lead.nivel_interesse}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Segment */}
-                  {lead.segment && (
-                    <p className="text-xs text-muted-foreground italic flex items-center gap-1">
-                      <Building2 className="h-3 w-3" />
-                      {lead.segment}
-                    </p>
+                  {column.id === 'Outbound' && colLeads.length > 0 && (
+                    <button onClick={() => setShowDemoteConfirm(true)} className="flex items-center gap-1 text-xs text-orange-500 bg-orange-500/10 px-2 py-1 rounded-md">
+                      <Filter className="h-3 w-3" />Voltar
+                    </button>
                   )}
                 </div>
-              </OrbitCardContent>
-            </OrbitCard>
-          ))}
+
+                {/* Cards */}
+                {colLeads.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+                    Sem leads
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {pageLeads.map((lead) => (
+                        <OrbitCard key={lead.id} className="hover:shadow-md transition-shadow">
+                          <OrbitCardContent className="p-3">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h4 className="font-semibold text-sm flex-1 leading-tight">{lead.company_name}</h4>
+                              <div className="flex gap-0.5 flex-shrink-0">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenModal(lead)}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDeletingLead(lead)}>
+                                  <Trash2 className="h-3 w-3 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
+                            {lead.contact_name && <p className="text-xs text-muted-foreground">{lead.contact_name}</p>}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${lead.priority === 'Alta' ? 'bg-red-500/20 text-red-600' : lead.priority === 'Média' ? 'bg-primary/20 text-primary' : 'bg-gray-500/20 text-gray-600'}`}>{lead.priority}</span>
+                              {lead.project_value && lead.project_value > 0 && (
+                                <span className="text-[10px] font-medium text-primary">R$ {lead.project_value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                              )}
+                            </div>
+                          </OrbitCardContent>
+                        </OrbitCard>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 pt-1">
+                        <button
+                          disabled={page === 0}
+                          onClick={() => setMobileColumnPages(p => ({ ...p, [column.id]: page - 1 }))}
+                          className="text-xs px-2 py-1 rounded bg-accent disabled:opacity-30"
+                        >‹</button>
+                        <span className="text-xs text-muted-foreground">{page + 1}/{totalPages}</span>
+                        <button
+                          disabled={page >= totalPages - 1}
+                          onClick={() => setMobileColumnPages(p => ({ ...p, [column.id]: page + 1 }))}
+                          className="text-xs px-2 py-1 rounded bg-accent disabled:opacity-30"
+                        >›</button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
-        </>
+</>
       ) : (
         <>
           {/* Desktop Table View */}
