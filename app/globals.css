@@ -183,10 +183,11 @@
     --input: 217 19% 18%;
     --ring: 152 60% 40%;
 
-    --card: 222 14% 10%;
+    /* Cards slightly lighter than background for better contrast in dark mode */
+    --card: 222 14% 12%;
     --card-foreground: 210 20% 96%;
 
-    --popover: 222 14% 10%;
+    --popover: 222 14% 12%;
     --popover-foreground: 210 20% 96%;
   }
 }
@@ -199,6 +200,45 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
+
+/* ─── Global UI Improvements ──────────────────────────────────────────────── */
+
+/* Subtle shadow on all shadcn card-like elements */
+@layer components {
+  .rounded-lg.border,
+  [class*="rounded"][class*="border bg-card"] {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+  }
+}
+
+/* Smooth transitions on interactive elements */
+button,
+a,
+[role="button"] {
+  transition: all 0.15s ease;
+}
+
+/* Modern focus ring */
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Table row hover */
+tbody tr:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Fade-up animation for page sections */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+main > * {
+  animation: fadeUp 0.25s ease-out both;
 }
 
 /* Scrollbar */
