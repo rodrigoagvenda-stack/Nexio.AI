@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__figma__whoami",
+      "Bash(for f:*)",
+      "Bash(do grep:*)",
+      "Bash(done)",
+      "Bash(ls /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/escalas/[id]/)",
+      "Bash(git add:*)",
+      "Bash(find /c/Users/rodri/Documents/Venda.AI -type f -name *brief*)",
+      "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/dashboard/page.tsx)",
+      "Bash(git -C \"C:/Users/rodri/IPVB_sistema\" status)",
+      "Bash(git -C \"C:/Users/rodri/IPVB_sistema\" log --oneline -5)",
+      "Bash(npm install:*)",
+      "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/escalas/[id]/escala-client.tsx)",
+      "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/escalas/page.tsx)",
+      "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/escalas/nova/page.tsx)",
+      "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/eventos/page.tsx)",
+      "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/ministerios/page.tsx)"
+    ]
+  }
+}

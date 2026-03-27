@@ -15,10 +15,8 @@ function parseDateLocal(dateStr: string) {
 function DateBadge({ dateStr }: { dateStr: string }) {
   const d = parseDateLocal(dateStr)
   return (
-    <div className="flex flex-col items-center justify-center w-12 h-14 bg-white rounded-lg shadow-sm border border-gray-100 text-center">
-      <span className="text-xl font-bold leading-none text-gray-800">
-        {d.getDate()}
-      </span>
+    <div className="flex flex-col items-center justify-center w-12 h-14 bg-muted rounded-lg text-center shrink-0">
+      <span className="text-xl font-bold leading-none">{d.getDate()}</span>
       <span className="text-[10px] font-semibold tracking-wider text-amber-600 mt-0.5">
         {MESES_ABREV[d.getMonth()]}
       </span>
@@ -80,7 +78,7 @@ export default async function EventosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 border border-amber-100">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10">
             <CalendarDays className="h-5 w-5 text-amber-600" />
           </div>
           <div>

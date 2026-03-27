@@ -41,7 +41,7 @@ export default async function MinisteriosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 border border-purple-100">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/10">
             <Layers className="h-5 w-5 text-purple-600" />
           </div>
           <div>
