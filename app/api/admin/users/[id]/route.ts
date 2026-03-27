@@ -73,8 +73,10 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
-    // Buscar o usuário para pegar o auth_user_id
-    const { data: userToDelete, error: fetchError } = await supabase
+    const serviceSupabase = createServiceClient();
+
+    // Buscar o usuário para pegar o auth_user_id (via service client para bypassar RLS)
+    const { data: userToDelete, error: fetchError } = await serviceSupabase
       .from('users')
       .select('auth_user_id')
       .eq('id', params.id)
@@ -83,8 +85,6 @@ export async function DELETE(
     if (fetchError || !userToDelete) {
       throw new Error('Usuário não encontrado');
     }
-
-    const serviceSupabase = createServiceClient();
 
     // 1. Deletar da tabela users
     const { error: deleteUserError } = await serviceSupabase
