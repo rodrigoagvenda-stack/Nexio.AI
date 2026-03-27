@@ -11,6 +11,8 @@ import {
   CalendarDays,
   ArrowRight,
   Church,
+  Heart,
+  Cake,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -27,6 +29,7 @@ export default async function DashboardPage() {
   const { data: igreja } = await (supabase as any)
     .from("igrejas").select("*").eq("id", profile.igreja_id || "").single()
 
+  // Counts
   const { count: totalMembros } = await (supabase as any)
     .from("membros").select("*", { count: "exact", head: true })
     .eq("igreja_id", profile.igreja_id).eq("status", "ativo")
@@ -40,30 +43,94 @@ export default async function DashboardPage() {
     .from("ministerios").select("*", { count: "exact", head: true })
     .eq("igreja_id", profile.igreja_id).eq("ativo", true)
 
+  // Saldo do mês — query lancamentos_financeiros for current month
+  const now = new Date()
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0]
+
+  const { data: lancamentos } = await (supabase as any)
+    .from("lancamentos_financeiros")
+    .select("tipo, valor")
+    .eq("igreja_id", profile.igreja_id)
+    .gte("data", firstDayOfMonth)
+    .lte("data", lastDayOfMonth)
+
+  let saldoMes = 0
+  if (lancamentos) {
+    for (const l of lancamentos) {
+      const valor = Number(l.valor) || 0
+      if (l.tipo === "entrada") saldoMes += valor
+      else if (l.tipo === "saida") saldoMes -= valor
+    }
+  }
+
+  // Pedidos de oração ativos
+  const { count: totalPedidosOracao } = await (supabase as any)
+    .from("pedidos_oracao")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "ativo")
+
+  // Próximos eventos
   const { data: proximosEventos } = await (supabase as any)
     .from("eventos").select("*")
     .eq("igreja_id", profile.igreja_id)
     .gte("data_inicio", new Date().toISOString().split("T")[0])
     .order("data_inicio").limit(5)
 
+  // Membros recentes
   const { data: membrosRecentes } = await (supabase as any)
     .from("membros").select("nome, data_entrada")
     .eq("igreja_id", profile.igreja_id)
     .order("created_at", { ascending: false }).limit(5)
 
+  // Aniversariantes do mês — fetch all active members with data_nascimento and filter in JS
+  const { data: todosMembros } = await (supabase as any)
+    .from("membros")
+    .select("id, nome, data_nascimento")
+    .eq("igreja_id", profile.igreja_id)
+    .eq("status", "ativo")
+    .not("data_nascimento", "is", null)
+
+  const mesAtual = now.getMonth()
+  const aniversariantesMes: { id: string; nome: string; dia: number }[] = []
+  if (todosMembros) {
+    for (const m of todosMembros) {
+      if (!m.data_nascimento) continue
+      const dt = new Date(m.data_nascimento + "T12:00:00")
+      if (dt.getMonth() === mesAtual) {
+        aniversariantesMes.push({ id: m.id, nome: m.nome, dia: dt.getDate() })
+      }
+    }
+    aniversariantesMes.sort((a, b) => a.dia - b.dia)
+  }
+  const aniversariantesExibir = aniversariantesMes.slice(0, 5)
+
+  // Próximos cultos
+  const today = new Date().toISOString().split("T")[0]
+  const { data: proximosCultos } = await (supabase as any)
+    .from("escalas_detalhes")
+    .select("*, escalas!inner(igreja_id)")
+    .eq("escalas.igreja_id", profile.igreja_id)
+    .gte("data_culto", today)
+    .order("data_culto")
+    .limit(5)
+
   const stats = [
-    { label: "Membros ativos",    value: totalMembros ?? 0,        icon: Users,     href: "/membros" },
-    { label: "Próximos eventos",  value: totalEventos ?? 0,        icon: CalendarDays, href: "/eventos" },
-    { label: "Ministérios",       value: totalMinisterios ?? 0,    icon: Building2, href: "/ministerios" },
-    { label: "Saldo do mês",      value: formatCurrency(0),        icon: Wallet,    href: "/financeiro" },
+    { label: "Membros ativos",    value: totalMembros ?? 0,           icon: Users,       href: "/membros" },
+    { label: "Próximos eventos",  value: totalEventos ?? 0,           icon: CalendarDays, href: "/eventos" },
+    { label: "Ministérios",       value: totalMinisterios ?? 0,       icon: Building2,   href: "/ministerios" },
+    { label: "Saldo do mês",      value: formatCurrency(saldoMes),    icon: Wallet,      href: "/financeiro" },
+    { label: "Pedidos ativos",    value: totalPedidosOracao ?? 0,     icon: Heart,       href: "/pedidos-oracao" },
   ]
+
+  const mesesPt = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
 
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Bom dia, {profile.nome?.split(" ")[0]}
+          Olá, {profile.nome?.split(" ")[0]}
         </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           {igreja?.nome || "Igreja Pentecostal Vale da Bênção"}
@@ -71,7 +138,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href}>
             <Card className="hover:border-primary/40 transition-colors cursor-pointer">
@@ -89,7 +156,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Content grid */}
+      {/* Content grid — row 1: Próximos Eventos + Membros Recentes */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Próximos Eventos */}
         <Card>
@@ -170,6 +237,99 @@ export default async function DashboardPage() {
                 <Link href="/membros/novo">
                   <Button variant="outline" size="sm" className="mt-3 h-8 text-xs">
                     Adicionar membro
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Content grid — row 2: Aniversariantes + Próximos Cultos */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Aniversariantes do mês */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-sm font-semibold">Aniversariantes do Mês</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                {mesesPt[mesAtual].charAt(0).toUpperCase() + mesesPt[mesAtual].slice(1)} — {aniversariantesMes.length} aniversariante{aniversariantesMes.length !== 1 ? "s" : ""}
+              </CardDescription>
+            </div>
+            <Link href="/membros">
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5">
+                Ver membros <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {aniversariantesExibir.length > 0 ? (
+              <div className="space-y-2">
+                {aniversariantesExibir.map((aniv) => (
+                  <Link key={aniv.id} href={`/membros/${aniv.id}`}>
+                    <div className="flex items-center gap-3 p-2.5 rounded-md hover:bg-muted transition-colors">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <Cake className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{aniv.nome}</p>
+                        <p className="text-xs text-muted-foreground">Dia {aniv.dia}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {aniversariantesMes.length > 5 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    +{aniversariantesMes.length - 5} outros
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Cake className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum aniversariante este mês</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Próximos Cultos */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-sm font-semibold">Próximos Cultos</CardTitle>
+              <CardDescription className="text-xs mt-0.5">Escalas programadas</CardDescription>
+            </div>
+            <Link href="/escalas">
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5">
+                Ver todos <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {proximosCultos?.length > 0 ? (
+              <div className="space-y-2">
+                {proximosCultos.map((culto: any) => (
+                  <Link key={culto.id} href={`/escalas/${culto.escala_id ?? culto.id}`}>
+                    <div className="flex items-center gap-3 p-2.5 rounded-md hover:bg-muted transition-colors">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <Church className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{culto.tipo_culto || "Culto"}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(culto.data_culto)}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Church className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum culto programado</p>
+                <Link href="/escalas/nova">
+                  <Button variant="outline" size="sm" className="mt-3 h-8 text-xs">
+                    Criar escala
                   </Button>
                 </Link>
               </div>
