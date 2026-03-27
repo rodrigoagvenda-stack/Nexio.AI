@@ -3,9 +3,8 @@
 import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
-import { ArrowLeft, Plus, Trash2, Eye, Pencil, Printer, Loader2 } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Eye, Pencil, Printer, Loader2, Info } from "lucide-react"
 import Link from "next/link"
 
 const DIAS = [
@@ -25,9 +24,90 @@ const STATUS_LABELS: Record<string, string> = {
   enviada: "Enviada",
 }
 
-const DIA_COLORS: Record<number, string> = {
-  0: "text-teal-700 font-semibold",    // Domingo
-  5: "text-amber-600 font-semibold",   // Sexta-feira
+const STATUS_STYLES: Record<string, string> = {
+  rascunho: "bg-amber-100 text-amber-800 border border-amber-300",
+  confirmando: "bg-blue-100 text-blue-800 border border-blue-300",
+  finalizada: "bg-emerald-100 text-emerald-800 border border-emerald-300",
+  enviada: "bg-purple-100 text-purple-800 border border-purple-300",
+}
+
+// Left border color and row tint by dia_semana
+// 0 = Domingo → emerald, 3 = Quarta-feira → blue, 5 = Sexta-feira → amber, rest → gray
+function getRowStyle(diaSemana: number): {
+  borderColor: string
+  bgEven: string
+  bgOdd: string
+  dayTextClass: string
+} {
+  switch (diaSemana) {
+    case 0:
+      return {
+        borderColor: "#10b981",
+        bgEven: "#f0fdf4",
+        bgOdd: "#ffffff",
+        dayTextClass: "text-emerald-700 font-semibold",
+      }
+    case 3:
+      return {
+        borderColor: "#3b82f6",
+        bgEven: "#eff6ff",
+        bgOdd: "#ffffff",
+        dayTextClass: "text-blue-700 font-semibold",
+      }
+    case 5:
+      return {
+        borderColor: "#f59e0b",
+        bgEven: "#fffbeb",
+        bgOdd: "#ffffff",
+        dayTextClass: "text-amber-700 font-semibold",
+      }
+    default:
+      return {
+        borderColor: "#9ca3af",
+        bgEven: "#f9fafb",
+        bgOdd: "#ffffff",
+        dayTextClass: "text-gray-600",
+      }
+  }
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(n => n[0].toUpperCase())
+    .join("")
+}
+
+const AVATAR_COLORS = [
+  "#1a4a2e", "#2d7a4f", "#1d4ed8", "#7c3aed",
+  "#b45309", "#0f766e", "#9f1239", "#065f46",
+]
+
+function avatarColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+function MemberChip({ name }: { name: string }) {
+  if (!name || name === "—") {
+    return <span className="text-gray-400 text-xs italic">—</span>
+  }
+  const initials = getInitials(name)
+  const bg = avatarColor(name)
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-flex items-center justify-center rounded-full text-white text-[10px] font-bold shrink-0"
+        style={{ width: 24, height: 24, backgroundColor: bg }}
+      >
+        {initials}
+      </span>
+      <span className="text-sm text-gray-800 leading-tight">{name}</span>
+    </span>
+  )
 }
 
 function getDiaSemanaFromDate(dateStr: string): number {
@@ -53,7 +133,6 @@ interface RowData {
   membro_louvor_id: string
   membro_pregacao_id: string
   observacoes: string
-  // extra joined data for view mode
   membro_oracao?: { id: string; nome: string } | null
   membro_louvor?: { id: string; nome: string } | null
   membro_pregacao?: { id: string; nome: string } | null
@@ -106,7 +185,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
   const [deletedIds, setDeletedIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
-  const igrejaNome: string = profile?.igrejas?.nome ?? profile?.igreja?.nome ?? ""
+  const igrejaNome: string = profile?.igrejas?.nome ?? profile?.igreja?.nome ?? "IPVB"
 
   const updateRow = useCallback((key: string, field: keyof RowData, value: string | number) => {
     setRows(prev => prev.map(r => {
@@ -154,7 +233,6 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
       const escalaId = escala.id
       const baseUrl = `/api/escalas/${escalaId}/detalhes`
 
-      // DELETE removed rows
       for (const id of deletedIds) {
         const res = await fetch(`${baseUrl}?detalheId=${id}`, { method: "DELETE" })
         if (!res.ok) {
@@ -164,7 +242,6 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
       }
       setDeletedIds([])
 
-      // UPDATE or INSERT rows
       const updatedRows: RowData[] = []
       for (const row of rows) {
         const payload = {
@@ -179,7 +256,6 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
         }
 
         if (row.id) {
-          // PATCH existing
           const res = await fetch(baseUrl, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -189,7 +265,6 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
           if (!res.ok) throw new Error(j.error ?? "Erro ao salvar culto")
           updatedRows.push({ ...row, ...j.data })
         } else {
-          // POST new
           const res = await fetch(baseUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -213,207 +288,373 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
 
   const memberName = (id: string) => membros.find(m => m.id === id)?.nome ?? "—"
 
+  const printDate = new Date().toLocaleDateString("pt-BR")
+  const mesAnoLabel = `${MESES[escala.mes]} de ${escala.ano}`
+  const statusLabel = STATUS_LABELS[escala.status] ?? escala.status
+  const statusStyle = STATUS_STYLES[escala.status] ?? "bg-gray-100 text-gray-700 border border-gray-300"
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Link href="/escalas">
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-semibold tracking-tight leading-tight">
-              Escala de Cultos
-              {igrejaNome ? ` — ${igrejaNome}` : ""} | {MESES[escala.mes]} de {escala.ano}
-            </h1>
-            <Badge variant="secondary">{STATUS_LABELS[escala.status] ?? escala.status}</Badge>
-          </div>
+    <>
+      {/* ─── PRINT-ONLY DOCUMENT ─────────────────────────────────────────────── */}
+      <div className="hidden print:block font-sans text-black">
+        {/* Print header */}
+        <div className="text-center border-b-2 border-black pb-4 mb-6">
+          <div className="text-3xl mb-1">✝</div>
+          <h1 className="text-2xl font-bold uppercase tracking-wide">{igrejaNome}</h1>
+          <p className="text-base font-semibold uppercase tracking-wider mt-1">
+            Escala de Cultos — {MESES[escala.mes].toUpperCase()} {escala.ano}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">Status: {statusLabel}</p>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          {!editMode && (
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="h-4 w-4 mr-1.5" />
-              Imprimir
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditMode(v => !v)}
-          >
-            {editMode ? (
-              <><Eye className="h-4 w-4 mr-1.5" />Visualizar</>
-            ) : (
-              <><Pencil className="h-4 w-4 mr-1.5" />Editar</>
+
+        {/* Print table */}
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border border-black bg-gray-100">
+              <th className="border border-black px-3 py-2 text-left font-bold">Data</th>
+              <th className="border border-black px-3 py-2 text-left font-bold">Dia</th>
+              <th className="border border-black px-3 py-2 text-left font-bold">Tipo</th>
+              <th className="border border-black px-3 py-2 text-left font-bold">Oração</th>
+              <th className="border border-black px-3 py-2 text-left font-bold">Louvor</th>
+              <th className="border border-black px-3 py-2 text-left font-bold">Pregação</th>
+              <th className="border border-black px-3 py-2 text-left font-bold">Obs.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={7} className="border border-black px-3 py-4 text-center text-gray-500">
+                  Nenhum culto registrado nesta escala.
+                </td>
+              </tr>
             )}
-          </Button>
+            {rows.map((row, idx) => {
+              const orNome = row.membro_oracao?.nome ?? (row.membro_oracao_id ? memberName(row.membro_oracao_id) : "—")
+              const lovNome = row.membro_louvor?.nome ?? (row.membro_louvor_id ? memberName(row.membro_louvor_id) : "—")
+              const pregNome = row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "—")
+              return (
+                <tr key={row._key} style={{ backgroundColor: idx % 2 === 0 ? "#f9f9f9" : "#ffffff" }}>
+                  <td className="border border-black px-3 py-2 whitespace-nowrap font-medium">{formatDate(row.data_culto)}</td>
+                  <td className="border border-black px-3 py-2 whitespace-nowrap">{DIAS[row.dia_semana] ?? "—"}</td>
+                  <td className="border border-black px-3 py-2 whitespace-nowrap">{row.tipo_culto || "—"}</td>
+                  <td className="border border-black px-3 py-2">{orNome || "—"}</td>
+                  <td className="border border-black px-3 py-2">{lovNome || "—"}</td>
+                  <td className="border border-black px-3 py-2">{pregNome || "—"}</td>
+                  <td className="border border-black px-3 py-2 text-gray-600">{row.observacoes || "—"}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        {/* Print footer */}
+        <div className="text-center text-xs text-gray-500 mt-6 pt-3 border-t border-gray-400">
+          Gerado em {printDate}
         </div>
       </div>
 
-      {/* Edit mode */}
-      {editMode ? (
-        <div className="space-y-3">
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted text-muted-foreground text-left">
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">Data</th>
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">Dia da Semana</th>
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">Oração</th>
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">Louvor</th>
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">Pregação</th>
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">Observações</th>
-                  <th className="px-3 py-2 w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
-                      Nenhum culto. Clique em "Adicionar Culto" para começar.
-                    </td>
-                  </tr>
+      {/* ─── SCREEN LAYOUT ───────────────────────────────────────────────────── */}
+      <div className="print:hidden space-y-5">
+
+        {/* ── Hero header card ── */}
+        <div
+          className="rounded-2xl overflow-hidden shadow-lg"
+          style={{ background: "linear-gradient(135deg, #1a4a2e 0%, #2d7a4f 100%)" }}
+        >
+          <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            {/* Left: back + title */}
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <Link href="/escalas">
+                <button className="mt-0.5 rounded-full p-1.5 text-white/70 hover:text-white hover:bg-white/15 transition-colors shrink-0">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+              </Link>
+              <div className="min-w-0">
+                <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">
+                  {igrejaNome}
+                </p>
+                <h1 className="text-white text-2xl font-bold leading-tight tracking-tight">
+                  Escala de Cultos
+                </h1>
+                <p className="text-emerald-200 text-base font-semibold mt-0.5">
+                  {mesAnoLabel}
+                </p>
+              </div>
+            </div>
+
+            {/* Right: status badge + action buttons */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusStyle}`}>
+                {statusLabel}
+              </span>
+
+              {!editMode && (
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium bg-white/10 text-white hover:bg-white/20 border border-white/20 transition-colors"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Imprimir
+                </button>
+              )}
+
+              <button
+                onClick={() => setEditMode(v => !v)}
+                className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium bg-white text-[#1a4a2e] hover:bg-emerald-50 transition-colors font-semibold shadow"
+              >
+                {editMode ? (
+                  <><Eye className="h-3.5 w-3.5" />Visualizar</>
+                ) : (
+                  <><Pencil className="h-3.5 w-3.5" />Editar</>
                 )}
-                {rows.map(row => (
-                  <tr key={row._key} className="border-t hover:bg-muted/30">
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="date"
-                        value={row.data_culto}
-                        onChange={e => updateRow(row._key, "data_culto", e.target.value)}
-                        className="h-8 w-36 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
-                    </td>
-                    <td className="px-3 py-1.5 whitespace-nowrap text-muted-foreground text-xs">
-                      {DIAS[row.dia_semana] ?? "—"}
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <select
-                        value={row.membro_oracao_id}
-                        onChange={e => updateRow(row._key, "membro_oracao_id", e.target.value)}
-                        className="h-8 w-40 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value="">— Nenhum —</option>
-                        {membros.map(m => (
-                          <option key={m.id} value={m.id}>{m.nome}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <select
-                        value={row.membro_louvor_id}
-                        onChange={e => updateRow(row._key, "membro_louvor_id", e.target.value)}
-                        className="h-8 w-40 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value="">— Nenhum —</option>
-                        {membros.map(m => (
-                          <option key={m.id} value={m.id}>{m.nome}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <select
-                        value={row.membro_pregacao_id}
-                        onChange={e => updateRow(row._key, "membro_pregacao_id", e.target.value)}
-                        className="h-8 w-40 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value="">— Nenhum —</option>
-                        {membros.map(m => (
-                          <option key={m.id} value={m.id}>{m.nome}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        value={row.observacoes}
-                        onChange={e => updateRow(row._key, "observacoes", e.target.value)}
-                        placeholder="Observações..."
-                        className="h-8 w-44 rounded border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                        onClick={() => deleteRow(row._key)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={addRow}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Adicionar Culto
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Salvando...</>
-              ) : (
-                "Salvar Tudo"
-              )}
-            </Button>
+          {/* Stats strip */}
+          <div className="border-t border-white/10 px-6 py-2.5 flex gap-6">
+            <div className="text-center">
+              <p className="text-white text-lg font-bold leading-none">{rows.length}</p>
+              <p className="text-white/55 text-[11px] mt-0.5">Cultos</p>
+            </div>
+            <div className="text-center">
+              <p className="text-white text-lg font-bold leading-none">{membros.length}</p>
+              <p className="text-white/55 text-[11px] mt-0.5">Membros</p>
+            </div>
+            {escala.data_geracao && (
+              <div className="text-center">
+                <p className="text-white text-base font-semibold leading-none">{formatDate(escala.data_geracao.split("T")[0])}</p>
+                <p className="text-white/55 text-[11px] mt-0.5">Gerada em</p>
+              </div>
+            )}
           </div>
         </div>
-      ) : (
-        /* View mode */
-        <div className="overflow-x-auto rounded-md border print:border-none">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr style={{ backgroundColor: "#2d5a27", color: "#fff" }}>
-                <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Data</th>
-                <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Dia da Semana</th>
-                <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Oração</th>
-                <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Louvor</th>
-                <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Pregação</th>
-                <th className="px-4 py-2.5 text-left font-semibold whitespace-nowrap">Observações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                    Nenhum culto nesta escala.
-                  </td>
-                </tr>
-              )}
-              {rows.map((row, idx) => {
-                const orNome = row.membro_oracao?.nome ?? (row.membro_oracao_id ? memberName(row.membro_oracao_id) : "—")
-                const lovNome = row.membro_louvor?.nome ?? (row.membro_louvor_id ? memberName(row.membro_louvor_id) : "—")
-                const pregNome = row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "—")
-                const diaColor = DIA_COLORS[row.dia_semana] ?? "text-gray-600"
 
-                return (
-                  <tr
-                    key={row._key}
-                    className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                  >
-                    <td className="px-4 py-2.5 whitespace-nowrap font-medium">
-                      {formatDate(row.data_culto)}
-                    </td>
-                    <td className={`px-4 py-2.5 whitespace-nowrap ${diaColor}`}>
-                      {DIAS[row.dia_semana] ?? "—"}
-                    </td>
-                    <td className="px-4 py-2.5">{orNome || "—"}</td>
-                    <td className="px-4 py-2.5">{lovNome || "—"}</td>
-                    <td className="px-4 py-2.5">{pregNome || "—"}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{row.observacoes || "—"}</td>
+        {/* ── Empty info banner (view mode only) ── */}
+        {!editMode && rows.length === 0 && (
+          <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3.5">
+            <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-blue-800 leading-relaxed">
+              A escala é gerada automaticamente com base nos ministérios dos membros cadastrados.
+              Adicione membros às funções (Oração, Louvor, Pregação...) em{" "}
+              <strong>Membros → Funções</strong>.
+            </p>
+          </div>
+        )}
+
+        {/* ── EDIT MODE ── */}
+        {editMode ? (
+          <div className="space-y-4">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr style={{ backgroundColor: "#1a4a2e" }}>
+                    {/* color indicator column */}
+                    <th className="w-1 py-3 px-0" />
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Data</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Dia da Semana</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Oração</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Louvor</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Pregação</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Observações</th>
+                    <th className="w-10 py-3" />
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-10 text-center text-gray-400 text-sm">
+                        Nenhum culto adicionado. Clique em{" "}
+                        <span className="font-semibold text-gray-600">"Adicionar Culto"</span>{" "}
+                        para começar.
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map((row, idx) => {
+                    const style = getRowStyle(row.dia_semana)
+                    const bg = idx % 2 === 0 ? style.bgEven : style.bgOdd
+                    return (
+                      <tr
+                        key={row._key}
+                        className="border-t border-gray-100 hover:brightness-95 transition-all"
+                        style={{ backgroundColor: bg }}
+                      >
+                        {/* Color indicator strip */}
+                        <td
+                          className="w-1 p-0"
+                          style={{ backgroundColor: style.borderColor, minWidth: 4 }}
+                        />
+                        <td className="px-3 py-2">
+                          <input
+                            type="date"
+                            value={row.data_culto}
+                            onChange={e => updateRow(row._key, "data_culto", e.target.value)}
+                            className="h-8 w-36 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          />
+                        </td>
+                        <td className={`px-4 py-2 whitespace-nowrap text-xs ${style.dayTextClass}`}>
+                          {DIAS[row.dia_semana] ?? "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.membro_oracao_id}
+                            onChange={e => updateRow(row._key, "membro_oracao_id", e.target.value)}
+                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          >
+                            <option value="">— Nenhum —</option>
+                            {membros.map(m => (
+                              <option key={m.id} value={m.id}>{m.nome}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.membro_louvor_id}
+                            onChange={e => updateRow(row._key, "membro_louvor_id", e.target.value)}
+                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          >
+                            <option value="">— Nenhum —</option>
+                            {membros.map(m => (
+                              <option key={m.id} value={m.id}>{m.nome}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={row.membro_pregacao_id}
+                            onChange={e => updateRow(row._key, "membro_pregacao_id", e.target.value)}
+                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          >
+                            <option value="">— Nenhum —</option>
+                            {membros.map(m => (
+                              <option key={m.id} value={m.id}>{m.nome}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={row.observacoes}
+                            onChange={e => updateRow(row._key, "observacoes", e.target.value)}
+                            placeholder="Observações..."
+                            className="h-8 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <button
+                            onClick={() => deleteRow(row._key)}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="Remover culto"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Edit action bar */}
+            <div className="flex items-center justify-between gap-3">
+              <button
+                onClick={addRow}
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium border-2 border-dashed border-emerald-400 text-emerald-700 hover:border-emerald-600 hover:bg-emerald-50 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar Culto
+              </button>
+
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-full px-6 py-2 text-sm font-semibold text-white transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ background: saving ? "#9ca3af" : "linear-gradient(135deg, #1a4a2e, #2d7a4f)" }}
+              >
+                {saving ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Salvando...</>
+                ) : (
+                  "Salvar Tudo"
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ── VIEW MODE ── */
+          <div className="rounded-xl border border-gray-200 shadow-sm overflow-hidden bg-white">
+            {rows.length === 0 ? (
+              <div className="py-16 text-center text-gray-400">
+                <div className="text-4xl mb-3 opacity-30">✝</div>
+                <p className="text-sm font-medium text-gray-500">Nenhum culto nesta escala.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr style={{ backgroundColor: "#1a4a2e" }}>
+                      <th className="w-1 py-3 px-0" />
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Data</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Dia</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Tipo</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Oração</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Louvor</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Pregação</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Obs.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, idx) => {
+                      const style = getRowStyle(row.dia_semana)
+                      const bg = idx % 2 === 0 ? style.bgEven : style.bgOdd
+                      const orNome = row.membro_oracao?.nome ?? (row.membro_oracao_id ? memberName(row.membro_oracao_id) : "—")
+                      const lovNome = row.membro_louvor?.nome ?? (row.membro_louvor_id ? memberName(row.membro_louvor_id) : "—")
+                      const pregNome = row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "—")
+
+                      return (
+                        <tr
+                          key={row._key}
+                          className="border-t border-gray-100 transition-colors"
+                          style={{ backgroundColor: bg }}
+                          onMouseEnter={e => (e.currentTarget.style.filter = "brightness(0.97)")}
+                          onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}
+                        >
+                          {/* Color indicator strip */}
+                          <td
+                            className="w-1 p-0"
+                            style={{ backgroundColor: style.borderColor, minWidth: 4 }}
+                          />
+                          <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-800">
+                            {formatDate(row.data_culto)}
+                          </td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-sm ${style.dayTextClass}`}>
+                            {DIAS[row.dia_semana] ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">
+                            {row.tipo_culto || <span className="text-gray-400 italic text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <MemberChip name={orNome} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <MemberChip name={lovNome} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <MemberChip name={pregNome} />
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 text-sm max-w-[160px] truncate" title={row.observacoes || ""}>
+                            {row.observacoes || <span className="text-gray-300 italic text-xs">—</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   )
 }

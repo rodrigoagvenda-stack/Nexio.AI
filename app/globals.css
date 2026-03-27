@@ -6,6 +6,7 @@
   /* Oculta toda a UI do sistema */
   [data-sidebar],
   [data-header],
+  [data-no-print],
   nav,
   aside,
   header {
@@ -14,17 +15,100 @@
 
   /* Remove padding/margin do layout */
   body,
-  main,
-  .print-content {
+  main {
     padding: 0 !important;
     margin: 0 !important;
+    background: white !important;
+    color: black !important;
   }
 
-  /* Oculta botões e controles */
+  /* Oculta botões e controles de tela */
   button,
   [role="button"],
-  a[href] {
+  a[href]:not([data-print-link]) {
     display: none !important;
+  }
+
+  /* Mostra apenas o conteúdo printável */
+  [data-print-only] {
+    display: block !important;
+  }
+
+  /* Escala de cultos — layout profissional */
+  .print-escala-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #1a4a2e;
+  }
+
+  .print-escala-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a4a2e;
+    margin: 0 0 4px 0;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .print-escala-header h2 {
+    font-size: 15px;
+    font-weight: 500;
+    color: #444;
+    margin: 0;
+  }
+
+  .print-escala-header .church-cross {
+    font-size: 28px;
+    color: #1a4a2e;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 12px;
+  }
+
+  .print-table th {
+    background-color: #1a4a2e !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: white !important;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid #0f3320;
+  }
+
+  .print-table td {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    vertical-align: middle;
+  }
+
+  .print-table tr:nth-child(even) td {
+    background-color: #f5faf5 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-table tr:nth-child(odd) td {
+    background-color: white !important;
+  }
+
+  .print-footer {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 9px;
+    color: #888;
+    border-top: 1px solid #eee;
+    padding-top: 8px;
   }
 
   /* Garante que a tabela ocupe a página toda */
