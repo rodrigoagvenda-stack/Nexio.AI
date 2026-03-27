@@ -27,8 +27,16 @@ interface Igreja {
   cultos?: CultoRegular[]
 }
 
-const EMPTY_FORM = {
-  nome: "", tipo: "congregacao" as const,
+interface IgrejaForm {
+  nome: string
+  tipo: "sede" | "congregacao"
+  telefone: string
+  email: string
+  endereco: { rua: string; cidade: string; estado: string }
+}
+
+const EMPTY_FORM: IgrejaForm = {
+  nome: "", tipo: "congregacao",
   telefone: "", email: "",
   endereco: { rua: "", cidade: "", estado: "" },
 }
@@ -42,7 +50,7 @@ export default function IgrejasPage() {
   const [saving, setSaving] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Igreja | null>(null)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState<IgrejaForm>(EMPTY_FORM)
   const [cultos, setCultos] = useState<CultoRegular[]>([])
   const [deleteTarget, setDeleteTarget] = useState<Igreja | null>(null)
   const [deleting, setDeleting] = useState(false)
