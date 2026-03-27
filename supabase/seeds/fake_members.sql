@@ -11,6 +11,7 @@
 DO $$
 DECLARE
   v_igreja_id UUID;
+  v_user_id   UUID;
 
   -- IDs dos membros
   m01 UUID := gen_random_uuid();
@@ -42,7 +43,15 @@ BEGIN
     RAISE EXCEPTION 'Nenhuma igreja encontrada. Cadastre uma igreja primeiro.';
   END IF;
 
+  -- ── Pega o usuário admin da igreja (para created_by) ───────────
+  SELECT id INTO v_user_id FROM profiles WHERE igreja_id = v_igreja_id LIMIT 1;
+
+  IF v_user_id IS NULL THEN
+    SELECT id INTO v_user_id FROM auth.users LIMIT 1;
+  END IF;
+
   RAISE NOTICE 'Usando igreja_id: %', v_igreja_id;
+  RAISE NOTICE 'Usando user_id (created_by): %', v_user_id;
 
   -- ── Cultos Regulares (para geração automática funcionar) ───────
   INSERT INTO cultos_regulares (id, igreja_id, nome, dia_semana, horario, tipo, ativo) VALUES
@@ -207,81 +216,45 @@ BEGIN
   -- ── Lançamentos financeiros (para testar financeiro) ─────────
   -- Pega a primeira categoria de entrada e saída
   INSERT INTO lancamentos_financeiros
-    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status)
+    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status, created_by)
   SELECT
-    v_igreja_id,
-    CURRENT_DATE - INTERVAL '2 days',
-    'entrada',
-    id,
-    'Dízimos — Culto Domingo 23/03',
-    3850.00,
-    'pix',
-    'efetivado'
+    v_igreja_id, CURRENT_DATE - INTERVAL '2 days', 'entrada', id,
+    'Dízimos — Culto Domingo 23/03', 3850.00, 'pix', 'efetivado', v_user_id
   FROM categorias_financeiras WHERE nome = 'Dízimos' LIMIT 1;
 
   INSERT INTO lancamentos_financeiros
-    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status)
+    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status, created_by)
   SELECT
-    v_igreja_id,
-    CURRENT_DATE - INTERVAL '2 days',
-    'entrada',
-    id,
-    'Ofertas — Culto Domingo 23/03',
-    1240.50,
-    'dinheiro',
-    'efetivado'
+    v_igreja_id, CURRENT_DATE - INTERVAL '2 days', 'entrada', id,
+    'Ofertas — Culto Domingo 23/03', 1240.50, 'dinheiro', 'efetivado', v_user_id
   FROM categorias_financeiras WHERE nome = 'Ofertas' LIMIT 1;
 
   INSERT INTO lancamentos_financeiros
-    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status)
+    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status, created_by)
   SELECT
-    v_igreja_id,
-    CURRENT_DATE - INTERVAL '5 days',
-    'entrada',
-    id,
-    'Dízimos — Culto Domingo 16/03',
-    2980.00,
-    'pix',
-    'efetivado'
+    v_igreja_id, CURRENT_DATE - INTERVAL '5 days', 'entrada', id,
+    'Dízimos — Culto Domingo 16/03', 2980.00, 'pix', 'efetivado', v_user_id
   FROM categorias_financeiras WHERE nome = 'Dízimos' LIMIT 1;
 
   INSERT INTO lancamentos_financeiros
-    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status)
+    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status, created_by)
   SELECT
-    v_igreja_id,
-    CURRENT_DATE - INTERVAL '10 days',
-    'saida',
-    id,
-    'Conta de Luz — Março 2026',
-    487.30,
-    'pix',
-    'efetivado'
+    v_igreja_id, CURRENT_DATE - INTERVAL '10 days', 'saida', id,
+    'Conta de Luz — Março 2026', 487.30, 'pix', 'efetivado', v_user_id
   FROM categorias_financeiras WHERE nome = 'Luz' LIMIT 1;
 
   INSERT INTO lancamentos_financeiros
-    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status)
+    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status, created_by)
   SELECT
-    v_igreja_id,
-    CURRENT_DATE - INTERVAL '12 days',
-    'saida',
-    id,
-    'Aluguel — Março 2026',
-    2200.00,
-    'transferencia',
-    'efetivado'
+    v_igreja_id, CURRENT_DATE - INTERVAL '12 days', 'saida', id,
+    'Aluguel — Março 2026', 2200.00, 'transferencia', 'efetivado', v_user_id
   FROM categorias_financeiras WHERE nome = 'Aluguel' LIMIT 1;
 
   INSERT INTO lancamentos_financeiros
-    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status)
+    (igreja_id, data, tipo, categoria_id, descricao, valor, forma_pagamento, status, created_by)
   SELECT
-    v_igreja_id,
-    CURRENT_DATE - INTERVAL '8 days',
-    'saida',
-    id,
-    'Material de Limpeza — Março',
-    156.80,
-    'dinheiro',
-    'efetivado'
+    v_igreja_id, CURRENT_DATE - INTERVAL '8 days', 'saida', id,
+    'Material de Limpeza — Março', 156.80, 'dinheiro', 'efetivado', v_user_id
   FROM categorias_financeiras WHERE nome = 'Material de Limpeza' LIMIT 1;
 
   RAISE NOTICE '✅ Seed concluído com sucesso!';
