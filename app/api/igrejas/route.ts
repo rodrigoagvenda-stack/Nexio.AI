@@ -62,3 +62,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createClient()
+    const { id } = await request.json()
+    if (!id) return NextResponse.json({ error: "id obrigatório" }, { status: 400 })
+
+    const { error } = await (supabase as any).from("igrejas").delete().eq("id", id)
+    if (error) throw error
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

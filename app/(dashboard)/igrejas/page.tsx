@@ -1,12 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Church, Plus, Pencil, Loader2, X } from "lucide-react"
+import { Building2, Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Clock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+
+const DIAS_SEMANA = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]
+
+interface CultoRegular {
+  id?: string
+  nome: string
+  dia_semana: number
+  horario: string
+  tipo: string
+}
 
 interface Igreja {
   id: string
@@ -15,15 +24,16 @@ interface Igreja {
   telefone?: string
   email?: string
   endereco?: { rua?: string; cidade?: string; estado?: string }
+  cultos?: CultoRegular[]
 }
 
-const EMPTY: Omit<Igreja, "id"> = {
-  nome: "",
-  tipo: "congregacao",
-  telefone: "",
-  email: "",
+const EMPTY_FORM = {
+  nome: "", tipo: "congregacao" as const,
+  telefone: "", email: "",
   endereco: { rua: "", cidade: "", estado: "" },
 }
+
+const EMPTY_CULTO: CultoRegular = { nome: "", dia_semana: 0, horario: "19:00", tipo: "semana" }
 
 export default function IgrejasPage() {
   const { toast } = useToast()
@@ -32,7 +42,10 @@ export default function IgrejasPage() {
   const [saving, setSaving] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Igreja | null>(null)
-  const [form, setForm] = useState<Omit<Igreja, "id">>(EMPTY)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [cultos, setCultos] = useState<CultoRegular[]>([])
+  const [deleteTarget, setDeleteTarget] = useState<Igreja | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { fetchIgrejas() }, [])
 
@@ -49,26 +62,61 @@ export default function IgrejasPage() {
     }
   }
 
-  function openNew() {
-    setEditing(null)
-    setForm(EMPTY)
+  async function openEdit(ig: Igreja) {
+    setEditing(ig)
+    setForm({
+      nome: ig.nome, tipo: ig.tipo,
+      telefone: ig.telefone ?? "", email: ig.email ?? "",
+      endereco: ig.endereco ?? { rua: "", cidade: "", estado: "" },
+    })
+    // Fetch cultos regulares
+    try {
+      const res = await fetch(`/api/igrejas/cultos-regulares?igreja_id=${ig.id}`)
+      const json = await res.json()
+      setCultos(json.data ?? [])
+    } catch {
+      setCultos([])
+    }
     setModalOpen(true)
   }
 
-  function openEdit(ig: Igreja) {
-    setEditing(ig)
-    setForm({
-      nome: ig.nome,
-      tipo: ig.tipo,
-      telefone: ig.telefone ?? "",
-      email: ig.email ?? "",
-      endereco: ig.endereco ?? {},
-    })
+  function openNew() {
+    setEditing(null)
+    setForm(EMPTY_FORM)
+    setCultos([])
     setModalOpen(true)
+  }
+
+  function addCulto() {
+    setCultos(prev => [...prev, { ...EMPTY_CULTO }])
+  }
+
+  function removeCulto(idx: number) {
+    setCultos(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  function updateCulto(idx: number, field: keyof CultoRegular, value: string | number) {
+    setCultos(prev => prev.map((c, i) => {
+      if (i !== idx) return c
+      // Auto-fill nome when dia_semana changes if nome is empty or was auto-generated
+      if (field === "dia_semana") {
+        const dow = Number(value)
+        const autoNome = dow === 0 ? "Culto de Domingo" : `Culto de ${DIAS_SEMANA[dow]}`
+        return { ...c, dia_semana: dow, nome: c.nome || autoNome }
+      }
+      return { ...c, [field]: value }
+    }))
   }
 
   async function handleSave() {
-    if (!form.nome) { toast({ variant: "destructive", title: "Nome é obrigatório" }); return }
+    if (!form.nome.trim()) {
+      toast({ variant: "destructive", title: "Nome é obrigatório" }); return
+    }
+    for (const c of cultos) {
+      if (!c.horario) {
+        toast({ variant: "destructive", title: "Preencha o horário de todos os cultos" }); return
+      }
+    }
     setSaving(true)
     try {
       const payload = {
@@ -86,6 +134,15 @@ export default function IgrejasPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
 
+      const igId = editing?.id ?? json.data?.id
+      if (igId) {
+        await fetch("/api/igrejas/cultos-regulares", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ igreja_id: igId, cultos }),
+        })
+      }
+
       toast({ title: editing ? "Igreja atualizada!" : "Igreja cadastrada!" })
       setModalOpen(false)
       fetchIgrejas()
@@ -96,120 +153,252 @@ export default function IgrejasPage() {
     }
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch("/api/igrejas", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      toast({ title: "Igreja removida." })
+      setDeleteTarget(null)
+      fetchIgrejas()
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro ao deletar", description: e.message })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Igrejas</h2>
-          <p className="text-muted-foreground">Gerencie as igrejas e congregações</p>
+          <h1 className="text-2xl font-bold tracking-tight">Igrejas</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {igrejas.length} igreja{igrejas.length !== 1 ? "s" : ""} cadastrada{igrejas.length !== 1 ? "s" : ""}
+          </p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button size="sm" onClick={openNew} className="gap-2">
+          <Plus className="h-4 w-4" />
           Nova Igreja
         </Button>
       </div>
 
+      {/* List */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : igrejas.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-20 text-center">
+          <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+            <Building2 className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium mb-1">Nenhuma igreja cadastrada</p>
+          <p className="text-xs text-muted-foreground mb-4">Cadastre a primeira igreja para começar.</p>
+          <Button size="sm" onClick={openNew} className="gap-2">
+            <Plus className="h-4 w-4" /> Cadastrar Igreja
+          </Button>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {igrejas.map((ig) => (
-            <Card key={ig.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <Church className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{ig.nome}</CardTitle>
-                      <CardDescription className="capitalize">{ig.tipo}</CardDescription>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openEdit(ig)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+            <div key={ig.id} className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Building2 className="h-5 w-5 text-primary" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1 text-sm">
-                  {ig.telefone && <p className="text-muted-foreground">📞 {ig.telefone}</p>}
-                  {ig.email && <p className="text-muted-foreground">📧 {ig.email}</p>}
-                  {ig.endereco?.cidade && (
-                    <p className="text-muted-foreground">📍 {ig.endereco.cidade}{ig.endereco.estado ? ` — ${ig.endereco.estado}` : ""}</p>
-                  )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm leading-tight truncate">{ig.nome}</p>
+                  <p className="text-xs text-muted-foreground capitalize mt-0.5">{ig.tipo}</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
 
-          {igrejas.length === 0 && (
-            <Card className="col-span-full">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Church className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Nenhuma igreja cadastrada</h3>
-                <Button onClick={openNew} className="mt-2"><Plus className="mr-2 h-4 w-4" />Adicionar Igreja</Button>
-              </CardContent>
-            </Card>
-          )}
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {ig.telefone && <p>{ig.telefone}</p>}
+                {ig.email && <p>{ig.email}</p>}
+                {ig.endereco?.cidade && (
+                  <p>{ig.endereco.cidade}{ig.endereco.estado ? `, ${ig.endereco.estado}` : ""}</p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-border mt-auto">
+                <button
+                  onClick={() => openEdit(ig)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                >
+                  <Pencil className="h-3 w-3" /> Editar
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(ig)}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-border text-muted-foreground hover:bg-destructive/10 hover:border-destructive/30 hover:text-destructive transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Modal criar/editar */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background rounded-lg shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="text-lg font-semibold">{editing ? "Editar Igreja" : "Nova Igreja"}</h3>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setModalOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Nome *</Label>
-                  <Input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Nome da igreja" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <select
-                    value={form.tipo}
-                    onChange={e => setForm(f => ({ ...f, tipo: e.target.value as "sede" | "congregacao" }))}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="sede">Sede</option>
-                    <option value="congregacao">Congregação</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Telefone</Label>
-                  <Input value={form.telefone ?? ""} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>E-mail</Label>
-                  <Input type="email" value={form.email ?? ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="contato@igreja.com" />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Rua / Endereço</Label>
-                  <Input value={form.endereco?.rua ?? ""} onChange={e => setForm(f => ({ ...f, endereco: { ...f.endereco, rua: e.target.value } }))} placeholder="Rua..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input value={form.endereco?.cidade ?? ""} onChange={e => setForm(f => ({ ...f, endereco: { ...f.endereco, cidade: e.target.value } }))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado (UF)</Label>
-                  <Input value={form.endereco?.estado ?? ""} onChange={e => setForm(f => ({ ...f, endereco: { ...f.endereco, estado: e.target.value } }))} placeholder="SP" maxLength={2} />
-                </div>
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">Remover igreja?</p>
+                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{deleteTarget.nome}</p>
               </div>
             </div>
-            <div className="flex justify-end gap-3 p-6 border-t">
-              <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <p className="text-sm text-muted-foreground mb-5">
+              Todos os dados desta igreja (membros, escalas, financeiro) podem ser afetados. Esta ação é irreversível.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleDelete} disabled={deleting} className="flex-1 rounded-lg bg-destructive text-destructive-foreground px-4 py-2 text-sm font-semibold hover:bg-destructive/90 disabled:opacity-60 transition-colors">
+                {deleting ? "Removendo..." : "Remover"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+              <h3 className="text-base font-semibold">{editing ? "Editar Igreja" : "Nova Igreja"}</h3>
+              <button onClick={() => setModalOpen(false)} className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="overflow-y-auto p-6 space-y-6 flex-1">
+
+              {/* Dados básicos */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Dados da Igreja</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs">Nome *</Label>
+                    <Input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Igreja Pentecostal Vale da Bênção" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Tipo</Label>
+                    <select
+                      value={form.tipo}
+                      onChange={e => setForm(f => ({ ...f, tipo: e.target.value as "sede" | "congregacao" }))}
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="sede">Sede</option>
+                      <option value="congregacao">Congregação</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Telefone</Label>
+                    <Input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))} placeholder="(00) 00000-0000" />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs">E-mail</Label>
+                    <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="contato@ipvb.com" />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs">Endereço</Label>
+                    <Input value={form.endereco.rua} onChange={e => setForm(f => ({ ...f, endereco: { ...f.endereco, rua: e.target.value } }))} placeholder="Rua, número, bairro" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Cidade</Label>
+                    <Input value={form.endereco.cidade} onChange={e => setForm(f => ({ ...f, endereco: { ...f.endereco, cidade: e.target.value } }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Estado (UF)</Label>
+                    <Input value={form.endereco.estado} onChange={e => setForm(f => ({ ...f, endereco: { ...f.endereco, estado: e.target.value } }))} placeholder="SP" maxLength={2} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dias de Culto */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dias de Culto</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Usados para gerar as escalas automaticamente</p>
+                  </div>
+                  <button
+                    onClick={addCulto}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Adicionar
+                  </button>
+                </div>
+
+                {cultos.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                    <Clock className="h-5 w-5 text-muted-foreground/40 mx-auto mb-1.5" />
+                    <p className="text-xs text-muted-foreground">Nenhum culto cadastrado.</p>
+                    <button onClick={addCulto} className="mt-1.5 text-xs text-primary hover:underline">+ Adicionar culto</button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {cultos.map((c, idx) => (
+                      <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center bg-muted/40 rounded-lg px-3 py-2">
+                        <select
+                          value={c.dia_semana}
+                          onChange={e => updateCulto(idx, "dia_semana", Number(e.target.value))}
+                          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                          {DIAS_SEMANA.map((d, i) => (
+                            <option key={i} value={i}>{d}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="time"
+                          value={c.horario}
+                          onChange={e => updateCulto(idx, "horario", e.target.value)}
+                          className="h-8 w-28 rounded-md border border-input bg-background px-2 text-sm"
+                        />
+                        <Input
+                          value={c.nome}
+                          onChange={e => updateCulto(idx, "nome", e.target.value)}
+                          placeholder="Nome (ex: Domingo Manhã)"
+                          className="h-8 text-sm w-44"
+                        />
+                        <button
+                          onClick={() => removeCulto(idx)}
+                          className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
+              <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
+                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 {editing ? "Salvar Alterações" : "Cadastrar"}
               </Button>
             </div>
