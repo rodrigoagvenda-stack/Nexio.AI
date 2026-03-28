@@ -11,7 +11,7 @@ const _montserrat = Montserrat({ subsets: ["latin"], weight: ["400","600","700",
 const _lato = Lato({ subsets: ["latin"], weight: ["300","400","700"], variable: "--font-lato" })
 
 export const metadata: Metadata = {
-  title: "Sistema de Gestão para Igrejas",
+  title: "IPVB - Gestão",
   description: "Sistema completo de gestão para igrejas - Membros, Finanças, Escalas e mais",
   icons: {
     icon: "https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Fivecon.png",
