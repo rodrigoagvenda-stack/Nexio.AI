@@ -490,7 +490,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
               else if (dow === 3) { badgeBg = "#d5f0ea"; badgeColor = "#1a8a6f" }
               else if (dow === 5) { badgeBg = "#f5f0e6"; badgeColor = "#7a6020" }
 
-              const cell: React.CSSProperties = { padding: "5px 10px", borderBottom: "1px solid #d0ddd6", borderRight: "1px solid #d0ddd6", verticalAlign: "middle", fontSize: 11 }
+              const cell: React.CSSProperties = { padding: "5px 10px", border: "1px solid #D0DDD5", verticalAlign: "middle", fontSize: 11 }
 
               const PersonCell = ({ name }: { name: string }) => (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -501,7 +501,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
 
               return (
                 <tr key={row._key} style={bg}>
-                  <td style={{ ...cell, fontWeight: 700, fontSize: 11, color: "#2b6347", letterSpacing: .3, whiteSpace: "nowrap" }}>
+                  <td style={{ ...cell, fontWeight: 700, fontSize: 11, color: "#1D1D1D", letterSpacing: .3, whiteSpace: "nowrap" }}>
                     {formatDate(row.data_culto)}
                   </td>
                   <td style={{ ...cell }}>
@@ -533,7 +533,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
           flexWrap: "wrap", gap: 6,
           WebkitPrintColorAdjust: "exact", printColorAdjust: "exact",
         }}>
-          <p style={{ fontSize: 9, color: "rgba(255,255,255,.5)", letterSpacing: .8, textTransform: "uppercase" }}>
+          <p style={{ fontSize: 9, color: "#1D1D1D", letterSpacing: .8, textTransform: "uppercase" }}>
             {igrejaNome} &mdash; {mesAnoLabel}
           </p>
           <div style={{ display: "flex", gap: 16 }}>
@@ -542,7 +542,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
               { label: "Quarta-feira", color: "#1a8a6f" },
               { label: "Sexta-feira",  color: "#c9a84c" },
             ].map(({ label, color }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "rgba(255,255,255,.55)" }}>
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "#1D1D1D" }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: color, display: "inline-block", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }} />
                 {label}
               </div>
