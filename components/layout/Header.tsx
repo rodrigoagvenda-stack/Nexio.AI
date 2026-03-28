@@ -28,7 +28,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-black flex items-center justify-between px-6">
+    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
       {/* User Info */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
@@ -41,10 +41,10 @@ export function Header() {
           )}
         </div>
         <div>
-          <h2 className="text-sm font-medium text-white">
+          <h2 className="text-sm font-medium text-foreground">
             {user?.name || 'Rodrigo'}
           </h2>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             {company?.email || user?.email || 'admin@venda.com'}
           </p>
         </div>
@@ -52,13 +52,13 @@ export function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/5">
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent/50">
           <Bell className="h-5 w-5" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-white/5">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent/50">
               <Settings className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
