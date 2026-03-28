@@ -220,14 +220,17 @@ export default function Orb({
 
     function resize() {
       if (!container) return;
-      const dpr = 1; // 🚀 Performance: Fixar DPR em 1 para melhor performance
       const width = container.clientWidth;
       const height = container.clientHeight;
-      renderer.setSize(width * dpr, height * dpr);
+      if (width === 0 || height === 0) return;
+      renderer.setSize(width, height);
       gl.canvas.style.width = width + 'px';
       gl.canvas.style.height = height + 'px';
       program.uniforms.iResolution.value.set(gl.canvas.width, gl.canvas.height, gl.canvas.width / gl.canvas.height);
     }
+
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(container);
     window.addEventListener('resize', resize);
     resize();
 
@@ -298,6 +301,7 @@ export default function Orb({
 
     return () => {
       cancelAnimationFrame(rafId);
+      ro.disconnect();
       window.removeEventListener('resize', resize);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       container.removeEventListener('mousemove', handleMouseMove);
