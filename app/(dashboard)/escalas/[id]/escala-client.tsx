@@ -152,6 +152,7 @@ interface EscalaClientProps {
   detalhes: any[]
   membros: { id: string; nome: string }[]
   profile: any
+  igreja?: { id: string; nome: string; tipo: string } | null
 }
 
 let keyCounter = 0
@@ -177,7 +178,7 @@ function detalheToRow(d: any): RowData {
   }
 }
 
-export default function EscalaClient({ escala, detalhes, membros, profile }: EscalaClientProps) {
+export default function EscalaClient({ escala, detalhes, membros, profile, igreja }: EscalaClientProps) {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -194,12 +195,16 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
   useEffect(() => {
     const style = document.createElement("style")
     style.id = "escala-print-landscape"
-    style.textContent = "@media print { @page { size: A4 landscape; margin: 10mm 15mm; } }"
+    style.textContent = "@media print { @page { size: A4 landscape; margin: 5mm 8mm; } }"
     document.head.appendChild(style)
     return () => { document.getElementById("escala-print-landscape")?.remove() }
   }, [])
 
-  const igrejaNome: string = profile?.igrejas?.nome ?? profile?.igreja?.nome ?? "IPVB"
+  const igrejaNome: string = igreja?.nome ?? profile?.igrejas?.nome ?? profile?.igreja?.nome ?? "IPVB"
+  const igrejaLabel: string = igreja?.tipo === "sede"
+    ? `Sede`
+    : `Congregação ${igrejaNome}`
+  const escalaTitulo = `Escala de Cultos ${igrejaLabel}`
 
   const updateRow = useCallback((key: string, field: keyof RowData, value: string | number) => {
     setRows(prev => prev.map(r => {
@@ -355,11 +360,11 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
         {/* ── HEADER ── */}
         <div style={{
           background: "linear-gradient(160deg, #1a4330 0%, #2b6347 60%, #1e4d35 100%)",
-          padding: "0 40px",
+          padding: "0 28px",
           display: "flex",
           alignItems: "center",
-          gap: 24,
-          minHeight: 110,
+          gap: 16,
+          minHeight: 68,
           position: "relative",
           overflow: "hidden",
           WebkitPrintColorAdjust: "exact",
@@ -375,12 +380,12 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
 
           {/* Dove logo circle */}
           <div style={{
-            flexShrink: 0, width: 72, height: 72, borderRadius: "50%",
+            flexShrink: 0, width: 50, height: 50, borderRadius: "50%",
             background: "rgba(255,255,255,.13)",
             border: "1.5px solid rgba(255,255,255,.3)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width={42} height={42}>
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width={28} height={28}>
               <path d="M40 10 C38.5 16 35 19 37 26 C38 30 40 32 40 32 C40 32 42 30 43 26 C45 19 41.5 16 40 10Z" fill="#e8c87a"/>
               <ellipse cx="38" cy="50" rx="13" ry="8" fill="white" opacity=".95"/>
               <circle cx="50" cy="45" r="7" fill="white" opacity=".95"/>
@@ -396,17 +401,17 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
           {/* Title block */}
           <div style={{ flex: 1 }}>
             <p style={{
-              fontFamily: "'Montserrat', sans-serif", fontWeight: 400, fontSize: 10.5,
-              letterSpacing: 3.5, textTransform: "uppercase",
-              color: "#e8c87a", marginBottom: 7, opacity: .9,
+              fontFamily: "'Montserrat', sans-serif", fontWeight: 400, fontSize: 9,
+              letterSpacing: 3, textTransform: "uppercase",
+              color: "#e8c87a", marginBottom: 4, opacity: .9,
             }}>
               {igrejaNome || "Igreja Pentecostal Vale da Bênção"}
             </p>
             <h1 style={{
               fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
-              fontSize: 22, color: "white", lineHeight: 1.25, letterSpacing: -.2,
+              fontSize: 16, color: "white", lineHeight: 1.2, letterSpacing: -.1,
             }}>
-              Escala de Cultos &nbsp;|&nbsp; <span style={{ color: "#e8c87a", fontWeight: 800 }}>{mesAnoLabel}</span>
+              {escalaTitulo} &nbsp;|&nbsp; <span style={{ color: "#e8c87a", fontWeight: 800 }}>{mesAnoLabel}</span>
             </h1>
           </div>
 
@@ -414,9 +419,9 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
           <div style={{
             background: "rgba(201,168,76,.18)",
             border: "1px solid rgba(201,168,76,.55)",
-            borderRadius: 6, padding: "7px 18px",
+            borderRadius: 5, padding: "5px 14px",
             fontFamily: "'Montserrat', sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: 2.5,
+            fontSize: 9, fontWeight: 700, letterSpacing: 2,
             textTransform: "uppercase", color: "#e8c87a", whiteSpace: "nowrap",
           }}>
             {MESES[escala.mes]} {escala.ano}
@@ -447,9 +452,9 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
                   backgroundColor: "#1e4d35",
                   color: "white",
                   fontFamily: "'Lato', sans-serif",
-                  fontWeight: 700, fontSize: 11.5,
-                  letterSpacing: 1.5, textTransform: "uppercase",
-                  padding: "14px 18px", textAlign: "left",
+                  fontWeight: 700, fontSize: 9.5,
+                  letterSpacing: 1, textTransform: "uppercase",
+                  padding: "7px 10px", textAlign: "left",
                   borderRight: "1px solid rgba(255,255,255,.08)",
                   whiteSpace: "nowrap", width: w,
                   WebkitPrintColorAdjust: "exact",
@@ -484,25 +489,25 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
               else if (dow === 3) { badgeBg = "#d5f0ea"; badgeColor = "#1a8a6f" }
               else if (dow === 5) { badgeBg = "#f5f0e6"; badgeColor = "#7a6020" }
 
-              const cell: React.CSSProperties = { padding: "13px 18px", borderBottom: "1px solid #d0ddd6", borderRight: "1px solid #d0ddd6", verticalAlign: "middle", fontSize: 13.5 }
+              const cell: React.CSSProperties = { padding: "5px 10px", borderBottom: "1px solid #d0ddd6", borderRight: "1px solid #d0ddd6", verticalAlign: "middle", fontSize: 11 }
 
               const PersonCell = ({ name }: { name: string }) => (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#3a7a57", flexShrink: 0, opacity: .6, display: "inline-block" }} />
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "#3a7a57", flexShrink: 0, opacity: .6, display: "inline-block" }} />
                   {name === "—" ? <em style={{ color: "#999" }}>—</em> : name}
                 </span>
               )
 
               return (
                 <tr key={row._key} style={bg}>
-                  <td style={{ ...cell, fontWeight: 700, fontSize: 13, color: "#2b6347", letterSpacing: .5, whiteSpace: "nowrap" }}>
+                  <td style={{ ...cell, fontWeight: 700, fontSize: 11, color: "#2b6347", letterSpacing: .3, whiteSpace: "nowrap" }}>
                     {formatDate(row.data_culto)}
                   </td>
                   <td style={{ ...cell }}>
                     <span style={{
-                      display: "inline-block", padding: "3px 10px",
-                      borderRadius: 20, fontSize: 12, fontWeight: 700,
-                      letterSpacing: .5, whiteSpace: "nowrap",
+                      display: "inline-block", padding: "2px 7px",
+                      borderRadius: 20, fontSize: 10, fontWeight: 700,
+                      letterSpacing: .3, whiteSpace: "nowrap",
                       backgroundColor: badgeBg, color: badgeColor,
                       WebkitPrintColorAdjust: "exact", printColorAdjust: "exact",
                     }}>
@@ -522,12 +527,12 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
         {/* ── FOOTER ── */}
         <div style={{
           backgroundColor: "#1e4d35",
-          padding: "14px 40px",
+          padding: "7px 28px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap", gap: 8,
+          flexWrap: "wrap", gap: 6,
           WebkitPrintColorAdjust: "exact", printColorAdjust: "exact",
         }}>
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,.5)", letterSpacing: 1, textTransform: "uppercase" }}>
+          <p style={{ fontSize: 9, color: "rgba(255,255,255,.5)", letterSpacing: .8, textTransform: "uppercase" }}>
             {igrejaNome} &mdash; {mesAnoLabel}
           </p>
           <div style={{ display: "flex", gap: 16 }}>
@@ -536,7 +541,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile }: Esc
               { label: "Quarta-feira", color: "#1a8a6f" },
               { label: "Sexta-feira",  color: "#c9a84c" },
             ].map(({ label, color }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,.55)" }}>
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "rgba(255,255,255,.55)" }}>
                 <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: color, display: "inline-block", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }} />
                 {label}
               </div>

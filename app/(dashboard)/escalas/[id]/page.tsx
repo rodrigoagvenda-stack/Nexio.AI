@@ -24,6 +24,12 @@ export default async function EscalaDetalhePage({ params }: { params: { id: stri
 
   if (!escala) notFound()
 
+  // Get church name and type for the print header
+  const igrejId2 = escala.igreja_id ?? profile?.igreja_id
+  const { data: igrejaData } = igrejId2
+    ? await (supabase as any).from("igrejas").select("id, nome, tipo").eq("id", igrejId2).single()
+    : { data: null }
+
   // Get escalas_detalhes with joined member names
   const { data: detalhesRaw } = await (supabase as any)
     .from("escalas_detalhes")
@@ -63,6 +69,7 @@ export default async function EscalaDetalhePage({ params }: { params: { id: stri
       detalhes={detalhes}
       membros={membros}
       profile={profile}
+      igreja={igrejaData ?? null}
     />
   )
 }
