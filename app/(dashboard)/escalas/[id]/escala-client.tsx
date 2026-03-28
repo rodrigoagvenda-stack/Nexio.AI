@@ -404,7 +404,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             <p style={{
               fontFamily: "'Montserrat', sans-serif", fontWeight: 400, fontSize: 9,
               letterSpacing: 3, textTransform: "uppercase",
-              color: "#e8c87a", marginBottom: 4, opacity: .9,
+              color: "white", marginBottom: 4, opacity: .9,
             }}>
               {igrejaNome || "Igreja Pentecostal Vale da Bênção"}
             </p>
@@ -412,7 +412,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
               fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
               fontSize: 16, color: "white", lineHeight: 1.2, letterSpacing: -.1,
             }}>
-              {escalaTitulo} &nbsp;|&nbsp; <span style={{ color: "#e8c87a", fontWeight: 800 }}>{mesAnoLabel}</span>
+              {escalaTitulo} &nbsp;|&nbsp; <span style={{ color: "white", fontWeight: 800 }}>{mesAnoLabel}</span>
             </h1>
           </div>
 
@@ -423,7 +423,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             borderRadius: 5, padding: "5px 14px",
             fontFamily: "'Montserrat', sans-serif",
             fontSize: 9, fontWeight: 700, letterSpacing: 2,
-            textTransform: "uppercase", color: "#e8c87a", whiteSpace: "nowrap",
+            textTransform: "uppercase", color: "white", whiteSpace: "nowrap",
           }}>
             {MESES[escala.mes]} {escala.ano}
           </div>
