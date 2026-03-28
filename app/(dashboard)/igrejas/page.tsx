@@ -172,9 +172,12 @@ export default function IgrejasPage() {
           const fd = new FormData()
           fd.append("file", pendingLogoFile)
           fd.append("igrejaId", igId)
-          await fetch("/api/igrejas/upload-logo", { method: "POST", body: fd })
+          const logoRes = await fetch("/api/igrejas/upload-logo", { method: "POST", body: fd })
+          const logoJson = await logoRes.json()
           setUploadingLogo(false)
           setPendingLogoFile(null)
+          if (!logoRes.ok) throw new Error(logoJson.error || "Erro ao fazer upload do logo")
+          setLogoUrl(logoJson.logo_url)
         }
       }
 
