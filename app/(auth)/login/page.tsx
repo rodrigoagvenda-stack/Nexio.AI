@@ -68,7 +68,6 @@ export default function LoginPage() {
             alt="IPVB"
             className="h-20 w-auto object-contain"
           />
-          <p className="text-sm text-muted-foreground">Igreja Pentecostal Vale da Bênção</p>
         </div>
 
         {/* Card */}
