@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,8 +41,8 @@ interface Categoria {
   cor: string
 }
 
-interface MonthlyPoint {
-  mes: string       // e.g. "Jan", "Fev" — short label from API
+interface ChartPoint {
+  label: string
   entradas: number
   saidas: number
 }
@@ -102,6 +102,93 @@ function formatPeriodoLabel(from: string, to: string): string {
   return from === to ? f : `${f} – ${t}`
 }
 
+const MESES_SHORT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+const DIAS_SHORT = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"]
+
+function computeChartData(lancamentos: Lancamento[], preset: string, from: string, to: string): ChartPoint[] {
+  const acc = (arr: Lancamento[], tipo: "entrada" | "saida") =>
+    arr.filter(l => l.tipo === tipo).reduce((s, l) => s + Number(l.valor), 0)
+
+  // HOJE — único ponto do dia
+  if (preset === "hoje" || from === to) {
+    return [{
+      label: new Date(from + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
+      entradas: acc(lancamentos, "entrada"),
+      saidas: acc(lancamentos, "saida"),
+    }]
+  }
+
+  // SEMANA — um ponto por dia (7 dias)
+  if (preset === "semana") {
+    const map: Record<string, ChartPoint> = {}
+    const start = new Date(from + "T12:00:00")
+    const end = new Date(to + "T12:00:00")
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = toISO(d)
+      map[key] = { label: DIAS_SHORT[d.getDay()], entradas: 0, saidas: 0 }
+    }
+    for (const l of lancamentos) {
+      if (map[l.data]) {
+        if (l.tipo === "entrada") map[l.data].entradas += Number(l.valor)
+        else map[l.data].saidas += Number(l.valor)
+      }
+    }
+    return Object.values(map)
+  }
+
+  // MÊS — um ponto por semana (semana 1–4)
+  if (preset === "mes") {
+    const weeks: ChartPoint[] = [1, 2, 3, 4].map(w => ({ label: `Sem. ${w}`, entradas: 0, saidas: 0 }))
+    for (const l of lancamentos) {
+      const day = new Date(l.data + "T12:00:00").getDate()
+      const w = Math.min(Math.ceil(day / 7), 4) - 1
+      if (l.tipo === "entrada") weeks[w].entradas += Number(l.valor)
+      else weeks[w].saidas += Number(l.valor)
+    }
+    return weeks
+  }
+
+  // ANO — um ponto por mês (jan–dez)
+  if (preset === "ano") {
+    const months: ChartPoint[] = MESES_SHORT.map(label => ({ label, entradas: 0, saidas: 0 }))
+    for (const l of lancamentos) {
+      const m = new Date(l.data + "T12:00:00").getMonth()
+      if (l.tipo === "entrada") months[m].entradas += Number(l.valor)
+      else months[m].saidas += Number(l.valor)
+    }
+    return months
+  }
+
+  // RANGE CUSTOMIZADO — por dia se ≤31 dias, por mês se maior
+  const diffDays = Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86400000)
+  if (diffDays <= 31) {
+    const map: Record<string, ChartPoint> = {}
+    const start = new Date(from + "T12:00:00")
+    const end = new Date(to + "T12:00:00")
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = toISO(d)
+      map[key] = { label: `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`, entradas: 0, saidas: 0 }
+    }
+    for (const l of lancamentos) {
+      if (map[l.data]) {
+        if (l.tipo === "entrada") map[l.data].entradas += Number(l.valor)
+        else map[l.data].saidas += Number(l.valor)
+      }
+    }
+    return Object.values(map)
+  }
+  // por mês
+  const mmap: Record<string, ChartPoint> = {}
+  for (const l of lancamentos) {
+    const d = new Date(l.data + "T12:00:00")
+    const key = `${d.getFullYear()}-${d.getMonth()}`
+    if (!mmap[key]) mmap[key] = { label: `${MESES_SHORT[d.getMonth()]}/${d.getFullYear()}`, entradas: 0, saidas: 0 }
+    if (l.tipo === "entrada") mmap[key].entradas += Number(l.valor)
+    else mmap[key].saidas += Number(l.valor)
+  }
+  return Object.values(mmap)
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function FinanceiroPage() {
@@ -126,9 +213,6 @@ export default function FinanceiroPage() {
   const [filtroTipo, setFiltroTipo] = useState("")
   const [exportando, setExportando] = useState(false)
 
-  // Chart data
-  const [chartData, setChartData] = useState<MonthlyPoint[]>([])
-  const [chartLoading, setChartLoading] = useState(false)
 
   // ── Initial load: categories + current user's igreja_id ───────────────────
   useEffect(() => {
@@ -186,16 +270,19 @@ export default function FinanceiroPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [igrejaId, filtroTipo, dateFrom, dateTo])
 
-  // ── Fetch chart data (last 6 months) whenever igrejaId changes ────────────
-  useEffect(() => {
-    if (!igrejaId) return
-    setChartLoading(true)
-    fetch(`/api/financeiro/mensal?igreja_id=${igrejaId}`)
-      .then(r => r.json())
-      .then(j => setChartData(j.data ?? []))
-      .catch(() => {})
-      .finally(() => setChartLoading(false))
-  }, [igrejaId])
+
+  // ── Chart data — computed from lancamentos + active filter ───────────────
+  const chartData = useMemo(
+    () => computeChartData(lancamentos, activePreset, dateFrom, dateTo),
+    [lancamentos, activePreset, dateFrom, dateTo]
+  )
+
+  const chartTitle: Record<string, string> = {
+    hoje: "Entradas vs Saídas — Hoje",
+    semana: "Entradas vs Saídas — Esta semana (por dia)",
+    mes: "Entradas vs Saídas — Este mês (por semana)",
+    ano: "Entradas vs Saídas — Este ano (por mês)",
+  }
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   function setTipo(tipo: "entrada" | "saida") {
@@ -423,14 +510,14 @@ export default function FinanceiroPage() {
       {/* Monthly bar chart — last 6 months */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Entradas vs Saídas — últimos 6 meses</CardTitle>
+          <CardTitle className="text-base">{chartTitle[activePreset] ?? `Entradas vs Saídas — ${formatPeriodoLabel(dateFrom, dateTo)}`}</CardTitle>
         </CardHeader>
         <CardContent>
-          {chartLoading ? (
+          {loading ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
             </div>
-          ) : chartData.length === 0 ? (
+          ) : chartData.every(p => p.entradas === 0 && p.saidas === 0) ? (
             <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
               Sem dados para exibir
             </div>
@@ -438,7 +525,7 @@ export default function FinanceiroPage() {
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
                 <XAxis
-                  dataKey="mes"
+                  dataKey="label"
                   tick={{ fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
