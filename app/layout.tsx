@@ -13,6 +13,11 @@ const _lato = Lato({ subsets: ["latin"], weight: ["300","400","700"], variable: 
 export const metadata: Metadata = {
   title: "Sistema de Gestão para Igrejas",
   description: "Sistema completo de gestão para igrejas - Membros, Finanças, Escalas e mais",
+  icons: {
+    icon: "https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Fivecon.png",
+    shortcut: "https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Fivecon.png",
+    apple: "https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Fivecon.png",
+  },
 }
 
 export default function RootLayout({
