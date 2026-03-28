@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
-import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Loader2, FileDown, Trash2 } from "lucide-react"
+import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Loader2, FileDown, Trash2, AlertTriangle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   ResponsiveContainer,
   BarChart,
@@ -86,7 +87,6 @@ function lastDay(year: number, month: number): string {
 
 export default function FinanceiroPage() {
   const { toast } = useToast()
-  const supabase = createClient()
 
   // Month/year filter — defaults to current month
   const now = new Date()
@@ -100,6 +100,8 @@ export default function FinanceiroPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [filtroTipo, setFiltroTipo] = useState("")
   const [exportando, setExportando] = useState(false)
@@ -110,6 +112,7 @@ export default function FinanceiroPage() {
 
   // ── Initial load: categories + current user's igreja_id ───────────────────
   useEffect(() => {
+    const supabase = createClient()
     fetch("/api/financeiro/categorias")
       .then(r => r.json())
       .then(j => setCategorias(j.data ?? []))
@@ -123,12 +126,9 @@ export default function FinanceiroPage() {
         .eq("id", user.id)
         .single()
         .then(({ data }: any) => {
-          if (data?.igreja_id) {
-            setIgrejaId(data.igreja_id)
-          }
+          if (data?.igreja_id) setIgrejaId(data.igreja_id)
         })
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── Fetch lancamentos whenever igrejaId, month, year or filtroTipo change ──
@@ -234,13 +234,17 @@ export default function FinanceiroPage() {
   }
 
   // ── Delete lancamento ─────────────────────────────────────────────────────
-  async function handleDelete(id: string) {
-    if (!confirm("Excluir este lançamento?")) return
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await fetch(`/api/financeiro/lancamentos/${id}`, { method: "DELETE" })
+      await fetch(`/api/financeiro/lancamentos/${deleteTarget}`, { method: "DELETE" })
+      setDeleteTarget(null)
       fetchLancamentos(igrejaId, filtroTipo, selectedMonth, selectedYear)
     } catch {
       toast({ variant: "destructive", title: "Erro ao excluir" })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -541,7 +545,7 @@ export default function FinanceiroPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-destructive"
-                            onClick={() => handleDelete(l.id)}
+                            onClick={() => setDeleteTarget(l.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -556,23 +560,35 @@ export default function FinanceiroPage() {
         </CardContent>
       </Card>
 
-      {/* New lancamento modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-background rounded-lg shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="text-lg font-semibold">Novo Lançamento</h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setModalOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <DialogTitle className="text-sm">Excluir lançamento?</DialogTitle>
             </div>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Esta ação é irreversível.</p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" size="sm" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <div className="p-6 space-y-4">
+      {/* New lancamento modal */}
+      <Dialog open={modalOpen} onOpenChange={open => { if (!open) { setModalOpen(false); setForm(EMPTY_FORM) } }}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Lançamento</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
               {/* Tipo toggle */}
               <div className="flex gap-2">
                 <Button
@@ -687,18 +703,17 @@ export default function FinanceiroPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t">
-              <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Registrar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setModalOpen(false); setForm(EMPTY_FORM) }} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Registrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
