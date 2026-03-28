@@ -25,15 +25,15 @@ export function MembrosTable({ membros }: MembrosTableProps) {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b bg-muted/50">
             <th className="p-4 text-left font-medium">Nome</th>
             <th className="p-4 text-left font-medium">Telefone</th>
-            <th className="p-4 text-left font-medium">Igreja</th>
+            <th className="p-4 text-left font-medium hidden md:table-cell">Igreja</th>
             <th className="p-4 text-left font-medium">Status</th>
-            <th className="p-4 text-left font-medium">Data Entrada</th>
+            <th className="p-4 text-left font-medium hidden md:table-cell">Data Entrada</th>
             <th className="p-4 text-right font-medium">Ações</th>
           </tr>
         </thead>
@@ -49,13 +49,13 @@ export function MembrosTable({ membros }: MembrosTableProps) {
               <tr key={membro.id} className="border-b hover:bg-muted/50">
                 <td className="p-4 font-medium">{membro.nome}</td>
                 <td className="p-4">{membro.telefone ? formatPhone(membro.telefone) : "-"}</td>
-                <td className="p-4">{membro.igrejas?.nome || "-"}</td>
+                <td className="p-4 hidden md:table-cell">{membro.igrejas?.nome || "-"}</td>
                 <td className="p-4">
                   <Badge className={getStatusColor(membro.status)}>
                     {membro.status}
                   </Badge>
                 </td>
-                <td className="p-4">{formatDate(membro.data_entrada)}</td>
+                <td className="p-4 hidden md:table-cell">{formatDate(membro.data_entrada)}</td>
                 <td className="p-4">
                   <div className="flex justify-end gap-2">
                     <Link href={`/membros/${membro.id}`}>

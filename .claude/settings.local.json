@@ -17,7 +17,9 @@
       "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/escalas/nova/page.tsx)",
       "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/eventos/page.tsx)",
       "Bash(cat /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/ministerios/page.tsx)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(head -100 /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/escalas/page.tsx)",
+      "Bash(head -100 /c/Users/rodri/IPVB_sistema/app/\\\\\\(dashboard\\\\\\)/eventos/page.tsx)"
     ]
   }
 }

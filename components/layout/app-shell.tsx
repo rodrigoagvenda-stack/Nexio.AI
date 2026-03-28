@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 import type { Profile } from "@/types/database.types"
@@ -12,7 +12,16 @@ interface AppShellProps {
 
 export function AppShell({ user, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  // Start collapsed on tablet (< lg / 1024px), expanded on desktop
+  const [collapsed, setCollapsed] = useState(true)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    setCollapsed(!mq.matches)
+    const handler = (e: MediaQueryListEvent) => setCollapsed(!e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">

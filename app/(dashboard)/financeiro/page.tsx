@@ -445,20 +445,20 @@ export default function FinanceiroPage() {
         <div className="h-6 w-px bg-border mx-1" />
 
         {/* Custom range */}
-        <div className="flex items-center gap-1.5 bg-background border border-input rounded-md px-2.5 h-8">
+        <div className="flex flex-wrap items-center gap-1.5 bg-background border border-input rounded-md px-2.5 py-1 min-h-8">
           <CalendarRange className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <input
             type="date"
             value={dateFrom}
             onChange={e => { setActivePreset(""); setDateFrom(e.target.value) }}
-            className="bg-transparent text-sm border-none outline-none w-32"
+            className="bg-transparent text-sm border-none outline-none min-w-0 w-32"
           />
           <span className="text-muted-foreground text-xs">–</span>
           <input
             type="date"
             value={dateTo}
             onChange={e => { setActivePreset(""); setDateTo(e.target.value) }}
-            className="bg-transparent text-sm border-none outline-none w-32"
+            className="bg-transparent text-sm border-none outline-none min-w-0 w-32"
           />
         </div>
       </div>
@@ -561,7 +561,7 @@ export default function FinanceiroPage() {
       </Card>
 
       {/* Type filter + table */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {(["", "entrada", "saida"] as const).map(t => (
           <Button
             key={t}
@@ -601,9 +601,9 @@ export default function FinanceiroPage() {
                   <tr className="border-b text-muted-foreground text-left">
                     <th className="py-2 pr-4 font-medium">Data</th>
                     <th className="py-2 pr-4 font-medium">Descrição</th>
-                    <th className="py-2 pr-4 font-medium">Categoria</th>
+                    <th className="py-2 pr-4 font-medium hidden md:table-cell">Categoria</th>
                     <th className="py-2 pr-4 font-medium">Tipo</th>
-                    <th className="py-2 pr-4 font-medium">Forma</th>
+                    <th className="py-2 pr-4 font-medium hidden md:table-cell">Forma</th>
                     <th className="py-2 pr-4 font-medium text-right">Valor</th>
                     <th className="py-2 w-8" />
                   </tr>
@@ -617,7 +617,7 @@ export default function FinanceiroPage() {
                           {new Date(l.data + "T12:00:00").toLocaleDateString("pt-BR")}
                         </td>
                         <td className="py-2 pr-4">{l.descricao}</td>
-                        <td className="py-2 pr-4">
+                        <td className="py-2 pr-4 hidden md:table-cell">
                           {cat ? (
                             <span
                               className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset"
@@ -641,7 +641,7 @@ export default function FinanceiroPage() {
                             {l.tipo === "entrada" ? "Entrada" : "Saída"}
                           </Badge>
                         </td>
-                        <td className="py-2 pr-4 capitalize text-muted-foreground">
+                        <td className="py-2 pr-4 capitalize text-muted-foreground hidden md:table-cell">
                           {l.forma_pagamento}
                         </td>
                         <td
