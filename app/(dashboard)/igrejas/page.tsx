@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Building2, Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Clock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 const DIAS_SEMANA = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"]
 
@@ -257,48 +258,40 @@ export default function IgrejasPage() {
       )}
 
       {/* Delete confirmation */}
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 max-w-sm w-full">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
                 <AlertTriangle className="h-5 w-5 text-destructive" />
               </div>
               <div>
-                <p className="font-semibold text-sm">Remover igreja?</p>
-                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{deleteTarget.nome}</p>
+                <DialogTitle className="text-sm">Remover igreja?</DialogTitle>
+                <p className="text-xs text-muted-foreground truncate max-w-[220px] mt-0.5">{deleteTarget?.nome}</p>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground mb-5">
-              Todos os dados desta igreja (membros, escalas, financeiro) podem ser afetados. Esta ação é irreversível.
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors">
-                Cancelar
-              </button>
-              <button onClick={handleDelete} disabled={deleting} className="flex-1 rounded-lg bg-destructive text-destructive-foreground px-4 py-2 text-sm font-semibold hover:bg-destructive/90 disabled:opacity-60 transition-colors">
-                {deleting ? "Removendo..." : "Remover"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Todos os dados desta igreja (membros, escalas, financeiro) podem ser afetados. Esta ação é irreversível.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Removendo..." : "Remover"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <Dialog open={modalOpen} onOpenChange={open => { if (!open) setModalOpen(false) }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+            <DialogTitle>{editing ? "Editar Igreja" : "Nova Igreja"}</DialogTitle>
+          </DialogHeader>
 
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-              <h3 className="text-base font-semibold">{editing ? "Editar Igreja" : "Nova Igreja"}</h3>
-              <button onClick={() => setModalOpen(false)} className="h-7 w-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div className="overflow-y-auto p-6 space-y-6 flex-1">
+          {/* Modal body */}
+          <div className="overflow-y-auto p-6 space-y-6 flex-1">
 
               {/* Dados básicos */}
               <div>
@@ -402,17 +395,15 @@ export default function IgrejasPage() {
 
             </div>
 
-            {/* Modal footer */}
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
-              <Button variant="outline" size="sm" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {editing ? "Salvar Alterações" : "Cadastrar"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter className="px-6 py-4 border-t border-border shrink-0">
+            <Button variant="outline" size="sm" onClick={() => setModalOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {editing ? "Salvar Alterações" : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

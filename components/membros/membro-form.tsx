@@ -9,6 +9,22 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Save, Camera, Upload, X, Loader2, Search } from "lucide-react"
 import Link from "next/link"
 
+const FUNCOES_ESCALA = [
+  { key: "pregacao",  label: "Pregação" },
+  { key: "oracao",    label: "Oração" },
+  { key: "louvor",    label: "Louvor" },
+  { key: "som",       label: "Som" },
+  { key: "recepcao",  label: "Recepção" },
+  { key: "midia",     label: "Mídia" },
+  { key: "infantil",  label: "Infantil" },
+]
+
+interface FuncaoItem {
+  funcao: string
+  nivel: string
+  ativo: boolean
+}
+
 interface MembroFormData {
   nome: string
   cpf: string
@@ -51,6 +67,29 @@ export function MembroForm({ initialData, membroId }: { initialData?: Partial<Me
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [funcoes, setFuncoes] = useState<FuncaoItem[]>([])
+
+  // Carrega funcoes existentes ao editar
+  useEffect(() => {
+    if (!membroId) return
+    fetch(`/api/membros/${membroId}`)
+      .then(r => r.json())
+      .then(d => { if (d.data?.membros_funcoes) setFuncoes(d.data.membros_funcoes) })
+      .catch(() => {})
+  }, [membroId])
+
+  function toggleFuncao(funcao: string) {
+    setFuncoes(prev => {
+      const exists = prev.find(f => f.funcao === funcao)
+      if (exists) return prev.filter(f => f.funcao !== funcao)
+      return [...prev, { funcao, nivel: "intermediario", ativo: true }]
+    })
+  }
+
+  function setNivel(funcao: string, nivel: string) {
+    setFuncoes(prev => prev.map(f => f.funcao === funcao ? { ...f, nivel } : f))
+  }
 
   const [formData, setFormData] = useState<MembroFormData>({
     nome: "",
@@ -172,6 +211,7 @@ export function MembroForm({ initialData, membroId }: { initialData?: Partial<Me
         endereco: formData.rua
           ? { rua: formData.rua, numero: formData.numero, complemento: formData.complemento, bairro: formData.bairro, cidade: formData.cidade, estado: formData.estado, cep: formData.cep }
           : null,
+        funcoes,
       }
 
       const url = membroId ? `/api/membros/${membroId}` : "/api/membros"
@@ -488,6 +528,45 @@ export function MembroForm({ initialData, membroId }: { initialData?: Partial<Me
             <div className="space-y-2">
               <Label htmlFor="observacoes">Observações</Label>
               <textarea id="observacoes" name="observacoes" value={formData.observacoes} onChange={handleChange} rows={4} className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Observações adicionais..." />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Funções na Escala */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Funções na Escala</CardTitle>
+            <CardDescription>Selecione as funções que este membro pode exercer nos cultos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {FUNCOES_ESCALA.map(({ key, label }) => {
+                const ativo = funcoes.find(f => f.funcao === key)
+                return (
+                  <div key={key} className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${ativo ? "border-primary/40 bg-primary/5" : "border-border"}`}>
+                    <input
+                      type="checkbox"
+                      id={`funcao-${key}`}
+                      checked={!!ativo}
+                      onChange={() => toggleFuncao(key)}
+                      className="h-4 w-4 shrink-0"
+                    />
+                    <label htmlFor={`funcao-${key}`} className="flex-1 text-sm font-medium cursor-pointer">{label}</label>
+                    {ativo && (
+                      <select
+                        value={ativo.nivel}
+                        onChange={e => setNivel(key, e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        className="h-7 rounded border border-input bg-background px-2 text-xs"
+                      >
+                        <option value="iniciante">Iniciante</option>
+                        <option value="intermediario">Intermediário</option>
+                        <option value="avancado">Avançado</option>
+                      </select>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
