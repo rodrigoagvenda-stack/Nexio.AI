@@ -27,7 +27,7 @@ export default async function EscalaDetalhePage({ params }: { params: { id: stri
   // Get church name and type for the print header
   const igrejId2 = escala.igreja_id ?? profile?.igreja_id
   const { data: igrejaData } = igrejId2
-    ? await (supabase as any).from("igrejas").select("id, nome, tipo").eq("id", igrejId2).single()
+    ? await (supabase as any).from("igrejas").select("id, nome, tipo, logo_url").eq("id", igrejId2).single()
     : { data: null }
 
   // Get escalas_detalhes with joined member names

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Building2, Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Clock } from "lucide-react"
+import { Building2, Plus, Pencil, Trash2, Loader2, X, AlertTriangle, Clock, Upload } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
@@ -25,6 +25,7 @@ interface Igreja {
   telefone?: string
   email?: string
   endereco?: { rua?: string; cidade?: string; estado?: string }
+  logo_url?: string | null
   cultos?: CultoRegular[]
 }
 
@@ -55,6 +56,9 @@ export default function IgrejasPage() {
   const [cultos, setCultos] = useState<CultoRegular[]>([])
   const [deleteTarget, setDeleteTarget] = useState<Igreja | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null)
 
   useEffect(() => { fetchIgrejas() }, [])
 
@@ -78,6 +82,8 @@ export default function IgrejasPage() {
       telefone: ig.telefone ?? "", email: ig.email ?? "",
       endereco: { rua: ig.endereco?.rua ?? "", cidade: ig.endereco?.cidade ?? "", estado: ig.endereco?.estado ?? "" },
     })
+    setLogoUrl(ig.logo_url ?? null)
+    setPendingLogoFile(null)
     // Fetch cultos regulares
     try {
       const res = await fetch(`/api/igrejas/cultos-regulares?igreja_id=${ig.id}`)
@@ -93,7 +99,17 @@ export default function IgrejasPage() {
     setEditing(null)
     setForm(EMPTY_FORM)
     setCultos([])
+    setLogoUrl(null)
+    setPendingLogoFile(null)
     setModalOpen(true)
+  }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Preview immediately
+    setLogoUrl(URL.createObjectURL(file))
+    setPendingLogoFile(file)
   }
 
   function addCulto() {
@@ -150,6 +166,16 @@ export default function IgrejasPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ igreja_id: igId, cultos }),
         })
+        // Upload logo if a new file was selected
+        if (pendingLogoFile) {
+          setUploadingLogo(true)
+          const fd = new FormData()
+          fd.append("file", pendingLogoFile)
+          fd.append("igrejaId", igId)
+          await fetch("/api/igrejas/upload-logo", { method: "POST", body: fd })
+          setUploadingLogo(false)
+          setPendingLogoFile(null)
+        }
       }
 
       toast({ title: editing ? "Igreja atualizada!" : "Igreja cadastrada!" })
@@ -221,8 +247,12 @@ export default function IgrejasPage() {
           {igrejas.map((ig) => (
             <div key={ig.id} className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Building2 className="h-5 w-5 text-primary" />
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                  {ig.logo_url ? (
+                    <img src={ig.logo_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-5 w-5 text-primary" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm leading-tight truncate">{ig.nome}</p>
@@ -292,6 +322,26 @@ export default function IgrejasPage() {
 
           {/* Modal body */}
           <div className="overflow-y-auto p-6 space-y-6 flex-1">
+
+              {/* Logo */}
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-7 w-7 text-muted-foreground/50" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-medium mb-1">Logo da Igreja</p>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+                    {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    {logoUrl ? "Trocar logo" : "Fazer upload"}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="sr-only" onChange={handleLogoChange} />
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP ou SVG. Máx 2MB.</p>
+                </div>
+              </div>
 
               {/* Dados básicos */}
               <div>
