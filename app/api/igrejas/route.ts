@@ -8,10 +8,8 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("igrejas")
-      .select(`
-        *,
-        responsavel:profiles(nome, email)
-      `)
+      .select("id, nome, tipo, telefone, email, endereco, ativo")
+      .order("tipo", { ascending: false })
       .order("nome")
 
     if (error) throw error
