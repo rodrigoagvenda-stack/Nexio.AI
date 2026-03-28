@@ -359,7 +359,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
 
         {/* ── HEADER ── */}
         <div style={{
-          background: "linear-gradient(160deg, #8a8345 0%, #C1BC7A 60%, #a8a35e 100%)",
+          background: "white",
           padding: "0 28px",
           display: "flex",
           alignItems: "center",
@@ -404,15 +404,15 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             <p style={{
               fontFamily: "'Montserrat', sans-serif", fontWeight: 400, fontSize: 9,
               letterSpacing: 3, textTransform: "uppercase",
-              color: "white", marginBottom: 4, opacity: .9,
+              color: "#555", marginBottom: 4, opacity: .9,
             }}>
               {igrejaNome || "Igreja Pentecostal Vale da Bênção"}
             </p>
             <h1 style={{
               fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
-              fontSize: 16, color: "white", lineHeight: 1.2, letterSpacing: -.1,
+              fontSize: 16, color: "#1a1a1a", lineHeight: 1.2, letterSpacing: -.1,
             }}>
-              {escalaTitulo} &nbsp;|&nbsp; <span style={{ color: "white", fontWeight: 800 }}>{mesAnoLabel}</span>
+              {escalaTitulo} &nbsp;|&nbsp; <span style={{ color: "#C1BC7A", fontWeight: 800 }}>{mesAnoLabel}</span>
             </h1>
           </div>
 
@@ -423,7 +423,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             borderRadius: 5, padding: "5px 14px",
             fontFamily: "'Montserrat', sans-serif",
             fontSize: 9, fontWeight: 700, letterSpacing: 2,
-            textTransform: "uppercase", color: "white", whiteSpace: "nowrap",
+            textTransform: "uppercase", color: "#8a8345", whiteSpace: "nowrap",
           }}>
             {MESES[escala.mes]} {escala.ano}
           </div>
