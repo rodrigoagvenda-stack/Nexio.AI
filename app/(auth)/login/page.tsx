@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/use-toast"
-import { Cross, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import type { Profile } from "@/types/database.types"
 
 export default function LoginPage() {
@@ -63,13 +63,12 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-            <Cross className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
-          </div>
-          <div className="text-center">
-            <h1 className="text-xl font-semibold">IPVB Sistema</h1>
-            <p className="text-sm text-muted-foreground">Igreja Pentecostal Vale da Bênção</p>
-          </div>
+          <img
+            src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Logo%20sidebar.png"
+            alt="IPVB"
+            className="h-20 w-auto object-contain"
+          />
+          <p className="text-sm text-muted-foreground">Igreja Pentecostal Vale da Bênção</p>
         </div>
 
         {/* Card */}

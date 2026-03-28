@@ -18,7 +18,6 @@ import {
   HandHeart,
   Settings,
   X,
-  Cross,
   ChevronLeft,
   ChevronRight,
   Sun,
@@ -125,11 +124,18 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
           collapsed ? "justify-center px-0" : "justify-between px-3"
         )}>
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary">
-              <Cross className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
-            </div>
-            {!collapsed && (
-              <span className="text-sm font-bold truncate tracking-tight">IPVB</span>
+            {collapsed ? (
+              <img
+                src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Logo%20sidebar.png"
+                alt="IPVB"
+                className="h-7 w-7 object-contain"
+              />
+            ) : (
+              <img
+                src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Logo%20sidebar.png"
+                alt="IPVB"
+                className="h-8 w-auto object-contain max-w-[140px]"
+              />
             )}
           </div>
           {!collapsed && (
