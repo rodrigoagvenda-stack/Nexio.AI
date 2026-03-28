@@ -379,33 +379,25 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
           }} />
 
           {/* Church logo or dove */}
-          <div style={{
-            flexShrink: 0, width: 50, height: 50, borderRadius: "50%",
-            background: "rgba(255,255,255,.13)",
-            border: "1.5px solid rgba(255,255,255,.3)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden",
-          }}>
-            {igreja?.logo_url ? (
-              <img
-                src={igreja.logo_url}
-                alt="Logo"
-                style={{ width: 50, height: 50, objectFit: "cover", borderRadius: "50%" }}
-              />
-            ) : (
-              <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width={28} height={28}>
-                <path d="M40 10 C38.5 16 35 19 37 26 C38 30 40 32 40 32 C40 32 42 30 43 26 C45 19 41.5 16 40 10Z" fill="#e8c87a"/>
-                <ellipse cx="38" cy="50" rx="13" ry="8" fill="white" opacity=".95"/>
-                <circle cx="50" cy="45" r="7" fill="white" opacity=".95"/>
-                <path d="M56.5 44.5 L63 45.5 L56.5 46.5Z" fill="#c9a84c"/>
-                <circle cx="52.5" cy="44" r="1.4" fill="#1e4d35"/>
-                <path d="M25 47 C15 39 13 29 20 27 C27 25 33 36 36 46Z" fill="white" opacity=".8"/>
-                <path d="M27 55 C23 61 19 67 17 72" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
-                <path d="M31 57 C28 64 26 69 25 74" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
-                <path d="M35 58 C34 65 33 70 34 75" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".7"/>
-              </svg>
-            )}
-          </div>
+          {igreja?.logo_url ? (
+            <img
+              src={igreja.logo_url}
+              alt="Logo"
+              style={{ flexShrink: 0, width: 50, height: 50, objectFit: "contain" }}
+            />
+          ) : (
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" width={28} height={28} style={{ flexShrink: 0 }}>
+              <path d="M40 10 C38.5 16 35 19 37 26 C38 30 40 32 40 32 C40 32 42 30 43 26 C45 19 41.5 16 40 10Z" fill="#e8c87a"/>
+              <ellipse cx="38" cy="50" rx="13" ry="8" fill="white" opacity=".95"/>
+              <circle cx="50" cy="45" r="7" fill="white" opacity=".95"/>
+              <path d="M56.5 44.5 L63 45.5 L56.5 46.5Z" fill="#c9a84c"/>
+              <circle cx="52.5" cy="44" r="1.4" fill="#1e4d35"/>
+              <path d="M25 47 C15 39 13 29 20 27 C27 25 33 36 36 46Z" fill="white" opacity=".8"/>
+              <path d="M27 55 C23 61 19 67 17 72" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
+              <path d="M31 57 C28 64 26 69 25 74" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
+              <path d="M35 58 C34 65 33 70 34 75" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".7"/>
+            </svg>
+          )}
 
           {/* Title block */}
           <div style={{ flex: 1 }}>
