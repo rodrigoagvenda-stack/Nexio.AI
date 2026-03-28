@@ -126,9 +126,9 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
           <div className="flex items-center gap-2 min-w-0">
             {collapsed ? (
               <img
-                src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Logo%20sidebar.png"
+                src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/LOGO%20(1).png"
                 alt="IPVB"
-                className="h-7 w-7 object-contain"
+                className="h-8 w-8 object-contain"
               />
             ) : (
               <img
