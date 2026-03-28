@@ -135,7 +135,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 85%;          /* #D8D8D8 */
+    --background: 0 0% 100%;         /* #FFFFFF */
     --foreground: 222 14% 12%;
 
     --primary: 56 36% 62%;           /* #C1BC7A dourado */
@@ -157,7 +157,7 @@
     --input: 0 0% 78%;
     --ring: 56 36% 62%;
 
-    --card: 0 0% 100%;               /* #FFFFFF cards e sidebar */
+    --card: 0 0% 85%;                /* #D8D8D8 cards e sidebar */
     --card-foreground: 222 14% 12%;
 
     --popover: 0 0% 100%;
