@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { formatCurrency } from "@/lib/utils"
-import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Loader2, FileDown, Trash2, AlertTriangle } from "lucide-react"
+import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus, X, Loader2, FileDown, Trash2, AlertTriangle, CalendarRange } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
@@ -56,9 +56,6 @@ const MESES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ]
 
-const currentYear = new Date().getFullYear()
-const ANOS = [currentYear - 2, currentYear - 1, currentYear]
-
 const EMPTY_FORM = {
   tipo: "entrada" as "entrada" | "saida",
   data: new Date().toISOString().split("T")[0],
@@ -72,15 +69,37 @@ const EMPTY_FORM = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Returns "YYYY-MM-DD" for the first day of a given month/year */
-function firstDay(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, "0")}-01`
+function toISO(d: Date): string {
+  return d.toISOString().split("T")[0]
 }
 
-/** Returns "YYYY-MM-DD" for the last day of a given month/year */
-function lastDay(year: number, month: number): string {
-  const d = new Date(year, month, 0) // month 0-indexed trick: day 0 = last day of prev month
-  return `${year}-${String(month).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+function presetRange(preset: string): { from: string; to: string } {
+  const now = new Date()
+  if (preset === "hoje") {
+    const s = toISO(now)
+    return { from: s, to: s }
+  }
+  if (preset === "semana") {
+    const day = now.getDay()
+    const mon = new Date(now); mon.setDate(now.getDate() - day + (day === 0 ? -6 : 1))
+    return { from: toISO(mon), to: toISO(now) }
+  }
+  if (preset === "mes") {
+    const from = new Date(now.getFullYear(), now.getMonth(), 1)
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return { from: toISO(from), to: toISO(to) }
+  }
+  if (preset === "ano") {
+    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` }
+  }
+  return { from: toISO(now), to: toISO(now) }
+}
+
+function formatPeriodoLabel(from: string, to: string): string {
+  if (!from || !to) return ""
+  const f = new Date(from + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+  const t = new Date(to + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
+  return from === to ? f : `${f} – ${t}`
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -88,10 +107,11 @@ function lastDay(year: number, month: number): string {
 export default function FinanceiroPage() {
   const { toast } = useToast()
 
-  // Month/year filter — defaults to current month
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1) // 1–12
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  // Date range filter — defaults to current month
+  const [activePreset, setActivePreset] = useState("mes")
+  const initRange = presetRange("mes")
+  const [dateFrom, setDateFrom] = useState(initRange.from)
+  const [dateTo, setDateTo] = useState(initRange.to)
 
   const [igrejaId, setIgrejaId] = useState("")
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([])
@@ -131,29 +151,25 @@ export default function FinanceiroPage() {
     })
   }, [])
 
-  // ── Fetch lancamentos whenever igrejaId, month, year or filtroTipo change ──
+  // ── Fetch lancamentos whenever igrejaId, dateFrom, dateTo or filtroTipo change ──
   const fetchLancamentos = useCallback(
-    async (iid: string, tipo: string, month: number, year: number) => {
+    async (iid: string, tipo: string, from: string, to: string) => {
       if (!iid) return
       setLoading(true)
       try {
         const params = new URLSearchParams({
           igreja_id: iid,
-          pageSize: "200",
-          data_inicio: firstDay(year, month),
-          data_fim: lastDay(year, month),
+          pageSize: "500",
+          data_inicio: from,
+          data_fim: to,
         })
         if (tipo) params.set("tipo", tipo)
         const res = await fetch(`/api/financeiro/lancamentos?${params}`)
         const json = await res.json()
         const data: Lancamento[] = json.data ?? []
         setLancamentos(data)
-        const entradas = data
-          .filter(l => l.tipo === "entrada")
-          .reduce((s, l) => s + Number(l.valor), 0)
-        const saidas = data
-          .filter(l => l.tipo === "saida")
-          .reduce((s, l) => s + Number(l.valor), 0)
+        const entradas = data.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0)
+        const saidas = data.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0)
         setStats({ entradas, saidas, saldo: entradas - saidas })
       } catch {
         toast({ variant: "destructive", title: "Erro ao carregar lançamentos" })
@@ -166,11 +182,9 @@ export default function FinanceiroPage() {
   )
 
   useEffect(() => {
-    if (igrejaId) {
-      fetchLancamentos(igrejaId, filtroTipo, selectedMonth, selectedYear)
-    }
+    if (igrejaId) fetchLancamentos(igrejaId, filtroTipo, dateFrom, dateTo)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [igrejaId, filtroTipo, selectedMonth, selectedYear])
+  }, [igrejaId, filtroTipo, dateFrom, dateTo])
 
   // ── Fetch chart data (last 6 months) whenever igrejaId changes ────────────
   useEffect(() => {
@@ -225,7 +239,7 @@ export default function FinanceiroPage() {
       toast({ title: "Lançamento registrado!" })
       setModalOpen(false)
       setForm(EMPTY_FORM)
-      fetchLancamentos(igrejaId, filtroTipo, selectedMonth, selectedYear)
+      fetchLancamentos(igrejaId, filtroTipo, dateFrom, dateTo)
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro ao salvar", description: e.message })
     } finally {
@@ -240,7 +254,7 @@ export default function FinanceiroPage() {
     try {
       await fetch(`/api/financeiro/lancamentos/${deleteTarget}`, { method: "DELETE" })
       setDeleteTarget(null)
-      fetchLancamentos(igrejaId, filtroTipo, selectedMonth, selectedYear)
+      fetchLancamentos(igrejaId, filtroTipo, dateFrom, dateTo)
     } catch {
       toast({ variant: "destructive", title: "Erro ao excluir" })
     } finally {
@@ -256,7 +270,7 @@ export default function FinanceiroPage() {
       setExportando(false)
       return
     }
-    const periodoLabel = `${MESES[selectedMonth - 1]} ${selectedYear}`
+    const periodoLabel = formatPeriodoLabel(dateFrom, dateTo)
     const rows = lancamentos
       .map(
         l => `
@@ -318,31 +332,48 @@ export default function FinanceiroPage() {
         </div>
       </div>
 
-      {/* Month / Year filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-medium text-muted-foreground">Período:</span>
-        <select
-          value={selectedMonth}
-          onChange={e => setSelectedMonth(Number(e.target.value))}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {MESES.map((nome, idx) => (
-            <option key={idx + 1} value={idx + 1}>
-              {nome}
-            </option>
-          ))}
-        </select>
-        <select
-          value={selectedYear}
-          onChange={e => setSelectedYear(Number(e.target.value))}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {ANOS.map(ano => (
-            <option key={ano} value={ano}>
-              {ano}
-            </option>
-          ))}
-        </select>
+      {/* Date filter */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Quick presets */}
+        {(["hoje", "semana", "mes", "ano"] as const).map(p => (
+          <button
+            key={p}
+            onClick={() => {
+              const r = presetRange(p)
+              setActivePreset(p)
+              setDateFrom(r.from)
+              setDateTo(r.to)
+            }}
+            className={`h-8 px-3 rounded-md text-sm font-medium border transition-colors ${
+              activePreset === p
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-input text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {{ hoje: "Hoje", semana: "Esta semana", mes: "Este mês", ano: "Este ano" }[p]}
+          </button>
+        ))}
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-border mx-1" />
+
+        {/* Custom range */}
+        <div className="flex items-center gap-1.5 bg-background border border-input rounded-md px-2.5 h-8">
+          <CalendarRange className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={e => { setActivePreset(""); setDateFrom(e.target.value) }}
+            className="bg-transparent text-sm border-none outline-none w-32"
+          />
+          <span className="text-muted-foreground text-xs">–</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={e => { setActivePreset(""); setDateTo(e.target.value) }}
+            className="bg-transparent text-sm border-none outline-none w-32"
+          />
+        </div>
       </div>
 
       {/* Stats cards — reflect selected month */}
@@ -356,9 +387,7 @@ export default function FinanceiroPage() {
             <div className="text-2xl font-bold text-[#8a8345]">
               {formatCurrency(stats.entradas)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {MESES[selectedMonth - 1]} {selectedYear}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPeriodoLabel(dateFrom, dateTo)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -370,9 +399,7 @@ export default function FinanceiroPage() {
             <div className="text-2xl font-bold text-red-600">
               {formatCurrency(stats.saidas)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {MESES[selectedMonth - 1]} {selectedYear}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPeriodoLabel(dateFrom, dateTo)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -388,9 +415,7 @@ export default function FinanceiroPage() {
             >
               {formatCurrency(stats.saldo)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {MESES[selectedMonth - 1]} {selectedYear}
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">{formatPeriodoLabel(dateFrom, dateTo)}</p>
           </CardContent>
         </Card>
       </div>
@@ -468,7 +493,7 @@ export default function FinanceiroPage() {
           <CardTitle>
             Lançamentos —{" "}
             <span className="font-normal text-muted-foreground">
-              {MESES[selectedMonth - 1]} {selectedYear}
+              {formatPeriodoLabel(dateFrom, dateTo)}
             </span>
           </CardTitle>
         </CardHeader>
