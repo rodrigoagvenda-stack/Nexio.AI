@@ -61,7 +61,7 @@ export function StatCard({
           className={cn(
             "inline-flex items-center gap-1 mt-3 text-xs font-semibold px-2 py-0.5 rounded-full",
             isUp
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+              ? "bg-[#C1BC7A]/10 text-[#8a8345] dark:bg-[#C1BC7A]/10 dark:text-[#C1BC7A]"
               : "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
           )}
         >

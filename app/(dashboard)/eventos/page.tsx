@@ -121,7 +121,7 @@ export default async function EventosPage() {
       {eventosFuturos.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-green-500" />
+            <span className="h-2 w-2 rounded-full bg-[#C1BC7A]" />
             <h2 className="text-base font-semibold">Próximos Eventos</h2>
             <span className="text-xs text-muted-foreground font-normal ml-1">
               ({eventosFuturos.length})
@@ -133,7 +133,7 @@ export default async function EventosPage() {
               <Link key={evento.id} href={`/eventos/${evento.id}`}>
                 <div className="group relative rounded-xl border bg-card overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer h-full flex flex-col">
                   {/* Top color strip */}
-                  <div className="h-1 w-full bg-gradient-to-r from-green-400 to-emerald-500" />
+                  <div className="h-1 w-full bg-gradient-to-r from-[#C1BC7A] to-[#a8a35e]" />
 
                   <div className="p-4 flex flex-col flex-1">
                     {/* Date badge + name row */}
@@ -164,8 +164,8 @@ export default async function EventosPage() {
                     {/* Footer */}
                     {evento.inscricoes_abertas && (
                       <div className="mt-3 pt-3 border-t">
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-0.5">
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8a8345] bg-[#C1BC7A]/10 border border-[#C1BC7A]/30 rounded-full px-2.5 py-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#C1BC7A]" />
                           Inscrições abertas
                         </span>
                       </div>

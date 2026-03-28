@@ -23,20 +23,20 @@ export function StatsCard({
 }: StatsCardProps) {
   const gradients = {
     primary: "from-primary/10 to-primary/5",
-    success: "from-green-500/10 to-green-500/5",
+    success: "from-[#C1BC7A]/10 to-[#C1BC7A]/5",
     orange: "from-accent/10 to-accent/5",
     info: "from-blue-500/10 to-blue-500/5"
   }
 
   const iconColors = {
     primary: "text-primary",
-    success: "text-green-600",
+    success: "text-[#8a8345]",
     orange: "text-accent",
     info: "text-blue-600"
   }
 
   const trendColors = {
-    up: "text-green-600",
+    up: "text-[#8a8345]",
     down: "text-red-600",
     neutral: "text-muted-foreground"
   }

@@ -7,7 +7,7 @@ import {
 import Link from "next/link"
 
 const AVATAR_COLORS = [
-  "#085832","#2d7a4f","#1d4ed8","#7c3aed","#b45309","#0f766e","#9f1239","#065f46",
+  "#8a8345","#C1BC7A","#1d4ed8","#7c3aed","#b45309","#0f766e","#9f1239","#a8a35e",
 ]
 function avatarColor(name: string) {
   let h = 0
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                 <Users className="h-5 w-5 text-primary" />
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-emerald-500/10 text-emerald-600">
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-[#C1BC7A]/10 text-[#8a8345]">
                 <TrendingUp className="h-2.5 w-2.5" /> ativos
               </span>
             </div>
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
               <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
                 <Wallet className="h-5 w-5 text-blue-600" />
               </div>
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${saldo >= 0 ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"}`}>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${saldo >= 0 ? "bg-[#C1BC7A]/10 text-[#8a8345]" : "bg-destructive/10 text-destructive"}`}>
                 {saldo >= 0 ? "+" : ""}{saldo >= 0 ? formatCurrency(entradas) : formatCurrency(saidas)}
               </span>
             </div>

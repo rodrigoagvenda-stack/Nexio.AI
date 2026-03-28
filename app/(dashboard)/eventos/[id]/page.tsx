@@ -82,7 +82,7 @@ export default async function EventoDetailPage({ params }: PageProps) {
                 {eventoPpassado ? (
                   <Badge variant="secondary">Evento Realizado</Badge>
                 ) : evento.inscricoes_abertas ? (
-                  <Badge className="bg-green-500">Inscrições Abertas</Badge>
+                  <Badge className="bg-[#C1BC7A]">Inscrições Abertas</Badge>
                 ) : (
                   <Badge variant="secondary">Inscrições Fechadas</Badge>
                 )}
@@ -188,7 +188,7 @@ export default async function EventoDetailPage({ params }: PageProps) {
             {evento.valor_inscricao === 0 && (
               <div className="flex items-center gap-2 text-sm">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <p className="font-medium text-green-600">Gratuito</p>
+                <p className="font-medium text-[#8a8345]">Gratuito</p>
               </div>
             )}
           </CardContent>

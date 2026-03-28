@@ -36,7 +36,7 @@ export default async function MembroDetailPage({ params }: PageProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "ativo":
-        return "bg-green-500"
+        return "bg-[#C1BC7A]"
       case "inativo":
         return "bg-red-500"
       case "visitante":

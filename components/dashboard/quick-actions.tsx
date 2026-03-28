@@ -30,7 +30,7 @@ export function QuickActions() {
       title: "Lançamento",
       icon: DollarSign,
       href: "/financeiro/lancamentos/novo",
-      color: "text-green-600"
+      color: "text-[#8a8345]"
     },
     {
       title: "Gerar Escala",

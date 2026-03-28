@@ -264,22 +264,22 @@ export default function FinanceiroPage() {
         <td>${new Date(l.data + "T12:00:00").toLocaleDateString("pt-BR")}</td>
         <td>${l.descricao}</td>
         <td>${l.categorias_financeiras?.nome ?? "—"}</td>
-        <td style="color:${l.tipo === "entrada" ? "green" : "red"}">${l.tipo === "entrada" ? "Entrada" : "Saída"}</td>
+        <td style="color:${l.tipo === "entrada" ? "#8a8345" : "red"}">${l.tipo === "entrada" ? "Entrada" : "Saída"}</td>
         <td style="text-transform:capitalize">${l.forma_pagamento}</td>
-        <td style="text-align:right;font-weight:bold;color:${l.tipo === "entrada" ? "green" : "red"}">${l.tipo === "saida" ? "−" : "+"}${formatCurrency(l.valor)}</td>
+        <td style="text-align:right;font-weight:bold;color:${l.tipo === "entrada" ? "#8a8345" : "red"}">${l.tipo === "saida" ? "−" : "+"}${formatCurrency(l.valor)}</td>
       </tr>`
       )
       .join("")
     win.document.write(`<html><head><title>Relatório Financeiro — ${periodoLabel}</title>
       <style>body{font-family:Arial,sans-serif;padding:24px}h2{margin-bottom:4px}
       table{width:100%;border-collapse:collapse;margin-top:16px}
-      th{background:#085832;color:#fff;padding:8px;text-align:left}
+      th{background:#C1BC7A;color:#1e1e1e;padding:8px;text-align:left}
       td{padding:6px 8px;border-bottom:1px solid #eee}
       .sum{display:flex;gap:32px;margin:16px 0;font-size:14px}</style></head><body>
       <h2>Relatório Financeiro — ${periodoLabel}</h2>
       <p style="color:#666">Gerado em ${new Date().toLocaleDateString("pt-BR")}</p>
       <div class="sum">
-        <span>✅ Entradas: <strong style="color:green">${formatCurrency(stats.entradas)}</strong></span>
+        <span>✅ Entradas: <strong style="color:#8a8345">${formatCurrency(stats.entradas)}</strong></span>
         <span>❌ Saídas: <strong style="color:red">${formatCurrency(stats.saidas)}</strong></span>
         <span>💰 Saldo: <strong>${formatCurrency(stats.saldo)}</strong></span>
       </div>
@@ -350,10 +350,10 @@ export default function FinanceiroPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Entradas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <TrendingUp className="h-4 w-4 text-[#8a8345]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-[#8a8345]">
               {formatCurrency(stats.entradas)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -534,7 +534,7 @@ export default function FinanceiroPage() {
                         </td>
                         <td
                           className={`py-2 pr-4 text-right font-semibold whitespace-nowrap ${
-                            l.tipo === "entrada" ? "text-green-600" : "text-red-600"
+                            l.tipo === "entrada" ? "text-[#8a8345]" : "text-red-600"
                           }`}
                         >
                           {l.tipo === "saida" ? "−" : "+"}

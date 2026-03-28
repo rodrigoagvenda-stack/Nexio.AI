@@ -77,7 +77,7 @@ export default async function FrequenciaPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalPresencas}</div>
-            <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+            <p className="text-xs text-[#8a8345] mt-1 flex items-center gap-1">
               <TrendingUp className="h-3 w-3" /> Crescimento
             </p>
           </CardContent>

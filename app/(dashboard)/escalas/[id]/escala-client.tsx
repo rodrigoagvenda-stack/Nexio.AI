@@ -28,7 +28,7 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_STYLES: Record<string, string> = {
   rascunho: "bg-amber-100 text-amber-800 border border-amber-300",
   confirmando: "bg-blue-100 text-blue-800 border border-blue-300",
-  finalizada: "bg-emerald-100 text-emerald-800 border border-emerald-300",
+  finalizada: "bg-[#C1BC7A]/10 text-[#8a8345] border border-[#C1BC7A]/30",
   enviada: "bg-purple-100 text-purple-800 border border-purple-300",
 }
 
@@ -43,10 +43,10 @@ function getRowStyle(diaSemana: number): {
   switch (diaSemana) {
     case 0:
       return {
-        borderColor: "#10b981",
+        borderColor: "#C1BC7A",
         bgEven: "#f0fdf4",
         bgOdd: "#ffffff",
-        dayTextClass: "text-emerald-700 font-semibold",
+        dayTextClass: "text-[#8a8345] font-semibold",
       }
     case 3:
       return {
@@ -82,8 +82,8 @@ function getInitials(name: string): string {
 }
 
 const AVATAR_COLORS = [
-  "#1a4a2e", "#2d7a4f", "#1d4ed8", "#7c3aed",
-  "#b45309", "#0f766e", "#9f1239", "#065f46",
+  "#C1BC7A", "#a8a35e", "#1d4ed8", "#7c3aed",
+  "#b45309", "#0f766e", "#9f1239", "#8a8345",
 ]
 
 function avatarColor(name: string): string {
@@ -359,7 +359,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
 
         {/* ── HEADER ── */}
         <div style={{
-          background: "linear-gradient(160deg, #1a4330 0%, #2b6347 60%, #1e4d35 100%)",
+          background: "linear-gradient(160deg, #8a8345 0%, #C1BC7A 60%, #a8a35e 100%)",
           padding: "0 28px",
           display: "flex",
           alignItems: "center",
@@ -391,7 +391,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
               <ellipse cx="38" cy="50" rx="13" ry="8" fill="white" opacity=".95"/>
               <circle cx="50" cy="45" r="7" fill="white" opacity=".95"/>
               <path d="M56.5 44.5 L63 45.5 L56.5 46.5Z" fill="#c9a84c"/>
-              <circle cx="52.5" cy="44" r="1.4" fill="#1e4d35"/>
+              <circle cx="52.5" cy="44" r="1.4" fill="#8a8345"/>
               <path d="M25 47 C15 39 13 29 20 27 C27 25 33 36 36 46Z" fill="white" opacity=".8"/>
               <path d="M27 55 C23 61 19 67 17 72" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
               <path d="M31 57 C28 64 26 69 25 74" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity=".8"/>
@@ -450,8 +450,8 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
                 { label: "Observações",   w: "19%" },
               ].map(({ label, w }) => (
                 <th key={label} style={{
-                  backgroundColor: "#1e4d35",
-                  color: "white",
+                  backgroundColor: "#C1BC7A",
+                  color: "#1e1e1e",
                   fontFamily: "'Lato', sans-serif",
                   fontWeight: 700, fontSize: 9.5,
                   letterSpacing: 1, textTransform: "uppercase",
@@ -527,7 +527,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
 
         {/* ── FOOTER ── */}
         <div style={{
-          backgroundColor: "#1e4d35",
+          backgroundColor: "#C1BC7A",
           padding: "7px 28px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
           flexWrap: "wrap", gap: 6,
@@ -679,7 +679,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             <div className="overflow-x-auto rounded-xl border border-border shadow-sm bg-card">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr style={{ backgroundColor: "#1a4a2e" }}>
+                  <tr style={{ backgroundColor: "#C1BC7A" }}>
                     {/* color indicator column */}
                     <th className="w-1 py-3 px-0" />
                     <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Data</th>
@@ -791,7 +791,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             <div className="flex items-center justify-between gap-3">
               <button
                 onClick={addRow}
-                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium border-2 border-dashed border-emerald-400 text-emerald-700 hover:border-emerald-600 hover:bg-emerald-50 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium border-2 border-dashed border-[#C1BC7A] text-[#8a8345] hover:border-[#a8a35e] hover:bg-[#C1BC7A]/5 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar Culto
@@ -801,7 +801,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
                 onClick={handleSave}
                 disabled={saving}
                 className="inline-flex items-center gap-1.5 rounded-full px-6 py-2 text-sm font-semibold text-white transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: saving ? "#9ca3af" : "linear-gradient(135deg, #1a4a2e, #2d7a4f)" }}
+                style={{ background: saving ? "#9ca3af" : "linear-gradient(135deg, #8a8345, #C1BC7A)" }}
               >
                 {saving ? (
                   <><Loader2 className="h-4 w-4 animate-spin" />Salvando...</>
@@ -823,7 +823,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr style={{ backgroundColor: "#1a4a2e" }}>
+                    <tr style={{ backgroundColor: "#C1BC7A" }}>
                       <th className="w-1 py-3 px-0" />
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Data</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Dia</th>

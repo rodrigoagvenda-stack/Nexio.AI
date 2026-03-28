@@ -44,7 +44,7 @@ export function RevenueChart({ igrejaId }: RevenueChartProps) {
             <div className="rounded-lg bg-primary/5 p-4">
               <p className="text-sm text-muted-foreground mb-1">Total Receita</p>
               <p className="text-2xl font-bold text-primary">R$ {(total / 1000).toFixed(1)}k</p>
-              <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
+              <div className="flex items-center gap-1 text-xs text-[#8a8345] mt-1">
                 <TrendingUp className="h-3 w-3" />
                 +12.5%
               </div>
@@ -59,12 +59,12 @@ export function RevenueChart({ igrejaId }: RevenueChartProps) {
                 +8.2%
               </div>
             </div>
-            <div className="rounded-lg bg-green-500/5 p-4">
+            <div className="rounded-lg bg-[#C1BC7A]/5 p-4">
               <p className="text-sm text-muted-foreground mb-1">Saldo</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-[#8a8345]">
                 R$ {((total - expenses.reduce((a, b) => a + b, 0)) / 1000).toFixed(1)}k
               </p>
-              <div className="flex items-center gap-1 text-xs text-green-600 mt-1">
+              <div className="flex items-center gap-1 text-xs text-[#8a8345] mt-1">
                 <TrendingUp className="h-3 w-3" />
                 +18.3%
               </div>

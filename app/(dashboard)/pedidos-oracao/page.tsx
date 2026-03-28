@@ -29,7 +29,7 @@ const CAT_LABEL: Record<string, string> = {
 const CAT_COLOR: Record<string, string> = {
   saude: "bg-red-100 text-red-700",
   familia: "bg-blue-100 text-blue-700",
-  financeiro: "bg-green-100 text-green-700",
+  financeiro: "bg-[#C1BC7A]/10 text-[#8a8345]",
   trabalho: "bg-orange-100 text-orange-700",
   espiritual: "bg-purple-100 text-purple-700",
   outro: "bg-gray-100 text-gray-700",
@@ -165,7 +165,7 @@ export default function PedidosOracaoPage() {
       ) : (
         <div className="space-y-3">
           {filtrados.map(p => (
-            <Card key={p.id} className={p.status === "respondido" ? "border-green-200" : ""}>
+            <Card key={p.id} className={p.status === "respondido" ? "border-[#C1BC7A]/30" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -174,7 +174,7 @@ export default function PedidosOracaoPage() {
                         {CAT_LABEL[p.categoria] ?? p.categoria}
                       </span>
                       {p.status === "respondido" && (
-                        <Badge variant="outline" className="text-green-600 border-green-300 text-xs">Respondido ✓</Badge>
+                        <Badge variant="outline" className="text-[#8a8345] border-[#C1BC7A]/40 text-xs">Respondido ✓</Badge>
                       )}
                       {p.membros?.nome && (
                         <span className="text-xs text-muted-foreground">{p.membros.nome}</span>
@@ -198,7 +198,7 @@ export default function PedidosOracaoPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-green-600 hover:text-green-700"
+                        className="h-7 w-7 text-[#8a8345] hover:text-[#7a753a]"
                         title="Marcar como respondido"
                         onClick={() => setTestemunhoId(p.id)}
                       >
@@ -221,9 +221,9 @@ export default function PedidosOracaoPage() {
                   <div className="mt-3 pt-3 border-t space-y-2">
                     <p className="text-sm text-muted-foreground">{p.descricao}</p>
                     {p.testemunho && (
-                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/20 rounded-md">
-                        <p className="text-xs font-medium text-green-700 mb-1">Testemunho:</p>
-                        <p className="text-sm text-green-800 dark:text-green-300">{p.testemunho}</p>
+                      <div className="mt-2 p-3 bg-[#C1BC7A]/5 dark:bg-[#C1BC7A]/5 rounded-md">
+                        <p className="text-xs font-medium text-[#8a8345] mb-1">Testemunho:</p>
+                        <p className="text-sm text-[#7a753a] dark:text-[#C1BC7A]">{p.testemunho}</p>
                       </div>
                     )}
                   </div>

@@ -29,7 +29,7 @@ export function RecentActivity() {
       title: "Dízimo registrado",
       description: "R$ 500,00 - João Santos",
       time: "5 horas atrás",
-      color: "text-green-600"
+      color: "text-[#8a8345]"
     },
     {
       id: 3,

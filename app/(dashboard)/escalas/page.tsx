@@ -16,8 +16,8 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, { badge: string; dot: string }> = {
   rascunho:    { badge: "bg-muted text-muted-foreground border-border",             dot: "bg-muted-foreground" },
   confirmando: { badge: "bg-blue-50 text-blue-700 border-blue-200",                 dot: "bg-blue-500" },
-  finalizada:  { badge: "bg-green-50 text-green-700 border-green-200",              dot: "bg-green-500" },
-  enviada:     { badge: "bg-emerald-50 text-emerald-700 border-emerald-200",        dot: "bg-emerald-500" },
+  finalizada:  { badge: "bg-[#C1BC7A]/10 text-[#8a8345] border-[#C1BC7A]/30",       dot: "bg-[#C1BC7A]" },
+  enviada:     { badge: "bg-[#C1BC7A]/15 text-[#7a753a] border-[#C1BC7A]/40",       dot: "bg-[#C1BC7A]" },
 }
 
 const MESES = [
