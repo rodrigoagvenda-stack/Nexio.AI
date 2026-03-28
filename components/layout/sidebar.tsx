@@ -112,7 +112,7 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col",
           "border-r border-border [background:hsl(var(--sidebar-background))]",
-          "transition-all duration-300 ease-in-out",
+          "transition-[width,transform] duration-150 ease-in-out",
           sidebarWidth,
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"

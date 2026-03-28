@@ -12,12 +12,12 @@ interface AppShellProps {
 
 export function AppShell({ user, children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  // Start collapsed on tablet (< lg / 1024px), expanded on desktop
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== "undefined" ? !window.matchMedia("(min-width: 1024px)").matches : false
+  )
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
-    setCollapsed(!mq.matches)
     const handler = (e: MediaQueryListEvent) => setCollapsed(!e.matches)
     mq.addEventListener("change", handler)
     return () => mq.removeEventListener("change", handler)
@@ -33,7 +33,7 @@ export function AppShell({ user, children }: AppShellProps) {
         onToggleCollapse={() => setCollapsed(v => !v)}
       />
       <div
-        className={`flex flex-col min-h-screen transition-all duration-300 ${collapsed ? "lg:pl-[60px]" : "lg:pl-56"}`}
+        className={`flex flex-col min-h-screen transition-[padding] duration-150 ${collapsed ? "lg:pl-[60px]" : "lg:pl-56"}`}
       >
         <div data-header>
           <Header user={user} onMenuOpen={() => setSidebarOpen(true)} />
