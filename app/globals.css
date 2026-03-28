@@ -50,13 +50,13 @@
     text-align: center;
     margin-bottom: 20px;
     padding-bottom: 12px;
-    border-bottom: 2px solid #1a4a2e;
+    border-bottom: 2px solid #C1BC7A;
   }
 
   .print-escala-header h1 {
     font-size: 22px;
     font-weight: 700;
-    color: #1a4a2e;
+    color: #8a8345;
     margin: 0 0 4px 0;
     letter-spacing: 0.5px;
     text-transform: uppercase;
@@ -71,7 +71,7 @@
 
   .print-escala-header .church-cross {
     font-size: 28px;
-    color: #1a4a2e;
+    color: #C1BC7A;
     display: block;
     margin-bottom: 6px;
   }
@@ -84,17 +84,17 @@
   }
 
   .print-table th {
-    background-color: #1a4a2e !important;
+    background-color: #C1BC7A !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    color: white !important;
+    color: #1e1e1e !important;
     padding: 7px 10px;
     text-align: left;
     font-weight: 600;
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border: 1px solid #0f3320;
+    border: 1px solid #a8a35e;
   }
 
   .print-table td {
@@ -135,29 +135,29 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 85%;          /* #D8D8D8 */
     --foreground: 222 14% 12%;
 
-    --primary: 152 83% 19%;          /* #085832 verde IPVB */
-    --primary-foreground: 0 0% 100%;
+    --primary: 56 36% 62%;           /* #C1BC7A dourado */
+    --primary-foreground: 0 0% 12%;
 
-    --secondary: 220 14% 96%;
+    --secondary: 0 0% 92%;
     --secondary-foreground: 222 14% 12%;
 
-    --muted: 220 14% 96%;
+    --muted: 0 0% 92%;
     --muted-foreground: 220 8% 46%;
 
-    --accent: 220 14% 96%;
+    --accent: 0 0% 92%;
     --accent-foreground: 222 14% 12%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 152 83% 19%;
+    --border: 0 0% 78%;
+    --input: 0 0% 78%;
+    --ring: 56 36% 62%;
 
-    --card: 0 0% 100%;
+    --card: 0 0% 100%;               /* #FFFFFF cards e sidebar */
     --card-foreground: 222 14% 12%;
 
     --popover: 0 0% 100%;
