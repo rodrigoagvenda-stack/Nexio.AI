@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/hooks/useUser';
+import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import TextType from '@/components/TextType';
 import { AnimatedShinyText } from '@/components/ui/animated-shiny-text';
@@ -201,47 +202,46 @@ export default function ProspectAIPage() {
         setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
       }, 5 * 60 * 1000);
 
-      // Polling da sessão a cada 3s para acumular contagem real
-      let lastInserted = 0;
+      // Polling direto no Supabase a cada 3s — sem passar pela API
+      const supabase = createClient();
       pollingRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/extraction/status/${sessionId}`);
-          const json = await res.json();
-          if (!json.success) return;
+        const { data: sessionRow, error } = await supabase
+          .from('extraction_sessions')
+          .select('inserted, status, requested')
+          .eq('id', sessionId)
+          .single();
 
-          const { inserted, status } = json.session;
-          setLiveInserted(inserted);
+        if (error || !sessionRow) return;
 
-          // Progresso visual baseado em leads inseridos vs solicitados
-          const pct = Math.min(15 + Math.round((inserted / requested) * 80), 95);
-          setProgress(pct);
+        const { inserted, status } = sessionRow;
+        setLiveInserted(inserted);
 
-          const idx = Math.min(Math.floor((inserted / requested) * PROGRESS_MESSAGES.length), PROGRESS_MESSAGES.length - 1);
-          setCurrentAction(PROGRESS_MESSAGES[idx]);
+        const pct = Math.min(15 + Math.round((inserted / requested) * 80), 95);
+        setProgress(pct);
 
-          if (status === 'complete') {
-            stopPolling();
-            if (safetyTimeout) clearTimeout(safetyTimeout);
-            setProgress(100);
-            setCurrentAction('Concluído!');
+        const idx = Math.min(Math.floor((inserted / requested) * PROGRESS_MESSAGES.length), PROGRESS_MESSAGES.length - 1);
+        setCurrentAction(PROGRESS_MESSAGES[idx]);
 
-            setSession(prev => prev
-              ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + requested }
-              : { runs: 1, inserted, processed: requested }
-            );
+        if (status === 'complete') {
+          stopPolling();
+          if (safetyTimeout) clearTimeout(safetyTimeout);
+          setProgress(100);
+          setCurrentAction('Concluído!');
 
-            toast({
-              variant: "default",
-              title: "Extração concluída!",
-              description: `${inserted} de ${requested} leads tinham WhatsApp e foram inseridos.`,
-            });
+          setSession(prev => prev
+            ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + requested }
+            : { runs: 1, inserted, processed: requested }
+          );
 
-            setMapsUrl(''); setCidade(''); setEstado(''); setNicho(''); setCustomNicho('');
-            setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
-          }
+          toast({
+            variant: "default",
+            title: "Extração concluída!",
+            description: `${inserted} de ${requested} leads tinham WhatsApp e foram inseridos.`,
+          });
 
-          lastInserted = inserted;
-        } catch { /* ignora erros de polling */ }
+          setMapsUrl(''); setCidade(''); setEstado(''); setNicho(''); setCustomNicho('');
+          setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
+        }
       }, 3000);
 
     } catch (error: any) {
