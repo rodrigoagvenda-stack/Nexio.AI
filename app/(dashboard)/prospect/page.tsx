@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/hooks/useUser';
 import { Card } from '@/components/ui/card';
@@ -70,9 +70,35 @@ export default function ProspectAIPage() {
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentAction, setCurrentAction] = useState('');
+  const [liveInserted, setLiveInserted] = useState(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Acumulador de sessão
   const [session, setSession] = useState<{ runs: number; inserted: number; processed: number } | null>(null);
+
+  // Mensagens dinâmicas rotativas durante extração
+  const PROGRESS_MESSAGES = [
+    'Conectando ao Google Maps...',
+    'Coletando empresas do Apify...',
+    'Validando números de WhatsApp...',
+    'Gerando Score de qualificação...',
+    'Gerando MQL dos leads...',
+    'Filtrando leads com WhatsApp...',
+    'Inserindo leads no CRM...',
+    'Quase lá...',
+  ];
+  const msgIndexRef = useRef(0);
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
 
   const validateUrl = (url: string): boolean => {
     const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
@@ -106,62 +132,37 @@ export default function ProspectAIPage() {
 
   const handleExtract = async () => {
     if (!company?.id) {
-      toast({
-        variant: "destructive",
-        description: "Erro ao identificar sua empresa",
-      });
+      toast({ variant: "destructive", description: "Erro ao identificar sua empresa" });
       return;
+    }
+
+    let finalUrl = '';
+    if (activeTab === 'url') {
+      if (!mapsUrl.trim() || !validateUrl(mapsUrl)) {
+        toast({ variant: "destructive", description: "URL inválida. Use uma URL do Google Maps (.com ou .com.br)" });
+        return;
+      }
+      finalUrl = mapsUrl;
+    } else {
+      if (!validateManualForm()) return;
+      const nichoFinal = nicho === 'Outros' ? customNicho : nicho;
+      finalUrl = `https://www.google.com.br/maps/search/${encodeURIComponent(`${nichoFinal} em ${cidade}, ${estado}`)}`;
     }
 
     try {
       setExtracting(true);
-      setProgress(0);
-      setCurrentAction('Validando informações...');
+      setLiveInserted(0);
+      setProgress(5);
+      msgIndexRef.current = 0;
+      setCurrentAction(PROGRESS_MESSAGES[0]);
 
-      let finalUrl = '';
+      // Rotacionar mensagens a cada 4s
+      const msgInterval = setInterval(() => {
+        msgIndexRef.current = (msgIndexRef.current + 1) % PROGRESS_MESSAGES.length;
+        setCurrentAction(PROGRESS_MESSAGES[msgIndexRef.current]);
+      }, 4000);
 
-      if (activeTab === 'url') {
-        if (!mapsUrl.trim()) {
-          toast({
-            variant: "destructive",
-            description: "Por favor, cole a URL do Google Maps",
-          });
-          return;
-        }
-
-        if (!validateUrl(mapsUrl)) {
-          toast({
-            variant: "destructive",
-            description: "URL inválida. Use uma URL do Google Maps (.com ou .com.br)",
-          });
-          return;
-        }
-
-        finalUrl = mapsUrl;
-      } else {
-        if (!validateManualForm()) {
-          return;
-        }
-
-        setCurrentAction('Montando URL de busca...');
-        setProgress(10);
-
-        const nichoFinal = nicho === 'Outros' ? customNicho : nicho;
-        const query = `${nichoFinal} em ${cidade}, ${estado}`;
-        const encodedQuery = encodeURIComponent(query);
-        finalUrl = `https://www.google.com.br/maps/search/${encodedQuery}`;
-
-        toast({
-          variant: "info",
-          description: `Buscando: ${query}`,
-        });
-      }
-
-      setProgress(20);
-      setCurrentAction('Conectando ao Google Maps...');
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
+      // Disparar extração — recebe sessionId imediatamente
       const response = await fetch('/api/extraction/prospect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,54 +176,60 @@ export default function ProspectAIPage() {
         }),
       });
 
-      setProgress(40);
-      setCurrentAction('Extraindo dados...');
-
       const data = await response.json();
+      clearInterval(msgInterval);
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro ao extrair leads');
-      }
+      if (!response.ok) throw new Error(data.message || 'Erro ao extrair leads');
 
-      setProgress(60);
-      setCurrentAction('Processando informações...');
+      const { sessionId, requested } = data;
+      setProgress(15);
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProgress(80);
-      setCurrentAction('Qualificando leads...');
+      // Polling da sessão a cada 3s para acumular contagem real
+      let lastInserted = 0;
+      pollingRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/extraction/status/${sessionId}`);
+          const json = await res.json();
+          if (!json.success) return;
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProgress(100);
-      setCurrentAction('Concluído!');
+          const { inserted, status } = json.session;
+          setLiveInserted(inserted);
 
-      // Acumular na sessão — processados = leadLimit escolhido, inseridos = retorno do webhook
-      const inserted = data.extractedCount ?? 0;
-      const processed = leadLimit;
-      setSession(prev => prev
-        ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + processed }
-        : { runs: 1, inserted, processed }
-      );
+          // Progresso visual baseado em leads inseridos vs solicitados
+          const pct = Math.min(15 + Math.round((inserted / requested) * 80), 95);
+          setProgress(pct);
 
-      toast({
-        variant: "default",
-        title: "Lote extraído!",
-        description: `${inserted} de ${processed} leads tinham WhatsApp e foram inseridos.`,
-      });
+          const idx = Math.min(Math.floor((inserted / requested) * PROGRESS_MESSAGES.length), PROGRESS_MESSAGES.length - 1);
+          setCurrentAction(PROGRESS_MESSAGES[idx]);
 
-      // Reset
-      setMapsUrl('');
-      setCidade('');
-      setEstado('');
-      setNicho('');
-      setCustomNicho('');
+          if (status === 'complete') {
+            stopPolling();
+            setProgress(100);
+            setCurrentAction('Concluído!');
+
+            setSession(prev => prev
+              ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + requested }
+              : { runs: 1, inserted, processed: requested }
+            );
+
+            toast({
+              variant: "default",
+              title: "Extração concluída!",
+              description: `${inserted} de ${requested} leads tinham WhatsApp e foram inseridos.`,
+            });
+
+            setMapsUrl(''); setCidade(''); setEstado(''); setNicho(''); setCustomNicho('');
+            setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
+          }
+
+          lastInserted = inserted;
+        } catch { /* ignora erros de polling */ }
+      }, 3000);
 
     } catch (error: any) {
+      stopPolling();
       console.error('Extraction error:', error);
-      toast({
-        variant: "destructive",
-        description: error.message || "Erro ao extrair leads. Tente novamente.",
-      });
-    } finally {
+      toast({ variant: "destructive", description: error.message || "Erro ao extrair leads. Tente novamente." });
       setExtracting(false);
       setProgress(0);
       setCurrentAction('');
@@ -485,11 +492,16 @@ export default function ProspectAIPage() {
             <div className="space-y-2.5 mt-5">
               <div className="w-full bg-muted/30 rounded-full h-1 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-primary to-purple-500 h-full transition-all duration-500"
+                  className="bg-gradient-to-r from-primary to-purple-500 h-full transition-all duration-700"
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <p className="text-[10px] text-center text-muted-foreground/60 font-light">{progress}% concluído</p>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-muted-foreground/60 font-light">{progress}% concluído</p>
+                {liveInserted > 0 && (
+                  <p className="text-[10px] text-emerald-500 font-medium">{liveInserted} com WhatsApp ✓</p>
+                )}
+              </div>
             </div>
           )}
 

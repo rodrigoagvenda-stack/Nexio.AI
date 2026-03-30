@@ -9,7 +9,8 @@ interface N8NResponse {
 export async function extractLeadsFromMaps(
   startUrl: string,
   quantity: number,
-  companyId: number
+  companyId: number,
+  sessionId?: string
 ): Promise<N8NResponse> {
   try {
     console.log('[Maps] Iniciando extração para company_id:', companyId);
@@ -43,6 +44,7 @@ export async function extractLeadsFromMaps(
         startUrls: [{ url: startUrl }],
         company_id: companyId,
         quantity,
+        session_id: sessionId,
       }),
     });
 
