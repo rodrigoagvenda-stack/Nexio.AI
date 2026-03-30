@@ -112,7 +112,6 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Leads extraídos com sucesso via prospect.AI',
       extractedCount: extractionResult.data?.extractedCount || leadsToExtract,
-      processedCount: extractionResult.data?.processedCount ?? extractionResult.data?.extractedCount ?? leadsToExtract,
       query: cidade && estado && nicho ? `${nicho} em ${cidade}, ${estado}` : undefined,
     });
   } catch (error: any) {

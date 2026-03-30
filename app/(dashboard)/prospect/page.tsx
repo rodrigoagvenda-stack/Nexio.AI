@@ -195,9 +195,9 @@ export default function ProspectAIPage() {
       setProgress(100);
       setCurrentAction('Concluído!');
 
-      // Acumular na sessão
+      // Acumular na sessão — processados = leadLimit escolhido, inseridos = retorno do webhook
       const inserted = data.extractedCount ?? 0;
-      const processed = data.processedCount ?? inserted;
+      const processed = leadLimit;
       setSession(prev => prev
         ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + processed }
         : { runs: 1, inserted, processed }
@@ -206,7 +206,7 @@ export default function ProspectAIPage() {
       toast({
         variant: "default",
         title: "Lote extraído!",
-        description: `${inserted} leads com WhatsApp inseridos (${processed} processados neste lote).`,
+        description: `${inserted} de ${processed} leads tinham WhatsApp e foram inseridos.`,
       });
 
       // Reset
