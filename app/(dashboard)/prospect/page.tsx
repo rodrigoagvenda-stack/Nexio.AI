@@ -71,6 +71,9 @@ export default function ProspectAIPage() {
   const [progress, setProgress] = useState(0);
   const [currentAction, setCurrentAction] = useState('');
 
+  // Acumulador de sessão
+  const [session, setSession] = useState<{ runs: number; inserted: number; processed: number } | null>(null);
+
   const validateUrl = (url: string): boolean => {
     const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;
     return googleMapsPattern.test(url);
@@ -192,11 +195,18 @@ export default function ProspectAIPage() {
       setProgress(100);
       setCurrentAction('Concluído!');
 
-      // Mostrar Toast de sucesso
+      // Acumular na sessão
+      const inserted = data.extractedCount ?? 0;
+      const processed = data.processedCount ?? inserted;
+      setSession(prev => prev
+        ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + processed }
+        : { runs: 1, inserted, processed }
+      );
+
       toast({
         variant: "default",
-        title: "Extração concluída com sucesso!",
-        description: `${data.extractedCount} leads foram extraídos e estão disponíveis na tabela de leads do CRM.`,
+        title: "Lote extraído!",
+        description: `${inserted} leads com WhatsApp inseridos (${processed} processados neste lote).`,
       });
 
       // Reset
@@ -480,6 +490,38 @@ export default function ProspectAIPage() {
                 />
               </div>
               <p className="text-[10px] text-center text-muted-foreground/60 font-light">{progress}% concluído</p>
+            </div>
+          )}
+
+          {/* Resumo da sessão */}
+          {session && !extracting && (
+            <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wider">Resumo da sessão</p>
+                <button
+                  onClick={() => setSession(null)}
+                  className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                >
+                  Limpar
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-lg font-bold text-foreground">{session.processed}</p>
+                  <p className="text-[10px] text-muted-foreground">Processados</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-emerald-500">{session.inserted}</p>
+                  <p className="text-[10px] text-muted-foreground">Com WhatsApp</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold text-rose-400">{session.processed - session.inserted}</p>
+                  <p className="text-[10px] text-muted-foreground">Descartados</p>
+                </div>
+              </div>
+              {session.runs > 1 && (
+                <p className="text-[10px] text-center text-muted-foreground/50">{session.runs} execuções nesta sessão</p>
+              )}
             </div>
           )}
             </Card>
