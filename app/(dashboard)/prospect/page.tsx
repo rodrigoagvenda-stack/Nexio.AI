@@ -149,6 +149,8 @@ export default function ProspectAIPage() {
       finalUrl = `https://www.google.com.br/maps/search/${encodeURIComponent(`${nichoFinal} em ${cidade}, ${estado}`)}`;
     }
 
+    let safetyTimeout: ReturnType<typeof setTimeout> | null = null;
+
     try {
       setExtracting(true);
       setLiveInserted(0);
@@ -184,6 +186,21 @@ export default function ProspectAIPage() {
       const { sessionId, requested } = data;
       setProgress(15);
 
+      // Timeout de segurança: encerra após 5 minutos mesmo sem Complete
+      safetyTimeout = setTimeout(() => {
+        stopPolling();
+        setProgress(100);
+        setCurrentAction('Concluído!');
+        setSession(prev => {
+          const ins = prev ? prev.inserted : liveInserted;
+          return prev
+            ? { runs: prev.runs + 1, inserted: prev.inserted + liveInserted, processed: prev.processed + requested }
+            : { runs: 1, inserted: liveInserted, processed: requested };
+        });
+        toast({ variant: 'default', title: 'Extração concluída!', description: `${liveInserted} de ${requested} leads com WhatsApp inseridos.` });
+        setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
+      }, 5 * 60 * 1000);
+
       // Polling da sessão a cada 3s para acumular contagem real
       let lastInserted = 0;
       pollingRef.current = setInterval(async () => {
@@ -204,6 +221,7 @@ export default function ProspectAIPage() {
 
           if (status === 'complete') {
             stopPolling();
+            if (safetyTimeout) clearTimeout(safetyTimeout);
             setProgress(100);
             setCurrentAction('Concluído!');
 
@@ -228,6 +246,7 @@ export default function ProspectAIPage() {
 
     } catch (error: any) {
       stopPolling();
+      if (safetyTimeout) clearTimeout(safetyTimeout);
       console.error('Extraction error:', error);
       toast({ variant: "destructive", description: error.message || "Erro ao extrair leads. Tente novamente." });
       setExtracting(false);
