@@ -1061,6 +1061,7 @@ export default function AtendimentoPage() {
                   <div className="flex items-start gap-3">
                     <div className="relative">
                       <Avatar>
+                        <AvatarImage src={conv.whatsapp_photo_url ?? undefined} />
                         <AvatarFallback>
                           {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
                         </AvatarFallback>
@@ -1154,6 +1155,7 @@ export default function AtendimentoPage() {
 
                   {/* Avatar */}
                   <Avatar className="h-9 w-9 flex-shrink-0">
+                    <AvatarImage src={selectedConversation.whatsapp_photo_url ?? undefined} />
                     <AvatarFallback className="text-sm">
                       {getInitials(selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone)}
                     </AvatarFallback>
