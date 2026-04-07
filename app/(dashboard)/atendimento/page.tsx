@@ -42,6 +42,7 @@ interface Conversation {
   id_do_lead?: number;
   lead?: Lead;
   assigned_to?: number | null;
+  whatsapp_photo_url?: string;
 }
 
 interface Message {
