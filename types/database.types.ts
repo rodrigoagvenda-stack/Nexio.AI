@@ -192,6 +192,7 @@ export interface Conversation {
   status_da_conversa: 'aberto' | 'fechado';
   agente_atribuido?: string;
   etiquetas?: string[];
+  whatsapp_photo_url?: string;
   criado_em: string;
   atualizado_em: string;
 }

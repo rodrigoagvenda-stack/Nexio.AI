@@ -1250,6 +1250,7 @@ export default function AtendimentoPage() {
                   >
                     {msg.direcao === 'inbound' && (
                       <Avatar className="h-8 w-8">
+                        <AvatarImage src={selectedConversation.whatsapp_photo_url ?? undefined} />
                         <AvatarFallback className="text-xs">
                           {getInitials(selectedConversation.nome_do_contato || 'C')}
                         </AvatarFallback>
