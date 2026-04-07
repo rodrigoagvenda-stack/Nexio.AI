@@ -20,12 +20,14 @@ export async function POST(request: NextRequest) {
 
     // Extrair só os dígitos do telefone do contato
     const phone = sender_pn.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+    // Últimos 10 dígitos (DDD + 8 dígitos) para casar independente do 9 na frente
+    const phoneSuffix = phone.slice(-10);
 
-    // Buscar conversa pelo número do contato — o numero_de_telefone contém o phone
+    // Buscar conversa pelo sufixo do número
     const { data: conv } = await supabase
       .from('conversas_do_whatsapp')
       .select('id, company_id, whatsapp_photo_url')
-      .ilike('numero_de_telefone', `%${phone}%`)
+      .ilike('numero_de_telefone', `%${phoneSuffix}`)
       .single();
 
     if (!conv) {
