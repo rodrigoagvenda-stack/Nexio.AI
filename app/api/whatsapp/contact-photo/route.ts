@@ -21,33 +21,16 @@ export async function POST(request: NextRequest) {
     // Extrair só os dígitos do telefone do contato
     const phone = sender_pn.replace('@s.whatsapp.net', '').replace(/\D/g, '');
 
-    // Buscar company pelo número da instância (owner)
-    const { data: company } = await supabase
-      .from('companies')
-      .select('id')
-      .eq('whatsapp_instance_phone', owner)
-      .single();
-
-    if (!company) {
-      return NextResponse.json(
-        { success: false, message: 'Empresa não encontrada para esse owner' },
-        { status: 404 }
-      );
-    }
-
-    const company_id = company.id;
-
-    // Buscar conversa pelo telefone + company
+    // Buscar conversa pelo número do contato — o numero_de_telefone contém o phone
     const { data: conv } = await supabase
       .from('conversas_do_whatsapp')
-      .select('id, whatsapp_photo_url')
-      .eq('company_id', company_id)
+      .select('id, company_id, whatsapp_photo_url')
       .ilike('numero_de_telefone', `%${phone}%`)
       .single();
 
     if (!conv) {
       return NextResponse.json(
-        { success: false, message: 'Conversa não encontrada' },
+        { success: false, message: 'Conversa não encontrada para esse número' },
         { status: 404 }
       );
     }
@@ -73,7 +56,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await response.arrayBuffer());
 
     // Salvar no Supabase Storage
-    const filePath = `contact-photos/${company_id}/${conv.id}.jpg`;
+    const filePath = `contact-photos/${conv.company_id}/${conv.id}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from('user-uploads')
