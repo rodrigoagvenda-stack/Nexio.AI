@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-    if (userData.role !== 'admin' && userData.role !== 'owner') {
+    if (!['admin', 'manager'].includes(userData.role)) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
@@ -63,7 +63,7 @@ export async function DELETE() {
       .single()
 
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-    if (userData.role !== 'admin' && userData.role !== 'owner') {
+    if (!['admin', 'manager'].includes(userData.role)) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
