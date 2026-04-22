@@ -21,6 +21,8 @@ import {
   Kanban,
   FileText,
   Megaphone,
+  Zap,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -87,6 +89,8 @@ const navSections: NavSection[] = [
       { href: '/ajuda', label: 'Ajuda', icon: Info },
       { href: '/configuracoes', label: 'Configuração', icon: Settings },
       { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
+      { href: '/configuracoes/fluxos', label: 'Fluxos SDR', icon: Zap },
+      { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
     ],
   },
 ];
