@@ -67,9 +67,6 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-    if (!['admin', 'manager'].includes(userData.role)) {
-      return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
-    }
 
     const body = await request.json()
     const {
