@@ -351,14 +351,18 @@ async function log(
   leadId?: number,
   errorMessage?: string
 ): Promise<void> {
-  await supabase.from('sdr_logs').insert({
-    company_id: companyId,
-    phone,
-    lead_id: leadId,
-    event_type: eventType,
-    payload,
-    error_message: errorMessage,
-  }).catch(() => {}) // log nunca quebra o fluxo
+  try {
+    await supabase.from('sdr_logs').insert({
+      company_id: companyId,
+      phone,
+      lead_id: leadId,
+      event_type: eventType,
+      payload,
+      error_message: errorMessage,
+    })
+  } catch {
+    // log nunca quebra o fluxo
+  }
 }
 
 // ─── ENTRY POINT ─────────────────────────────────────────
