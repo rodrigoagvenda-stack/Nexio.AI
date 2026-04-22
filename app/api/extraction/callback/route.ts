@@ -12,25 +12,18 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // Lê o valor atual e incrementa (+1 por lead válido)
-    const { data: session, error: fetchError } = await supabase
-      .from('extraction_sessions')
-      .select('inserted')
-      .eq('id', session_id)
-      .single();
+    // Incremento atômico via RPC — evita race condition quando múltiplos
+    // callbacks chegam em paralelo (todos liam o mesmo valor e sobrescreviam)
+    const { data, error } = await supabase.rpc('increment_extraction_session', {
+      p_session_id: session_id,
+    });
 
-    if (fetchError || !session) {
-      return NextResponse.json({ success: false, message: 'Sessão não encontrada' }, { status: 404 });
+    if (error) {
+      console.error('[Callback] Erro no RPC:', error);
+      return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 
-    const newCount = (session.inserted ?? 0) + 1;
-
-    await supabase
-      .from('extraction_sessions')
-      .update({ inserted: newCount })
-      .eq('id', session_id);
-
-    return NextResponse.json({ success: true, inserted: newCount });
+    return NextResponse.json({ success: true, inserted: data });
   } catch (error: any) {
     console.error('[Callback] Erro:', error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

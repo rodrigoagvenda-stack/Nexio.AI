@@ -1,0 +1,59 @@
+import { NextResponse } from 'next/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { decrypt } from '@/lib/crypto'
+import { createUazapiClient } from '@/lib/sdr/uazapi'
+
+// GET /api/sdr/status — consulta status da instância uazapi em tempo real
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+
+    const service = createServiceClient()
+    const { data: config } = await service
+      .from('sdr_configs')
+      .select('uazapi_instance_url, uazapi_token, instance_status, instance_phone')
+      .eq('company_id', userData.company_id)
+      .single()
+
+    if (!config) return NextResponse.json({ status: 'disconnected', phone: null })
+
+    if (!config.uazapi_token || !config.uazapi_instance_url) {
+      return NextResponse.json({ status: 'disconnected', phone: null })
+    }
+
+    const token = decrypt(config.uazapi_token)
+    const client = createUazapiClient(config.uazapi_instance_url, token)
+    const liveStatus = await client.getStatus()
+
+    // Sincroniza o status no banco para leituras futuras
+    if (liveStatus.status !== config.instance_status || liveStatus.phone !== config.instance_phone) {
+      await service
+        .from('sdr_configs')
+        .update({
+          instance_status: liveStatus.status,
+          instance_phone: liveStatus.phone ?? null,
+        })
+        .eq('company_id', userData.company_id)
+    }
+
+    return NextResponse.json({
+      status: liveStatus.status,
+      phone: liveStatus.phone ?? null,
+      qrcode: liveStatus.qrcode ?? null,
+      pairingCode: liveStatus.pairingCode ?? null,
+    })
+  } catch (err: any) {
+    console.error('[SDR status]', err)
+    return NextResponse.json({ error: err.message || 'Erro ao buscar status' }, { status: 500 })
+  }
+}

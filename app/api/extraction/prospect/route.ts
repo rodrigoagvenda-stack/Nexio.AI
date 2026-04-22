@@ -3,6 +3,25 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { extractLeadsFromMaps } from '@/lib/n8n/client';
 
+async function buildMapsUrl(nicho: string, cidade: string, estado: string): Promise<string> {
+  try {
+    const query = encodeURIComponent(`${cidade}, ${estado}, Brasil`);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { 'User-Agent': 'NexioAI/1.0' } }
+    );
+    const json = await res.json();
+    if (json?.length > 0) {
+      const { lat, lon } = json[0];
+      const searchQuery = `${nicho} em ${cidade}`.replace(/\s+/g, '+');
+      return `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}/@${lat},${lon},14z/data=!3m1!4b1?entry=ttu`;
+    }
+  } catch {
+    // fallback para URL simples se Nominatim falhar
+  }
+  return `https://www.google.com.br/maps/search/${encodeURIComponent(`${nicho} em ${cidade}, ${estado}`)}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -30,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     let finalUrl = url;
     if (!finalUrl && cidade && estado && nicho) {
-      finalUrl = `https://www.google.com.br/maps/search/${encodeURIComponent(`${nicho} em ${cidade}, ${estado}`)}`;
+      finalUrl = await buildMapsUrl(nicho, cidade, estado);
     }
 
     const googleMapsPattern = /^https?:\/\/(www\.)?google\.com(\.br)?\/maps\//i;

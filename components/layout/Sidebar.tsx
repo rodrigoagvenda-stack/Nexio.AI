@@ -86,6 +86,7 @@ const navSections: NavSection[] = [
     links: [
       { href: '/ajuda', label: 'Ajuda', icon: Info },
       { href: '/configuracoes', label: 'Configuração', icon: Settings },
+      { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
     ],
   },
 ];
