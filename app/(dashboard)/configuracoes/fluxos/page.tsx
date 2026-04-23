@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Pencil, Trash2, Loader2, Zap, BookOpen, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Zap, BookOpen, AlertCircle, Upload, CheckCircle } from 'lucide-react'
 
 interface SdrFlow {
   id: string
@@ -72,6 +72,8 @@ const DEFAULT_FORM: {
 
 export default function FluxosPage() {
   const [flows, setFlows] = useState<SdrFlow[]>([])
+  const [uploading, setUploading] = useState<Record<string, boolean>>({})
+  const [uploadDone, setUploadDone] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<SdrFlow | null>(null)
@@ -161,6 +163,24 @@ export default function FluxosPage() {
       setFlows((prev) => prev.map((f) => f.id === flow.id ? { ...f, ativo: !f.ativo } : f))
     } catch {
       toast({ title: 'Erro ao alterar status', variant: 'destructive' })
+    }
+  }
+
+  async function handleUpload(flowId: string, type: 'knowledge' | 'objections', file: File) {
+    const key = `${flowId}-${type}`
+    setUploading((p) => ({ ...p, [key]: true }))
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/sdr/flows/${flowId}/${type}`, { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast({ title: `PDF processado! ${data.chunks} chunks indexados.` })
+      setUploadDone((p) => ({ ...p, [key]: true }))
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao processar PDF', variant: 'destructive' })
+    } finally {
+      setUploading((p) => ({ ...p, [key]: false }))
     }
   }
 
@@ -254,6 +274,63 @@ export default function FluxosPage() {
                         <BookOpen className="w-3 h-3" />
                         Objeções {flow.objecoes_ativo ? 'ativo' : 'inativo'}
                       </span>
+                    </div>
+
+                    {/* Upload PDF */}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) handleUpload(flow.id, 'knowledge', f)
+                            e.target.value = ''
+                          }}
+                        />
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                          uploading[`${flow.id}-knowledge`]
+                            ? 'opacity-50 cursor-not-allowed bg-muted border-border'
+                            : uploadDone[`${flow.id}-knowledge`]
+                            ? 'bg-green-500/10 border-green-500/30 text-green-700'
+                            : 'bg-muted/50 border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}>
+                          {uploading[`${flow.id}-knowledge`]
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : uploadDone[`${flow.id}-knowledge`]
+                            ? <CheckCircle className="w-3 h-3" />
+                            : <Upload className="w-3 h-3" />}
+                          Base de conhecimento (PDF)
+                        </span>
+                      </label>
+
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) handleUpload(flow.id, 'objections', f)
+                            e.target.value = ''
+                          }}
+                        />
+                        <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                          uploading[`${flow.id}-objections`]
+                            ? 'opacity-50 cursor-not-allowed bg-muted border-border'
+                            : uploadDone[`${flow.id}-objections`]
+                            ? 'bg-green-500/10 border-green-500/30 text-green-700'
+                            : 'bg-muted/50 border-border hover:bg-muted text-muted-foreground hover:text-foreground'
+                        }`}>
+                          {uploading[`${flow.id}-objections`]
+                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                            : uploadDone[`${flow.id}-objections`]
+                            ? <CheckCircle className="w-3 h-3" />
+                            : <Upload className="w-3 h-3" />}
+                          Base de objeções (PDF)
+                        </span>
+                      </label>
                     </div>
                   </div>
 

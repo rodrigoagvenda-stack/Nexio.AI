@@ -92,6 +92,7 @@ export default function AtendimentoPage() {
   const [isDeletingConv, setIsDeletingConv] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiActive, setIsAiActive] = useState(true);
+  const [convAgentePausado, setConvAgentePausado] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -129,6 +130,11 @@ export default function AtendimentoPage() {
       setIsAiActive(company.is_active ?? true);
     }
   }, [company]);
+
+  // Sincroniza agente_pausado ao trocar de conversa
+  useEffect(() => {
+    setConvAgentePausado((selectedConversation as any)?.agente_pausado ?? false);
+  }, [selectedConversation?.id]);
 
   // Carregar mensagens quando selecionar conversa
   useEffect(() => {
@@ -1176,17 +1182,22 @@ export default function AtendimentoPage() {
                     <Button
                       variant="outline" size="sm"
                       onClick={async () => {
-                        const newValue = !isAiActive;
-                        setIsAiActive(newValue);
+                        if (!selectedConversation) return;
+                        const novoPausado = !convAgentePausado;
+                        setConvAgentePausado(novoPausado);
                         try {
-                          const res = await fetch('/api/company/ai-toggle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: newValue }) });
-                          if (!res.ok) { setIsAiActive(!newValue); toast({ title: 'Erro ao atualizar IA', variant: 'destructive' }); }
-                          else toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
-                        } catch { setIsAiActive(!newValue); toast({ title: 'Erro ao atualizar IA', variant: 'destructive' }); }
+                          const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pausado: novoPausado }),
+                          });
+                          if (!res.ok) { setConvAgentePausado(!novoPausado); toast({ title: 'Erro ao atualizar agente', variant: 'destructive' }); }
+                          else toast({ title: novoPausado ? 'Agente pausado nesta conversa' : 'Agente ativo nesta conversa' });
+                        } catch { setConvAgentePausado(!novoPausado); }
                       }}
-                      className={isAiActive ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10' : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10'}
+                      className={!convAgentePausado ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10' : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10'}
                     >
-                      {isAiActive ? <><Bot className="h-4 w-4 mr-1.5" /><span className="text-xs">IA ativa</span></> : <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="text-xs">IA pausada</span></>}
+                      {!convAgentePausado ? <><Bot className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente ativo</span></> : <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente pausado</span></>}
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => setScheduleDialog(true)} title="Agendar"><Clock className="h-4 w-4" /></Button>
                     <Button variant="outline" size="sm" onClick={() => setAssignDialog(true)}>
@@ -1214,15 +1225,20 @@ export default function AtendimentoPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem onClick={async () => {
-                          const newValue = !isAiActive;
-                          setIsAiActive(newValue);
+                          if (!selectedConversation) return;
+                          const novoPausado = !convAgentePausado;
+                          setConvAgentePausado(novoPausado);
                           try {
-                            const res = await fetch('/api/company/ai-toggle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: newValue }) });
-                            if (!res.ok) { setIsAiActive(!newValue); toast({ title: 'Erro ao atualizar IA', variant: 'destructive' }); }
-                            else toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
-                          } catch { setIsAiActive(!newValue); }
+                            const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ pausado: novoPausado }),
+                            });
+                            if (!res.ok) { setConvAgentePausado(!novoPausado); toast({ title: 'Erro ao atualizar agente', variant: 'destructive' }); }
+                            else toast({ title: novoPausado ? 'Agente pausado nesta conversa' : 'Agente ativo nesta conversa' });
+                          } catch { setConvAgentePausado(!novoPausado); }
                         }}>
-                          {isAiActive ? <><PauseCircle className="h-4 w-4 mr-2 text-amber-500" />Pausar IA</> : <><Bot className="h-4 w-4 mr-2 text-emerald-500" />Ativar IA</>}
+                          {convAgentePausado ? <><Bot className="h-4 w-4 mr-2 text-emerald-500" />Ativar agente</> : <><PauseCircle className="h-4 w-4 mr-2 text-amber-500" />Pausar agente</>}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setScheduleDialog(true)}>
                           <Clock className="h-4 w-4 mr-2" />Agendar mensagem

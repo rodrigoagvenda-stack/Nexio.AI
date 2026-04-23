@@ -164,9 +164,8 @@ export default function SdrConfigPage() {
         google_calendar_id: config.google_calendar_id,
       }
 
-      // Só envia token se o usuário digitou algo novo
-      if (config.uazapi_token.trim()) body.uazapi_token = config.uazapi_token.trim()
-      if (config.openai_key.trim()) body.openai_key = config.openai_key.trim()
+      if (config.uazapi_token?.trim()) body.uazapi_token = config.uazapi_token.trim()
+      if (config.openai_key?.trim()) body.openai_key = config.openai_key.trim()
 
       const res = await fetch('/api/sdr/config', {
         method: 'PUT',
@@ -373,7 +372,7 @@ export default function SdrConfigPage() {
             <Label>Token da instância</Label>
             <Input
               type="password"
-              value={config.uazapi_token}
+              value={config.uazapi_token ?? ''}
               onChange={(e) => setConfig((prev) => ({ ...prev, uazapi_token: e.target.value }))}
               placeholder={hasUazapiToken ? 'Token já salvo — cole aqui para alterar' : 'Cole o token aqui'}
             />
@@ -400,7 +399,7 @@ export default function SdrConfigPage() {
             <Label>OpenAI API Key (opcional — usa chave global se vazio)</Label>
             <Input
               type="password"
-              value={config.openai_key}
+              value={config.openai_key ?? ''}
               onChange={(e) => setConfig((prev) => ({ ...prev, openai_key: e.target.value }))}
               placeholder={hasOpenaiKey ? 'Chave já salva — cole aqui para alterar' : 'sk-…'}
             />
