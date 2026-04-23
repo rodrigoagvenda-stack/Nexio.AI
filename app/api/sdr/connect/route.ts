@@ -34,6 +34,14 @@ export async function POST(request: NextRequest) {
     }
 
     const token = decrypt(config.uazapi_token)
+
+    if (!token || !/^[\x00-\xFF]+$/.test(token)) {
+      return NextResponse.json(
+        { error: 'Token inválido — cole o token correto no campo e salve antes de conectar' },
+        { status: 400 }
+      )
+    }
+
     const client = createUazapiClient(config.uazapi_instance_url, token)
 
     const body = await request.json().catch(() => ({}))

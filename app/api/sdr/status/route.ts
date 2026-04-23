@@ -32,6 +32,18 @@ export async function GET() {
     }
 
     const token = decrypt(config.uazapi_token)
+
+    // Token inválido (contém chars não-ASCII) — DB corrompido antes do fix
+    if (!token || !/^[\x00-\xFF]+$/.test(token)) {
+      return NextResponse.json({
+        status: 'disconnected',
+        phone: null,
+        qrcode: null,
+        pairingCode: null,
+        error: 'Token inválido — cole o token correto e salve novamente',
+      })
+    }
+
     const client = createUazapiClient(config.uazapi_instance_url, token)
     const liveStatus = await client.getStatus()
 
