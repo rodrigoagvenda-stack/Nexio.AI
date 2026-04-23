@@ -77,6 +77,9 @@ export default function SdrConfigPage() {
     instance_status: 'disconnected',
     instance_phone: null,
   })
+  // Flags separadas para saber se já existe token salvo (sem expor o valor)
+  const [hasUazapiToken, setHasUazapiToken] = useState(false)
+  const [hasOpenaiKey, setHasOpenaiKey] = useState(false)
   const [status, setStatus] = useState<StatusData>({
     status: 'disconnected',
     phone: null,
@@ -98,7 +101,16 @@ export default function SdrConfigPage() {
       const res = await fetch('/api/sdr/config')
       const data = await res.json()
       if (data.config) {
-        setConfig((prev) => ({ ...prev, ...data.config }))
+        const cfg = data.config
+        // Tokens mascarados ficam como string vazia no state — nunca sobrescrever o campo com '••••••••'
+        setHasUazapiToken(!!cfg.uazapi_token)
+        setHasOpenaiKey(!!cfg.openai_key)
+        setConfig((prev) => ({
+          ...prev,
+          ...cfg,
+          uazapi_token: '',
+          openai_key: '',
+        }))
       }
     } catch {
       toast({ title: 'Erro ao carregar configuração', variant: 'destructive' })
@@ -152,12 +164,9 @@ export default function SdrConfigPage() {
         google_calendar_id: config.google_calendar_id,
       }
 
-      if (config.uazapi_token && !config.uazapi_token.startsWith('••')) {
-        body.uazapi_token = config.uazapi_token
-      }
-      if (config.openai_key && !config.openai_key.startsWith('••')) {
-        body.openai_key = config.openai_key
-      }
+      // Só envia token se o usuário digitou algo novo
+      if (config.uazapi_token.trim()) body.uazapi_token = config.uazapi_token.trim()
+      if (config.openai_key.trim()) body.openai_key = config.openai_key.trim()
 
       const res = await fetch('/api/sdr/config', {
         method: 'PUT',
@@ -166,7 +175,10 @@ export default function SdrConfigPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setConfig((prev) => ({ ...prev, ...data.config }))
+      // Atualiza flags e limpa campos de senha após salvar
+      setHasUazapiToken(!!data.config?.uazapi_token)
+      setHasOpenaiKey(!!data.config?.openai_key)
+      setConfig((prev) => ({ ...prev, ...data.config, uazapi_token: '', openai_key: '' }))
       toast({ title: 'Configuração salva!' })
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' })
@@ -361,10 +373,13 @@ export default function SdrConfigPage() {
             <Label>Token da instância</Label>
             <Input
               type="password"
-              value={config.uazapi_token ?? ''}
+              value={config.uazapi_token}
               onChange={(e) => setConfig((prev) => ({ ...prev, uazapi_token: e.target.value }))}
-              placeholder={config.uazapi_token?.startsWith('••') ? '••••••••' : 'Cole o token aqui'}
+              placeholder={hasUazapiToken ? 'Token já salvo — cole aqui para alterar' : 'Cole o token aqui'}
             />
+            {hasUazapiToken && !config.uazapi_token && (
+              <p className="text-xs text-green-600">✓ Token configurado. Deixe vazio para manter o atual.</p>
+            )}
           </div>
 
           {/* Webhook URL */}
@@ -385,10 +400,13 @@ export default function SdrConfigPage() {
             <Label>OpenAI API Key (opcional — usa chave global se vazio)</Label>
             <Input
               type="password"
-              value={config.openai_key ?? ''}
+              value={config.openai_key}
               onChange={(e) => setConfig((prev) => ({ ...prev, openai_key: e.target.value }))}
-              placeholder={config.openai_key?.startsWith('••') ? '••••••••' : 'sk-…'}
+              placeholder={hasOpenaiKey ? 'Chave já salva — cole aqui para alterar' : 'sk-…'}
             />
+            {hasOpenaiKey && !config.openai_key && (
+              <p className="text-xs text-green-600">✓ Chave configurada. Deixe vazio para manter a atual.</p>
+            )}
           </div>
         </CardContent>
       </Card>
