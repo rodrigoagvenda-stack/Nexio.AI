@@ -22,8 +22,8 @@ function chunkText(text: string): string[] {
 }
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // Usa pdf-parse para extrair texto
-  const pdfParse = (await import('pdf-parse')).default
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
   const data = await pdfParse(buffer)
   return data.text
 }
