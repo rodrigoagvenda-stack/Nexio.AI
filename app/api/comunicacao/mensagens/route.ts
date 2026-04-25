@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { sendText, sendButtons, sendList, sendPoll, sendMedia, UazapiConfig } from "@/lib/uazapi"
 
 export async function GET(req: Request) {
@@ -11,7 +11,8 @@ export async function GET(req: Request) {
   const conversa_id = searchParams.get("conversa_id")
   if (!conversa_id) return NextResponse.json({ error: "conversa_id obrigatório" }, { status: 400 })
 
-  const { data, error } = await (supabase as any)
+  const service = createServiceClient()
+  const { data, error } = await (service as any)
     .from("mensagens_whatsapp")
     .select("*")
     .eq("conversa_id", conversa_id)
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  await (supabase as any).from("conversas_whatsapp").update({ nao_lidas: 0 }).eq("id", conversa_id)
+  await (service as any).from("conversas_whatsapp").update({ nao_lidas: 0 }).eq("id", conversa_id)
 
   return NextResponse.json({ data: data ?? [] })
 }
