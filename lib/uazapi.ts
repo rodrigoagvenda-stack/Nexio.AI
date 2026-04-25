@@ -184,49 +184,73 @@ export interface IncomingMessage {
 
 export function parseWebhookPayload(body: any): IncomingMessage | null {
   try {
-    // Tenta múltiplos formatos que a uazapi pode enviar
+    // ── Formato uazapi real (confirmado no GTPRO) ─────────────────────────────
+    // { BaseUrl, EventType, chat: { wa_chatid, wa_name, ... }, message: { chatid, fromMe, content, text, ... } }
+    if (body?.message && body?.chat) {
+      const m    = body.message
+      const chat = body.chat
+
+      if (m.fromMe) return null
+
+      // Número do remetente
+      const rawId: string = m.chatid ?? chat.wa_chatid ?? ""
+      const fromNumber = rawId.replace("@s.whatsapp.net", "").replace("@c.us", "").replace(/\D/g, "")
+      if (!fromNumber || fromNumber.length < 8) return null
+
+      // Ignora grupos
+      if (rawId.includes("@g.us")) return null
+
+      // Texto — content pode ser string ou objeto (botão/lista)
+      let text = ""
+      const buttonId: string | undefined = m.buttonOrListid || undefined
+
+      if (typeof m.content === "string") {
+        text = m.content
+      } else if (m.content && typeof m.content === "object") {
+        text = m.content.selectedDisplayText ?? m.content.selectedID ?? ""
+      } else if (typeof m.text === "string") {
+        text = m.text
+      }
+
+      // Se não tem texto mas tem buttonId, usa o buttonId como texto
+      if (!text && buttonId) text = buttonId
+
+      if (!text?.trim()) return null
+
+      const pushName     = m.senderName ?? chat.wa_contactName ?? chat.wa_name ?? ""
+      const instanceName = body.instanceName ?? body.BaseUrl?.replace("https://", "").split(".")[0] ?? ""
+
+      return { fromNumber, text: text.trim(), msgId: m.id ?? m.messageid ?? "", pushName, fromMe: false, instanceName }
+    }
+
+    // ── Formato Evolution API / fallback ──────────────────────────────────────
     const data = body?.data ?? body
+    if (data?.key?.fromMe ?? body?.fromMe) return null
 
-    // fromMe — ignora mensagens enviadas pela própria instância
-    const fromMe = data?.key?.fromMe ?? body?.fromMe ?? false
-    if (fromMe) return null
+    const remoteJid: string = data?.key?.remoteJid ?? body?.from ?? body?.sender ?? ""
+    if (!remoteJid || remoteJid.includes("@g.us")) return null
 
-    // remoteJid (número do remetente)
-    const remoteJid: string =
-      data?.key?.remoteJid ??
-      body?.from ??
-      body?.sender ??
-      ""
-
-    // Ignora grupos
-    if (remoteJid.includes("@g.us") || remoteJid.includes("@newsletter")) return null
-
-    const fromNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "")
+    const fromNumber = remoteJid.replace("@s.whatsapp.net", "").replace("@lid", "").replace(/\D/g, "")
     if (!fromNumber) return null
 
-    // Texto da mensagem
+    const msg = data?.message ?? {}
     const text: string =
-      data?.message?.conversation ??
-      data?.message?.extendedTextMessage?.text ??
-      data?.message?.buttonsResponseMessage?.selectedButtonId ??
-      data?.message?.listResponseMessage?.singleSelectReply?.selectedRowId ??
-      data?.message?.templateButtonReplyMessage?.selectedId ??
-      body?.body ??
-      body?.text ??
-      ""
+      msg?.conversation ??
+      msg?.extendedTextMessage?.text ??
+      msg?.buttonsResponseMessage?.selectedDisplayText ??
+      msg?.listResponseMessage?.title ??
+      body?.body ?? body?.text ?? ""
 
-    if (!text) return null
+    if (!text?.trim()) return null
 
-    // ID da mensagem
-    const msgId: string = data?.key?.id ?? body?.id ?? ""
-
-    // Nome do remetente
-    const pushName: string = data?.pushName ?? body?.pushName ?? body?.name ?? ""
-
-    // Instância
-    const instanceName: string = body?.instance ?? body?.instanceId ?? body?.instanceName ?? ""
-
-    return { fromNumber, text, msgId, pushName, fromMe: false, instanceName }
+    return {
+      fromNumber,
+      text: text.trim(),
+      msgId: data?.key?.id ?? "",
+      pushName: data?.pushName ?? "",
+      fromMe: false,
+      instanceName: body?.instance ?? body?.instanceName ?? "",
+    }
   } catch {
     return null
   }

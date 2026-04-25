@@ -76,8 +76,8 @@ export async function POST(req: Request) {
   let body: any = {}
   try { body = await req.json() } catch { return NextResponse.json({ ok: false, error: "JSON inválido" }) }
 
-  // Log para debug no Easypanel
-  console.log("[webhook/uazapi] body:", JSON.stringify(body).substring(0, 500))
+  // Log completo para debug
+  console.log("[webhook/uazapi] FULL BODY:", JSON.stringify(body, null, 2).substring(0, 3000))
 
   // Filtra eventos que claramente não são mensagens
   const event = (body?.event ?? body?.type ?? "").toLowerCase()
