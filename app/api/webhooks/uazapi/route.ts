@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     if (!igrejas?.length) return NextResponse.json({ ok: false, error: "nenhuma igreja" })
 
     const igrejaCfg =
-      igrejas.find((ig: any) => ig.configuracoes?.uazapi_instance?.toLowerCase() === instanceName.toLowerCase()) ??
+      igrejas.find((ig: any) => ig.configuracoes?.uazapi_instance?.toLowerCase() === (instanceName ?? "").toLowerCase()) ??
       igrejas.find((ig: any) => ig.configuracoes?.uazapi_token)
 
     if (!igrejaCfg) { console.log("[webhook] nenhuma igreja com token"); return NextResponse.json({ ok: false }) }
