@@ -283,7 +283,7 @@ export default function ComunicacaoPage() {
     } finally { setSendingMsg(false) }
   }
 
-  async function triggerSDR() {
+  async function triggerSDR(primeiro = false) {
     if (!convAtiva) return
     setSdrLoading(true)
     try {
@@ -295,10 +295,18 @@ export default function ComunicacaoPage() {
           historico: mensagens,
           fluxo: convAtiva.tipo_fluxo || "pastoral",
           contexto: { nome_membro: convAtiva.nome_contato },
+          primeiro_contato: primeiro,
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
+
+      if (primeiro) {
+        toast({ title: "Mensagem interativa enviada!" })
+        await fetchMensagens(convAtiva)
+        return
+      }
+
       if (json.resposta) {
         setMensagens(prev => [...prev, {
           id: `tmp-${Date.now()}`,
@@ -306,12 +314,12 @@ export default function ComunicacaoPage() {
           direcao: "saida",
           conteudo: json.resposta,
           tipo: "texto",
-          status: "pendente",
+          status: "enviado",
           ia_gerada: true,
           created_at: new Date().toISOString(),
         }])
       }
-      if (json.alerta) toast({ title: "Alerta enviado ao pastor responsável" })
+      if (json.alerta) toast({ title: "⚠️ Alerta enviado ao pastor responsável" })
       if (json.resumo) {
         setConvAtiva(prev => prev ? { ...prev, resumo_ia: json.resumo } : prev)
         setConversas(prev => prev.map(c => c.id === convAtiva.id ? { ...c, resumo_ia: json.resumo } : c))
@@ -510,12 +518,23 @@ export default function ComunicacaoPage() {
                 {convAtiva.ia_ativa ? "IA Ativa" : "IA Off"}
               </button>
 
-              {/* Trigger SDR */}
-              <button onClick={triggerSDR} disabled={sdrLoading}
-                className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 border border-border transition-colors disabled:opacity-50">
-                {sdrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-[#C1BC7A]" />}
-                Resposta SDR
-              </button>
+              {/* Iniciar SDR (primeiro contato) */}
+              {mensagens.length === 0 && (
+                <button onClick={() => triggerSDR(true)} disabled={sdrLoading}
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-semibold bg-[#C1BC7A] text-[#1a1a1a] hover:bg-[#a8a35e] transition-colors disabled:opacity-50">
+                  {sdrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Iniciar SDR
+                </button>
+              )}
+
+              {/* Resposta SDR (conversa em andamento) */}
+              {mensagens.length > 0 && (
+                <button onClick={() => triggerSDR(false)} disabled={sdrLoading}
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium bg-muted hover:bg-muted/80 border border-border transition-colors disabled:opacity-50">
+                  {sdrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-[#C1BC7A]" />}
+                  Resposta SDR
+                </button>
+              )}
             </div>
           </div>
 

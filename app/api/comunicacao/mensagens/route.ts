@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { sendText, sendButtons, sendList, sendPoll, sendMedia, UazapiConfig } from "@/lib/uazapi"
 
 export async function GET(req: Request) {
   const supabase = await createClient()
@@ -19,7 +20,6 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Mark messages as read
   await (supabase as any).from("conversas_whatsapp").update({ nao_lidas: 0 }).eq("id", conversa_id)
 
   return NextResponse.json({ data: data ?? [] })
@@ -31,45 +31,53 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
   const body = await req.json()
-  const { conversa_id, conteudo, tipo = "texto", ia_gerada = false } = body
+  const {
+    conversa_id, conteudo, tipo = "texto", ia_gerada = false,
+    // Campos extras para tipos interativos
+    choices, footer, list_button, selectable_count, image_url,
+    // Mídia
+    media_url, doc_name,
+  } = body
+
   if (!conversa_id || !conteudo) return NextResponse.json({ error: "Campos obrigatórios ausentes" }, { status: 400 })
 
-  // Get conversation info (telefone + church config)
   const { data: conversa } = await (supabase as any)
     .from("conversas_whatsapp").select("telefone, igreja_id").eq("id", conversa_id).single()
   if (!conversa) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 })
 
-  // Get uazapi config from church
   const { data: igreja } = await (supabase as any)
     .from("igrejas").select("configuracoes").eq("id", conversa.igreja_id).single()
   const cfg = igreja?.configuracoes ?? {}
 
-  let msgIdWpp: string | null = null
   let sendError: string | null = null
+  let msgIdWpp: string | null = null
 
-  // Send via uazapi if configured
-  if (cfg.uazapi_token && cfg.uazapi_instance) {
+  if (cfg.uazapi_token && cfg.uazapi_base_url) {
+    const uazapi: UazapiConfig = { base_url: cfg.uazapi_base_url, token: cfg.uazapi_token }
+    const number: string = conversa.telefone
+
     try {
-      const baseUrl = (cfg.uazapi_base_url || "https://api.uazapi.io").replace(/\/$/, "")
-      const res = await fetch(`${baseUrl}/message/sendText`, {
-        method: "POST",
-        headers: {
-          "apikey": cfg.uazapi_token,
-          "Authorization": `Bearer ${cfg.uazapi_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ instance: cfg.uazapi_instance, number: conversa.telefone, text: conteudo }),
-        signal: AbortSignal.timeout(10000),
-      })
-      const json = await res.json()
-      msgIdWpp = json?.key?.id ?? null
-      if (!res.ok) sendError = json?.error ?? "Erro ao enviar via uazapi"
+      let res: any
+      if (tipo === "botoes" && choices?.length) {
+        res = await sendButtons(uazapi, number, { text: conteudo, choices, footer, image: image_url })
+      } else if (tipo === "lista" && choices?.length) {
+        res = await sendList(uazapi, number, { text: conteudo, listButton: list_button || "Ver opções", choices, footer })
+      } else if (tipo === "enquete" && choices?.length) {
+        res = await sendPoll(uazapi, number, { text: conteudo, choices, selectableCount: selectable_count })
+      } else if (tipo === "imagem" && media_url) {
+        res = await sendMedia(uazapi, number, { type: "image", file: media_url, text: conteudo })
+      } else if (tipo === "documento" && media_url) {
+        res = await sendMedia(uazapi, number, { type: "document", file: media_url, text: conteudo, docName: doc_name })
+      } else {
+        // padrão: texto simples
+        res = await sendText(uazapi, number, conteudo)
+      }
+      msgIdWpp = res?.key?.id ?? res?.id ?? null
     } catch (e: any) {
       sendError = e.message
     }
   }
 
-  // Persist message regardless
   const { data: msg, error } = await (supabase as any)
     .from("mensagens_whatsapp")
     .insert({
@@ -80,10 +88,10 @@ export async function POST(req: Request) {
       ia_gerada,
       msg_id_wpp: msgIdWpp,
       status: sendError ? "falhou" : "enviado",
+      metadata: choices ? { choices, footer, list_button } : {},
     })
     .select().single()
 
-  // Update conversation last message
   await (supabase as any).from("conversas_whatsapp").update({
     ultima_mensagem: conteudo,
     ultima_msg_at: new Date().toISOString(),
