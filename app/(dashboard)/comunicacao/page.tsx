@@ -229,6 +229,10 @@ export default function ComunicacaoPage() {
         })
     })
     fetchConversas()
+
+    // Auto-refresh a cada 8 segundos para receber novas conversas/mensagens
+    const interval = setInterval(fetchConversas, 8000)
+    return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -254,7 +258,11 @@ export default function ComunicacaoPage() {
   }
 
   useEffect(() => {
-    if (convAtiva) fetchMensagens(convAtiva)
+    if (!convAtiva) return
+    fetchMensagens(convAtiva)
+    // Atualiza mensagens a cada 5s enquanto a conversa está aberta
+    const interval = setInterval(() => fetchMensagens(convAtiva), 5000)
+    return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convAtiva?.id])
 

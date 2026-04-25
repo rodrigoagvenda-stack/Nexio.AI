@@ -142,9 +142,10 @@ export async function POST(req: Request) {
       const nome = membro?.nome ?? pushName ?? fromNumber
       const { data: nova } = await (supabase as any)
         .from("conversas_whatsapp")
-        .insert({ igreja_id: igrejaCfg.id, telefone: fromNumber, nome_contato: nome, ia_ativa: false, status: "aberta" })
+        .insert({ igreja_id: igrejaCfg.id, telefone: fromNumber, nome_contato: nome, ia_ativa: true, tipo_fluxo: "pastoral", status: "aberta" })
         .select().single()
       conversa = nova
+      conversa._is_new = true
       console.log(`[webhook/uazapi] nova conversa criada: ${nova?.id} — ${nome}`)
     }
 
@@ -164,7 +165,7 @@ export async function POST(req: Request) {
     }).eq("id", conversa.id)
 
     // SDR inline se IA ativa
-    if (conversa.ia_ativa && cfg.openai_api_key && uazapi.token) {
+    if (conversa.ia_ativa && uazapi.token) {
       const { data: historico } = await (supabase as any)
         .from("mensagens_whatsapp")
         .select("direcao, conteudo, created_at")
@@ -172,15 +173,46 @@ export async function POST(req: Request) {
         .order("created_at", { ascending: true })
         .limit(30)
 
-      const resposta = await runSDR(cfg, uazapi, conversa, historico ?? [], igrejaCfg.nome ?? "Igreja")
+      const isFirstMsg = (historico ?? []).filter((m: any) => m.direcao === "saida").length === 0
 
-      if (resposta) {
-        await (supabase as any).from("mensagens_whatsapp").insert({
-          conversa_id: conversa.id, direcao: "saida", conteudo: resposta, ia_gerada: true, status: "enviado",
-        })
-        await (supabase as any).from("conversas_whatsapp").update({
-          ultima_mensagem: resposta, ultima_msg_at: new Date().toISOString(),
-        }).eq("id", conversa.id)
+      // Primeira interação: envia menu interativo pastoral
+      if (isFirstMsg) {
+        const nome = conversa.nome_contato || "irmão(ã)"
+        try {
+          await sendList(uazapi, fromNumber, {
+            text: `A paz do Senhor, ${nome}! 😊\n\nSou a assistente virtual da *${igrejaCfg.nome || "nossa Igreja"}*. Que bom ter você aqui!\n\nComo posso ajudar?`,
+            listButton: "Ver opções",
+            choices: [
+              "[Como posso ajudar?]",
+              "🙏 Pedido de oração|oracao|Quero pedir intercessão",
+              "💰 Ajuda financeira|financeiro|Preciso de apoio",
+              "💍 Aconselhamento|casamento|Questões conjugais/familiares",
+              "📖 Estudo bíblico|estudo|Quero me aprofundar na Palavra",
+              "[Estou bem]",
+              "😊 Só passando para dizer oi|bem|Tudo ótimo, obrigado!",
+            ],
+            footer: "Nossa equipe pastoral está aqui por você",
+          })
+          const abertura = `[Mensagem interativa de boas-vindas enviada]`
+          await (supabase as any).from("mensagens_whatsapp").insert({
+            conversa_id: conversa.id, direcao: "saida", conteudo: abertura, ia_gerada: true, status: "enviado",
+          })
+          await (supabase as any).from("conversas_whatsapp").update({
+            ultima_mensagem: "Mensagem de boas-vindas enviada", ultima_msg_at: new Date().toISOString(),
+          }).eq("id", conversa.id)
+        } catch (e) { console.error("[webhook] opener error:", e) }
+
+      } else if (cfg.openai_api_key) {
+        // Mensagens seguintes: OpenAI responde
+        const resposta = await runSDR(cfg, uazapi, conversa, historico ?? [], igrejaCfg.nome ?? "Igreja")
+        if (resposta) {
+          await (supabase as any).from("mensagens_whatsapp").insert({
+            conversa_id: conversa.id, direcao: "saida", conteudo: resposta, ia_gerada: true, status: "enviado",
+          })
+          await (supabase as any).from("conversas_whatsapp").update({
+            ultima_mensagem: resposta, ultima_msg_at: new Date().toISOString(),
+          }).eq("id", conversa.id)
+        }
       }
     }
 
