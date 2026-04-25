@@ -1,6 +1,15 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database.types'
+
+// Cliente com service role — bypassa RLS. Usar apenas em rotas server-side sem sessão (webhooks).
+export function createServiceClient() {
+  return createSupabaseClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 export async function createClient() {
   const cookieStore = await cookies()

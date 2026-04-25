@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/server"
 import { sendText, sendButtons, sendList, UazapiConfig, parseWebhookPayload } from "@/lib/uazapi"
 
 // ─── SDR inline (sem chamada HTTP interna) ────────────────────────────────────
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
   console.log(`[webhook/uazapi] de=${fromNumber} texto="${text}" inst="${instanceName}"`)
 
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Busca todas as igrejas com uazapi configurado
     const { data: igrejas } = await (supabase as any)
