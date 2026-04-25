@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Users,
   Building2,
-  Layers,
   Calendar,
   UserCheck,
   Wallet,
@@ -22,11 +21,11 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  HelpCircle,
-  ChevronDown,
+  LogOut,
+  Shield,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { logout } from "@/lib/auth/actions"
 
 interface SidebarProps {
   user: Profile
@@ -38,30 +37,28 @@ interface SidebarProps {
 
 const NAV_GROUPS = [
   {
-    label: "Visão Geral",
+    label: "Geral",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin","pastor","tesoureiro","secretaria","lider_ministerio"] },
     ],
   },
   {
-    label: "Pessoas",
+    label: "Congregação",
     items: [
-      { name: "Membros",     href: "/membros",     icon: Users,     roles: ["admin","pastor","secretaria","lider_ministerio"] },
-      { name: "Ministérios", href: "/ministerios", icon: Layers,    roles: ["admin","pastor","lider_ministerio"] },
-      { name: "Frequência",  href: "/frequencia",  icon: UserCheck, roles: ["admin","pastor","secretaria"] },
+      { name: "Membros",    href: "/membros",    icon: Users,     roles: ["admin","pastor","secretaria","lider_ministerio"] },
+      { name: "Frequência", href: "/frequencia", icon: UserCheck, roles: ["admin","pastor","secretaria"] },
     ],
   },
   {
     label: "Culto & Eventos",
     items: [
-      { name: "Escalas", href: "/escalas", icon: Calendar,    roles: ["admin","pastor","secretaria"] },
-      { name: "Eventos",  href: "/eventos",  icon: CalendarDays, roles: ["admin","pastor","secretaria"] },
+      { name: "Escalas de Culto", href: "/escalas", icon: Calendar,    roles: ["admin","pastor","secretaria"] },
+      { name: "Eventos",          href: "/eventos",  icon: CalendarDays, roles: ["admin","pastor","secretaria"] },
     ],
   },
   {
-    label: "Administração",
+    label: "Gestão",
     items: [
-      { name: "Igrejas",     href: "/igrejas",     icon: Building2,    roles: ["admin","pastor"] },
       { name: "Financeiro",  href: "/financeiro",  icon: Wallet,       roles: ["admin","pastor","tesoureiro"] },
       { name: "Comunicação", href: "/comunicacao", icon: MessageSquare,roles: ["admin","pastor","secretaria"] },
     ],
@@ -75,43 +72,41 @@ const NAV_GROUPS = [
   {
     label: "Sistema",
     items: [
+      { name: "Igrejas",    href: "/igrejas",    icon: Building2, roles: ["admin","pastor"] },
+      { name: "Administrativo", href: "/admin",  icon: Shield,    roles: ["admin","pastor"] },
       { name: "Configurações", href: "/configuracoes", icon: Settings, roles: ["admin","pastor"] },
     ],
   },
 ]
 
-const FAQ_ITEMS = [
-  { q: "Como cadastrar um membro?", a: 'Acesse "Membros" e clique em "Novo Membro". Preencha os dados e salve.' },
-  { q: "Como registrar uma oferta?", a: 'Vá em "Financeiro" → "Novo Lançamento" → selecione tipo "Entrada" e categoria "Ofertas".' },
-  { q: "Como criar uma escala de culto?", a: 'Em "Escalas", clique em "Nova Escala", defina o período e adicione os cultos com seus responsáveis.' },
-  { q: "Como registrar frequência?", a: 'Acesse "Frequência", selecione a data e o culto, e marque os membros presentes.' },
-  { q: "Como adicionar um pedido de oração?", a: 'Em "Pedidos de Oração", clique em "Novo Pedido", preencha título, descrição e categoria.' },
-  { q: "Como exportar o relatório financeiro?", a: 'Na página "Financeiro", clique em "Exportar PDF" no canto superior direito.' },
-]
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  pastor: "Pastor",
+  tesoureiro: "Tesoureiro",
+  secretaria: "Secretaria",
+  lider_ministerio: "Líder",
+}
 
 export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const [faqOpen, setFaqOpen] = useState(false)
-  const [faqExpanded, setFaqExpanded] = useState<number | null>(null)
 
   const canAccess = (roles: string[]) => roles.includes(user.role)
   const initials = user.nome.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase()
 
-  const sidebarWidth = collapsed ? "w-[60px]" : "w-56"
+  const sidebarWidth = collapsed ? "w-[64px]" : "w-60"
 
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} />
       )}
 
       <aside
         data-sidebar
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col",
-          "border-r border-border [background:hsl(var(--sidebar-background))]",
+          "bg-[#0f1117] border-r border-white/[0.06]",
           "transition-[width,transform] duration-150 ease-in-out",
           sidebarWidth,
           mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -120,113 +115,85 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
       >
         {/* ── Logo ── */}
         <div className={cn(
-          "flex h-14 shrink-0 items-center border-b border-border",
-          collapsed ? "justify-center px-0" : "justify-between px-3"
+          "flex h-16 shrink-0 items-center border-b border-white/[0.06]",
+          collapsed ? "justify-center px-0" : "justify-between px-4"
         )}>
-          <div className="flex items-center gap-2 min-w-0">
-            {collapsed ? (
-              <img
-                src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/LOGO%20(1).png"
-                alt="IPVB"
-                className="h-8 w-8 object-contain"
-              />
-            ) : (
+          {collapsed ? (
+            <img
+              src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/LOGO%20(1).png"
+              alt="IPVB"
+              className="h-9 w-9 object-contain"
+            />
+          ) : (
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               <img
                 src="https://wzohmrckjnrpqzizszsi.supabase.co/storage/v1/object/public/user-uploads/logo/Logo%20sidebar.png"
                 alt="IPVB"
-                className="h-8 w-auto object-contain max-w-[140px]"
+                className="h-10 w-auto object-contain"
+                style={{ maxWidth: "180px" }}
               />
-            )}
-          </div>
+            </div>
+          )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="h-7 w-7 lg:hidden shrink-0" onClick={onClose}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10 lg:hidden shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           )}
         </div>
 
         {/* ── Navigation ── */}
-        <nav className="flex-1 overflow-y-auto py-2 space-y-0.5 px-1.5 scrollbar-thin">
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0 scrollbar-thin">
           {NAV_GROUPS.map((group) => {
             const visibleItems = group.items.filter(item => canAccess(item.roles))
             if (visibleItems.length === 0) return null
 
             return (
-              <div key={group.label} className="mb-1">
+              <div key={group.label} className="mb-3">
                 {!collapsed && (
-                  <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 select-none">
+                  <p className="px-2.5 py-1 mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30 select-none">
                     {group.label}
                   </p>
                 )}
-                {collapsed && <div className="h-px bg-border/40 mx-1 my-1" />}
-                {visibleItems.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={onClose}
-                      title={collapsed ? item.name : undefined}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-md text-sm font-medium transition-colors",
-                        collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-2",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      )}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span className="truncate">{item.name}</span>}
-                    </Link>
-                  )
-                })}
+                {collapsed && <div className="h-px bg-white/[0.06] mx-2 my-2" />}
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={onClose}
+                        title={collapsed ? item.name : undefined}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg text-[13px] font-medium transition-all duration-100",
+                          collapsed ? "justify-center px-0 py-2.5 w-full" : "px-2.5 py-2",
+                          isActive
+                            ? "bg-[#C1BC7A]/15 text-[#C1BC7A]"
+                            : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]"
+                        )}
+                      >
+                        <item.icon className={cn("shrink-0", collapsed ? "h-[18px] w-[18px]" : "h-4 w-4")} />
+                        {!collapsed && <span className="truncate">{item.name}</span>}
+                        {!collapsed && isActive && (
+                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#C1BC7A] shrink-0" />
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
               </div>
             )
           })}
         </nav>
 
-        {/* ── FAQ ── */}
-        {!collapsed && (
-          <div className="shrink-0 border-t border-border">
-            <button
-              onClick={() => setFaqOpen(v => !v)}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <HelpCircle className="h-3.5 w-3.5 shrink-0" />
-              <span className="flex-1 text-left">Ajuda & FAQ</span>
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", faqOpen && "rotate-180")} />
-            </button>
-            {faqOpen && (
-              <div className="max-h-52 overflow-y-auto border-t border-border bg-muted/30">
-                {FAQ_ITEMS.map((item, i) => (
-                  <div key={i} className="border-b border-border/50 last:border-0">
-                    <button
-                      onClick={() => setFaqExpanded(faqExpanded === i ? null : i)}
-                      className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-muted/50 transition-colors"
-                    >
-                      <span className="text-[11px] font-medium text-foreground/90 leading-snug flex-1">{item.q}</span>
-                      <ChevronDown className={cn("h-3 w-3 shrink-0 mt-0.5 text-muted-foreground transition-transform", faqExpanded === i && "rotate-180")} />
-                    </button>
-                    {faqExpanded === i && (
-                      <p className="px-3 pb-2 text-[11px] text-muted-foreground leading-relaxed">{item.a}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Footer: theme + collapse + user ── */}
-        <div className={cn(
-          "shrink-0 border-t border-border p-2 space-y-1.5"
-        )}>
-          {/* Theme + collapse row */}
-          <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between")}>
+        {/* ── Footer ── */}
+        <div className="shrink-0 border-t border-white/[0.06] p-2 space-y-1">
+          {/* Controls row */}
+          <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between px-1")}>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-7 w-7 text-white/40 hover:text-white/80 hover:bg-white/[0.06]"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               title={theme === "dark" ? "Modo claro" : "Modo escuro"}
             >
@@ -238,7 +205,7 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 hidden lg:flex"
+              className="h-7 w-7 text-white/40 hover:text-white/80 hover:bg-white/[0.06] hidden lg:flex"
               onClick={onToggleCollapse}
               title={collapsed ? "Expandir menu" : "Recolher menu"}
             >
@@ -249,19 +216,30 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
             </Button>
           </div>
 
-          {/* User info */}
+          {/* User card */}
           <div className={cn(
-            "flex items-center gap-2 rounded-md px-2 py-1.5 bg-muted/50",
-            collapsed && "justify-center px-0"
+            "flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-white/[0.04] border border-white/[0.06]",
+            collapsed && "justify-center px-0 border-0 bg-transparent"
           )}>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-[11px] font-bold">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C1BC7A]/20 text-[#C1BC7A] text-[11px] font-bold border border-[#C1BC7A]/30">
               {initials}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold leading-none truncate">{user.nome.split(" ")[0]}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 capitalize truncate">{user.role}</p>
+                <p className="text-xs font-semibold text-white/90 leading-none truncate">{user.nome.split(" ")[0]}</p>
+                <p className="text-[10px] text-white/40 mt-0.5 truncate">{ROLE_LABELS[user.role] ?? user.role}</p>
               </div>
+            )}
+            {!collapsed && (
+              <form action={logout}>
+                <button
+                  type="submit"
+                  title="Sair"
+                  className="h-6 w-6 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              </form>
             )}
           </div>
         </div>

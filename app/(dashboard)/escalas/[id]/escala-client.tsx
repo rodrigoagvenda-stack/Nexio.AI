@@ -813,74 +813,111 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
           </div>
         ) : (
           /* ── VIEW MODE ── */
-          <div className="rounded-xl border border-border shadow-sm overflow-hidden bg-card">
+          <div className="space-y-3">
+            {/* Summary header */}
+            <div className="flex items-center justify-between px-1">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">{rows.length}</span> culto{rows.length !== 1 ? "s" : ""} programado{rows.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                {[
+                  { label: "Domingo",      color: "#C1BC7A" },
+                  { label: "Quarta",       color: "#3b82f6" },
+                  { label: "Sexta",        color: "#f59e0b" },
+                ].map(({ label, color }) => (
+                  <span key={label} className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {rows.length === 0 ? (
-              <div className="py-16 text-center text-muted-foreground">
-                <div className="text-4xl mb-3 opacity-20">✝</div>
-                <p className="text-sm font-medium">Nenhum culto nesta escala.</p>
+              <div className="bg-card border border-border rounded-2xl py-16 text-center">
+                <div className="text-3xl mb-3 opacity-20">✝</div>
+                <p className="text-sm font-medium text-muted-foreground">Nenhum culto nesta escala.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr style={{ backgroundColor: "#C1BC7A" }}>
-                      <th className="w-1 py-3 px-0" />
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Data</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Dia</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Tipo</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Oração</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Louvor</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Pregação</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-white/80 uppercase tracking-wider whitespace-nowrap">Obs.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, idx) => {
-                      const style = getRowStyle(row.dia_semana)
-                      const bg = idx % 2 === 0 ? style.bgEven : style.bgOdd
-                      const orNome = row.membro_oracao?.nome ?? (row.membro_oracao_id ? memberName(row.membro_oracao_id) : "—")
-                      const lovNome = row.membro_louvor?.nome ?? (row.membro_louvor_id ? memberName(row.membro_louvor_id) : "—")
-                      const pregNome = row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "—")
+              <div className="grid gap-3">
+                {rows.map((row) => {
+                  const style   = getRowStyle(row.dia_semana)
+                  const orNome  = row.membro_oracao?.nome   ?? (row.membro_oracao_id   ? memberName(row.membro_oracao_id)   : "")
+                  const lovNome = row.membro_louvor?.nome   ?? (row.membro_louvor_id   ? memberName(row.membro_louvor_id)   : "")
+                  const pregNome= row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "")
+                  const dt      = row.data_culto ? new Date(row.data_culto + "T12:00:00") : null
+                  const MESES_S = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
 
-                      return (
-                        <tr
-                          key={row._key}
-                          className="border-t border-border transition-colors"
-                          style={{ backgroundColor: bg }}
-                          onMouseEnter={e => (e.currentTarget.style.filter = "brightness(0.97)")}
-                          onMouseLeave={e => (e.currentTarget.style.filter = "brightness(1)")}
-                        >
-                          {/* Color indicator strip */}
-                          <td
-                            className="w-1 p-0"
-                            style={{ backgroundColor: style.borderColor, minWidth: 4 }}
-                          />
-                          <td className="px-4 py-3 whitespace-nowrap font-semibold">
-                            {formatDate(row.data_culto)}
-                          </td>
-                          <td className={`px-4 py-3 whitespace-nowrap text-sm ${style.dayTextClass}`}>
-                            {DIAS[row.dia_semana] ?? "—"}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-sm whitespace-nowrap">
-                            {row.tipo_culto || <span className="italic text-xs">—</span>}
-                          </td>
-                          <td className="px-4 py-3">
-                            <MemberChip name={orNome} />
-                          </td>
-                          <td className="px-4 py-3">
-                            <MemberChip name={lovNome} />
-                          </td>
-                          <td className="px-4 py-3">
-                            <MemberChip name={pregNome} />
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-sm max-w-[160px] truncate" title={row.observacoes || ""}>
-                            {row.observacoes || <span className="italic text-xs opacity-40">—</span>}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                  return (
+                    <div key={row._key}
+                      className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-sm transition-shadow"
+                    >
+                      {/* Top accent bar */}
+                      <div className="h-1" style={{ backgroundColor: style.borderColor }} />
+
+                      <div className="p-4">
+                        <div className="flex items-start gap-4">
+                          {/* Date block */}
+                          <div className="shrink-0 flex flex-col items-center justify-center h-14 w-14 rounded-xl bg-muted border border-border text-center">
+                            {dt ? (
+                              <>
+                                <span className="text-xl font-bold leading-none">{dt.getDate()}</span>
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{MESES_S[dt.getMonth()]}</span>
+                                <span className="text-[9px] text-muted-foreground">{dt.getFullYear()}</span>
+                              </>
+                            ) : <span className="text-xs text-muted-foreground">—</span>}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <span className={`text-sm font-semibold ${style.dayTextClass}`}>
+                                {DIAS[row.dia_semana] ?? "—"}
+                              </span>
+                              {row.tipo_culto && (
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                                  {row.tipo_culto}
+                                </span>
+                              )}
+                              {row.horario && (
+                                <span className="text-xs text-muted-foreground">
+                                  · {row.horario}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Ministros */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              {[
+                                { label: "Oração",   name: orNome,   icon: "🙏" },
+                                { label: "Louvor",   name: lovNome,  icon: "🎵" },
+                                { label: "Pregação", name: pregNome, icon: "📖" },
+                              ].map(({ label, name, icon }) => (
+                                <div key={label} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 min-w-0">
+                                  <span className="text-sm shrink-0">{icon}</span>
+                                  <div className="min-w-0">
+                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider leading-none mb-0.5">{label}</p>
+                                    {name ? (
+                                      <p className="text-xs font-medium truncate">{name}</p>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground italic">A definir</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {row.observacoes && (
+                              <p className="mt-2 text-xs text-muted-foreground italic bg-amber-500/5 border border-amber-500/10 rounded px-2.5 py-1.5">
+                                📝 {row.observacoes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
