@@ -1,46 +1,129 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { sendText, UazapiConfig, parseWebhookPayload } from "@/lib/uazapi"
+import { sendText, sendButtons, sendList, UazapiConfig, parseWebhookPayload } from "@/lib/uazapi"
 
+// ─── SDR inline (sem chamada HTTP interna) ────────────────────────────────────
+async function runSDR(cfg: any, uazapi: UazapiConfig, conversa: any, historico: any[], igrejaNome: string) {
+  if (!cfg.openai_api_key) return
+
+  const nome     = conversa.nome_contato || "irmão(ã)"
+  const fluxo    = conversa.tipo_fluxo   || "pastoral"
+  const assistente = cfg.sdr_nome || "Assistente Missionária Virtual"
+
+  const base = `Você é ${assistente} da ${igrejaNome}. Responda em português, de forma natural e breve (máx 3 frases). Nunca repita o que já disse.`
+  let system = base
+
+  if (fluxo === "escala")    system += ` Confirme disponibilidade de ${nome} para servir na escala.`
+  if (fluxo === "pastoral")  system += ` Conecte-se pastoralmente com ${nome}. Pergunte como está. Se houver necessidade urgente, inclua ao final (invisível): ALERTA_PASTORAL: categoria=financeiro|casamento|saude|espiritual`
+  if (fluxo === "visitante") system += ` ${nome} visitou a igreja. Agradeça e pergunte como foi.`
+
+  const messages = [
+    { role: "system", content: system },
+    ...historico
+      .filter((m: any) => !m.conteudo?.startsWith("[Mensagem"))
+      .slice(-20)
+      .map((m: any) => ({ role: m.direcao === "saida" ? "assistant" : "user", content: m.conteudo })),
+  ]
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfg.openai_api_key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: cfg.openai_model || "gpt-4o-mini", messages, max_tokens: 400, temperature: 0.75 }),
+    signal: AbortSignal.timeout(25000),
+  })
+
+  if (!res.ok) { console.error("[SDR] OpenAI error:", res.status); return }
+
+  const json     = await res.json()
+  const respostaRaw: string = json.choices?.[0]?.message?.content ?? ""
+  if (!respostaRaw) return
+
+  // Extrai alerta interno
+  const alertaIdx = respostaRaw.indexOf("ALERTA_PASTORAL:")
+  let alerta: string | null = null
+  if (alertaIdx !== -1) alerta = respostaRaw.substring(alertaIdx + 16).split("\n")[0].trim()
+
+  const resposta = respostaRaw
+    .replace(alertaIdx !== -1 ? respostaRaw.substring(alertaIdx) : "", "")
+    .trim()
+
+  // Envia resposta via WhatsApp
+  if (resposta) {
+    try { await sendText(uazapi, conversa.telefone, resposta) } catch (e) { console.error("[SDR] sendText:", e) }
+  }
+
+  // Envia alerta para pastores
+  if (alerta) {
+    const categoria = alerta.includes("financeiro") ? "financeiro"
+      : alerta.includes("casamento") ? "casamento"
+      : alerta.includes("saude") ? "saude"
+      : "pastoral"
+
+    const numeros: any[] = cfg.numeros_notificacao ?? []
+    const destinatarios = numeros.filter((n: any) => n.categoria === "geral" || n.categoria === categoria)
+    const alertaMsg = `🚨 *ALERTA PASTORAL*\n\n*Categoria:* ${categoria}\n*Membro:* ${nome}\n*Tel:* ${conversa.telefone}\n*Detalhe:* ${alerta}`
+
+    for (const dest of destinatarios) {
+      try { await sendText(uazapi, dest.telefone, alertaMsg) } catch { /* silencioso */ }
+    }
+  }
+
+  return resposta
+}
+
+// ─── Webhook handler ──────────────────────────────────────────────────────────
 export async function POST(req: Request) {
+  let body: any = {}
+  try { body = await req.json() } catch { return NextResponse.json({ ok: false, error: "JSON inválido" }) }
+
+  // Log para debug no Easypanel
+  console.log("[webhook/uazapi] body:", JSON.stringify(body).substring(0, 500))
+
+  // Filtra eventos que claramente não são mensagens
+  const event = (body?.event ?? body?.type ?? "").toLowerCase()
+  const ignorar = ["connection", "qr", "status", "presence", "call", "group", "contact", "label", "chat"]
+  if (event && ignorar.some(e => event.includes(e))) {
+    return NextResponse.json({ ok: true, skipped: event })
+  }
+
+  const parsed = parseWebhookPayload(body)
+  if (!parsed) {
+    console.log("[webhook/uazapi] payload ignorado (fromMe ou sem texto)")
+    return NextResponse.json({ ok: true, skipped: "fromMe ou sem texto" })
+  }
+
+  const { fromNumber, text, msgId, pushName, instanceName } = parsed
+  console.log(`[webhook/uazapi] de=${fromNumber} texto="${text}" inst="${instanceName}"`)
+
   try {
-    const body = await req.json()
     const supabase = await createClient()
 
-    // Ignora eventos que não são mensagens recebidas
-    const event: string = body?.event ?? body?.type ?? ""
-    if (event && !event.includes("message")) {
-      return NextResponse.json({ ok: true, skipped: event })
-    }
-
-    const parsed = parseWebhookPayload(body)
-    if (!parsed) return NextResponse.json({ ok: true, skipped: "fromMe ou sem texto" })
-
-    const { fromNumber, text, msgId, pushName, instanceName } = parsed
-
-    // Encontra a igreja pela instância uazapi
+    // Busca todas as igrejas com uazapi configurado
     const { data: igrejas } = await (supabase as any)
       .from("igrejas").select("id, nome, configuracoes")
 
-    const igreja = (igrejas ?? []).find((ig: any) => {
-      const instSalva: string = ig.configuracoes?.uazapi_instance ?? ""
-      return (
-        instSalva === instanceName ||
-        instSalva.toLowerCase() === (instanceName ?? "").toLowerCase() ||
-        // fallback: se há só uma igreja configurada com token, usa ela
-        (ig.configuracoes?.uazapi_token && !instanceName)
-      )
-    })
+    if (!igrejas?.length) {
+      console.log("[webhook/uazapi] nenhuma igreja encontrada no banco")
+      return NextResponse.json({ ok: false, error: "nenhuma igreja" })
+    }
 
-    // Se não achou por nome, tenta pelo token (quando uazapi não manda instanceName)
-    const igrejaCfg = igreja ?? (igrejas ?? []).find((ig: any) => ig.configuracoes?.uazapi_token)
-    if (!igrejaCfg) return NextResponse.json({ ok: true, no_match: true })
+    // Tenta encontrar pelo nome da instância, com fallback para qualquer uma com token
+    const igrejaCfg =
+      igrejas.find((ig: any) =>
+        ig.configuracoes?.uazapi_instance &&
+        ig.configuracoes.uazapi_instance.toLowerCase() === (instanceName ?? "").toLowerCase()
+      ) ??
+      igrejas.find((ig: any) => ig.configuracoes?.uazapi_token)
 
-    const uazapi: UazapiConfig | null = igrejaCfg.configuracoes?.uazapi_token && igrejaCfg.configuracoes?.uazapi_base_url
-      ? { base_url: igrejaCfg.configuracoes.uazapi_base_url, token: igrejaCfg.configuracoes.uazapi_token }
-      : null
+    if (!igrejaCfg) {
+      console.log("[webhook/uazapi] nenhuma igreja com uazapi configurado")
+      return NextResponse.json({ ok: false, error: "nenhuma igreja configurada" })
+    }
 
-    // Busca conversa existente (aberta)
+    const cfg    = igrejaCfg.configuracoes ?? {}
+    const uazapi: UazapiConfig = { base_url: cfg.uazapi_base_url, token: cfg.uazapi_token }
+
+    // Busca ou cria conversa
     let { data: conversa } = await (supabase as any)
       .from("conversas_whatsapp")
       .select("id, nome_contato, ia_ativa, tipo_fluxo, nao_lidas")
@@ -49,34 +132,30 @@ export async function POST(req: Request) {
       .neq("status", "encerrada")
       .maybeSingle()
 
-    // Cria conversa se não existir
     if (!conversa) {
-      // Tenta identificar membro pelo telefone
       const { data: membro } = await (supabase as any)
         .from("membros").select("id, nome")
-        .eq("telefone", fromNumber).eq("igreja_id", igrejaCfg.id).maybeSingle()
+        .ilike("telefone", `%${fromNumber.slice(-9)}%`)
+        .eq("igreja_id", igrejaCfg.id)
+        .maybeSingle()
 
       const nome = membro?.nome ?? pushName ?? fromNumber
-      const { data: novaConversa } = await (supabase as any)
+      const { data: nova } = await (supabase as any)
         .from("conversas_whatsapp")
         .insert({ igreja_id: igrejaCfg.id, telefone: fromNumber, nome_contato: nome, ia_ativa: false, status: "aberta" })
         .select().single()
-      conversa = novaConversa
+      conversa = nova
+      console.log(`[webhook/uazapi] nova conversa criada: ${nova?.id} — ${nome}`)
     }
 
-    if (!conversa) return NextResponse.json({ ok: false, error: "Falha ao criar conversa" })
+    if (!conversa) return NextResponse.json({ ok: false, error: "falha ao criar conversa" })
 
     // Salva mensagem recebida
     await (supabase as any).from("mensagens_whatsapp").insert({
-      conversa_id: conversa.id,
-      direcao: "entrada",
-      conteudo: text,
-      tipo: "texto",
-      status: "lido",
-      msg_id_wpp: msgId ?? null,
+      conversa_id: conversa.id, direcao: "entrada", conteudo: text,
+      tipo: "texto", status: "lido", msg_id_wpp: msgId ?? null,
     })
 
-    // Atualiza conversa
     await (supabase as any).from("conversas_whatsapp").update({
       ultima_mensagem: text,
       ultima_msg_at: new Date().toISOString(),
@@ -84,43 +163,30 @@ export async function POST(req: Request) {
       status: "aberta",
     }).eq("id", conversa.id)
 
-    // Se IA ativa, gera resposta via SDR
-    if (conversa.ia_ativa && uazapi) {
+    // SDR inline se IA ativa
+    if (conversa.ia_ativa && cfg.openai_api_key && uazapi.token) {
       const { data: historico } = await (supabase as any)
         .from("mensagens_whatsapp")
-        .select("direcao, conteudo")
+        .select("direcao, conteudo, created_at")
         .eq("conversa_id", conversa.id)
         .order("created_at", { ascending: true })
         .limit(30)
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL
-        ?? process.env.NEXTAUTH_URL
-        ?? "http://localhost:3000"
+      const resposta = await runSDR(cfg, uazapi, conversa, historico ?? [], igrejaCfg.nome ?? "Igreja")
 
-      try {
-        const sdrRes = await fetch(`${appUrl}/api/comunicacao/sdr`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversa_id: conversa.id,
-            historico: historico ?? [],
-            fluxo: conversa.tipo_fluxo || "pastoral",
-            contexto: { nome_membro: conversa.nome_contato },
-          }),
+      if (resposta) {
+        await (supabase as any).from("mensagens_whatsapp").insert({
+          conversa_id: conversa.id, direcao: "saida", conteudo: resposta, ia_gerada: true, status: "enviado",
         })
-        // Resposta já é enviada diretamente pelo SDR via uazapi
-        if (!sdrRes.ok) {
-          const err = await sdrRes.json().catch(() => ({}))
-          console.error("[webhook] SDR error:", err)
-        }
-      } catch (e) {
-        console.error("[webhook] SDR call failed:", e)
+        await (supabase as any).from("conversas_whatsapp").update({
+          ultima_mensagem: resposta, ultima_msg_at: new Date().toISOString(),
+        }).eq("id", conversa.id)
       }
     }
 
     return NextResponse.json({ ok: true, conversa_id: conversa.id })
   } catch (e: any) {
-    console.error("[webhook/uazapi]", e)
+    console.error("[webhook/uazapi] erro:", e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
