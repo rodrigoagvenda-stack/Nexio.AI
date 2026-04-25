@@ -107,7 +107,7 @@ export async function POST(req: Request) {
           const baseUrl = cfg.uazapi_base_url || "https://api.uazapi.io"
           await fetch(`${baseUrl}/message/sendText`, {
             method: "POST",
-            headers: { Authorization: `Bearer ${cfg.uazapi_token}`, "Content-Type": "application/json" },
+            headers: { "apikey": cfg.uazapi_token, "Authorization": `Bearer ${cfg.uazapi_token}`, "Content-Type": "application/json" },
             body: JSON.stringify({ instance: cfg.uazapi_instance, number: fromNumber, text: resposta }),
             signal: AbortSignal.timeout(10000),
           })

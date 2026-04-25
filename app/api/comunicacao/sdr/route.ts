@@ -122,10 +122,10 @@ export async function POST(req: Request) {
       for (const dest of destinatarios) {
         if (cfg.uazapi_token && cfg.uazapi_instance) {
           try {
-            const baseUrl = cfg.uazapi_base_url || "https://api.uazapi.io"
+            const baseUrl = (cfg.uazapi_base_url || "https://api.uazapi.io").replace(/\/$/, "")
             await fetch(`${baseUrl}/message/sendText`, {
               method: "POST",
-              headers: { Authorization: `Bearer ${cfg.uazapi_token}`, "Content-Type": "application/json" },
+              headers: { "apikey": cfg.uazapi_token, "Authorization": `Bearer ${cfg.uazapi_token}`, "Content-Type": "application/json" },
               body: JSON.stringify({ instance: cfg.uazapi_instance, number: dest.telefone, text: alertasMsgBase }),
               signal: AbortSignal.timeout(8000),
             })
