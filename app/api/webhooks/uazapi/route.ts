@@ -501,22 +501,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── ORAÇÃO e ACONSELHAMENTO (OpenAI) — vem ANTES do bloco do menu ────────
-    if (!cfg.openai_api_key) return NextResponse.json({ ok: true })
+    // ── ORAÇÃO e ACONSELHAMENTO ───────────────────────────────────────────────
 
-    if (selecao === "oracao" || selecao === "casamento") {
-      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: selecao, contexto: {} }).eq("id", conversa.id)
-      conversa.tipo_fluxo = selecao
+    // Primeira seleção: inicia o fluxo com pergunta hardcoded (sem OpenAI, sem contexto antigo)
+    if (selecao === "oracao") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "oracao", contexto: {} }).eq("id", conversa.id)
+      const resp = "Para registrar seu pedido de oração, preciso de algumas informações. 🙏\n\nQual é o seu *nome completo*?"
+      await sendText(uazapi, fromNumber, resp)
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: resp, ia_gerada: true, status: "enviado" })
+      await (supabase as any).from("conversas_whatsapp").update({ ultima_mensagem: resp, ultima_msg_at: new Date().toISOString() }).eq("id", conversa.id)
+      return NextResponse.json({ ok: true })
     }
 
+    if (selecao === "casamento") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "casamento", contexto: {} }).eq("id", conversa.id)
+      const resp = "Estamos aqui para ajudar com muito amor e sem julgamentos. 💙\n\nPara encaminhar seu pedido de aconselhamento, qual é o seu *nome completo*?"
+      await sendText(uazapi, fromNumber, resp)
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: resp, ia_gerada: true, status: "enviado" })
+      await (supabase as any).from("conversas_whatsapp").update({ ultima_mensagem: resp, ultima_msg_at: new Date().toISOString() }).eq("id", conversa.id)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Continuação do fluxo (sem selecao — usuário está respondendo perguntas)
     const fluxoAtivo = conversa.tipo_fluxo || "pastoral"
 
-    if (PROMPTS[fluxoAtivo]) {
-      const { data: historico } = await (supabase as any)
-        .from("mensagens_whatsapp").select("direcao, conteudo")
-        .eq("conversa_id", conversa.id).order("created_at", { ascending: true }).limit(30)
+    if (PROMPTS[fluxoAtivo] && cfg.openai_api_key) {
+      // Busca APENAS mensagens do fluxo atual (após a última seleção de menu)
+      const { data: todasMsgs } = await (supabase as any)
+        .from("mensagens_whatsapp").select("direcao, conteudo, created_at")
+        .eq("conversa_id", conversa.id).order("created_at", { ascending: true }).limit(50)
 
-      const respostaRaw = await callOpenAI(cfg.openai_api_key, cfg.openai_model, PROMPTS[fluxoAtivo], historico ?? [])
+      // Pega somente as mensagens desde o início do fluxo atual (após o "[Menu interativo]" mais recente)
+      const allMsgs: any[] = todasMsgs ?? []
+      const lastMenuIdx = [...allMsgs].reverse().findIndex(m => m.conteudo?.startsWith("[Menu") || m.conteudo?.startsWith("[Lista"))
+      const inicioFluxo = lastMenuIdx >= 0 ? allMsgs.length - lastMenuIdx : 0
+      const historico = allMsgs.slice(inicioFluxo).filter(m => !m.conteudo?.startsWith("["))
+
+      console.log(`[webhook] OpenAI fluxo="${fluxoAtivo}" msgs no contexto: ${historico.length}`)
+
+      const respostaRaw = await callOpenAI(cfg.openai_api_key, cfg.openai_model, PROMPTS[fluxoAtivo], historico)
       if (!respostaRaw) return NextResponse.json({ ok: true })
 
       const handled = await processarDadosCompletos(supabase, uazapi, cfg, conversa, respostaRaw, igrejaCfg.nome ?? "Igreja", igrejaCfg.id)
