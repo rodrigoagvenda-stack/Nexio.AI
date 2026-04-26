@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request) {
@@ -13,22 +13,28 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
 
-    // Busca IDs dos membros desta igreja para filtrar pedidos
+    // Usa service client para bypassar RLS
+    const service = createServiceClient()
+
+    // Busca IDs dos membros desta igreja
     let membrosIds: string[] = []
     if (profile?.igreja_id) {
-      const { data: mbs } = await (supabase as any)
+      const { data: mbs } = await (service as any)
         .from("membros").select("id").eq("igreja_id", profile.igreja_id)
       membrosIds = (mbs ?? []).map((m: any) => m.id)
     }
 
-    let query = (supabase as any)
+    // Busca pedidos: dos membros da igreja OU sem membro (vindos do SDR via WhatsApp)
+    let query = (service as any)
       .from("pedidos_oracao")
       .select(`*, membros(nome, foto_url)`)
       .order("data_pedido", { ascending: false })
 
-    // Mostra pedidos dos membros da igreja OU pedidos sem membro (vindos do SDR)
     if (membrosIds.length > 0) {
       query = query.or(`membro_id.in.(${membrosIds.join(",")}),membro_id.is.null`)
+    } else {
+      // Sem membros cadastrados — mostra todos os sem membro (SDR)
+      query = query.is("membro_id", null)
     }
     if (status) query = query.eq("status", status)
 

@@ -112,7 +112,7 @@ export default async function DashboardPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">{nomeIgreja}</p>
-          <h1 className="text-2xl font-bold tracking-tight">Bom dia, {firstName}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">A paz do Senhor, {firstName}!</h1>
           <p className="text-sm text-muted-foreground mt-0.5 capitalize">{dataHoje}</p>
         </div>
         <div className="flex items-center gap-2">

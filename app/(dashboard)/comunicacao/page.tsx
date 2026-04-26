@@ -230,44 +230,52 @@ export default function ComunicacaoPage() {
     })
     fetchConversas()
 
-    // Auto-refresh a cada 8 segundos para receber novas conversas/mensagens
-    const interval = setInterval(fetchConversas, 8000)
+    // Auto-refresh a cada 20s (silent — não pisca)
+    const interval = setInterval(() => fetchConversas(true), 20000)
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function fetchConversas() {
-    setLoadingConv(true)
+  async function fetchConversas(silent = false) {
+    if (!silent) setLoadingConv(true)
     try {
       const res = await fetch("/api/comunicacao/conversas")
       const json = await res.json()
-      setConversas(json.data ?? [])
-    } catch { toast({ variant: "destructive", title: "Erro ao carregar conversas" }) }
-    finally { setLoadingConv(false) }
+      const novas = json.data ?? []
+      setConversas(prev => {
+        // Só re-render se mudou algo
+        if (silent && JSON.stringify(prev.map((c: Conversa) => c.id + c.nao_lidas + c.ultima_msg_at)) ===
+            JSON.stringify(novas.map((c: Conversa) => c.id + c.nao_lidas + c.ultima_msg_at))) return prev
+        return novas
+      })
+    } catch { if (!silent) toast({ variant: "destructive", title: "Erro ao carregar conversas" }) }
+    finally { if (!silent) setLoadingConv(false) }
   }
 
-  async function fetchMensagens(conv: Conversa, background = false) {
+  async function fetchMensagens(convId: string, background = false) {
+    if (!convId) return
     if (!background) { setLoadingMsg(true); setMensagens([]) }
     try {
-      const res = await fetch(`/api/comunicacao/mensagens?conversa_id=${conv.id}`)
+      const res = await fetch(`/api/comunicacao/mensagens?conversa_id=${convId}`)
+      if (!res.ok) { if (!background) setLoadingMsg(false); return }
       const json = await res.json()
       const novas: Mensagem[] = json.data ?? []
-      // Só atualiza se houver mudança (evita re-render desnecessário)
       setMensagens(prev => {
-        if (background && prev.length === novas.length && prev[prev.length - 1]?.id === novas[novas.length - 1]?.id) return prev
+        if (background && prev.length === novas.length &&
+            prev[prev.length - 1]?.id === novas[novas.length - 1]?.id) return prev
         return novas
       })
     } catch {
       if (!background) toast({ variant: "destructive", title: "Erro ao carregar mensagens" })
-    }
-    finally { if (!background) setLoadingMsg(false) }
+    } finally { if (!background) setLoadingMsg(false) }
   }
 
   useEffect(() => {
-    if (!convAtiva) return
-    fetchMensagens(convAtiva, false)
-    // Background refresh sem piscar
-    const interval = setInterval(() => fetchMensagens(convAtiva, true), 5000)
+    if (!convAtiva?.id) return
+    const id = convAtiva.id
+    fetchMensagens(id, false)
+    // Background refresh a cada 15s — sem piscar
+    const interval = setInterval(() => fetchMensagens(id, true), 15000)
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convAtiva?.id])
@@ -317,7 +325,7 @@ export default function ComunicacaoPage() {
 
       if (primeiro) {
         toast({ title: "Mensagem interativa enviada!" })
-        await fetchMensagens(convAtiva)
+        await fetchMensagens(convAtiva.id)
         return
       }
 
@@ -394,7 +402,7 @@ export default function ComunicacaoPage() {
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={fetchConversas} className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Atualizar">
+            <button onClick={() => fetchConversas(false)} className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors" title="Atualizar">
               <RefreshCw className="h-3.5 w-3.5" />
             </button>
             <button onClick={() => setModalAberto(true)} className="h-7 w-7 flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" title="Nova conversa">

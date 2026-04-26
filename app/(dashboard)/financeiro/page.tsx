@@ -359,8 +359,23 @@ export default function FinanceiroPage() {
   }
 
   // ── PDF Export — professional ──
-  function exportarPDF() {
+  async function exportarPDF() {
     setExportando(true)
+
+    // Converte logo para base64 para funcionar no print (URLs externas bloqueiam no print)
+    let logoBase64 = ""
+    if (igrejaLogo) {
+      try {
+        const resp = await fetch(igrejaLogo)
+        const blob = await resp.blob()
+        logoBase64 = await new Promise<string>(resolve => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
+      } catch { logoBase64 = "" }
+    }
+
     const win = window.open("", "_blank")
     if (!win) { setExportando(false); return }
 
@@ -381,9 +396,15 @@ export default function FinanceiroPage() {
       </tr>`
     }).join("")
 
-    const logoHTML = igrejaLogo
-      ? `<img src="${igrejaLogo}" alt="Logo" class="logo" />`
+    const logoSrc = logoBase64 || igrejaLogo
+    const logoHTML = logoSrc
+      ? `<img src="${logoSrc}" alt="Logo" class="logo" />`
       : `<div class="logo-placeholder">${(igrejaNome || "IPVB").substring(0, 2).toUpperCase()}</div>`
+
+    // Marca d'água como logo (base64 garante que aparece no print)
+    const watermarkHTML = logoSrc
+      ? `<img src="${logoSrc}" class="watermark-img" alt="" />`
+      : `<div class="watermark">${igrejaNome || "IPVB"}</div>`
 
     win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
 <meta charset="UTF-8">
@@ -397,9 +418,17 @@ export default function FinanceiroPage() {
     position: fixed; top: 50%; left: 50%;
     transform: translate(-50%, -50%) rotate(-35deg);
     font-size: 72px; font-weight: 900;
-    color: rgba(193,188,122,0.08); white-space: nowrap;
+    color: rgba(193,188,122,0.06); white-space: nowrap;
     pointer-events: none; z-index: 0; letter-spacing: 4px;
     text-transform: uppercase;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .watermark-img {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    width: 380px; height: auto; opacity: 0.06;
+    pointer-events: none; z-index: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 
   .header {
@@ -472,7 +501,7 @@ export default function FinanceiroPage() {
 </style>
 </head><body>
 
-<div class="watermark">${igrejaNome || "IPVB"}</div>
+${watermarkHTML}
 
 <!-- Header -->
 <div class="header">

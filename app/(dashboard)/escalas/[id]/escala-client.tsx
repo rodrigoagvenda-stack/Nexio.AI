@@ -36,39 +36,18 @@ const STATUS_STYLES: Record<string, string> = {
 // 0 = Domingo → emerald, 3 = Quarta-feira → blue, 5 = Sexta-feira → amber, rest → gray
 function getRowStyle(diaSemana: number): {
   borderColor: string
-  bgEven: string
-  bgOdd: string
+  accentClass: string  // Tailwind classes (supports dark mode)
   dayTextClass: string
 } {
   switch (diaSemana) {
     case 0:
-      return {
-        borderColor: "#C1BC7A",
-        bgEven: "#f0fdf4",
-        bgOdd: "#ffffff",
-        dayTextClass: "text-[#8a8345] font-semibold",
-      }
+      return { borderColor: "#C1BC7A", accentClass: "border-l-[#C1BC7A] bg-[#C1BC7A]/5", dayTextClass: "text-[#8a8345] dark:text-[#C1BC7A] font-semibold" }
     case 3:
-      return {
-        borderColor: "#3b82f6",
-        bgEven: "#eff6ff",
-        bgOdd: "#ffffff",
-        dayTextClass: "text-blue-700 font-semibold",
-      }
+      return { borderColor: "#3b82f6", accentClass: "border-l-blue-400 bg-blue-500/5", dayTextClass: "text-blue-600 dark:text-blue-400 font-semibold" }
     case 5:
-      return {
-        borderColor: "#f59e0b",
-        bgEven: "#fffbeb",
-        bgOdd: "#ffffff",
-        dayTextClass: "text-amber-700 font-semibold",
-      }
+      return { borderColor: "#f59e0b", accentClass: "border-l-amber-400 bg-amber-500/5", dayTextClass: "text-amber-600 dark:text-amber-400 font-semibold" }
     default:
-      return {
-        borderColor: "#9ca3af",
-        bgEven: "#f9fafb",
-        bgOdd: "#ffffff",
-        dayTextClass: "text-gray-600",
-      }
+      return { borderColor: "#9ca3af", accentClass: "border-l-border bg-muted/20", dayTextClass: "text-muted-foreground" }
   }
 }
 
@@ -701,14 +680,12 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
                       </td>
                     </tr>
                   )}
-                  {rows.map((row, idx) => {
+                  {rows.map((row) => {
                     const style = getRowStyle(row.dia_semana)
-                    const bg = idx % 2 === 0 ? style.bgEven : style.bgOdd
                     return (
                       <tr
                         key={row._key}
-                        className="border-t border-gray-100 hover:brightness-95 transition-all"
-                        style={{ backgroundColor: bg }}
+                        className="border-t border-border hover:bg-muted/30 transition-colors"
                       >
                         {/* Color indicator strip */}
                         <td
@@ -841,7 +818,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
             ) : (
               <div className="grid gap-3">
                 {rows.map((row) => {
-                  const style   = getRowStyle(row.dia_semana)
+                  const style = getRowStyle(row.dia_semana)
                   const orNome  = row.membro_oracao?.nome   ?? (row.membro_oracao_id   ? memberName(row.membro_oracao_id)   : "")
                   const lovNome = row.membro_louvor?.nome   ?? (row.membro_louvor_id   ? memberName(row.membro_louvor_id)   : "")
                   const pregNome= row.membro_pregacao?.nome ?? (row.membro_pregacao_id ? memberName(row.membro_pregacao_id) : "")
@@ -853,7 +830,7 @@ export default function EscalaClient({ escala, detalhes, membros, profile, igrej
                       className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-sm transition-shadow"
                     >
                       {/* Top accent bar */}
-                      <div className="h-1" style={{ backgroundColor: style.borderColor }} />
+                      <div className="h-1 rounded-t" style={{ backgroundColor: style.borderColor }} />
 
                       <div className="p-4">
                         <div className="flex items-start gap-4">
