@@ -157,6 +157,7 @@ async function handleFinanceiro(
           "💰 Ajuda financeira|financeiro|Preciso de apoio",
           "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
           "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+          "📍 Endereço da igreja|endereco|Onde fica a igreja?",
           "[Estou bem]",
           "😊 Não preciso de mais nada|bem|Obrigado!",
         ],
@@ -259,6 +260,7 @@ async function processarDadosCompletos(
           "💰 Ajuda financeira|financeiro|Preciso de apoio",
           "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
           "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+          "📍 Endereço da igreja|endereco|Onde fica a igreja?",
           "[Estou bem]",
           "😊 Não preciso de mais nada|bem|Obrigado!",
         ],
@@ -415,26 +417,79 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── ESTUDO BÍBLICO ────────────────────────────────────────────────────────
+    // ── ESTUDO BÍBLICO — pergunta qual igreja fica mais perto ────────────────
     if (selecao === "estudo") {
       await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral" }).eq("id", conversa.id)
       const nome = conversa.nome_contato?.split(" ")[0] || "irmão(ã)"
-
-      const convite = `Que lindo, ${nome}! 🙌🔥\n\nA Palavra de Deus nos diz:\n_"E conhecereis a verdade, e a verdade vos libertará."_ — João 8:32\n\nE também:\n_"Mas o crescimento em graça e no conhecimento de nosso Senhor e Salvador Jesus Cristo leva a uma vida plena e vitoriosa."_ — 2 Pedro 3:18\n\nConhecer a Deus e perseverar em Sua Palavra é o fundamento de tudo! 🕊️\n\nPor isso te fazemos este convite especial:\n\n✨ *CULTO DE SÃ DOUTRINA*\n📅 Toda *segunda-feira*\n🕖 *19h00*\n\nVenha construir uma base espiritual sólida junto com nossa família! Te esperamos com muito amor. ❤️`
-
+      const convite = `Que lindo, ${nome}! 🙌🔥\n\nA Palavra de Deus nos diz:\n_"E conhecereis a verdade, e a verdade vos libertará."_ — João 8:32\n\nE também: _"Conhecer a Deus é perseverar e prosseguir em Sua Palavra."_ — 2 Pedro 3:18\n\nConhecer a Deus é o fundamento de tudo! 🕊️\n\nNosso *Culto de Sã Doutrina* acontece toda *Terça-feira às 19h* (Congregação Cidade Modelo) e toda *Segunda-feira às 19h* (Templo Sede — Panorama).\n\nQual fica mais perto de você?`
       await sendText(uazapi, fromNumber, convite)
-      await sendText(uazapi, fromNumber, "Abaixo deixo a nossa localização 📍")
-
-      try {
-        await sendLocation(uazapi, fromNumber, {
-          name: igrejaCfg.nome || "Igreja Pentecostal Vale da Bênção",
-          address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA",
-          latitude: -14.8595,
-          longitude: -40.8520,
-        })
-      } catch { /* silencioso */ }
-
+      await sendButtons(uazapi, fromNumber, {
+        text: "Escolha a unidade mais próxima:",
+        choices: [
+          "🏛️ Panorama (Templo Sede)|estudo_sede",
+          "⛪ Cidade Modelo (Congregação)|estudo_congregacao",
+        ],
+      })
       await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: convite, ia_gerada: true, status: "enviado" })
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ESTUDO — Templo Sede ──────────────────────────────────────────────────
+    if (selecao === "estudo_sede") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral" }).eq("id", conversa.id)
+      const msg = `Ótimo! 🙌 Te esperamos no *Templo Sede — Bairro Panorama*!\n\n📅 *Culto de Sã Doutrina:* toda Segunda-feira às 19h\n📅 *Outros cultos:* Quarta, Sexta e Domingo\n\nAbaixo deixo a nossa localização 📍`
+      await sendText(uazapi, fromNumber, msg)
+      try {
+        await sendLocation(uazapi, fromNumber, { name: `${igrejaCfg.nome} — Templo Sede`, address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA", latitude: -14.8595, longitude: -40.8520 })
+      } catch { /* silencioso */ }
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: msg, ia_gerada: true, status: "enviado" })
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ESTUDO — Congregação Cidade Modelo ───────────────────────────────────
+    if (selecao === "estudo_congregacao") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral" }).eq("id", conversa.id)
+      const msg = `Ótimo! 🙌 Te esperamos na *Congregação Cidade Modelo*!\n\n📅 *Culto de Sã Doutrina:* toda Terça-feira às 19h\n📅 *Outros cultos:* Quinta e Domingo\n\nAbaixo deixo a nossa localização 📍`
+      await sendText(uazapi, fromNumber, msg)
+      try {
+        await sendLocation(uazapi, fromNumber, { name: `${igrejaCfg.nome} — Congregação Cidade Modelo`, address: "R. I, 625 — Cidade Modelo, Vitória da Conquista — BA", latitude: -14.8750, longitude: -40.8300 })
+      } catch { /* silencioso */ }
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: msg, ia_gerada: true, status: "enviado" })
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ENDEREÇO — pergunta qual congregação ─────────────────────────────────
+    if (selecao === "endereco") {
+      await sendButtons(uazapi, fromNumber, {
+        text: "Qual endereço você precisa?",
+        choices: [
+          "🏛️ Templo Sede — Panorama|sede",
+          "⛪ Congregação — Cidade Modelo|congregacao",
+        ],
+      })
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: "[Botões: endereço]", ia_gerada: true, status: "enviado" })
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ENDEREÇO — Templo Sede ────────────────────────────────────────────────
+    if (selecao === "sede") {
+      const msg = `📍 *Templo Sede — Bairro Panorama*\n\nRua da Constelação, 150 — Panorama\nVitória da Conquista — BA\n\n🗓️ *Cultos:* Segunda, Quarta, Sexta e Domingo\n\nAbaixo deixo a localização no mapa 👇`
+      await sendText(uazapi, fromNumber, msg)
+      try {
+        await sendLocation(uazapi, fromNumber, { name: `${igrejaCfg.nome} — Templo Sede`, address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA", latitude: -14.8595, longitude: -40.8520 })
+      } catch { /* silencioso */ }
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: msg, ia_gerada: true, status: "enviado" })
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ENDEREÇO — Congregação Cidade Modelo ─────────────────────────────────
+    if (selecao === "congregacao") {
+      const msg = `📍 *Congregação Cidade Modelo*\n\nR. I, 625 — Cidade Modelo\nVitória da Conquista — BA\n\n🗓️ *Cultos:* Terça (Sã Doutrina), Quinta e Domingo\n\nAbaixo deixo a localização no mapa 👇`
+      await sendText(uazapi, fromNumber, msg)
+      try {
+        await sendLocation(uazapi, fromNumber, { name: `${igrejaCfg.nome} — Congregação Cidade Modelo`, address: "R. I, 625 — Cidade Modelo, Vitória da Conquista — BA", latitude: -14.8750, longitude: -40.8300 })
+      } catch { /* silencioso */ }
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: msg, ia_gerada: true, status: "enviado" })
       return NextResponse.json({ ok: true })
     }
 
@@ -493,6 +548,7 @@ export async function POST(req: Request) {
             "💰 Ajuda financeira|financeiro|Preciso de apoio",
             "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
             "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+            "📍 Endereço da igreja|endereco|Onde fica a igreja?",
             "[Estou bem]",
             "😊 Não preciso de nada|bem|Tudo ótimo!",
           ],
