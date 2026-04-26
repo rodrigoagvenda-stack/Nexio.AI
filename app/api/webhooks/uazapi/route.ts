@@ -394,7 +394,8 @@ export async function POST(req: Request) {
     const step = conversa.tipo_fluxo || "pastoral"
 
     // ── FLUXO FINANCEIRO (state machine, sem OpenAI) ──────────────────────────
-    if (step.startsWith("financeiro") || selecao === "financeiro") {
+    const isFinStep = step === "financeiro" || step.startsWith("fin_")
+    if (isFinStep || selecao === "financeiro") {
       if (selecao === "financeiro") {
         await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "financeiro", contexto: {} }).eq("id", conversa.id)
         conversa.tipo_fluxo = "financeiro"
