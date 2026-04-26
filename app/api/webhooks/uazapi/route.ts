@@ -219,7 +219,7 @@ async function callOpenAI(apiKey: string, model: string, system: string, histori
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: model || "gpt-4o-mini", messages, max_tokens: 500, temperature: 0.7 }),
+    body: JSON.stringify({ model: model || "gpt-4.1-mini", messages, max_tokens: 500, temperature: 0.5 }),
     signal: AbortSignal.timeout(25000),
   })
   if (!res.ok) { console.error("[OpenAI]", res.status); return "" }
