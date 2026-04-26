@@ -143,12 +143,51 @@ export async function sendMedia(cfg: UazapiConfig, number: string, opts: {
   return json
 }
 
+// ── Localização ───────────────────────────────────────────────────────────────
+export async function sendLocation(cfg: UazapiConfig, number: string, opts: {
+  name: string
+  address: string
+  latitude: number
+  longitude: number
+  delay?: number
+}) {
+  const res = await fetch(`${base(cfg)}/send/location`, {
+    method: "POST",
+    headers: headers(cfg.token),
+    body: JSON.stringify({
+      number,
+      name: opts.name,
+      address: opts.address,
+      latitude: opts.latitude,
+      longitude: opts.longitude,
+      delay: opts.delay ?? 1500,
+    }),
+    signal: AbortSignal.timeout(10000),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json?.error ?? `uazapi ${res.status}`)
+  return json
+}
+
 // ── Reação ─────────────────────────────────────────────────────────────────────
 export async function sendReaction(cfg: UazapiConfig, number: string, msgId: string, emoji: string) {
   const res = await fetch(`${base(cfg)}/message/react`, {
     method: "POST",
     headers: headers(cfg.token),
     body: JSON.stringify({ number: `${number}@s.whatsapp.net`, text: emoji, id: msgId }),
+    signal: AbortSignal.timeout(8000),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json?.error ?? `uazapi ${res.status}`)
+  return json
+}
+
+// ── Rejeitar chamada ───────────────────────────────────────────────────────────
+export async function rejectCall(cfg: UazapiConfig, number?: string, callId?: string) {
+  const res = await fetch(`${base(cfg)}/call/reject`, {
+    method: "POST",
+    headers: headers(cfg.token),
+    body: JSON.stringify(number || callId ? { number, id: callId } : {}),
     signal: AbortSignal.timeout(8000),
   })
   const json = await res.json().catch(() => ({}))
