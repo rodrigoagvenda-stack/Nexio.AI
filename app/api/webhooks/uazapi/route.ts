@@ -341,10 +341,20 @@ export async function POST(req: Request) {
 
   const { fromNumber, text, msgId, pushName, instanceName } = parsed
   const selecao = body?.message?.buttonOrListid || ""
-  console.log(`[webhook] de=${fromNumber} texto="${text.substring(0,40)}" selecao="${selecao}"`)
+  console.log(`[webhook] de=${fromNumber} texto="${text.substring(0,40)}" selecao="${selecao}" msgId="${msgId}"`)
 
   try {
     const supabase = createServiceClient()
+
+    // ── Deduplicação: ignora mensagens já processadas ───────────────────────────
+    if (msgId) {
+      const { data: jaExiste } = await (supabase as any)
+        .from("mensagens_whatsapp").select("id").eq("msg_id_wpp", msgId).maybeSingle()
+      if (jaExiste) {
+        console.log(`[webhook] msgId ${msgId} já processado, ignorando`)
+        return NextResponse.json({ ok: true, skipped: "duplicate" })
+      }
+    }
 
     const { data: igrejas } = await (supabase as any).from("igrejas").select("id, nome, configuracoes")
     if (!igrejas?.length) return NextResponse.json({ ok: false, error: "nenhuma igreja" })
@@ -408,9 +418,22 @@ export async function POST(req: Request) {
     // ── ESTUDO BÍBLICO ────────────────────────────────────────────────────────
     if (selecao === "estudo") {
       await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral" }).eq("id", conversa.id)
-      const convite = `Que alegria! 📖✨\n\nTe convidamos para o *Culto de Sã Doutrina*!\n\n📅 *Toda segunda-feira*\n🕖 *19h00*\n📍 Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA\n\nTe esperamos! 🕊️`
+      const nome = conversa.nome_contato?.split(" ")[0] || "irmão(ã)"
+
+      const convite = `Que lindo, ${nome}! 🙌🔥\n\nA Palavra de Deus nos diz:\n_"E conhecereis a verdade, e a verdade vos libertará."_ — João 8:32\n\nE também:\n_"Mas o crescimento em graça e no conhecimento de nosso Senhor e Salvador Jesus Cristo leva a uma vida plena e vitoriosa."_ — 2 Pedro 3:18\n\nConhecer a Deus e perseverar em Sua Palavra é o fundamento de tudo! 🕊️\n\nPor isso te fazemos este convite especial:\n\n✨ *CULTO DE SÃ DOUTRINA*\n📅 Toda *segunda-feira*\n🕖 *19h00*\n\nVenha construir uma base espiritual sólida junto com nossa família! Te esperamos com muito amor. ❤️`
+
       await sendText(uazapi, fromNumber, convite)
-      try { await sendLocation(uazapi, fromNumber, { name: igrejaCfg.nome, address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA", latitude: -14.8595, longitude: -40.8520 }) } catch { /* silencioso */ }
+      await sendText(uazapi, fromNumber, "Abaixo deixo a nossa localização 📍")
+
+      try {
+        await sendLocation(uazapi, fromNumber, {
+          name: igrejaCfg.nome || "Igreja Pentecostal Vale da Bênção",
+          address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA",
+          latitude: -14.8595,
+          longitude: -40.8520,
+        })
+      } catch { /* silencioso */ }
+
       await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: convite, ia_gerada: true, status: "enviado" })
       return NextResponse.json({ ok: true })
     }
@@ -423,7 +446,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── SAUDAÇÕES — sempre exibem o menu ─────────────────────────────────────
+    // ── ORAÇÃO e ACONSELHAMENTO (OpenAI) — vem ANTES do bloco do menu ────────
+    if (!cfg.openai_api_key) return NextResponse.json({ ok: true })
+
+    if (selecao === "oracao" || selecao === "casamento") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: selecao, contexto: {} }).eq("id", conversa.id)
+      conversa.tipo_fluxo = selecao
+    }
+
+    const fluxoAtivo = conversa.tipo_fluxo || "pastoral"
+
+    if (PROMPTS[fluxoAtivo]) {
+      const { data: historico } = await (supabase as any)
+        .from("mensagens_whatsapp").select("direcao, conteudo")
+        .eq("conversa_id", conversa.id).order("created_at", { ascending: true }).limit(30)
+
+      const respostaRaw = await callOpenAI(cfg.openai_api_key, cfg.openai_model, PROMPTS[fluxoAtivo], historico ?? [])
+      if (!respostaRaw) return NextResponse.json({ ok: true })
+
+      const handled = await processarDadosCompletos(supabase, uazapi, cfg, conversa, respostaRaw, igrejaCfg.nome ?? "Igreja", igrejaCfg.id)
+      if (handled) return NextResponse.json({ ok: true })
+
+      const respostaFinal = respostaRaw.replace(/DADOS_\w+:[\s\S]*$/, "").trim()
+      if (!respostaFinal) return NextResponse.json({ ok: true })
+
+      await sendText(uazapi, fromNumber, respostaFinal)
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: respostaFinal, ia_gerada: true, status: "enviado" })
+      await (supabase as any).from("conversas_whatsapp").update({ ultima_mensagem: respostaFinal, ultima_msg_at: new Date().toISOString() }).eq("id", conversa.id)
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── SAUDAÇÕES / MENU (fallback) ───────────────────────────────────────────
     const GREETINGS = ["olá","ola","oi","oi!","menu","inicio","início","voltar","ok","obrigado","obrigada","valeu","tchaui","tchau","até"]
     const isGreeting = !selecao && GREETINGS.includes(text.toLowerCase().trim().replace(/[!.?]+$/,""))
 
@@ -450,35 +503,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── ORAÇÃO e ACONSELHAMENTO (OpenAI) ─────────────────────────────────────
-    if (!cfg.openai_api_key) return NextResponse.json({ ok: true })
-
-    if (selecao === "oracao" || selecao === "casamento") {
-      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: selecao, contexto: {} }).eq("id", conversa.id)
-      conversa.tipo_fluxo = selecao
-    }
-
-    const fluxoAtivo = conversa.tipo_fluxo || "pastoral"
-    if (!PROMPTS[fluxoAtivo]) return NextResponse.json({ ok: true })
-
-    const { data: historico } = await (supabase as any)
-      .from("mensagens_whatsapp").select("direcao, conteudo")
-      .eq("conversa_id", conversa.id).order("created_at", { ascending: true }).limit(30)
-
-    const respostaRaw = await callOpenAI(cfg.openai_api_key, cfg.openai_model, PROMPTS[fluxoAtivo], historico ?? [])
-    if (!respostaRaw) return NextResponse.json({ ok: true })
-
-    const handled = await processarDadosCompletos(supabase, uazapi, cfg, conversa, respostaRaw, igrejaCfg.nome ?? "Igreja", igrejaCfg.id)
-    if (handled) return NextResponse.json({ ok: true })
-
-    const respostaFinal = respostaRaw.replace(/DADOS_\w+:[\s\S]*$/, "").trim()
-    if (!respostaFinal) return NextResponse.json({ ok: true })
-
-    await sendText(uazapi, fromNumber, respostaFinal)
-    await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: respostaFinal, ia_gerada: true, status: "enviado" })
-    await (supabase as any).from("conversas_whatsapp").update({ ultima_mensagem: respostaFinal, ultima_msg_at: new Date().toISOString() }).eq("id", conversa.id)
-
-    return NextResponse.json({ ok: true, conversa_id: conversa.id })
+    return NextResponse.json({ ok: true })
   } catch (e: any) {
     console.error("[webhook] ERRO:", e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })
