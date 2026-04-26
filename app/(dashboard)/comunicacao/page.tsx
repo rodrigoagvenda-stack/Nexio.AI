@@ -246,22 +246,28 @@ export default function ComunicacaoPage() {
     finally { setLoadingConv(false) }
   }
 
-  async function fetchMensagens(conv: Conversa) {
-    setLoadingMsg(true)
-    setMensagens([])
+  async function fetchMensagens(conv: Conversa, background = false) {
+    if (!background) { setLoadingMsg(true); setMensagens([]) }
     try {
       const res = await fetch(`/api/comunicacao/mensagens?conversa_id=${conv.id}`)
       const json = await res.json()
-      setMensagens(json.data ?? [])
-    } catch { toast({ variant: "destructive", title: "Erro ao carregar mensagens" }) }
-    finally { setLoadingMsg(false) }
+      const novas: Mensagem[] = json.data ?? []
+      // Só atualiza se houver mudança (evita re-render desnecessário)
+      setMensagens(prev => {
+        if (background && prev.length === novas.length && prev[prev.length - 1]?.id === novas[novas.length - 1]?.id) return prev
+        return novas
+      })
+    } catch {
+      if (!background) toast({ variant: "destructive", title: "Erro ao carregar mensagens" })
+    }
+    finally { if (!background) setLoadingMsg(false) }
   }
 
   useEffect(() => {
     if (!convAtiva) return
-    fetchMensagens(convAtiva)
-    // Atualiza mensagens a cada 5s enquanto a conversa está aberta
-    const interval = setInterval(() => fetchMensagens(convAtiva), 5000)
+    fetchMensagens(convAtiva, false)
+    // Background refresh sem piscar
+    const interval = setInterval(() => fetchMensagens(convAtiva, true), 5000)
     return () => clearInterval(interval)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convAtiva?.id])
@@ -565,55 +571,66 @@ export default function ComunicacaoPage() {
           )}
 
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
-            style={{ backgroundImage: "radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0)", backgroundSize: "20px 20px" }}>
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1 bg-muted/20">
             {loadingMsg ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : mensagens.length === 0 ? (
+            ) : mensagens.filter(m => !m.conteudo.startsWith("[")).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <MessageSquare className="h-10 w-10 text-muted-foreground/20 mb-3" />
                 <p className="text-sm text-muted-foreground">Nenhuma mensagem ainda</p>
-                <p className="text-xs text-muted-foreground mt-1">Clique em <strong>Resposta SDR</strong> para a IA iniciar</p>
+                <p className="text-xs text-muted-foreground mt-1">Clique em <strong>Iniciar SDR</strong> para a IA começar</p>
               </div>
             ) : (
-              mensagens.map((msg, i) => {
-                const isSaida = msg.direcao === "saida"
-                const prevMsg = mensagens[i - 1]
-                const showTime = !prevMsg || new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 300000
+              mensagens
+                .filter(m => !m.conteudo.startsWith("["))  // oculta mensagens de sistema
+                .map((msg, i, arr) => {
+                  const isSaida = msg.direcao === "saida"
+                  const prevMsg = arr[i - 1]
+                  const showTime = !prevMsg || new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 300000
+                  const isConsecutiva = prevMsg && prevMsg.direcao === msg.direcao
 
-                return (
-                  <div key={msg.id}>
-                    {showTime && (
-                      <div className="flex justify-center my-3">
-                        <span className="text-[10px] text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                          {new Date(msg.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })} · {formatMsgTime(msg.created_at)}
-                        </span>
-                      </div>
-                    )}
-                    <div className={`flex ${isSaida ? "justify-end" : "justify-start"} mb-1`}>
-                      <div className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 shadow-sm ${
-                        isSaida
-                          ? "bg-primary text-primary-foreground rounded-br-sm"
-                          : "bg-card border border-border rounded-bl-sm"
-                      }`}>
-                        {msg.ia_gerada && (
-                          <div className={`flex items-center gap-1 mb-1 ${isSaida ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                            <Bot className="h-3 w-3" />
-                            <span className="text-[10px] font-medium">IA SDR</span>
+                  return (
+                    <div key={msg.id} className={isConsecutiva ? "mt-0.5" : "mt-3"}>
+                      {showTime && (
+                        <div className="flex justify-center my-4">
+                          <span className="text-[10px] text-muted-foreground bg-background border border-border px-3 py-1 rounded-full shadow-sm">
+                            {new Date(msg.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} · {formatMsgTime(msg.created_at)}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex items-end gap-1.5 ${isSaida ? "justify-end" : "justify-start"}`}>
+                        {/* Avatar do contato (só na última mensagem consecutiva) */}
+                        {!isSaida && !isConsecutiva && (
+                          <div className="h-7 w-7 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-bold shrink-0 mb-0.5">
+                            {getInitials(convAtiva.nome_contato || "?")}
                           </div>
                         )}
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{msg.conteudo}</p>
-                        <div className={`flex items-center gap-1 mt-1 justify-end ${isSaida ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                          <span className="text-[10px]">{formatMsgTime(msg.created_at)}</span>
-                          {isSaida && STATUS_MSG[msg.status]}
+                        {!isSaida && isConsecutiva && <div className="w-7 shrink-0" />}
+
+                        <div className={`max-w-[72%] ${isSaida ? "items-end" : "items-start"} flex flex-col`}>
+                          {msg.ia_gerada && !isConsecutiva && isSaida && (
+                            <span className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1 mr-1">
+                              <Bot className="h-3 w-3" /> IA SDR
+                            </span>
+                          )}
+                          <div className={`px-3.5 py-2 shadow-sm text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                            isSaida
+                              ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-[#111] dark:text-white rounded-2xl rounded-br-sm"
+                              : "bg-card border border-border text-foreground rounded-2xl rounded-bl-sm"
+                          }`}>
+                            {msg.conteudo}
+                          </div>
+                          <div className={`flex items-center gap-1 mt-0.5 px-1 ${isSaida ? "justify-end" : "justify-start"}`}>
+                            <span className="text-[10px] text-muted-foreground">{formatMsgTime(msg.created_at)}</span>
+                            {isSaida && <span className="text-muted-foreground">{STATUS_MSG[msg.status]}</span>}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })
+                  )
+                })
             )}
             <div ref={msgEndRef} />
           </div>

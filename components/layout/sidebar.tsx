@@ -99,14 +99,14 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" onClick={onClose} />
       )}
 
       <aside
         data-sidebar
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col",
-          "bg-[#0f1117] border-r border-white/[0.06]",
+          "bg-card border-r border-border",
           "transition-[width,transform] duration-150 ease-in-out",
           sidebarWidth,
           mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -115,7 +115,7 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
       >
         {/* ── Logo ── */}
         <div className={cn(
-          "flex h-16 shrink-0 items-center border-b border-white/[0.06]",
+          "flex h-16 shrink-0 items-center border-b border-border",
           collapsed ? "justify-center px-0" : "justify-between px-4"
         )}>
           {collapsed ? (
@@ -135,7 +135,7 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
             </div>
           )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-white/40 hover:text-white hover:bg-white/10 lg:hidden shrink-0" onClick={onClose}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground lg:hidden shrink-0" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -150,11 +150,11 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
             return (
               <div key={group.label} className="mb-3">
                 {!collapsed && (
-                  <p className="px-2.5 py-1 mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30 select-none">
+                  <p className="px-2.5 py-1 mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60 select-none">
                     {group.label}
                   </p>
                 )}
-                {collapsed && <div className="h-px bg-white/[0.06] mx-2 my-2" />}
+                {collapsed && <div className="h-px bg-border mx-2 my-2" />}
                 <div className="space-y-0.5">
                   {visibleItems.map((item) => {
                     const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -168,14 +168,14 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
                           "flex items-center gap-3 rounded-lg text-[13px] font-medium transition-all duration-100",
                           collapsed ? "justify-center px-0 py-2.5 w-full" : "px-2.5 py-2",
                           isActive
-                            ? "bg-[#C1BC7A]/15 text-[#C1BC7A]"
-                            : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]"
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                       >
                         <item.icon className={cn("shrink-0", collapsed ? "h-[18px] w-[18px]" : "h-4 w-4")} />
                         {!collapsed && <span className="truncate">{item.name}</span>}
                         {!collapsed && isActive && (
-                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#C1BC7A] shrink-0" />
+                          <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                         )}
                       </Link>
                     )
@@ -187,13 +187,13 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
         </nav>
 
         {/* ── Footer ── */}
-        <div className="shrink-0 border-t border-white/[0.06] p-2 space-y-1">
+        <div className="shrink-0 border-t border-border p-2 space-y-1">
           {/* Controls row */}
           <div className={cn("flex items-center gap-1", collapsed ? "flex-col" : "justify-between px-1")}>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-white/40 hover:text-white/80 hover:bg-white/[0.06]"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               title={theme === "dark" ? "Modo claro" : "Modo escuro"}
             >
@@ -218,16 +218,16 @@ export function Sidebar({ user, mobileOpen, onClose, collapsed, onToggleCollapse
 
           {/* User card */}
           <div className={cn(
-            "flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-white/[0.04] border border-white/[0.06]",
+            "flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-muted/50 border border-border",
             collapsed && "justify-center px-0 border-0 bg-transparent"
           )}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C1BC7A]/20 text-[#C1BC7A] text-[11px] font-bold border border-[#C1BC7A]/30">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-[11px] font-bold border border-primary/20">
               {initials}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white/90 leading-none truncate">{user.nome.split(" ")[0]}</p>
-                <p className="text-[10px] text-white/40 mt-0.5 truncate">{ROLE_LABELS[user.role] ?? user.role}</p>
+                <p className="text-xs font-semibold leading-none truncate">{user.nome.split(" ")[0]}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{ROLE_LABELS[user.role] ?? user.role}</p>
               </div>
             )}
             {!collapsed && (
