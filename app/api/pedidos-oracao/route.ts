@@ -13,13 +13,22 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
 
+    // Busca IDs dos membros desta igreja para filtrar pedidos
+    let membrosIds: string[] = []
+    if (profile?.igreja_id) {
+      const { data: mbs } = await (supabase as any)
+        .from("membros").select("id").eq("igreja_id", profile.igreja_id)
+      membrosIds = (mbs ?? []).map((m: any) => m.id)
+    }
+
     let query = (supabase as any)
       .from("pedidos_oracao")
       .select(`*, membros(nome, foto_url)`)
       .order("data_pedido", { ascending: false })
 
-    if (profile?.igreja_id) {
-      query = query.eq("membros.igreja_id", profile.igreja_id)
+    // Mostra pedidos dos membros da igreja OU pedidos sem membro (vindos do SDR)
+    if (membrosIds.length > 0) {
+      query = query.or(`membro_id.in.(${membrosIds.join(",")}),membro_id.is.null`)
     }
     if (status) query = query.eq("status", status)
 

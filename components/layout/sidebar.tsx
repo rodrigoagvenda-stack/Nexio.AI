@@ -23,6 +23,7 @@ import {
   Moon,
   LogOut,
   Shield,
+  HeartHandshake,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { logout } from "@/lib/auth/actions"
@@ -66,7 +67,8 @@ const NAV_GROUPS = [
   {
     label: "Pastoral",
     items: [
-      { name: "Pedidos de Oração", href: "/pedidos-oracao", icon: HandHeart, roles: ["admin","pastor","lider_ministerio"] },
+      { name: "Pedidos de Oração",  href: "/pedidos-oracao", icon: HandHeart,      roles: ["admin","pastor","lider_ministerio"] },
+      { name: "Assistência Social", href: "/assistencia",    icon: HeartHandshake, roles: ["admin","pastor","secretaria"] },
     ],
   },
   {

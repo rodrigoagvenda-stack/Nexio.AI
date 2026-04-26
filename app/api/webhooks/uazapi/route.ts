@@ -1,33 +1,207 @@
 import { NextResponse } from "next/server"
 import { createServiceClient } from "@/lib/supabase/server"
-import { sendText, sendList, sendLocation, rejectCall, UazapiConfig, parseWebhookPayload } from "@/lib/uazapi"
+import { sendText, sendList, sendButtons, sendLocation, rejectCall, UazapiConfig, parseWebhookPayload } from "@/lib/uazapi"
 
-// ─── Prompts por fluxo ────────────────────────────────────────────────────────
+// ─── State machine: Assistência Financeira (sem OpenAI) ───────────────────────
+
+async function handleFinanceiro(
+  supabase: any, uazapi: UazapiConfig, cfg: any,
+  conversa: any, fromNumber: string, text: string, selecao: string,
+  igrejaCfg: any,
+): Promise<boolean> {
+  const step     = conversa.tipo_fluxo || "financeiro"
+  const ctx      = conversa.contexto   || {}
+  const igrejaNome = igrejaCfg.nome || "nossa Igreja"
+
+  async function saveCtx(novoCtx: any, novoStep: string) {
+    await (supabase as any).from("conversas_whatsapp").update({
+      contexto: { ...ctx, ...novoCtx }, tipo_fluxo: novoStep,
+    }).eq("id", conversa.id)
+  }
+
+  async function reply(txt: string) {
+    await sendText(uazapi, fromNumber, txt)
+    await (supabase as any).from("mensagens_whatsapp").insert({
+      conversa_id: conversa.id, direcao: "saida", conteudo: txt, ia_gerada: true, status: "enviado",
+    })
+    await (supabase as any).from("conversas_whatsapp").update({
+      ultima_mensagem: txt, ultima_msg_at: new Date().toISOString(),
+    }).eq("id", conversa.id)
+  }
+
+  // ── STEP 0: Início — pede nome ──────────────────────────────────────────────
+  if (step === "financeiro") {
+    await saveCtx({}, "fin_nome")
+    await reply("Precisamos de algumas informações para ajudar você. 💛\n\nQual é o seu *nome completo*?")
+    return true
+  }
+
+  // ── STEP 1: Recebeu nome — pede "para quem" via botões ──────────────────────
+  if (step === "fin_nome") {
+    await saveCtx({ nome: text.trim() }, "fin_para")
+    await sendButtons(uazapi, fromNumber, {
+      text: `Obrigado, ${text.trim()}! 😊\n\nEssa necessidade é *para você* ou para *outra pessoa*?`,
+      choices: ["Para mim|para_mim", "Para outra pessoa|para_outro"],
+    })
+    await (supabase as any).from("mensagens_whatsapp").insert({
+      conversa_id: conversa.id, direcao: "saida", conteudo: "[Botões: para mim / outra pessoa]", ia_gerada: true, status: "enviado",
+    })
+    return true
+  }
+
+  // ── STEP 2: Para quem — se outro pede nome, senão vai para tipo ─────────────
+  if (step === "fin_para") {
+    const resp = selecao || text.toLowerCase()
+    if (resp.includes("outro") || resp.includes("para_outro") || resp.includes("outra")) {
+      await saveCtx({ para: "outro" }, "fin_nome_outro")
+      await reply("Qual é o nome da pessoa que precisa de ajuda?")
+    } else {
+      // Para mim → vai direto para tipo
+      await saveCtx({ para: "mim" }, "fin_tipo")
+      await sendButtons(uazapi, fromNumber, {
+        text: "Que tipo de ajuda você precisa?",
+        choices: [
+          "🛒 Cesta básica|cesta_basica",
+          "🔥 Gás de cozinha|gas",
+          "🏠 Aluguel/moradia|aluguel",
+          "💊 Remédio|remedio",
+          "📝 Outro|outro",
+        ],
+        footer: "Selecione uma opção",
+      })
+      await (supabase as any).from("mensagens_whatsapp").insert({
+        conversa_id: conversa.id, direcao: "saida", conteudo: "[Botões: tipo de ajuda]", ia_gerada: true, status: "enviado",
+      })
+    }
+    return true
+  }
+
+  // ── STEP 3: Nome do beneficiário — vai para tipo ─────────────────────────────
+  if (step === "fin_nome_outro") {
+    await saveCtx({ nome_beneficiario: text.trim() }, "fin_tipo")
+    await sendButtons(uazapi, fromNumber, {
+      text: `Entendido! Que tipo de ajuda ${text.trim()} precisa?`,
+      choices: [
+        "🛒 Cesta básica|cesta_basica",
+        "🔥 Gás de cozinha|gas",
+        "🏠 Aluguel/moradia|aluguel",
+        "💊 Remédio|remedio",
+        "📝 Outro|outro",
+      ],
+      footer: "Selecione uma opção",
+    })
+    await (supabase as any).from("mensagens_whatsapp").insert({
+      conversa_id: conversa.id, direcao: "saida", conteudo: "[Botões: tipo de ajuda]", ia_gerada: true, status: "enviado",
+    })
+    return true
+  }
+
+  // ── STEP 4: Tipo selecionado — pede endereço ──────────────────────────────────
+  if (step === "fin_tipo") {
+    const tipoMap: Record<string, string> = {
+      cesta_basica: "Cesta básica", gas: "Gás de cozinha",
+      aluguel: "Aluguel/moradia", remedio: "Remédio", outro: "Outro",
+    }
+    const tipoKey  = selecao || text.toLowerCase().trim()
+    const tipoLabel = tipoMap[tipoKey] || text.trim()
+    await saveCtx({ tipo_ajuda: tipoLabel }, "fin_endereco")
+    await reply(`*${tipoLabel}* anotado! 📝\n\nPara cadastrar o pedido, preciso do seu *endereço completo* (rua, número, bairro e cidade).`)
+    return true
+  }
+
+  // ── STEP 5: Endereço recebido — salva tudo e encerra ─────────────────────────
+  if (step === "fin_endereco") {
+    const finalCtx = { ...ctx, endereco: text.trim() }
+
+    // Busca membro pelo telefone
+    const { data: membro } = await (supabase as any).from("membros").select("id")
+      .ilike("telefone", `%${fromNumber.slice(-9)}%`).eq("igreja_id", igrejaCfg.id).maybeSingle()
+
+    // Salva pedido de assistência
+    const { error: insertErr } = await (supabase as any).from("pedidos_assistencia").insert({
+      igreja_id:         igrejaCfg.id,
+      membro_id:         membro?.id ?? null,
+      nome:              finalCtx.nome,
+      telefone:          fromNumber,
+      para:              finalCtx.para || "mim",
+      nome_beneficiario: finalCtx.nome_beneficiario || null,
+      tipo_ajuda:        finalCtx.tipo_ajuda,
+      endereco:          finalCtx.endereco,
+      status:            "pendente",
+    })
+    if (insertErr) console.error("[fin_endereco] insert:", insertErr.message)
+    else console.log("[fin_endereco] pedido assistência salvo!")
+
+    // Notifica pastores
+    const msgAlerta = `💰 *PEDIDO DE AJUDA FINANCEIRA — ${igrejaNome}*\n\n*Nome:* ${finalCtx.nome}\n*Tel:* ${fromNumber}\n*Para:* ${finalCtx.para === "outro" ? finalCtx.nome_beneficiario : "próprio solicitante"}\n*Tipo:* ${finalCtx.tipo_ajuda}\n*Endereço:* ${finalCtx.endereco}`
+    const numeros: any[] = cfg.numeros_notificacao ?? []
+    for (const dest of numeros.filter((n: any) => n.categoria === "geral" || n.categoria === "financeiro")) {
+      try { await sendText(uazapi, dest.telefone, msgAlerta) } catch { /* silencioso */ }
+    }
+
+    // Confirmação ao membro + menu
+    await reply(`✅ Pedido registrado com sucesso!\n\nNossa equipe irá analisar e entrar em contato em breve. Que Deus proveja! 🙏`)
+
+    // Reset para pastoral + menu
+    await (supabase as any).from("conversas_whatsapp").update({
+      tipo_fluxo: "pastoral", contexto: {},
+    }).eq("id", conversa.id)
+
+    try {
+      await sendList(uazapi, fromNumber, {
+        text: "Posso ajudar com mais alguma coisa? 😊",
+        listButton: "Ver opções",
+        choices: [
+          "[Como posso ajudar?]",
+          "🙏 Pedido de oração|oracao|Quero pedir intercessão",
+          "💰 Ajuda financeira|financeiro|Preciso de apoio",
+          "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
+          "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+          "[Estou bem]",
+          "😊 Não preciso de mais nada|bem|Obrigado!",
+        ],
+        footer: "Nossa equipe pastoral está aqui por você ❤️",
+      })
+    } catch { /* silencioso */ }
+
+    return true
+  }
+
+  return false
+}
+
+// ─── Prompts OpenAI (apenas oração e aconselhamento) ─────────────────────────
 
 const PROMPTS: Record<string, string> = {
-  oracao: `Você é a assistente pastoral da igreja. Colete as seguintes informações de forma gentil e natural (uma pergunta por vez):
-1. Nome completo do solicitante
-2. A oração é para ele(a) ou para um ente querido? (se for ente querido, qual o nome?)
-3. Qual é o motivo ou área da oração? (saúde, família, trabalho, financeiro, espiritual, relacionamento...)
+  oracao: `Você é a assistente pastoral da igreja. Colete 3 informações — UMA DE CADA VEZ — para registrar um pedido de oração.
 
-Quando tiver todas as informações, responda APENAS com este JSON (sem mais texto):
+REGRAS:
+- Leia o histórico completo antes de responder
+- NUNCA repita pergunta já respondida
+- Avance sempre para a próxima informação em falta
+- Respostas curtas e acolhedoras
+
+ORDEM:
+1. Nome completo
+2. A oração é para você ou para um ente querido? (se outro, qual nome?)
+3. Motivo/área (saúde, família, trabalho, financeiro, espiritual...)
+
+Quando tiver as 3, responda SOMENTE:
 DADOS_ORACAO: {"nome":"...","para":"ele|ente_querido","nome_ente":"...","motivo":"...","categoria":"saude|familia|trabalho|financeiro|espiritual|outro"}`,
 
-  financeiro: `Você é a assistente pastoral da igreja. Colete as informações de forma gentil (uma por vez):
+  casamento: `Você é a assistente pastoral da igreja. Colete 3 informações — UMA DE CADA VEZ — para encaminhar um pedido de aconselhamento.
+
+REGRAS:
+- Leia o histórico antes de responder — não repita o que já foi respondido
+- Avance sempre para a próxima pergunta pendente
+- Seja acolhedor e empático
+
+ORDEM:
 1. Nome completo
-2. A necessidade é para ele(a) ou para outra pessoa? (se outra, qual nome?)
-3. Qual o tipo de ajuda necessária? (cesta básica, gás, aluguel, remédio, outro...)
-4. Pode descrever brevemente a situação?
+2. Nome do cônjuge/familiar (pode pular)
+3. Situação/motivo
 
-Quando tiver tudo, responda APENAS:
-DADOS_FINANCEIRO: {"nome":"...","para":"ele|outro","nome_outro":"...","tipo_ajuda":"...","situacao":"..."}`,
-
-  casamento: `Você é a assistente pastoral da igreja. Colete as informações com cuidado e empatia (uma por vez):
-1. Nome completo de quem está buscando ajuda
-2. Nome do cônjuge ou familiar envolvido (se quiser informar)
-3. Qual é a situação ou motivo que trouxe até nós?
-
-Seja acolhedor, sem julgamentos. Quando tiver as informações:
+Quando tiver as 3, responda SOMENTE:
 DADOS_ACONSELHAMENTO: {"nome":"...","nome_conjuge":"...","motivo":"..."}`,
 }
 
@@ -55,53 +229,67 @@ async function callOpenAI(apiKey: string, model: string, system: string, histori
 
 async function notificarPastores(uazapi: UazapiConfig, cfg: any, categoria: string, mensagem: string) {
   const numeros: any[] = cfg.numeros_notificacao ?? []
-  const destinatarios = numeros.filter((n: any) => n.categoria === "geral" || n.categoria === categoria)
-  for (const dest of destinatarios) {
+  for (const dest of numeros.filter((n: any) => n.categoria === "geral" || n.categoria === categoria)) {
     try { await sendText(uazapi, dest.telefone, mensagem) } catch { /* silencioso */ }
   }
 }
 
-// ─── Detecta e processa dados completos ──────────────────────────────────────
+// ─── processarDadosCompletos (oração + aconselhamento) ───────────────────────
 
 async function processarDadosCompletos(
-  supabase: any,
-  uazapi: UazapiConfig,
-  cfg: any,
-  conversa: any,
-  resposta: string,
-  igrejaNome: string,
-): Promise<string | null> {
+  supabase: any, uazapi: UazapiConfig, cfg: any,
+  conversa: any, resposta: string, igrejaNome: string, igrejaId: string,
+): Promise<boolean> {
+
+  async function findMembroId(): Promise<string | null> {
+    const { data } = await (supabase as any).from("membros").select("id")
+      .ilike("telefone", `%${conversa.telefone?.slice(-9) ?? ""}%`)
+      .eq("igreja_id", igrejaId).maybeSingle()
+    return data?.id ?? null
+  }
+
+  async function menuDeVolta() {
+    try {
+      await sendList(uazapi, conversa.telefone, {
+        text: "Posso ajudar com mais alguma coisa? 😊",
+        listButton: "Ver opções",
+        choices: [
+          "[Como posso ajudar?]",
+          "🙏 Pedido de oração|oracao|Quero pedir intercessão",
+          "💰 Ajuda financeira|financeiro|Preciso de apoio",
+          "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
+          "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+          "[Estou bem]",
+          "😊 Não preciso de mais nada|bem|Obrigado!",
+        ],
+        footer: "Nossa equipe pastoral está aqui por você ❤️",
+      })
+    } catch { /* silencioso */ }
+    await (supabase as any).from("conversas_whatsapp").update({
+      tipo_fluxo: "pastoral", contexto: {},
+    }).eq("id", conversa.id)
+  }
 
   // ── Oração ──
   const orIdx = resposta.indexOf("DADOS_ORACAO:")
   if (orIdx !== -1) {
     try {
       const json = JSON.parse(resposta.substring(orIdx + 13).trim())
-      // Salva pedido de oração
-      await (supabase as any).from("pedidos_oracao").insert({
-        titulo: `Pedido de ${json.nome}`,
-        descricao: `Motivo: ${json.motivo}. Para: ${json.para === "ele" ? json.nome : json.nome_ente ?? "ente querido"}`,
-        categoria: json.categoria || "outro",
-        status: "ativo",
-        privacidade: "lideranca",
+      const membroId = await findMembroId()
+      const { error } = await (supabase as any).from("pedidos_oracao").insert({
+        membro_id: membroId, titulo: `Pedido de ${json.nome}`,
+        descricao: `Para: ${json.para === "ele" ? "próprio solicitante" : (json.nome_ente ?? "ente querido")}. Motivo: ${json.motivo}`,
+        categoria: json.categoria || "outro", status: "ativo",
+        privacidade: "lideranca", data_pedido: new Date().toISOString(),
       })
-      // Notifica
-      const msg = `🙏 *PEDIDO DE ORAÇÃO — ${igrejaNome}*\n\n*Nome:* ${json.nome}\n*Para:* ${json.para === "ele" ? "Próprio solicitante" : json.nome_ente}\n*Motivo:* ${json.motivo}\n*Categoria:* ${json.categoria}`
+      if (error) console.error("[DADOS_ORACAO] insert:", error.message)
+      else console.log("[DADOS_ORACAO] pedido registrado!")
+      const msg = `🙏 *PEDIDO DE ORAÇÃO — ${igrejaNome}*\n\n*Nome:* ${json.nome}\n*Para:* ${json.para === "ele" ? "Próprio solicitante" : json.nome_ente}\n*Motivo:* ${json.motivo}`
       await notificarPastores(uazapi, cfg, "pastoral", msg)
-      // Resposta ao membro
-      return `Amém, ${json.nome}! 🙏 Seu pedido de oração foi registrado e encaminhado à liderança da ${igrejaNome}. Nossos líderes irão interceder por você. Que Deus te abençoe grandemente! ❤️`
+      await sendText(uazapi, conversa.telefone, `Amém, ${json.nome}! 🙏 Seu pedido de oração foi registrado e encaminhado à liderança. Nossos líderes irão interceder por você. Que Deus te abençoe! ❤️`)
+      await menuDeVolta()
+      return true
     } catch (e) { console.error("[DADOS_ORACAO] parse:", e) }
-  }
-
-  // ── Financeiro ──
-  const finIdx = resposta.indexOf("DADOS_FINANCEIRO:")
-  if (finIdx !== -1) {
-    try {
-      const json = JSON.parse(resposta.substring(finIdx + 17).trim())
-      const msg = `💰 *PEDIDO DE AJUDA FINANCEIRA — ${igrejaNome}*\n\n*Nome:* ${json.nome}\n*Para:* ${json.para === "ele" ? "Próprio solicitante" : json.nome_outro}\n*Tipo de ajuda:* ${json.tipo_ajuda}\n*Situação:* ${json.situacao}`
-      await notificarPastores(uazapi, cfg, "financeiro", msg)
-      return `Obrigado por confiar em nós, ${json.nome}. 💛 Sua solicitação foi encaminhada para a equipe responsável da ${igrejaNome}. Entraremos em contato em breve. Que Deus supra todas as suas necessidades!`
-    } catch (e) { console.error("[DADOS_FINANCEIRO] parse:", e) }
   }
 
   // ── Aconselhamento ──
@@ -111,11 +299,13 @@ async function processarDadosCompletos(
       const json = JSON.parse(resposta.substring(aconIdx + 21).trim())
       const msg = `💍 *PEDIDO DE ACONSELHAMENTO — ${igrejaNome}*\n\n*Nome:* ${json.nome}\n*Envolvido(a):* ${json.nome_conjuge || "Não informado"}\n*Situação:* ${json.motivo}`
       await notificarPastores(uazapi, cfg, "casamento", msg)
-      return `Obrigado pela confiança, ${json.nome}. ❤️ Seu pedido de aconselhamento foi encaminhado ao pastor responsável da ${igrejaNome}. Ele entrará em contato em breve. Você não está sozinho(a)!`
+      await sendText(uazapi, conversa.telefone, `Obrigado pela confiança, ${json.nome}. ❤️ Seu pedido foi encaminhado ao pastor responsável. Você não está sozinho(a)!`)
+      await menuDeVolta()
+      return true
     } catch (e) { console.error("[DADOS_ACONSELHAMENTO] parse:", e) }
   }
 
-  return null
+  return false
 }
 
 // ─── Webhook handler ──────────────────────────────────────────────────────────
@@ -127,23 +317,17 @@ export async function POST(req: Request) {
   const eventType = body?.EventType ?? body?.event ?? body?.type ?? ""
   console.log(`[webhook] EventType="${eventType}" instance="${body?.instanceName ?? ""}"`)
 
-  // ── Chamadas de voz: rejeitar e avisar ──────────────────────────────────────
+  // ── Chamadas de voz ──────────────────────────────────────────────────────────
   if (eventType.toLowerCase().includes("call")) {
-    const callNumber: string = body?.message?.chatid?.replace("@s.whatsapp.net","").replace(/\D/g,"") ?? body?.from ?? ""
-    const callId: string = body?.message?.id ?? body?.call_id ?? ""
-    // Tenta rejeitar
-    if (body?.BaseUrl && body?.instanceName) {
-      const { data: igrejas } = await (createServiceClient() as any).from("igrejas").select("configuracoes")
-      const ig = (igrejas ?? []).find((i: any) => i.configuracoes?.uazapi_token)
-      if (ig?.configuracoes?.uazapi_token) {
-        const ua: UazapiConfig = { base_url: ig.configuracoes.uazapi_base_url, token: ig.configuracoes.uazapi_token }
-        try { await rejectCall(ua, callNumber || undefined, callId || undefined) } catch { /* silencioso */ }
-        if (callNumber) {
-          try {
-            await sendText(ua, callNumber, "Olá! Sou a assistente virtual da nossa igreja e não consigo atender ligações. 😊\n\nPor favor, me envie uma mensagem de texto que responderei com prazer! 🙏")
-          } catch { /* silencioso */ }
-        }
-      }
+    const callNumber = body?.message?.chatid?.replace("@s.whatsapp.net","").replace(/\D/g,"") ?? ""
+    const callId     = body?.message?.id ?? ""
+    const supaDb     = createServiceClient()
+    const { data: igs } = await (supaDb as any).from("igrejas").select("configuracoes")
+    const ig = (igs ?? []).find((i: any) => i.configuracoes?.uazapi_token)
+    if (ig) {
+      const ua: UazapiConfig = { base_url: ig.configuracoes.uazapi_base_url, token: ig.configuracoes.uazapi_token }
+      try { await rejectCall(ua, callNumber || undefined, callId || undefined) } catch { /* silencioso */ }
+      if (callNumber) try { await sendText(ua, callNumber, "Olá! Sou a assistente virtual e não consigo atender ligações. 😊\nEnvie uma mensagem de texto que responderei prontamente! 🙏") } catch { /* silencioso */ }
     }
     return NextResponse.json({ ok: true, handled: "call_rejected" })
   }
@@ -153,35 +337,31 @@ export async function POST(req: Request) {
   }
 
   const parsed = parseWebhookPayload(body)
-  if (!parsed) { console.log("[webhook] ignorado — fromMe ou sem texto"); return NextResponse.json({ ok: true }) }
+  if (!parsed) { console.log("[webhook] ignorado"); return NextResponse.json({ ok: true }) }
 
   const { fromNumber, text, msgId, pushName, instanceName } = parsed
-  // Detecta seleção de botão/lista
   const selecao = body?.message?.buttonOrListid || ""
-  console.log(`[webhook] de=${fromNumber} texto="${text.substring(0, 50)}" selecao="${selecao}"`)
+  console.log(`[webhook] de=${fromNumber} texto="${text.substring(0,40)}" selecao="${selecao}"`)
 
   try {
     const supabase = createServiceClient()
 
     const { data: igrejas } = await (supabase as any).from("igrejas").select("id, nome, configuracoes")
-    console.log(`[webhook] igrejas: ${igrejas?.length ?? 0}`)
     if (!igrejas?.length) return NextResponse.json({ ok: false, error: "nenhuma igreja" })
 
     const igrejaCfg =
       igrejas.find((ig: any) => ig.configuracoes?.uazapi_instance?.toLowerCase() === (instanceName ?? "").toLowerCase()) ??
       igrejas.find((ig: any) => ig.configuracoes?.uazapi_token)
-
     if (!igrejaCfg) return NextResponse.json({ ok: false, error: "nenhuma igreja configurada" })
 
     const cfg    = igrejaCfg.configuracoes ?? {}
     const uazapi: UazapiConfig = { base_url: cfg.uazapi_base_url, token: cfg.uazapi_token }
-
-    console.log(`[webhook] igreja: ${igrejaCfg.nome} | uazapi: ${uazapi.token ? "ok" : "MISSING"} | openai: ${cfg.openai_api_key ? "ok" : "MISSING"}`)
+    console.log(`[webhook] ${igrejaCfg.nome} | uazapi:${uazapi.token?"ok":"MISS"} | openai:${cfg.openai_api_key?"ok":"MISS"}`)
 
     // Busca ou cria conversa
     let { data: conversa } = await (supabase as any)
       .from("conversas_whatsapp")
-      .select("id, nome_contato, ia_ativa, tipo_fluxo, nao_lidas, telefone")
+      .select("id, nome_contato, ia_ativa, tipo_fluxo, nao_lidas, telefone, contexto")
       .eq("telefone", fromNumber).eq("igreja_id", igrejaCfg.id)
       .neq("status", "encerrada").maybeSingle()
 
@@ -190,132 +370,112 @@ export async function POST(req: Request) {
         .ilike("telefone", `%${fromNumber.slice(-9)}%`).eq("igreja_id", igrejaCfg.id).maybeSingle()
       const nome = membro?.nome ?? pushName ?? fromNumber
       const { data: nova } = await (supabase as any).from("conversas_whatsapp")
-        .insert({ igreja_id: igrejaCfg.id, telefone: fromNumber, nome_contato: nome, ia_ativa: true, tipo_fluxo: "pastoral", status: "aberta" })
+        .insert({ igreja_id: igrejaCfg.id, telefone: fromNumber, nome_contato: nome, ia_ativa: true, tipo_fluxo: "pastoral", contexto: {}, status: "aberta" })
         .select().single()
       conversa = nova
-      console.log(`[webhook] nova conversa: ${nova?.id} — ${nome}`)
     } else if (!conversa.ia_ativa) {
       await (supabase as any).from("conversas_whatsapp").update({ ia_ativa: true }).eq("id", conversa.id)
       conversa.ia_ativa = true
     }
 
-    if (!conversa) return NextResponse.json({ ok: false, error: "falha ao criar conversa" })
+    if (!conversa) return NextResponse.json({ ok: false })
 
     // Salva mensagem recebida
     await (supabase as any).from("mensagens_whatsapp").insert({
-      conversa_id: conversa.id, direcao: "entrada", conteudo: text,
-      tipo: "texto", status: "lido", msg_id_wpp: msgId ?? null,
+      conversa_id: conversa.id, direcao: "entrada", conteudo: text, tipo: "texto", status: "lido", msg_id_wpp: msgId ?? null,
     })
     await (supabase as any).from("conversas_whatsapp").update({
       ultima_mensagem: text, ultima_msg_at: new Date().toISOString(),
       nao_lidas: (conversa.nao_lidas ?? 0) + 1, status: "aberta",
     }).eq("id", conversa.id)
 
-    if (!uazapi.token || !uazapi.base_url) {
-      console.log("[webhook] uazapi não configurada")
-      return NextResponse.json({ ok: true, conversa_id: conversa.id })
-    }
+    if (!uazapi.token || !uazapi.base_url) return NextResponse.json({ ok: true })
 
-    // Detecta fluxo pela seleção da lista
-    const fluxoSelecionado = selecao || conversa.tipo_fluxo || "pastoral"
+    const step = conversa.tipo_fluxo || "pastoral"
+
+    // ── FLUXO FINANCEIRO (state machine, sem OpenAI) ──────────────────────────
+    if (step.startsWith("financeiro") || selecao === "financeiro") {
+      if (selecao === "financeiro") {
+        await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "financeiro", contexto: {} }).eq("id", conversa.id)
+        conversa.tipo_fluxo = "financeiro"
+        conversa.contexto   = {}
+      }
+      await handleFinanceiro(supabase, uazapi, cfg, conversa, fromNumber, text, selecao, igrejaCfg)
+      return NextResponse.json({ ok: true })
+    }
 
     // ── ESTUDO BÍBLICO ────────────────────────────────────────────────────────
     if (selecao === "estudo") {
-      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "estudo" }).eq("id", conversa.id)
-      const nome = conversa.nome_contato || "irmão(ã)"
-
-      const convite = `Que alegria, ${nome}! 📖✨\n\nTe convidamos para o nosso *Culto de Sã Doutrina*, um momento especial de aprofundamento na Palavra de Deus!\n\n📅 *Toda segunda-feira*\n🕖 *19h00*\n\n📍 *${igrejaCfg.nome || "Igreja Pentecostal Vale da Bênção"}*\nRua da Constelação, 150 — Panorama\nVitória da Conquista — BA\n\nSua presença faz toda a diferença para construir uma base espiritual sólida! Te esperamos com muito amor. 🕊️`
-
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral" }).eq("id", conversa.id)
+      const convite = `Que alegria! 📖✨\n\nTe convidamos para o *Culto de Sã Doutrina*!\n\n📅 *Toda segunda-feira*\n🕖 *19h00*\n📍 Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA\n\nTe esperamos! 🕊️`
       await sendText(uazapi, fromNumber, convite)
-
-      // Envia localização
-      try {
-        await sendLocation(uazapi, fromNumber, {
-          name: igrejaCfg.nome || "Igreja Pentecostal Vale da Bênção",
-          address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA",
-          latitude: -14.8595,
-          longitude: -40.8520,
-        })
-      } catch (e) { console.error("[webhook] sendLocation:", e) }
-
-      await (supabase as any).from("mensagens_whatsapp").insert({
-        conversa_id: conversa.id, direcao: "saida", conteudo: convite, ia_gerada: true, status: "enviado",
-      })
+      try { await sendLocation(uazapi, fromNumber, { name: igrejaCfg.nome, address: "Rua da Constelação, 150 — Panorama, Vitória da Conquista — BA", latitude: -14.8595, longitude: -40.8520 }) } catch { /* silencioso */ }
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: convite, ia_gerada: true, status: "enviado" })
       return NextResponse.json({ ok: true })
     }
 
-    // ── BEM (TUDO ÓTIMO) ──────────────────────────────────────────────────────
+    // ── BEM ───────────────────────────────────────────────────────────────────
     if (selecao === "bem") {
-      const nome = conversa.nome_contato || "irmão(ã)"
-      const resp = `Que bênção saber que você está bem, ${nome}! 😊🙌\n\nContinue firme na fé! Lembre-se que nossa porta está sempre aberta. Se precisar de qualquer coisa, é só chamar. Deus te abençoe! ❤️`
+      const resp = `Que bênção! 😊🙌 Continue firme na fé! Nossa porta está sempre aberta. Deus te abençoe! ❤️`
       await sendText(uazapi, fromNumber, resp)
-      await (supabase as any).from("mensagens_whatsapp").insert({
-        conversa_id: conversa.id, direcao: "saida", conteudo: resp, ia_gerada: true, status: "enviado",
-      })
-      await (supabase as any).from("conversas_whatsapp").update({ ultima_mensagem: resp, ultima_msg_at: new Date().toISOString() }).eq("id", conversa.id)
+      await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: resp, ia_gerada: true, status: "enviado" })
       return NextResponse.json({ ok: true })
     }
 
-    // ── FLUXOS COM COLETA DE DADOS (oração, financeiro, aconselhamento) ───────
-    if (!cfg.openai_api_key) { console.log("[webhook] sem openai"); return NextResponse.json({ ok: true }) }
+    // ── SAUDAÇÕES — sempre exibem o menu ─────────────────────────────────────
+    const GREETINGS = ["olá","ola","oi","oi!","menu","inicio","início","voltar","ok","obrigado","obrigada","valeu","tchaui","tchau","até"]
+    const isGreeting = !selecao && GREETINGS.includes(text.toLowerCase().trim().replace(/[!.?]+$/,""))
 
-    // Atualiza tipo_fluxo se veio de seleção
-    if (selecao && ["oracao","financeiro","casamento"].includes(selecao)) {
-      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: selecao }).eq("id", conversa.id)
+    if (isGreeting || step === "pastoral" || selecao === "menu") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral", contexto: {} }).eq("id", conversa.id)
+      const nome = conversa.nome_contato || "irmão(ã)"
+      try {
+        await sendList(uazapi, fromNumber, {
+          text: `A paz do Senhor, ${nome}! 😊\n\nComo posso ajudar?`,
+          listButton: "Ver opções",
+          choices: [
+            "[Como posso ajudar?]",
+            "🙏 Pedido de oração|oracao|Quero pedir intercessão",
+            "💰 Ajuda financeira|financeiro|Preciso de apoio",
+            "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
+            "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+            "[Estou bem]",
+            "😊 Não preciso de nada|bem|Tudo ótimo!",
+          ],
+          footer: "Nossa equipe pastoral está aqui por você ❤️",
+        })
+        await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: "[Menu interativo]", ia_gerada: true, status: "enviado" })
+      } catch (e) { console.error("[webhook] sendList:", e) }
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ORAÇÃO e ACONSELHAMENTO (OpenAI) ─────────────────────────────────────
+    if (!cfg.openai_api_key) return NextResponse.json({ ok: true })
+
+    if (selecao === "oracao" || selecao === "casamento") {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: selecao, contexto: {} }).eq("id", conversa.id)
       conversa.tipo_fluxo = selecao
     }
 
-    // Busca histórico
+    const fluxoAtivo = conversa.tipo_fluxo || "pastoral"
+    if (!PROMPTS[fluxoAtivo]) return NextResponse.json({ ok: true })
+
     const { data: historico } = await (supabase as any)
       .from("mensagens_whatsapp").select("direcao, conteudo")
       .eq("conversa_id", conversa.id).order("created_at", { ascending: true }).limit(30)
 
-    const temRespostaSaida = (historico ?? []).some((m: any) => m.direcao === "saida" && !m.conteudo?.startsWith("["))
-    const fluxoAtivo = conversa.tipo_fluxo || "pastoral"
-
-    // Primeira mensagem → menu de boas-vindas
-    if (!temRespostaSaida && !["oracao","financeiro","casamento"].includes(selecao)) {
-      const nome = conversa.nome_contato || "irmão(ã)"
-      await sendList(uazapi, fromNumber, {
-        text: `A paz do Senhor, ${nome}! 😊\n\nSou a assistente virtual da *${igrejaCfg.nome || "nossa Igreja"}*. É uma alegria falar com você!\n\nComo posso ajudar?`,
-        listButton: "Ver opções",
-        choices: [
-          "[Como posso ajudar?]",
-          "🙏 Pedido de oração|oracao|Quero pedir intercessão",
-          "💰 Ajuda financeira|financeiro|Preciso de apoio",
-          "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
-          "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
-          "[Estou bem]",
-          "😊 Só passando para dizer oi|bem|Tudo ótimo, obrigado!",
-        ],
-        footer: "Nossa equipe pastoral está aqui por você ❤️",
-      })
-      await (supabase as any).from("mensagens_whatsapp").insert({
-        conversa_id: conversa.id, direcao: "saida", conteudo: "[Lista interativa de boas-vindas]", ia_gerada: true, status: "enviado",
-      })
-      return NextResponse.json({ ok: true })
-    }
-
-    // Prompt do fluxo ativo
-    const systemPrompt = PROMPTS[fluxoAtivo] ?? PROMPTS.oracao
-
-    console.log(`[webhook] OpenAI fluxo="${fluxoAtivo}"`)
-    const respostaRaw = await callOpenAI(cfg.openai_api_key, cfg.openai_model, systemPrompt, historico ?? [])
+    const respostaRaw = await callOpenAI(cfg.openai_api_key, cfg.openai_model, PROMPTS[fluxoAtivo], historico ?? [])
     if (!respostaRaw) return NextResponse.json({ ok: true })
 
-    // Verifica se IA coletou todos os dados
-    const respostaPasta = await processarDadosCompletos(supabase, uazapi, cfg, conversa, respostaRaw, igrejaCfg.nome ?? "Igreja")
+    const handled = await processarDadosCompletos(supabase, uazapi, cfg, conversa, respostaRaw, igrejaCfg.nome ?? "Igreja", igrejaCfg.id)
+    if (handled) return NextResponse.json({ ok: true })
 
-    const respostaFinal = respostaPasta ?? respostaRaw
-    console.log(`[webhook] resposta: "${respostaFinal.substring(0, 80)}"`)
+    const respostaFinal = respostaRaw.replace(/DADOS_\w+:[\s\S]*$/, "").trim()
+    if (!respostaFinal) return NextResponse.json({ ok: true })
 
     await sendText(uazapi, fromNumber, respostaFinal)
-    await (supabase as any).from("mensagens_whatsapp").insert({
-      conversa_id: conversa.id, direcao: "saida", conteudo: respostaFinal, ia_gerada: true, status: "enviado",
-    })
-    await (supabase as any).from("conversas_whatsapp").update({
-      ultima_mensagem: respostaFinal, ultima_msg_at: new Date().toISOString(),
-    }).eq("id", conversa.id)
+    await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: respostaFinal, ia_gerada: true, status: "enviado" })
+    await (supabase as any).from("conversas_whatsapp").update({ ultima_mensagem: respostaFinal, ultima_msg_at: new Date().toISOString() }).eq("id", conversa.id)
 
     return NextResponse.json({ ok: true, conversa_id: conversa.id })
   } catch (e: any) {
