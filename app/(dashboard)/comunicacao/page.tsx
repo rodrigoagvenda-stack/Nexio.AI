@@ -6,6 +6,8 @@ import {
   MessageSquare, Search, Plus, Send, Bot, Sparkles, UserCheck,
   Users, Heart, Eye, ChevronDown, X, Phone, Loader2, AlertCircle,
   CheckCheck, Check, Clock, Wifi, WifiOff, RefreshCw, MoreVertical,
+  Paperclip, Mic, MicOff, Image, FileText, Video, Info, PanelRight,
+  StickyNote, Save, User, Tag,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -213,7 +215,19 @@ export default function ComunicacaoPage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [igrejaId, setIgrejaId]     = useState("")
   const [resumoAberto, setResumoAberto] = useState(false)
-  const msgEndRef = useRef<HTMLDivElement>(null)
+  const [painelInfo, setPainelInfo] = useState(false)
+  const [anotacao, setAnotacao]     = useState("")
+  const [savingAnotacao, setSavingAnotacao] = useState(false)
+  // Áudio
+  const [gravando, setGravando]     = useState(false)
+  const [tempoGravacao, setTempoGravacao] = useState(0)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef   = useRef<Blob[]>([])
+  const timerRef         = useRef<NodeJS.Timeout | null>(null)
+  // Upload
+  const [uploading, setUploading]   = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const msgEndRef    = useRef<HTMLDivElement>(null)
 
   // Load initial data
   useEffect(() => {
@@ -349,6 +363,80 @@ export default function ComunicacaoPage() {
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro na IA SDR", description: e.message })
     } finally { setSdrLoading(false) }
+  }
+
+  // ── Upload de arquivo ──────────────────────────────────────────────────────
+  async function uploadAndSend(file: File) {
+    if (!convAtiva) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const upRes  = await fetch("/api/comunicacao/upload", { method: "POST", body: fd })
+      const upJson = await upRes.json()
+      if (!upRes.ok) throw new Error(upJson.error)
+
+      const tipo = file.type.startsWith("image/") ? "imagem"
+        : file.type.startsWith("video/") ? "video"
+        : file.type.startsWith("audio/") ? "audio"
+        : "documento"
+
+      const res = await fetch("/api/comunicacao/mensagens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversa_id: convAtiva.id, conteudo: file.name, tipo, media_url: upJson.url, doc_name: file.name }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setMensagens(prev => [...prev, json.data])
+      if (json.sendError) toast({ variant: "destructive", title: "Salvo, mas falhou no WhatsApp", description: json.sendError })
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro no upload", description: e.message })
+    } finally { setUploading(false) }
+  }
+
+  // ── Gravação de áudio ──────────────────────────────────────────────────────
+  async function iniciarGravacao() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream)
+      mediaRecorderRef.current = mr
+      audioChunksRef.current   = []
+      mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data) }
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        const file = new File([blob], `audio_${Date.now()}.webm`, { type: "audio/webm" })
+        await uploadAndSend(file)
+        setTempoGravacao(0)
+      }
+      mr.start()
+      setGravando(true)
+      timerRef.current = setInterval(() => setTempoGravacao(t => t + 1), 1000)
+    } catch {
+      toast({ variant: "destructive", title: "Microfone não disponível" })
+    }
+  }
+
+  function pararGravacao() {
+    mediaRecorderRef.current?.stop()
+    if (timerRef.current) clearInterval(timerRef.current)
+    setGravando(false)
+  }
+
+  // ── Salvar anotação ──────────────────────────────────────────────────────
+  async function salvarAnotacao() {
+    if (!convAtiva || !anotacao.trim()) return
+    setSavingAnotacao(true)
+    try {
+      const supabase = createClient()
+      await (supabase as any).from("conversas_whatsapp")
+        .update({ resumo_ia: anotacao.trim() }).eq("id", convAtiva.id)
+      setConvAtiva(prev => prev ? { ...prev, resumo_ia: anotacao.trim() } : prev)
+      toast({ title: "Anotação salva!" })
+    } catch {
+      toast({ variant: "destructive", title: "Erro ao salvar anotação" })
+    } finally { setSavingAnotacao(false) }
   }
 
   async function toggleIA() {
@@ -491,8 +579,9 @@ export default function ComunicacaoPage() {
         </div>
       </div>
 
-      {/* ── Chat panel ── */}
+      {/* ── Chat panel + painel info ── */}
       {convAtiva ? (
+        <>
         <div className="flex-1 flex flex-col min-w-0 bg-background">
 
           {/* Chat header */}
@@ -525,13 +614,12 @@ export default function ComunicacaoPage() {
 
             {/* Controls */}
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Resumo IA */}
-              {convAtiva.resumo_ia && (
-                <button onClick={() => setResumoAberto(v => !v)}
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium bg-[#C1BC7A]/10 text-[#8a8345] hover:bg-[#C1BC7A]/20 transition-colors border border-[#C1BC7A]/20">
-                  <Eye className="h-3.5 w-3.5" /> Resumo
-                </button>
-              )}
+              {/* Painel info */}
+              <button onClick={() => { setPainelInfo(v => !v); setAnotacao(convAtiva.resumo_ia || "") }}
+                className={`hidden lg:flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-xs font-medium transition-colors border ${painelInfo ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-muted"}`}
+                title="Informações e anotações">
+                <PanelRight className="h-3.5 w-3.5" />
+              </button>
 
               {/* IA toggle */}
               <button onClick={toggleIA}
@@ -644,37 +732,165 @@ export default function ComunicacaoPage() {
           </div>
 
           {/* Input area */}
-          <div className="shrink-0 border-t border-border bg-card px-4 py-3">
-            <div className="flex items-end gap-2">
-              <div className="flex-1 min-h-[40px] max-h-[120px] relative">
+          <div className="shrink-0 border-t border-border bg-card px-3 py-2.5">
+            {/* Gravando áudio */}
+            {gravando && (
+              <div className="flex items-center gap-3 mb-2 px-1">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-sm font-medium text-red-600">Gravando… {tempoGravacao}s</span>
+                <button onClick={pararGravacao} className="ml-auto text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-border">
+                  Parar e enviar
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-end gap-1.5">
+              {/* Anexo */}
+              <div className="relative">
+                <button
+                  className="h-9 w-9 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || gravando}
+                  title="Enviar arquivo"
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadAndSend(f); e.target.value = "" }}
+                />
+              </div>
+
+              {/* Texto */}
+              <div className="flex-1">
                 <textarea
                   value={texto}
                   onChange={e => setTexto(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg() } }}
-                  placeholder="Digite uma mensagem… (Enter para enviar)"
+                  placeholder={gravando ? "Gravando áudio…" : "Mensagem…"}
                   rows={1}
-                  className="w-full h-full min-h-[40px] max-h-[120px] rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm resize-none placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  style={{ resize: "none" }}
+                  disabled={gravando}
+                  className="w-full min-h-[38px] max-h-[120px] rounded-xl border border-input bg-background px-3 py-2 text-sm resize-none placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                 />
               </div>
+
+              {/* Microfone */}
+              <button
+                onClick={gravando ? pararGravacao : iniciarGravacao}
+                className={`h-9 w-9 flex items-center justify-center rounded-xl transition-colors ${gravando ? "bg-red-500 text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                title={gravando ? "Parar gravação" : "Gravar áudio"}
+              >
+                {gravando ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+
+              {/* Enviar */}
               <Button
                 size="icon"
-                className="h-10 w-10 rounded-xl shrink-0"
+                className="h-9 w-9 rounded-xl shrink-0"
                 onClick={sendMsg}
-                disabled={!texto.trim() || sendingMsg}
+                disabled={!texto.trim() || sendingMsg || gravando}
               >
-                {sendingMsg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sendingMsg ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-              {convAtiva.ia_ativa ? (
-                <span className="flex items-center justify-center gap-1 text-primary">
-                  <Bot className="h-3 w-3" /> IA SDR respondendo automaticamente
-                </span>
-              ) : "Shift+Enter para nova linha"}
-            </p>
+
+            {convAtiva.ia_ativa && (
+              <p className="text-[10px] text-primary flex items-center justify-center gap-1 mt-1">
+                <Bot className="h-3 w-3" /> IA SDR respondendo automaticamente
+              </p>
+            )}
           </div>
         </div>
+
+        {/* ── Painel lateral: info + anotações ── */}
+        {painelInfo && (
+          <div className="hidden lg:flex flex-col w-72 shrink-0 border-l border-border bg-card">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <p className="text-sm font-semibold flex items-center gap-2">
+                <Info className="h-4 w-4 text-primary" /> Informações
+              </p>
+              <button onClick={() => setPainelInfo(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
+              {/* Contato */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Contato</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold shrink-0">
+                      {getInitials(convAtiva.nome_contato || "?")}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{convAtiva.nome_contato}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {convAtiva.telefone}
+                      </p>
+                    </div>
+                  </div>
+                  {fluxoInfo && (
+                    <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${fluxoInfo.color}`}>
+                      <span>{fluxoInfo.icon}</span> {fluxoInfo.label}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Tag className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      IA: <span className={convAtiva.ia_ativa ? "text-emerald-600 font-medium" : "text-muted-foreground"}>{convAtiva.ia_ativa ? "Ativa" : "Desativada"}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Anotações SDR */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <StickyNote className="h-3.5 w-3.5" /> Anotações do SDR
+                </p>
+                <textarea
+                  value={anotacao || convAtiva.resumo_ia || ""}
+                  onChange={e => setAnotacao(e.target.value)}
+                  placeholder="Resumo e observações geradas pelo SDR ou anotações manuais…"
+                  rows={6}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs resize-none placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <Button
+                  size="sm"
+                  className="w-full mt-2 gap-2"
+                  onClick={salvarAnotacao}
+                  disabled={savingAnotacao || !anotacao.trim()}
+                >
+                  {savingAnotacao ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Salvar anotação
+                </Button>
+              </div>
+
+              {/* Histórico rápido */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Histórico</p>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-2">
+                    <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+                    {mensagens.filter(m => !m.conteudo.startsWith("[")).length} mensagens trocadas
+                  </p>
+                  {convAtiva.ultima_msg_at && (
+                    <p className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      Último contato: {new Date(convAtiva.ultima_msg_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        </>
       ) : (
         /* Empty state desktop */
         <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center p-8">

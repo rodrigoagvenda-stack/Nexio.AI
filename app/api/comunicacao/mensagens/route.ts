@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient, createServiceClient } from "@/lib/supabase/server"
-import { sendText, sendButtons, sendList, sendPoll, sendMedia, UazapiConfig } from "@/lib/uazapi"
+import { sendText, sendMedia, UazapiConfig } from "@/lib/uazapi"
 
 export async function GET(req: Request) {
   const supabase = await createClient()
@@ -20,9 +20,7 @@ export async function GET(req: Request) {
     .limit(200)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
   await (service as any).from("conversas_whatsapp").update({ nao_lidas: 0 }).eq("id", conversa_id)
-
   return NextResponse.json({ data: data ?? [] })
 }
 
@@ -32,46 +30,40 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
 
   const body = await req.json()
-  const {
-    conversa_id, conteudo, tipo = "texto", ia_gerada = false,
-    // Campos extras para tipos interativos
-    choices, footer, list_button, selectable_count, image_url,
-    // Mídia
-    media_url, doc_name,
-  } = body
+  const { conversa_id, conteudo, tipo = "texto", ia_gerada = false, media_url, doc_name } = body
 
-  if (!conversa_id || !conteudo) return NextResponse.json({ error: "Campos obrigatórios ausentes" }, { status: 400 })
+  if (!conversa_id || (!conteudo && !media_url)) {
+    return NextResponse.json({ error: "conversa_id e conteudo são obrigatórios" }, { status: 400 })
+  }
 
-  const { data: conversa } = await (supabase as any)
+  // SEMPRE usa service client para bypassar RLS
+  const service = createServiceClient()
+
+  const { data: conversa } = await (service as any)
     .from("conversas_whatsapp").select("telefone, igreja_id").eq("id", conversa_id).single()
   if (!conversa) return NextResponse.json({ error: "Conversa não encontrada" }, { status: 404 })
 
-  const { data: igreja } = await (supabase as any)
+  const { data: igData } = await (service as any)
     .from("igrejas").select("configuracoes").eq("id", conversa.igreja_id).single()
-  const cfg = igreja?.configuracoes ?? {}
+  const cfg = igData?.configuracoes ?? {}
 
   let sendError: string | null = null
   let msgIdWpp: string | null = null
 
   if (cfg.uazapi_token && cfg.uazapi_base_url) {
     const uazapi: UazapiConfig = { base_url: cfg.uazapi_base_url, token: cfg.uazapi_token }
-    const number: string = conversa.telefone
-
     try {
       let res: any
-      if (tipo === "botoes" && choices?.length) {
-        res = await sendButtons(uazapi, number, { text: conteudo, choices, footer, image: image_url })
-      } else if (tipo === "lista" && choices?.length) {
-        res = await sendList(uazapi, number, { text: conteudo, listButton: list_button || "Ver opções", choices, footer })
-      } else if (tipo === "enquete" && choices?.length) {
-        res = await sendPoll(uazapi, number, { text: conteudo, choices, selectableCount: selectable_count })
-      } else if (tipo === "imagem" && media_url) {
-        res = await sendMedia(uazapi, number, { type: "image", file: media_url, text: conteudo })
-      } else if (tipo === "documento" && media_url) {
-        res = await sendMedia(uazapi, number, { type: "document", file: media_url, text: conteudo, docName: doc_name })
+      if (media_url && tipo === "audio") {
+        res = await sendMedia(uazapi, conversa.telefone, { type: "ptt", file: media_url })
+      } else if (media_url && tipo === "imagem") {
+        res = await sendMedia(uazapi, conversa.telefone, { type: "image", file: media_url, text: conteudo || "" })
+      } else if (media_url && tipo === "video") {
+        res = await sendMedia(uazapi, conversa.telefone, { type: "video", file: media_url, text: conteudo || "" })
+      } else if (media_url && tipo === "documento") {
+        res = await sendMedia(uazapi, conversa.telefone, { type: "document", file: media_url, text: conteudo || "", docName: doc_name })
       } else {
-        // padrão: texto simples
-        res = await sendText(uazapi, number, conteudo)
+        res = await sendText(uazapi, conversa.telefone, conteudo)
       }
       msgIdWpp = res?.key?.id ?? res?.id ?? null
     } catch (e: any) {
@@ -79,23 +71,15 @@ export async function POST(req: Request) {
     }
   }
 
-  const { data: msg, error } = await (supabase as any)
+  const texto = conteudo || (media_url ? `[${tipo}]` : "")
+
+  const { data: msg, error } = await (service as any)
     .from("mensagens_whatsapp")
-    .insert({
-      conversa_id,
-      direcao: "saida",
-      conteudo,
-      tipo,
-      ia_gerada,
-      msg_id_wpp: msgIdWpp,
-      status: sendError ? "falhou" : "enviado",
-      metadata: choices ? { choices, footer, list_button } : {},
-    })
+    .insert({ conversa_id, direcao: "saida", conteudo: texto, tipo, ia_gerada, msg_id_wpp: msgIdWpp, status: sendError ? "falhou" : "enviado" })
     .select().single()
 
-  await (supabase as any).from("conversas_whatsapp").update({
-    ultima_mensagem: conteudo,
-    ultima_msg_at: new Date().toISOString(),
+  await (service as any).from("conversas_whatsapp").update({
+    ultima_mensagem: texto, ultima_msg_at: new Date().toISOString(),
   }).eq("id", conversa_id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
