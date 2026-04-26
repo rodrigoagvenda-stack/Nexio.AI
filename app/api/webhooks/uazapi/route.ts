@@ -555,8 +555,35 @@ export async function POST(req: Request) {
     }
 
     // ── SAUDAÇÕES / MENU (fallback) ───────────────────────────────────────────
-    const GREETINGS = ["olá","ola","oi","oi!","menu","inicio","início","voltar","ok","obrigado","obrigada","valeu","tchaui","tchau","até"]
-    const isGreeting = !selecao && GREETINGS.includes(text.toLowerCase().trim().replace(/[!.?]+$/,""))
+    const GRATIDAO    = ["obrigado","obrigada","valeu","muito obrigado","muito obrigada","obg"]
+    const SAUDACOES   = ["olá","ola","oi","oi!","menu","inicio","início","voltar","ok","bom dia","boa tarde","boa noite"]
+    const DESPEDIDAS  = ["tchau","tchaui","até","ate","até logo","ate logo","flw"]
+    const textNorm    = text.toLowerCase().trim().replace(/[!.?]+$/,"")
+    const isGratidao  = !selecao && GRATIDAO.includes(textNorm)
+    const isGreeting  = !selecao && (SAUDACOES.includes(textNorm) || DESPEDIDAS.includes(textNorm))
+
+    if (isGratidao) {
+      await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral", contexto: {} }).eq("id", conversa.id)
+      try {
+        await sendList(uazapi, fromNumber, {
+          text: "Estou à disposição! 😊 Posso ajudar com mais alguma coisa?",
+          listButton: "Ver opções",
+          choices: [
+            "[Como posso ajudar?]",
+            "🙏 Pedido de oração|oracao|Quero pedir intercessão",
+            "💰 Ajuda financeira|financeiro|Preciso de apoio",
+            "💍 Aconselhamento|casamento|Questões conjugais ou familiares",
+            "📖 Estudo bíblico|estudo|Quero crescer na Palavra",
+            "📍 Endereço da igreja|endereco|Onde fica a igreja?",
+            "[Estou bem]",
+            "😊 Não preciso de nada|bem|Tudo ótimo!",
+          ],
+          footer: "Nossa equipe pastoral está aqui por você ❤️",
+        })
+        await (supabase as any).from("mensagens_whatsapp").insert({ conversa_id: conversa.id, direcao: "saida", conteudo: "[Menu interativo]", ia_gerada: true, status: "enviado" })
+      } catch (e) { console.error("[webhook] sendList:", e) }
+      return NextResponse.json({ ok: true })
+    }
 
     if (isGreeting || step === "pastoral" || selecao === "menu") {
       await (supabase as any).from("conversas_whatsapp").update({ tipo_fluxo: "pastoral", contexto: {} }).eq("id", conversa.id)
