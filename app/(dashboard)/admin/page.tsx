@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -100,33 +99,28 @@ export default function AdminPage() {
   const [testingUazapi, setTestingUazapi] = useState(false)
   const [uazapiStatus, setUazapiStatus] = useState<"idle" | "ok" | "error">("idle")
   const [novoNumero, setNovoNumero] = useState({ nome: "", telefone: "", categoria: "geral" })
-  const [igrejaId, setIgrejaId] = useState("")
-
+  // Carrega config via API (usa service client server-side → bypassa RLS)
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      ;(supabase as any).from("profiles").select("igreja_id").eq("id", user.id).single()
-        .then(async ({ data }: any) => {
-          if (!data?.igreja_id) { setLoading(false); return }
-          setIgrejaId(data.igreja_id)
-          // Load saved config from church record
-          const { data: ig } = await (supabase as any).from("igrejas").select("configuracoes").eq("id", data.igreja_id).single()
-          if (ig?.configuracoes) {
-            setConfig(prev => ({ ...prev, ...ig.configuracoes }))
-          }
-          setLoading(false)
-        })
-    })
+    fetch("/api/admin/config")
+      .then(r => r.json())
+      .then(j => {
+        if (j.data?.configuracoes) setConfig(prev => ({ ...prev, ...j.data.configuracoes }))
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   async function handleSave() {
     setSaving(true)
     try {
-      const supabase = createClient()
-      const { error } = await (supabase as any).from("igrejas").update({ configuracoes: config }).eq("id", igrejaId)
-      if (error) throw error
-      toast({ title: "Configurações salvas!" })
+      const res = await fetch("/api/admin/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configuracoes: config }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      toast({ title: "Configurações salvas com sucesso!" })
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro ao salvar", description: e.message })
     } finally { setSaving(false) }
