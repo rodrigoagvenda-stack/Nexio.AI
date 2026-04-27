@@ -362,17 +362,15 @@ export default function FinanceiroPage() {
   async function exportarPDF() {
     setExportando(true)
 
-    // Converte logo para base64 para funcionar no print (URLs externas bloqueiam no print)
+    // Usa proxy server-side para converter logo em base64 (evita CORS no print)
     let logoBase64 = ""
     if (igrejaLogo) {
       try {
-        const resp = await fetch(igrejaLogo)
-        const blob = await resp.blob()
-        logoBase64 = await new Promise<string>(resolve => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.readAsDataURL(blob)
-        })
+        const proxyRes = await fetch(`/api/logo-proxy?url=${encodeURIComponent(igrejaLogo)}`)
+        if (proxyRes.ok) {
+          const { base64 } = await proxyRes.json()
+          logoBase64 = base64 || ""
+        }
       } catch { logoBase64 = "" }
     }
 

@@ -27,6 +27,7 @@ interface Conversa {
   ultima_msg_at: string | null
   nao_lidas: number
   resumo_ia: string | null
+  foto_url?: string | null
   contatos?: { tipo: string; foto_url?: string | null }
 }
 
@@ -80,6 +81,31 @@ const STATUS_MSG: Record<string, React.ReactNode> = {
   lido:      <CheckCheck className="h-3.5 w-3.5 text-blue-400" />,
   falhou:    <AlertCircle className="h-3.5 w-3.5 text-red-400" />,
   pendente:  <Clock className="h-3.5 w-3.5" />,
+}
+
+// ─── Avatar com foto ou iniciais ─────────────────────────────────────────────
+
+function ContatoAvatar({ nome, foto, size = "md", iaAtiva = false }: { nome: string; foto?: string | null; size?: "sm"|"md"|"lg"; iaAtiva?: boolean }) {
+  const sz = size === "sm" ? "h-8 w-8 text-[10px]" : size === "lg" ? "h-12 w-12 text-sm" : "h-10 w-10 text-sm"
+  return (
+    <div className="relative shrink-0">
+      {foto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={foto} alt={nome} className={`${sz} rounded-full object-cover`} onError={e => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute("style") }} />
+      ) : null}
+      <div
+        className={`${sz} rounded-full flex items-center justify-center text-white font-bold ${foto ? "hidden" : ""}`}
+        style={{ backgroundColor: avatarColor(nome || "?") }}
+      >
+        {getInitials(nome || "?")}
+      </div>
+      {iaAtiva && (
+        <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-card flex items-center justify-center ring-1 ring-border">
+          <Bot className="h-2.5 w-2.5 text-primary" />
+        </span>
+      )}
+    </div>
+  )
 }
 
 // ─── NovaConversa modal ───────────────────────────────────────────────────────
@@ -536,17 +562,7 @@ export default function ComunicacaoPage() {
                   className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors border-b border-border/50 ${isAtiva ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
                 >
                   {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                      style={{ backgroundColor: avatarColor(conv.nome_contato || "?") }}>
-                      {getInitials(conv.nome_contato || "?")}
-                    </div>
-                    {conv.ia_ativa && (
-                      <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-card flex items-center justify-center">
-                        <Bot className="h-2.5 w-2.5 text-primary" />
-                      </span>
-                    )}
-                  </div>
+                  <ContatoAvatar nome={conv.nome_contato || "?"} foto={conv.foto_url} iaAtiva={conv.ia_ativa} />
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
@@ -592,10 +608,7 @@ export default function ComunicacaoPage() {
             </button>
 
             {/* Avatar */}
-            <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-              style={{ backgroundColor: avatarColor(convAtiva.nome_contato || "?") }}>
-              {getInitials(convAtiva.nome_contato || "?")}
-            </div>
+            <ContatoAvatar nome={convAtiva.nome_contato || "?"} foto={convAtiva.foto_url} size="md" />
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -697,11 +710,9 @@ export default function ComunicacaoPage() {
                         </div>
                       )}
                       <div className={`flex items-end gap-1.5 ${isSaida ? "justify-end" : "justify-start"}`}>
-                        {/* Avatar do contato (só na última mensagem consecutiva) */}
+                        {/* Avatar do contato (só na primeira mensagem consecutiva) */}
                         {!isSaida && !isConsecutiva && (
-                          <div className="h-7 w-7 rounded-full bg-muted border border-border flex items-center justify-center text-[10px] font-bold shrink-0 mb-0.5">
-                            {getInitials(convAtiva.nome_contato || "?")}
-                          </div>
+                          <ContatoAvatar nome={convAtiva.nome_contato || "?"} foto={convAtiva.foto_url} size="sm" />
                         )}
                         {!isSaida && isConsecutiva && <div className="w-7 shrink-0" />}
 
@@ -824,9 +835,7 @@ export default function ComunicacaoPage() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Contato</p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold shrink-0">
-                      {getInitials(convAtiva.nome_contato || "?")}
-                    </div>
+                    <ContatoAvatar nome={convAtiva.nome_contato || "?"} foto={convAtiva.foto_url} size="md" />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{convAtiva.nome_contato}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">

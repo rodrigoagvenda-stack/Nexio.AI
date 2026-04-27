@@ -296,6 +296,17 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              <div className="space-y-1.5">
+                <Label>ID do Grupo da Igreja no WhatsApp</Label>
+                <Input
+                  value={(config as any).grupo_whatsapp_id || ""}
+                  onChange={e => setConfig(c => ({ ...c, grupo_whatsapp_id: e.target.value } as any))}
+                  placeholder="Ex: 5511999999999-1234567890@g.us"
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">Usado para compartilhar pedidos de oração e campanhas autorizadas pelo pastor</p>
+              </div>
+
               <div className="flex items-center gap-3">
                 <Button
                   variant="outline"
