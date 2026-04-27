@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  productionBrowserSourceMaps: false,
+  swcMinify: true,
   images: {
     remotePatterns: [
       {
