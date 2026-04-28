@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth/require-auth'
 
-// GET /api/follow/sequences — lista cadências com steps
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id')
-      .eq('auth_user_id', user.id)
-      .single()
-    if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-
     const service = createServiceClient()
     const { data: sequences, error } = await service
       .from('follow_sequences')
-      .select(`
-        *,
-        follow_steps (*)
-      `)
-      .eq('company_id', userData.company_id)
+      .select('*, follow_steps (*)')
+      .eq('company_id', context.companyId)
       .order('created_at', { ascending: true })
 
     if (error) throw error
@@ -38,20 +27,11 @@ export async function GET() {
   }
 }
 
-// POST /api/follow/sequences — cria cadência com steps
 export async function POST(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id')
-      .eq('auth_user_id', user.id)
-      .single()
-    if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-
     const body = await request.json()
     const { nome, tipo, ativo = true, steps = [] } = body
 
@@ -63,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const { data: sequence, error: seqErr } = await service
       .from('follow_sequences')
-      .insert({ company_id: userData.company_id, nome, tipo, ativo })
+      .insert({ company_id: context.companyId, nome, tipo, ativo })
       .select()
       .single()
 

@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth/require-auth'
 
-// GET /api/sdr/flows — lista fluxos da empresa
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id')
-      .eq('auth_user_id', user.id)
-      .single()
-    if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-
     const service = createServiceClient()
     const { data: flows, error } = await service
       .from('sdr_flows')
       .select('*')
-      .eq('company_id', userData.company_id)
+      .eq('company_id', context.companyId)
       .order('created_at', { ascending: true })
 
     if (error) throw error
@@ -29,26 +21,17 @@ export async function GET() {
   }
 }
 
-// POST /api/sdr/flows — cria novo fluxo (máx 3 por empresa)
 export async function POST(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id, role')
-      .eq('auth_user_id', user.id)
-      .single()
-    if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-
     const service = createServiceClient()
 
     const { count } = await service
       .from('sdr_flows')
       .select('id', { count: 'exact', head: true })
-      .eq('company_id', userData.company_id)
+      .eq('company_id', context.companyId)
 
     if ((count ?? 0) >= 3) {
       return NextResponse.json({ error: 'Limite de 3 fluxos por empresa atingido' }, { status: 400 })
@@ -64,7 +47,7 @@ export async function POST(request: NextRequest) {
     const { data: flow, error } = await service
       .from('sdr_flows')
       .insert({
-        company_id: userData.company_id,
+        company_id: context.companyId,
         nome,
         descricao: descricao ?? null,
         uazapi_instance: '',
