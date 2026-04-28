@@ -1,88 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
-// GET - List notes for a lead or conversation
 export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
     const leadId = searchParams.get('leadId');
     const conversationId = searchParams.get('conversationId');
 
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
-
-    // Validar formato do leadId se fornecido
     if (leadId && (isNaN(Number(leadId)) || leadId.includes(':'))) {
-      console.error('Invalid leadId format:', leadId);
-      return NextResponse.json(
-        { success: false, message: 'Formato inválido de leadId' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Formato inválido de leadId' }, { status: 400 });
     }
 
     const supabase = await createClient();
 
     let query = supabase
       .from('chat_notes')
-      .select(`
-        *,
-        user:users!chat_notes_user_id_fkey (
-          name,
-          email
-        )
-      `)
-      .eq('company_id', companyId)
+      .select('*, user:users!chat_notes_user_id_fkey(name, email)')
+      .eq('company_id', context.companyId)
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false });
 
-    // Filter by lead or conversation
-    if (leadId) {
-      query = query.eq('lead_id', Number(leadId));
-    } else if (conversationId) {
-      query = query.eq('conversation_id', conversationId);
-    }
+    if (leadId) query = query.eq('lead_id', Number(leadId));
+    else if (conversationId) query = query.eq('conversation_id', conversationId);
 
     const { data, error } = await query;
+    if (error) throw error;
 
-    if (error) {
-      console.error('Supabase error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
-      throw error;
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: data || [],
-    });
+    return NextResponse.json({ success: true, data: data || [] });
   } catch (error: any) {
     console.error('Error fetching chat notes:', error);
-    return NextResponse.json(
-      { success: false, message: error.message || 'Erro ao buscar notas' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message || 'Erro ao buscar notas' }, { status: 500 });
   }
 }
 
-// POST - Create a new note
 export async function POST(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const body = await request.json();
-    const { companyId, leadId, conversationId, userId, noteText, isPinned } = body;
+    const { leadId, conversationId, noteText, isPinned } = body;
 
-    if (!companyId || !userId || !noteText) {
-      return NextResponse.json(
-        { success: false, message: 'Dados obrigatórios faltando' },
-        { status: 400 }
-      );
+    if (!noteText) {
+      return NextResponse.json({ success: false, message: 'noteText é obrigatório' }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -90,34 +54,21 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('chat_notes')
       .insert({
-        company_id: companyId,
+        company_id: context.companyId,
         lead_id: leadId || null,
         conversation_id: conversationId || null,
-        user_id: userId,
+        user_id: context.userId,
         note_text: noteText,
         is_pinned: isPinned || false,
       })
-      .select(`
-        *,
-        user:users!chat_notes_user_id_fkey (
-          name,
-          email
-        )
-      `)
+      .select('*, user:users!chat_notes_user_id_fkey(name, email)')
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      message: 'Nota criada com sucesso',
-      data,
-    });
+    return NextResponse.json({ success: true, message: 'Nota criada com sucesso', data });
   } catch (error: any) {
     console.error('Error creating chat note:', error);
-    return NextResponse.json(
-      { success: false, message: error.message || 'Erro ao criar nota' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: error.message || 'Erro ao criar nota' }, { status: 500 });
   }
 }

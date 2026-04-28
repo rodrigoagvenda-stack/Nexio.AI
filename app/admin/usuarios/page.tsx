@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Pencil } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils/format';
 import {
   Dialog,
@@ -47,6 +47,10 @@ export default function UsuariosPage() {
   const [filterCompany, setFilterCompany] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ name: '', role: '', department: '', is_active: true, company_id: '' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [newUser, setNewUser] = useState({
@@ -107,6 +111,39 @@ export default function UsuariosPage() {
       toast({ title: 'Erro ao criar usuário', description: error.message || 'Ocorreu um erro ao criar o usuário', variant: 'destructive' });
     } finally {
       setCreating(false);
+    }
+  }
+
+  function openEditDialog(user: any) {
+    setSelectedUser(user);
+    setEditForm({
+      name: user.name || '',
+      role: user.role || '',
+      department: user.department || '',
+      is_active: user.is_active,
+      company_id: user.company_id?.toString() || '',
+    });
+    setIsEditDialogOpen(true);
+  }
+
+  async function handleEditUser() {
+    if (!selectedUser) return;
+    setEditing(true);
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+      toast({ title: 'Usuário atualizado!' });
+      setIsEditDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
+    } finally {
+      setEditing(false);
     }
   }
 
@@ -304,12 +341,16 @@ export default function UsuariosPage() {
                           </p>
                         </div>
 
-                        <div className="pt-2 border-t">
+                        <div className="pt-2 border-t flex gap-2">
+                          <Button variant="outline" size="sm" className="flex-1" onClick={() => openEditDialog(user)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Editar
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="w-full text-red-500 border-red-500">
+                              <Button variant="outline" size="sm" className="flex-1 text-red-500 border-red-500">
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Deletar Usuário
+                                Deletar
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
@@ -372,6 +413,10 @@ export default function UsuariosPage() {
                           {user.last_login ? formatDateTime(user.last_login) : 'Nunca'}
                         </td>
                         <td className="p-3">
+                          <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(user)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="sm">
@@ -397,6 +442,7 @@ export default function UsuariosPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -453,6 +499,66 @@ export default function UsuariosPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>Atualize os dados de {selectedUser?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Função</Label>
+              <Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sdr">SDR</SelectItem>
+                  <SelectItem value="closer">Closer</SelectItem>
+                  <SelectItem value="sdr_closer">SDR Closer</SelectItem>
+                  <SelectItem value="manager">Gerente</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Cargo / Departamento</Label>
+              <Input value={editForm.department} onChange={(e) => setEditForm({ ...editForm, department: e.target.value })} placeholder="Ex: Vendedor, SDR..." />
+            </div>
+            <div className="space-y-2">
+              <Label>Empresa</Label>
+              <Select value={editForm.company_id} onValueChange={(v) => setEditForm({ ...editForm, company_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={editForm.is_active ? 'true' : 'false'} onValueChange={(v) => setEditForm({ ...editForm, is_active: v === 'true' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Ativo</SelectItem>
+                  <SelectItem value="false">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEditUser} disabled={editing}>
+              {editing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

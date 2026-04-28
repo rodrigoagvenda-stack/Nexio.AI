@@ -6,8 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2, MoreVertical, Info } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
@@ -39,6 +42,7 @@ interface Conversation {
   id_do_lead?: number;
   lead?: Lead;
   assigned_to?: number | null;
+  whatsapp_photo_url?: string;
 }
 
 interface Message {
@@ -83,8 +87,12 @@ export default function AtendimentoPage() {
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const [assignDialog, setAssignDialog] = useState(false);
+  const [deleteConvDialog, setDeleteConvDialog] = useState<{ open: boolean; conv: Conversation | null }>({ open: false, conv: null });
+  const [mobileLeadInfoOpen, setMobileLeadInfoOpen] = useState(false);
+  const [isDeletingConv, setIsDeletingConv] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiActive, setIsAiActive] = useState(true);
+  const [convAgentePausado, setConvAgentePausado] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,6 +130,11 @@ export default function AtendimentoPage() {
       setIsAiActive(company.is_active ?? true);
     }
   }, [company]);
+
+  // Sincroniza agente_pausado ao trocar de conversa
+  useEffect(() => {
+    setConvAgentePausado((selectedConversation as any)?.agente_pausado ?? false);
+  }, [selectedConversation?.id]);
 
   // Carregar mensagens quando selecionar conversa
   useEffect(() => {
@@ -195,7 +208,7 @@ export default function AtendimentoPage() {
 
   async function fetchConversations() {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('conversas_do_whatsapp')
         .select(`
           *,
@@ -203,7 +216,14 @@ export default function AtendimentoPage() {
         `)
         .eq('company_id', company!.id)
         .order('hora_da_ultima_mensagem', { ascending: false })
-        .limit(50); // 🚀 Performance: Carrega apenas 50 conversas mais recentes
+        .limit(50);
+
+      // Closer puro só vê conversas dos seus leads atribuídos
+      if (user?.role === 'closer') {
+        query = query.eq('lead.user_id', user.user_id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setConversations(data || []);
@@ -229,6 +249,37 @@ export default function AtendimentoPage() {
       setMessages((data || []).reverse()); // Reverter para ordem correta
     } catch (error) {
       console.error('Error fetching messages:', error);
+    }
+  }
+
+  async function handleDeleteConversation(conv: Conversation) {
+    setIsDeletingConv(true);
+    try {
+      // 1. Apaga todas as mensagens da conversa
+      await supabase
+        .from('mensagens_do_whatsapp')
+        .delete()
+        .eq('id_da_conversacao', conv.id)
+        .eq('company_id', company!.id);
+
+      // 2. Apaga a conversa
+      await supabase
+        .from('conversas_do_whatsapp')
+        .delete()
+        .eq('id', conv.id)
+        .eq('company_id', company!.id);
+
+      setConversations(prev => prev.filter(c => c.id !== conv.id));
+      if (selectedConversation?.id === conv.id) {
+        setSelectedConversation(null);
+        setMessages([]);
+      }
+      toast({ title: 'Conversa apagada' });
+    } catch {
+      toast({ title: 'Erro ao apagar conversa', variant: 'destructive' });
+    } finally {
+      setIsDeletingConv(false);
+      setDeleteConvDialog({ open: false, conv: null });
     }
   }
 
@@ -974,7 +1025,7 @@ export default function AtendimentoPage() {
     <div className="h-full w-full overflow-hidden">
       <div className="h-full grid grid-cols-12 gap-2 overflow-hidden">
         {/* Lista de Conversas */}
-        <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
+        <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="flex-shrink-0">
             <CardTitle className="flex items-center gap-2 mb-5">
               <MessageSquare className="h-5 w-5" />
@@ -997,18 +1048,26 @@ export default function AtendimentoPage() {
               </p>
             ) : (
               filteredConversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => setSelectedConversation(conv)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors relative ${
+                  className={`group w-full text-left p-3 rounded-lg border transition-colors relative ${
                     selectedConversation?.id === conv.id
                       ? 'bg-muted border-border'
                       : 'hover:bg-accent'
                   }`}
                 >
+                  <button
+                    className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
+                    title="Apagar conversa"
+                    onClick={(e) => { e.stopPropagation(); setDeleteConvDialog({ open: true, conv }); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </button>
+                  <button className="w-full text-left" onClick={() => setSelectedConversation(conv)}>
                   <div className="flex items-start gap-3">
                     <div className="relative">
                       <Avatar>
+                        <AvatarImage src={conv.whatsapp_photo_url ?? undefined} />
                         <AvatarFallback>
                           {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
                         </AvatarFallback>
@@ -1020,13 +1079,10 @@ export default function AtendimentoPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center mb-1">
                         <p className="font-semibold truncate">
                           {conv.nome_do_contato || conv.numero_de_telefone}
                         </p>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                          {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
                       </div>
                       {conv.lead && (
                         <div className="flex items-center gap-1 mb-1">
@@ -1078,155 +1134,128 @@ export default function AtendimentoPage() {
                             )}
                           </>
                         )}
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-auto">
+                          {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     </div>
                   </div>
-                </button>
+                  </button>
+                </div>
               ))
             )}
           </CardContent>
         </Card>
 
         {/* Área de Chat */}
-        <Card className={`col-span-12 ${isSidebarOpen ? 'lg:col-span-6' : 'lg:col-span-9'} flex flex-col overflow-hidden ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
+        <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
-              <CardHeader className="border-b flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="lg:hidden"
-                      onClick={() => setSelectedConversation(null)}
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback>
-                        {getInitials(
-                          selectedConversation.nome_do_contato ||
-                            selectedConversation.numero_de_telefone
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold">
-                        {selectedConversation.nome_do_contato ||
-                          selectedConversation.numero_de_telefone}
-                      </h3>
-                      {selectedConversation.lead && (
-                        <p className="text-sm text-muted-foreground">
-                          {selectedConversation.lead.company_name}
-                        </p>
-                      )}
-                      {selectedConversation.assigned_to && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                          <UserCircle2 className="h-3 w-3" />
-                          <span>Atribuído a você</span>
-                        </div>
-                      )}
-                    </div>
+              <CardHeader className="border-b flex-shrink-0 px-3 py-3">
+                <div className="flex items-center gap-2">
+                  {/* Voltar (mobile) */}
+                  <Button variant="ghost" size="icon" className="lg:hidden flex-shrink-0 -ml-1" onClick={() => setSelectedConversation(null)}>
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+
+                  {/* Avatar */}
+                  <Avatar className="h-9 w-9 flex-shrink-0">
+                    <AvatarImage src={selectedConversation.whatsapp_photo_url ?? undefined} />
+                    <AvatarFallback className="text-sm">
+                      {getInitials(selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone)}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Nome + empresa */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">
+                      {selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {selectedConversation.lead?.company_name || selectedConversation.numero_de_telefone}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {selectedConversation.numero_de_telefone && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')}
-                        title="Abrir no WhatsApp"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    )}
+
+                  {/* Ações desktop */}
+                  <div className="hidden lg:flex items-center gap-2">
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="outline" size="sm"
                       onClick={async () => {
-                        const newValue = !isAiActive;
-                        setIsAiActive(newValue);
+                        if (!selectedConversation) return;
+                        const novoPausado = !convAgentePausado;
+                        setConvAgentePausado(novoPausado);
                         try {
-                          const res = await fetch('/api/company/ai-toggle', {
+                          const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ is_active: newValue }),
+                            body: JSON.stringify({ pausado: novoPausado }),
                           });
-                          if (!res.ok) {
-                            setIsAiActive(!newValue);
-                            toast({ title: 'Erro ao atualizar IA', variant: 'destructive' });
-                          } else {
-                            toast({ title: newValue ? 'IA ativada' : 'IA pausada' });
-                          }
-                        } catch {
-                          setIsAiActive(!newValue);
-                          toast({ title: 'Erro ao atualizar IA', variant: 'destructive' });
-                        }
+                          if (!res.ok) { setConvAgentePausado(!novoPausado); toast({ title: 'Erro ao atualizar agente', variant: 'destructive' }); }
+                          else toast({ title: novoPausado ? 'Agente pausado nesta conversa' : 'Agente ativo nesta conversa' });
+                        } catch { setConvAgentePausado(!novoPausado); }
                       }}
-                      title={isAiActive ? 'Pausar IA' : 'Retomar IA'}
-                      className={isAiActive
-                        ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600'
-                        : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600'
-                      }
+                      className={!convAgentePausado ? 'border-emerald-500/50 text-emerald-600 hover:bg-emerald-500/10' : 'border-amber-500/50 text-amber-600 hover:bg-amber-500/10'}
                     >
-                      {isAiActive ? (
-                        <><Bot className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA ativa</span></>
-                      ) : (
-                        <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="hidden sm:inline text-xs">IA pausada</span></>
-                      )}
+                      {!convAgentePausado ? <><Bot className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente ativo</span></> : <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente pausado</span></>}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setScheduleDialog(true)}
-                      title="Agendar mensagem"
-                    >
-                      <Clock className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" onClick={() => setScheduleDialog(true)} title="Agendar"><Clock className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => setAssignDialog(true)}>
+                      <UserCircle2 className="h-4 w-4 mr-1.5" />
+                      {selectedConversation.assigned_to ? 'Transferir' : 'Atribuir'}
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAssignDialog(true)}
-                      title={selectedConversation.assigned_to ? "Transferir atendimento" : "Atribuir atendimento"}
-                    >
-                      <UserCircle2 className="h-4 w-4 mr-2" />
-                      <span className="hidden sm:inline">{selectedConversation.assigned_to ? "Transferir" : "Atribuir"}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                      title={isSidebarOpen ? "Fechar sidebar" : "Abrir sidebar"}
-                      className="hidden lg:flex"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                       {isSidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                     </Button>
-                    {selectedConversation.etiquetas?.slice(0, 2).map((tag) => (
-                      <Badge key={tag} variant="secondary" className="hidden md:flex">
-                        {tag}
-                      </Badge>
-                    ))}
+                  </div>
+
+                  {/* Ações mobile: info + more */}
+                  <div className="flex lg:hidden items-center gap-1">
+                    {selectedConversation.lead && (
+                      <Button variant="outline" size="sm" className="flex-shrink-0 gap-1.5 text-xs h-8" onClick={() => setMobileLeadInfoOpen(true)}>
+                        <Info className="h-3.5 w-3.5" />
+                        Lead
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                          <MoreVertical className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={async () => {
+                          if (!selectedConversation) return;
+                          const novoPausado = !convAgentePausado;
+                          setConvAgentePausado(novoPausado);
+                          try {
+                            const res = await fetch(`/api/conversations/${selectedConversation.id}/agent`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ pausado: novoPausado }),
+                            });
+                            if (!res.ok) { setConvAgentePausado(!novoPausado); toast({ title: 'Erro ao atualizar agente', variant: 'destructive' }); }
+                            else toast({ title: novoPausado ? 'Agente pausado nesta conversa' : 'Agente ativo nesta conversa' });
+                          } catch { setConvAgentePausado(!novoPausado); }
+                        }}>
+                          {convAgentePausado ? <><Bot className="h-4 w-4 mr-2 text-emerald-500" />Ativar agente</> : <><PauseCircle className="h-4 w-4 mr-2 text-amber-500" />Pausar agente</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setScheduleDialog(true)}>
+                          <Clock className="h-4 w-4 mr-2" />Agendar mensagem
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setAssignDialog(true)}>
+                          <UserCircle2 className="h-4 w-4 mr-2" />{selectedConversation.assigned_to ? 'Transferir' : 'Atribuir'}
+                        </DropdownMenuItem>
+                        {selectedConversation.numero_de_telefone && (
+                          <DropdownMenuItem onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')}>
+                            <ExternalLink className="h-4 w-4 mr-2" />Abrir no WhatsApp
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
-
-                {selectedConversation.lead && (
-                  <div className="flex gap-4 mt-4 text-sm">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Phone className="h-4 w-4" />
-                      {selectedConversation.numero_de_telefone}
-                    </div>
-                    {selectedConversation.lead.email && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Mail className="h-4 w-4" />
-                        {selectedConversation.lead.email}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <Tag className="h-4 w-4" />
-                      <Badge variant="outline">{selectedConversation.lead.status}</Badge>
-                    </div>
-                  </div>
-                )}
               </CardHeader>
 
               {/* Mensagens */}
@@ -1240,6 +1269,7 @@ export default function AtendimentoPage() {
                   >
                     {msg.direcao === 'inbound' && (
                       <Avatar className="h-8 w-8">
+                        <AvatarImage src={selectedConversation.whatsapp_photo_url ?? undefined} />
                         <AvatarFallback className="text-xs">
                           {getInitials(selectedConversation.nome_do_contato || 'C')}
                         </AvatarFallback>
@@ -1262,7 +1292,7 @@ export default function AtendimentoPage() {
                               : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
-                              ? 'bg-purple-500/30 text-foreground border border-purple-500/20'
+                              ? 'bg-green-500/30 text-foreground border border-green-500/20'
                               : 'bg-muted'
                           } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
                         >
@@ -1461,7 +1491,7 @@ export default function AtendimentoPage() {
               }}
             />
           ) : (
-            <Card className="hidden lg:flex lg:col-span-3 flex-col overflow-hidden">
+            <Card className="hidden md:flex md:col-span-4 lg:col-span-3 flex-col overflow-hidden">
               <div className="flex-1 flex items-center justify-center p-6">
                 <p className="text-sm text-muted-foreground text-center">
                   Selecione uma conversa para ver as informações do lead
@@ -1471,6 +1501,36 @@ export default function AtendimentoPage() {
           )
         )}
       </div>
+
+      {/* Mobile Lead Info Sheet */}
+      <Sheet open={mobileLeadInfoOpen} onOpenChange={setMobileLeadInfoOpen}>
+        <SheetContent side="bottom" className="h-[85vh] p-0 lg:hidden rounded-t-2xl">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <SheetTitle className="text-sm">Informações do Lead</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto h-full pb-20">
+            {selectedConversation?.lead && (
+              <LeadInfoSidebar
+                lead={selectedConversation.lead}
+                phone={selectedConversation.numero_de_telefone}
+                companyId={company!.id}
+                userId={user!.user_id}
+                chatId={selectedConversation.id}
+                tags={selectedConversation.etiquetas || []}
+                className="flex flex-col h-full overflow-hidden border-0 shadow-none rounded-none"
+                onLeadUpdate={(updatedLead) => {
+                  setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);
+                  fetchConversations();
+                }}
+                onTagsUpdate={(updatedTags) => {
+                  setSelectedConversation((prev) => prev ? { ...prev, etiquetas: updatedTags } : prev);
+                  fetchConversations();
+                }}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Attachment Options Dialog */}
       <AttachmentOptionsDialog
@@ -1553,6 +1613,28 @@ export default function AtendimentoPage() {
           onSuccess={fetchConversations}
         />
       )}
+
+      {/* AlertDialog — Apagar conversa */}
+      <AlertDialog open={deleteConvDialog.open} onOpenChange={(open) => !open && setDeleteConvDialog({ open: false, conv: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar conversa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as mensagens com <strong>{deleteConvDialog.conv?.nome_do_contato || deleteConvDialog.conv?.numero_de_telefone}</strong> serão apagadas permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingConv}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConvDialog.conv && handleDeleteConversation(deleteConvDialog.conv)}
+              disabled={isDeletingConv}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingConv ? 'Apagando...' : 'Apagar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

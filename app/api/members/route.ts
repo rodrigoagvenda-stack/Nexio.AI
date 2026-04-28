@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    console.log('[MEMBERS GET] Company ID:', companyId);
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'Company ID é obrigatório' },
-        { status: 400 }
-      );
-    }
-
     const supabase = await createClient();
 
     const { data: members, error } = await supabase
       .from('users')
       .select('user_id, name, email, role, department, is_active, last_login, created_at')
-      .eq('company_id', companyId)
+      .eq('company_id', context.companyId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -45,11 +37,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
+  // Apenas company_admin pode convidar membros
+  if (context.role !== 'company_admin') {
+    return NextResponse.json({ success: false, message: 'Apenas administradores podem convidar membros' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
-    const { name, email, role, department, companyId } = body;
+    const { name, email, role, department } = body;
+    const companyId = context.companyId;
 
-    if (!name || !email || !role || !companyId) {
+    if (!name || !email || !role) {
       return NextResponse.json(
         { success: false, message: 'Dados obrigatórios faltando' },
         { status: 400 }

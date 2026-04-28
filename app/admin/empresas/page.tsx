@@ -53,7 +53,7 @@ export default function EmpresasListPage() {
   const getPlanInfo = (planType: string) => {
     const plans: Record<string, { name: string; price: string; icon: any; color: string }> = {
       basic: { name: 'NEXIO SALES', price: 'R$ 1.600', icon: Building2, color: 'from-blue-500/20 to-blue-600/20' },
-      performance: { name: 'NEXIO GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-purple-500/20 to-purple-600/20' },
+      performance: { name: 'NEXIO GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-green-500/20 to-green-600/20' },
       advanced: { name: 'NEXIO ADS', price: 'R$ 2.600', icon: Zap, color: 'from-orange-500/20 to-orange-600/20' },
     };
     return plans[planType] || plans.basic;
@@ -147,7 +147,7 @@ export default function EmpresasListPage() {
                           <div>
                             <p className="text-xs text-muted-foreground">VendAgro</p>
                             {company.vendagro_plan ? (
-                              <Badge variant="default" className="text-xs mt-1 bg-purple-500/20 text-purple-300 border-purple-500/30">
+                              <Badge variant="default" className="text-xs mt-1 bg-green-500/20 text-green-300 border-green-500/30">
                                 {company.vendagro_plan}
                               </Badge>
                             ) : (
@@ -217,7 +217,7 @@ export default function EmpresasListPage() {
                           </td>
                           <td className="p-3">
                             {company.vendagro_plan ? (
-                              <Badge variant="default" className="text-xs bg-purple-500/20 text-purple-300 border-purple-500/30">
+                              <Badge variant="default" className="text-xs bg-green-500/20 text-green-300 border-green-500/30">
                                 {company.vendagro_plan}
                               </Badge>
                             ) : (

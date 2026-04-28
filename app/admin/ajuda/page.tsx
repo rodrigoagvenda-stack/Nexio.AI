@@ -222,8 +222,8 @@ export default function AdminAjudaPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold flex items-center gap-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-          <HelpCircle className="h-8 w-8 text-purple-400" />
+        <h1 className="text-3xl font-semibold flex items-center gap-3 bg-gradient-to-r from-green-400 to-pink-400 bg-clip-text text-transparent">
+          <HelpCircle className="h-8 w-8 text-green-400" />
           Central de Ajuda - Administrador
         </h1>
         <p className="text-muted-foreground mt-2">

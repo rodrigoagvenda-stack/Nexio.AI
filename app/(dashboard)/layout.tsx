@@ -27,7 +27,7 @@ export default async function DashboardLayout({
   const [{ data: userData }, { data: adminUser }] = await Promise.all([
     supabase
       .from('users')
-      .select('company_id')
+      .select('company_id, role')
       .eq('auth_user_id', user.id)
       .single(),
     supabase
@@ -59,6 +59,7 @@ export default async function DashboardLayout({
   const planName = companyData?.plan_name;
   const isAdmin = !!adminUser;
   const hasBriefing = !!briefingConfig;
+  const userRole = userData?.role || 'closer';
   const brandLogoUrl = briefingConfig?.logo_url || null;
 
   console.log('🔍 [Layout] Company Data:', {
@@ -78,6 +79,7 @@ export default async function DashboardLayout({
         planName={planName}
         hasBriefing={hasBriefing}
         brandLogoUrl={brandLogoUrl}
+        userRole={userRole}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />

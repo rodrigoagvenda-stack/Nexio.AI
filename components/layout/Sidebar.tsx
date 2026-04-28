@@ -21,6 +21,8 @@ import {
   Kanban,
   FileText,
   Megaphone,
+  Zap,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -35,6 +37,7 @@ interface SidebarProps {
   planName?: string;
   hasBriefing?: boolean;
   brandLogoUrl?: string | null;
+  userRole?: string;
 }
 
 interface NavLink {
@@ -85,6 +88,9 @@ const navSections: NavSection[] = [
     links: [
       { href: '/ajuda', label: 'Ajuda', icon: Info },
       { href: '/configuracoes', label: 'Configuração', icon: Settings },
+      { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
+      { href: '/configuracoes/fluxos', label: 'Fluxos SDR', icon: Zap },
+      { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
     ],
   },
 ];
@@ -97,6 +103,7 @@ export const Sidebar = memo(function Sidebar({
   planName,
   hasBriefing = false,
   brandLogoUrl,
+  userRole,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -143,10 +150,18 @@ export const Sidebar = memo(function Sidebar({
     const planNameUpper = planName?.toUpperCase() || '';
     const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
 
+    const isCloser = userRole === 'closer';
+    const isSdr = userRole === 'sdr';
+    const isSdrCloser = userRole === 'sdr_closer';
+
     const sections = navSections.map(section => ({
       ...section,
       links: section.links.filter(link => {
         if (link.href === '/prospect' && !hasOrbitAccess) return false;
+        // Closer puro: sem Orbit, Automação, Membros
+        if (isCloser && (link.href === '/prospect' || link.href === '/outbound' || link.href === '/membros')) return false;
+        // SDR e SDR Closer: sem Membros
+        if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
         return true;
       }),
     })).filter(section => section.links.length > 0);
@@ -204,14 +219,11 @@ export const Sidebar = memo(function Sidebar({
         )}
       >
         {/* Logo */}
-        <div className="flex items-center h-16 px-6">
-          {!isCollapsed && brandLogoUrl && (
-            <img
-              src={brandLogoUrl}
-              alt="Nexio.AI"
-              className="h-10 w-auto object-contain"
-              style={{ maxWidth: '160px' }}
-            />
+        <div className="flex items-center h-16 px-4">
+          {isCollapsed ? (
+            <span className="text-sm font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">.ai</span>
+          ) : (
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">nexio.ai</span>
           )}
         </div>
 
@@ -243,7 +255,8 @@ export const Sidebar = memo(function Sidebar({
                         <button
                           onClick={() => {
                             if (isCollapsed) {
-                              router.push(link.href);
+                              setIsCollapsed(false);
+                              setCrmExpanded(true);
                             } else {
                               setCrmExpanded(!crmExpanded);
                             }

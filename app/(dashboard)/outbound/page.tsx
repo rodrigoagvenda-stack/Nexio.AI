@@ -174,7 +174,7 @@ function MeetingStatusBadge({ status }: { status: string }) {
     case 'confirmada':
       return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Confirmada</Badge>;
     case 'realizada':
-      return <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-xs">Realizada</Badge>;
+      return <Badge className="bg-green-500/15 text-green-600 border-green-500/30 text-xs">Realizada</Badge>;
     case 'no_show':
       return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-xs">No-show</Badge>;
     case 'cancelada':
@@ -225,7 +225,7 @@ export default function OutboundPage() {
     try {
       const { data, error } = await supabase
         .from('outbound_campaigns')
-        .select('*, lead:leads!outbound_campaigns_campaign_id_fkey(contact_name, company_name, whatsapp)')
+        .select('*, lead:leads!lead_id(contact_name, company_name, whatsapp)')
         .eq('company_id', company.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -536,7 +536,7 @@ export default function OutboundPage() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 px-2 md:px-4">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
@@ -564,12 +564,12 @@ export default function OutboundPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="campanhas" className="space-y-4">
-        <TabsList className="self-start flex-wrap h-auto gap-1 w-full sm:w-auto overflow-x-auto">
-          <TabsTrigger value="campanhas" className="gap-1.5">
+        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto !justify-start" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+          <TabsTrigger value="campanhas" className="gap-1.5 flex-shrink-0">
             <Send className="h-3.5 w-3.5" />
             Campanhas
           </TabsTrigger>
-          <TabsTrigger value="reunioes" className="gap-1.5">
+          <TabsTrigger value="reunioes" className="gap-1.5 flex-shrink-0">
             <Calendar className="h-3.5 w-3.5" />
             Reuniões
             {meetingsHoje.length > 0 && (
@@ -578,19 +578,19 @@ export default function OutboundPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="noshow" className="gap-1.5">
+          <TabsTrigger value="noshow" className="gap-1.5 flex-shrink-0">
             <ShieldCheck className="h-3.5 w-3.5" />
             Anti Noshow
           </TabsTrigger>
-          <TabsTrigger value="remarketing" className="gap-1.5">
+          <TabsTrigger value="remarketing" className="gap-1.5 flex-shrink-0">
             <Bell className="h-3.5 w-3.5" />
             Remarketing
           </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-1.5">
+          <TabsTrigger value="templates" className="gap-1.5 flex-shrink-0">
             <FileText className="h-3.5 w-3.5" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="configuracoes" className="gap-1.5">
+          <TabsTrigger value="configuracoes" className="gap-1.5 flex-shrink-0">
             <Settings className="h-3.5 w-3.5" />
             Configurações
           </TabsTrigger>
@@ -664,7 +664,7 @@ export default function OutboundPage() {
                         <div className="flex items-center gap-3">
                           {/* Status dot */}
                           <div className={`w-2 h-2 rounded-full shrink-0 ${
-                            converteu ? 'bg-purple-500' :
+                            converteu ? 'bg-green-500' :
                             respondeu ? 'bg-emerald-500' :
                             erros > 0 ? 'bg-red-500' : 'bg-muted-foreground/30'
                           }`} />
@@ -686,7 +686,7 @@ export default function OutboundPage() {
                             </p>
                           </div>
 
-                          <div className="hidden sm:flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                             {respondeu ? (
                               <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs gap-1">
                                 <CheckCircle2 className="h-2.5 w-2.5" />Respondeu
@@ -695,7 +695,7 @@ export default function OutboundPage() {
                               <Badge variant="outline" className="text-xs text-muted-foreground/60 border-dashed">Sem resposta</Badge>
                             )}
                             {converteu && (
-                              <Badge className="bg-purple-500/10 text-purple-600 border-purple-500/20 text-xs gap-1">
+                              <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs gap-1">
                                 <TrendingUp className="h-2.5 w-2.5" />Convertido
                               </Badge>
                             )}
@@ -737,7 +737,7 @@ export default function OutboundPage() {
                                 icon: TrendingUp,
                                 label: 'Converteu em',
                                 value: campaign.converteu_em ? formatDateTime(campaign.converteu_em) : null,
-                                color: 'text-purple-600',
+                                color: 'text-green-600',
                               },
                             ].map(({ icon: Icon, label, value, color, extra }) => (
                               <div key={label} className="flex items-start gap-2.5">
@@ -760,7 +760,7 @@ export default function OutboundPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-xs h-7 gap-1.5 border-purple-500/30 text-purple-600 hover:bg-purple-500/5"
+                              className="text-xs h-7 gap-1.5 border-green-500/30 text-green-600 hover:bg-green-500/5"
                               onClick={(e) => { e.stopPropagation(); handleMarkConverted(campaign.id); }}
                             >
                               <TrendingUp className="h-3 w-3" />

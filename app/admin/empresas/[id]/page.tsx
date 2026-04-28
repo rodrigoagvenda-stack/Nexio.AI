@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
-import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera } from 'lucide-react';
+import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera, Bot } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
 import { BriefingCompanyConfig } from '@/components/admin/BriefingCompanyConfig';
@@ -36,9 +36,99 @@ export default function EmpresaDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { applyPhoneMask, removeMask } = usePhoneMask();
 
+  // SDR config state
+  const [sdrConfig, setSdrConfig] = useState({
+    uazapi_instance_url: '',
+    uazapi_instance_name: '',
+    uazapi_token: '',
+    openai_key: '',
+    has_token: false,
+    has_openai: false,
+    instance_status: 'disconnected' as string,
+    instance_phone: null as string | null,
+  });
+  const [savingSdr, setSavingSdr] = useState(false);
+  const [sdrStatus, setSdrStatus] = useState<{ status: string; phone: string | null; qrcode: string | null; pairingCode: string | null } | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+
   useEffect(() => {
     fetchCompany();
+    fetchSdrConfig();
   }, [params.id]);
+
+  async function fetchSdrConfig() {
+    try {
+      const res = await fetch(`/api/admin/sdr/${params.id}`);
+      const data = await res.json();
+      if (data.config) {
+        setSdrConfig({
+          uazapi_instance_url: data.config.uazapi_instance_url || '',
+          uazapi_instance_name: data.config.uazapi_instance_name || '',
+          uazapi_token: '',
+          openai_key: '',
+          has_token: data.config.has_token,
+          has_openai: data.config.has_openai,
+          instance_status: data.config.instance_status || 'disconnected',
+          instance_phone: data.config.instance_phone,
+        });
+      }
+    } catch {}
+  }
+
+  async function handleSaveSdr() {
+    setSavingSdr(true);
+    try {
+      const body: Record<string, string> = {
+        uazapi_instance_url: sdrConfig.uazapi_instance_url,
+        uazapi_instance_name: sdrConfig.uazapi_instance_name,
+      };
+      if (sdrConfig.uazapi_token) body.uazapi_token = sdrConfig.uazapi_token;
+      if (sdrConfig.openai_key) body.openai_key = sdrConfig.openai_key;
+
+      const res = await fetch(`/api/admin/sdr/${params.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: 'Credenciais SDR salvas!' });
+      setSdrConfig((p) => ({ ...p, uazapi_token: '', openai_key: '', has_token: !!p.uazapi_token || p.has_token, has_openai: !!p.openai_key || p.has_openai }));
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
+    } finally {
+      setSavingSdr(false);
+    }
+  }
+
+  async function handleCheckStatus() {
+    if (!sdrConfig.uazapi_instance_url || !sdrConfig.has_token) {
+      toast({ title: 'Configure e salve a URL e token antes de verificar o status', variant: 'destructive' });
+      return;
+    }
+    setCheckingStatus(true);
+    try {
+      // Usa o endpoint de status da empresa (via service route)
+      const res = await fetch(`/api/admin/sdr/${params.id}/status`);
+      const data = await res.json();
+      setSdrStatus(data);
+    } catch (err: any) {
+      toast({ title: 'Erro ao verificar status', variant: 'destructive' });
+    } finally {
+      setCheckingStatus(false);
+    }
+  }
+
+  async function handleDisconnectSdr() {
+    try {
+      const res = await fetch(`/api/admin/sdr/${params.id}/disconnect`, { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setSdrStatus(null);
+      setSdrConfig((p) => ({ ...p, instance_status: 'disconnected', instance_phone: null }));
+      toast({ title: 'WhatsApp desconectado' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao desconectar', variant: 'destructive' });
+    }
+  }
 
   async function fetchCompany() {
     try {
@@ -278,7 +368,6 @@ export default function EmpresaDetailPage() {
                 id="phone"
                 value={applyPhoneMask(company.phone || '')}
                 onChange={(e) => {
-                  const masked = applyPhoneMask(e.target.value);
                   const unmasked = removeMask(e.target.value);
                   setCompany({ ...company, phone: unmasked });
                 }}
@@ -594,6 +683,96 @@ export default function EmpresaDetailPage() {
                 placeholder="https://n8n.empresa.com/webhook/send-manual-message"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* SDR — Credenciais uazapi por empresa */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="w-4 h-4" />
+            Agente SDR — Credenciais uazapi
+          </CardTitle>
+          <CardDescription>
+            Configure a instância uazapi desta empresa. O cliente não vê estas informações.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>URL da instância</Label>
+              <Input
+                value={sdrConfig.uazapi_instance_url}
+                onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_instance_url: e.target.value })}
+                placeholder="https://nexioai.uazapi.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome da instância</Label>
+              <Input
+                value={sdrConfig.uazapi_instance_name}
+                onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_instance_name: e.target.value })}
+                placeholder="empresa-4"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Token da instância</Label>
+            <Input
+              type="password"
+              value={sdrConfig.uazapi_token}
+              onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_token: e.target.value })}
+              placeholder={sdrConfig.has_token ? 'Token já salvo — cole para alterar' : 'Token da instância uazapi'}
+            />
+            {sdrConfig.has_token && !sdrConfig.uazapi_token && (
+              <p className="text-xs text-green-600">✓ Token configurado</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>OpenAI API Key (opcional — usa global se vazio)</Label>
+            <Input
+              type="password"
+              value={sdrConfig.openai_key}
+              onChange={(e) => setSdrConfig({ ...sdrConfig, openai_key: e.target.value })}
+              placeholder={sdrConfig.has_openai ? 'Chave já salva — cole para alterar' : 'sk-…'}
+            />
+          </div>
+
+          {/* Status atual */}
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+            <div className="flex-1">
+              <p className="text-sm font-medium">Status da instância</p>
+              <p className="text-xs text-muted-foreground">
+                {sdrStatus ? (
+                  sdrStatus.status === 'connected'
+                    ? `✅ Conectado${sdrStatus.phone ? ` — ${sdrStatus.phone}` : ''}`
+                    : sdrStatus.status === 'connecting'
+                    ? '🟡 Conectando…'
+                    : '🔴 Desconectado'
+                ) : (
+                  sdrConfig.instance_status === 'connected'
+                    ? `✅ Conectado${sdrConfig.instance_phone ? ` — ${sdrConfig.instance_phone}` : ''}`
+                    : '🔴 Desconectado'
+                )}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={checkingStatus}>
+              {checkingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Verificar status
+            </Button>
+            {(sdrStatus?.status === 'connected' || sdrConfig.instance_status === 'connected') && (
+              <Button variant="destructive" size="sm" onClick={handleDisconnectSdr}>
+                Desconectar
+              </Button>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveSdr} disabled={savingSdr}>
+              {savingSdr && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Salvar credenciais
+            </Button>
           </div>
         </CardContent>
       </Card>

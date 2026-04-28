@@ -454,17 +454,17 @@ export default function DashboardPage() {
     {
       label: 'Em contato',
       count: filteredLeads.filter((l) => l.status === 'Em contato').length,
-      color: 'bg-purple-400',
+      color: 'bg-green-400',
     },
     {
       label: 'Interessado',
       count: filteredLeads.filter((l) => l.status === 'Interessado').length,
-      color: 'bg-purple-500',
+      color: 'bg-green-500',
     },
     {
       label: 'Proposta enviada',
       count: filteredLeads.filter((l) => l.status === 'Proposta enviada').length,
-      color: 'bg-purple-600',
+      color: 'bg-green-600',
     },
     {
       label: 'Fechado',
@@ -485,59 +485,22 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header com Filtros */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground">Overview</h1>
-        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => handlePeriodChange('today')}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                selectedPeriod === 'today'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              Hoje
-            </button>
-            <button
-              onClick={() => handlePeriodChange('week')}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                selectedPeriod === 'week'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              Semana
-            </button>
-            <button
-              onClick={() => handlePeriodChange('month')}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                selectedPeriod === 'month'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              Mês
-            </button>
-            <button
-              onClick={() => handlePeriodChange('year')}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                selectedPeriod === 'year'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              Ano
-            </button>
-            <button
-              onClick={() => handlePeriodChange('custom')}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
-                selectedPeriod === 'custom'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              Personalizado
-            </button>
+        <h1 className="text-xl md:text-3xl font-bold text-foreground">Overview</h1>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-1.5 overflow-x-auto flex-nowrap" style={{scrollbarWidth: 'none'}}>
+            {(['today','week','month','year','custom'] as const).map((period) => (
+              <button
+                key={period}
+                onClick={() => handlePeriodChange(period)}
+                className={`flex-shrink-0 px-3 py-1.5 text-xs md:text-sm md:px-4 md:py-2 rounded-lg transition-colors ${
+                  selectedPeriod === period
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted hover:bg-muted/80'
+                }`}
+              >
+                {period === 'today' ? 'Hoje' : period === 'week' ? 'Semana' : period === 'month' ? 'Mês' : period === 'year' ? 'Ano' : 'Personalizado'}
+              </button>
+            ))}
           </div>
           {showDatePicker && (
             <div className="w-full sm:w-auto">

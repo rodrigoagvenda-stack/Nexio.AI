@@ -53,12 +53,12 @@ export default function CookiesPage() {
                 <p className="text-xs text-white/60 mb-3">Necessários para o funcionamento da Plataforma. Não podem ser desativados.</p>
                 <div className="space-y-2">
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span className="font-mono text-violet-400">sb-*-auth-token</span>
+                    <span className="font-mono text-green-400">sb-*-auth-token</span>
                     <span className="text-white/50">Supabase</span>
                     <span className="text-white/50">Mantém sua sessão autenticada</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span className="font-mono text-violet-400">sb-*-auth-token-code-verifier</span>
+                    <span className="font-mono text-green-400">sb-*-auth-token-code-verifier</span>
                     <span className="text-white/50">Supabase</span>
                     <span className="text-white/50">Segurança no fluxo de autenticação OAuth</span>
                   </div>
@@ -73,12 +73,12 @@ export default function CookiesPage() {
                 <p className="text-xs text-white/60 mb-3">Armazenam suas preferências para personalizar a experiência.</p>
                 <div className="space-y-2">
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span className="font-mono text-violet-400">theme</span>
+                    <span className="font-mono text-green-400">theme</span>
                     <span className="text-white/50">Nexio.AI</span>
                     <span className="text-white/50">Preferência de tema (claro/escuro)</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span className="font-mono text-violet-400">sidebar-collapsed</span>
+                    <span className="font-mono text-green-400">sidebar-collapsed</span>
                     <span className="text-white/50">Nexio.AI</span>
                     <span className="text-white/50">Estado do menu lateral (expandido/recolhido)</span>
                   </div>
@@ -93,7 +93,7 @@ export default function CookiesPage() {
                 <p className="text-xs text-white/60 mb-3">Coletamos dados agregados e anônimos para entender como a Plataforma é utilizada e identificar melhorias.</p>
                 <div className="space-y-2">
                   <div className="grid grid-cols-3 gap-2 text-xs">
-                    <span className="font-mono text-violet-400">_vercel-*</span>
+                    <span className="font-mono text-green-400">_vercel-*</span>
                     <span className="text-white/50">Vercel</span>
                     <span className="text-white/50">Monitoramento de performance da aplicação</span>
                   </div>
@@ -107,10 +107,10 @@ export default function CookiesPage() {
             <p>Alguns cookies são definidos por serviços de terceiros que utilizamos:</p>
             <ul className="mt-3 space-y-2 ml-4 list-disc list-outside">
               <li>
-                <strong className="text-white/90">Supabase</strong> — Plataforma de banco de dados e autenticação. Gerencia tokens de sessão para manter o login seguro. <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">Política de Privacidade</a>
+                <strong className="text-white/90">Supabase</strong> — Plataforma de banco de dados e autenticação. Gerencia tokens de sessão para manter o login seguro. <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">Política de Privacidade</a>
               </li>
               <li>
-                <strong className="text-white/90">Vercel</strong> — Infraestrutura de hospedagem da aplicação. Pode armazenar cookies de edge e performance. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">Política de Privacidade</a>
+                <strong className="text-white/90">Vercel</strong> — Infraestrutura de hospedagem da aplicação. Pode armazenar cookies de edge e performance. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">Política de Privacidade</a>
               </li>
             </ul>
             <p className="mt-3">
@@ -165,7 +165,7 @@ export default function CookiesPage() {
               ].map((browser) => (
                 <div key={browser.name} className="flex items-center gap-2 text-xs">
                   <span className="text-white/50 w-32">{browser.name}</span>
-                  <a href={browser.url} target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300">
+                  <a href={browser.url} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">
                     Gerenciar cookies →
                   </a>
                 </div>

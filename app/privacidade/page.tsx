@@ -157,7 +157,7 @@ export default function PrivacidadePage() {
           <section>
             <h2 className="text-base font-semibold text-white mb-3">10. Cookies</h2>
             <p>
-              Utilizamos cookies para melhorar sua experiência. Para detalhes, consulte nossa <Link href="/cookies" className="text-violet-400 hover:text-violet-300 underline">Política de Cookies</Link>.
+              Utilizamos cookies para melhorar sua experiência. Para detalhes, consulte nossa <Link href="/cookies" className="text-green-400 hover:text-green-300 underline">Política de Cookies</Link>.
             </p>
           </section>
 

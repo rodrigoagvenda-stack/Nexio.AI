@@ -996,7 +996,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-purple-400" />
+                    <Sparkles className="h-4 w-4 text-green-400" />
                     Análise IA
                   </Label>
                   {!selectedError.error_data?.ai_analysis && (
@@ -1005,7 +1005,7 @@ export function N8NMonitorContent({ instances: serverInstances, errors: serverEr
                       variant="outline"
                       onClick={() => handleAnalyzeWithAI(selectedError.id)}
                       disabled={isSubmitting}
-                      className="text-purple-400 border-purple-400/30 hover:bg-purple-400/10"
+                      className="text-green-400 border-green-400/30 hover:bg-green-400/10"
                     >
                       <Sparkles className="h-3 w-3 mr-1" />
                       Analisar com IA
