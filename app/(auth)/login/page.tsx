@@ -86,7 +86,7 @@ export default function LoginPage() {
           className={cn(
             'rounded-2xl p-8 border backdrop-blur-xl transition-colors duration-500',
             isAdmin
-              ? 'bg-[#30184C]/20 border-[#30184C]/30'
+              ? 'bg-[#15803d]/20 border-[#15803d]/30'
               : 'bg-white/[0.04] border-white/[0.08]'
           )}
         >
@@ -130,7 +130,7 @@ export default function LoginPage() {
               <motion.div
                 className={cn(
                   'absolute top-1 bottom-1 rounded-lg',
-                  isAdmin ? 'bg-[#30184C]' : 'bg-white/10'
+                  isAdmin ? 'bg-[#15803d]' : 'bg-white/10'
                 )}
                 layout
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
@@ -175,12 +175,12 @@ export default function LoginPage() {
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="overflow-hidden"
               >
-                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#30184C]/20 border border-[#30184C]/30">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#30184C]/40 flex items-center justify-center">
-                    <ShieldCheck className="h-4 w-4 text-purple-300" />
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#15803d]/20 border border-[#15803d]/30">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#15803d]/40 flex items-center justify-center">
+                    <ShieldCheck className="h-4 w-4 text-green-300" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-purple-300">Modo Admin</p>
+                    <p className="text-xs font-medium text-green-300">Modo Admin</p>
                     <p className="text-[11px] text-zinc-500">Acesso restrito a administradores</p>
                   </div>
                 </div>
@@ -210,7 +210,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className={cn(
                   'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-zinc-600 h-12 rounded-xl transition-colors duration-300',
-                  'focus:border-[#30184C]/50 focus:ring-1 focus:ring-[#30184C]/30'
+                  'focus:border-[#15803d]/50 focus:ring-1 focus:ring-[#15803d]/30'
                 )}
               />
             </div>
@@ -230,7 +230,7 @@ export default function LoginPage() {
                   disabled={loading}
                   className={cn(
                     'bg-white/[0.04] border-white/[0.08] text-white placeholder:text-zinc-600 h-12 rounded-xl pr-12 transition-colors duration-300',
-                    'focus:border-[#30184C]/50 focus:ring-1 focus:ring-[#30184C]/30'
+                    'focus:border-[#15803d]/50 focus:ring-1 focus:ring-[#15803d]/30'
                   )}
                 />
                 <button
@@ -251,7 +251,7 @@ export default function LoginPage() {
                 className={cn(
                   'w-full h-12 font-medium rounded-xl transition-all duration-500',
                   isAdmin
-                    ? 'bg-[#30184C] text-white hover:bg-[#3d1f5e]'
+                    ? 'bg-[#15803d] text-white hover:bg-[#166534]'
                     : 'bg-white text-[#0C0C0C] hover:bg-zinc-200'
                 )}
                 disabled={loading}

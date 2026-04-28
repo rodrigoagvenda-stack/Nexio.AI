@@ -10,21 +10,21 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 95.3%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 268 52% 20%; /* #30184C roxo Nexio */
+    --primary: 142 72% 29%; /* #15803d verde Zaapli */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
-    --accent: 268 40% 92%; /* Roxo claro para acentos */
-    --accent-foreground: 268 52% 20%;
+    --accent: 142 50% 92%; /* Verde claro para acentos */
+    --accent-foreground: 142 72% 29%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 268 52% 20%;
+    --ring: 142 72% 29%;
     --radius: 0.5rem;
-    --chart-1: 268 52% 20%; /* #30184C */
+    --chart-1: 142 72% 29%; /* #15803d */
     --chart-2: 0 0% 85%; /* #d8d8d8 */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -45,20 +45,20 @@
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 6.3%;
     --popover-foreground: 0 0% 98%;
-    --primary: 268 52% 20%; /* #30184C roxo Nexio */
+    --primary: 142 72% 29%; /* #15803d verde Zaapli */
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 8%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 8%;
     --muted-foreground: 0 0% 60%;
-    --accent: 268 40% 15%; /* Roxo escuro para acentos */
-    --accent-foreground: 268 52% 80%;
+    --accent: 142 50% 15%; /* Verde escuro para acentos */
+    --accent-foreground: 142 60% 80%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 10%; /* Bordas sutis */
     --input: 0 0% 8%;
-    --ring: 268 52% 20%;
-    --chart-1: 268 52% 20%; /* #30184C */
+    --ring: 142 72% 29%;
+    --chart-1: 142 72% 29%; /* #15803d */
     --chart-2: 0 0% 10%; /* #191919 */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
