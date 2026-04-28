@@ -1,7 +1,7 @@
+export const dynamic = 'force-dynamic';
+
 import { createServiceClient } from '@/lib/supabase/server';
 import { AdminDashboardContent } from '@/components/admin/AdminDashboardContent';
-
-export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
   const supabase = createServiceClient();
