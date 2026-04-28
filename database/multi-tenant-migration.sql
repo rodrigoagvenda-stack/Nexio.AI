@@ -60,11 +60,12 @@ CREATE TABLE IF NOT EXISTS tokens_usage (
 -- ============================================================================
 ALTER TABLE google_integrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "users_own_google_integration" ON google_integrations;
+DROP POLICY IF EXISTS "service_role_all_google" ON google_integrations;
 CREATE POLICY "users_own_google_integration" ON google_integrations
   FOR ALL USING (
     company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid())
   );
-
 CREATE POLICY "service_role_all_google" ON google_integrations
   FOR ALL USING (true);
 
@@ -73,11 +74,12 @@ CREATE POLICY "service_role_all_google" ON google_integrations
 -- ============================================================================
 ALTER TABLE follow_up_config ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "users_own_follow_config" ON follow_up_config;
+DROP POLICY IF EXISTS "service_role_all_follow" ON follow_up_config;
 CREATE POLICY "users_own_follow_config" ON follow_up_config
   FOR ALL USING (
     company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid())
   );
-
 CREATE POLICY "service_role_all_follow" ON follow_up_config
   FOR ALL USING (true);
 
@@ -86,11 +88,12 @@ CREATE POLICY "service_role_all_follow" ON follow_up_config
 -- ============================================================================
 ALTER TABLE tokens_usage ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "users_own_tokens" ON tokens_usage;
+DROP POLICY IF EXISTS "service_role_all_tokens" ON tokens_usage;
 CREATE POLICY "users_own_tokens" ON tokens_usage
   FOR SELECT USING (
     company_id = (SELECT company_id FROM users WHERE auth_user_id = auth.uid())
   );
-
 CREATE POLICY "service_role_all_tokens" ON tokens_usage
   FOR ALL USING (true);
 
