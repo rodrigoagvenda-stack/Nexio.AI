@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
+
+const limiter = rateLimit({ limit: 5, windowMs: 60 * 1000 }); // 5 por minuto por IP
 
 export async function POST(request: NextRequest) {
+  const limited = limiter(request);
+  if (limited) return limited;
+
   try {
     const formData = await request.json();
 
