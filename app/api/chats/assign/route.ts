@@ -1,54 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
-/**
- * POST /api/chats/assign
- * Atribuir chat para um usuário
- */
 export async function POST(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
     const body = await request.json();
-    const { chatId, assignedTo, assignedBy, companyId, notes } = body;
+    const { chatId, assignedTo, assignedBy, notes } = body;
 
-    // Validações
-    if (!chatId || !assignedTo || !assignedBy || !companyId) {
+    if (!chatId || !assignedTo || !assignedBy) {
       return NextResponse.json(
-        { success: false, message: 'Campos obrigatórios: chatId, assignedTo, assignedBy, companyId' },
+        { success: false, message: 'Campos obrigatórios: chatId, assignedTo, assignedBy' },
         { status: 400 }
       );
     }
 
-    // Debug: log dos parâmetros recebidos
-    console.log('[DEBUG] Assign chat params:', { chatId, companyId, assignedTo, assignedBy });
-
-    // Verificar se chat existe e pertence à empresa
     const { data: chat, error: chatError } = await supabase
       .from('conversas_do_whatsapp')
       .select('id, assigned_to, company_id')
       .eq('id', chatId)
-      .eq('company_id', companyId)
+      .eq('company_id', context.companyId)
       .single();
 
-    console.log('[DEBUG] Chat query result:', { chat, chatError });
-
     if (chatError || !chat) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Chat não encontrado. chatId: ${chatId}, companyId: ${companyId}`,
-          debug: { chatError: chatError?.message }
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: 'Chat não encontrado' }, { status: 404 });
     }
 
-    // Verificar se usuário de destino existe e pertence à empresa
     const { data: targetUser, error: userError } = await supabase
       .from('users')
       .select('id, name, company_id')
       .eq('id', assignedTo)
-      .eq('company_id', companyId)
+      .eq('company_id', context.companyId)
       .single();
 
     if (userError || !targetUser) {
@@ -61,144 +46,88 @@ export async function POST(request: NextRequest) {
     const currentAssignedTo = chat.assigned_to;
     const actionType = currentAssignedTo ? 'transfer' : 'assign';
 
-    // Atualizar o chat
     const { error: updateError } = await supabase
       .from('conversas_do_whatsapp')
-      .update({
-        assigned_to: assignedTo,
-        assigned_at: new Date().toISOString(),
-        assigned_by: assignedBy,
-      })
+      .update({ assigned_to: assignedTo, assigned_at: new Date().toISOString(), assigned_by: assignedBy })
       .eq('id', chatId)
-      .eq('company_id', companyId);
+      .eq('company_id', context.companyId);
 
     if (updateError) {
-      console.error('Error updating chat assignment:', updateError);
-      return NextResponse.json(
-        { success: false, message: 'Erro ao atribuir chat', error: updateError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, message: 'Erro ao atribuir chat' }, { status: 500 });
     }
 
-    // Registrar no histórico
-    const { error: historyError } = await supabase
-      .from('chat_assignments')
-      .insert({
-        chat_id: chatId,
-        company_id: companyId,
-        assigned_to: assignedTo,
-        assigned_from: currentAssignedTo,
-        assigned_by: assignedBy,
-        action_type: actionType,
-        notes: notes || null,
-      });
-
-    if (historyError) {
-      console.error('Error creating assignment history:', historyError);
-      // Não falhar a operação se apenas o histórico falhar
-    }
+    await supabase.from('chat_assignments').insert({
+      chat_id: chatId,
+      company_id: context.companyId,
+      assigned_to: assignedTo,
+      assigned_from: currentAssignedTo,
+      assigned_by: assignedBy,
+      action_type: actionType,
+      notes: notes || null,
+    });
 
     return NextResponse.json({
       success: true,
       message: actionType === 'transfer' ? 'Chat transferido com sucesso' : 'Chat atribuído com sucesso',
-      assignment: {
-        chatId,
-        assignedTo,
-        assignedToName: targetUser.name,
-        actionType,
-      },
+      assignment: { chatId, assignedTo, assignedToName: targetUser.name, actionType },
     });
   } catch (error) {
     console.error('Error in POST /api/chats/assign:', error);
-    return NextResponse.json(
-      { success: false, message: 'Erro interno do servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Erro interno do servidor' }, { status: 500 });
   }
 }
 
-/**
- * DELETE /api/chats/assign
- * Desatribuir chat (remover atribuição)
- */
 export async function DELETE(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const chatId = searchParams.get('chatId');
     const userId = searchParams.get('userId');
-    const companyId = searchParams.get('companyId');
 
-    // Validações
-    if (!chatId || !userId || !companyId) {
+    if (!chatId || !userId) {
       return NextResponse.json(
-        { success: false, message: 'Parâmetros obrigatórios: chatId, userId, companyId' },
+        { success: false, message: 'Parâmetros obrigatórios: chatId, userId' },
         { status: 400 }
       );
     }
 
-    // Verificar se chat existe
     const { data: chat } = await supabase
       .from('conversas_do_whatsapp')
       .select('id, assigned_to')
       .eq('id', parseInt(chatId))
-      .eq('company_id', parseInt(companyId))
+      .eq('company_id', context.companyId)
       .single();
 
     if (!chat) {
-      return NextResponse.json(
-        { success: false, message: 'Chat não encontrado' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: 'Chat não encontrado' }, { status: 404 });
     }
 
-    const previousAssignedTo = chat.assigned_to;
-
-    // Remover atribuição
     const { error: updateError } = await supabase
       .from('conversas_do_whatsapp')
-      .update({
-        assigned_to: null,
-        assigned_at: null,
-        assigned_by: null,
-      })
+      .update({ assigned_to: null, assigned_at: null, assigned_by: null })
       .eq('id', parseInt(chatId))
-      .eq('company_id', parseInt(companyId));
+      .eq('company_id', context.companyId);
 
     if (updateError) {
-      console.error('Error removing chat assignment:', updateError);
-      return NextResponse.json(
-        { success: false, message: 'Erro ao desatribuir chat', error: updateError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, message: 'Erro ao desatribuir chat' }, { status: 500 });
     }
 
-    // Registrar no histórico
-    const { error: historyError } = await supabase
-      .from('chat_assignments')
-      .insert({
-        chat_id: parseInt(chatId),
-        company_id: parseInt(companyId),
-        assigned_to: null,
-        assigned_from: previousAssignedTo,
-        assigned_by: parseInt(userId),
-        action_type: 'unassign',
-        notes: 'Chat desatribuído',
-      });
-
-    if (historyError) {
-      console.error('Error creating unassignment history:', historyError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Chat desatribuído com sucesso',
+    await supabase.from('chat_assignments').insert({
+      chat_id: parseInt(chatId),
+      company_id: context.companyId,
+      assigned_to: null,
+      assigned_from: chat.assigned_to,
+      assigned_by: parseInt(userId),
+      action_type: 'unassign',
+      notes: 'Chat desatribuído',
     });
+
+    return NextResponse.json({ success: true, message: 'Chat desatribuído com sucesso' });
   } catch (error) {
     console.error('Error in DELETE /api/chats/assign:', error);
-    return NextResponse.json(
-      { success: false, message: 'Erro interno do servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Erro interno do servidor' }, { status: 500 });
   }
 }
