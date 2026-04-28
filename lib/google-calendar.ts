@@ -1,9 +1,46 @@
 /**
  * Google Calendar integration — cria eventos com Meet para agendamento de calls.
- * Usa service account ou OAuth2 dependendo da configuração.
+ * Suporta OAuth2 por empresa (google_integrations) e service account fallback.
  */
 
 import { google, calendar_v3 } from 'googleapis'
+import { createServiceClient } from '@/lib/supabase/server'
+
+/** Retorna cliente Calendar usando OAuth tokens da empresa */
+async function getCalendarClientForCompany(companyId: number) {
+  const service = createServiceClient();
+  const { data: integration } = await service
+    .from('google_integrations')
+    .select('access_token, refresh_token, expires_at')
+    .eq('company_id', companyId)
+    .single();
+
+  if (!integration?.refresh_token) {
+    throw new Error('Google Calendar não conectado para esta empresa');
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID!,
+    process.env.GOOGLE_CLIENT_SECRET!,
+    `${process.env.NEXT_PUBLIC_APP_URL}/api/google/callback`
+  );
+
+  oauth2Client.setCredentials({
+    access_token: integration.access_token,
+    refresh_token: integration.refresh_token,
+    expiry_date: integration.expires_at ? new Date(integration.expires_at).getTime() : undefined,
+  });
+
+  // Auto-refresh se expirado
+  oauth2Client.on('tokens', async (tokens) => {
+    await service.from('google_integrations').update({
+      access_token: tokens.access_token,
+      expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+    }).eq('company_id', companyId);
+  });
+
+  return google.calendar({ version: 'v3', auth: oauth2Client });
+}
 
 export interface CalendarSlot {
   start: Date
