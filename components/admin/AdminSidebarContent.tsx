@@ -61,9 +61,7 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
       {/* Logo */}
       <div className="flex items-center h-16 px-6">
         <h1 className="text-xl">
-          <span className="font-normal text-foreground">nexio</span>
-          <span className="text-primary font-bold">.</span>
-          <span className="font-normal text-foreground">ai</span>
+          <span className="font-bold text-foreground">Zaapli</span>
           <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
             ADMIN
           </span>

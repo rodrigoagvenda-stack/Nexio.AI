@@ -122,7 +122,7 @@ const NOSHOW_STAGES = [
   { label: '5min após',   keys: ['5min','5min_apos',  '5min_após','resgate','5'] },
 ];
 
-const noshowColors = ['#4c1d95', '#6d28d9', '#8b5cf6', '#a78bfa'];
+const noshowColors = ['#14532d', '#15803d', '#22c55e', '#4ade80'];
 
 function resolveNoshowCount(counts: Record<string, number>, keys: string[]): number {
   for (const [k, v] of Object.entries(counts)) {
@@ -998,10 +998,10 @@ export default function OutboundPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: Repeat2,   label: 'Reengajados',      value: '—', color: '#8b5cf6' },
-              { icon: Send,      label: 'Mensagens enviadas', value: '—', color: '#6d28d9' },
-              { icon: Target,    label: 'Taxa de resposta',  value: '—', color: '#a78bfa' },
-              { icon: BarChart3, label: 'Convertidos',       value: '—', color: '#4c1d95' },
+              { icon: Repeat2,   label: 'Reengajados',      value: '—', color: '#22c55e' },
+              { icon: Send,      label: 'Mensagens enviadas', value: '—', color: '#15803d' },
+              { icon: Target,    label: 'Taxa de resposta',  value: '—', color: '#4ade80' },
+              { icon: BarChart3, label: 'Convertidos',       value: '—', color: '#14532d' },
             ].map((item) => {
               const Icon = item.icon;
               return (

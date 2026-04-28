@@ -73,7 +73,7 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
     company_id: companyId,
     slug: slugify(companyName),
     is_active: false,
-    primary_color: '#7c3aed',
+    primary_color: '#15803d',
     theme: 'dark',
     title: `Briefing ${companyName}`,
   });
@@ -290,14 +290,14 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
               <div className="flex gap-2">
                 <input
                   type="color"
-                  value={config.primary_color || '#7c3aed'}
+                  value={config.primary_color || '#15803d'}
                   onChange={(e) => setConfig({ ...config, primary_color: e.target.value })}
                   className="h-10 w-16 rounded border cursor-pointer"
                 />
                 <Input
-                  value={config.primary_color || '#7c3aed'}
+                  value={config.primary_color || '#15803d'}
                   onChange={(e) => setConfig({ ...config, primary_color: e.target.value })}
-                  placeholder="#7c3aed"
+                  placeholder="#15803d"
                 />
               </div>
             </div>

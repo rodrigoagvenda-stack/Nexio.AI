@@ -21,7 +21,7 @@ interface PerformanceChartProps {
 const chartConfig = {
   leads: {
     label: 'Leads gerados',
-    color: '#30184C',
+    color: '#15803d',
   },
   fechados: {
     label: 'Leads fechados',

@@ -18,9 +18,9 @@ interface SalesFunnelTabsProps {
   antiNoshowCounts: Record<string, number>;
 }
 
-const salesColors   = ['#1a0c2e', '#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb'];
-const outboundColors = ['#4c1d95', '#5b21b6', '#7c3aed', '#8b5cf6', '#a78bfa'];
-const noshowColors   = ['#4c1d95', '#6d28d9', '#8b5cf6', '#a78bfa'];
+const salesColors   = ['#052e16', '#15803d', '#166534', '#16a34a', '#22c55e', '#4ade80'];
+const outboundColors = ['#14532d', '#15803d', '#16a34a', '#22c55e', '#4ade80'];
+const noshowColors   = ['#14532d', '#15803d', '#16a34a', '#22c55e'];
 
 const NOSHOW_STAGES = [
   { label: '24h antes',   keys: ['24h', '24h_antes',  'antecipacao', '24'] },

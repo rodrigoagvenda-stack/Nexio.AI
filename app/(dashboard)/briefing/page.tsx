@@ -265,7 +265,7 @@ function SortableWhatsappItem({
 export default function BriefingPage() {
   const { company } = useUser();
   const [loadingConfig, setLoadingConfig] = useState(true);
-  const [config, setConfig] = useState<BriefingConfig>({ slug: '', is_active: false, primary_color: '#7c3aed', theme: 'dark' });
+  const [config, setConfig] = useState<BriefingConfig>({ slug: '', is_active: false, primary_color: '#15803d', theme: 'dark' });
   const [questions, setQuestions] = useState<BriefingQuestion[]>([]);
   const [responses, setResponses] = useState<BriefingResponse[]>([]);
   const [loadingResponses, setLoadingResponses] = useState(true);
@@ -512,7 +512,7 @@ export default function BriefingPage() {
       const blob = await generateBriefingMtPDF({
         companyName: company?.name || 'Empresa',
         title: config.title || 'Briefing',
-        primaryColor: config.primary_color || '#7c3aed',
+        primaryColor: config.primary_color || '#15803d',
         logoUrl: config.logo_url,
         questions,
         answers: response.answers,
@@ -793,8 +793,8 @@ export default function BriefingPage() {
                 <div className="space-y-2">
                   <Label>Cor principal</Label>
                   <div className="flex gap-2">
-                    <input type="color" value={config.primary_color || '#7c3aed'} onChange={(e) => setConfig({ ...config, primary_color: e.target.value })} className="h-10 w-16 rounded border cursor-pointer" />
-                    <Input value={config.primary_color || '#7c3aed'} onChange={(e) => setConfig({ ...config, primary_color: e.target.value })} placeholder="#7c3aed" />
+                    <input type="color" value={config.primary_color || '#15803d'} onChange={(e) => setConfig({ ...config, primary_color: e.target.value })} className="h-10 w-16 rounded border cursor-pointer" />
+                    <Input value={config.primary_color || '#15803d'} onChange={(e) => setConfig({ ...config, primary_color: e.target.value })} placeholder="#15803d" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -859,14 +859,14 @@ export default function BriefingPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
           {selectedResponse && (
             <>
-              <div className="h-1.5 w-full rounded-t-lg" style={{ backgroundColor: config.primary_color || '#7c3aed' }} />
+              <div className="h-1.5 w-full rounded-t-lg" style={{ backgroundColor: config.primary_color || '#15803d' }} />
               <div className="px-6 pt-5 pb-4 border-b">
                 <div className="flex items-start gap-4">
                   {config.logo_url ? (
                     <img src={config.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded-lg shrink-0" />
                   ) : (
                     <div className="h-12 w-12 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: `${config.primary_color}20` }}>
-                      <FileText className="h-6 w-6" style={{ color: config.primary_color || '#7c3aed' }} />
+                      <FileText className="h-6 w-6" style={{ color: config.primary_color || '#15803d' }} />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -903,7 +903,7 @@ export default function BriefingPage() {
                 )}
               </div>
               <div className="px-6 py-3 border-t bg-muted/30 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">nexio<span style={{ color: config.primary_color || '#7c3aed' }}>.</span>ai</p>
+                <p className="text-xs text-muted-foreground">Zaapli</p>
                 <p className="text-xs text-muted-foreground">Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
               </div>
             </>

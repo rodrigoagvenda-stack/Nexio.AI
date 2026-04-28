@@ -90,13 +90,13 @@ export function ConversionDonut({ data }: ConversionDonutProps) {
                 <Tooltip
                   wrapperStyle={{ zIndex: 10 }}
                   contentStyle={{
-                    backgroundColor: '#1e1529',
-                    border: '1px solid #3b2d5e',
+                    backgroundColor: '#0f1a14',
+                    border: '1px solid #166534',
                     borderRadius: '6px',
-                    color: '#f3f0ff',
+                    color: '#f0fdf4',
                   }}
-                  itemStyle={{ color: '#d4b8ff' }}
-                  labelStyle={{ color: '#a78bfa', fontWeight: 600 }}
+                  itemStyle={{ color: '#86efac' }}
+                  labelStyle={{ color: '#22c55e', fontWeight: 600 }}
                 />
               </PieChart>
             </ResponsiveContainer>

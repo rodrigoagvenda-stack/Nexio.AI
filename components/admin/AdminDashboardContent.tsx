@@ -26,18 +26,18 @@ interface DashboardProps {
 }
 
 const leadsChartConfig = {
-  count: { label: 'Leads', color: '#30184C' },
+  count: { label: 'Leads', color: '#15803d' },
 } satisfies ChartConfig;
 
 const mrrChartConfig = {
-  mrr: { label: 'MRR', color: '#30184C' },
+  mrr: { label: 'MRR', color: '#15803d' },
 } satisfies ChartConfig;
 
 const planChartConfig = {
-  count: { label: 'Empresas', color: '#30184C' },
+  count: { label: 'Empresas', color: '#15803d' },
 } satisfies ChartConfig;
 
-const COLORS = ['#30184C', '#462068', '#5c2d84', '#7240a0', '#8855bb', '#191919', '#333333'];
+const COLORS = ['#15803d', '#166534', '#16a34a', '#22c55e', '#4ade80', '#191919', '#333333'];
 
 export function AdminDashboardContent({
   activeCompanies,
@@ -208,7 +208,7 @@ export function AdminDashboardContent({
                   }}
                   formatter={(value: any) => [formatCurrency(value), 'MRR']}
                 />
-                <Line type="monotone" dataKey="mrr" stroke="#30184C" strokeWidth={2} dot={{ fill: '#30184C', r: 3 }} />
+                <Line type="monotone" dataKey="mrr" stroke="#30184C" strokeWidth={2} dot={{ fill: '#15803d', r: 3 }} />
               </LineChart>
             </ChartContainer>
           </CardContent>

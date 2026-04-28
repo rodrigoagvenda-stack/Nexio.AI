@@ -30,7 +30,7 @@ export function OrbEffect() {
         targetX: canvas.width / 2 + 300,
         targetY: canvas.height / 2,
         radius: 350,
-        color: '#30184C',
+        color: '#15803d',
         blur: 200
       },
       {
@@ -39,7 +39,7 @@ export function OrbEffect() {
         targetX: canvas.width / 2 + 250,
         targetY: canvas.height / 2 - 100,
         radius: 280,
-        color: '#C084FC',
+        color: '#16a34a',
         blur: 180
       },
     ];

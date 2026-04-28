@@ -29,8 +29,8 @@ const DEFAULT_COLORS = [
   '#0ea5e9', // sky
   '#3b82f6', // blue
   '#6366f1', // indigo
-  '#30184C', // roxo Nexio
-  '#462068', // roxo Nexio claro
+  '#15803d',
+  '#166534',
   '#d946ef', // fuchsia
   '#ec4899', // pink
 ];

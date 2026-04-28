@@ -16,14 +16,13 @@ interface SalesFunnelProps {
 }
 
 export function SalesFunnel({ stages, totalLeads }: SalesFunnelProps) {
-  // Gradiente de cores do roxo escuro (Fechado) ao lilás claro (Lead novo)
   const colors = [
-    '#1a0c2e', // roxo Nexio muito escuro - Fechado
-    '#30184C', // roxo Nexio - primário
-    '#462068', // roxo Nexio médio
-    '#5c2d84', // roxo Nexio médio claro
-    '#7240a0', // roxo Nexio claro
-    '#8855bb', // roxo Nexio mais claro - Lead novo
+    '#052e16',
+    '#15803d',
+    '#166534',
+    '#16a34a',
+    '#22c55e',
+    '#4ade80',
   ];
 
   // Validação: garantir que stages é um array válido

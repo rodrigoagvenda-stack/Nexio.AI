@@ -124,12 +124,10 @@ export function AppSidebar({
       <SidebarHeader className="px-4 py-4">
         <div className="flex items-center gap-2">
           <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <span className="text-xs font-bold text-primary-foreground">N</span>
+            <span className="text-xs font-bold text-primary-foreground">Z</span>
           </div>
           <h1 className="text-lg group-data-[collapsible=icon]:hidden">
-            <span className="font-normal text-sidebar-foreground">nexio</span>
-            <span className="text-primary font-bold">.</span>
-            <span className="font-normal text-sidebar-foreground">ai</span>
+            <span className="font-bold text-sidebar-foreground">Zaapli</span>
           </h1>
         </div>
       </SidebarHeader>
