@@ -1,10 +1,12 @@
-# Nexio.AI — Estado Atual do Projeto
+# Nexio.AI / Zaapli — Estado Atual do Projeto
 
 ## Stack
 - Next.js 14 App Router
 - Supabase (Auth + Postgres + RLS + Realtime + Storage)
-- shadcn/ui + Radix UI + Tailwind
-- 91 componentes React, 102 rotas de API
+- shadcn/ui + Radix UI + Tailwind (tema verde #15803d)
+- UAZapi GO V2 (WhatsApp)
+- n8n (automação / agente IA)
+- Stripe (pagamentos)
 
 ---
 
@@ -19,131 +21,121 @@
 - `/lead-pro` — qualificação ICP
 - `/prospect` — geração de prospects
 - `/membros` — gestão de usuários da empresa
-- `/configuracoes/*` — perfil, fluxos SDR, follow-up, webhooks
+- `/configuracoes` — perfil + **planos Stripe** + **Google Calendar** (3 abas)
+- `/configuracoes/sdr` — agente IA (toggle, tipo, prompt, **QR code auto-connect**)
+- `/configuracoes/follow` — follow-up sequences
+- `/configuracoes/fluxos` — fluxos SDR
 - `/notificacoes` — activity logs
 - `/briefing` — link para formulário público
 
 ### Admin (Rodrigo)
 - `/admin/empresas` — CRUD empresas
-- `/admin/empresas/[id]` — detalhes empresa (inclui UAZap + Webhook N8N)
+- `/admin/empresas/[id]` — detalhes empresa
 - `/admin/briefing` — respostas do formulário
 - `/admin/n8n` — configuração webhooks ICP e Maps
 - `/admin/usuarios` — gestão usuários globais
 - `/admin/logs` — system logs
 - `/admin/webhooks` — configuração webhooks
-- `/admin/sdr/[companyId]` — credenciais SDR criptografadas
 
 ### Públicas
-- `/brief` — formulário briefing (12 perguntas)
+- `/brief` — formulário briefing
 - `/auth/callback` — OAuth Supabase
+- `/login` — login user + admin (toggle)
 
 ---
 
 ## APIs Principais
 
-- `POST/GET /api/admin/companies` — CRUD empresas
-- `PATCH /api/admin/companies/[id]` — atualiza empresa (aceita qualquer campo)
-- `POST /api/admin/users` — criar usuários
-- `POST /api/company/upload-logo` — upload logo para Supabase Storage
-- `POST /api/whatsapp/send` — envio mensagem (chat espelhado) → n8n fire-and-forget
-- `POST /api/whatsapp/presence/typing` — status digitando (silencia erros)
-- `GET /api/admin/sdr/[companyId]` — config SDR criptografada
-- `POST /api/sdr/connect` — conectar instância WhatsApp
-- `POST /api/follow/execute` — executar follow-up
-- `GET /api/extraction/maps` — extração Google Maps
+### Auth / Multi-tenant
+- `lib/auth/require-auth.ts` — `requireAuth()`, `requireAdmin()`, `validateCompanyAccess()`
+
+### Stripe (pagamentos)
+- `POST /api/stripe/checkout` — cria sessão de checkout por plano
+- `POST /api/stripe/portal` — abre portal de faturamento Stripe
+- `POST /api/stripe/webhook` — handles `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`
+
+### Google Calendar (OAuth por empresa)
+- `GET /api/google/auth` — inicia OAuth Google
+- `GET /api/google/callback` — salva tokens em `google_integrations`
+- `GET/DELETE /api/google/status` — status + desconectar
+
+### WhatsApp / UAZapi
+- `POST /api/sdr/connect` — **auto-cria instância UAZapi se não existe**, conecta e retorna QR/paircode
+- `DELETE /api/sdr/connect` — desconecta instância
+- `GET /api/sdr/status` — status em tempo real + QR atualizado
+- `GET/PUT /api/sdr/config` — config SDR (prompt, tipo agente, agente_ativo)
+- `POST /api/whatsapp/instance/create` — cria instância via admin token (usado internamente)
+- `POST /api/whatsapp/send` — envio mensagem chat espelhado → n8n
+
+### Outros
+- `GET /api/leads` etc — CRUD leads (todos com requireAuth)
+- `GET /api/tags`, `GET /api/members` etc — todos protegidos
 
 ---
 
-## Banco — Tabelas Existentes
+## Banco — Tabelas
 
 ```sql
-companies          -- empresa, plano, UAZapi, webhook
+companies          -- empresa, plano, UAZapi, Stripe, tokens
 users              -- usuários com company_id (multi-tenant)
 admin_users        -- super_admin, admin, support
 leads              -- CRM leads com kanban status
-icp_configuration  -- config ICP por empresa
-ICP_leads          -- leads gerados por ICP
 conversas_do_whatsapp  -- conversas por empresa
 mensagens_do_whatsapp  -- mensagens (inbound/outbound, ai/human)
-sdr_configs        -- credenciais SDR criptografadas (AES-256-GCM)
-sdr_message_buffer -- buffer Redis espelhado no banco
-sdr_logs           -- logs do SDR
+sdr_configs        -- config SDR + UAZapi token criptografado
+sdr_message_buffer -- buffer Redis espelhado
+sdr_logs           -- logs SDR
+google_integrations -- tokens OAuth Google por empresa (NOVA)
+follow_up_config   -- config follow-up por empresa (NOVA)
+tokens_usage       -- controle tokens por empresa (NOVA)
 system_logs        -- logs gerais
-briefing_responses -- respostas do formulário
-briefing_config    -- config do briefing
-documents          -- base de conhecimento (embeddings)
-outbound_campaigns -- campanhas outbound
-follow_logs        -- log de disparos follow-up
+briefing_responses -- respostas formulário
+documents          -- base de conhecimento
 ```
 
-### Colunas adicionadas (sessão atual)
-- `companies.image_url` — logo da empresa
-- `companies.n8n_webhook_url` — webhook chat espelhado por empresa
-
-### Colunas a adicionar
-- `companies.agente_ativo` — toggle SDR
-- `companies.whatsapp_instance_name` — nome da instância UAZapi
+### Migrations que PRECISAM ser rodadas no Supabase
+1. `database/multi-tenant-migration.sql` — colunas agente_ativo, whatsapp_instance_name, tokens_used, tokens_limit, google_integrations table, follow_up_config table
+2. `database/stripe-columns.sql` — stripe_customer_id, stripe_subscription_id nas companies
 
 ---
 
-## Integrações Implementadas
+## Integrações
 
-- **Supabase:** Auth, DB, RLS, Realtime, Storage ✅
-- **UAZapi:** cliente com 60 métodos, multi-tenant ✅
-- **n8n:** webhooks Maps, ICP, WhatsApp send ✅
-- **OpenAI:** SDK integrado, key criptografada ✅
-- **Google Calendar:** estrutura pronta, implementação incompleta ⚠️
-- **Stripe/Asaas:** pasta existe, vazia ❌
-- **Resend (email):** integrado, sem triggers ⚠️
-
----
-
-## Autenticação
-
-- Supabase Auth (email/password)
-- 2 modos de login: `user` (empresa) e `admin` (Rodrigo)
-- Roles em `admin_users`: `super_admin`, `admin`, `support`
-- Multi-tenant via `users.company_id` + RLS
+| Integração | Status |
+|---|---|
+| Supabase Auth + DB + RLS + Realtime + Storage | ✅ |
+| UAZapi GO V2 (multi-tenant, auto-create) | ✅ |
+| n8n webhooks (Maps, ICP, WhatsApp) | ✅ |
+| OpenAI SDK | ✅ |
+| Stripe (checkout, portal, webhook) | ✅ |
+| Google Calendar OAuth por empresa | ✅ |
+| Resend (email) | ⚠️ integrado, sem triggers |
+| Asaas PIX | ❌ não implementado |
 
 ---
 
-## Erros Críticos (da auditoria)
+## Segurança / Multi-tenant
 
-### 🔴 Corrigir antes de lançar
-
-1. **Bug login admin** — `admin_users` lookup usa `user_id` em vez de `auth_user_id`
-2. **`disable-rls-complete.sql` existe** — deletar, nunca executar em produção
-3. **Rate limiting ausente** — endpoints públicos sem limite
-4. **Billing não valida limites** — `plan_monthly_limit` existe mas não é verificado
-
-### 🟠 Importantes
-
-5. **Validação de `company_id` inconsistente** — alguns endpoints não validam
-6. **Google Calendar incompleto** — estrutura OK, integração não finalizada
-7. **Webhook signature não validada** — n8n/UAZapi sem HMAC check
-8. **Sem testes** — nenhum arquivo de teste
+- `requireAuth()` em todas as rotas do dashboard
+- `company_id` vem sempre do DB do usuário logado, nunca do body
+- AES-256-GCM para credenciais UAZapi e OpenAI
+- Rate limiting disponível em `lib/rate-limit.ts`
 
 ---
 
-## Qualidade do Código
+## Cores / Tema
 
-- TypeScript bem tipado ✅
-- Try/catch em todas as rotas ✅
-- Error handling com mensagens amigáveis ✅
-- Criptografia AES-256-GCM nas credenciais ✅
-- Índices SQL criados ✅
-- Muitos `console.log()` em produção ⚠️
-- Dependências com versões não pinadas ⚠️
-- Código morto (múltiplas pastas briefing) ⚠️
+- **Verde**: `#15803d` (primary) — substituiu roxo/lilás
+- CSS vars em `app/globals.css`
 
 ---
 
 ## Arquivos de Referência
 
 - `UAZAPI.md` — documentação UAZapi GO V2
-- `ZAPPLY_CONTEXTO.md` — contexto do produto, decisões, arquitetura
-- `database/complete-schema.sql` — schema base
-- `database/add-company-image-url.sql` — migrations recentes
-- `lib/sdr/uazapi.ts` — cliente UAZapi (60 métodos)
-- `lib/n8n/client.ts` — cliente n8n (webhooks)
-- `lib/crypto.ts` — criptografia AES-256-GCM
+- `ZAPPLY_CONTEXTO.md` — contexto produto, decisões, arquitetura
+- `lib/uazapi-admin.ts` — admin client (criar/deletar instâncias)
+- `lib/sdr/uazapi.ts` — instance client (60 métodos)
+- `lib/stripe.ts` — Stripe lazy init + PLANS config
+- `lib/auth/require-auth.ts` — auth middleware
+- `lib/crypto.ts` — AES-256-GCM

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { decrypt } from '@/lib/crypto'
+import { decrypt, encrypt } from '@/lib/crypto'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
+import { createInstance } from '@/lib/uazapi-admin'
+
+const BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '')
 
 // POST /api/sdr/connect
-// Body: { phone?: string }  — phone opcional (se informado, usa pairing code; senão, QR code)
+// Body: { phone?: string }
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -13,35 +16,70 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('company_id, role')
+      .select('company_id')
       .eq('auth_user_id', user.id)
       .single()
 
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const service = createServiceClient()
-    const { data: config } = await service
+    const companyId = userData.company_id
+
+    let { data: config } = await service
       .from('sdr_configs')
-      .select('uazapi_instance_url, uazapi_token')
-      .eq('company_id', userData.company_id)
+      .select('id, uazapi_instance_url, uazapi_instance_name, uazapi_token, instance_status')
+      .eq('company_id', companyId)
       .single()
 
+    // ── Auto-criar instância se não existe token/instância ────────────────
     if (!config?.uazapi_token || !config?.uazapi_instance_url) {
-      return NextResponse.json(
-        { error: 'Configure a URL e o token da instância antes de conectar' },
-        { status: 400 }
-      )
+      const instanceName = `empresa-${companyId}-${Date.now()}`
+      const instance = await createInstance({ name: instanceName, companyId })
+      const encryptedToken = encrypt(instance.token)
+      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
+
+      if (config) {
+        await service.from('sdr_configs').update({
+          uazapi_instance_url: BASE_URL,
+          uazapi_instance_name: instanceName,
+          uazapi_token: encryptedToken,
+          instance_status: 'disconnected',
+          instance_phone: null,
+        }).eq('company_id', companyId)
+      } else {
+        await service.from('sdr_configs').insert({
+          company_id: companyId,
+          uazapi_instance_url: BASE_URL,
+          uazapi_instance_name: instanceName,
+          uazapi_token: encryptedToken,
+          webhook_url: webhookUrl,
+          agent_type: 'atendimento_venda',
+          agente_ativo: false,
+          instance_status: 'disconnected',
+        })
+      }
+
+      // Salva instance_name na tabela companies para identificação no n8n
+      await service.from('companies').update({
+        whatsapp_instance_name: instanceName,
+        whatsapp_instance: BASE_URL,
+      }).eq('id', companyId)
+
+      // Recarrega config atualizada
+      const { data: fresh } = await service
+        .from('sdr_configs')
+        .select('uazapi_instance_url, uazapi_token')
+        .eq('company_id', companyId)
+        .single()
+
+      config = fresh as any
+    }
+
+    if (!config?.uazapi_token || !config?.uazapi_instance_url) {
+      return NextResponse.json({ error: 'Falha ao criar instância. Tente novamente.' }, { status: 500 })
     }
 
     const token = decrypt(config.uazapi_token)
-
-    if (!token || !/^[\x00-\xFF]+$/.test(token)) {
-      return NextResponse.json(
-        { error: 'Token inválido — cole o token correto no campo e salve antes de conectar' },
-        { status: 400 }
-      )
-    }
-
     const client = createUazapiClient(config.uazapi_instance_url, token)
 
     const body = await request.json().catch(() => ({}))
@@ -63,7 +101,7 @@ export async function DELETE() {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('company_id, role')
+      .select('company_id')
       .eq('auth_user_id', user.id)
       .single()
 
@@ -77,7 +115,7 @@ export async function DELETE() {
       .single()
 
     if (!config?.uazapi_token || !config?.uazapi_instance_url) {
-      return NextResponse.json({ error: 'Config não encontrada' }, { status: 404 })
+      return NextResponse.json({ error: 'Nenhuma instância encontrada' }, { status: 404 })
     }
 
     const token = decrypt(config.uazapi_token)

@@ -4,13 +4,17 @@ export interface Company {
   email: string;
   phone?: string;
   image_url?: string;
-  plan_type: 'basic' | 'performance' | 'advanced' | 'crm-smart';
-  plan_name?: 'NEXIO SALES' | 'NEXIO GROWTH' | 'NEXIO ADS';
+  plan_type: 'basic' | 'starter' | 'pro' | 'scale' | 'performance' | 'advanced' | 'crm-smart';
+  plan_name?: string;
   plan_price?: number;
   plan_features?: any[];
   vendagro_plan?: 'performance' | 'advanced' | null;
   plan_id?: number | null;
   plan_monthly_limit?: number;
+  tokens_used?: number;
+  tokens_limit?: number;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
   leads_extracted_this_month?: number;
   last_extraction_month?: string;
   whatsapp_instance?: string;
@@ -20,7 +24,8 @@ export interface Company {
   webhook_whatsapp_url?: string;
   webhook_whatsapp_enabled?: boolean;
   is_active: boolean;
-  subscription_expires_at?: string;
+  subscription_expires_at?: string | null;
+  agente_ativo?: boolean;
   created_at: string;
   updated_at: string;
 }
