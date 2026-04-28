@@ -140,7 +140,7 @@ export default function TermosPage() {
           <section>
             <h2 className="text-base font-semibold text-white mb-3">10. Proteção de Dados (LGPD)</h2>
             <p>
-              A Nexio.AI trata dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Para detalhes sobre coleta, uso e armazenamento de dados, consulte nossa <Link href="/privacidade" className="text-violet-400 hover:text-violet-300 underline">Política de Privacidade</Link>.
+              A Nexio.AI trata dados pessoais em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018). Para detalhes sobre coleta, uso e armazenamento de dados, consulte nossa <Link href="/privacidade" className="text-green-400 hover:text-green-300 underline">Política de Privacidade</Link>.
             </p>
           </section>
 

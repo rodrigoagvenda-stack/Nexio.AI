@@ -26,9 +26,9 @@ interface LeadCardProps {
 
 const statusColors: Record<string, string> = {
   'Lead novo': 'bg-blue-500',
-  'Em contato': 'bg-purple-400',
+  'Em contato': 'bg-green-400',
   'Interessado': 'bg-primary',
-  'Proposta enviada': 'bg-purple-600',
+  'Proposta enviada': 'bg-green-600',
   'Fechado': 'bg-zinc-700',
   'Perdido': 'bg-red-500',
 };

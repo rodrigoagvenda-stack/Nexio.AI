@@ -454,17 +454,17 @@ export default function DashboardPage() {
     {
       label: 'Em contato',
       count: filteredLeads.filter((l) => l.status === 'Em contato').length,
-      color: 'bg-purple-400',
+      color: 'bg-green-400',
     },
     {
       label: 'Interessado',
       count: filteredLeads.filter((l) => l.status === 'Interessado').length,
-      color: 'bg-purple-500',
+      color: 'bg-green-500',
     },
     {
       label: 'Proposta enviada',
       count: filteredLeads.filter((l) => l.status === 'Proposta enviada').length,
-      color: 'bg-purple-600',
+      color: 'bg-green-600',
     },
     {
       label: 'Fechado',

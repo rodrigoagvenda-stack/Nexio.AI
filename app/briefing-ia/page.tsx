@@ -188,11 +188,11 @@ export default function BriefingIAPage() {
           </OrbitCard>
 
           {/* Informações da Empresa */}
-          <OrbitCard gradient="from-purple-500/10 via-transparent to-transparent">
+          <OrbitCard gradient="from-green-500/10 via-transparent to-transparent">
             <OrbitCardHeader>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/10 rounded-lg">
-                  <Building2 className="h-5 w-5 text-purple-400" />
+                <div className="p-2 bg-green-500/10 rounded-lg">
+                  <Building2 className="h-5 w-5 text-green-400" />
                 </div>
                 <div>
                   <OrbitCardTitle>Sobre a Empresa</OrbitCardTitle>

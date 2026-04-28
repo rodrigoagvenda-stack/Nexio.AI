@@ -167,7 +167,7 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
               </span>
             )}
             {lead.segment && (
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 h-fit">
+              <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-green-500/10 text-green-600 dark:text-green-400 h-fit">
                 {lead.segment}
               </span>
             )}
@@ -234,7 +234,7 @@ const DroppableColumn = memo(function DroppableColumn({
       case 'Outbound':        return <Megaphone     className="h-4 w-4 text-primary" />;
       case 'Lead novo':       return <UserPlus      className="h-4 w-4 text-blue-500" />;
       case 'Em contato':      return <MessageCircle className="h-4 w-4 text-pink-500" />;
-      case 'Interessado':     return <Star          className="h-4 w-4 text-purple-500" />;
+      case 'Interessado':     return <Star          className="h-4 w-4 text-green-500" />;
       case 'Proposta enviada':return <FileText      className="h-4 w-4 text-cyan-500" />;
       case 'Fechado':         return <CheckCircle2  className="h-4 w-4 text-green-500" />;
       case 'Perdido':         return <XCircle       className="h-4 w-4 text-red-500" />;
@@ -996,7 +996,7 @@ export default function CRMPage() {
       case 'Triagem': return 'bg-orange-500/20 text-orange-700';
       case 'Lead novo': return 'bg-blue-500/20 text-blue-700';
       case 'Em contato': return 'bg-pink-500/20 text-pink-700';
-      case 'Interessado': return 'bg-purple-500/20 text-purple-700';
+      case 'Interessado': return 'bg-green-500/20 text-green-700';
       case 'Proposta enviada': return 'bg-cyan-500/20 text-cyan-700';
       case 'Fechado': return 'bg-green-500/20 text-green-700';
       case 'Perdido': return 'bg-red-500/20 text-red-700';
@@ -1715,7 +1715,7 @@ export default function CRMPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="mql_resumo" className="text-sm font-medium flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+                      <Sparkles className="h-3.5 w-3.5 text-green-500" />
                       Observação MQL
                     </Label>
                     {formData.mql_resumo && (
@@ -1874,10 +1874,10 @@ export default function CRMPage() {
       <Dialog open={showMqlModal} onOpenChange={setShowMqlModal}>
         <DialogContent className="sm:max-w-lg bg-background">
           <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-purple-500" />
+            <Sparkles className="h-4 w-4 text-green-500" />
             Observação MQL
           </DialogTitle>
-          <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+          <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border border-green-500/20">
             <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
               {formData.mql_resumo || 'Nenhuma observação MQL gerada ainda.'}
             </p>

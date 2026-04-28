@@ -292,18 +292,18 @@ export default function ProspectAIPage() {
             <Card className="relative p-8 border border-border/40 bg-card/60 backdrop-blur-lg rounded-2xl shadow-2xl">
               <div className="flex flex-col items-center space-y-6">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 rounded-full blur-xl opacity-30"></div>
-                  <div className="relative bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 p-4 rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 rounded-full blur-xl opacity-30"></div>
+                  <div className="relative bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 p-4 rounded-full">
                     <Lock className="h-10 w-10 text-white" />
                   </div>
                 </div>
 
                 <div className="space-y-3 max-w-md">
-                  <h2 className="text-xl font-semibold bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 bg-clip-text text-transparent">
+                  <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
                     Orbit não disponível no seu plano
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    O recurso de prospecção inteligente com Orbit está disponível apenas nos planos <span className="font-semibold text-purple-400">NEXIO GROWTH</span> e <span className="font-semibold text-pink-500">NEXIO ADS</span>.
+                    O recurso de prospecção inteligente com Orbit está disponível apenas nos planos <span className="font-semibold text-green-400">NEXIO GROWTH</span> e <span className="font-semibold text-emerald-400">NEXIO ADS</span>.
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Você está no plano <span className="font-semibold">{company?.plan_name || 'NEXIO SALES'}</span>.
@@ -313,7 +313,7 @@ export default function ProspectAIPage() {
                 <div className="pt-2">
                   <Button
                     onClick={() => window.location.href = '/admin/empresas/' + company?.id}
-                    className="group bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700 shadow-lg shadow-purple-500/30 rounded-xl"
+                    className="group bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 hover:from-green-500 hover:via-pink-600 hover:to-green-700 shadow-lg shadow-green-500/30 rounded-xl"
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
                     Fazer upgrade do plano
@@ -489,7 +489,7 @@ export default function ProspectAIPage() {
           <Button
             onClick={handleExtract}
             disabled={extracting}
-            className="group w-full h-11 bg-gradient-to-r from-purple-400 via-pink-500 to-purple-600 hover:from-purple-500 hover:via-pink-600 hover:to-purple-700 shadow-lg shadow-purple-500/30 rounded-xl mt-5 relative overflow-hidden"
+            className="group w-full h-11 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 hover:from-green-500 hover:via-pink-600 hover:to-green-700 shadow-lg shadow-green-500/30 rounded-xl mt-5 relative overflow-hidden"
           >
             <AnimatedShinyText className="inline-flex items-center justify-center text-sm font-medium text-white dark:text-background">
               {extracting ? (
@@ -511,7 +511,7 @@ export default function ProspectAIPage() {
             <div className="space-y-2.5 mt-5">
               <div className="w-full bg-muted/30 rounded-full h-1 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-primary to-purple-500 h-full transition-all duration-700"
+                  className="bg-gradient-to-r from-primary to-green-500 h-full transition-all duration-700"
                   style={{ width: `${progress}%` }}
                 />
               </div>

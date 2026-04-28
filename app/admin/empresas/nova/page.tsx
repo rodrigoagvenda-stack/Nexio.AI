@@ -122,7 +122,7 @@ export default function NovaEmpresaPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   { value: 'basic', name: 'NEXIO SALES', price: 'R$ 1.600', icon: Building2, color: 'from-blue-500/20 to-blue-600/20', features: ['CRM Completo', 'Chat IA', 'Funil de Vendas'] },
-                  { value: 'performance', name: 'NEXIO GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-purple-500/20 to-purple-600/20', features: ['Tudo do SALES', '+ Leads ICP', 'Extração Inteligente'] },
+                  { value: 'performance', name: 'NEXIO GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-green-500/20 to-green-600/20', features: ['Tudo do SALES', '+ Leads ICP', 'Extração Inteligente'] },
                   { value: 'advanced', name: 'NEXIO ADS', price: 'R$ 2.600', icon: Zap, color: 'from-orange-500/20 to-orange-600/20', features: ['Tudo do GROWTH', '+ Gestão de Tráfego', 'Facebook Ads'] },
                 ].map((plan) => {
                   const PlanIcon = plan.icon;

@@ -151,10 +151,10 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary, resumoIa, i
   if (isOutbound) {
     return (
       <div className="space-y-4">
-        <div className="relative p-3 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+        <div className="relative p-3 rounded-lg bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border border-green-500/20">
           <div className="flex items-center gap-1.5 mb-2">
-            <Sparkles className="h-3 w-3 text-purple-500 shrink-0" />
-            <h3 className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+            <Sparkles className="h-3 w-3 text-green-500 shrink-0" />
+            <h3 className="text-xs font-semibold text-green-700 dark:text-green-300">
               Observação MQL
             </h3>
             <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
@@ -300,10 +300,10 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary, resumoIa, i
       {resumoIa && (
         <>
           <Separator />
-          <div className="relative p-3 rounded-lg bg-gradient-to-br from-purple-500/10 via-blue-500/10 to-cyan-500/10 border border-purple-500/20">
+          <div className="relative p-3 rounded-lg bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border border-green-500/20">
             <div className="flex items-center gap-1.5 mb-2">
-              <Sparkles className="h-3 w-3 text-purple-500 shrink-0" />
-              <h3 className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+              <Sparkles className="h-3 w-3 text-green-500 shrink-0" />
+              <h3 className="text-xs font-semibold text-green-700 dark:text-green-300">
                 Resumo da IA
               </h3>
               <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">

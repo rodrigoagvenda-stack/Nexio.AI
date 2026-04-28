@@ -1292,7 +1292,7 @@ export default function AtendimentoPage() {
                               : 'w-full max-w-full'
                           } rounded-2xl p-4 cursor-pointer ${
                             msg.direcao === 'outbound'
-                              ? 'bg-purple-500/30 text-foreground border border-purple-500/20'
+                              ? 'bg-green-500/30 text-foreground border border-green-500/20'
                               : 'bg-muted'
                           } ${msg.status === 'sending' ? 'opacity-60' : ''}`}
                         >
