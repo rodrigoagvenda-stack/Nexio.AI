@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createClient } from '@/lib/supabase/server';
 import { MonitorBugsContent } from '@/components/admin/MonitorBugsContent';
 
