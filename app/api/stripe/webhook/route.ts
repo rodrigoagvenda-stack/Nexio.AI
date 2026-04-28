@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe, getPlanByPriceId, PLANS } from '@/lib/stripe';
+import { getStripe, getPlanByPriceId, PLANS } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const sig = request.headers.get('stripe-signature')!;
+  const stripe = getStripe();
 
   let event: Stripe.Event;
 
@@ -52,14 +53,13 @@ export async function POST(request: NextRequest) {
         ? subDetails.subscription
         : subDetails?.subscription?.id;
       if (!subscriptionId) break;
+
       const sub = await stripe.subscriptions.retrieve(subscriptionId);
       const companyId = parseInt(sub.metadata?.company_id || '0');
-
       if (!companyId) break;
 
       const priceId = sub.items.data[0]?.price.id;
       const plan = getPlanByPriceId(priceId);
-
       if (!plan) break;
 
       const expiresAt = new Date();
@@ -82,13 +82,12 @@ export async function POST(request: NextRequest) {
         ? subDetails2.subscription
         : subDetails2?.subscription?.id;
       if (!subscriptionId2) break;
+
       const sub = await stripe.subscriptions.retrieve(subscriptionId2);
       const companyId = parseInt(sub.metadata?.company_id || '0');
-
       if (!companyId) break;
 
       await service.from('companies').update({ is_active: false }).eq('id', companyId);
-
       console.log(`[Stripe] Empresa ${companyId} bloqueada — pagamento falhou`);
       break;
     }
@@ -96,7 +95,6 @@ export async function POST(request: NextRequest) {
     case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription;
       const companyId = parseInt(sub.metadata?.company_id || '0');
-
       if (!companyId) break;
 
       await service.from('companies').update({

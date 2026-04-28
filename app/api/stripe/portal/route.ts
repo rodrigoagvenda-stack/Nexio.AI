@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const service = createServiceClient();
+    const stripe = getStripe();
 
     const { data: company } = await service
       .from('companies')
