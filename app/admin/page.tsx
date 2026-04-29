@@ -51,9 +51,9 @@ export default async function AdminDashboardPage() {
   // Dados para gráficos
   // Empresas por plano
   const companiesByPlan = [
-    { plan: 'basic', name: 'NEXIO SALES', count: companies?.filter(c => c.plan_type === 'basic').length || 0 },
-    { plan: 'performance', name: 'NEXIO GROWTH', count: companies?.filter(c => c.plan_type === 'performance').length || 0 },
-    { plan: 'advanced', name: 'NEXIO ADS', count: companies?.filter(c => c.plan_type === 'advanced').length || 0 },
+    { plan: 'basic', name: 'ZAAPLI START', count: companies?.filter(c => c.plan_type === 'basic').length || 0 },
+    { plan: 'performance', name: 'ZAAPLI GROWTH', count: companies?.filter(c => c.plan_type === 'performance').length || 0 },
+    { plan: 'advanced', name: 'ZAAPLI PRO', count: companies?.filter(c => c.plan_type === 'advanced').length || 0 },
   ];
 
   // Leads ao longo do tempo (últimos 30 dias)

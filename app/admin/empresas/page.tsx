@@ -52,9 +52,9 @@ export default function EmpresasListPage() {
 
   const getPlanInfo = (planType: string) => {
     const plans: Record<string, { name: string; price: string; icon: any; color: string }> = {
-      basic: { name: 'NEXIO SALES', price: 'R$ 1.600', icon: Building2, color: 'from-blue-500/20 to-blue-600/20' },
-      performance: { name: 'NEXIO GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-green-500/20 to-green-600/20' },
-      advanced: { name: 'NEXIO ADS', price: 'R$ 2.600', icon: Zap, color: 'from-orange-500/20 to-orange-600/20' },
+      basic: { name: 'ZAAPLI START', price: 'R$ 1.600', icon: Building2, color: 'from-blue-500/20 to-blue-600/20' },
+      performance: { name: 'ZAAPLI GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-green-500/20 to-green-600/20' },
+      advanced: { name: 'ZAAPLI PRO', price: 'R$ 2.600', icon: Zap, color: 'from-orange-500/20 to-orange-600/20' },
     };
     return plans[planType] || plans.basic;
   };

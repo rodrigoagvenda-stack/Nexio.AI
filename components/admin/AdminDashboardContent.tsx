@@ -169,8 +169,8 @@ export function AdminDashboardContent({
               <AreaChart data={leadsOverTime}>
                 <defs>
                   <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#30184C" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#30184C" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#15803d" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#15803d" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} />
@@ -183,7 +183,7 @@ export function AdminDashboardContent({
                     color: 'hsl(var(--popover-foreground))',
                   }}
                 />
-                <Area type="monotone" dataKey="count" stroke="#30184C" strokeWidth={2} fillOpacity={1} fill="url(#colorLeads)" />
+                <Area type="monotone" dataKey="count" stroke="#15803d" strokeWidth={2} fillOpacity={1} fill="url(#colorLeads)" />
               </AreaChart>
             </ChartContainer>
           </CardContent>
@@ -208,7 +208,7 @@ export function AdminDashboardContent({
                   }}
                   formatter={(value: any) => [formatCurrency(value), 'MRR']}
                 />
-                <Line type="monotone" dataKey="mrr" stroke="#30184C" strokeWidth={2} dot={{ fill: '#15803d', r: 3 }} />
+                <Line type="monotone" dataKey="mrr" stroke="#15803d" strokeWidth={2} dot={{ fill: '#15803d', r: 3 }} />
               </LineChart>
             </ChartContainer>
           </CardContent>
@@ -232,7 +232,7 @@ export function AdminDashboardContent({
                     color: 'hsl(var(--popover-foreground))',
                   }}
                 />
-                <Bar dataKey="count" fill="#30184C" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill="#15803d" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ChartContainer>
           </CardContent>

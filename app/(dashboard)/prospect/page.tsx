@@ -56,7 +56,9 @@ export default function ProspectAIPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'url' | 'manual'>('manual');
 
-  const hasOrbitAccess = company?.plan_name === 'NEXIO GROWTH' || company?.plan_name === 'NEXIO ADS';
+  const hasOrbitAccess = company?.plan_type === 'performance' || company?.plan_type === 'advanced'
+    || company?.plan_name === 'NEXIO GROWTH' || company?.plan_name === 'NEXIO ADS'
+    || company?.plan_name === 'ZAAPLI GROWTH' || company?.plan_name === 'ZAAPLI PRO';
 
   // URL Mode
   const [mapsUrl, setMapsUrl] = useState('');
@@ -303,10 +305,10 @@ export default function ProspectAIPage() {
                     Orbit não disponível no seu plano
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    O recurso de prospecção inteligente com Orbit está disponível apenas nos planos <span className="font-semibold text-green-400">NEXIO GROWTH</span> e <span className="font-semibold text-emerald-400">NEXIO ADS</span>.
+                    O recurso de prospecção inteligente com Orbit está disponível apenas nos planos <span className="font-semibold text-green-400">ZAAPLI GROWTH</span> e <span className="font-semibold text-emerald-400">ZAAPLI PRO</span>.
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Você está no plano <span className="font-semibold">{company?.plan_name || 'NEXIO SALES'}</span>.
+                    Você está no plano <span className="font-semibold">{company?.plan_name || 'ZAAPLI START'}</span>.
                   </p>
                 </div>
 
