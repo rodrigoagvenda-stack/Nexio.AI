@@ -2,6 +2,7 @@
 const nextConfig = {
   output: 'standalone',
   swcMinify: false,
+  productionBrowserSourceMaps: false,
   images: {
     remotePatterns: [
       {
@@ -11,7 +12,7 @@ const nextConfig = {
     ],
   },
   experimental: {
-    // Reduce memory usage during build trace collection
+    // Reduce memory during build trace collection
     outputFileTracingExcludes: {
       '*': [
         'node_modules/@swc/core-linux-x64-gnu',
@@ -20,6 +21,11 @@ const nextConfig = {
         'node_modules/sharp',
       ],
     },
+  },
+  webpack: (config, { isServer }) => {
+    // Disable source maps entirely during build to cut peak memory ~30%
+    config.devtool = false;
+    return config;
   },
   // Configuração para subdomínios
   async headers() {
