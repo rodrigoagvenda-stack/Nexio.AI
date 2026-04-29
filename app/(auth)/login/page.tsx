@@ -211,6 +211,15 @@ export default function LoginPage() {
               </form>
             </div>
 
+            {!isAdmin && (
+              <p className="text-center text-sm text-muted-foreground">
+                Não tem uma conta?{' '}
+                <a href="/signup" className="underline underline-offset-4 hover:text-foreground">
+                  Criar conta
+                </a>
+              </p>
+            )}
+
             <p className="text-center text-sm text-muted-foreground">
               Precisa de ajuda?{' '}
               <a href="mailto:contato@nexioai.online" className="underline underline-offset-4 hover:text-foreground">
