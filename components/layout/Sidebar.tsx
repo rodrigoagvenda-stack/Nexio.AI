@@ -44,6 +44,7 @@ interface NavLink {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  exact?: boolean;
   children?: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
 }
 
@@ -73,7 +74,7 @@ const navSections: NavSection[] = [
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
       {
-        href: '/configuracoes/sdr',
+        href: '/automacoes',
         label: 'Automações',
         icon: Megaphone,
         children: [
@@ -93,7 +94,7 @@ const navSections: NavSection[] = [
     label: 'Sistema',
     links: [
       { href: '/ajuda', label: 'Ajuda', icon: Info },
-      { href: '/configuracoes', label: 'Configuração', icon: Settings },
+      { href: '/configuracoes', label: 'Configuração', icon: Settings, exact: true },
     ],
   },
 ];
@@ -156,7 +157,7 @@ export const Sidebar = memo(function Sidebar({
 
   useEffect(() => {
     if (pathname.startsWith('/configuracoes/sdr') || pathname.startsWith('/configuracoes/follow')) {
-      setExpandedSections(prev => { const n = new Set(prev); n.add('/configuracoes/sdr'); return n; });
+      setExpandedSections(prev => { const n = new Set(prev); n.add('/automacoes'); return n; });
     }
   }, [pathname]);
 
@@ -170,7 +171,7 @@ export const Sidebar = memo(function Sidebar({
       ...section,
       links: section.links.filter(link => {
         // Closer puro: sem Automações, Membros
-        if (isCloser && (link.href === '/configuracoes/sdr' || link.href === '/membros')) return false;
+        if (isCloser && (link.href === '/automacoes' || link.href === '/membros')) return false;
         // SDR e SDR Closer: sem Membros
         if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
         return true;
@@ -255,7 +256,7 @@ export const Sidebar = memo(function Sidebar({
               <div className="space-y-0.5">
                 {section.links.map((link) => {
                   const Icon = link.icon;
-                  const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                  const isActive = link.exact ? pathname === link.href : (pathname === link.href || pathname.startsWith(link.href + '/'));
                   const hasChildren = link.children && link.children.length > 0;
 
                   if (hasChildren) {
