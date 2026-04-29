@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { requireAuth } from '@/lib/auth/require-auth';
-
-function getOAuthClient() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/google/callback`
-  );
-}
+import { getPlatformConfig } from '@/lib/platform-config';
 
 export async function GET(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
-  const oauth2Client = getOAuthClient();
+  const cfg = await getPlatformConfig();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+  const oauth2Client = new google.auth.OAuth2(
+    cfg.google_client_id,
+    cfg.google_client_secret,
+    `${appUrl}/api/google/callback`
+  );
 
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',

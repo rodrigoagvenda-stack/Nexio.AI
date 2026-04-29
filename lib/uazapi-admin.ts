@@ -1,17 +1,24 @@
 /**
- * UAZapi Admin Client — operações administrativas (criar/deletar instâncias)
- * Usa UAZAPI_ADMIN_TOKEN e UAZAPI_BASE_URL do ambiente
+ * UAZapi Admin Client — operações administrativas (criar/deletar instâncias).
+ * Lê credenciais de platform_config (DB) com fallback para env vars.
  */
 
-const BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '');
-const ADMIN_TOKEN = process.env.UAZAPI_ADMIN_TOKEN!;
+import { getPlatformConfig } from '@/lib/platform-config';
 
 async function adminRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const cfg = await getPlatformConfig();
+  const baseUrl = (cfg.uazapi_base_url || 'https://nexioai.uazapi.com').replace(/\/$/, '');
+  const adminToken = cfg.uazapi_admin_token;
+
+  if (!adminToken) {
+    throw new Error('UAZAPI_ADMIN_TOKEN não configurado. Configure em Admin → Configurações → UAZapi.');
+  }
+
+  const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'admintoken': ADMIN_TOKEN,
+      'admintoken': adminToken,
       ...options.headers,
     },
   });
@@ -33,7 +40,6 @@ export interface CreatedInstance {
   paircode?: string;
 }
 
-/** Cria nova instância UAZapi para uma empresa */
 export async function createInstance(params: {
   name: string;
   companyId: number;
@@ -56,20 +62,19 @@ export async function createInstance(params: {
   };
 }
 
-/** Lista todas as instâncias */
 export async function listInstances(): Promise<any[]> {
   return adminRequest<any[]>('/instance/all');
 }
 
-/** Deleta uma instância pelo token dela */
 export async function deleteInstance(instanceToken: string): Promise<void> {
-  await fetch(`${BASE_URL}/instance`, {
+  const cfg = await getPlatformConfig();
+  const baseUrl = (cfg.uazapi_base_url || 'https://nexioai.uazapi.com').replace(/\/$/, '');
+  await fetch(`${baseUrl}/instance`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json', 'token': instanceToken },
   });
 }
 
-/** Configura webhook global para receber todas as mensagens */
 export async function setGlobalWebhook(webhookUrl: string): Promise<void> {
   await adminRequest('/globalwebhook', {
     method: 'POST',

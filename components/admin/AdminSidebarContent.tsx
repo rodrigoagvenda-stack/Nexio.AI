@@ -8,13 +8,11 @@ import {
   LayoutDashboard,
   Building2,
   Users,
-  FileText,
   Activity,
-  HelpCircle,
   LogOut,
   ArrowLeft,
-  Webhook,
-  UserCheck,
+  Settings2,
+  DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -30,12 +28,9 @@ const navLinks = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
   { href: '/admin/usuarios', label: 'Usuários', icon: Users },
-  { href: '/admin/briefing', label: 'Briefing', icon: FileText },
-  { href: '/admin/qualificacao', label: 'Qualificação', icon: UserCheck },
-  { href: '/admin/webhooks', label: 'Webhooks & APIs', icon: Webhook },
-  { href: '/admin/n8n', label: 'Monitor N8N', icon: Activity },
+  { href: '/admin/financeiro', label: 'Financeiro', icon: DollarSign },
   { href: '/admin/logs', label: 'Logs', icon: Activity },
-  { href: '/admin/ajuda', label: 'Ajuda', icon: HelpCircle },
+  { href: '/admin/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
 
 export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarContentProps) {

@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { createServiceClient } from '@/lib/supabase/server';
-
-function getOAuthClient() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/google/callback`
-  );
-}
+import { getPlatformConfig } from '@/lib/platform-config';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -26,7 +19,12 @@ export async function GET(request: NextRequest) {
     const companyId = parseInt(state);
     if (!companyId) throw new Error('company_id inválido');
 
-    const oauth2Client = getOAuthClient();
+    const cfg = await getPlatformConfig();
+    const oauth2Client = new google.auth.OAuth2(
+      cfg.google_client_id,
+      cfg.google_client_secret,
+      `${appUrl}/api/google/callback`
+    );
     const { tokens } = await oauth2Client.getToken(code);
 
     if (!tokens.refresh_token) {
