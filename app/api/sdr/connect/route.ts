@@ -99,6 +99,10 @@ export async function POST(request: NextRequest) {
 
     const client = createUazapiClient(config.uazapi_instance_url, token)
 
+    // Garante que o webhook esteja configurado nessa instância (connection + messages)
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
+    await client.setWebhook(webhookUrl, ['messages', 'connection']).catch(() => {})
+
     // Inicia conexão — se a instância foi auto-deletada (1h sem conectar), recria
     try {
       await client.connect(body.phone)
