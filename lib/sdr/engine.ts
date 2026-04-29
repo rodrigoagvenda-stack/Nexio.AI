@@ -962,10 +962,18 @@ async function loadSdrConfig(
   if (!config) return null
   if (!config.agente_ativo) return null
 
+  const decryptIfNeeded = (val: string | null | undefined): string => {
+    if (!val) return ''
+    if (val.includes(':') && val.split(':').length === 3) {
+      try { return decrypt(val) } catch { return '' }
+    }
+    return val
+  }
+
   return {
     agente_ativo: config.agente_ativo,
-    uazapi_token: config.uazapi_token ? decrypt(config.uazapi_token) : '',
-    openai_key: config.openai_key ? decrypt(config.openai_key) : '',
+    uazapi_token: decryptIfNeeded(config.uazapi_token),
+    openai_key: decryptIfNeeded(config.openai_key),
     uazapi_instance_url: config.uazapi_instance_url ?? 'https://nexioai.uazapi.com',
     uazapi_instance_name: config.uazapi_instance_name ?? '',
     agent_type: config.agent_type ?? 'atendimento_venda',
