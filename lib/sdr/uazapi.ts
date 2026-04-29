@@ -203,32 +203,40 @@ function normalizeStatus(raw: unknown): 'connected' | 'connecting' | 'disconnect
 }
 
 function normalizeInstanceResponse(raw: any) {
+  // instance.status tem prioridade — raw.status pode ser um objeto { connected, loggedIn, jid }
+  const statusStr =
+    raw?.instance?.status ||
+    raw?.state ||
+    (typeof raw?.status === 'string' ? raw.status : null)
+
+  const status = normalizeStatus(statusStr)
+
+  // qrcode dentro de instance (formato real da UAZapi)
   const qrcode =
+    raw?.instance?.qrcode ||
     raw?.qrcode ||
     raw?.qr_code ||
     raw?.qr ||
     raw?.base64 ||
-    raw?.instance?.qrcode ||
-    raw?.data?.qrcode ||
     null
 
   const pairingCode =
+    raw?.instance?.paircode ||
     raw?.pairingCode ||
     raw?.paircode ||
     raw?.pairing_code ||
-    raw?.instance?.paircode ||
     null
 
-  const phone =
-    raw?.phone ||
-    raw?.number ||
-    raw?.jid?.replace('@s.whatsapp.net', '') ||
-    raw?.instance?.phone ||
+  // jid pode estar em raw.status.jid (GET /instance/status) ou raw.jid (connect)
+  const jid =
+    raw?.status?.jid ||
+    raw?.jid ||
+    raw?.instance?.jid ||
     null
 
-  const status = normalizeStatus(
-    raw?.status || raw?.state || raw?.instance?.status
-  )
+  const phone = jid
+    ? jid.replace('@s.whatsapp.net', '')
+    : raw?.phone || raw?.number || raw?.instance?.phone || null
 
   return { status, qrcode, pairingCode, phone }
 }

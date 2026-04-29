@@ -141,13 +141,12 @@ export default function AtendimentoPage() {
 
   useEffect(() => { fetchWaStatus(); }, [company?.id]);
 
+  // Polling roda enquanto o dialog estiver aberto — independente do waStatus intermediário
   useEffect(() => {
-    if (waStatus !== 'connecting') return;
-    const interval = setInterval(async () => {
-      await fetchWaStatus(true);
-    }, 3000);
+    if (!waQrDialog) return;
+    const interval = setInterval(() => fetchWaStatus(true), 3000);
     return () => clearInterval(interval);
-  }, [waStatus]);
+  }, [waQrDialog]);
 
   useEffect(() => {
     if (waStatus === 'connected') setWaQrDialog(false);
