@@ -141,35 +141,13 @@ export default function AtendimentoPage() {
 
   useEffect(() => { fetchWaStatus(); }, [company?.id]);
 
-  // Realtime: fecha o dialog imediatamente quando o webhook atualiza instance_status
   useEffect(() => {
-    if (!company?.id) return;
-    const channel = supabase
-      .channel('sdr_status_realtime')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'sdr_configs',
-        filter: `company_id=eq.${company.id}`,
-      }, (payload) => {
-        const newStatus = (payload.new as any).instance_status;
-        const newPhone = (payload.new as any).instance_phone ?? null;
-        if (newStatus) {
-          setWaStatus(newStatus);
-          setWaPhone(newPhone);
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [company?.id]);
-
-  useEffect(() => {
-    if (waStatus !== 'connecting') return;
+    if (!waQrDialog) return;
     const interval = setInterval(async () => {
       await fetchWaStatus(true);
     }, 3000);
     return () => clearInterval(interval);
-  }, [waStatus]);
+  }, [waQrDialog]);
 
   useEffect(() => {
     if (waStatus === 'connected') setWaQrDialog(false);
