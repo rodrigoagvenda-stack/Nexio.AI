@@ -3,7 +3,7 @@ import { handleWebhook } from '@/lib/sdr/engine'
 import type { UazapiWebhookMessage } from '@/lib/sdr/uazapi'
 
 export const runtime = 'nodejs'
-export const maxDuration = 10 // responde rápido; processamento é assíncrono
+export const maxDuration = 60
 
 export async function POST(
   request: NextRequest,
@@ -22,10 +22,14 @@ export async function POST(
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
-  // Processa de forma assíncrona para não bloquear a resposta ao uazapi
-  handleWebhook(companyId, body).catch((err) => {
+  // Log do payload bruto para diagnóstico
+  console.log('[SDR webhook]', companyId, JSON.stringify(body).slice(0, 500))
+
+  // Aguarda handleWebhook para garantir que o buffer seja gravado antes de retornar
+  const handled = await handleWebhook(companyId, body).catch((err) => {
     console.error(`[SDR] Erro no webhook empresa ${companyId}:`, err)
+    return false
   })
 
-  return NextResponse.json({ ok: true }, { status: 200 })
+  return NextResponse.json({ ok: true, handled }, { status: 200 })
 }

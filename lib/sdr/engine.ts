@@ -1098,7 +1098,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     if (body.message?.fromMe) return false
 
-    const text = body.message?.text || body.chat?.wa_lastMessageTextVote || ''
+    const msg = body.message as any
+    const text = msg?.text
+      || msg?.conversation
+      || msg?.extendedTextMessage?.text
+      || msg?.body
+      || body.chat?.wa_lastMessageTextVote
+      || ''
     if (!text.trim()) return false
 
     if (isPromptInjection(text)) {
@@ -1136,11 +1142,9 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     await bufferMessage(companyId, phone, bufferedMsg, supabase)
 
-    setTimeout(() => {
-      processSdrMessage(companyId, phone).catch((err) =>
-        console.error('[SDR] processSdrMessage falhou:', err)
-      )
-    }, 30_000)
+    // Aguarda 3s (batching de mensagens rápidas) e processa
+    await new Promise((r) => setTimeout(r, 3000))
+    await processSdrMessage(companyId, phone)
 
     return true
   } catch (err: any) {
