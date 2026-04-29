@@ -31,17 +31,16 @@ export async function GET() {
       return NextResponse.json({ status: 'disconnected', phone: null })
     }
 
-    const token = decrypt(config.uazapi_token)
+    let token: string
+    try {
+      token = decrypt(config.uazapi_token)
+    } catch {
+      // Token não pode ser descriptografado (ENCRYPTION_KEY mudou ou token corrompido)
+      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
+    }
 
-    // Token inválido (contém chars não-ASCII) — DB corrompido antes do fix
     if (!token || !/^[\x00-\xFF]+$/.test(token)) {
-      return NextResponse.json({
-        status: 'disconnected',
-        phone: null,
-        qrcode: null,
-        pairingCode: null,
-        error: 'Token inválido — cole o token correto e salve novamente',
-      })
+      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
     }
 
     const client = createUazapiClient(config.uazapi_instance_url, token)

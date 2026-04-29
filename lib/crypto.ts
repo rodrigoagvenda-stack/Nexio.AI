@@ -5,36 +5,27 @@ const KEY_LENGTH = 32;
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
-/**
- * Gera uma chave de criptografia a partir da ENCRYPTION_KEY do env
- */
-function getKey(): Buffer {
+function getKey(): Buffer | null {
   const encryptionKey = process.env.ENCRYPTION_KEY;
-
-  if (!encryptionKey) {
-    throw new Error('ENCRYPTION_KEY não configurada no .env');
-  }
-
-  // Garante que a chave tenha 32 bytes
+  if (!encryptionKey) return null;
   return crypto.scryptSync(encryptionKey, 'salt', KEY_LENGTH);
 }
 
-/**
- * Criptografa um texto usando AES-256-GCM
- */
+// Prefixo para diferenciar texto cifrado de texto puro
+const PLAIN_PREFIX = 'plain:';
+
 export function encrypt(text: string): string {
+  const key = getKey();
+  if (!key) {
+    // Sem ENCRYPTION_KEY: armazena sem criptografia
+    return PLAIN_PREFIX + text;
+  }
   try {
-    const key = getKey();
     const iv = crypto.randomBytes(IV_LENGTH);
-
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-
     const authTag = cipher.getAuthTag();
-
-    // Retorna: iv:authTag:encrypted
     return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
   } catch (error) {
     console.error('Erro ao criptografar:', error);
@@ -42,28 +33,30 @@ export function encrypt(text: string): string {
   }
 }
 
-/**
- * Descriptografa um texto criptografado com encrypt()
- */
 export function decrypt(encryptedData: string): string {
+  // Dados armazenados sem criptografia
+  if (encryptedData.startsWith(PLAIN_PREFIX)) {
+    return encryptedData.slice(PLAIN_PREFIX.length);
+  }
+
+  const key = getKey();
+  if (!key) {
+    // ENCRYPTION_KEY removida mas dado foi criptografado — não consegue ler
+    throw new Error('ENCRYPTION_KEY necessária para descriptografar este valor');
+  }
+
   try {
-    const key = getKey();
     const parts = encryptedData.split(':');
-
     if (parts.length !== 3) {
-      throw new Error('Formato de dado criptografado inválido');
+      throw new Error('Formato inválido');
     }
-
     const iv = Buffer.from(parts[0], 'hex');
     const authTag = Buffer.from(parts[1], 'hex');
     const encrypted = parts[2];
-
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(authTag);
-
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-
     return decrypted;
   } catch (error) {
     console.error('Erro ao descriptografar:', error);

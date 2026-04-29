@@ -194,8 +194,8 @@ export function createUazapiClient(instanceUrl: string, token: string): UazapiCl
 // UAZapi pode retornar status como "open"/"close"/"connecting" e
 // qrcode em vários campos diferentes dependendo da versão.
 
-function normalizeStatus(raw: string | undefined): 'connected' | 'connecting' | 'disconnected' {
-  if (!raw) return 'disconnected'
+function normalizeStatus(raw: unknown): 'connected' | 'connecting' | 'disconnected' {
+  if (!raw || typeof raw !== 'string') return 'disconnected'
   const s = raw.toLowerCase()
   if (s === 'open' || s === 'connected' || s === 'authenticated') return 'connected'
   if (s === 'connecting' || s === 'qr' || s === 'pairing') return 'connecting'
