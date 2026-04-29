@@ -77,10 +77,26 @@ export async function POST(request: NextRequest) {
     }
 
     if (!config?.uazapi_token || !config?.uazapi_instance_url) {
-      return NextResponse.json({ error: 'Falha ao criar instância. Verifique o UAZAPI_ADMIN_TOKEN.' }, { status: 500 })
+      return NextResponse.json({ error: 'Falha ao criar instância. Verifique o UAZAPI_ADMIN_TOKEN em Admin → Configurações.' }, { status: 500 })
     }
 
-    const token = decrypt(config.uazapi_token)
+    // Se o token no DB não puder ser descriptografado (ENCRYPTION_KEY diferente ou token corrompido),
+    // limpa e força recriação na próxima chamada
+    let token: string
+    try {
+      token = decrypt(config.uazapi_token)
+    } catch {
+      await service.from('sdr_configs').update({
+        uazapi_token: null,
+        uazapi_instance_url: null,
+        uazapi_instance_name: null,
+        instance_status: 'disconnected',
+      }).eq('company_id', companyId)
+      return NextResponse.json({
+        error: 'Token da instância inválido — foi resetado. Clique em conectar novamente.',
+      }, { status: 503 })
+    }
+
     const client = createUazapiClient(config.uazapi_instance_url, token)
 
     // Inicia conexão — se a instância foi auto-deletada (1h sem conectar), recria
