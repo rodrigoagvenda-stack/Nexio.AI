@@ -12,6 +12,7 @@ export const SENSITIVE_KEYS = new Set([
   'google_client_secret',
   'stripe_secret_key',
   'stripe_webhook_secret',
+  'openai_api_key',
 ]);
 
 const MASK = '••••••••••••••••';
@@ -19,6 +20,7 @@ const MASK = '••••••••••••••••';
 export interface PlatformConfig {
   uazapi_base_url: string;
   uazapi_admin_token: string;
+  openai_api_key: string;
   google_client_id: string;
   google_client_secret: string;
   stripe_secret_key: string;
@@ -48,6 +50,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
     return {
       uazapi_base_url: map.uazapi_base_url || process.env.UAZAPI_BASE_URL || '',
       uazapi_admin_token: map.uazapi_admin_token || process.env.UAZAPI_ADMIN_TOKEN || '',
+      openai_api_key: map.openai_api_key || process.env.OPENAI_API_KEY || '',
       google_client_id: map.google_client_id || process.env.GOOGLE_CLIENT_ID || '',
       google_client_secret: map.google_client_secret || process.env.GOOGLE_CLIENT_SECRET || '',
       stripe_secret_key: map.stripe_secret_key || process.env.STRIPE_SECRET_KEY || '',
@@ -61,6 +64,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
     return {
       uazapi_base_url: process.env.UAZAPI_BASE_URL || '',
       uazapi_admin_token: process.env.UAZAPI_ADMIN_TOKEN || '',
+      openai_api_key: process.env.OPENAI_API_KEY || '',
       google_client_id: process.env.GOOGLE_CLIENT_ID || '',
       google_client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
       stripe_secret_key: process.env.STRIPE_SECRET_KEY || '',

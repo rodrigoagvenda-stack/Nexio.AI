@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils/cn';
 import {
   Smartphone, KeyRound, Save, Loader2, Eye, EyeOff,
-  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle,
+  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle, Bot,
 } from 'lucide-react';
 
 interface Props {
@@ -19,6 +19,15 @@ interface Props {
 const MASK = '••••••••••••••••';
 
 const SECTIONS = [
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    icon: Bot,
+    description: 'Chave global da API OpenAI — usada por todos os agentes SDR. Cada empresa pode ter uma chave própria como override.',
+    fields: [
+      { key: 'openai_api_key', label: 'API Key', placeholder: 'sk-...', sensitive: true },
+    ],
+  },
   {
     id: 'uazapi',
     label: 'UAZapi',

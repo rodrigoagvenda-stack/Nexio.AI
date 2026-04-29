@@ -960,7 +960,16 @@ async function loadSdrConfig(
     .single()
 
   if (!config) return null
-  if (!config.agente_ativo) return null
+
+  // Verifica agente_ativo na tabela companies (fonte de verdade — igual ao N8N)
+  const { data: company } = await supabase
+    .from('companies')
+    .select('agente_ativo, is_active')
+    .eq('id', companyId)
+    .single()
+
+  if (!company?.agente_ativo) return null
+  if (!company?.is_active) return null
 
   const decryptIfNeeded = (val: string | null | undefined): string => {
     if (!val) return ''
@@ -970,10 +979,26 @@ async function loadSdrConfig(
     return val
   }
 
+  // Resolve OpenAI key: empresa → platform_config global → env
+  let resolvedOpenAIKey = decryptIfNeeded(config.openai_key)
+  if (!resolvedOpenAIKey) {
+    const { data: globalRow } = await supabase
+      .from('platform_config')
+      .select('value, is_encrypted')
+      .eq('key', 'openai_api_key')
+      .single()
+    if (globalRow?.value) {
+      try {
+        resolvedOpenAIKey = globalRow.is_encrypted ? decrypt(globalRow.value) : globalRow.value
+      } catch {}
+    }
+    if (!resolvedOpenAIKey) resolvedOpenAIKey = process.env.OPENAI_API_KEY || ''
+  }
+
   return {
     agente_ativo: config.agente_ativo,
     uazapi_token: decryptIfNeeded(config.uazapi_token),
-    openai_key: decryptIfNeeded(config.openai_key),
+    openai_key: resolvedOpenAIKey,
     uazapi_instance_url: config.uazapi_instance_url ?? 'https://nexioai.uazapi.com',
     uazapi_instance_name: config.uazapi_instance_name ?? '',
     agent_type: config.agent_type ?? 'atendimento_venda',
