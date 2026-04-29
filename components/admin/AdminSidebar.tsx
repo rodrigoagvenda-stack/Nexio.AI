@@ -8,14 +8,13 @@ import {
   LayoutDashboard,
   Building2,
   Users,
-  FileText,
   Activity,
-  HelpCircle,
   LogOut,
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
-  Webhook,
+  DollarSign,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -31,11 +30,9 @@ const navLinks = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
   { href: '/admin/usuarios', label: 'Usuários', icon: Users },
-  { href: '/admin/briefing', label: 'Briefing', icon: FileText },
-  { href: '/admin/webhooks', label: 'Webhooks & APIs', icon: Webhook },
-  { href: '/admin/n8n', label: 'Monitor N8N', icon: Activity },
+  { href: '/admin/financeiro', label: 'Financeiro', icon: DollarSign },
   { href: '/admin/logs', label: 'Logs', icon: Activity },
-  { href: '/admin/ajuda', label: 'Ajuda', icon: HelpCircle },
+  { href: '/admin/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
 
 export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
@@ -69,9 +66,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
             <h1 className="text-xl">
-              <span className="font-normal text-foreground">nexio</span>
-              <span className="text-primary font-bold">.</span>
-              <span className="font-normal text-foreground">ai</span>
+              <span className="font-bold text-foreground">Zaapli</span>
               <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
                 ADMIN
               </span>
@@ -128,7 +123,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{adminName || 'Admin'}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {adminEmail || 'admin@nexio.ai'}
+                  {adminEmail || 'admin@zaapli.com.br'}
                 </p>
               </div>
             )}
