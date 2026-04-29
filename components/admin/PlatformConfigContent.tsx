@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils/cn';
 import {
   Smartphone, KeyRound, Save, Loader2, Eye, EyeOff,
-  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck,
+  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle,
 } from 'lucide-react';
 
 interface Props {
   initialConfig: Record<string, string>;
+  readError?: string;
 }
 
 const MASK = '••••••••••••••••';
@@ -55,10 +56,11 @@ const SECTIONS = [
 ];
 
 function isConfigured(val: string | undefined) {
-  return !!val && val !== MASK && val.trim() !== '';
+  // MASK means the value is saved but hidden — counts as configured
+  return !!val && val.trim() !== '';
 }
 
-export function PlatformConfigContent({ initialConfig }: Props) {
+export function PlatformConfigContent({ initialConfig, readError }: Props) {
   const [config, setConfig] = useState<Record<string, string>>(initialConfig);
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<string | null>(null);
@@ -113,6 +115,19 @@ export function PlatformConfigContent({ initialConfig }: Props) {
           Credenciais de infraestrutura. Alterações afetam todas as empresas imediatamente.
         </p>
       </div>
+
+      {readError && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-400">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Erro ao carregar configurações</p>
+            <p className="text-xs mt-0.5 font-mono">{readError}</p>
+            <p className="text-xs mt-1 text-muted-foreground">
+              Verifique se <code className="font-mono">SUPABASE_SERVICE_ROLE_KEY</code> e <code className="font-mono">ENCRYPTION_KEY</code> estão configuradas no EasyPanel.
+            </p>
+          </div>
+        </div>
+      )}
 
       {SECTIONS.map((section) => {
         const Icon = section.icon;

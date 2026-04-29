@@ -74,20 +74,18 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
 
 /** Read raw rows for admin UI display (sensitive values masked). */
 export async function getPlatformConfigForAdmin(): Promise<Record<string, string>> {
-  try {
-    const supabase = createServiceClient();
-    const { data: rows } = await supabase
-      .from('platform_config')
-      .select('key, value, is_encrypted');
+  const supabase = createServiceClient();
+  const { data: rows, error } = await supabase
+    .from('platform_config')
+    .select('key, value, is_encrypted');
 
-    const result: Record<string, string> = {};
-    for (const row of rows ?? []) {
-      result[row.key] = row.is_encrypted ? MASK : row.value;
-    }
-    return result;
-  } catch {
-    return {};
+  if (error) throw new Error(error.message);
+
+  const result: Record<string, string> = {};
+  for (const row of rows ?? []) {
+    result[row.key] = row.is_encrypted ? MASK : row.value;
   }
+  return result;
 }
 
 /** Upsert a single key. Encrypts sensitive values automatically. */
