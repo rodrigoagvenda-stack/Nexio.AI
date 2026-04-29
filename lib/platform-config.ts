@@ -95,7 +95,7 @@ export async function setPlatformConfigKey(key: string, value: string): Promise<
   const supabase = createServiceClient();
   const sensitive = SENSITIVE_KEYS.has(key);
 
-  await supabase.from('platform_config').upsert(
+  const { error } = await supabase.from('platform_config').upsert(
     {
       key,
       value: sensitive ? encrypt(value) : value,
@@ -104,4 +104,6 @@ export async function setPlatformConfigKey(key: string, value: string): Promise<
     },
     { onConflict: 'key' }
   );
+
+  if (error) throw new Error(error.message);
 }
