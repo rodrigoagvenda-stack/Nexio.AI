@@ -1065,6 +1065,24 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
   const supabase = createServiceClient()
 
   try {
+    // Evento de conexão/desconexão da instância UAZapi
+    const eventType = (body as any).EventType ?? (body as any).event ?? ''
+    if (typeof eventType === 'string' && eventType.toLowerCase().includes('connect')) {
+      const rawStatus = (body as any).status ?? (body as any).state ?? (body as any).instance?.status
+      const s = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : ''
+      const normalized =
+        s === 'open' || s === 'connected' || s === 'authenticated' ? 'connected' :
+        s === 'close' || s === 'disconnected' || s === 'logout' ? 'disconnected' :
+        null
+      if (normalized) {
+        await supabase.from('sdr_configs').update({
+          instance_status: normalized,
+          ...(normalized === 'disconnected' ? { instance_phone: null } : {}),
+        }).eq('company_id', companyId)
+      }
+      return true
+    }
+
     if (body.message?.fromMe) return false
 
     const text = body.message?.text || body.chat?.wa_lastMessageTextVote || ''
