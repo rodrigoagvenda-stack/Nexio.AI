@@ -102,7 +102,6 @@ export default function AtendimentoPage() {
   const [waQrcode, setWaQrcode] = useState<string | null>(null);
   const [waPairingCode, setWaPairingCode] = useState<string | null>(null);
   const [waConnecting, setWaConnecting] = useState(false);
-  const [waQrDialog, setWaQrDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +121,6 @@ export default function AtendimentoPage() {
 
   const handleWaConnect = async () => {
     setWaConnecting(true);
-    setWaQrDialog(false);   // fecha primeiro para resetar o polling (caso já esteja aberto)
     setWaStatus('connecting');
     setWaQrcode(null);
     setWaPairingCode(null);
@@ -130,7 +128,6 @@ export default function AtendimentoPage() {
       const res = await fetch('/api/sdr/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setWaQrDialog(true);  // reabre → dispara useEffect do polling
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao conectar WhatsApp', variant: 'destructive' });
       setWaStatus('disconnected');
@@ -141,15 +138,18 @@ export default function AtendimentoPage() {
 
   useEffect(() => { fetchWaStatus(); }, [company?.id]);
 
-  // Polling roda enquanto o dialog estiver aberto — independente do waStatus intermediário
+  // Auto-inicia conexão se desconectado ao carregar a página
   useEffect(() => {
-    if (!waQrDialog) return;
+    if (waStatus === 'disconnected' && company?.id && !waConnecting) {
+      handleWaConnect();
+    }
+  }, [company?.id]);
+
+  // Polling roda enquanto não estiver conectado
+  useEffect(() => {
+    if (waStatus === 'connected') return;
     const interval = setInterval(() => fetchWaStatus(true), 3000);
     return () => clearInterval(interval);
-  }, [waQrDialog]);
-
-  useEffect(() => {
-    if (waStatus === 'connected') setWaQrDialog(false);
   }, [waStatus]);
 
   // Carregar conversas
@@ -1076,6 +1076,89 @@ export default function AtendimentoPage() {
     return renderTextWithLinks(msg.texto_da_mensagem || '');
   };
 
+  // ── Tela de conexão WhatsApp (estilo WhatsApp Web) ────────────────────────
+  if (waStatus !== 'connected') {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-background">
+        <div className="w-full max-w-2xl mx-4">
+          <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+            <div className="flex flex-col md:flex-row">
+              {/* Lado esquerdo — instruções */}
+              <div className="flex-1 p-8 flex flex-col gap-6">
+                <div>
+                  <h1 className="text-2xl font-light text-foreground mb-1">Use o WhatsApp no computador</h1>
+                  <p className="text-sm text-muted-foreground">Conecte seu número para começar a atender conversas</p>
+                </div>
+                <ol className="space-y-4">
+                  {[
+                    'Abra o WhatsApp no seu celular',
+                    'Toque em Mais opções → Aparelhos conectados',
+                    'Toque em Conectar um aparelho',
+                    'Aponte o celular para esta tela para capturar o QR code',
+                  ].map((step, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full border-2 border-muted-foreground/40 text-xs font-medium text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                      <span className="text-sm text-foreground">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <button
+                  onClick={handleWaConnect}
+                  disabled={waConnecting || waStatus === 'connecting'}
+                  className="text-sm text-primary underline underline-offset-4 hover:opacity-70 transition-opacity text-left disabled:opacity-40"
+                >
+                  {waConnecting ? 'Gerando QR Code…' : 'Gerar novo QR Code'}
+                </button>
+              </div>
+
+              {/* Lado direito — QR Code */}
+              <div className="flex items-center justify-center p-8 bg-muted/30 border-t md:border-t-0 md:border-l border-border min-h-[260px]">
+                {waQrcode ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-3 bg-white rounded-xl shadow-sm border">
+                      <NextImage
+                        src={`data:image/png;base64,${waQrcode}`}
+                        alt="QR Code WhatsApp"
+                        width={200}
+                        height={200}
+                        className="rounded"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2Icon className="w-3 h-3 animate-spin" />
+                      Aguardando leitura…
+                    </div>
+                  </div>
+                ) : waPairingCode ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-xs text-muted-foreground text-center max-w-[160px]">Digite este código no WhatsApp</p>
+                    <div className="px-6 py-4 bg-white rounded-xl shadow-sm border">
+                      <p className="text-3xl font-mono font-bold tracking-[0.3em] text-foreground">{waPairingCode}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2Icon className="w-3 h-3 animate-spin" />
+                      Aguardando confirmação…
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-[200px] h-[200px] bg-muted rounded-xl flex items-center justify-center">
+                      <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Gerando QR Code…</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            🔒 Suas mensagens são protegidas com criptografia de ponta a ponta
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full w-full overflow-hidden">
       <div className="h-full grid grid-cols-12 gap-2 overflow-hidden">
@@ -1087,24 +1170,11 @@ export default function AtendimentoPage() {
                 <MessageSquare className="h-5 w-5" />
                 Conversas
               </div>
-              {/* WhatsApp status badge */}
-              {waStatus === 'connected' ? (
-                <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full">
-                  <Wifi className="h-3 w-3" />
-                  {waPhone ?? 'Conectado'}
-                </div>
-              ) : (
-                <button
-                  onClick={handleWaConnect}
-                  disabled={waConnecting || waStatus === 'connecting'}
-                  className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 rounded-full hover:bg-yellow-500/20 transition-colors disabled:opacity-60"
-                >
-                  {waConnecting || waStatus === 'connecting'
-                    ? <Loader2Icon className="h-3 w-3 animate-spin" />
-                    : <QrCode className="h-3 w-3" />}
-                  {waStatus === 'connecting' ? 'Conectando…' : 'Conectar WA'}
-                </button>
-              )}
+              {/* WhatsApp status — número conectado */}
+              <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full">
+                <Wifi className="h-3 w-3" />
+                {waPhone ?? 'Conectado'}
+              </div>
             </CardTitle>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1117,61 +1187,6 @@ export default function AtendimentoPage() {
             </div>
           </CardHeader>
 
-          {/* QR Code Dialog */}
-          <Dialog open={waQrDialog} onOpenChange={setWaQrDialog}>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Conectar WhatsApp</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col items-center gap-4 py-2">
-                {waQrcode ? (
-                  <>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Abra o WhatsApp → Aparelhos conectados → Conectar aparelho
-                    </p>
-                    <div className="p-3 bg-white rounded-xl shadow-sm">
-                      <NextImage
-                        src={`data:image/png;base64,${waQrcode}`}
-                        alt="QR Code WhatsApp"
-                        width={220}
-                        height={220}
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Loader2Icon className="w-3 h-3 animate-spin" />
-                      Aguardando leitura…
-                    </div>
-                  </>
-                ) : waPairingCode ? (
-                  <>
-                    <p className="text-sm text-muted-foreground text-center">
-                      WhatsApp → Configurações → Aparelhos conectados → Conectar com número de telefone
-                    </p>
-                    <div className="px-8 py-4 bg-muted rounded-xl border">
-                      <p className="text-3xl font-mono font-bold tracking-[0.3em]">{waPairingCode}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Loader2Icon className="w-3 h-3 animate-spin" />
-                      Aguardando confirmação…
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center gap-4 py-4">
-                    <Loader2Icon className="w-6 h-6 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Aguardando QR Code…</p>
-                    <button
-                      onClick={handleWaConnect}
-                      disabled={waConnecting}
-                      className="text-xs text-primary underline underline-offset-4 hover:opacity-70 transition-opacity"
-                    >
-                      Tentar novamente
-                    </button>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
           <CardContent className="flex-1 overflow-y-auto space-y-2 scrollbar-minimal">
             {filteredConversations.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">

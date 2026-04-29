@@ -2,16 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils/cn'
-import {
-  Bot, Wifi, WifiOff, Loader2, Save, MessageSquare,
-  Copy, CheckCheck, Smartphone, RefreshCw, Calendar, Zap,
-} from 'lucide-react'
-import Image from 'next/image'
+import { Loader2, Save, MessageSquare, Copy, CheckCheck, Calendar, Zap, Wifi, WifiOff } from 'lucide-react'
 
 interface SdrConfig {
   id?: string
@@ -21,13 +16,6 @@ interface SdrConfig {
   webhook_url: string | null
   instance_status: 'disconnected' | 'connecting' | 'connected'
   instance_phone: string | null
-}
-
-interface StatusData {
-  status: 'disconnected' | 'connecting' | 'connected'
-  phone: string | null
-  qrcode: string | null
-  pairingCode: string | null
 }
 
 const AGENT_TYPES = [
@@ -54,18 +42,8 @@ export default function SdrConfigPage() {
     instance_status: 'disconnected',
     instance_phone: null,
   })
-  const [status, setStatus] = useState<StatusData>({
-    status: 'disconnected',
-    phone: null,
-    qrcode: null,
-    pairingCode: null,
-  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [connecting, setConnecting] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [pollingStatus, setPollingStatus] = useState(false)
-  const [connectPhone, setConnectPhone] = useState('')
   const [copied, setCopied] = useState(false)
 
   const loadConfig = useCallback(async () => {
@@ -90,35 +68,7 @@ export default function SdrConfigPage() {
     }
   }, [])
 
-  const loadStatus = useCallback(async (silent = false) => {
-    if (!silent) setPollingStatus(true)
-    try {
-      const res = await fetch('/api/sdr/status')
-      if (!res.ok) return
-      const data: StatusData = await res.json()
-      setStatus(data)
-      setConfig((prev) => ({
-        ...prev,
-        instance_status: data.status,
-        instance_phone: data.phone,
-      }))
-    } catch {
-      // silencioso
-    } finally {
-      if (!silent) setPollingStatus(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadConfig()
-    loadStatus(true)
-  }, [loadConfig, loadStatus])
-
-  useEffect(() => {
-    if (status.status !== 'connecting') return
-    const interval = setInterval(() => loadStatus(true), 4000)
-    return () => clearInterval(interval)
-  }, [status.status, loadStatus])
+  useEffect(() => { loadConfig() }, [loadConfig])
 
   const handleSave = async () => {
     setSaving(true)
@@ -142,48 +92,15 @@ export default function SdrConfigPage() {
     }
   }
 
-  const handleConnect = async () => {
-    setConnecting(true)
-    setStatus({ status: 'connecting', phone: null, qrcode: null, pairingCode: null })
-    try {
-      const res = await fetch('/api/sdr/connect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(connectPhone ? { phone: connectPhone } : {}),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      // QR code vem do polling em /api/sdr/status — só seta connecting
-      setStatus((prev) => ({ ...prev, status: 'connecting', qrcode: null, pairingCode: null }))
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao conectar', variant: 'destructive' })
-      setStatus((prev) => ({ ...prev, status: 'disconnected' }))
-    } finally {
-      setConnecting(false)
-    }
-  }
-
-  const handleDisconnect = async () => {
-    setDisconnecting(true)
-    try {
-      const res = await fetch('/api/sdr/connect', { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setStatus({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
-      toast({ title: 'WhatsApp desconectado' })
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao desconectar', variant: 'destructive' })
-    } finally {
-      setDisconnecting(false)
-    }
-  }
-
   const copyWebhook = () => {
     if (!config.webhook_url) return
     navigator.clipboard.writeText(config.webhook_url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  const isConnected = config.instance_status === 'connected'
+  const isConnecting = config.instance_status === 'connecting'
 
   if (loading) {
     return (
@@ -192,9 +109,6 @@ export default function SdrConfigPage() {
       </div>
     )
   }
-
-  const isConnected = config.instance_status === 'connected'
-  const isConnecting = config.instance_status === 'connecting'
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6 pb-12">
@@ -313,105 +227,6 @@ export default function SdrConfigPage() {
         <p className="text-xs text-muted-foreground">
           Essas instruções são injetadas no agente antes de cada resposta.
         </p>
-      </div>
-
-      {/* ── Conexão WhatsApp ── */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Smartphone className="w-4 h-4 text-muted-foreground" />
-          <p className="text-sm font-medium">Conexão WhatsApp</p>
-        </div>
-
-        {isConnected ? (
-          <div className="flex items-center justify-between p-4 rounded-xl bg-green-500/8 border border-green-500/20">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-green-500/15 flex items-center justify-center">
-                <Wifi className="w-4 h-4 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-green-700 dark:text-green-400">Conectado</p>
-                {status.phone && (
-                  <p className="text-xs text-muted-foreground">{status.phone}</p>
-                )}
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={disconnecting}>
-              {disconnecting
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                : <WifiOff className="w-3.5 h-3.5 mr-1.5" />}
-              Desconectar
-            </Button>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-border overflow-hidden">
-            {/* QR Code */}
-            {status.qrcode && (
-              <div className="flex flex-col items-center gap-3 p-6 bg-muted/20 border-b border-border">
-                <p className="text-sm font-medium">Escaneie com o WhatsApp</p>
-                <div className="p-3 bg-white rounded-xl shadow-sm">
-                  <Image
-                    src={`data:image/png;base64,${status.qrcode}`}
-                    alt="QR Code WhatsApp"
-                    width={200}
-                    height={200}
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Aguardando leitura…
-                </div>
-              </div>
-            )}
-
-            {/* Pairing Code */}
-            {status.pairingCode && !status.qrcode && (
-              <div className="flex flex-col items-center gap-3 p-6 bg-muted/20 border-b border-border">
-                <p className="text-sm font-medium">Código de emparelhamento</p>
-                <div className="px-6 py-3 bg-background rounded-xl border border-border">
-                  <p className="text-3xl font-mono font-bold tracking-[0.3em] text-foreground">
-                    {status.pairingCode}
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground text-center max-w-xs leading-relaxed">
-                  No WhatsApp: <strong>Configurações → Aparelhos conectados → Conectar com número de telefone</strong>
-                </p>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Aguardando confirmação…
-                </div>
-              </div>
-            )}
-
-            {/* Connect form */}
-            <div className="p-4 space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  value={connectPhone}
-                  onChange={(e) => setConnectPhone(e.target.value)}
-                  placeholder="DDI + número (ex: 5511999999999) — opcional"
-                  className="flex-1 text-sm"
-                />
-                <Button onClick={handleConnect} disabled={connecting}>
-                  {connecting
-                    ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : <Wifi className="w-4 h-4" />}
-                  <span className="ml-2">{connectPhone ? 'Código' : 'QR Code'}</span>
-                </Button>
-              </div>
-              <button
-                onClick={() => loadStatus()}
-                disabled={pollingStatus}
-                className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground py-1.5 transition-colors"
-              >
-                {pollingStatus
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <RefreshCw className="w-3 h-3" />}
-                Atualizar status
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Webhook URL ── */}
