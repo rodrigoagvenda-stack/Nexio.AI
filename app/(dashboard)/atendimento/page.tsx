@@ -122,6 +122,7 @@ export default function AtendimentoPage() {
 
   const handleWaConnect = async () => {
     setWaConnecting(true);
+    setWaQrDialog(false);   // fecha primeiro para resetar o polling (caso já esteja aberto)
     setWaStatus('connecting');
     setWaQrcode(null);
     setWaPairingCode(null);
@@ -129,8 +130,7 @@ export default function AtendimentoPage() {
       const res = await fetch('/api/sdr/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      // QR code vem do polling em /api/sdr/status — abre o dialog agora e aguarda
-      setWaQrDialog(true);
+      setWaQrDialog(true);  // reabre → dispara useEffect do polling
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao conectar WhatsApp', variant: 'destructive' });
       setWaStatus('disconnected');
