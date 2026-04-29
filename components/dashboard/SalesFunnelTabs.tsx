@@ -14,13 +14,11 @@ interface FunnelStage {
 
 interface SalesFunnelTabsProps {
   stages: FunnelStage[];
-  outboundStages: FunnelStage[];
   antiNoshowCounts: Record<string, number>;
 }
 
-const salesColors   = ['#052e16', '#15803d', '#166534', '#16a34a', '#22c55e', '#4ade80'];
-const outboundColors = ['#14532d', '#15803d', '#16a34a', '#22c55e', '#4ade80'];
-const noshowColors   = ['#14532d', '#15803d', '#16a34a', '#22c55e'];
+const salesColors  = ['#052e16', '#15803d', '#166534', '#16a34a', '#22c55e', '#4ade80'];
+const noshowColors = ['#14532d', '#15803d', '#16a34a', '#22c55e'];
 
 const NOSHOW_STAGES = [
   { label: '24h antes',   keys: ['24h', '24h_antes',  'antecipacao', '24'] },
@@ -98,7 +96,7 @@ function FunnelBarChart({ data, isMobile }: { data: { name: string; quantidade: 
   );
 }
 
-export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: SalesFunnelTabsProps) {
+export function SalesFunnelTabs({ stages, antiNoshowCounts }: SalesFunnelTabsProps) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -110,10 +108,6 @@ export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: Sa
 
   const salesData = stages.map((s, i) => ({
     name: s.label, quantidade: s.count, fill: salesColors[i % salesColors.length],
-  }));
-
-  const outboundData = outboundStages.map((s, i) => ({
-    name: s.label, quantidade: s.count, fill: outboundColors[i % outboundColors.length],
   }));
 
   const noshowData = NOSHOW_STAGES.map((s, i) => ({
@@ -137,17 +131,12 @@ export function SalesFunnelTabs({ stages, outboundStages, antiNoshowCounts }: Sa
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               <TabsTrigger value="vendas" className="flex-shrink-0 text-xs md:text-sm">Funil de Vendas</TabsTrigger>
-              <TabsTrigger value="outbound" className="flex-shrink-0 text-xs md:text-sm">Funil Outbound</TabsTrigger>
               <TabsTrigger value="noshow" className="flex-shrink-0 text-xs md:text-sm">Anti Noshow</TabsTrigger>
               <TabsTrigger value="remarketing" className="flex-shrink-0 text-xs md:text-sm">Remarketing</TabsTrigger>
             </TabsList>
 
             <TabsContent value="vendas">
               <FunnelBarChart data={salesData} isMobile={isMobile} />
-            </TabsContent>
-
-            <TabsContent value="outbound">
-              <FunnelBarChart data={outboundData} isMobile={isMobile} />
             </TabsContent>
 
             <TabsContent value="noshow">

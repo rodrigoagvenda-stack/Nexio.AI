@@ -434,17 +434,7 @@ export default function DashboardPage() {
     { name: 'Em andamento', value: emAndamento, color: 'hsl(var(--chart-1))' },
   ];
 
-  // Funil Outbound (aba separada)
-  const outboundStages = [
-    { label: 'Triagem',            count: triagem },
-    { label: 'Extraídos',          count: outboundAtivos },
-    { label: 'Abordados',          count: outboundAbordados },
-    { label: 'Retornaram contato', count: outboundRetornaram },
-    { label: 'Conversão',          count: outboundReuniao },
-    { label: 'Fechados',           count: outboundFechados },
-  ];
-
-  // Dados do funil principal (sem Outbound — fica na aba própria)
+  // Dados do funil principal
   const funnelStages = [
     {
       label: 'Lead novo',
@@ -513,13 +503,6 @@ export default function DashboardPage() {
       {/* Cards de Métricas */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard
-          title="Outbound IA"
-          value={outboundAtivos}
-          subtitle="Leads em prospecção"
-          icon={Bot}
-          format="number"
-        />
-        <MetricCard
           title="Novos leads"
           value={novosLeads}
           subtitle={`${novosLeads} novos leads`}
@@ -571,7 +554,6 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 h-auto md:h-[500px]">
           <SalesFunnelTabs
             stages={funnelStages}
-            outboundStages={outboundStages}
             antiNoshowCounts={antiNoshowCounts}
           />
         </div>
