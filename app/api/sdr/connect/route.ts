@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { decrypt, encrypt } from '@/lib/crypto'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 import { createInstance } from '@/lib/uazapi-admin'
 
@@ -38,14 +37,13 @@ export async function POST(request: NextRequest) {
     if (needsCreate) {
       const instanceName = `empresa-${companyId}-${Date.now()}`
       const instance = await createInstance({ name: instanceName, companyId })
-      const encryptedToken = encrypt(instance.token)
       const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
 
       if (config) {
         await service.from('sdr_configs').update({
           uazapi_instance_url: BASE_URL,
           uazapi_instance_name: instanceName,
-          uazapi_token: encryptedToken,
+          uazapi_token: instance.token,   // armazenado sem criptografia
           instance_status: 'disconnected',
           instance_phone: null,
         }).eq('company_id', companyId)
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
           company_id: companyId,
           uazapi_instance_url: BASE_URL,
           uazapi_instance_name: instanceName,
-          uazapi_token: encryptedToken,
+          uazapi_token: instance.token,   // armazenado sem criptografia
           webhook_url: webhookUrl,
           agent_type: 'atendimento_venda',
           agente_ativo: false,
@@ -80,26 +78,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Falha ao criar instância. Verifique o UAZAPI_ADMIN_TOKEN em Admin → Configurações.' }, { status: 500 })
     }
 
-    // Se o token no DB não puder ser descriptografado (ENCRYPTION_KEY diferente ou token corrompido),
-    // limpa e força recriação na próxima chamada
-    let token: string
-    try {
-      token = decrypt(config.uazapi_token)
-    } catch {
-      await service.from('sdr_configs').update({
-        uazapi_token: null,
-        uazapi_instance_url: null,
-        uazapi_instance_name: null,
-        instance_status: 'disconnected',
-      }).eq('company_id', companyId)
-      return NextResponse.json({
-        error: 'Token da instância inválido — foi resetado. Clique em conectar novamente.',
-      }, { status: 503 })
+    // Token armazenado como plain text — tenta descriptografar legado se necessário
+    let token: string = config.uazapi_token
+    if (token.includes(':') && token.split(':').length === 3) {
+      // Formato legado criptografado — tenta decrypt, se falhar limpa e pede reconexão
+      try {
+        const { decrypt } = await import('@/lib/crypto')
+        token = decrypt(config.uazapi_token)
+      } catch {
+        await service.from('sdr_configs').update({
+          uazapi_token: null,
+          uazapi_instance_url: null,
+          uazapi_instance_name: null,
+          instance_status: 'disconnected',
+        }).eq('company_id', companyId)
+        return NextResponse.json({
+          error: 'Token legado inválido — foi resetado. Clique em conectar novamente.',
+        }, { status: 503 })
+      }
     }
 
     const client = createUazapiClient(config.uazapi_instance_url, token)
 
-    // Garante que o webhook esteja configurado nessa instância (connection + messages)
+    // Garante que o webhook esteja configurado nessa instância
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
     await client.setWebhook(webhookUrl, ['messages', 'connection']).catch(() => {})
 
@@ -108,7 +109,6 @@ export async function POST(request: NextRequest) {
       await client.connect(body.phone)
     } catch (uazErr: any) {
       const msg = uazErr.message ?? ''
-      // Instância deletada no UAZapi → limpa DB e deixa recriar na próxima chamada
       if (msg.includes('401') || msg.includes('404') || msg.toLowerCase().includes('not found')) {
         await service.from('sdr_configs').update({
           uazapi_token: null,
@@ -123,12 +123,10 @@ export async function POST(request: NextRequest) {
       throw uazErr
     }
 
-    // Atualiza status no banco
     await service.from('sdr_configs')
       .update({ instance_status: 'connecting' })
       .eq('company_id', companyId)
 
-    // QR code vem do polling em GET /api/sdr/status — não retornamos aqui
     return NextResponse.json({ ok: true, status: 'connecting' })
 
   } catch (err: any) {
@@ -163,7 +161,14 @@ export async function DELETE() {
       return NextResponse.json({ error: 'Nenhuma instância encontrada' }, { status: 404 })
     }
 
-    const token = decrypt(config.uazapi_token)
+    let token: string = config.uazapi_token
+    if (token.includes(':') && token.split(':').length === 3) {
+      try {
+        const { decrypt } = await import('@/lib/crypto')
+        token = decrypt(token)
+      } catch { /* ignora erro de decrypt no token legado */ }
+    }
+
     const client = createUazapiClient(config.uazapi_instance_url, token)
     await client.disconnect()
 

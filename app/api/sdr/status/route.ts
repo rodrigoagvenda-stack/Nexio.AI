@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { decrypt } from '@/lib/crypto'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 
 // GET /api/sdr/status — consulta status da instância uazapi em tempo real
@@ -25,28 +24,24 @@ export async function GET() {
       .eq('company_id', userData.company_id)
       .single()
 
-    if (!config) return NextResponse.json({ status: 'disconnected', phone: null })
-
-    if (!config.uazapi_token || !config.uazapi_instance_url) {
+    if (!config?.uazapi_token || !config?.uazapi_instance_url) {
       return NextResponse.json({ status: 'disconnected', phone: null })
     }
 
-    let token: string
-    try {
-      token = decrypt(config.uazapi_token)
-    } catch {
-      // Token não pode ser descriptografado (ENCRYPTION_KEY mudou ou token corrompido)
-      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
-    }
-
-    if (!token || !/^[\x00-\xFF]+$/.test(token)) {
-      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
+    // Suporta token plain text (novo) e formato legado criptografado
+    let token: string = config.uazapi_token
+    if (token.includes(':') && token.split(':').length === 3) {
+      try {
+        const { decrypt } = await import('@/lib/crypto')
+        token = decrypt(token)
+      } catch {
+        return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
+      }
     }
 
     const client = createUazapiClient(config.uazapi_instance_url, token)
     const liveStatus = await client.getStatus()
 
-    // Sincroniza o status no banco para leituras futuras
     if (liveStatus.status !== config.instance_status || liveStatus.phone !== config.instance_phone) {
       await service
         .from('sdr_configs')
@@ -58,9 +53,7 @@ export async function GET() {
     }
 
     const rawQr = liveStatus.qrcode ?? null
-    const qrcode = rawQr
-      ? rawQr.replace(/^data:image\/[^;]+;base64,/, '')
-      : null
+    const qrcode = rawQr ? rawQr.replace(/^data:image\/[^;]+;base64,/, '') : null
 
     return NextResponse.json({
       status: liveStatus.status,

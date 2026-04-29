@@ -142,12 +142,12 @@ export default function AtendimentoPage() {
   useEffect(() => { fetchWaStatus(); }, [company?.id]);
 
   useEffect(() => {
-    if (!waQrDialog) return;
+    if (waStatus !== 'connecting') return;
     const interval = setInterval(async () => {
       await fetchWaStatus(true);
     }, 3000);
     return () => clearInterval(interval);
-  }, [waQrDialog]);
+  }, [waStatus]);
 
   useEffect(() => {
     if (waStatus === 'connected') setWaQrDialog(false);
