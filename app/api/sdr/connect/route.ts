@@ -6,8 +6,7 @@ import { createInstance } from '@/lib/uazapi-admin'
 
 const BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '')
 
-// POST /api/sdr/connect
-// Body: { phone?: string }
+// POST /api/sdr/connect — inicia conexão. QR code vem de GET /api/sdr/status.
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -31,8 +30,12 @@ export async function POST(request: NextRequest) {
       .eq('company_id', companyId)
       .single()
 
-    // ── Auto-criar instância se não existe token/instância ────────────────
-    if (!config?.uazapi_token || !config?.uazapi_instance_url) {
+    const body = await request.json().catch(() => ({}))
+
+    // ── Criar/recriar instância se necessário ─────────────────────────────
+    const needsCreate = !config?.uazapi_token || !config?.uazapi_instance_url
+
+    if (needsCreate) {
       const instanceName = `empresa-${companyId}-${Date.now()}`
       const instance = await createInstance({ name: instanceName, companyId })
       const encryptedToken = encrypt(instance.token)
@@ -59,13 +62,11 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Salva instance_name na tabela companies para identificação no n8n
       await service.from('companies').update({
         whatsapp_instance_name: instanceName,
         whatsapp_instance: BASE_URL,
       }).eq('id', companyId)
 
-      // Recarrega config atualizada
       const { data: fresh } = await service
         .from('sdr_configs')
         .select('uazapi_instance_url, uazapi_token')
@@ -76,21 +77,40 @@ export async function POST(request: NextRequest) {
     }
 
     if (!config?.uazapi_token || !config?.uazapi_instance_url) {
-      return NextResponse.json({ error: 'Falha ao criar instância. Tente novamente.' }, { status: 500 })
+      return NextResponse.json({ error: 'Falha ao criar instância. Verifique o UAZAPI_ADMIN_TOKEN.' }, { status: 500 })
     }
 
     const token = decrypt(config.uazapi_token)
     const client = createUazapiClient(config.uazapi_instance_url, token)
 
-    const body = await request.json().catch(() => ({}))
-    const result = await client.connect(body.phone)
+    // Inicia conexão — se a instância foi auto-deletada (1h sem conectar), recria
+    try {
+      await client.connect(body.phone)
+    } catch (uazErr: any) {
+      const msg = uazErr.message ?? ''
+      // Instância deletada no UAZapi → limpa DB e deixa recriar na próxima chamada
+      if (msg.includes('401') || msg.includes('404') || msg.toLowerCase().includes('not found')) {
+        await service.from('sdr_configs').update({
+          uazapi_token: null,
+          uazapi_instance_url: null,
+          uazapi_instance_name: null,
+          instance_status: 'disconnected',
+        }).eq('company_id', companyId)
+        return NextResponse.json({
+          error: 'Instância expirou no servidor WhatsApp. Clique em conectar novamente para recriar.',
+        }, { status: 503 })
+      }
+      throw uazErr
+    }
 
-    const rawQr = (result as any).qrcode ?? null
-    const qrcode = rawQr
-      ? rawQr.replace(/^data:image\/[^;]+;base64,/, '')
-      : null
+    // Atualiza status no banco
+    await service.from('sdr_configs')
+      .update({ instance_status: 'connecting' })
+      .eq('company_id', companyId)
 
-    return NextResponse.json({ ...result, qrcode })
+    // QR code vem do polling em GET /api/sdr/status — não retornamos aqui
+    return NextResponse.json({ ok: true, status: 'connecting' })
+
   } catch (err: any) {
     console.error('[SDR connect]', err)
     return NextResponse.json({ error: err.message || 'Erro ao conectar' }, { status: 500 })

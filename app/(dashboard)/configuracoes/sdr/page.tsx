@@ -153,12 +153,8 @@ export default function SdrConfigPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setStatus((prev) => ({
-        ...prev,
-        qrcode: data.qrcode ?? null,
-        pairingCode: data.pairingCode ?? null,
-        status: 'connecting',
-      }))
+      // QR code vem do polling em /api/sdr/status — só seta connecting
+      setStatus((prev) => ({ ...prev, status: 'connecting', qrcode: null, pairingCode: null }))
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao conectar', variant: 'destructive' })
       setStatus((prev) => ({ ...prev, status: 'disconnected' }))

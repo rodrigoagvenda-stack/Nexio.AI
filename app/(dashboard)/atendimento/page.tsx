@@ -129,8 +129,7 @@ export default function AtendimentoPage() {
       const res = await fetch('/api/sdr/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setWaQrcode(data.qrcode ?? null);
-      setWaPairingCode(data.pairingCode ?? null);
+      // QR code vem do polling em /api/sdr/status — abre o dialog agora e aguarda
       setWaQrDialog(true);
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao conectar WhatsApp', variant: 'destructive' });
