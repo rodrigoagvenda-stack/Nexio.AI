@@ -102,12 +102,13 @@ export default function AtendimentoPage() {
   const [waQrcode, setWaQrcode] = useState<string | null>(null);
   const [waPairingCode, setWaPairingCode] = useState<string | null>(null);
   const [waConnecting, setWaConnecting] = useState(false);
+  const [waLoading, setWaLoading] = useState(true); // true até a primeira verificação retornar
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // WhatsApp status
-  const fetchWaStatus = async (silent = false) => {
+  const fetchWaStatus = async () => {
     try {
       const res = await fetch('/api/sdr/status');
       if (!res.ok) return;
@@ -116,7 +117,9 @@ export default function AtendimentoPage() {
       setWaPhone(data.phone ?? null);
       setWaQrcode(data.qrcode ?? null);
       setWaPairingCode(data.pairingCode ?? null);
-    } catch {}
+    } catch {} finally {
+      setWaLoading(false);
+    }
   };
 
   const handleWaConnect = async () => {
@@ -136,21 +139,23 @@ export default function AtendimentoPage() {
     }
   };
 
+  // Verifica status real na montagem
   useEffect(() => { fetchWaStatus(); }, [company?.id]);
 
-  // Auto-inicia conexão se desconectado ao carregar a página
+  // Auto-connect: só dispara depois da verificação inicial confirmar desconectado
   useEffect(() => {
+    if (waLoading) return;
     if (waStatus === 'disconnected' && company?.id && !waConnecting) {
       handleWaConnect();
     }
-  }, [company?.id]);
+  }, [waLoading]);
 
-  // Polling roda enquanto não estiver conectado
+  // Polling só roda enquanto não conectado E depois do status inicial ser conhecido
   useEffect(() => {
-    if (waStatus === 'connected') return;
-    const interval = setInterval(() => fetchWaStatus(true), 3000);
+    if (waLoading || waStatus === 'connected') return;
+    const interval = setInterval(fetchWaStatus, 3000);
     return () => clearInterval(interval);
-  }, [waStatus]);
+  }, [waStatus, waLoading]);
 
   // Carregar conversas
   useEffect(() => {
@@ -1075,6 +1080,15 @@ export default function AtendimentoPage() {
     // Se não tem mídia, só renderiza o texto
     return renderTextWithLinks(msg.texto_da_mensagem || '');
   };
+
+  // ── Aguarda verificação inicial para não piscar QR em quem já está conectado ──
+  if (waLoading) {
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <Loader2Icon className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   // ── Tela de conexão WhatsApp (estilo WhatsApp Web) ────────────────────────
   if (waStatus !== 'connected') {

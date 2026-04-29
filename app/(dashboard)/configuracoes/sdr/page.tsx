@@ -48,8 +48,13 @@ export default function SdrConfigPage() {
 
   const loadConfig = useCallback(async () => {
     try {
-      const res = await fetch('/api/sdr/config')
-      const data = await res.json()
+      const [configRes, statusRes] = await Promise.all([
+        fetch('/api/sdr/config'),
+        fetch('/api/sdr/status'),
+      ])
+      const data = await configRes.json()
+      const liveStatus = statusRes.ok ? await statusRes.json() : null
+
       if (data.config) {
         setConfig({
           id: data.config.id,
@@ -57,8 +62,9 @@ export default function SdrConfigPage() {
           prompt: data.config.prompt ?? '',
           agente_ativo: data.config.agente_ativo ?? false,
           webhook_url: data.config.webhook_url ?? null,
-          instance_status: data.config.instance_status ?? 'disconnected',
-          instance_phone: data.config.instance_phone ?? null,
+          // Prefere o status live para evitar valor preso no banco
+          instance_status: liveStatus?.status ?? data.config.instance_status ?? 'disconnected',
+          instance_phone: liveStatus?.phone ?? data.config.instance_phone ?? null,
         })
       }
     } catch {
