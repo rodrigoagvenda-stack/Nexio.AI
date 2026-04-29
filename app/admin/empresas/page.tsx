@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { Plus, Eye, Settings, Trash2, Building2, TrendingUp, Zap } from 'lucide-react';
+import { Eye, Building2, TrendingUp, Zap } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { formatDateTime } from '@/lib/utils/format';
 import {
@@ -52,9 +52,10 @@ export default function EmpresasListPage() {
 
   const getPlanInfo = (planType: string) => {
     const plans: Record<string, { name: string; price: string; icon: any; color: string }> = {
-      basic: { name: 'ZAAPLI START', price: 'R$ 1.600', icon: Building2, color: 'from-blue-500/20 to-blue-600/20' },
-      performance: { name: 'ZAAPLI GROWTH', price: 'R$ 2.000', icon: TrendingUp, color: 'from-green-500/20 to-green-600/20' },
-      advanced: { name: 'ZAAPLI PRO', price: 'R$ 2.600', icon: Zap, color: 'from-orange-500/20 to-orange-600/20' },
+      basic:   { name: 'ZAAPLI FREE',   price: 'Gratuito',  icon: Building2,  color: 'from-slate-500/20 to-slate-600/20' },
+      starter: { name: 'ZAAPLI START',  price: 'R$ 1.600',  icon: Building2,  color: 'from-blue-500/20 to-blue-600/20' },
+      pro:     { name: 'ZAAPLI GROWTH', price: 'R$ 2.000',  icon: TrendingUp, color: 'from-green-500/20 to-green-600/20' },
+      scale:   { name: 'ZAAPLI PRO',    price: 'R$ 2.600',  icon: Zap,        color: 'from-orange-500/20 to-orange-600/20' },
     };
     return plans[planType] || plans.basic;
   };
@@ -86,12 +87,6 @@ export default function EmpresasListPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Empresas</h1>
           <p className="text-muted-foreground mt-1">Gerencie as empresas cadastradas</p>
         </div>
-        <Link href="/admin/empresas/nova">
-          <Button className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Empresa
-          </Button>
-        </Link>
       </div>
 
       <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl">
@@ -135,25 +130,13 @@ export default function EmpresasListPage() {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-xs text-muted-foreground">Plano</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <PlanIcon className="h-3 w-3" />
-                              <span className="text-xs font-medium">{planInfo.name}</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{planInfo.price}/mês</p>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Plano</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <PlanIcon className="h-3 w-3" />
+                            <span className="text-xs font-medium">{planInfo.name}</span>
                           </div>
-                          <div>
-                            <p className="text-xs text-muted-foreground">VendAgro</p>
-                            {company.vendagro_plan ? (
-                              <Badge variant="default" className="text-xs mt-1 bg-green-500/20 text-green-300 border-green-500/30">
-                                {company.vendagro_plan}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
-                          </div>
+                          <p className="text-xs text-muted-foreground">{planInfo.price}/mês</p>
                         </div>
 
                         <div>
@@ -168,14 +151,6 @@ export default function EmpresasListPage() {
                               Ver
                             </Button>
                           </Link>
-                          {company.vendagro_plan && (
-                            <Link href={`/admin/empresas/${company.id}/icp`} className="flex-1">
-                              <Button variant="outline" size="sm" className="w-full bg-white/[0.05] border-white/[0.08] hover:bg-white/[0.1]">
-                                <Settings className="h-4 w-4 mr-2" />
-                                ICP
-                              </Button>
-                            </Link>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -191,7 +166,6 @@ export default function EmpresasListPage() {
                       <th className="text-left p-3 text-sm font-semibold">Empresa</th>
                       <th className="text-left p-3 text-sm font-semibold">Email</th>
                       <th className="text-left p-3 text-sm font-semibold">Plano</th>
-                      <th className="text-left p-3 text-sm font-semibold">VendAgro</th>
                       <th className="text-left p-3 text-sm font-semibold">Status</th>
                       <th className="text-left p-3 text-sm font-semibold">Criado</th>
                       <th className="text-left p-3 text-sm font-semibold">Ações</th>
@@ -216,15 +190,6 @@ export default function EmpresasListPage() {
                             </div>
                           </td>
                           <td className="p-3">
-                            {company.vendagro_plan ? (
-                              <Badge variant="default" className="text-xs bg-green-500/20 text-green-300 border-green-500/30">
-                                {company.vendagro_plan}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
-                            )}
-                          </td>
-                          <td className="p-3">
                             {company.is_active ? (
                               <Badge variant="default" className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">
                                 Ativa
@@ -237,20 +202,11 @@ export default function EmpresasListPage() {
                             {formatDateTime(company.created_at)}
                           </td>
                           <td className="p-3">
-                            <div className="flex gap-1">
-                              <Link href={`/admin/empresas/${company.id}`}>
-                                <Button variant="ghost" size="sm" className="hover:bg-white/[0.05]">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </Link>
-                              {company.vendagro_plan && (
-                                <Link href={`/admin/empresas/${company.id}/icp`}>
-                                  <Button variant="ghost" size="sm" className="hover:bg-white/[0.05]">
-                                    <Settings className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                              )}
-                            </div>
+                            <Link href={`/admin/empresas/${company.id}`}>
+                              <Button variant="ghost" size="sm" className="hover:bg-white/[0.05]">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
                           </td>
                         </tr>
                       );

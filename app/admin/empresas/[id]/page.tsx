@@ -8,12 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Loader2, Power, Trash2, Calendar, Target, X, Camera, Bot } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { usePhoneMask } from '@/lib/hooks/usePhoneMask';
-import { BriefingCompanyConfig } from '@/components/admin/BriefingCompanyConfig';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -468,10 +466,10 @@ export default function EmpresaDetailPage() {
                 value={company.plan_type || 'basic'}
                 onValueChange={(value: any) => {
                   const planPriceMap: Record<string, number> = {
-                    'basic': 0,
-                    'starter': 397,
-                    'pro': 597,
-                    'scale': 997,
+                    'basic':   0,
+                    'starter': 1600,
+                    'pro':     2000,
+                    'scale':   2600,
                   };
                   setCompany({
                     ...company,
@@ -486,26 +484,26 @@ export default function EmpresaDetailPage() {
                 <SelectContent>
                   <SelectItem value="basic">
                     <div className="flex flex-col">
-                      <span className="font-medium">Basic (Gratuito)</span>
+                      <span className="font-medium">ZAAPLI FREE</span>
                       <span className="text-xs text-muted-foreground">Sem assinatura ativa</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="starter">
                     <div className="flex flex-col">
-                      <span className="font-medium">Starter</span>
-                      <span className="text-xs text-muted-foreground">R$ 397/mês — 1 número, 5M tokens</span>
+                      <span className="font-medium">ZAAPLI START</span>
+                      <span className="text-xs text-muted-foreground">R$ 1.600/mês</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="pro">
                     <div className="flex flex-col">
-                      <span className="font-medium">Pro</span>
-                      <span className="text-xs text-muted-foreground">R$ 597/mês — 3 números, 15M tokens</span>
+                      <span className="font-medium">ZAAPLI GROWTH</span>
+                      <span className="text-xs text-muted-foreground">R$ 2.000/mês</span>
                     </div>
                   </SelectItem>
                   <SelectItem value="scale">
                     <div className="flex flex-col">
-                      <span className="font-medium">Scale</span>
-                      <span className="text-xs text-muted-foreground">R$ 997/mês — 10 números, 50M tokens</span>
+                      <span className="font-medium">ZAAPLI PRO</span>
+                      <span className="text-xs text-muted-foreground">R$ 2.600/mês</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -516,8 +514,7 @@ export default function EmpresaDetailPage() {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
+      <Card>
           <CardHeader>
             <CardTitle>Assinatura</CardTitle>
           </CardHeader>
@@ -579,103 +576,6 @@ export default function EmpresaDetailPage() {
               )}
             </div>
           </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>WhatsApp (UAZap)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="whatsapp_instance">URL da Instância</Label>
-                <Input
-                  id="whatsapp_instance"
-                  value={company.whatsapp_instance || ''}
-                  onChange={(e) =>
-                    setCompany({ ...company, whatsapp_instance: e.target.value })
-                  }
-                  placeholder="https://empresa.uazapi.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="whatsapp_token">Token</Label>
-                <Input
-                  id="whatsapp_token"
-                  type="password"
-                  value={company.whatsapp_token || ''}
-                  onChange={(e) => setCompany({ ...company, whatsapp_token: e.target.value })}
-                  placeholder="Token de acesso"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Webhooks N8N</CardTitle>
-          <CardDescription>Automações exclusivas desta empresa</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Webhook Maps */}
-          <div className="border rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Extração de Leads (Maps)</p>
-                <p className="text-xs text-muted-foreground">Usado na captura de leads via Google Maps</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={company.webhook_maps_enabled ? 'default' : 'secondary'}>
-                  {company.webhook_maps_enabled ? 'Ativo' : 'Inativo'}
-                </Badge>
-                <Switch
-                  checked={!!company.webhook_maps_enabled}
-                  onCheckedChange={(v) => setCompany({ ...company, webhook_maps_enabled: v })}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="webhook_maps_url" className="text-xs">URL do Webhook</Label>
-              <Input
-                id="webhook_maps_url"
-                value={company.webhook_maps_url || ''}
-                onChange={(e) => setCompany({ ...company, webhook_maps_url: e.target.value })}
-                placeholder="https://n8n.empresa.com/webhook/extrair-leads"
-              />
-            </div>
-          </div>
-
-          {/* Webhook WhatsApp */}
-          <div className="border rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Envio de Mensagens (WhatsApp)</p>
-                <p className="text-xs text-muted-foreground">Usado no envio manual de mensagens via WhatsApp</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={company.webhook_whatsapp_enabled ? 'default' : 'secondary'}>
-                  {company.webhook_whatsapp_enabled ? 'Ativo' : 'Inativo'}
-                </Badge>
-                <Switch
-                  checked={!!company.webhook_whatsapp_enabled}
-                  onCheckedChange={(v) => setCompany({ ...company, webhook_whatsapp_enabled: v })}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="webhook_whatsapp_url" className="text-xs">URL do Webhook</Label>
-              <Input
-                id="webhook_whatsapp_url"
-                value={company.webhook_whatsapp_url || ''}
-                onChange={(e) => setCompany({ ...company, webhook_whatsapp_url: e.target.value })}
-                placeholder="https://n8n.empresa.com/webhook/send-manual-message"
-              />
-            </div>
-          </div>
-        </CardContent>
       </Card>
 
       {/* SDR — Credenciais uazapi por empresa */}
@@ -768,13 +668,6 @@ export default function EmpresaDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Briefing multi-tenant */}
-      {company && (
-        <BriefingCompanyConfig
-          companyId={company.id}
-          companyName={company.name}
-        />
-      )}
     </div>
   );
 }
