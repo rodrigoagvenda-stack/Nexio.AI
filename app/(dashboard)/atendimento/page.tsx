@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2, MoreVertical, Info } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode } from 'lucide-react';
+import NextImage from 'next/image';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -93,9 +95,64 @@ export default function AtendimentoPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiActive, setIsAiActive] = useState(true);
   const [convAgentePausado, setConvAgentePausado] = useState(false);
+
+  // WhatsApp connection state
+  const [waStatus, setWaStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [waPhone, setWaPhone] = useState<string | null>(null);
+  const [waQrcode, setWaQrcode] = useState<string | null>(null);
+  const [waPairingCode, setWaPairingCode] = useState<string | null>(null);
+  const [waConnecting, setWaConnecting] = useState(false);
+  const [waQrDialog, setWaQrDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // WhatsApp status
+  const fetchWaStatus = async (silent = false) => {
+    try {
+      const res = await fetch('/api/sdr/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      setWaStatus(data.status ?? 'disconnected');
+      setWaPhone(data.phone ?? null);
+      setWaQrcode(data.qrcode ?? null);
+      setWaPairingCode(data.pairingCode ?? null);
+    } catch {}
+  };
+
+  const handleWaConnect = async () => {
+    setWaConnecting(true);
+    setWaStatus('connecting');
+    setWaQrcode(null);
+    setWaPairingCode(null);
+    try {
+      const res = await fetch('/api/sdr/connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setWaQrcode(data.qrcode ?? null);
+      setWaPairingCode(data.pairingCode ?? null);
+      setWaQrDialog(true);
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao conectar WhatsApp', variant: 'destructive' });
+      setWaStatus('disconnected');
+    } finally {
+      setWaConnecting(false);
+    }
+  };
+
+  useEffect(() => { fetchWaStatus(); }, [company?.id]);
+
+  useEffect(() => {
+    if (waStatus !== 'connecting') return;
+    const interval = setInterval(async () => {
+      await fetchWaStatus(true);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [waStatus]);
+
+  useEffect(() => {
+    if (waStatus === 'connected') setWaQrDialog(false);
+  }, [waStatus]);
 
   // Carregar conversas
   useEffect(() => {
@@ -1027,9 +1084,29 @@ export default function AtendimentoPage() {
         {/* Lista de Conversas */}
         <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="flex-shrink-0">
-            <CardTitle className="flex items-center gap-2 mb-5">
-              <MessageSquare className="h-5 w-5" />
-              Conversas
+            <CardTitle className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Conversas
+              </div>
+              {/* WhatsApp status badge */}
+              {waStatus === 'connected' ? (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full">
+                  <Wifi className="h-3 w-3" />
+                  {waPhone ?? 'Conectado'}
+                </div>
+              ) : (
+                <button
+                  onClick={handleWaConnect}
+                  disabled={waConnecting || waStatus === 'connecting'}
+                  className="flex items-center gap-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 rounded-full hover:bg-yellow-500/20 transition-colors disabled:opacity-60"
+                >
+                  {waConnecting || waStatus === 'connecting'
+                    ? <Loader2Icon className="h-3 w-3 animate-spin" />
+                    : <QrCode className="h-3 w-3" />}
+                  {waStatus === 'connecting' ? 'Conectando…' : 'Conectar WA'}
+                </button>
+              )}
             </CardTitle>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1041,6 +1118,55 @@ export default function AtendimentoPage() {
               />
             </div>
           </CardHeader>
+
+          {/* QR Code Dialog */}
+          <Dialog open={waQrDialog} onOpenChange={setWaQrDialog}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Conectar WhatsApp</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-4 py-2">
+                {waQrcode ? (
+                  <>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Abra o WhatsApp → Aparelhos conectados → Conectar aparelho
+                    </p>
+                    <div className="p-3 bg-white rounded-xl shadow-sm">
+                      <NextImage
+                        src={`data:image/png;base64,${waQrcode}`}
+                        alt="QR Code WhatsApp"
+                        width={220}
+                        height={220}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2Icon className="w-3 h-3 animate-spin" />
+                      Aguardando leitura…
+                    </div>
+                  </>
+                ) : waPairingCode ? (
+                  <>
+                    <p className="text-sm text-muted-foreground text-center">
+                      WhatsApp → Configurações → Aparelhos conectados → Conectar com número de telefone
+                    </p>
+                    <div className="px-8 py-4 bg-muted rounded-xl border">
+                      <p className="text-3xl font-mono font-bold tracking-[0.3em]">{waPairingCode}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2Icon className="w-3 h-3 animate-spin" />
+                      Aguardando confirmação…
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <Loader2Icon className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Gerando QR Code…</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           <CardContent className="flex-1 overflow-y-auto space-y-2 scrollbar-minimal">
             {filteredConversations.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">

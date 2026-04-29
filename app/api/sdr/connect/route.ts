@@ -85,7 +85,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const result = await client.connect(body.phone)
 
-    return NextResponse.json(result)
+    const rawQr = (result as any).qrcode ?? null
+    const qrcode = rawQr
+      ? rawQr.replace(/^data:image\/[^;]+;base64,/, '')
+      : null
+
+    return NextResponse.json({ ...result, qrcode })
   } catch (err: any) {
     console.error('[SDR connect]', err)
     return NextResponse.json({ error: err.message || 'Erro ao conectar' }, { status: 500 })

@@ -58,10 +58,15 @@ export async function GET() {
         .eq('company_id', userData.company_id)
     }
 
+    const rawQr = liveStatus.qrcode ?? null
+    const qrcode = rawQr
+      ? rawQr.replace(/^data:image\/[^;]+;base64,/, '')
+      : null
+
     return NextResponse.json({
       status: liveStatus.status,
       phone: liveStatus.phone ?? null,
-      qrcode: liveStatus.qrcode ?? null,
+      qrcode,
       pairingCode: liveStatus.pairingCode ?? null,
     })
   } catch (err: any) {
