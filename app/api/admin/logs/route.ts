@@ -29,9 +29,12 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const severity = searchParams.get('severity');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const type      = searchParams.get('type');
+    const severity  = searchParams.get('severity');
+    const fromDate  = searchParams.get('from_date');
+    const toDate    = searchParams.get('to_date');
+    const companyId = searchParams.get('company_id');
+    const limit     = parseInt(searchParams.get('limit') || '200');
 
     let query = serviceSupabase
       .from('system_logs')
@@ -39,8 +42,11 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (type && type !== 'all') query = query.eq('type', type);
+    if (type && type !== 'all')       query = query.eq('type', type);
     if (severity && severity !== 'all') query = query.eq('severity', severity);
+    if (fromDate)                     query = query.gte('created_at', fromDate);
+    if (toDate)                       query = query.lte('created_at', toDate);
+    if (companyId)                    query = query.eq('company_id', parseInt(companyId));
 
     const { data, error } = await query;
 
