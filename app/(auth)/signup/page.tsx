@@ -84,7 +84,7 @@ export default function SignupPage() {
           <Link href="/" className="flex items-center gap-2">
             <img
               src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio%20ai%20logo%20branca.png"
-              alt="Nexio.AI"
+              alt="Zaapli"
               style={{ height: '32px', width: 'auto', filter: 'invert(1)' }}
             />
           </Link>
@@ -223,7 +223,7 @@ export default function SignupPage() {
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground">
-          &copy; {new Date().getFullYear()} Nexio.AI — Todos os direitos reservados
+          &copy; {new Date().getFullYear()} Zaapli — Todos os direitos reservados
         </p>
       </div>
 

@@ -64,6 +64,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
+const photoCache: Record<string, string | null> = {}
+
 // 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
 const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -73,6 +75,16 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
       lead,
     },
   });
+
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lead.whatsapp) return;
+    if (lead.whatsapp in photoCache) { setPhotoUrl(photoCache[lead.whatsapp]); return; }
+    fetch(`/api/chat/contact-photo?phone=${encodeURIComponent(lead.whatsapp)}`)
+      .then(r => r.json())
+      .then(d => { photoCache[lead.whatsapp!] = d.photo ?? null; setPhotoUrl(d.photo ?? null); })
+      .catch(() => {});
+  }, [lead.whatsapp]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -110,10 +122,12 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
         <OrbitCardContent className="p-4 space-y-3 h-full flex flex-col">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-semibold text-primary">
-                {getInitials(lead.company_name)}
-              </span>
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {photoUrl ? (
+                <img src={photoUrl} alt={lead.contact_name || lead.company_name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-semibold text-primary">{getInitials(lead.company_name)}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm text-foreground line-clamp-2 mb-1">

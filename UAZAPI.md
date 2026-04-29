@@ -1,4 +1,4 @@
-# UAZapi GO V2 — Documentação de Referência
+# UAZapi GO V2 — Documentação de Referência Completa
 
 Base URL: `https://{subdomain}.uazapi.com`
 Exemplo: `https://nexioai.uazapi.com`
@@ -16,107 +16,69 @@ Exemplo: `https://nexioai.uazapi.com`
 
 ### POST /instance/create
 Cria nova instância. Requer `admintoken`.
-
 ```json
-{ "name": "minha-instancia", "systemName": "zaapli", "adminField01": "company_id", "adminField02": "plan" }
+{ "name": "zaapli-empresa-2", "systemName": "zaapli", "adminField01": "company_id", "adminField02": "plan" }
 ```
 Retorna `token` único — guardar no banco imediatamente.
 Estados: `disconnected` | `connecting` | `connected`
-
-Campos `adminField01`/`adminField02` são opcionais para metadados personalizados. Visíveis ao dono via token, editáveis apenas pelo admin.
-
-Resposta inclui `instance.id`, `instance.token`, `instance.status`, `instance.qrcode`, `instance.paircode`, `instance.name`, `instance.profileName`, `instance.profilePicUrl`.
-
----
+Instâncias novas são deletadas após 1h se não conectadas.
 
 ### GET /instance/all
-Lista todas as instâncias. Requer `admintoken`. Retorna array com status, datas, perfil, metadados de cada instância.
-
----
+Lista todas as instâncias. Requer `admintoken`.
 
 ### POST /instance/connect
-Inicia conexão. Sem `phone` → gera QR code. Com `phone` → gera paircode.
-
 ```json
 { "phone": "5511999999999" }
 ```
+Sem `phone` → QR code. Com `phone` → paircode.
 Timeout: 2min QR | 5min paircode. Monitorar via `/instance/status`.
-
-**Histórico:** Mensagens dos últimos 7 dias sincronizadas no evento `history` do webhook e acessíveis via `POST /message/find` e `POST /chat/find`.
-
----
+Mensagens dos últimos 7 dias acessíveis via `POST /message/find` e `POST /chat/find`.
 
 ### GET /instance/status
-Retorna status atual + QR code atualizado (se connecting).
-
-Resposta:
+Retorna status + QR code atualizado.
 ```json
 {
-  "instance": { "status": "connected", "qrcode": "...", "paircode": "...", "name": "..." },
+  "instance": { "status": "connected", "qrcode": "base64...", "paircode": "1234-5678", "name": "..." },
   "status": { "connected": true, "loggedIn": true, "jid": "5511999@s.whatsapp.net" }
 }
 ```
-**IMPORTANTE:** `instance.status` é a string de status. `status` (raiz) é um objeto, não string.
-
----
+**CRÍTICO:** `instance.status` é a string correta. `raw.status` raiz é objeto, NÃO string.
 
 ### POST /instance/disconnect
 Encerra sessão. Exige novo QR para reconectar.
 
----
-
 ### POST /instance/reset
-Reset controlado do runtime. Útil quando sessão trava sem apagar a instância.
-
----
+Reset controlado do runtime. Útil quando sessão trava.
 
 ### DELETE /instance
-Remove instância permanentemente. Requer `token` da instância.
-
----
+Remove instância permanentemente. Requer `token`.
 
 ### POST /instance/updateInstanceName
 ```json
 { "name": "Novo Nome" }
 ```
 
----
-
 ### POST /instance/updateAdminFields
-Requer `admintoken`. Atualiza metadados.
+Requer `admintoken`.
 ```json
 { "id": "inst_123", "adminField01": "company_id_456", "adminField02": "plan_pro" }
 ```
 
----
-
 ### POST /instance/updateDelaySettings
-Delay entre mensagens diretas (anti-ban).
 ```json
 { "msg_delay_min": 1, "msg_delay_max": 3 }
 ```
-- `msg_delay_min`: 0 = sem delay
-- `msg_delay_max`: se menor que min, ajustado para min
-- Aplica apenas para mensagens diretas (não campanhas)
-
----
+Aplica apenas para mensagens diretas (não campanhas). Min 0 = sem delay.
 
 ### GET /instance/wa_messages_limits
-Verifica restrições da conta para iniciar novas conversas. Útil para diagnosticar ban (provider_code 463).
-
-Retorna `new_chat_message_capping` e `reachout_timelock`.
-
----
+Diagnóstico de ban/restrição de novas conversas (provider_code 463).
 
 ### GET /instance/privacy
 ### POST /instance/privacy
-Configurações de privacidade: `groupadd`, `last`, `status`, `profile`, `readreceipts`, `online`, `calladd`
-
+```json
+{ "groupadd": "contacts", "last": "none", "profile": "all", "readreceipts": "all", "online": "all", "calladd": "all" }
+```
 Valores: `all` | `contacts` | `contact_blacklist` | `none`
-- `online`: `all` | `match_last_seen`
-- `calladd`: `all` | `known`
-
----
 
 ### POST /instance/presence
 ```json
@@ -124,14 +86,322 @@ Valores: `all` | `contacts` | `contact_blacklist` | `none`
 ```
 Valores: `available` | `unavailable`
 
-⚠️ Com `unavailable`: confirmações de entrega/leitura podem não funcionar se for o único dispositivo ativo.
+---
+
+## Mensagens — Envio
+
+### POST /send/text
+```json
+{ "number": "5511999999999", "text": "Olá!", "delay": 1000, "replyid": "3EB0...", "readchat": true }
+```
+Campos opcionais: `delay`, `readchat`, `readmessages`, `replyid`, `mentions`, `forward`, `linkPreview`, `async`
+
+### POST /send/media
+```json
+{ "number": "5511999999999", "type": "image", "file": "https://url.jpg", "text": "Legenda" }
+```
+Tipos: `image` | `video` | `videoplay` | `document` | `audio` | `myaudio` | `ptt` | `ptv` | `sticker`
+Campos extras: `docName` (documentos), `thumbnail`, `mimetype`, `viewOnce`
+
+### POST /send/location
+```json
+{ "number": "5511999999999", "name": "MASP", "address": "Av. Paulista...", "latitude": -23.56, "longitude": -46.65 }
+```
+
+### POST /send/status
+Envia story/status. Tipos: `text` | `image` | `video` | `audio` | `ptt`
+```json
+{ "type": "text", "text": "Novidades!", "background_color": 7, "font": 1 }
+```
+
+### POST /send/menu
+Botões, listas, enquetes ou carrossel.
+```json
+{ "number": "5511999999999", "type": "button|list|poll|carousel", "text": "Escolha:", "choices": [...] }
+```
+- Botão: `"Texto|id"` ou `"Texto|https://url"` ou `"Texto|call:+55..."`
+- Lista: `"[Seção]"` + `"Item|id|descrição"`
+- Enquete: array simples + `"selectableCount": 1`
+
+### POST /send/carousel
+```json
+{ "number": "5511999999999", "text": "Produtos", "carousel": [{ "text": "Item", "image": "url", "buttons": [...] }] }
+```
+Tipos de botão: `REPLY` | `URL` | `COPY` | `CALL`
+
+### POST /send/location-button
+Solicita localização do usuário.
+```json
+{ "number": "5511999999999", "text": "Compartilhe sua localização" }
+```
+
+### POST /send/request-payment
+Solicitação de pagamento (PIX, boleto, link).
+```json
+{ "number": "5511999999999", "amount": 199.90, "pixKey": "uuid...", "pixType": "EVP" }
+```
+
+### POST /send/pix-button
+```json
+{ "number": "5511999999999", "pixType": "EVP", "pixKey": "uuid...", "pixName": "Loja" }
+```
+
+---
+
+## Mensagens — Gestão
+
+### POST /message/presence
+```json
+{ "number": "5511999999999", "presence": "composing", "delay": 30000 }
+```
+Tipos: `composing` | `recording` | `paused`. Max 5 min (300000ms).
+
+### POST /message/download
+```json
+{ "id": "7EB0...", "return_base64": false, "generate_mp3": true, "return_link": true, "transcribe": false }
+```
+Mídias mantidas 2 dias no storage. `transcribe: true` requer `openai_apikey`.
+
+### POST /message/find
+Busca mensagens com filtros. Mensagens dos últimos 7 dias.
+```json
+{ "chatid": "5511999999999@s.whatsapp.net", "limit": 50, "offset": 0 }
+```
+Retorna: `{ returnedMessages, messages[], limit, offset, nextOffset, hasMore }`
+
+### POST /message/markread
+```json
+{ "id": ["62AD1AD844E518180227BF68DA7ED710", "ECB9DE48EB41F77BFA8491BFA8D6EF9B"] }
+```
+
+### POST /message/react
+```json
+{ "number": "5511999999999@s.whatsapp.net", "text": "👍", "id": "3EB0538DA65A59F6D8A251" }
+```
+`text: ""` remove a reação.
+
+### POST /message/delete
+Apaga mensagem para todos.
+```json
+{ "id": "3EB0538DA65A59F6D8A251" }
+```
+
+### POST /message/edit
+```json
+{ "id": "3A12345678...", "text": "Texto editado" }
+```
+
+### POST /message/pin
+```json
+{ "id": "3A12345678...", "pin": true, "duration": 7 }
+```
+`duration`: 1, 7 ou 30 dias. `pin: false` desafixa.
+
+---
+
+## Chats
+
+### POST /chat/find
+Busca chats armazenados (últimos 7 dias após conexão).
+
+### POST /chat/details
+Retorna informações completas do chat (60+ campos: WhatsApp, lead/CRM, grupo, chatbot).
+```json
+{ "number": "5511999999999", "preview": false }
+```
+
+### POST /chat/delete
+```json
+{ "number": "5511999999999", "deleteChatDB": true, "deleteMessagesDB": true, "clearChatWhatsApp": true }
+```
+
+### POST /chat/archive
+```json
+{ "number": "5511999999999", "archive": true }
+```
+
+### POST /chat/check
+Verifica se números estão no WhatsApp.
+```json
+{ "numbers": ["5511999999999", "123456789@g.us"] }
+```
+
+### POST /chat/block
+```json
+{ "number": "5511999999999", "block": true }
+```
+
+### GET /chat/blocklist
+Lista contatos bloqueados.
+
+### POST /chat/labels
+```json
+{ "number": "5511999999999", "labelids": ["10", "20"] }
+```
+Ou `add_labelid` / `remove_labelid` para operação individual.
+
+---
+
+## Contatos
+
+### GET /contacts
+Lista contatos. Query: `?contactScope=address_book|outside_address_book|all`
+
+### POST /contacts/list
+Lista paginada.
+```json
+{ "limit": 100, "offset": 0, "contactScope": "address_book" }
+```
+
+### POST /contact/add
+```json
+{ "number": "5511999999999", "name": "João Silva" }
+```
+
+### POST /contact/remove
+```json
+{ "number": "5511999999999" }
+```
+
+---
+
+## Grupos
+
+### POST /group/create
+```json
+{ "name": "Nome do Grupo", "participants": ["5511999999999", "5521888888888"] }
+```
+
+### POST /group/info
+```json
+{ "groupjid": "120363...@g.us", "getInviteLink": true }
+```
+
+### POST /group/inviteInfo
+```json
+{ "invitecode": "https://chat.whatsapp.com/AbCdEf..." }
+```
+
+### POST /group/join
+```json
+{ "invitecode": "https://chat.whatsapp.com/AbCdEf..." }
+```
+
+### POST /group/leave
+```json
+{ "groupjid": "120363...@g.us" }
+```
+
+### GET /group/list
+Query: `?force=false&noparticipants=false`
+
+### POST /group/list
+```json
+{ "limit": 50, "offset": 0, "search": "nome", "noParticipants": false }
+```
+
+### POST /group/resetInviteCode
+```json
+{ "groupjid": "120363...@g.us" }
+```
+
+### POST /group/updateAnnounce
+```json
+{ "groupjid": "120363...@g.us", "announce": true }
+```
+`true` = somente admins enviam mensagens.
+
+### POST /group/updateDescription
+```json
+{ "groupjid": "120363...@g.us", "description": "Descrição do grupo" }
+```
+
+### POST /group/updateImage
+```json
+{ "groupjid": "120363...@g.us", "image": "https://url.jpg" }
+```
+`"remove"` para deletar. JPEG 640x640.
+
+### POST /group/updateLocked
+```json
+{ "groupjid": "120363...@g.us", "locked": true }
+```
+`true` = somente admins editam info do grupo.
+
+### POST /group/updateName
+```json
+{ "groupjid": "120363...@g.us", "name": "Novo Nome" }
+```
+
+### POST /group/updateParticipants
+```json
+{ "groupjid": "120363...@g.us", "action": "add", "participants": ["5511999999999"] }
+```
+Actions: `add` | `remove` | `promote` | `demote` | `approve` | `reject`
+
+---
+
+## Comunidades
+
+### POST /community/create
+```json
+{ "name": "Nome da Comunidade" }
+```
+
+### POST /community/editgroups
+```json
+{ "community": "120363...@g.us", "action": "add", "groupjids": ["120363...@g.us"] }
+```
+
+---
+
+## Etiquetas (Labels)
+
+### GET /labels
+Lista todas as etiquetas.
+
+### POST /labels/refresh
+```json
+{ "force": false }
+```
+
+### POST /label/edit
+Criar: `{ "labelid": "new", "name": "VIP", "color": 2, "delete": false }`
+Editar: `{ "labelid": "25", "name": "Novo nome" }`
+Deletar: `{ "labelid": "25", "delete": true }`
+
+---
+
+## Respostas Rápidas
+
+### GET /quickreply/showall
+Lista todas as respostas rápidas da instância.
+
+### POST /quickreply/edit
+Criar: omitir `id`. Editar: incluir `id`. Deletar: `delete: true` + `id`.
+```json
+{ "shortCut": "saudacao", "type": "text", "text": "Olá! Como posso ajudar?" }
+```
+
+---
+
+## Chamadas
+
+### POST /call/make
+```json
+{ "number": "5511999999999", "call_duration": 15 }
+```
+Nota: apenas toca, não estabelece comunicação de voz real.
+
+### POST /call/reject
+`{}`
 
 ---
 
 ## Webhook
 
 ### GET /webhook
-Retorna webhooks configurados na instância (array).
+Retorna webhooks da instância (array).
 
 ### POST /webhook
 Modo simples (recomendado):
@@ -142,20 +412,14 @@ Modo simples (recomendado):
   "excludeMessages": ["wasSentByApi"]
 }
 ```
-**IMPORTANTE:** sempre usar `excludeMessages: ["wasSentByApi"]` para evitar loop.
+**SEMPRE usar `excludeMessages: ["wasSentByApi"]` para evitar loop.**
 
-Modo avançado (múltiplos webhooks): usar `action: "add"` | `"update"` | `"delete"` com campo `id`.
-
-Eventos disponíveis: `connection`, `history`, `messages`, `messages_update`, `call`, `contacts`, `presence`, `groups`, `labels`, `chats`, `chat_labels`, `blocks`, `sender`, `newsletter_messages`
+Eventos: `connection`, `history`, `messages`, `messages_update`, `call`, `contacts`, `presence`, `groups`, `labels`, `chats`, `chat_labels`, `blocks`, `sender`, `newsletter_messages`
 
 Filtros excludeMessages: `wasSentByApi`, `wasNotSentByApi`, `fromMeYes`, `fromMeNo`, `isGroupYes`, `isGroupNo`
 
-Parâmetros opcionais:
-- `addUrlEvents: true` → adiciona evento na URL: `/webhook/message`
-- `addUrlTypesMessages: true` → adiciona tipo: `/webhook/message/conversation`
-
 ### GET /webhook/errors
-Últimos 20 erros de entrega (em memória). Inclui url, evento, status HTTP, tentativas, payload.
+Últimos 20 erros de entrega (em memória).
 
 ---
 
@@ -163,17 +427,11 @@ Parâmetros opcionais:
 
 ### GET /globalwebhook
 ### POST /globalwebhook
-Recebe eventos de TODAS as instâncias.
 ```json
-{
-  "url": "https://meusite.com/webhook/global",
-  "events": ["messages", "connection"],
-  "excludeMessages": ["wasSentByApi"]
-}
+{ "url": "https://meusite.com/webhook/global", "events": ["messages", "connection"], "excludeMessages": ["wasSentByApi"] }
 ```
 
 ### GET /globalwebhook/errors
-Últimos 20 erros globais (admintoken).
 
 ---
 
@@ -186,9 +444,9 @@ Recebe eventos de TODAS as instâncias.
 
 ### POST /profile/image
 ```json
-{ "image": "https://url-da-imagem.jpg" }
+{ "image": "https://url.jpg" }
 ```
-Ou base64. Ou `"remove"` / `"delete"` para deletar. Formato JPEG 640x640.
+Ou base64. `"remove"` para deletar. JPEG 640x640.
 
 ---
 
@@ -198,20 +456,16 @@ Ou base64. Ou `"remove"` / `"delete"` para deletar. Formato JPEG 640x640.
 ```json
 { "jid": "5511999999999@s.whatsapp.net" }
 ```
-Retorna `description`, `address`, `email`, `websites`, `categories`.
 
 ---
 
-## Chamadas
+## SSE (Server-Sent Events)
 
-### POST /call/make
-```json
-{ "number": "5511999999999", "call_duration": 15 }
+### GET /sse
 ```
-Inicia chamada de voz. `call_duration`: segundos até encerrar automaticamente.
-
-### POST /call/reject
-Rejeita chamada recebida.
+/sse?token=TOKEN&events=chats,messages&excludeMessages=poll,reaction
+```
+Alternativa ao webhook para eventos em tempo real.
 
 ---
 
@@ -222,40 +476,17 @@ Reinicia toda a aplicação. Usar apenas em instabilidades gerais.
 
 ---
 
-## SSE (Server-Sent Events)
+## Notas Críticas de Implementação
 
-### GET /sse
-Conexão persistente para eventos em tempo real. Alternativa ao webhook.
-Eventos: `connection`, `history`, `messages`, `messages_update`, `call`, `contacts`, `presence`, `groups`, `labels`, `chats`, `chat_labels`, `blocks`
-
----
-
-## Mensagens (PENDENTE — documentação truncada)
-
-> Endpoints a documentar: POST /send/text, POST /send/media, POST /send/reaction,
-> POST /message/find, POST /message/markread, POST /message/download,
-> POST /message/delete, POST /message/presence
-
----
-
-## Chats (PENDENTE — documentação truncada)
-
-> Endpoints a documentar: POST /chat/find, POST /chat/archive, POST /chat/block
-
----
-
-## Grupos (PENDENTE — documentação truncada)
-
-> Endpoints a documentar: POST /group/create, GET /group/list, POST /group/sendtext, etc.
-
----
-
-## Notas Importantes
-
-1. **instance.status** — string de status está em `raw.instance.status`, não em `raw.status` (que é objeto)
-2. **adminField01/adminField02** — usar para vincular instância ao `company_id` do Zaapli
-3. **Loop prevention** — sempre `excludeMessages: ["wasSentByApi"]` no webhook
-4. **Token** — gerado na criação da instância, necessário para todas operações
-5. **Auto-delete** — instâncias novas são deletadas após 1h se não conectadas
-6. **Histórico** — mensagens dos últimos 7 dias armazenadas, acessíveis via `/message/find` e `/chat/find`
-7. **Delay** — configurar `msg_delay_min/max` via `/instance/updateDelaySettings` para anti-ban
+1. **`instance.status`** — string de status real está em `raw.instance.status`. `raw.status` raiz é objeto `{ connected, loggedIn, jid }`, NÃO string.
+2. **QR code** → `raw.instance.qrcode`
+3. **Phone/JID** → `raw.status.jid` ou `raw.jid`
+4. **Loop prevention** — sempre `excludeMessages: ["wasSentByApi"]`
+5. **Token** — gerado na criação, necessário para todas operações
+6. **Auto-delete** — instâncias deletadas após 1h sem conectar
+7. **Histórico** — 7 dias armazenados, acessíveis via `/message/find` e `/chat/find`
+8. **Delay anti-ban** — configurar via `/instance/updateDelaySettings`
+9. **Reação** — `POST /message/react` com `{ number: "jid@s.whatsapp.net", text: "emoji", id: "msgId" }`
+10. **Arquivar** — `POST /chat/archive` com `{ number, archive: true }`
+11. **Deletar msg** — `POST /message/delete` com `{ id }` (apaga para todos)
+12. **Grupos** — JID formato `120363...@g.us`

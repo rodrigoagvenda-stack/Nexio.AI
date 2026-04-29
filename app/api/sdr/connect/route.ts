@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const needsCreate = !config?.uazapi_token || !config?.uazapi_instance_url
 
     if (needsCreate) {
-      const instanceName = `empresa-${companyId}-${Date.now()}`
+      const instanceName = `zaapli-${companyId}-${Date.now()}`
       const instance = await createInstance({ name: instanceName, companyId })
       const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
 

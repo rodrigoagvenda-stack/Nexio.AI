@@ -141,6 +141,22 @@ export default function AtendimentoPage() {
     }
   };
 
+  const handleWaDisconnect = async () => {
+    try {
+      const res = await fetch('/api/sdr/connect', { method: 'DELETE' });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error);
+      }
+      setWaStatus('disconnected');
+      setWaPhone(null);
+      setWaQrcode(null);
+      setWaPairingCode(null);
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao desconectar', variant: 'destructive' });
+    }
+  };
+
   // Verifica status real na montagem
   useEffect(() => { fetchWaStatus(); }, [company?.id]);
 
@@ -1171,10 +1187,19 @@ export default function AtendimentoPage() {
                 <MessageSquare className="h-5 w-5" />
                 Conversas
               </div>
-              {/* WhatsApp status — número conectado */}
-              <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full">
-                <Wifi className="h-3 w-3" />
-                {waPhone ?? 'Conectado'}
+              {/* WhatsApp status — número conectado + desconectar */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full">
+                  <Wifi className="h-3 w-3" />
+                  {waPhone ?? 'Conectado'}
+                </div>
+                <button
+                  onClick={handleWaDisconnect}
+                  title="Desconectar WhatsApp"
+                  className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                >
+                  <WifiOff className="h-3.5 w-3.5" />
+                </button>
               </div>
             </CardTitle>
             <div className="relative">

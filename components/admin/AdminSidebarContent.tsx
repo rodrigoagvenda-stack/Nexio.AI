@@ -102,7 +102,7 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{adminName || 'Admin'}</p>
             <p className="text-xs text-muted-foreground truncate">
-              {adminEmail || 'admin@nexio.ai'}
+              {adminEmail || 'admin@zaapli.com.br'}
             </p>
           </div>
         </div>

@@ -21,7 +21,6 @@ import {
   Kanban,
   FileText,
   Megaphone,
-  Zap,
   Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,8 +72,15 @@ const navSections: NavSection[] = [
         ],
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
-      { href: '/prospect', label: 'Orbit', icon: Bot },
-      { href: '/outbound', label: 'Automação', icon: Megaphone },
+      {
+        href: '/configuracoes/sdr',
+        label: 'Automações',
+        icon: Megaphone,
+        children: [
+          { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
+          { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
+        ],
+      },
     ],
   },
   {
@@ -88,9 +94,6 @@ const navSections: NavSection[] = [
     links: [
       { href: '/ajuda', label: 'Ajuda', icon: Info },
       { href: '/configuracoes', label: 'Configuração', icon: Settings },
-      { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
-      { href: '/configuracoes/fluxos', label: 'Fluxos SDR', icon: Zap },
-      { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
     ],
   },
 ];
@@ -110,8 +113,16 @@ export const Sidebar = memo(function Sidebar({
   const searchParams = useSearchParams();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [crmExpanded, setCrmExpanded] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  const toggleSection = useCallback((href: string) => {
+    setExpandedSections(prev => {
+      const next = new Set<string>(prev);
+      if (next.has(href)) next.delete(href); else next.add(href);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -138,18 +149,19 @@ export const Sidebar = memo(function Sidebar({
     return view === 'kanban' ? 'kanban' : 'table';
   }, [isCrmRoute, searchParams]);
 
-  // 🚀 Auto-expandir CRM quando estiver na rota
+  // 🚀 Auto-expandir seção quando estiver na rota
   useEffect(() => {
-    if (isCrmRoute) {
-      setCrmExpanded(true);
-    }
+    if (isCrmRoute) setExpandedSections(prev => { const n = new Set(prev); n.add('/crm'); return n; });
   }, [isCrmRoute]);
+
+  useEffect(() => {
+    if (pathname.startsWith('/configuracoes/sdr') || pathname.startsWith('/configuracoes/follow')) {
+      setExpandedSections(prev => { const n = new Set(prev); n.add('/configuracoes/sdr'); return n; });
+    }
+  }, [pathname]);
 
   // 🚀 Performance: Memoizar seções de navegação
   const allSections = useMemo<NavSection[]>(() => {
-    const planNameUpper = planName?.toUpperCase() || '';
-    const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
-
     const isCloser = userRole === 'closer';
     const isSdr = userRole === 'sdr';
     const isSdrCloser = userRole === 'sdr_closer';
@@ -157,9 +169,8 @@ export const Sidebar = memo(function Sidebar({
     const sections = navSections.map(section => ({
       ...section,
       links: section.links.filter(link => {
-        if (link.href === '/prospect' && !hasOrbitAccess) return false;
-        // Closer puro: sem Orbit, Automação, Membros
-        if (isCloser && (link.href === '/prospect' || link.href === '/outbound' || link.href === '/membros')) return false;
+        // Closer puro: sem Automações, Membros
+        if (isCloser && (link.href === '/configuracoes/sdr' || link.href === '/membros')) return false;
         // SDR e SDR Closer: sem Membros
         if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
         return true;
@@ -188,7 +199,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, planName, hasBriefing]);
+  }, [isAdmin, userRole, hasBriefing]);
 
   // 🚀 Performance: Memoizar função de logout
   const handleLogout = useCallback(async () => {
@@ -221,9 +232,9 @@ export const Sidebar = memo(function Sidebar({
         {/* Logo */}
         <div className="flex items-center h-16 px-4">
           {isCollapsed ? (
-            <span className="text-sm font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">.ai</span>
+            <span className="text-sm font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">Z</span>
           ) : (
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">nexio.ai</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">Zaapli</span>
           )}
         </div>
 
@@ -248,7 +259,11 @@ export const Sidebar = memo(function Sidebar({
                   const hasChildren = link.children && link.children.length > 0;
 
                   if (hasChildren) {
-                    const isCrmActive = pathname === '/crm' || pathname.startsWith('/crm');
+                    const isParentActive = link.children?.some(c => {
+                      const base = c.href.split('?')[0];
+                      return pathname === base || pathname.startsWith(base + '/');
+                    }) || pathname === link.href || pathname.startsWith(link.href + '/');
+                    const isExpanded = expandedSections.has(link.href);
 
                     return (
                       <div key={link.href}>
@@ -256,14 +271,14 @@ export const Sidebar = memo(function Sidebar({
                           onClick={() => {
                             if (isCollapsed) {
                               setIsCollapsed(false);
-                              setCrmExpanded(true);
+                              setExpandedSections(prev => { const n = new Set(prev); n.add(link.href); return n; });
                             } else {
-                              setCrmExpanded(!crmExpanded);
+                              toggleSection(link.href);
                             }
                           }}
                           className={cn(
                             'w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
-                            isCrmActive
+                            isParentActive
                               ? 'bg-accent text-accent-foreground'
                               : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                             isCollapsed && 'justify-center px-2'
@@ -277,19 +292,26 @@ export const Sidebar = memo(function Sidebar({
                               <ChevronDown
                                 className={cn(
                                   'h-3.5 w-3.5 transition-transform duration-200',
-                                  crmExpanded && 'rotate-180'
+                                  isExpanded && 'rotate-180'
                                 )}
                               />
                             </>
                           )}
                         </button>
 
-                        {!isCollapsed && crmExpanded && (
+                        {!isCollapsed && isExpanded && (
                           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
                             {link.children!.map((child) => {
                               const ChildIcon = child.icon;
-                              const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
-                              const isChildActive = pathname === '/crm' && currentView === childView;
+                              const childBase = child.href.split('?')[0];
+                              const isCrmChild = link.href === '/crm';
+                              let isChildActive: boolean;
+                              if (isCrmChild) {
+                                const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
+                                isChildActive = pathname === '/crm' && currentView === childView;
+                              } else {
+                                isChildActive = pathname === childBase || pathname.startsWith(childBase + '/');
+                              }
                               return (
                                 <Link
                                   key={child.href}
@@ -368,7 +390,7 @@ export const Sidebar = memo(function Sidebar({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{companyName || 'Empresa'}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {companyEmail || 'empresa@nexio.ai'}
+                  {companyEmail || 'empresa@zaapli.com.br'}
                 </p>
               </div>
             )}

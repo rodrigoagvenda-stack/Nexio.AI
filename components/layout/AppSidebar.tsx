@@ -224,7 +224,7 @@ export function AppSidebar({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{companyName || 'Empresa'}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {companyEmail || 'empresa@nexio.ai'}
+                  {companyEmail || 'empresa@zaapli.com.br'}
                 </span>
               </div>
             </SidebarMenuButton>
