@@ -99,9 +99,9 @@ export class UazapiClient {
     qrcode?: string
     pairingCode?: string
     phone?: string
-    instance?: string
   }> {
-    return this.request('/instance/status')
+    const raw: any = await this.request('/instance/status')
+    return normalizeInstanceResponse(raw)
   }
 
   async connect(phone?: string): Promise<{
@@ -109,10 +109,11 @@ export class UazapiClient {
     pairingCode?: string
     status: string
   }> {
-    return this.request('/instance/connect', {
+    const raw: any = await this.request('/instance/connect', {
       method: 'POST',
       body: JSON.stringify(phone ? { phone } : {}),
     })
+    return normalizeInstanceResponse(raw)
   }
 
   async disconnect(): Promise<void> {
@@ -187,6 +188,49 @@ export class UazapiClient {
 
 export function createUazapiClient(instanceUrl: string, token: string): UazapiClient {
   return new UazapiClient({ instanceUrl, token })
+}
+
+// ─── Normalização de resposta UAZapi ─────────────────────
+// UAZapi pode retornar status como "open"/"close"/"connecting" e
+// qrcode em vários campos diferentes dependendo da versão.
+
+function normalizeStatus(raw: string | undefined): 'connected' | 'connecting' | 'disconnected' {
+  if (!raw) return 'disconnected'
+  const s = raw.toLowerCase()
+  if (s === 'open' || s === 'connected' || s === 'authenticated') return 'connected'
+  if (s === 'connecting' || s === 'qr' || s === 'pairing') return 'connecting'
+  return 'disconnected'
+}
+
+function normalizeInstanceResponse(raw: any) {
+  const qrcode =
+    raw?.qrcode ||
+    raw?.qr_code ||
+    raw?.qr ||
+    raw?.base64 ||
+    raw?.instance?.qrcode ||
+    raw?.data?.qrcode ||
+    null
+
+  const pairingCode =
+    raw?.pairingCode ||
+    raw?.paircode ||
+    raw?.pairing_code ||
+    raw?.instance?.paircode ||
+    null
+
+  const phone =
+    raw?.phone ||
+    raw?.number ||
+    raw?.jid?.replace('@s.whatsapp.net', '') ||
+    raw?.instance?.phone ||
+    null
+
+  const status = normalizeStatus(
+    raw?.status || raw?.state || raw?.instance?.status
+  )
+
+  return { status, qrcode, pairingCode, phone }
 }
 
 // ─── Helpers ─────────────────────────────────────────────

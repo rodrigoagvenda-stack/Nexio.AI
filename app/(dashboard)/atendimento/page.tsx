@@ -1159,9 +1159,16 @@ export default function AtendimentoPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="flex flex-col items-center gap-4 py-4">
                     <Loader2Icon className="w-6 h-6 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Gerando QR Code…</p>
+                    <p className="text-sm text-muted-foreground">Aguardando QR Code…</p>
+                    <button
+                      onClick={handleWaConnect}
+                      disabled={waConnecting}
+                      className="text-xs text-primary underline underline-offset-4 hover:opacity-70 transition-opacity"
+                    >
+                      Tentar novamente
+                    </button>
                   </div>
                 )}
               </div>
