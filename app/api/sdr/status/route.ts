@@ -20,7 +20,7 @@ export async function GET() {
     const service = createServiceClient()
     const { data: config } = await service
       .from('sdr_configs')
-      .select('uazapi_instance_url, uazapi_token, instance_status, instance_phone')
+      .select('uazapi_instance_url, uazapi_token, uazapi_instance_name, instance_status, instance_phone')
       .eq('company_id', userData.company_id)
       .single()
 
@@ -60,6 +60,7 @@ export async function GET() {
       phone: liveStatus.phone ?? null,
       qrcode,
       pairingCode: liveStatus.pairingCode ?? null,
+      instanceName: config.uazapi_instance_name ?? null,
     })
   } catch (err: any) {
     console.error('[SDR status]', err)

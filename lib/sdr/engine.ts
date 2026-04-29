@@ -32,6 +32,7 @@ interface SdrContext {
   conversationId: string | null
   uazapiUrl: string
   uazapiToken: string
+  instanceName: string
   messageId: string
   agentType: 'atendimento_venda' | 'atendimento_venda_agendamento'
   prompt: string
@@ -775,6 +776,7 @@ async function ensureConversation(
       hora_da_ultima_mensagem: new Date().toISOString(),
       status_da_conversa: 'aberto',
       contagem_nao_lida: 0,
+      instance_name: ctx.instanceName || null,
     })
     .select('id')
     .single()
@@ -923,6 +925,7 @@ interface SdrFullConfig {
   uazapi_token: string
   openai_key: string
   uazapi_instance_url: string
+  uazapi_instance_name: string
   agent_type: 'atendimento_venda' | 'atendimento_venda_agendamento'
   prompt: string
   google_calendar_id: string | null
@@ -964,6 +967,7 @@ async function loadSdrConfig(
     uazapi_token: config.uazapi_token ? decrypt(config.uazapi_token) : '',
     openai_key: config.openai_key ? decrypt(config.openai_key) : '',
     uazapi_instance_url: config.uazapi_instance_url ?? 'https://nexioai.uazapi.com',
+    uazapi_instance_name: config.uazapi_instance_name ?? '',
     agent_type: config.agent_type ?? 'atendimento_venda',
     prompt: flow?.orchestrator_prompt ?? config.prompt ?? '',
     google_calendar_id: config.google_calendar_id ?? null,
@@ -1010,6 +1014,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       conversationId: null,
       uazapiUrl: cfg.uazapi_instance_url,
       uazapiToken: cfg.uazapi_token,
+      instanceName: cfg.uazapi_instance_name,
       messageId: bufferedMessages[0]?.messageId ?? '',
       agentType: cfg.agent_type,
       prompt: cfg.prompt,

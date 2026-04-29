@@ -102,7 +102,8 @@ export default function AtendimentoPage() {
   const [waQrcode, setWaQrcode] = useState<string | null>(null);
   const [waPairingCode, setWaPairingCode] = useState<string | null>(null);
   const [waConnecting, setWaConnecting] = useState(false);
-  const [waLoading, setWaLoading] = useState(true); // true até a primeira verificação retornar
+  const [waLoading, setWaLoading] = useState(true);
+  const [waInstanceName, setWaInstanceName] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -117,6 +118,7 @@ export default function AtendimentoPage() {
       setWaPhone(data.phone ?? null);
       setWaQrcode(data.qrcode ?? null);
       setWaPairingCode(data.pairingCode ?? null);
+      setWaInstanceName(data.instanceName ?? null);
     } catch {} finally {
       setWaLoading(false);
     }
@@ -268,25 +270,10 @@ export default function AtendimentoPage() {
 
   async function fetchConversations() {
     try {
-      let query = supabase
-        .from('conversas_do_whatsapp')
-        .select(`
-          *,
-          lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)
-        `)
-        .eq('company_id', company!.id)
-        .order('hora_da_ultima_mensagem', { ascending: false })
-        .limit(50);
-
-      // Closer puro só vê conversas dos seus leads atribuídos
-      if (user?.role === 'closer') {
-        query = query.eq('lead.user_id', user.user_id);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setConversations(data || []);
+      const res = await fetch('/api/sdr/conversations');
+      if (!res.ok) throw new Error('Erro ao buscar conversas');
+      const data = await res.json();
+      setConversations(data.conversations ?? []);
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
