@@ -12,9 +12,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/components/ui/use-toast';
 import {
-  User, Lock, Camera, CreditCard, Calendar,
+  User, Camera, CreditCard, Calendar,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
-  AlertCircle, Sparkles, X, Shield,
+  AlertCircle, Sparkles, X, Shield, Check, Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -33,11 +33,45 @@ interface CompanyFull {
 interface GoogleStatus { connected: boolean; email: string | null }
 
 const PLANS = {
-  basic:     { name: 'Basic',   price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
-  starter:   { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Ideal para pequenas equipes' },
-  pro:       { name: 'Pro',     price: 597, tokens: 15_000_000, icon: Rocket,     desc: 'Para times em crescimento' },
-  scale:     { name: 'Scale',   price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Para operações escaláveis' },
+  basic:   { name: 'Basic',   price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
+  starter: { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Ideal para quem está começando' },
+  pro:     { name: 'Pro',     price: 597, tokens: 15_000_000, icon: Rocket,     desc: 'Para times em crescimento' },
+  scale:   { name: 'Scale',   price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Para operações escaláveis' },
 } as const;
+
+const PLAN_FEATURES: Record<'starter' | 'pro' | 'scale', string[]> = {
+  starter: [
+    '1 número WhatsApp conectado',
+    'Agente SDR com IA (atendimento automático)',
+    'CRM Kanban (até 2 quadros)',
+    'Chat com até 5 atendentes simultâneos',
+    'Agendamento Google Calendar',
+    'Sempre online 24h/7',
+    '5M tokens de IA/mês',
+    'Até 10.000 contatos',
+  ],
+  pro: [
+    '1 número WhatsApp conectado',
+    'Agente SDR avançado + agendamento',
+    'CRM Kanban ilimitado',
+    'Atendentes ilimitados no chat',
+    'Sempre online 24h/7',
+    '15M tokens de IA/mês',
+    'Até 50.000 contatos',
+    'Relatórios avançados',
+  ],
+  scale: [
+    'Múltiplos números WhatsApp',
+    'Tudo do plano Pro',
+    'CRM Kanban ilimitado',
+    'Atendentes ilimitados',
+    'Sempre online 24h/7',
+    '50M tokens de IA/mês',
+    'Contatos ilimitados',
+    'Suporte prioritário',
+    'Webhooks & API avançada',
+  ],
+};
 
 function fmtTokens(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M`;
@@ -329,54 +363,85 @@ function ConfiguracoesContent() {
                 <div className="grid sm:grid-cols-3 gap-4">
                   {(['starter', 'pro', 'scale'] as const).map((plan) => {
                     const cfg = PLANS[plan];
+                    const features = PLAN_FEATURES[plan];
                     const isCurrent = currentPlanKey === plan;
                     const isPopular = plan === 'pro';
                     return (
                       <div key={plan} className={cn(
-                        'relative rounded-2xl border p-5 flex flex-col gap-4 transition-all',
+                        'relative rounded-2xl border flex flex-col transition-all',
                         isCurrent
                           ? 'border-primary bg-primary/5'
                           : isPopular
-                          ? 'border-border bg-card hover:border-primary/50'
+                          ? 'border-primary/40 bg-card shadow-sm'
                           : 'border-border bg-card hover:border-border/80'
                       )}>
-                        {isPopular && !isCurrent && (
-                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full">
-                            Mais popular
+                        {/* Badge */}
+                        {(isPopular || isCurrent) && (
+                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                            {isCurrent ? 'Plano atual' : 'Mais popular'}
                           </span>
                         )}
-                        {isCurrent && (
-                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full">
-                            Plano atual
-                          </span>
-                        )}
-                        <div>
+
+                        {/* Header */}
+                        <div className="p-5 pb-4">
                           <div className="flex items-center gap-2 mb-3">
                             <cfg.icon className="h-4 w-4 text-primary" />
                             <span className="font-semibold text-sm">{cfg.name}</span>
                           </div>
-                          <p className="text-2xl font-bold">R$ {cfg.price}<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
-                          <p className="text-xs text-muted-foreground mt-1">{cfg.desc}</p>
+                          <p className="text-2xl font-bold leading-none">
+                            R$ {cfg.price}
+                            <span className="text-sm font-normal text-muted-foreground">/mês</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1.5">{cfg.desc}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Zap className="h-3.5 w-3.5 text-yellow-500" />
-                          {fmtTokens(cfg.tokens)} tokens/mês
+
+                        {/* Divider */}
+                        <div className="border-t border-border/60 mx-5" />
+
+                        {/* Feature list */}
+                        <ul className="p-5 pt-4 space-y-2.5 flex-1">
+                          {features.map((feat) => (
+                            <li key={feat} className="flex items-start gap-2.5 text-sm">
+                              <Check className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <span className="text-foreground/80 leading-snug">{feat}</span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        {/* CTA */}
+                        <div className="p-5 pt-0">
+                          <Button
+                            className={cn('w-full h-10', isCurrent && 'opacity-60')}
+                            variant={isCurrent ? 'outline' : 'default'}
+                            disabled={isCurrent || checkoutLoading === plan}
+                            onClick={() => !isCurrent && handleCheckout(plan)}
+                          >
+                            {checkoutLoading === plan
+                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Aguarde…</>
+                              : isCurrent ? 'Plano atual' : 'Escolher plano'
+                            }
+                          </Button>
                         </div>
-                        <Button
-                          size="sm"
-                          className={cn('h-9 mt-auto', isCurrent && 'opacity-60')}
-                          variant={isCurrent ? 'outline' : 'default'}
-                          disabled={isCurrent || checkoutLoading === plan}
-                          onClick={() => !isCurrent && handleCheckout(plan)}
-                        >
-                          {checkoutLoading === plan
-                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />Aguarde…</>
-                            : isCurrent ? 'Plano atual' : 'Assinar'
-                          }
-                        </Button>
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Add-on número adicional */}
+                <div className="mt-4 flex items-center justify-between p-4 rounded-xl border border-dashed border-border bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Plus className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Número adicional</p>
+                      <p className="text-xs text-muted-foreground">Conecte mais de um número WhatsApp na mesma conta</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold text-sm">R$ 97<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                    <p className="text-xs text-muted-foreground">por número</p>
+                  </div>
                 </div>
               </div>
             </>
