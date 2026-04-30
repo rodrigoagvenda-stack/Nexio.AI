@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getPlatformConfig } from '@/lib/platform-config'
 
 const CONFIRMED_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'])
 
@@ -31,7 +32,8 @@ function nextMonthFromDate(from: Date): Date {
 export async function POST(request: NextRequest) {
   // ── Validar token ──────────────────────────────────────────────────────────
   const incomingToken = request.headers.get('asaas-access-token') ?? ''
-  const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN ?? ''
+  const cfg = await getPlatformConfig()
+  const expectedToken = cfg.asaas_webhook_token
 
   if (expectedToken && incomingToken !== expectedToken) {
     return NextResponse.json({ error: 'Token inválido' }, { status: 403 })

@@ -62,6 +62,18 @@ const SECTIONS = [
       { key: 'stripe_price_scale', label: 'Price ID — Scale', placeholder: 'price_...', sensitive: false },
     ],
   },
+  {
+    id: 'asaas',
+    label: 'Asaas',
+    icon: CreditCard,
+    description: 'Gateway de pagamentos brasileiro — mensalidades via cartão e pacotes extras via PIX.',
+    fields: [
+      { key: 'asaas_api_key', label: 'API Key', placeholder: '$aact_...', sensitive: true },
+      { key: 'asaas_base_url', label: 'Base URL', placeholder: 'https://api.asaas.com/v3 (produção) ou https://sandbox.asaas.com/api/v3', sensitive: false },
+      { key: 'asaas_webhook_token', label: 'Webhook Token', placeholder: 'Token configurado no painel Asaas → Integrações → Webhooks', sensitive: true },
+    ],
+    info: 'Webhook URL: {APP_URL}/api/webhooks/asaas/billing',
+  },
 ];
 
 function isConfigured(val: string | undefined) {
@@ -204,6 +216,26 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
                   </div>
                 );
               })}
+
+              {/* Asaas webhook URL info */}
+              {section.id === 'asaas' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Webhook URL — configure no painel Asaas → Integrações → Webhooks
+                  </Label>
+                  <div className="flex gap-2 items-center p-3 rounded-lg bg-muted/30 border border-border">
+                    <code className="flex-1 text-xs font-mono text-muted-foreground truncate">
+                      {appUrl}/api/webhooks/asaas/billing
+                    </code>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(`${appUrl}/api/webhooks/asaas/billing`); }}
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Google redirect URI info */}
               {section.id === 'google' && (

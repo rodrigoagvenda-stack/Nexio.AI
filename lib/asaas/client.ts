@@ -1,24 +1,21 @@
 /**
  * Asaas API client — mensalidades (cartão) e pacotes extras (PIX)
  *
- * Env vars:
- *   ASAAS_API_KEY      — chave de acesso
- *   ASAAS_BASE_URL     — https://sandbox.asaas.com/api/v3  (ou prod)
+ * Lê ASAAS_API_KEY e ASAAS_BASE_URL da platform_config (DB) com fallback para env.
  */
 
-const BASE = (process.env.ASAAS_BASE_URL ?? 'https://sandbox.asaas.com/api/v3').replace(/\/$/, '')
-
-function headers() {
-  return {
-    'Content-Type': 'application/json',
-    access_token: process.env.ASAAS_API_KEY ?? '',
-  }
-}
+import { getPlatformConfig } from '@/lib/platform-config'
 
 async function asaasReq<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const cfg = await getPlatformConfig()
+  const base = (cfg.asaas_base_url || 'https://sandbox.asaas.com/api/v3').replace(/\/$/, '')
+
+  const res = await fetch(`${base}${path}`, {
     method,
-    headers: headers(),
+    headers: {
+      'Content-Type': 'application/json',
+      access_token: cfg.asaas_api_key,
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   const json = await res.json()

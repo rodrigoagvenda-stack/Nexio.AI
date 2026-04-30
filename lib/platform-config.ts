@@ -13,6 +13,8 @@ export const SENSITIVE_KEYS = new Set([
   'stripe_secret_key',
   'stripe_webhook_secret',
   'openai_api_key',
+  'asaas_api_key',
+  'asaas_webhook_token',
 ]);
 
 const MASK = '••••••••••••••••';
@@ -28,6 +30,9 @@ export interface PlatformConfig {
   stripe_price_starter: string;
   stripe_price_pro: string;
   stripe_price_scale: string;
+  asaas_api_key: string;
+  asaas_base_url: string;
+  asaas_webhook_token: string;
 }
 
 /** Read all platform config keys from DB, decrypt sensitive ones. Falls back to env. */
@@ -58,6 +63,9 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       stripe_price_starter: map.stripe_price_starter || process.env.STRIPE_PRICE_STARTER || '',
       stripe_price_pro: map.stripe_price_pro || process.env.STRIPE_PRICE_PRO || '',
       stripe_price_scale: map.stripe_price_scale || process.env.STRIPE_PRICE_SCALE || '',
+      asaas_api_key: map.asaas_api_key || process.env.ASAAS_API_KEY || '',
+      asaas_base_url: map.asaas_base_url || process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3',
+      asaas_webhook_token: map.asaas_webhook_token || process.env.ASAAS_WEBHOOK_TOKEN || '',
     };
   } catch {
     // DB unavailable → env only
@@ -72,6 +80,9 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       stripe_price_starter: process.env.STRIPE_PRICE_STARTER || '',
       stripe_price_pro: process.env.STRIPE_PRICE_PRO || '',
       stripe_price_scale: process.env.STRIPE_PRICE_SCALE || '',
+      asaas_api_key: process.env.ASAAS_API_KEY || '',
+      asaas_base_url: process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3',
+      asaas_webhook_token: process.env.ASAAS_WEBHOOK_TOKEN || '',
     };
   }
 }
