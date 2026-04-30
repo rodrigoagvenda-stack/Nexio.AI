@@ -996,7 +996,10 @@ async function loadSdrConfig(
     .eq('company_id', companyId)
     .single()
 
-  if (!config) return null
+  if (!config) {
+    console.warn(`[SDR:${companyId}] loadSdrConfig → NULL: sdr_configs row não encontrado`)
+    return null
+  }
 
   // Verifica agente_ativo na tabela companies (fonte de verdade — igual ao N8N)
   const { data: company } = await supabase
@@ -1005,8 +1008,14 @@ async function loadSdrConfig(
     .eq('id', companyId)
     .single()
 
-  if (!company?.agente_ativo) return null
-  if (!company?.is_active) return null
+  if (!company?.agente_ativo) {
+    console.warn(`[SDR:${companyId}] loadSdrConfig → NULL: agente_ativo=false na tabela companies`)
+    return null
+  }
+  if (!company?.is_active) {
+    console.warn(`[SDR:${companyId}] loadSdrConfig → NULL: is_active=false na tabela companies`)
+    return null
+  }
 
   const decryptIfNeeded = (val: string | null | undefined): string => {
     if (!val) return ''
@@ -1030,6 +1039,12 @@ async function loadSdrConfig(
       } catch {}
     }
     if (!resolvedOpenAIKey) resolvedOpenAIKey = process.env.OPENAI_API_KEY || ''
+  }
+  if (!resolvedOpenAIKey) {
+    console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: OpenAI key não encontrada (empresa nem global)`)
+  }
+  if (!config.uazapi_token) {
+    console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: uazapi_token vazio no sdr_configs`)
   }
 
   return {
@@ -1057,9 +1072,11 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
   try {
     const cfg = await loadSdrConfig(companyId, supabase, phone)
     if (!cfg) {
+      console.warn(`[SDR:${companyId}] processSdrMessage → abortado: loadSdrConfig retornou null (ver aviso acima)`)
       await log(companyId, 'agent_disabled', {}, supabase, phone)
       return
     }
+    console.log(`[SDR:${companyId}] processando mensagem de ${phone} — agente="${cfg.agent_type}" flow="${cfg.flowId ?? 'default'}")`)
 
     // ── Verificar franquia antes de processar ──────────────────
     const quotaCheck = await checkTenantQuota(companyId, supabase)
@@ -1157,6 +1174,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
   try {
     // Evento de conexão/desconexão da instância UAZapi
     const eventType = (body as any).EventType ?? (body as any).event ?? ''
+    console.log(`[SDR:${companyId}] webhook recebido — EventType="${eventType}"`)
+
     if (typeof eventType === 'string' && eventType.toLowerCase().includes('connect')) {
       const rawStatus = (body as any).status ?? (body as any).state ?? (body as any).instance?.status
       const s = typeof rawStatus === 'string' ? rawStatus.toLowerCase() : ''
@@ -1164,6 +1183,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         s === 'open' || s === 'connected' || s === 'authenticated' ? 'connected' :
         s === 'close' || s === 'disconnected' || s === 'logout' ? 'disconnected' :
         null
+      console.log(`[SDR:${companyId}] evento de conexão — status="${s}" → normalized="${normalized}"`)
       if (normalized) {
         await supabase.from('sdr_configs').update({
           instance_status: normalized,
@@ -1173,7 +1193,10 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       return true
     }
 
-    if (body.message?.fromMe) return false
+    if (body.message?.fromMe) {
+      console.log(`[SDR:${companyId}] ignorado — fromMe=true`)
+      return false
+    }
 
     const msg = body.message as any
     const text = msg?.text
@@ -1182,7 +1205,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || msg?.body
       || body.chat?.wa_lastMessageTextVote
       || ''
-    if (!text.trim()) return false
+
+    if (!text.trim()) {
+      console.warn(`[SDR:${companyId}] ignorado — texto vazio. Campos presentes no message:`, Object.keys(msg ?? {}))
+      return false
+    }
+
+    console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — texto="${text.slice(0, 80)}"${text.length > 80 ? '…' : ''}`)
 
     if (isPromptInjection(text)) {
       const uazapi = createUazapiClient(
