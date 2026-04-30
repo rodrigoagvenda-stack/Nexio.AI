@@ -20,6 +20,13 @@ import {
   isBusinessDay,
 } from '@/lib/google-calendar'
 import OpenAI from 'openai'
+import {
+  type UsageAcc,
+  checkTenantQuota,
+  recordUsage,
+  pauseTenant,
+  checkAndSendQuotaAlerts,
+} from '@/lib/billing/usage'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -53,6 +60,23 @@ interface BufferedMessage {
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
+
+// ─── Usage accumulator helper ─────────────────────────────────
+
+function pushUsage(
+  acc: UsageAcc | undefined,
+  completion: OpenAI.Chat.ChatCompletion,
+  agent: string
+): void {
+  if (!acc || !completion.usage) return
+  acc.push({
+    agent,
+    model: completion.model,
+    promptTokens: completion.usage.prompt_tokens,
+    completionTokens: completion.usage.completion_tokens,
+    totalTokens: completion.usage.total_tokens,
+  })
+}
 
 // ─── Prompt Injection ─────────────────────────────────────────
 
@@ -192,7 +216,8 @@ async function runAgentePipeline(
   message: string,
   ctx: SdrContext,
   openai: OpenAI,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  acc?: UsageAcc
 ): Promise<string> {
   const { data: lead } = await supabase
     .from('leads')
@@ -214,6 +239,7 @@ Retorne APENAS o nome do estágio que deve ser aplicado, sem texto adicional. Se
     max_tokens: 50,
     temperature: 0.1,
   })
+  pushUsage(acc, completion, 'pipeline')
 
   const novoStatus = completion.choices[0]?.message?.content?.trim() ?? ''
   const validStatus = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido', 'Remarketing']
@@ -232,7 +258,8 @@ async function runAgenteSegmentacao(
   message: string,
   ctx: SdrContext,
   openai: OpenAI,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  acc?: UsageAcc
 ): Promise<string> {
   const nichos = [
     'E-commerce', 'Saúde/Medicina', 'Educação', 'Alimentação', 'Beleza/Estética',
@@ -264,6 +291,7 @@ Se não tiver certeza, responda "Outros". Retorne APENAS o nome do nicho, sem te
     max_tokens: 30,
     temperature: 0.1,
   })
+  pushUsage(acc, completion, 'segmentacao')
 
   const segmento = completion.choices[0]?.message?.content?.trim() ?? ''
 
@@ -281,7 +309,8 @@ async function runAgenteOutbound(
   message: string,
   ctx: SdrContext,
   openai: OpenAI,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  acc?: UsageAcc
 ): Promise<string> {
   const { data: lead } = await supabase
     .from('leads')
@@ -325,6 +354,7 @@ async function runAgenteOutbound(
     temperature: 0.1,
     response_format: { type: 'json_object' },
   })
+  pushUsage(acc, completion, 'outbound')
 
   return completion.choices[0]?.message?.content ?? '{}'
 }
@@ -333,7 +363,8 @@ async function runMemoryExpert(
   info: string,
   ctx: SdrContext,
   openai: OpenAI,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  acc?: UsageAcc
 ): Promise<string> {
   const { data: lead } = await supabase
     .from('leads')
@@ -364,6 +395,7 @@ Retorne JSON com apenas os campos que devem ser atualizados. Ex: {"resumo_ia":".
     temperature: 0.3,
     response_format: { type: 'json_object' },
   })
+  pushUsage(acc, completion, 'memory')
 
   try {
     const updates = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
@@ -384,7 +416,8 @@ async function runAgenteAgendamento(
   message: string,
   ctx: SdrContext,
   openai: OpenAI,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  acc?: UsageAcc
 ): Promise<string> {
   if (!ctx.calendarId) {
     return 'Agendamento não configurado para esta empresa. Peça ao administrador para configurar o Google Calendar.'
@@ -461,6 +494,7 @@ Retorne APENAS o JSON, sem texto adicional.`
     temperature: 0.1,
     response_format: { type: 'json_object' },
   })
+  pushUsage(acc, completion, 'agendamento')
 
   let parsed: any = {}
   try {
@@ -661,7 +695,8 @@ async function runOrchestrator(
   ctx: SdrContext,
   leadNotes: string,
   supabase: ReturnType<typeof createServiceClient>,
-  openai: OpenAI
+  openai: OpenAI,
+  acc: UsageAcc
 ): Promise<string> {
   const userInput = messages.map((m) => m.content).join('\n\n')
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia' })
@@ -690,6 +725,7 @@ CONTEXTO DO CRM:
     max_tokens: 2000,
     temperature: 0.1,
   })
+  pushUsage(acc, response, 'orchestrator')
 
   let iterations = 0
   while (response.choices[0]?.finish_reason === 'tool_calls' && iterations < 20) {
@@ -717,15 +753,15 @@ CONTEXTO DO CRM:
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableObjecoes)
         if (!result) result = 'Objeções: nenhum argumento encontrado. Use o bom senso.'
       } else if (fn === 'agente_pipeline') {
-        result = await runAgentePipeline(args.message ?? userInput, ctx, openai, supabase)
+        result = await runAgentePipeline(args.message ?? userInput, ctx, openai, supabase, acc)
       } else if (fn === 'agente_segmentacao') {
-        result = await runAgenteSegmentacao(args.message ?? userInput, ctx, openai, supabase)
+        result = await runAgenteSegmentacao(args.message ?? userInput, ctx, openai, supabase, acc)
       } else if (fn === 'agente_outbound') {
-        result = await runAgenteOutbound(args.message ?? userInput, ctx, openai, supabase)
+        result = await runAgenteOutbound(args.message ?? userInput, ctx, openai, supabase, acc)
       } else if (fn === 'memory_long') {
-        result = await runMemoryExpert(args.info ?? userInput, ctx, openai, supabase)
+        result = await runMemoryExpert(args.info ?? userInput, ctx, openai, supabase, acc)
       } else if (fn === 'agente_agendamento') {
-        result = await runAgenteAgendamento(args.message ?? userInput, ctx, openai, supabase)
+        result = await runAgenteAgendamento(args.message ?? userInput, ctx, openai, supabase, acc)
       }
 
       toolResults.push({
@@ -745,6 +781,7 @@ CONTEXTO DO CRM:
       max_tokens: 1000,
       temperature: 0.1,
     })
+    pushUsage(acc, response, 'orchestrator_loop')
   }
 
   return response.choices[0]?.message?.content ?? ''
@@ -1024,6 +1061,14 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       return
     }
 
+    // ── Verificar franquia antes de processar ──────────────────
+    const quotaCheck = await checkTenantQuota(companyId, supabase)
+    if (!quotaCheck.allowed) {
+      await pauseTenant(companyId, supabase)
+      await log(companyId, 'quota_exceeded', { usedThisMonth: quotaCheck.usedThisMonth, quota: quotaCheck.quota }, supabase, phone)
+      return
+    }
+
     const bufferedMessages = await drainBuffer(companyId, phone, supabase)
     if (bufferedMessages.length === 0) return
 
@@ -1082,7 +1127,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     await log(companyId, 'message_received', { messages: bufferedMessages, flowId: cfg.flowId }, supabase, phone, leadId)
 
-    const aiResponse = await runOrchestrator(bufferedMessages, history, ctx, leadNotes, supabase, openai)
+    // ── Acumulador de usage — passado por referência a todos os agentes ──
+    const acc: UsageAcc = []
+
+    const aiResponse = await runOrchestrator(bufferedMessages, history, ctx, leadNotes, supabase, openai, acc)
     if (!aiResponse) return
 
     const paragraphs = aiResponse
@@ -1093,6 +1141,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
+
+    // ── Salvar usage_logs e enviar alertas (fire-and-forget) ──
+    recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
+    checkAndSendQuotaAlerts(companyId, supabase).catch(console.error)
   } catch (err: any) {
     console.error('[SDR Engine] Erro:', err)
     await log(companyId, 'error', {}, supabase, phone, undefined, err?.message ?? 'Erro desconhecido')
