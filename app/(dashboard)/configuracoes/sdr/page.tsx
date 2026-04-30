@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils/cn'
-import { Loader2, Save, MessageSquare, Copy, CheckCheck, Calendar, Zap, Wifi, WifiOff } from 'lucide-react'
+import { Loader2, Save, MessageSquare, Copy, CheckCheck, Calendar, Zap, Wifi, WifiOff, Database } from 'lucide-react'
 
 interface SdrConfig {
   id?: string
@@ -16,6 +17,10 @@ interface SdrConfig {
   webhook_url: string | null
   instance_status: 'disconnected' | 'connecting' | 'connected'
   instance_phone: string | null
+  vector_table_conhecimento: string
+  vector_table_objecoes: string
+  conhecimento_ativo: boolean
+  objecoes_ativo: boolean
 }
 
 const AGENT_TYPES = [
@@ -41,6 +46,10 @@ export default function SdrConfigPage() {
     webhook_url: null,
     instance_status: 'disconnected',
     instance_phone: null,
+    vector_table_conhecimento: '',
+    vector_table_objecoes: '',
+    conhecimento_ativo: true,
+    objecoes_ativo: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -62,9 +71,12 @@ export default function SdrConfigPage() {
           prompt: data.config.prompt ?? '',
           agente_ativo: data.config.agente_ativo ?? false,
           webhook_url: data.config.webhook_url ?? null,
-          // Prefere o status live para evitar valor preso no banco
           instance_status: liveStatus?.status ?? data.config.instance_status ?? 'disconnected',
           instance_phone: liveStatus?.phone ?? data.config.instance_phone ?? null,
+          vector_table_conhecimento: data.config.vector_table_conhecimento ?? '',
+          vector_table_objecoes: data.config.vector_table_objecoes ?? '',
+          conhecimento_ativo: data.config.conhecimento_ativo ?? true,
+          objecoes_ativo: data.config.objecoes_ativo ?? false,
         })
       }
     } catch {
@@ -86,6 +98,10 @@ export default function SdrConfigPage() {
           agent_type: config.agent_type,
           prompt: config.prompt,
           agente_ativo: config.agente_ativo,
+          vector_table_conhecimento: config.vector_table_conhecimento,
+          vector_table_objecoes: config.vector_table_objecoes,
+          conhecimento_ativo: config.conhecimento_ativo,
+          objecoes_ativo: config.objecoes_ativo,
         }),
       })
       const data = await res.json()
@@ -233,6 +249,55 @@ export default function SdrConfigPage() {
         <p className="text-xs text-muted-foreground">
           Essas instruções são injetadas no agente antes de cada resposta.
         </p>
+      </div>
+
+      {/* ── Base de conhecimento (RAG) ── */}
+      <div className="space-y-4 p-4 rounded-xl border border-border bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-muted-foreground" />
+          <p className="text-sm font-medium">Base de conhecimento (RAG)</p>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Nome das tabelas vetoriais no Supabase. Deixe em branco para usar o padrão da plataforma.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Conhecimento */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">Tabela de conhecimento</label>
+              <Switch
+                checked={config.conhecimento_ativo}
+                onCheckedChange={(val) => setConfig((prev) => ({ ...prev, conhecimento_ativo: val }))}
+              />
+            </div>
+            <Input
+              value={config.vector_table_conhecimento}
+              onChange={(e) => setConfig((prev) => ({ ...prev, vector_table_conhecimento: e.target.value }))}
+              placeholder="ex: Nexio_conhecimento"
+              disabled={!config.conhecimento_ativo}
+              className="font-mono text-xs h-8 bg-background"
+            />
+          </div>
+
+          {/* Objeções */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">Tabela de objeções</label>
+              <Switch
+                checked={config.objecoes_ativo}
+                onCheckedChange={(val) => setConfig((prev) => ({ ...prev, objecoes_ativo: val }))}
+              />
+            </div>
+            <Input
+              value={config.vector_table_objecoes}
+              onChange={(e) => setConfig((prev) => ({ ...prev, vector_table_objecoes: e.target.value }))}
+              placeholder="ex: Nexio_objecoes"
+              disabled={!config.objecoes_ativo}
+              className="font-mono text-xs h-8 bg-background"
+            />
+          </div>
+        </div>
       </div>
 
       {/* ── Webhook URL ── */}

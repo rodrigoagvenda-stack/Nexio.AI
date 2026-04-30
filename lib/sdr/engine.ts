@@ -1041,6 +1041,19 @@ async function loadSdrConfig(
     console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: uazapi_token vazio no sdr_configs`)
   }
 
+  const resolvedPrompt = flow?.orchestrator_prompt ?? config.prompt ?? ''
+  const resolvedVectorConhecimento = flow?.vector_table_conhecimento ?? config.vector_table_conhecimento ?? null
+  const resolvedVectorObjecoes = flow?.vector_table_objecoes ?? config.vector_table_objecoes ?? null
+  const resolvedConhecimentoAtivo = flow?.conhecimento_ativo ?? config.conhecimento_ativo ?? true
+  const resolvedObjecoesAtivo = flow?.objecoes_ativo ?? config.objecoes_ativo ?? false
+
+  console.log(
+    `[SDR:${companyId}] config resolvida — flow="${flow?.id ?? 'nenhum'}" ` +
+    `prompt=${resolvedPrompt.length}chars ` +
+    `conhecimento="${resolvedVectorConhecimento ?? 'Nexio_conhecimento(default)'}" ` +
+    `objecoes="${resolvedVectorObjecoes ?? 'off'}"`
+  )
+
   return {
     agente_ativo: config.agente_ativo,
     uazapi_token: decryptIfNeeded(config.uazapi_token),
@@ -1048,13 +1061,13 @@ async function loadSdrConfig(
     uazapi_instance_url: config.uazapi_instance_url ?? 'https://nexioai.uazapi.com',
     uazapi_instance_name: config.uazapi_instance_name ?? '',
     agent_type: config.agent_type ?? 'atendimento_venda',
-    prompt: flow?.orchestrator_prompt ?? config.prompt ?? '',
+    prompt: resolvedPrompt,
     google_calendar_id: config.google_calendar_id ?? null,
     flowId: flow?.id ?? null,
-    vectorTableConhecimento: flow?.vector_table_conhecimento ?? null,
-    vectorTableObjecoes: flow?.vector_table_objecoes ?? null,
-    conhecimentoAtivo: flow?.conhecimento_ativo ?? true,
-    objecoesAtivo: flow?.objecoes_ativo ?? false,
+    vectorTableConhecimento: resolvedVectorConhecimento,
+    vectorTableObjecoes: resolvedVectorObjecoes,
+    conhecimentoAtivo: resolvedConhecimentoAtivo,
+    objecoesAtivo: resolvedObjecoesAtivo,
   }
 }
 

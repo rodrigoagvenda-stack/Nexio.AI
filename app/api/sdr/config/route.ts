@@ -43,6 +43,10 @@ export async function GET() {
         webhook_url: config.webhook_url,
         instance_status: config.instance_status,
         instance_phone: config.instance_phone,
+        vector_table_conhecimento: config.vector_table_conhecimento ?? null,
+        vector_table_objecoes: config.vector_table_objecoes ?? null,
+        conhecimento_ativo: config.conhecimento_ativo ?? true,
+        objecoes_ativo: config.objecoes_ativo ?? false,
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -78,6 +82,10 @@ export async function PUT(request: NextRequest) {
       uazapi_token,
       google_calendar_id,
       openai_key,
+      vector_table_conhecimento,
+      vector_table_objecoes,
+      conhecimento_ativo,
+      objecoes_ativo,
     } = body
 
     const service = createServiceClient()
@@ -102,6 +110,10 @@ export async function PUT(request: NextRequest) {
     if (uazapi_instance_name !== undefined) updates.uazapi_instance_name = uazapi_instance_name
     if (uazapi_instance_url !== undefined) updates.uazapi_instance_url = uazapi_instance_url
     if (google_calendar_id !== undefined) updates.google_calendar_id = google_calendar_id
+    if (vector_table_conhecimento !== undefined) updates.vector_table_conhecimento = vector_table_conhecimento || null
+    if (vector_table_objecoes !== undefined) updates.vector_table_objecoes = vector_table_objecoes || null
+    if (conhecimento_ativo !== undefined) updates.conhecimento_ativo = conhecimento_ativo
+    if (objecoes_ativo !== undefined) updates.objecoes_ativo = objecoes_ativo
 
     if (uazapi_token && !uazapi_token.startsWith('••')) {
       updates.uazapi_token = encrypt(uazapi_token)
