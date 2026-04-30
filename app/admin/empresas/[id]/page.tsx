@@ -578,6 +578,50 @@ export default function EmpresaDetailPage() {
           </CardContent>
       </Card>
 
+      {/* Asaas — integração de cobrança */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Asaas — Cobrança</CardTitle>
+          <CardDescription>IDs de integração com o gateway de pagamentos. Preenchidos automaticamente ao assinar.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Customer ID</Label>
+              <Input
+                value={company.asaas_customer_id ?? ''}
+                onChange={(e) => setCompany({ ...company, asaas_customer_id: e.target.value || null })}
+                placeholder="cus_…"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF / CNPJ</Label>
+              <Input
+                value={company.asaas_cpf_cnpj ?? ''}
+                onChange={(e) => setCompany({ ...company, asaas_cpf_cnpj: e.target.value || null })}
+                placeholder="00.000.000/0001-00"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Subscription ID</Label>
+            <Input
+              value={company.asaas_subscription_id ?? ''}
+              onChange={(e) => setCompany({ ...company, asaas_subscription_id: e.target.value || null })}
+              placeholder="sub_…"
+            />
+            {company.asaas_subscription_id && (
+              <p className="text-xs text-green-600">✓ Assinatura recorrente ativa</p>
+            )}
+          </div>
+          {company.subscription_start_date && (
+            <p className="text-xs text-muted-foreground">
+              Início da assinatura: {new Date(company.subscription_start_date).toLocaleDateString('pt-BR')}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* SDR — Credenciais uazapi por empresa */}
       <Card>
         <CardHeader>

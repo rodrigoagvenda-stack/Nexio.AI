@@ -75,7 +75,7 @@ export default function MembrosPage() {
   const itemsPerPage = 10;
 
   // Verificar se o usuário é admin
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   // Form states
   const [inviteForm, setInviteForm] = useState({

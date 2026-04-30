@@ -15,6 +15,11 @@ export interface Company {
   tokens_limit?: number;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
+  asaas_customer_id?: string | null;
+  asaas_subscription_id?: string | null;
+  asaas_cpf_cnpj?: string | null;
+  subscription_start_date?: string | null;
+  whatsapp_instance_name?: string | null;
   leads_extracted_this_month?: number;
   last_extraction_month?: string;
   whatsapp_instance?: string;
