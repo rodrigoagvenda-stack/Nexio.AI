@@ -102,7 +102,10 @@ export async function POST(request: NextRequest) {
 
     // Garante que o webhook esteja configurado nessa instância
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
-    await client.setWebhook(webhookUrl, ['messages', 'connection']).catch(() => {})
+    console.log(`[SDR connect] configurando webhook: ${webhookUrl}`)
+    await client.setWebhook(webhookUrl).catch((err: any) => {
+      console.error(`[SDR connect] ERRO ao configurar webhook:`, err.message)
+    })
 
     // Inicia conexão — se a instância foi deletada (inatividade/incidente), recria no mesmo request
     try {
@@ -136,7 +139,9 @@ export async function POST(request: NextRequest) {
         }).eq('id', companyId)
 
         client = createUazapiClient(BASE_URL, instance.token)
-        await client.setWebhook(webhookUrl, ['messages', 'connection']).catch(() => {})
+        await client.setWebhook(webhookUrl).catch((err: any) => {
+          console.error(`[SDR connect] ERRO ao configurar webhook (nova instância):`, err.message)
+        })
         await client.connect(body.phone)
       } else {
         throw uazErr
