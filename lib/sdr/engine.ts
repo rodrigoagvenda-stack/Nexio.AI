@@ -728,7 +728,7 @@ CONTEXTO DO CRM:
     model: 'gpt-4.1',
     messages: chatMessages,
     tools: TOOLS,
-    tool_choice: 'auto',
+    tool_choice: 'required',
     max_tokens: 2000,
     temperature: 0.1,
   })
