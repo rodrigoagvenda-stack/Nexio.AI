@@ -27,18 +27,14 @@ export async function GET() {
 
     const instanceName = sdrConfig?.uazapi_instance_name ?? null
 
-    // Monta query filtrando pela instância atual
-    let query = service
+    // Busca todas as conversas da empresa (a filtragem por instância seria feita
+    // se houvesse múltiplas instâncias — por ora mostra todas da empresa)
+    const query = service
       .from('conversas_do_whatsapp')
       .select(`*, lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)`)
       .eq('company_id', userData.company_id)
       .order('hora_da_ultima_mensagem', { ascending: false })
       .limit(50)
-
-    // Se temos instance_name, filtra somente conversas dessa instância
-    if (instanceName) {
-      query = query.eq('instance_name', instanceName)
-    }
 
     // Closer só vê conversas dos seus leads atribuídos
     if (userData.role === 'closer') {

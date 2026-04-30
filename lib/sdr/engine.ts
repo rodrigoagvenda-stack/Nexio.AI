@@ -1069,12 +1069,21 @@ async function ensureConversation(
 ): Promise<string> {
   const { data: existing } = await supabase
     .from('conversas_do_whatsapp')
-    .select('id')
+    .select('id, instance_name')
     .eq('company_id', ctx.companyId)
     .eq('numero_de_telefone', ctx.leadPhone)
     .maybeSingle()
 
-  if (existing?.id) return existing.id
+  if (existing?.id) {
+    // Atualiza instance_name se estiver ausente
+    if (!existing.instance_name && ctx.instanceName) {
+      await supabase
+        .from('conversas_do_whatsapp')
+        .update({ instance_name: ctx.instanceName })
+        .eq('id', existing.id)
+    }
+    return existing.id
+  }
 
   const { data: created } = await supabase
     .from('conversas_do_whatsapp')
