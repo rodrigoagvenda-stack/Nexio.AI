@@ -1172,6 +1172,16 @@ export default function AtendimentoPage() {
           <p className="text-center text-xs text-muted-foreground mt-4">
             🔒 Suas mensagens são protegidas com criptografia de ponta a ponta
           </p>
+          <div className="mt-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-xs text-amber-800 dark:text-amber-300 space-y-1.5">
+            <p className="font-semibold">⚠️ Importante — API não oficial do WhatsApp</p>
+            <p>Esta integração usa uma API de terceiros não homologada pelo WhatsApp/Meta. Ao usar este recurso, você está ciente de que:</p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>O WhatsApp pode suspender ou banir o número conectado a qualquer momento, sem aviso prévio.</li>
+              <li>Não há garantia de disponibilidade (SLA) — interrupções no servidor intermediário podem desconectar o número.</li>
+              <li>O uso desta API viola os Termos de Serviço do WhatsApp.</li>
+              <li>Recomendamos não usar o número principal da empresa — prefira um número dedicado.</li>
+            </ul>
+          </div>
         </div>
       </div>
     );

@@ -98,29 +98,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const client = createUazapiClient(config.uazapi_instance_url, token)
+    let client = createUazapiClient(config.uazapi_instance_url, token)
 
     // Garante que o webhook esteja configurado nessa instância
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
     await client.setWebhook(webhookUrl, ['messages', 'connection']).catch(() => {})
 
-    // Inicia conexão — se a instância foi auto-deletada (1h sem conectar), recria
+    // Inicia conexão — se a instância foi deletada (inatividade/incidente), recria no mesmo request
     try {
       await client.connect(body.phone)
     } catch (uazErr: any) {
       const msg = uazErr.message ?? ''
       if (msg.includes('401') || msg.includes('404') || msg.toLowerCase().includes('not found')) {
+        // Limpa instância stale e recria imediatamente
         await service.from('sdr_configs').update({
           uazapi_token: null,
           uazapi_instance_url: null,
           uazapi_instance_name: null,
           instance_status: 'disconnected',
+          instance_phone: null,
         }).eq('company_id', companyId)
-        return NextResponse.json({
-          error: 'Instância expirou no servidor WhatsApp. Clique em conectar novamente para recriar.',
-        }, { status: 503 })
+
+        const instanceName = `zaapli-${companyId}-${Date.now()}`
+        const instance = await createInstance({ name: instanceName, companyId })
+
+        await service.from('sdr_configs').update({
+          uazapi_instance_url: BASE_URL,
+          uazapi_instance_name: instanceName,
+          uazapi_token: instance.token,
+          instance_status: 'disconnected',
+          instance_phone: null,
+        }).eq('company_id', companyId)
+
+        await service.from('companies').update({
+          whatsapp_instance_name: instanceName,
+          whatsapp_instance: BASE_URL,
+        }).eq('id', companyId)
+
+        client = createUazapiClient(BASE_URL, instance.token)
+        await client.setWebhook(webhookUrl, ['messages', 'connection']).catch(() => {})
+        await client.connect(body.phone)
+      } else {
+        throw uazErr
       }
-      throw uazErr
     }
 
     await service.from('sdr_configs')

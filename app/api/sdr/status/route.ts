@@ -40,7 +40,24 @@ export async function GET() {
     }
 
     const client = createUazapiClient(config.uazapi_instance_url, token)
-    const liveStatus = await client.getStatus()
+
+    let liveStatus: Awaited<ReturnType<typeof client.getStatus>>
+    try {
+      liveStatus = await client.getStatus()
+    } catch (uazErr: any) {
+      const msg = uazErr.message ?? ''
+      // Instância foi deletada no servidor (inatividade, incidente, etc.)
+      if (msg.includes('401') || msg.includes('404') || msg.toLowerCase().includes('not found')) {
+        await service.from('sdr_configs').update({
+          uazapi_token: null,
+          uazapi_instance_url: null,
+          uazapi_instance_name: null,
+          instance_status: 'disconnected',
+          instance_phone: null,
+        }).eq('company_id', userData.company_id)
+      }
+      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
+    }
 
     if (liveStatus.status !== config.instance_status || liveStatus.phone !== config.instance_phone) {
       await service
