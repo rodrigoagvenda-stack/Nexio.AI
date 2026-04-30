@@ -274,13 +274,13 @@ IMPORTANTE: Se não houver informação suficiente na conversa para determinar o
 
 FERRAMENTAS DISPONÍVEIS:
 - "Think5": use para raciocinar sobre qual estágio aplicar
-- "Buscar lead1": busca os dados atuais do lead usando o whatsapp como identificador único
-- "Atualizar resumo1": atualiza o campo de estágio no CRM
+- "Buscar_lead1": busca os dados atuais do lead usando o whatsapp como identificador único
+- "Atualizar_resumo1": atualiza o campo de estágio no CRM
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
-1. Use "Buscar lead1" passando o número do whatsapp do lead
+1. Use "Buscar_lead1" passando o número do whatsapp do lead
 2. Use "Think5" para raciocinar sobre qual estágio aplicar
-3. Use "Atualizar resumo1" para salvar o novo estágio
+3. Use "Atualizar_resumo1" para salvar o novo estágio
 
 ESTÁGIOS DISPONÍVEIS (use exatamente assim):
 "Triagem", "Outbound", "Novo lead", "Em contato", "Interessado", "Proposta enviada", "Fechado", "Perdido", "Remarketing"
@@ -301,7 +301,7 @@ RETORNO FINAL: {"atualizado": true|false, "estagio": "nome"}`
     {
       type: 'function',
       function: {
-        name: 'Buscar lead1',
+        name: 'Buscar_lead1',
         description: 'Busca os dados atuais do lead usando o whatsapp como identificador único',
         parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
       },
@@ -309,7 +309,7 @@ RETORNO FINAL: {"atualizado": true|false, "estagio": "nome"}`
     {
       type: 'function',
       function: {
-        name: 'Atualizar resumo1',
+        name: 'Atualizar_resumo1',
         description: 'Atualiza o campo de estágio no CRM',
         parameters: { type: 'object', properties: { estagio: { type: 'string' } }, required: ['estagio'] },
       },
@@ -320,7 +320,7 @@ RETORNO FINAL: {"atualizado": true|false, "estagio": "nome"}`
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
     'Think5': async (args) => `Raciocínio registrado: ${args.thought}`,
-    'Buscar lead1': async (_args) => {
+    'Buscar_lead1': async (_args) => {
       const { data } = await supabase
         .from('leads')
         .select('id, status, whatsapp, contact_name, segment, priority, nivel_interesse, call_de_venda')
@@ -328,7 +328,7 @@ RETORNO FINAL: {"atualizado": true|false, "estagio": "nome"}`
         .single()
       return JSON.stringify(data ?? {})
     },
-    'Atualizar resumo1': async (args) => {
+    'Atualizar_resumo1': async (args) => {
       if (!validStages.includes(args.estagio)) return `Estágio inválido: ${args.estagio}`
       await supabase.from('leads').update({ status: args.estagio, updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
       return JSON.stringify({ atualizado: true, estagio: args.estagio })
@@ -352,9 +352,9 @@ async function runAgenteSegmentacao(
   const systemPrompt = `Você é o Agente de Segmentação. Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM.
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
-1. Use "Buscar nincho" passando o whatsapp do lead
+1. Use "Buscar_nincho" passando o whatsapp do lead
 2. Use "Think" para raciocinar sobre o nicho correto
-3. Use "Atualizar nincho" para salvar o segmento
+3. Use "Atualizar_nincho" para salvar o segmento
 
 NICHOS DISPONÍVEIS (use exatamente um deles):
 E-commerce, Saúde/Medicina, Educação, Alimentação, Beleza/Estética, Imobiliária, Advocacia, Consultoria, Tecnologia, Moda/Fashion, Arquitetura, Auto Escola, Restaurante, Academia, Farmácia, Padaria, Supermercado, Floricultura, Hotel/Pousada, Oficina Mecânica, Pet Shop, Outros
@@ -365,7 +365,7 @@ RETORNO FINAL: {"atualizado": true|false, "segmento": "nome"}`
     {
       type: 'function',
       function: {
-        name: 'Buscar nincho',
+        name: 'Buscar_nincho',
         description: 'Busca os dados atuais do lead pelo whatsapp, incluindo segmento atual',
         parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
       },
@@ -381,7 +381,7 @@ RETORNO FINAL: {"atualizado": true|false, "segmento": "nome"}`
     {
       type: 'function',
       function: {
-        name: 'Atualizar nincho',
+        name: 'Atualizar_nincho',
         description: 'Atualiza o campo de segmento no CRM',
         parameters: { type: 'object', properties: { segmento: { type: 'string' } }, required: ['segmento'] },
       },
@@ -391,7 +391,7 @@ RETORNO FINAL: {"atualizado": true|false, "segmento": "nome"}`
   const validNichos = ['E-commerce', 'Saúde/Medicina', 'Educação', 'Alimentação', 'Beleza/Estética', 'Imobiliária', 'Advocacia', 'Consultoria', 'Tecnologia', 'Moda/Fashion', 'Arquitetura', 'Auto Escola', 'Restaurante', 'Academia', 'Farmácia', 'Padaria', 'Supermercado', 'Floricultura', 'Hotel/Pousada', 'Oficina Mecânica', 'Pet Shop', 'Outros']
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
-    'Buscar nincho': async (_args) => {
+    'Buscar_nincho': async (_args) => {
       const { data } = await supabase
         .from('leads')
         .select('id, whatsapp, contact_name, segment, status')
@@ -400,7 +400,7 @@ RETORNO FINAL: {"atualizado": true|false, "segmento": "nome"}`
       return JSON.stringify(data ?? {})
     },
     'Think': async (args) => `Raciocínio registrado: ${args.thought}`,
-    'Atualizar nincho': async (args) => {
+    'Atualizar_nincho': async (args) => {
       if (!validNichos.includes(args.segmento)) return `Segmento inválido: ${args.segmento}`
       await supabase.from('leads').update({ segment: args.segmento, updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
       return JSON.stringify({ atualizado: true, segmento: args.segmento })
@@ -521,10 +521,10 @@ async function runMemoryExpert(
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
 1. Use "Think4" para raciocinar sobre o que deve ser atualizado
-2. Use "Buscar lead" para obter os dados atuais do lead
+2. Use "Buscar_lead" para obter os dados atuais do lead
 3. Compare as informações novas com as existentes
 4. Use "Think4" novamente para decidir exatamente o que atualizar
-5. Use "Atualizar resumo" para salvar as atualizações
+5. Use "Atualizar_resumo" para salvar as atualizações
 
 CAMPOS QUE VOCÊ ATUALIZA:
 - resumo_ia: resumo executivo (máx 200 palavras, bullet points)
@@ -547,7 +547,7 @@ Só atualize um campo se tiver informação nova relevante.`
     {
       type: 'function',
       function: {
-        name: 'Buscar lead',
+        name: 'Buscar_lead',
         description: 'Busca os dados atuais do lead no CRM',
         parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
       },
@@ -555,7 +555,7 @@ Só atualize um campo se tiver informação nova relevante.`
     {
       type: 'function',
       function: {
-        name: 'Atualizar resumo',
+        name: 'Atualizar_resumo',
         description: 'Atualiza os campos do lead no CRM',
         parameters: {
           type: 'object',
@@ -572,7 +572,7 @@ Só atualize um campo se tiver informação nova relevante.`
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
     'Think4': async (args) => `Raciocínio: ${args.thought}`,
-    'Buscar lead': async (_args) => {
+    'Buscar_lead': async (_args) => {
       const { data } = await supabase
         .from('leads')
         .select('id, whatsapp, contact_name, resumo_ia, segment, priority, nivel_interesse, status, notes')
@@ -580,7 +580,7 @@ Só atualize um campo se tiver informação nova relevante.`
         .single()
       return JSON.stringify(data ?? {})
     },
-    'Atualizar resumo': async (args) => {
+    'Atualizar_resumo': async (args) => {
       const updates: Record<string, any> = { updated_at: new Date().toISOString() }
       if (args.resumo_ia) updates.resumo_ia = args.resumo_ia
       if (args.segment) updates.segment = args.segment
@@ -613,12 +613,12 @@ async function runAgenteAgendamento(
   const systemPrompt = `Você é o Agente de Agendamento. Seu único trabalho é agendar, remarcar ou cancelar calls de venda via Google Calendar.
 
 FERRAMENTAS DISPONÍVEIS:
-- "Hora atual": retorna a data e hora atual no fuso America/Bahia
-- "Buscar reunião": busca os dados de agendamento atual do lead
-- "Consultar (gcal)": consulta horários disponíveis no calendário para uma data específica
-- "Agendar (gcal)": cria um evento no Google Calendar com Meet
-- "Deletar (gcal)": cancela/deleta um evento existente
-- "Reunião marcada": salva os dados da reunião no CRM
+- "Hora_atual": retorna a data e hora atual no fuso America/Bahia
+- "Buscar_reuniao": busca os dados de agendamento atual do lead
+- "Consultar_gcal": consulta horários disponíveis no calendário para uma data específica
+- "Agendar_gcal": cria um evento no Google Calendar com Meet
+- "Deletar_gcal": cancela/deleta um evento existente
+- "Reuniao_marcada": salva os dados da reunião no CRM
 
 REGRAS OBRIGATÓRIAS:
 - Apenas Seg a Sex, 9h às 18h, fuso America/Bahia
@@ -628,17 +628,17 @@ REGRAS OBRIGATÓRIAS:
 - Responda em no máximo 2 linhas para o lead
 
 ORDEM:
-1. "Hora atual" para saber a data/hora atual
-2. "Buscar reunião" para ver se o lead já tem agendamento
-3. "Consultar (gcal)" para ver horários disponíveis (se necessário)
-4. "Agendar (gcal)" ou "Deletar (gcal)" conforme a ação
-5. "Reunião marcada" para salvar no CRM`
+1. "Hora_atual" para saber a data/hora atual
+2. "Buscar_reuniao" para ver se o lead já tem agendamento
+3. "Consultar_gcal" para ver horários disponíveis (se necessário)
+4. "Agendar_gcal" ou "Deletar_gcal" conforme a ação
+5. "Reuniao_marcada" para salvar no CRM`
 
   const tools: OpenAI.Chat.ChatCompletionTool[] = [
     {
       type: 'function',
       function: {
-        name: 'Hora atual',
+        name: 'Hora_atual',
         description: 'Retorna a data e hora atual no fuso America/Bahia',
         parameters: { type: 'object', properties: {} },
       },
@@ -646,7 +646,7 @@ ORDEM:
     {
       type: 'function',
       function: {
-        name: 'Buscar reunião',
+        name: 'Buscar_reuniao',
         description: 'Busca os dados de agendamento atual do lead no CRM',
         parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
       },
@@ -654,7 +654,7 @@ ORDEM:
     {
       type: 'function',
       function: {
-        name: 'Consultar (gcal)',
+        name: 'Consultar_gcal',
         description: 'Consulta horários disponíveis no Google Calendar para uma data',
         parameters: {
           type: 'object',
@@ -666,7 +666,7 @@ ORDEM:
     {
       type: 'function',
       function: {
-        name: 'Agendar (gcal)',
+        name: 'Agendar_gcal',
         description: 'Cria um evento no Google Calendar com link Meet',
         parameters: {
           type: 'object',
@@ -682,7 +682,7 @@ ORDEM:
     {
       type: 'function',
       function: {
-        name: 'Deletar (gcal)',
+        name: 'Deletar_gcal',
         description: 'Cancela/deleta um evento existente no Google Calendar',
         parameters: { type: 'object', properties: { event_id: { type: 'string' } }, required: ['event_id'] },
       },
@@ -690,7 +690,7 @@ ORDEM:
     {
       type: 'function',
       function: {
-        name: 'Reunião marcada',
+        name: 'Reuniao_marcada',
         description: 'Salva os dados da reunião agendada no CRM',
         parameters: {
           type: 'object',
@@ -707,10 +707,10 @@ ORDEM:
   ]
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
-    'Hora atual': async (_args) => {
+    'Hora_atual': async (_args) => {
       return new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia', dateStyle: 'full', timeStyle: 'short' })
     },
-    'Buscar reunião': async (_args) => {
+    'Buscar_reuniao': async (_args) => {
       const { data } = await supabase
         .from('leads')
         .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name')
@@ -718,7 +718,7 @@ ORDEM:
         .single()
       return JSON.stringify(data ?? {})
     },
-    'Consultar (gcal)': async (args) => {
+    'Consultar_gcal': async (args) => {
       try {
         const date = new Date(args.data)
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date })
@@ -731,7 +731,7 @@ ORDEM:
         return `Erro ao consultar calendário: ${err.message}`
       }
     },
-    'Agendar (gcal)': async (args) => {
+    'Agendar_gcal': async (args) => {
       try {
         const start = new Date(args.data_hora)
         const event = await createEventWithMeet({
@@ -746,7 +746,7 @@ ORDEM:
         return `Erro ao criar evento: ${err.message}`
       }
     },
-    'Deletar (gcal)': async (args) => {
+    'Deletar_gcal': async (args) => {
       try {
         await supabase.from('leads').update({ call_de_venda: false, call_status: 'cancelada', updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
         return JSON.stringify({ deletado: true, event_id: args.event_id })
@@ -754,7 +754,7 @@ ORDEM:
         return `Erro ao cancelar: ${err.message}`
       }
     },
-    'Reunião marcada': async (args) => {
+    'Reuniao_marcada': async (args) => {
       const updates: Record<string, any> = { updated_at: new Date().toISOString() }
       if (args.acao === 'cancelar') {
         updates.call_de_venda = false
@@ -1433,6 +1433,16 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         }).eq('company_id', companyId)
       }
       return true
+    }
+
+    if (eventType && eventType.toLowerCase() !== 'messages') {
+      console.log(`[SDR:${companyId}] ignorado — EventType="${eventType}" não é messages`)
+      return false
+    }
+
+    if (!body.message) {
+      console.log(`[SDR:${companyId}] ignorado — body.message ausente`)
+      return false
     }
 
     if (body.message?.fromMe) {
