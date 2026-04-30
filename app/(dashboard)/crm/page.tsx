@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Flame, User, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, Maximize2, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -244,8 +244,6 @@ const DroppableColumn = memo(function DroppableColumn({
   const getColumnIcon = () => {
     const status = id.replace('column-', '');
     switch (status) {
-      case 'Triagem':         return <Filter        className="h-4 w-4 text-orange-500" />;
-      case 'Outbound':        return <Megaphone     className="h-4 w-4 text-primary" />;
       case 'Lead novo':       return <UserPlus      className="h-4 w-4 text-blue-500" />;
       case 'Em contato':      return <MessageCircle className="h-4 w-4 text-pink-500" />;
       case 'Interessado':     return <Star          className="h-4 w-4 text-green-500" />;
@@ -320,17 +318,12 @@ export default function CRMPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  const [showMqlModal, setShowMqlModal] = useState(false);
   const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [priorityFilter, setPriorityFilter] = useState('Todas');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<string | number | null>(null);
-  const [showPromoteConfirm, setShowPromoteConfirm] = useState(false);
-  const [isPromoting, setIsPromoting] = useState(false);
-  const [showDemoteConfirm, setShowDemoteConfirm] = useState(false);
-  const [isDemoting, setIsDemoting] = useState(false);
   const [mobileColumnPages, setMobileColumnPages] = useState<Record<string, number>>({});
   const MOBILE_PAGE_SIZE = 6;
   const [currentPage, setCurrentPage] = useState(1);
@@ -355,7 +348,6 @@ export default function CRMPage() {
     import_source: 'Interno',
     project_value: 0,
     notes: '',
-    mql_resumo: '',
     cargo: '',
   });
 
@@ -379,87 +371,6 @@ export default function CRMPage() {
     }).catch(() => {}); // fire-and-forget, nunca bloqueia o fluxo principal
   };
 
-  // Mover todos os leads de Outbound → Triagem em paralelo
-  const handleDemoteAllOutbound = useCallback(async () => {
-    const outboundLeads = leads.filter(l => l.status === 'Outbound');
-    if (!outboundLeads.length || !user?.company_id) return;
-
-    setIsDemoting(true);
-
-    // Atualização otimista
-    setLeads(prev => prev.map(l => l.status === 'Outbound' ? { ...l, status: 'Triagem' } : l));
-
-    try {
-      await Promise.all(
-        outboundLeads.map(lead =>
-          fetch(`/api/leads/${lead.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ companyId: user.company_id, field: 'status', value: 'Triagem' }),
-          })
-        )
-      );
-
-      toast({ title: `${outboundLeads.length} lead(s) voltaram para Triagem!` });
-
-      if (user && company) {
-        logActivity({
-          user_id: user.auth_user_id,
-          company_id: company.id,
-          action: 'outbound_demote_all',
-          description: `Voltou ${outboundLeads.length} lead(s) de Outbound para Triagem`,
-          metadata: { count: outboundLeads.length },
-        });
-      }
-    } catch {
-      toast({ title: 'Erro ao voltar leads', variant: 'destructive' });
-      fetchLeads(); // revert
-    } finally {
-      setIsDemoting(false);
-      setShowDemoteConfirm(false);
-    }
-  }, [leads, user, company]);
-
-  // Mover todos os leads de Triagem → Outbound em paralelo
-  const handlePromoteAllTriagem = useCallback(async () => {
-    const triagemLeads = leads.filter(l => l.status === 'Triagem');
-    if (!triagemLeads.length || !user?.company_id) return;
-
-    setIsPromoting(true);
-
-    // Atualização otimista
-    setLeads(prev => prev.map(l => l.status === 'Triagem' ? { ...l, status: 'Outbound' } : l));
-
-    try {
-      await Promise.all(
-        triagemLeads.map(lead =>
-          fetch(`/api/leads/${lead.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ companyId: user.company_id, field: 'status', value: 'Outbound' }),
-          })
-        )
-      );
-
-      toast({ title: `${triagemLeads.length} lead(s) promovido(s) para Outbound!` });
-
-      if (user && company) {
-        logActivity({
-          user_id: user.auth_user_id,
-          company_id: company.id,
-          action: 'triagem_promote_all',
-          description: `Promoveu ${triagemLeads.length} lead(s) de Triagem para Outbound`,
-          metadata: { count: triagemLeads.length },
-        });
-      }
-    } catch {
-      toast({ title: 'Erro ao promover leads', variant: 'destructive' });
-      fetchLeads(); // revert
-    } finally {
-      setIsPromoting(false);
-      setShowPromoteConfirm(false);
-    }
-  }, [leads, user, company]);
 
   useEffect(() => {
     if (!userLoading && !hasFetched) {
@@ -652,7 +563,6 @@ export default function CRMPage() {
         import_source: lead.import_source || 'Interno',
         project_value: lead.project_value || 0,
         notes: lead.notes || '',
-        mql_resumo: lead.mql_resumo || '',
         cargo: lead.cargo || '',
       });
     } else {
@@ -670,7 +580,6 @@ export default function CRMPage() {
         import_source: 'Interno',
         project_value: 0,
         notes: '',
-        mql_resumo: '',
         cargo: '',
       });
     }
@@ -1162,7 +1071,7 @@ export default function CRMPage() {
                   width: 'fit-content'
                 }}
               >
-                {columns.map((column) => {
+                {columns.filter(c => c.id !== 'Triagem' && c.id !== 'Outbound').map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
                     <div key={column.id} className="w-[320px] flex-shrink-0">
@@ -1171,8 +1080,6 @@ export default function CRMPage() {
                         title={column.title}
                         count={columnLeads.length}
                         totalValue={getTotalValueByStatus(column.id)}
-                        onPromoteAll={column.id === 'Triagem' ? () => setShowPromoteConfirm(true) : undefined}
-                        onDemoteAll={column.id === 'Outbound' ? () => setShowDemoteConfirm(true) : undefined}
                       >
                         <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                           {columnLeads.map((lead) => (
@@ -1204,7 +1111,7 @@ export default function CRMPage() {
 
         {/* Mobile Kanban - Horizontal snap scroll */}
         <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none' }}>
-          {columns.map((column) => {
+          {columns.filter(c => c.id !== 'Triagem' && c.id !== 'Outbound').map((column) => {
             const colLeads = getLeadsByStatus(column.id);
             const page = mobileColumnPages[column.id] || 0;
             const totalPages = Math.ceil(colLeads.length / MOBILE_PAGE_SIZE);
@@ -1218,16 +1125,6 @@ export default function CRMPage() {
                     <span className="text-sm font-semibold">{column.title}</span>
                     <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded-full">{colLeads.length}</span>
                   </div>
-                  {column.id === 'Triagem' && colLeads.length > 0 && (
-                    <button onClick={() => setShowPromoteConfirm(true)} className="flex items-center gap-1 text-xs text-orange-500 bg-orange-500/10 px-2 py-1 rounded-md">
-                      <Megaphone className="h-3 w-3" />Promover
-                    </button>
-                  )}
-                  {column.id === 'Outbound' && colLeads.length > 0 && (
-                    <button onClick={() => setShowDemoteConfirm(true)} className="flex items-center gap-1 text-xs text-orange-500 bg-orange-500/10 px-2 py-1 rounded-md">
-                      <Filter className="h-3 w-3" />Voltar
-                    </button>
-                  )}
                 </div>
 
                 {/* Cards */}
@@ -1631,7 +1528,6 @@ export default function CRMPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Triagem">Triagem</SelectItem>
                       <SelectItem value="Lead novo">Lead novo</SelectItem>
                       <SelectItem value="Em contato">Em contato</SelectItem>
                       <SelectItem value="Interessado">Interessado</SelectItem>
@@ -1639,7 +1535,6 @@ export default function CRMPage() {
                       <SelectItem value="Fechado">Fechado</SelectItem>
                       <SelectItem value="Perdido">Perdido</SelectItem>
                       <SelectItem value="Remarketing">Remarketing</SelectItem>
-                      <SelectItem value="Outbound">Outbound</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1726,27 +1621,6 @@ export default function CRMPage() {
                     />
                   </div>
                 )}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="mql_resumo" className="text-sm font-medium flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-green-500" />
-                      Observação MQL
-                    </Label>
-                    {formData.mql_resumo && (
-                      <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShowMqlModal(true)}>
-                        <Maximize2 className="h-3 w-3" />
-                        Expandir
-                      </Button>
-                    )}
-                  </div>
-                  <textarea
-                    id="mql_resumo"
-                    className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input text-sm resize-none bg-muted/50 cursor-default select-text"
-                    value={formData.mql_resumo}
-                    readOnly
-                    placeholder="Gerado automaticamente pela IA..."
-                  />
-                </div>
               </div>
             )}
           </div>
@@ -1786,54 +1660,6 @@ export default function CRMPage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Alert Dialog — Promover todos Triagem → Outbound */}
-      <AlertDialog open={showPromoteConfirm} onOpenChange={setShowPromoteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Promover todos para Outbound</AlertDialogTitle>
-            <AlertDialogDescription>
-              Todos os <strong>{leads.filter(l => l.status === 'Triagem').length} leads</strong> da coluna Triagem serão movidos para <strong>Outbound</strong> e entrarão na fila do Orbit.AI.
-              <br /><br />
-              Deseja continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPromoting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handlePromoteAllTriagem}
-              disabled={isPromoting}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
-              {isPromoting ? 'Promovendo...' : 'Promover todos'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Alert Dialog — Voltar todos Outbound → Triagem */}
-      <AlertDialog open={showDemoteConfirm} onOpenChange={setShowDemoteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Voltar todos para Triagem</AlertDialogTitle>
-            <AlertDialogDescription>
-              Todos os <strong>{leads.filter(l => l.status === 'Outbound').length} leads</strong> da coluna Outbound serão movidos de volta para <strong>Triagem</strong>.
-              <br /><br />
-              Deseja continuar?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDemoting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDemoteAllOutbound}
-              disabled={isDemoting}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
-              {isDemoting ? 'Voltando...' : 'Voltar todos'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Alert Dialog para Delete */}
       <AlertDialog open={!!deletingLead} onOpenChange={() => setDeletingLead(null)}>
@@ -1884,20 +1710,6 @@ export default function CRMPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog: Visualizar Observação MQL */}
-      <Dialog open={showMqlModal} onOpenChange={setShowMqlModal}>
-        <DialogContent className="sm:max-w-lg bg-background">
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-green-500" />
-            Observação MQL
-          </DialogTitle>
-          <div className="mt-2 p-4 rounded-lg bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border border-green-500/20">
-            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-              {formData.mql_resumo || 'Nenhuma observação MQL gerada ainda.'}
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
