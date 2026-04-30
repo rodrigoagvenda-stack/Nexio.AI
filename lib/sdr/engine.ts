@@ -11,6 +11,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
+import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
 import {
   checkAvailableSlots,
@@ -1025,23 +1026,16 @@ async function loadSdrConfig(
     return val
   }
 
-  // Resolve OpenAI key: empresa → platform_config global → env
+  // Resolve OpenAI key: empresa → platform_config global (via getPlatformConfig) → env
   let resolvedOpenAIKey = decryptIfNeeded(config.openai_key)
   if (!resolvedOpenAIKey) {
-    const { data: globalRow } = await supabase
-      .from('platform_config')
-      .select('value, is_encrypted')
-      .eq('key', 'openai_api_key')
-      .single()
-    if (globalRow?.value) {
-      try {
-        resolvedOpenAIKey = globalRow.is_encrypted ? decrypt(globalRow.value) : globalRow.value
-      } catch {}
-    }
-    if (!resolvedOpenAIKey) resolvedOpenAIKey = process.env.OPENAI_API_KEY || ''
+    const platformCfg = await getPlatformConfig()
+    resolvedOpenAIKey = platformCfg.openai_api_key
   }
   if (!resolvedOpenAIKey) {
     console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: OpenAI key não encontrada (empresa nem global)`)
+  } else {
+    console.log(`[SDR:${companyId}] OpenAI key resolvida — termina em ...${resolvedOpenAIKey.slice(-4)}`)
   }
   if (!config.uazapi_token) {
     console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: uazapi_token vazio no sdr_configs`)
