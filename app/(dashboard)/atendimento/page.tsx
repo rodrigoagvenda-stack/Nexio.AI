@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode } from 'lucide-react';
 import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -104,6 +104,7 @@ export default function AtendimentoPage() {
   const [waConnecting, setWaConnecting] = useState(false);
   const [waLoading, setWaLoading] = useState(true);
   const [waInstanceName, setWaInstanceName] = useState<string | null>(null);
+  const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1182,25 +1183,35 @@ export default function AtendimentoPage() {
         {/* Lista de Conversas */}
         <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
           <CardHeader className="flex-shrink-0">
-            <CardTitle className="flex items-center justify-between mb-3">
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
                 Conversas
               </div>
-              {/* WhatsApp status — número conectado + desconectar */}
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded-full">
-                  <Wifi className="h-3 w-3" />
-                  {waPhone ?? 'Conectado'}
-                </div>
-                <button
-                  onClick={handleWaDisconnect}
-                  title="Desconectar WhatsApp"
-                  className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
-                >
-                  <WifiOff className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              {/* WhatsApp status dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full hover:bg-green-500/20 transition-colors self-start sm:self-auto">
+                    <Wifi className="h-3 w-3" />
+                    Conectado
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <div className="px-3 py-2.5">
+                    <p className="text-xs text-muted-foreground mb-0.5">Número conectado</p>
+                    <p className="text-sm font-medium font-mono">{waPhone ?? '—'}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                    onClick={() => setDisconnectConfirmOpen(true)}
+                  >
+                    <WifiOff className="h-4 w-4 mr-2" />
+                    Desconectar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </CardTitle>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1785,6 +1796,27 @@ export default function AtendimentoPage() {
           onSuccess={fetchConversations}
         />
       )}
+
+      {/* AlertDialog — Desconectar WhatsApp */}
+      <AlertDialog open={disconnectConfirmOpen} onOpenChange={setDisconnectConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desconectar WhatsApp</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem certeza que deseja desconectar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { handleWaDisconnect(); setDisconnectConfirmOpen(false); }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* AlertDialog — Apagar conversa */}
       <AlertDialog open={deleteConvDialog.open} onOpenChange={(open) => !open && setDeleteConvDialog({ open: false, conv: null })}>
