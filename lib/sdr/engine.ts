@@ -1271,3 +1271,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     return false
   }
 }
+
+export async function resolveCompanyByInstance(instanceName: string): Promise<number | null> {
+  const supabase = createServiceClient()
+  const { data } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('whatsapp_instance_name', instanceName)
+    .maybeSingle()
+  return data?.id ?? null
+}
