@@ -70,6 +70,8 @@ export default function MembrosPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isInviting, setIsInviting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const itemsPerPage = 10;
 
   // Verificar se o usuário é admin
@@ -110,7 +112,7 @@ export default function MembrosPage() {
 
   async function handleInviteMember(e: React.FormEvent) {
     e.preventDefault();
-
+    setIsInviting(true);
     try {
       const response = await fetch('/api/members', {
         method: 'POST',
@@ -124,13 +126,15 @@ export default function MembrosPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      toast({ title: 'Membro convidado com sucesso!' });
+      toast({ title: 'Convite enviado! Verifique o email (inclusive spam).' });
       setInviteDialogOpen(false);
       setInviteForm({ name: '', email: '', role: 'member', department: '' });
       fetchMembers();
     } catch (error: any) {
       console.error('Error inviting member:', error);
       toast({ title: error.message || 'Erro ao convidar membro', variant: 'destructive' });
+    } finally {
+      setIsInviting(false);
     }
   }
 
@@ -163,7 +167,7 @@ export default function MembrosPage() {
 
   async function handleDeleteMember() {
     if (!selectedMember) return;
-
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/members/${selectedMember.user_id}`, {
         method: 'DELETE',
@@ -181,6 +185,8 @@ export default function MembrosPage() {
     } catch (error: any) {
       console.error('Error deleting member:', error);
       toast({ title: error.message || 'Erro ao remover membro', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -418,10 +424,12 @@ export default function MembrosPage() {
               </div>
             </div>
             <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)} disabled={isInviting}>
                 Cancelar
               </Button>
-              <Button type="submit">Enviar Convite</Button>
+              <Button type="submit" disabled={isInviting}>
+                {isInviting ? 'Enviando…' : 'Enviar Convite'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -485,9 +493,9 @@ export default function MembrosPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteMember} className="bg-destructive">
-              Remover
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteMember} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? 'Removendo…' : 'Remover'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

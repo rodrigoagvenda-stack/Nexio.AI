@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
-  // Apenas company_admin pode convidar membros
-  if (context.role !== 'company_admin') {
+  // Apenas admin pode convidar membros
+  if (context.role !== 'admin' && context.role !== 'company_admin') {
     return NextResponse.json({ success: false, message: 'Apenas administradores podem convidar membros' }, { status: 403 });
   }
 

@@ -6,7 +6,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
-  if (context.role !== 'company_admin') {
+  if (context.role !== 'admin' && context.role !== 'company_admin') {
     return NextResponse.json({ success: false, message: 'Apenas administradores podem atualizar membros' }, { status: 403 });
   }
 
@@ -46,7 +46,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
-  if (context.role !== 'company_admin') {
+  if (context.role !== 'admin' && context.role !== 'company_admin') {
     return NextResponse.json({ success: false, message: 'Apenas administradores podem remover membros' }, { status: 403 });
   }
 

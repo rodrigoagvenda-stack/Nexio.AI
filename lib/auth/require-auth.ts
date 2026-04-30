@@ -4,7 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 export type AuthContext = {
   userId: string;
   companyId: number;
-  role: 'company_admin' | 'company_user';
+  role: 'admin' | 'manager' | 'sdr' | 'closer' | 'sdr_closer' | 'company_admin' | 'company_user';
 };
 
 export type AdminContext = {
