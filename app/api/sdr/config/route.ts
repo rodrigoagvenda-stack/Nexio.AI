@@ -18,22 +18,24 @@ export async function GET() {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const service = createServiceClient()
-    const { data: config, error } = await service
-      .from('sdr_configs')
-      .select('*')
-      .eq('company_id', userData.company_id)
-      .single()
+    const [{ data: config, error }, { data: flows }] = await Promise.all([
+      service.from('sdr_configs').select('*').eq('company_id', userData.company_id).single(),
+      service.from('sdr_flows').select('*').eq('company_id', userData.company_id).eq('ativo', true).limit(1),
+    ])
 
     if (error && error.code !== 'PGRST116') throw error
 
     if (!config) return NextResponse.json({ config: null })
+
+    const flow = flows?.[0] ?? null
 
     return NextResponse.json({
       config: {
         id: config.id,
         company_id: config.company_id,
         agent_type: config.agent_type,
-        prompt: config.prompt,
+        // orchestrator_prompt from sdr_flows is the source of truth; fallback to sdr_configs.prompt
+        prompt: flow?.orchestrator_prompt ?? config.prompt ?? '',
         agente_ativo: config.agente_ativo,
         uazapi_instance_name: config.uazapi_instance_name,
         uazapi_instance_url: config.uazapi_instance_url,
@@ -43,10 +45,12 @@ export async function GET() {
         webhook_url: config.webhook_url,
         instance_status: config.instance_status,
         instance_phone: config.instance_phone,
-        vector_table_conhecimento: config.vector_table_conhecimento ?? null,
-        vector_table_objecoes: config.vector_table_objecoes ?? null,
-        conhecimento_ativo: config.conhecimento_ativo ?? true,
-        objecoes_ativo: config.objecoes_ativo ?? false,
+        // vector fields live in sdr_flows
+        vector_table_conhecimento: flow?.vector_table_conhecimento ?? null,
+        vector_table_objecoes: flow?.vector_table_objecoes ?? null,
+        conhecimento_ativo: flow?.conhecimento_ativo ?? true,
+        objecoes_ativo: flow?.objecoes_ativo ?? false,
+        flow_id: flow?.id ?? null,
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -99,34 +103,30 @@ export async function PUT(request: NextRequest) {
       .eq('company_id', companyId)
       .single()
 
-    const updates: Record<string, any> = {
+    // ── sdr_configs: credentials + agente_ativo ──────────────────
+    const configUpdates: Record<string, any> = {
       company_id: companyId,
       webhook_url: webhookUrl,
     }
 
-    if (agent_type !== undefined) updates.agent_type = agent_type
-    if (prompt !== undefined) updates.prompt = prompt
-    if (agente_ativo !== undefined) updates.agente_ativo = agente_ativo
-    if (uazapi_instance_name !== undefined) updates.uazapi_instance_name = uazapi_instance_name
-    if (uazapi_instance_url !== undefined) updates.uazapi_instance_url = uazapi_instance_url
-    if (google_calendar_id !== undefined) updates.google_calendar_id = google_calendar_id
-    if (vector_table_conhecimento !== undefined) updates.vector_table_conhecimento = vector_table_conhecimento || null
-    if (vector_table_objecoes !== undefined) updates.vector_table_objecoes = vector_table_objecoes || null
-    if (conhecimento_ativo !== undefined) updates.conhecimento_ativo = conhecimento_ativo
-    if (objecoes_ativo !== undefined) updates.objecoes_ativo = objecoes_ativo
+    if (agent_type !== undefined) configUpdates.agent_type = agent_type
+    if (agente_ativo !== undefined) configUpdates.agente_ativo = agente_ativo
+    if (uazapi_instance_name !== undefined) configUpdates.uazapi_instance_name = uazapi_instance_name
+    if (uazapi_instance_url !== undefined) configUpdates.uazapi_instance_url = uazapi_instance_url
+    if (google_calendar_id !== undefined) configUpdates.google_calendar_id = google_calendar_id
 
     if (uazapi_token && !uazapi_token.startsWith('••')) {
-      updates.uazapi_token = encrypt(uazapi_token)
+      configUpdates.uazapi_token = encrypt(uazapi_token)
     }
     if (openai_key && !openai_key.startsWith('••')) {
-      updates.openai_key = encrypt(openai_key)
+      configUpdates.openai_key = encrypt(openai_key)
     }
 
     let result
     if (existing) {
       const { data, error } = await service
         .from('sdr_configs')
-        .update(updates)
+        .update(configUpdates)
         .eq('id', existing.id)
         .select()
         .single()
@@ -135,11 +135,43 @@ export async function PUT(request: NextRequest) {
     } else {
       const { data, error } = await service
         .from('sdr_configs')
-        .insert(updates)
+        .insert(configUpdates)
         .select()
         .single()
       if (error) throw error
       result = data
+    }
+
+    // ── sdr_flows: orchestrator_prompt + RAG fields (source of truth) ──
+    const { data: existingFlow } = await service
+      .from('sdr_flows')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('ativo', true)
+      .limit(1)
+      .single()
+
+    const flowUpdates: Record<string, any> = {}
+    if (prompt !== undefined) flowUpdates.orchestrator_prompt = prompt
+    if (vector_table_conhecimento !== undefined) flowUpdates.vector_table_conhecimento = vector_table_conhecimento || null
+    if (vector_table_objecoes !== undefined) flowUpdates.vector_table_objecoes = vector_table_objecoes || null
+    if (conhecimento_ativo !== undefined) flowUpdates.conhecimento_ativo = conhecimento_ativo
+    if (objecoes_ativo !== undefined) flowUpdates.objecoes_ativo = objecoes_ativo
+
+    if (Object.keys(flowUpdates).length > 0) {
+      if (existingFlow) {
+        await service.from('sdr_flows').update(flowUpdates).eq('id', existingFlow.id)
+      } else {
+        await service.from('sdr_flows').insert({
+          company_id: companyId,
+          nome: 'Principal',
+          uazapi_instance: '',
+          numero_whatsapp: '',
+          tipo: 'ambos',
+          ativo: true,
+          ...flowUpdates,
+        })
+      }
     }
 
     return NextResponse.json({
