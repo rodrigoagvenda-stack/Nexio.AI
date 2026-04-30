@@ -58,6 +58,7 @@ interface BufferedMessage {
   type: string
   timestamp: string
   messageId: string
+  mediaUrl?: string
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -1108,21 +1109,32 @@ async function saveInbound(
   conversationId: string,
   ctx: SdrContext,
   text: string,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  tipo = 'text',
+  mediaUrl?: string
 ): Promise<void> {
+  const displayText =
+    tipo === 'audio' ? '🎵 Áudio' :
+    tipo === 'image' ? '📷 Imagem' :
+    tipo === 'document' ? '📄 Documento' :
+    tipo === 'video' ? '🎥 Vídeo' :
+    text
+
   await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,
-    texto_da_mensagem: text,
-    tipo_de_mensagem: 'text',
+    texto_da_mensagem: displayText,
+    tipo_de_mensagem: tipo,
     direcao: 'inbound',
     sender_type: 'lead',
     status: 'received',
+    url_da_midia: mediaUrl ?? null,
+    carimbo_de_data_e_hora: new Date().toISOString(),
   })
   await supabase
     .from('conversas_do_whatsapp')
-    .update({ ultima_mensagem: text, hora_da_ultima_mensagem: new Date().toISOString() })
+    .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
     .eq('id', conversationId)
 }
 
@@ -1353,6 +1365,71 @@ async function loadSdrConfig(
   }
 }
 
+// ─── Enriquecimento de mídia (transcrição de áudio, descrição de imagem) ──────
+
+async function enrichMediaMessages(
+  messages: BufferedMessage[],
+  uazapi: ReturnType<typeof createUazapiClient>,
+  openai: OpenAI
+): Promise<Array<BufferedMessage & { enrichedContent: string }>> {
+  return Promise.all(
+    messages.map(async (msg) => {
+      if (msg.type === 'audio' && msg.messageId) {
+        try {
+          const { base64Data, mimetype } = await uazapi.downloadMedia(msg.messageId)
+          const buffer = Buffer.from(base64Data, 'base64')
+          const file = new File([buffer], 'audio.ogg', { type: mimetype || 'audio/ogg' })
+          const transcription = await openai.audio.transcriptions.create({
+            file,
+            model: 'whisper-1',
+            language: 'pt',
+          })
+          console.log(`[SDR] Áudio transcrito: "${transcription.text.slice(0, 80)}"`)
+          return { ...msg, enrichedContent: transcription.text }
+        } catch (e) {
+          console.error('[SDR] Transcrição de áudio falhou:', e)
+          return { ...msg, enrichedContent: msg.content }
+        }
+      }
+
+      if (msg.type === 'image' && msg.messageId) {
+        try {
+          const { base64Data, mimetype } = await uazapi.downloadMedia(msg.messageId)
+          const resp = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            max_tokens: 300,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: `data:${mimetype || 'image/jpeg'};base64,${base64Data}` } },
+                { type: 'text', text: 'Descreva brevemente o conteúdo desta imagem no contexto de uma conversa comercial via WhatsApp.' },
+              ],
+            }],
+          })
+          const desc = resp.choices[0].message.content ?? ''
+          return { ...msg, enrichedContent: `[Imagem enviada: ${desc}]` }
+        } catch (e) {
+          console.error('[SDR] Descrição de imagem falhou:', e)
+          return { ...msg, enrichedContent: msg.content }
+        }
+      }
+
+      if (msg.type === 'document' && msg.messageId) {
+        try {
+          const { base64Data } = await uazapi.downloadMedia(msg.messageId)
+          const text = Buffer.from(base64Data, 'base64').toString('utf-8').slice(0, 2000)
+          return { ...msg, enrichedContent: `[Documento enviado pelo lead: ${text}]` }
+        } catch (e) {
+          console.error('[SDR] Extração de documento falhou:', e)
+          return { ...msg, enrichedContent: msg.content }
+        }
+      }
+
+      return { ...msg, enrichedContent: msg.content }
+    })
+  )
+}
+
 // ─── ENTRY POINTS ──────────────────────────────────────────────
 
 export async function processSdrMessage(companyId: number, phone: string): Promise<void> {
@@ -1379,6 +1456,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (bufferedMessages.length === 0) return
 
     const openai = new OpenAI({ apiKey: cfg.openai_key || process.env.OPENAI_API_KEY })
+
+    // Enriquece mídia (transcrição de áudio, descrição de imagem, extração de documento)
+    const uazapiMediaClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
+    const enrichedMessages = await enrichMediaMessages(bufferedMessages, uazapiMediaClient, openai)
 
     const { data: company } = await supabase
       .from('companies')
@@ -1426,8 +1507,13 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       return
     }
 
-    const combinedText = bufferedMessages.map((m) => m.content).join('\n')
-    await saveInbound(conversationId, ctx, combinedText, supabase)
+    // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
+    for (const em of enrichedMessages) {
+      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl)
+    }
+
+    // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
+    const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
 
     const history = await getHistory(leadId, companyId, supabase)
 
@@ -1436,7 +1522,12 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // ── Acumulador de usage — passado por referência a todos os agentes ──
     const acc: UsageAcc = []
 
-    const aiResponse = await runOrchestrator(bufferedMessages, history, ctx, leadNotes, supabase, openai, acc)
+    // Usa conteúdo enriquecido (transcrição/descrição) para o orquestrador
+    const messagesForOrchestrator: BufferedMessage[] = enrichedMessages.map((em) => ({
+      ...em,
+      content: em.enrichedContent,
+    }))
+    const aiResponse = await runOrchestrator(messagesForOrchestrator, history, ctx, leadNotes, supabase, openai, acc)
     if (!aiResponse) return
 
     const paragraphs = aiResponse
@@ -1498,21 +1589,33 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     const msg = body.message as any
+    const msgType = detectMessageType(body.message)
+    const isMedia = msgType === 'audio' || msgType === 'image' || msgType === 'document' || msgType === 'video'
+
     const text = msg?.text
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || body.chat?.wa_lastMessageTextVote
+      || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
       || ''
 
-    if (!text.trim()) {
-      console.warn(`[SDR:${companyId}] ignorado — texto vazio. Campos presentes no message:`, Object.keys(msg ?? {}))
+    // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
+    if (!text.trim() && !isMedia) {
+      console.warn(`[SDR:${companyId}] ignorado — texto vazio e não é mídia. Campos:`, Object.keys(msg ?? {}))
       return false
     }
 
-    console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — texto="${text.slice(0, 80)}"${text.length > 80 ? '…' : ''}`)
+    const mediaUrl: string | undefined =
+      msg?.url || msg?.mediaUrl || msg?.media?.url || msg?.downloadUrl || undefined
 
-    if (isPromptInjection(text)) {
+    const placeholder = msgType === 'audio' ? '🎵 Áudio'
+      : msgType === 'image' ? '📷 Imagem'
+      : msgType === 'document' ? '📄 Documento'
+      : msgType === 'video' ? '🎥 Vídeo' : ''
+
+    console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — tipo="${msgType}" texto="${(text || placeholder).slice(0, 80)}"`)
+
+    if (text && isPromptInjection(text)) {
       const uazapi = createUazapiClient(
         body.BaseUrl ?? 'https://nexioai.uazapi.com',
         body.token ?? ''
@@ -1539,10 +1642,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     const bufferedMsg: BufferedMessage = {
-      content: text,
-      type: detectMessageType(body.message),
+      content: text || placeholder,
+      type: msgType,
       timestamp: new Date().toISOString(),
       messageId,
+      mediaUrl,
     }
 
     await bufferMessage(companyId, phone, bufferedMsg, supabase)
