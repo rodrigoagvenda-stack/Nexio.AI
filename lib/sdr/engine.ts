@@ -1068,25 +1068,31 @@ async function ensureConversation(
   ctx: SdrContext,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<string> {
-  const { data: existing } = await supabase
+  // Seleciona apenas id — não depende de colunas opcionais (instance_name pode não existir)
+  const { data: existing, error: selectError } = await supabase
     .from('conversas_do_whatsapp')
-    .select('id, instance_name')
+    .select('id')
     .eq('company_id', ctx.companyId)
     .eq('numero_de_telefone', ctx.leadPhone)
     .maybeSingle()
 
-  if (existing?.id) {
-    // Atualiza instance_name se estiver ausente
-    if (!existing.instance_name && ctx.instanceName) {
-      await supabase
-        .from('conversas_do_whatsapp')
-        .update({ instance_name: ctx.instanceName })
-        .eq('id', existing.id)
-    }
-    return existing.id
+  if (selectError) {
+    console.error(`[SDR:${ctx.companyId}] ensureConversation SELECT error:`, selectError.message)
   }
 
-  const { data: created } = await supabase
+  if (existing?.id) {
+    // Atualiza instance_name como best-effort (ignora se coluna não existir)
+    if (ctx.instanceName) {
+      supabase.from('conversas_do_whatsapp')
+        .update({ instance_name: ctx.instanceName })
+        .eq('id', existing.id)
+        .then((_r: any) => {/* best-effort */}, () => {/* ignored */})
+    }
+    return String(existing.id)
+  }
+
+  // INSERT sem instance_name (coluna pode não existir no banco)
+  const { data: created, error: insertError } = await supabase
     .from('conversas_do_whatsapp')
     .insert({
       company_id: ctx.companyId,
@@ -1097,12 +1103,24 @@ async function ensureConversation(
       hora_da_ultima_mensagem: new Date().toISOString(),
       status_da_conversa: 'aberto',
       contagem_nao_lida: 0,
-      instance_name: ctx.instanceName || null,
     })
     .select('id')
     .single()
 
-  return created?.id ?? ''
+  if (insertError) {
+    console.error(`[SDR:${ctx.companyId}] ensureConversation INSERT error:`, insertError.message)
+    return ''
+  }
+
+  // Tenta setar instance_name opcionalmente
+  if (created?.id && ctx.instanceName) {
+    supabase.from('conversas_do_whatsapp')
+      .update({ instance_name: ctx.instanceName })
+      .eq('id', created.id)
+      .then((_r: any) => {/* best-effort */}, () => {/* ignored */})
+  }
+
+  return created?.id ? String(created.id) : ''
 }
 
 async function saveInbound(
@@ -1120,7 +1138,12 @@ async function saveInbound(
     tipo === 'video' ? '🎥 Vídeo' :
     text
 
-  await supabase.from('mensagens_do_whatsapp').insert({
+  if (!conversationId) {
+    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
+    return
+  }
+
+  const { error } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,
@@ -1132,6 +1155,8 @@ async function saveInbound(
     url_da_midia: mediaUrl ?? null,
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
+  if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
+
   await supabase
     .from('conversas_do_whatsapp')
     .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
@@ -1144,7 +1169,12 @@ async function saveOutbound(
   text: string,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<void> {
-  await supabase.from('mensagens_do_whatsapp').insert({
+  if (!conversationId) {
+    console.error(`[SDR:${ctx.companyId}] saveOutbound ignorado — conversationId vazio`)
+    return
+  }
+
+  const { error } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,
@@ -1154,7 +1184,10 @@ async function saveOutbound(
     sender_type: 'ai',
     status: 'sent',
     nome_do_agente: 'SDR IA',
+    carimbo_de_data_e_hora: new Date().toISOString(),
   })
+  if (error) console.error(`[SDR:${ctx.companyId}] saveOutbound INSERT error:`, error.message)
+
   await supabase
     .from('conversas_do_whatsapp')
     .update({ ultima_mensagem: text, hora_da_ultima_mensagem: new Date().toISOString() })
