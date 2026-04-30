@@ -211,6 +211,55 @@ async function getHistory(
     }))
 }
 
+// ─── Loop genérico de sub-agente (espelha AI Agent node do N8N) ──
+
+async function runAgentLoop(
+  systemPrompt: string,
+  userMessage: string,
+  tools: OpenAI.Chat.ChatCompletionTool[],
+  toolHandlers: Record<string, (args: any) => Promise<string>>,
+  openai: OpenAI,
+  model: string,
+  acc?: UsageAcc,
+  agentName?: string,
+  maxIterations = 10
+): Promise<string> {
+  const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage },
+  ]
+
+  for (let i = 0; i < maxIterations; i++) {
+    const completion = await openai.chat.completions.create({
+      model,
+      messages,
+      tools,
+      tool_choice: 'auto',
+      max_tokens: 500,
+      temperature: 0.1,
+    })
+    if (acc && agentName) pushUsage(acc, completion, agentName)
+
+    const msg = completion.choices[0].message
+    messages.push(msg as OpenAI.Chat.ChatCompletionMessageParam)
+
+    if (!msg.tool_calls || msg.tool_calls.length === 0) {
+      return msg.content ?? ''
+    }
+
+    for (const tc of msg.tool_calls) {
+      const fnCall = (tc as any).function as { name: string; arguments: string }
+      let args: any = {}
+      try { args = JSON.parse(fnCall.arguments) } catch { /* ok */ }
+      const handler = toolHandlers[fnCall.name]
+      const result = handler ? await handler(args) : `Tool ${fnCall.name} não implementada`
+      messages.push({ role: 'tool', tool_call_id: tc.id, content: result })
+    }
+  }
+
+  return 'Agente atingiu limite de iterações'
+}
+
 // ─── Sub-agentes ───────────────────────────────────────────────
 
 async function runAgentePipeline(
@@ -220,39 +269,77 @@ async function runAgentePipeline(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('status, whatsapp, contact_name')
-    .eq('id', ctx.leadId)
-    .single()
+  const systemPrompt = `Você é responsável por mover o lead entre os estágios do kanban no CRM.
+IMPORTANTE: Se não houver informação suficiente na conversa para determinar o estágio com certeza, NÃO atualize o campo. Mantenha o estágio atual do lead.
 
-  const systemPrompt = `Você é o Agente de Pipeline. Move o lead entre os estágios do kanban com base na conversa.
-Estágios disponíveis (use exatamente): "Lead novo", "Em contato", "Interessado", "Proposta enviada", "Fechado", "Perdido", "Remarketing"
-Estágio atual: ${lead?.status ?? 'desconhecido'}
-Retorne APENAS o nome do estágio que deve ser aplicado, sem texto adicional. Se não tiver certeza, retorne o estágio atual.`
+FERRAMENTAS DISPONÍVEIS:
+- "Think5": use para raciocinar sobre qual estágio aplicar
+- "Buscar lead1": busca os dados atuais do lead usando o whatsapp como identificador único
+- "Atualizar resumo1": atualiza o campo de estágio no CRM
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: message },
-    ],
-    max_tokens: 50,
-    temperature: 0.1,
-  })
-  pushUsage(acc, completion, 'pipeline')
+ORDEM DE EXECUÇÃO OBRIGATÓRIA:
+1. Use "Buscar lead1" passando o número do whatsapp do lead
+2. Use "Think5" para raciocinar sobre qual estágio aplicar
+3. Use "Atualizar resumo1" para salvar o novo estágio
 
-  const novoStatus = completion.choices[0]?.message?.content?.trim() ?? ''
-  const validStatus = ['Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido', 'Remarketing']
+ESTÁGIOS DISPONÍVEIS (use exatamente assim):
+"Triagem", "Outbound", "Novo lead", "Em contato", "Interessado", "Proposta enviada", "Fechado", "Perdido", "Remarketing"
 
-  if (novoStatus && validStatus.includes(novoStatus) && novoStatus !== lead?.status) {
-    await supabase
-      .from('leads')
-      .update({ status: novoStatus, updated_at: new Date().toISOString() })
-      .eq('id', ctx.leadId)
+REGRAS: Lead mandou mensagem → "Em contato"; interesse claro → "Interessado"; call_de_venda=true → "Proposta enviada"; sem resposta → "Remarketing"; fechado → "Fechado"; desistiu → "Perdido"
+
+RETORNO FINAL: {"atualizado": true|false, "estagio": "nome"}`
+
+  const tools: OpenAI.Chat.ChatCompletionTool[] = [
+    {
+      type: 'function',
+      function: {
+        name: 'Think5',
+        description: 'Raciocina sobre qual estágio do pipeline aplicar ao lead',
+        parameters: { type: 'object', properties: { thought: { type: 'string' } }, required: ['thought'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Buscar lead1',
+        description: 'Busca os dados atuais do lead usando o whatsapp como identificador único',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Atualizar resumo1',
+        description: 'Atualiza o campo de estágio no CRM',
+        parameters: { type: 'object', properties: { estagio: { type: 'string' } }, required: ['estagio'] },
+      },
+    },
+  ]
+
+  const validStages = ['Triagem', 'Outbound', 'Novo lead', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido', 'Remarketing']
+
+  const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Think5': async (args) => `Raciocínio registrado: ${args.thought}`,
+    'Buscar lead1': async (_args) => {
+      const { data } = await supabase
+        .from('leads')
+        .select('id, status, whatsapp, contact_name, segment, priority, nivel_interesse, call_de_venda')
+        .eq('id', ctx.leadId)
+        .single()
+      return JSON.stringify(data ?? {})
+    },
+    'Atualizar resumo1': async (args) => {
+      if (!validStages.includes(args.estagio)) return `Estágio inválido: ${args.estagio}`
+      await supabase.from('leads').update({ status: args.estagio, updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
+      return JSON.stringify({ atualizado: true, estagio: args.estagio })
+    },
   }
 
-  return `Pipeline atualizado para: ${novoStatus}`
+  return runAgentLoop(
+    systemPrompt,
+    `WhatsApp do lead: ${ctx.leadPhone}\nMensagem: ${message}`,
+    tools, handlers, openai, 'gpt-4.1-mini', acc, 'pipeline'
+  )
 }
 
 async function runAgenteSegmentacao(
@@ -262,48 +349,69 @@ async function runAgenteSegmentacao(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const nichos = [
-    'E-commerce', 'Saúde/Medicina', 'Educação', 'Alimentação', 'Beleza/Estética',
-    'Imobiliária', 'Advocacia', 'Consultoria', 'Tecnologia', 'Moda/Fashion',
-    'Arquitetura', 'Auto Escola', 'Restaurante', 'Academia', 'Farmácia',
-    'Padaria', 'Supermercado', 'Floricultura', 'Hotel/Pousada', 'Oficina Mecânica',
-    'Pet Shop', 'Outros',
+  const systemPrompt = `Você é o Agente de Segmentação. Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM.
+
+ORDEM DE EXECUÇÃO OBRIGATÓRIA:
+1. Use "Buscar nincho" passando o whatsapp do lead
+2. Use "Think" para raciocinar sobre o nicho correto
+3. Use "Atualizar nincho" para salvar o segmento
+
+NICHOS DISPONÍVEIS (use exatamente um deles):
+E-commerce, Saúde/Medicina, Educação, Alimentação, Beleza/Estética, Imobiliária, Advocacia, Consultoria, Tecnologia, Moda/Fashion, Arquitetura, Auto Escola, Restaurante, Academia, Farmácia, Padaria, Supermercado, Floricultura, Hotel/Pousada, Oficina Mecânica, Pet Shop, Outros
+
+RETORNO FINAL: {"atualizado": true|false, "segmento": "nome"}`
+
+  const tools: OpenAI.Chat.ChatCompletionTool[] = [
+    {
+      type: 'function',
+      function: {
+        name: 'Buscar nincho',
+        description: 'Busca os dados atuais do lead pelo whatsapp, incluindo segmento atual',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Think',
+        description: 'Raciocina sobre qual nicho/segmento aplicar ao lead',
+        parameters: { type: 'object', properties: { thought: { type: 'string' } }, required: ['thought'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Atualizar nincho',
+        description: 'Atualiza o campo de segmento no CRM',
+        parameters: { type: 'object', properties: { segmento: { type: 'string' } }, required: ['segmento'] },
+      },
+    },
   ]
 
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('segment')
-    .eq('id', ctx.leadId)
-    .single()
+  const validNichos = ['E-commerce', 'Saúde/Medicina', 'Educação', 'Alimentação', 'Beleza/Estética', 'Imobiliária', 'Advocacia', 'Consultoria', 'Tecnologia', 'Moda/Fashion', 'Arquitetura', 'Auto Escola', 'Restaurante', 'Academia', 'Farmácia', 'Padaria', 'Supermercado', 'Floricultura', 'Hotel/Pousada', 'Oficina Mecânica', 'Pet Shop', 'Outros']
 
-  // Já tem segmento definido — não sobrescreve
-  if (lead?.segment && lead.segment !== 'Outros') return `Segmento já definido: ${lead.segment}`
-
-  const systemPrompt = `Você é o Agente de Segmentação. Identifica o nicho do lead pela conversa.
-Nichos disponíveis (use exatamente um deles): ${nichos.join(', ')}
-Se não tiver certeza, responda "Outros". Retorne APENAS o nome do nicho, sem texto adicional.`
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: message },
-    ],
-    max_tokens: 30,
-    temperature: 0.1,
-  })
-  pushUsage(acc, completion, 'segmentacao')
-
-  const segmento = completion.choices[0]?.message?.content?.trim() ?? ''
-
-  if (segmento && nichos.includes(segmento)) {
-    await supabase
-      .from('leads')
-      .update({ segment: segmento, updated_at: new Date().toISOString() })
-      .eq('id', ctx.leadId)
+  const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Buscar nincho': async (_args) => {
+      const { data } = await supabase
+        .from('leads')
+        .select('id, whatsapp, contact_name, segment, status')
+        .eq('id', ctx.leadId)
+        .single()
+      return JSON.stringify(data ?? {})
+    },
+    'Think': async (args) => `Raciocínio registrado: ${args.thought}`,
+    'Atualizar nincho': async (args) => {
+      if (!validNichos.includes(args.segmento)) return `Segmento inválido: ${args.segmento}`
+      await supabase.from('leads').update({ segment: args.segmento, updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
+      return JSON.stringify({ atualizado: true, segmento: args.segmento })
+    },
   }
 
-  return `Segmento identificado: ${segmento}`
+  return runAgentLoop(
+    systemPrompt,
+    `WhatsApp do lead: ${ctx.leadPhone}\nMensagem: ${message}`,
+    tools, handlers, openai, 'gpt-4.1-mini', acc, 'segmentacao'
+  )
 }
 
 async function runAgenteOutbound(
@@ -313,51 +421,93 @@ async function runAgenteOutbound(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('status, origem, briefing_preenchido')
-    .eq('id', ctx.leadId)
-    .single()
+  const systemPrompt = `Você é o Agente de Contexto Outbound. Identifica a origem do lead e fornece contexto para o SDR.
 
-  const { data: campaign } = await supabase
-    .from('outbound_campaigns')
-    .select('mensagem_enviada, status')
-    .eq('company_id', ctx.companyId)
-    .eq('whatsapp', ctx.leadPhone)
-    .eq('respondeu', false)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+ORDEM DE EXECUÇÃO OBRIGATÓRIA:
+PASSO 1: Use "Buscar_origem_lead_no_supabase" passando o whatsapp do lead
+  - Se status = "Outbound" → vá para PASSO 2
+  - Caso contrário → retorne com origem=inbound diretamente
 
-  const isOutbound = lead?.origem === 'outbound' || lead?.status === 'Outbound'
+PASSO 2: Use "Buscar_mensagem_enviada_outbound" para obter a mensagem outbound original (obrigatório se outbound)
 
-  if (isOutbound && campaign) {
-    await supabase
-      .from('outbound_campaigns')
-      .update({
-        respondeu: true,
-        respondeu_em: new Date().toISOString(),
-        resposta_recebida: message,
-      })
-      .eq('company_id', ctx.companyId)
-      .eq('whatsapp', ctx.leadPhone)
+PASSO 3: Use "Salvar_resposta_e_score_do_lead" com score de 1-10 baseado no tom da resposta do lead
+
+RETORNO FINAL: {"origem":"outbound|inbound","mensagem_enviada":"...","score_interesse":<1-10>,"briefing_preenchido":<bool>}`
+
+  const tools: OpenAI.Chat.ChatCompletionTool[] = [
+    {
+      type: 'function',
+      function: {
+        name: 'Buscar_origem_lead_no_supabase',
+        description: 'Busca a origem e status atual do lead pelo whatsapp',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Buscar_mensagem_enviada_outbound',
+        description: 'Busca a mensagem outbound original que foi enviada ao lead',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Salvar_resposta_e_score_do_lead',
+        description: 'Salva a resposta do lead e o score de interesse (1-10)',
+        parameters: {
+          type: 'object',
+          properties: {
+            whatsapp: { type: 'string' },
+            score_interesse: { type: 'number' },
+            resposta_recebida: { type: 'string' },
+          },
+          required: ['whatsapp', 'score_interesse', 'resposta_recebida'],
+        },
+      },
+    },
+  ]
+
+  const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Buscar_origem_lead_no_supabase': async (_args) => {
+      const { data } = await supabase
+        .from('leads')
+        .select('id, status, origem, whatsapp, contact_name, briefing_preenchido')
+        .eq('id', ctx.leadId)
+        .single()
+      return JSON.stringify(data ?? {})
+    },
+    'Buscar_mensagem_enviada_outbound': async (_args) => {
+      const { data } = await supabase
+        .from('outbound_campaigns')
+        .select('mensagem_enviada, status, created_at')
+        .eq('company_id', ctx.companyId)
+        .eq('whatsapp', ctx.leadPhone)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return JSON.stringify(data ?? { mensagem_enviada: null })
+    },
+    'Salvar_resposta_e_score_do_lead': async (args) => {
+      await supabase
+        .from('outbound_campaigns')
+        .update({
+          respondeu: true,
+          respondeu_em: new Date().toISOString(),
+          resposta_recebida: args.resposta_recebida,
+        })
+        .eq('company_id', ctx.companyId)
+        .eq('whatsapp', ctx.leadPhone)
+      return JSON.stringify({ salvo: true, score_interesse: args.score_interesse })
+    },
   }
 
-  const systemPrompt = `Avalie o score de interesse do lead (1-10) com base na mensagem. Retorne JSON: {"origem":"${isOutbound ? 'outbound' : 'inbound'}","score_interesse":<número>,"briefing_preenchido":${lead?.briefing_preenchido ?? false}}`
-
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Mensagem do lead: ${message}\nMensagem enviada pela empresa: ${campaign?.mensagem_enviada ?? 'N/A'}` },
-    ],
-    max_tokens: 100,
-    temperature: 0.1,
-    response_format: { type: 'json_object' },
-  })
-  pushUsage(acc, completion, 'outbound')
-
-  return completion.choices[0]?.message?.content ?? '{}'
+  return runAgentLoop(
+    systemPrompt,
+    `WhatsApp do lead: ${ctx.leadPhone}\nMensagem recebida: ${message}`,
+    tools, handlers, openai, 'gpt-4.1-mini', acc, 'outbound'
+  )
 }
 
 async function runMemoryExpert(
@@ -367,49 +517,85 @@ async function runMemoryExpert(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('resumo_ia, notes, priority, nivel_interesse, segment')
-    .eq('id', ctx.leadId)
-    .single()
+  const systemPrompt = `Você é o Agente de Registro. Consolida informações do lead e atualiza o CRM após cada interação.
 
-  const systemPrompt = `Você é o Agente de Registro. Consolida informações do lead e atualiza o CRM.
-Só atualize um campo se tiver informação nova relevante.
+ORDEM DE EXECUÇÃO OBRIGATÓRIA:
+1. Use "Think4" para raciocinar sobre o que deve ser atualizado
+2. Use "Buscar lead" para obter os dados atuais do lead
+3. Compare as informações novas com as existentes
+4. Use "Think4" novamente para decidir exatamente o que atualizar
+5. Use "Atualizar resumo" para salvar as atualizações
 
 CAMPOS QUE VOCÊ ATUALIZA:
 - resumo_ia: resumo executivo (máx 200 palavras, bullet points)
-- priority: "Alta" | "Média" | "Baixa" (só mude se tiver certeza)
-- nivel_interesse: "Quente 🔥" | "Morno 🌡️" | "Frio ❄️" (só mude se tiver certeza)
+- segment: segmento/nicho do lead
+- priority: "Alta" | "Média" | "Baixa"
+- nivel_interesse: "Quente 🔥" | "Morno 🌡️" | "Frio ❄️"
+- updated_at: sempre atualizar
 
-DADOS ATUAIS DO LEAD:
-${JSON.stringify(lead, null, 2)}
+Só atualize um campo se tiver informação nova relevante.`
 
-Retorne JSON com apenas os campos que devem ser atualizados. Ex: {"resumo_ia":"...","priority":"Alta"}`
+  const tools: OpenAI.Chat.ChatCompletionTool[] = [
+    {
+      type: 'function',
+      function: {
+        name: 'Think4',
+        description: 'Raciocina sobre as informações do lead e o que deve ser atualizado',
+        parameters: { type: 'object', properties: { thought: { type: 'string' } }, required: ['thought'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Buscar lead',
+        description: 'Busca os dados atuais do lead no CRM',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Atualizar resumo',
+        description: 'Atualiza os campos do lead no CRM',
+        parameters: {
+          type: 'object',
+          properties: {
+            resumo_ia: { type: 'string' },
+            segment: { type: 'string' },
+            priority: { type: 'string', enum: ['Alta', 'Média', 'Baixa'] },
+            nivel_interesse: { type: 'string', enum: ['Quente 🔥', 'Morno 🌡️', 'Frio ❄️'] },
+          },
+        },
+      },
+    },
+  ]
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Nova informação: ${info}\nRegistros anteriores: ${lead?.resumo_ia ?? 'nenhum'}` },
-    ],
-    max_tokens: 500,
-    temperature: 0.3,
-    response_format: { type: 'json_object' },
-  })
-  pushUsage(acc, completion, 'memory')
-
-  try {
-    const updates = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
-    if (Object.keys(updates).length > 0) {
-      await supabase
+  const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Think4': async (args) => `Raciocínio: ${args.thought}`,
+    'Buscar lead': async (_args) => {
+      const { data } = await supabase
         .from('leads')
-        .update({ ...updates, updated_at: new Date().toISOString() })
+        .select('id, whatsapp, contact_name, resumo_ia, segment, priority, nivel_interesse, status, notes')
         .eq('id', ctx.leadId)
-    }
-    return `Memória atualizada: ${JSON.stringify(updates)}`
-  } catch {
-    return 'Memória: sem atualizações'
+        .single()
+      return JSON.stringify(data ?? {})
+    },
+    'Atualizar resumo': async (args) => {
+      const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+      if (args.resumo_ia) updates.resumo_ia = args.resumo_ia
+      if (args.segment) updates.segment = args.segment
+      if (args.priority) updates.priority = args.priority
+      if (args.nivel_interesse) updates.nivel_interesse = args.nivel_interesse
+      await supabase.from('leads').update(updates).eq('id', ctx.leadId)
+      return JSON.stringify({ atualizado: true, campos: Object.keys(updates) })
+    },
   }
+
+  return runAgentLoop(
+    systemPrompt,
+    `WhatsApp do lead: ${ctx.leadPhone}\nNova informação: ${info}`,
+    tools, handlers, openai, 'gpt-4.1-mini', acc, 'memory'
+  )
 }
 
 /** Agente de Agendamento — Google Calendar + Meet */
@@ -424,130 +610,173 @@ async function runAgenteAgendamento(
     return 'Agendamento não configurado para esta empresa. Peça ao administrador para configurar o Google Calendar.'
   }
 
-  const now = new Date()
-  const nowBR = now.toLocaleString('pt-BR', { timeZone: 'America/Bahia' })
+  const systemPrompt = `Você é o Agente de Agendamento. Seu único trabalho é agendar, remarcar ou cancelar calls de venda via Google Calendar.
 
-  // Busca dados atuais de agendamento do lead
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name')
-    .eq('id', ctx.leadId)
-    .single()
+FERRAMENTAS DISPONÍVEIS:
+- "Hora atual": retorna a data e hora atual no fuso America/Bahia
+- "Buscar reunião": busca os dados de agendamento atual do lead
+- "Consultar (gcal)": consulta horários disponíveis no calendário para uma data específica
+- "Agendar (gcal)": cria um evento no Google Calendar com Meet
+- "Deletar (gcal)": cancela/deleta um evento existente
+- "Reunião marcada": salva os dados da reunião no CRM
 
-  // Busca slots disponíveis nos próximos 3 dias úteis
-  let slotsInfo = ''
-  try {
-    const diasUteis: Date[] = []
-    let cursor = nextBusinessDay(now)
-    while (diasUteis.length < 3) {
-      diasUteis.push(new Date(cursor))
-      cursor = nextBusinessDay(cursor)
-    }
-
-    const allSlots = await Promise.all(
-      diasUteis.map((d) => checkAvailableSlots({ calendarId: ctx.calendarId!, date: d }))
-    )
-
-    slotsInfo = diasUteis
-      .map((d, i) => {
-        const available = allSlots[i].filter((s) => s.available).slice(0, 3)
-        const dayLabel = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'America/Bahia' })
-        if (available.length === 0) return `${dayLabel}: sem horários disponíveis`
-        const times = available.map((s) =>
-          s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bahia' })
-        )
-        return `${dayLabel}: ${times.join(', ')}`
-      })
-      .join('\n')
-  } catch (err) {
-    slotsInfo = 'Não foi possível consultar os horários disponíveis.'
-  }
-
-  const systemPrompt = `Você é o Agente de Agendamento. Seu único trabalho é agendar, remarcar ou cancelar calls de venda.
-
-CONTEXTO:
-- Data/hora atual: ${nowBR}
-- Lead: ${ctx.leadName} (${ctx.leadPhone})
-- Agendamento atual: ${lead?.call_de_venda ? `Sim — ${lead.call_agendada_para ?? 'horário não definido'} — status: ${lead.call_status ?? 'agendada'}` : 'Nenhum agendamento ativo'}
-- Meet atual: ${lead?.meet_url ?? 'nenhum'}
-
-SLOTS DISPONÍVEIS:
-${slotsInfo}
-
-REGRAS:
+REGRAS OBRIGATÓRIAS:
 - Apenas Seg a Sex, 9h às 18h, fuso America/Bahia
 - NUNCA agende para o mesmo dia de hoje
 - Se o lead já informou um horário específico → confirme sem sugerir outros
-- Máximo 2 linhas na resposta ao lead
-- Se confirmar agendamento: retorne JSON {"acao":"agendar","data_hora":"<ISO8601>","titulo":"<título da reunião>"}
-- Se cancelar: retorne JSON {"acao":"cancelar"}
-- Se apenas consultando/conversando: retorne JSON {"acao":"conversa","resposta":"<sua resposta ao lead>"}
+- Se o lead quer remarcar → cancele o anterior antes de criar o novo
+- Responda em no máximo 2 linhas para o lead
 
-Retorne APENAS o JSON, sem texto adicional.`
+ORDEM:
+1. "Hora atual" para saber a data/hora atual
+2. "Buscar reunião" para ver se o lead já tem agendamento
+3. "Consultar (gcal)" para ver horários disponíveis (se necessário)
+4. "Agendar (gcal)" ou "Deletar (gcal)" conforme a ação
+5. "Reunião marcada" para salvar no CRM`
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: message },
-    ],
-    max_tokens: 300,
-    temperature: 0.1,
-    response_format: { type: 'json_object' },
-  })
-  pushUsage(acc, completion, 'agendamento')
+  const tools: OpenAI.Chat.ChatCompletionTool[] = [
+    {
+      type: 'function',
+      function: {
+        name: 'Hora atual',
+        description: 'Retorna a data e hora atual no fuso America/Bahia',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Buscar reunião',
+        description: 'Busca os dados de agendamento atual do lead no CRM',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Consultar (gcal)',
+        description: 'Consulta horários disponíveis no Google Calendar para uma data',
+        parameters: {
+          type: 'object',
+          properties: { data: { type: 'string', description: 'Data no formato YYYY-MM-DD' } },
+          required: ['data'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Agendar (gcal)',
+        description: 'Cria um evento no Google Calendar com link Meet',
+        parameters: {
+          type: 'object',
+          properties: {
+            data_hora: { type: 'string', description: 'ISO8601, ex: 2026-05-05T10:00:00' },
+            titulo: { type: 'string' },
+            duracao_minutos: { type: 'number' },
+          },
+          required: ['data_hora', 'titulo'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Deletar (gcal)',
+        description: 'Cancela/deleta um evento existente no Google Calendar',
+        parameters: { type: 'object', properties: { event_id: { type: 'string' } }, required: ['event_id'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'Reunião marcada',
+        description: 'Salva os dados da reunião agendada no CRM',
+        parameters: {
+          type: 'object',
+          properties: {
+            data_hora_iso: { type: 'string' },
+            meet_url: { type: 'string' },
+            event_id: { type: 'string' },
+            acao: { type: 'string', enum: ['agendar', 'remarcar', 'cancelar'] },
+          },
+          required: ['acao'],
+        },
+      },
+    },
+  ]
 
-  let parsed: any = {}
-  try {
-    parsed = JSON.parse(completion.choices[0]?.message?.content ?? '{}')
-  } catch {
-    return 'Agendamento: não foi possível processar a solicitação.'
-  }
-
-  if (parsed.acao === 'agendar' && parsed.data_hora) {
-    try {
-      const start = new Date(parsed.data_hora)
-      const event = await createEventWithMeet({
-        calendarId: ctx.calendarId,
-        title: parsed.titulo ?? `Call de venda — ${ctx.leadName}`,
-        description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
-        start,
-        durationMinutes: 60,
-      })
-
-      // Atualiza lead com dados do agendamento
-      await supabase
+  const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Hora atual': async (_args) => {
+      return new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia', dateStyle: 'full', timeStyle: 'short' })
+    },
+    'Buscar reunião': async (_args) => {
+      const { data } = await supabase
         .from('leads')
-        .update({
-          call_de_venda: true,
-          call_agendada_para: event.start.toISOString(),
-          meet_url: event.meetUrl,
-          call_status: 'agendada',
-          updated_at: new Date().toISOString(),
-        })
+        .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name')
         .eq('id', ctx.leadId)
-
-      const dataFormatada = formatDateTimeBR(event.start)
-      return `Reunião agendada com sucesso!\n📅 ${dataFormatada}\n🔗 Meet: ${event.meetUrl}\nEventId: ${event.eventId}`
-    } catch (err: any) {
-      return `Erro ao criar evento no Google Calendar: ${err.message}`
-    }
+        .single()
+      return JSON.stringify(data ?? {})
+    },
+    'Consultar (gcal)': async (args) => {
+      try {
+        const date = new Date(args.data)
+        const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date })
+        const available = slots.filter((s) => s.available).slice(0, 5)
+        if (available.length === 0) return 'Nenhum horário disponível nesta data.'
+        return available.map((s) =>
+          s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bahia' })
+        ).join(', ')
+      } catch (err: any) {
+        return `Erro ao consultar calendário: ${err.message}`
+      }
+    },
+    'Agendar (gcal)': async (args) => {
+      try {
+        const start = new Date(args.data_hora)
+        const event = await createEventWithMeet({
+          calendarId: ctx.calendarId!,
+          title: args.titulo ?? `Call de venda — ${ctx.leadName}`,
+          description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
+          start,
+          durationMinutes: args.duracao_minutos ?? 60,
+        })
+        return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
+      } catch (err: any) {
+        return `Erro ao criar evento: ${err.message}`
+      }
+    },
+    'Deletar (gcal)': async (args) => {
+      try {
+        await supabase.from('leads').update({ call_de_venda: false, call_status: 'cancelada', updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
+        return JSON.stringify({ deletado: true, event_id: args.event_id })
+      } catch (err: any) {
+        return `Erro ao cancelar: ${err.message}`
+      }
+    },
+    'Reunião marcada': async (args) => {
+      const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+      if (args.acao === 'cancelar') {
+        updates.call_de_venda = false
+        updates.call_status = 'cancelada'
+      } else if (args.data_hora_iso) {
+        updates.call_de_venda = true
+        updates.call_agendada_para = args.data_hora_iso
+        updates.meet_url = args.meet_url ?? null
+        updates.call_status = 'agendada'
+      }
+      await supabase.from('leads').update(updates).eq('id', ctx.leadId)
+      return JSON.stringify({ salvo: true, acao: args.acao })
+    },
   }
 
-  if (parsed.acao === 'cancelar' && lead?.call_de_venda) {
-    await supabase
-      .from('leads')
-      .update({
-        call_de_venda: false,
-        call_status: 'cancelada',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', ctx.leadId)
-    return 'Agendamento cancelado com sucesso.'
-  }
-
-  return parsed.resposta ?? 'Consulte os horários disponíveis acima.'
+  return runAgentLoop(
+    systemPrompt,
+    `WhatsApp do lead: ${ctx.leadPhone}\nNome: ${ctx.leadName}\nMensagem: ${message}`,
+    tools, handlers, openai, 'gpt-4.1', acc, 'agendamento'
+  )
 }
+
 
 // ─── Orquestrador Principal ─────────────────────────────────────
 
