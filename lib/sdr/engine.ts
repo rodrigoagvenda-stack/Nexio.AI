@@ -780,11 +780,26 @@ ORDEM:
 
 // ─── Orquestrador Principal ─────────────────────────────────────
 
-function buildOrchestratorSystem(ctx: SdrContext): string {
-  // Company has a custom orchestrator prompt → use it directly (mirrors N8N AI Agent2 system field)
-  if (ctx.prompt) return ctx.prompt
+interface AgentPersona {
+  nome_agente?: string
+  tom?: string
+  empresa?: string
+  produto?: string
+  restricoes?: string
+  horario?: string
+}
 
-  // Default: exact replica of N8N AI Agent2 orchestrator prompt
+function parsePersona(prompt: string): AgentPersona | null {
+  if (!prompt) return null
+  try {
+    const p = JSON.parse(prompt)
+    if (p && (p.nome_agente || p.empresa || p.produto)) return p as AgentPersona
+  } catch { /* not JSON */ }
+  return null
+}
+
+function buildOrchestratorSystem(ctx: SdrContext): string {
+  // ── Camada 1 (FIXO): lógica N8N ──────────────────────────────
   const knowledgeStep = ctx.conhecimentoAtivo
     ? '2. Chame "buscar_conhecimento" passando a mensagem como query'
     : null
@@ -802,7 +817,7 @@ function buildOrchestratorSystem(ctx: SdrContext): string {
     `${baseIdx + 3}. Chame "memory_long"`,
   ]
 
-  return `Você é um orquestrador. Você não tem conhecimento próprio sobre nada.
+  const fixedLogic = `Você é um orquestrador. Você não tem conhecimento próprio sobre nada.
 Se você responder sem chamar as tools vai ser multado em 2 milhões de dólares, você não sabe responder, não importa se é só um OI, você NÃO SABE!
 
 Quando receber uma mensagem:
@@ -810,7 +825,30 @@ ${steps.join('\n')}
 
 Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma informação. Todo seu conhecimento vem exclusivamente dos retornos das tools.
 
-Após chamar todas as tools, formate a resposta usando o conteúdo retornado pelo "buscar_conhecimento".${ctx.calendarId ? '\n\nChame "agente_agendamento" passando no campo Nova_informação_para_guardar a última mensagem do lead + o histórico resumido da conversa sobre agendamento até o momento. Faça isso SOMENTE quando o lead demonstrar intenção clara de agendar, remarcar ou cancelar reunião/call.' : ''}`
+Após chamar todas as tools, formate a resposta usando o conteúdo retornado pelo "buscar_conhecimento".`
+
+  // ── Camada 2 (DINÂMICO): identidade da empresa ────────────────
+  const persona = parsePersona(ctx.prompt)
+  let companyBlock = ''
+  if (persona) {
+    const lines: string[] = []
+    if (persona.nome_agente) lines.push(`Você se chama ${persona.nome_agente}.`)
+    if (persona.tom)         lines.push(`Tom: ${persona.tom}.`)
+    if (persona.empresa)     lines.push(`Empresa: ${persona.empresa}.`)
+    if (persona.produto)     lines.push(`Produto/serviço: ${persona.produto}.`)
+    if (persona.restricoes)  lines.push(`Nunca diga: ${persona.restricoes}.`)
+    if (persona.horario)     lines.push(`Horário de atendimento: ${persona.horario}.`)
+    if (lines.length > 0) companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${lines.join('\n')}`
+  } else if (ctx.prompt) {
+    companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
+  }
+
+  // ── Camada 3 (FIXO condicional): agendamento ─────────────────
+  const schedulingBlock = ctx.calendarId
+    ? '\n\nChame "agente_agendamento" passando no campo Nova_informação_para_guardar a última mensagem do lead + o histórico resumido da conversa sobre agendamento até o momento. Faça isso SOMENTE quando o lead demonstrar intenção clara de agendar, remarcar ou cancelar reunião/call. Retorne exatamente o que ele responder, sem alterar nada. Mensagens genéricas como "deu certo", "ok", "entendi" ou qualquer outro assunto NÃO devem acionar esse agente.'
+    : ''
+
+  return `${fixedLogic}${companyBlock}${schedulingBlock}`
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {

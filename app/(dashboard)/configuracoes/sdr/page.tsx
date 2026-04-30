@@ -3,16 +3,25 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils/cn'
-import { Loader2, Save, MessageSquare, Copy, CheckCheck, Calendar, Zap, Wifi, WifiOff, Database } from 'lucide-react'
+import { Loader2, Save, MessageSquare, Copy, CheckCheck, Calendar, Zap, Wifi, WifiOff, Database, Bot } from 'lucide-react'
+
+interface AgentPersona {
+  nome_agente: string
+  tom: string
+  empresa: string
+  produto: string
+  restricoes: string
+  horario: string
+}
 
 interface SdrConfig {
   id?: string
   agent_type: 'atendimento_venda' | 'atendimento_venda_agendamento'
-  prompt: string
+  persona: AgentPersona
   agente_ativo: boolean
   webhook_url: string | null
   instance_status: 'disconnected' | 'connecting' | 'connected'
@@ -21,6 +30,24 @@ interface SdrConfig {
   vector_table_objecoes: string
   conhecimento_ativo: boolean
   objecoes_ativo: boolean
+}
+
+const EMPTY_PERSONA: AgentPersona = {
+  nome_agente: '',
+  tom: '',
+  empresa: '',
+  produto: '',
+  restricoes: '',
+  horario: '',
+}
+
+function parsePersona(raw: string): AgentPersona {
+  if (!raw) return { ...EMPTY_PERSONA }
+  try {
+    const p = JSON.parse(raw)
+    if (p && typeof p === 'object') return { ...EMPTY_PERSONA, ...p }
+  } catch { /* plain text legado — descarta */ }
+  return { ...EMPTY_PERSONA }
 }
 
 const AGENT_TYPES = [
@@ -41,7 +68,7 @@ const AGENT_TYPES = [
 export default function SdrConfigPage() {
   const [config, setConfig] = useState<SdrConfig>({
     agent_type: 'atendimento_venda',
-    prompt: '',
+    persona: { ...EMPTY_PERSONA },
     agente_ativo: false,
     webhook_url: null,
     instance_status: 'disconnected',
@@ -68,7 +95,7 @@ export default function SdrConfigPage() {
         setConfig({
           id: data.config.id,
           agent_type: data.config.agent_type ?? 'atendimento_venda',
-          prompt: data.config.prompt ?? '',
+          persona: parsePersona(data.config.prompt ?? ''),
           agente_ativo: data.config.agente_ativo ?? false,
           webhook_url: data.config.webhook_url ?? null,
           instance_status: liveStatus?.status ?? data.config.instance_status ?? 'disconnected',
@@ -88,6 +115,9 @@ export default function SdrConfigPage() {
 
   useEffect(() => { loadConfig() }, [loadConfig])
 
+  const setPersona = (field: keyof AgentPersona, value: string) =>
+    setConfig((prev) => ({ ...prev, persona: { ...prev.persona, [field]: value } }))
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -96,7 +126,7 @@ export default function SdrConfigPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           agent_type: config.agent_type,
-          prompt: config.prompt,
+          prompt: JSON.stringify(config.persona),
           agente_ativo: config.agente_ativo,
           vector_table_conhecimento: config.vector_table_conhecimento,
           vector_table_objecoes: config.vector_table_objecoes,
@@ -234,21 +264,74 @@ export default function SdrConfigPage() {
         </div>
       </div>
 
-      {/* ── Instruções do agente ── */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Instruções do agente</p>
-          <span className="text-xs text-muted-foreground">{config.prompt.length} caracteres</span>
+      {/* ── Identidade do agente ── */}
+      <div className="space-y-4 p-4 rounded-xl border border-border bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Bot className="w-4 h-4 text-muted-foreground" />
+          <p className="text-sm font-medium">Identidade do agente</p>
         </div>
-        <Textarea
-          value={config.prompt}
-          onChange={(e) => setConfig((prev) => ({ ...prev, prompt: e.target.value }))}
-          placeholder={'Descreva o comportamento do agente:\n• Tom de voz e personalidade\n• Produtos ou serviços oferecidos\n• Como abordar o cliente\n• O que nunca dizer\n• Horários de atendimento'}
-          className="min-h-[220px] font-mono text-sm resize-y bg-muted/20 border-border/60 leading-relaxed"
-        />
-        <p className="text-xs text-muted-foreground">
-          Essas instruções são injetadas no agente antes de cada resposta.
+        <p className="text-xs text-muted-foreground -mt-2">
+          Essas informações definem quem o agente é e como ele age. A lógica de atendimento é gerenciada automaticamente.
         </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Nome do agente</label>
+            <Input
+              value={config.persona.nome_agente}
+              onChange={(e) => setPersona('nome_agente', e.target.value)}
+              placeholder="ex: Ana"
+              className="h-8 text-sm bg-background"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Tom de voz</label>
+            <Input
+              value={config.persona.tom}
+              onChange={(e) => setPersona('tom', e.target.value)}
+              placeholder="ex: informal e consultivo"
+              className="h-8 text-sm bg-background"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Nome da empresa</label>
+            <Input
+              value={config.persona.empresa}
+              onChange={(e) => setPersona('empresa', e.target.value)}
+              placeholder="ex: Clínica Estética Silva"
+              className="h-8 text-sm bg-background"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Horário de atendimento</label>
+            <Input
+              value={config.persona.horario}
+              onChange={(e) => setPersona('horario', e.target.value)}
+              placeholder="ex: Seg-Sex 9h-18h"
+              className="h-8 text-sm bg-background"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Produto / serviço oferecido</label>
+          <Textarea
+            value={config.persona.produto}
+            onChange={(e) => setPersona('produto', e.target.value)}
+            placeholder="ex: procedimentos estéticos de laser e harmonização facial"
+            className="min-h-[72px] text-sm resize-none bg-background"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">O que nunca dizer</label>
+          <Textarea
+            value={config.persona.restricoes}
+            onChange={(e) => setPersona('restricoes', e.target.value)}
+            placeholder="ex: não mencione preços sem entender a necessidade, não cite concorrentes"
+            className="min-h-[72px] text-sm resize-none bg-background"
+          />
+        </div>
       </div>
 
       {/* ── Base de conhecimento (RAG) ── */}
@@ -262,7 +345,6 @@ export default function SdrConfigPage() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Conhecimento */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">Tabela de conhecimento</label>
@@ -280,7 +362,6 @@ export default function SdrConfigPage() {
             />
           </div>
 
-          {/* Objeções */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-medium text-muted-foreground">Tabela de objeções</label>
