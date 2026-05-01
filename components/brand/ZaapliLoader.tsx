@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ZaapliLogo } from './ZaapliLogo'
+import { ZaapliIcon } from './ZaapliIcon'
 
 interface ZaapliLoaderProps {
   /** duração mínima do splash em ms (default 1200) */
@@ -32,8 +32,14 @@ export function ZaapliLoader({ minDuration = 1200, onDone }: ZaapliLoaderProps) 
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-background transition-opacity duration-400"
       style={{ opacity: fading ? 0 : 1 }}
     >
-      <div className="flex flex-col items-center gap-6">
-        <ZaapliLogo variant="full" iconSize={48} animate />
+      <div className="flex flex-col items-center gap-5">
+        <ZaapliIcon size={48} animate />
+        <span
+          className="font-extrabold tracking-tight leading-none text-foreground select-none"
+          style={{ fontSize: 26, fontFamily: "'Nunito', 'Poppins', sans-serif", letterSpacing: '-0.01em' }}
+        >
+          zaapli
+        </span>
         <div className="flex gap-1.5">
           {[0, 1, 2].map((i) => (
             <span
