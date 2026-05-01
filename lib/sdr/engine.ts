@@ -1333,7 +1333,8 @@ async function saveInbound(
   text: string,
   supabase: ReturnType<typeof createServiceClient>,
   tipo = 'text',
-  mediaUrl?: string
+  mediaUrl?: string,
+  messageId?: string
 ): Promise<void> {
   const displayText =
     tipo === 'audio' ? '🎵 Áudio' :
@@ -1358,6 +1359,7 @@ async function saveInbound(
     status: 'delivered',
     url_da_midia: mediaUrl ?? null,
     carimbo_de_data_e_hora: new Date().toISOString(),
+    whatsapp_message_id: messageId || null,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
 
@@ -1771,7 +1773,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
     for (const em of enrichedMessages) {
-      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl)
+      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
     }
 
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
