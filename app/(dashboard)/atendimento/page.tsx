@@ -32,6 +32,8 @@ import { LinkPreviewCard } from '@/components/chat/LinkPreviewCard';
 import { ExpandableMessage } from '@/components/chat/ExpandableMessage';
 import type { Lead } from '@/types/database.types';
 
+const atendimentoPhotoCache = new Map<string, string | null>()
+
 interface Conversation {
   id: number;
   numero_de_telefone: string;
@@ -290,7 +292,37 @@ export default function AtendimentoPage() {
       const res = await fetch('/api/sdr/conversations');
       if (!res.ok) throw new Error('Erro ao buscar conversas');
       const data = await res.json();
-      setConversations(data.conversations ?? []);
+      const convs: Conversation[] = data.conversations ?? [];
+      setConversations(convs);
+
+      convs.forEach(conv => {
+        if (!conv.numero_de_telefone) return;
+        const cacheKey = conv.id_do_lead ? `lead:${conv.id_do_lead}` : conv.numero_de_telefone;
+        if (conv.whatsapp_photo_url) {
+          atendimentoPhotoCache.set(cacheKey, conv.whatsapp_photo_url);
+          return;
+        }
+        if (atendimentoPhotoCache.has(cacheKey)) {
+          const cached = atendimentoPhotoCache.get(cacheKey);
+          if (cached) {
+            setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, whatsapp_photo_url: cached } : c));
+            setSelectedConversation(prev => prev?.id === conv.id ? { ...prev, whatsapp_photo_url: cached } : prev);
+          }
+          return;
+        }
+        const params = new URLSearchParams({ phone: conv.numero_de_telefone });
+        if (conv.id_do_lead) params.set('leadId', String(conv.id_do_lead));
+        fetch(`/api/chat/contact-photo?${params}`)
+          .then(r => r.json())
+          .then(d => {
+            atendimentoPhotoCache.set(cacheKey, d.photo ?? null);
+            if (d.photo) {
+              setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, whatsapp_photo_url: d.photo } : c));
+              setSelectedConversation(prev => prev?.id === conv.id ? { ...prev, whatsapp_photo_url: d.photo } : prev);
+            }
+          })
+          .catch(() => {});
+      });
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
