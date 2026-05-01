@@ -1,5 +1,65 @@
 import { Resend } from 'resend';
 
+export async function sendInjectionAlertEmail({
+  pushName,
+  senderNumber,
+  instanceName,
+  originalMessage,
+  classification,
+  riskLevel,
+  confidence,
+  evidence,
+  timestamp,
+}: {
+  pushName: string
+  senderNumber: string
+  instanceName: string
+  originalMessage: string
+  classification: string
+  riskLevel: string
+  confidence: number
+  evidence?: string
+  timestamp: string
+}) {
+  if (!process.env.RESEND_API_KEY) return { success: false }
+  const client = new Resend(process.env.RESEND_API_KEY)
+
+  const { data, error } = await client.emails.send({
+    from: 'Nexio.AI Segurança <noreply@vendai.com.br>',
+    to: ['rodrigoevangelista.proj@gmail.com'],
+    subject: '🚨 ALERTA: Tentativa de Prompt Injection Bloqueada',
+    html: `
+<h2>⚠️ Tentativa de Ataque Bloqueada</h2>
+<p><strong>Usuário bloqueado automaticamente por tentativa de prompt injection.</strong></p>
+<h3>📋 Detalhes do Ataque:</h3>
+<ul>
+  <li><strong>Nome:</strong> ${pushName}</li>
+  <li><strong>Número:</strong> ${senderNumber}</li>
+  <li><strong>Instância:</strong> ${instanceName}</li>
+  <li><strong>Data/Hora:</strong> ${timestamp}</li>
+</ul>
+<h3>🔍 Análise de Segurança:</h3>
+<ul>
+  <li><strong>Classificação:</strong> ${classification}</li>
+  <li><strong>Nível de Risco:</strong> ${riskLevel}</li>
+  <li><strong>Confiança:</strong> ${confidence}</li>
+  <li><strong>Ação Recomendada:</strong> HARD_BLOCK_24H</li>
+</ul>
+<h3>💬 Mensagem Original:</h3>
+<blockquote style="background:#f5f5f5;padding:10px;border-left:4px solid #ff0000;">
+${originalMessage}
+</blockquote>
+<h3>🛡️ Evidência Detectada:</h3>
+<p><code>${evidence ?? 'Padrão composto detectado'}</code></p>
+<hr>
+<p><small>Sistema de Segurança - Prompt Injection Detection v2.1</small></p>
+    `,
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
 // Lazy initialization to avoid build-time errors
 let resend: Resend | null = null;
 

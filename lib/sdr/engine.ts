@@ -28,6 +28,7 @@ import {
   pauseTenant,
   checkAndSendQuotaAlerts,
 } from '@/lib/billing/usage'
+import { sendInjectionAlertEmail } from '@/lib/email/resend'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ interface BufferedMessage {
   timestamp: string
   messageId: string
   mediaUrl?: string
+  senderName?: string
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -80,25 +82,138 @@ function pushUsage(
   })
 }
 
-// ─── Prompt Injection ─────────────────────────────────────────
+// ─── Prompt Injection Security (espelha Prompt Injection Security1 do N8N) ───
 
-const INJECTION_PATTERNS = [
-  /ignore\s+(previous|all|above|earlier|prior)\s*(instructions?|prompts?|rules?)/i,
-  /esqueça?\s+(tudo|todas)\s*(instruções?|regras?|prompts?)/i,
-  /você\s+é\s+agora\s+(um|uma)/i,
-  /ignore\s+as\s+instruções/i,
-  /novo\s+prompt/i,
-  /revelar?\s+(suas?|o)\s+(prompt|instruções?|sistema)/i,
-  /mostre?\s+(suas?|as)\s+instruções/i,
-  /modo\s+(desenvolvedor|debug|admin)/i,
-  /act\s+as\s+(a\s+)?(jailbreak|hacker|admin)/i,
-  /<\|.*?(system|user|assistant).*?\|>/gi,
-  /disregard\s+(previous|all|above)\s*(instructions?|rules?)/i,
-  /forget\s+(everything|all|previous)/i,
+const CRITICAL_PATTERNS = [
+  // Direct Override - English
+  /ignore\s+(previous|all|above|earlier|prior)\s*(instructions?|prompts?|rules?|directives?)/i,
+  /forget\s+(everything|all|previous|earlier)\s*(instructions?|prompts?|context?)/i,
+  /disregard\s+(previous|all|above|earlier)\s*(instructions?|rules?|prompts?)/i,
+  // Direct Override - Portuguese
+  /esqueç[ao]\s+(tud[ao]|todas?|anteriores?)\s*(as\s+)?(suas\s+)?(instruções?|configuraç[õo]es?|regras?|prompts?|contexto)/i,
+  /ignorar?\s+(tud[ao]|todas?|anteriores?)\s*(as\s+)?(suas\s+)?(instruções?|regras?|prompts?)/i,
+  /desconsiderar?\s+(tud[ao]|todas?|anteriores?)\s*(as\s+)?(suas\s+)?(instruções?|regras?)/i,
+  // Role Change - English
+  /you\s+are\s+now\s+(a\s+)?(jailbreak|hacker|admin|developer|god|root|system)/i,
+  /(pretend|act|behave|roleplay)\s+(like|as|to\s+be)\s+(a\s+)?(hacker|admin|system|developer)/i,
+  /from\s+now\s+on\s+you\s+(are|will\s+be|should\s+act)/i,
+  // Role Change - Portuguese
+  /(você|vc)\s+(é|sera|deve\s+ser)\s+(um[a]?|uma)\s+.{1,30}/i,
+  /(agora|partir\s+de\s+agora)\s+você\s+(é|sera)/i,
+  /(atue|aja|comporte|interprete)\s+como\s+(um[a]?|uma)/i,
+  /finja\s+(ser|que\s+(é|voce\s+é))\s+(um[a]?|uma)/i,
+  // System Command Injection
+  /<\|.*?(start|end|system|user|assistant).*?\|>/gi,
+  /\[\s*(system|admin|root|debug)\s*\]/i,
+  /#\s*(system|admin|config|debug|override)/i,
+  // Template Injection
+  /\{\{.*?(eval|exec|system|import|require|process).*?\}\}/i,
+  /\$\{.*?(eval|exec|system|process).*?\}/i,
+  /<%.*?(eval|exec|system).*?%>/i,
+  // Encoding Attacks
+  /base64\s*[:=]\s*[A-Za-z0-9+/]{30,}/i,
+  /hex\s*[:=]\s*[0-9a-fA-F]{40,}/i,
+  /unicode\s*[:=]\s*\\u[0-9a-fA-F]{4,}/i,
+  // Meta-Prompt - English
+  /show\s+me\s+(your|the)\s+(prompt|instructions|system\s+message)/i,
+  /what\s+(are|were)\s+your\s+(original|initial)\s+(instructions|prompt)/i,
+  /reveal\s+(your|the)\s+(prompt|instructions|system)/i,
+  // Meta-Prompt - Portuguese
+  /(mostre|revele|me\s+diga)\s+(suas?|as|o)\s+(instruções?|prompt|configurações?|sistema)/i,
+  /quais?\s+s[ãa]o\s+(suas?|as)\s+(instruções?|regras?|diretrizes?)\s+(originais?|iniciais?)/i,
+  // Code Execution Disguised
+  /```[\s\S]*?(eval|exec|system|import\s+os|subprocess)[\s\S]*?```/i,
+  /execute\s+the\s+following\s+(code|script|command)/i,
+  /(execute|rode|processe)\s+(o\s+)?(seguinte|este)\s+(código|script|comando)/i,
+  // Developer/Debug Mode - English
+  /(developer|debug|admin|maintenance)\s+mode\s+(on|enabled|true)/i,
+  /enable\s+(debug|developer|admin|god)\s+mode/i,
+  // Developer/Debug Mode - Portuguese
+  /modo\s+(desenvolvedor|debug|admin|manutenção)\s+(ativado|ligado|on)/i,
+  /(ativar|habilitar|ligar)\s+modo\s+(desenvolvedor|debug|admin)/i,
 ]
 
+const HIGH_RISK_KEYWORDS = [
+  'ignore instructions', 'forget everything', 'disregard previous',
+  'override system', 'bypass security', 'jailbreak mode',
+  'you are now', 'act as', 'pretend to be', 'roleplay as',
+  'from now on', 'new instructions', 'update your role',
+  'system:', 'admin:', 'root:', 'sudo:', 'config:',
+  'prompt:', 'instructions:', 'directives:', 'rules:',
+  'eval(', 'exec(', 'system(', 'import os', 'subprocess',
+  'document.', 'window.', 'process.', 'require(',
+  'emergency override', 'developer access', 'debug session',
+  'authorized by', 'special permission', 'urgent request',
+  'ignorar instruções', 'esquecer tudo', 'modo desenvolvedor',
+  'acesso admin', 'sistema:', 'configuração:', 'emergência',
+]
+
+const SUSPICIOUS_PATTERNS = [
+  /tell\s+me\s+about\s+your\s+(training|design|architecture)/i,
+  /how\s+(were\s+you|are\s+you)\s+(made|created|built|trained)/i,
+  /what\s+(can|cannot)\s+you\s+(do|not\s+do|never\s+do)/i,
+  /(simulate|emulate|mimic)\s+(a\s+)?(computer|terminal|shell)/i,
+  /if\s+you\s+were\s+(not\s+)?(an\s+ai|constrained|limited)/i,
+]
+
+const HIGH_ENTROPY_THRESHOLD = 4.5
+const BLOCK_CONFIDENCE = 0.75
+const SUSPICIOUS_CONFIDENCE = 0.4
+
+function calcEntropy(text: string): number {
+  if (!text.length) return 0
+  const freq: Record<string, number> = {}
+  for (const c of text) freq[c] = (freq[c] ?? 0) + 1
+  let e = 0
+  for (const k in freq) {
+    const p = freq[k] / text.length
+    e -= p * Math.log2(p)
+  }
+  return Math.round(e * 100) / 100
+}
+
 function isPromptInjection(text: string): boolean {
-  return INJECTION_PATTERNS.some((p) => p.test(text))
+  if (!text) return false
+
+  // LAYER 1: critical patterns — bloqueio imediato (espelha CRITICAL_PATTERNS do n8n)
+  for (const p of CRITICAL_PATTERNS) {
+    if (p.test(text)) return true
+  }
+
+  // LAYER 2: keyword scoring
+  const lower = text.toLowerCase()
+  let keywordScore = 0
+  for (const kw of HIGH_RISK_KEYWORDS) {
+    if (lower.includes(kw.toLowerCase())) keywordScore += 0.3
+  }
+
+  // LAYER 3: structural scoring
+  let structuralScore = 0
+  if (text.length > 4000) structuralScore += 0.3
+  const specialRatio = (text.match(/[^a-zA-Z0-9\sÀ-ÿ]/g) ?? []).length / text.length
+  if (specialRatio > 0.4) structuralScore += 0.3
+  if ((text.match(/[{}]/g) ?? []).length > 10) structuralScore += 0.3
+  if ((text.match(/[<>]/g) ?? []).length > 6) structuralScore += 0.2
+  if ((text.match(/[|&;`$]/g) ?? []).length > 3) structuralScore += 0.4
+
+  // LAYER 4: entropy scoring
+  const entropy = calcEntropy(text)
+  const entropyScore = entropy > HIGH_ENTROPY_THRESHOLD
+    ? Math.min((entropy - HIGH_ENTROPY_THRESHOLD) * 0.2, 0.4)
+    : 0
+
+  // LAYER 5: suspicious patterns
+  let suspiciousScore = 0
+  for (const p of SUSPICIOUS_PATTERNS) {
+    if (p.test(text)) suspiciousScore += 0.2
+  }
+
+  // LAYER 6: context
+  let contextScore = 0
+  if (/[​-‏⁠﻿]/.test(text)) contextScore += 0.4 // hidden chars
+
+  const total = Math.min(keywordScore + structuralScore + entropyScore + suspiciousScore + contextScore, 0.98)
+  return total >= BLOCK_CONFIDENCE
 }
 
 // ─── Buffer (Supabase) ────────────────────────────────────────
@@ -422,26 +537,51 @@ async function runAgenteOutbound(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const systemPrompt = `Você é o Agente de Contexto Outbound. Identifica a origem do lead e fornece contexto para o SDR.
+  const systemPrompt = `Você é o Agente de Contexto Outbound. Sua função é identificar a origem do lead e fornecer contexto completo para o SDR.
 
-ORDEM DE EXECUÇÃO OBRIGATÓRIA:
-PASSO 1: Use "Buscar_origem_lead_no_supabase" passando o whatsapp do lead
-  - Se status = "Outbound" → vá para PASSO 2
-  - Caso contrário → retorne com origem=inbound diretamente
+⚠️ ATENÇÃO: Você TEM tools disponíveis. Use-as OBRIGATORIAMENTE. NUNCA responda sem usar as tools.
 
-PASSO 2: Use "Buscar_mensagem_enviada_outbound" para obter a mensagem outbound original (obrigatório se outbound)
+PASSO 1 — USE AGORA a tool "Buscar_origem_lead_no_supabase" passando whatsapp e company_id:
+- Se status = "Outbound" → lead veio de abordagem ativa, vá para PASSO 2
+- Se diferente → lead inbound, vá direto para o RETORNO FINAL com origem = "inbound"
+- Verifique a coluna "briefing_preenchido":
+  - true → lead já preencheu o briefing
+  - false → briefing ainda não preenchido
 
-PASSO 3: Use "Salvar_resposta_e_score_do_lead" com score de 1-10 baseado no tom da resposta do lead
+PASSO 2 — USE AGORA a tool "Buscar_mensagem_enviada_outbound" passando lead_id e company_id:
+- Retorna a mensagem que foi enviada ao lead
+- OBRIGATÓRIO se lead for outbound
 
-RETORNO FINAL: {"origem":"outbound|inbound","mensagem_enviada":"...","score_interesse":<1-10>,"briefing_preenchido":<bool>}`
+PASSO 3 — USE AGORA a tool "Salvar_resposta_e_score_do_lead" passando lead_id e company_id com:
+- respondeu: true
+- respondeu_em: data/hora atual
+- mensagem_recebida: mensagem que o lead enviou
+- score_interesse: analise o tom e atribua de 1 a 10:
+  - 1-3: desinteressado, pediu para parar, ignorou
+  - 4-6: neutro, perguntou algo básico
+  - 7-9: demonstrou interesse, fez perguntas relevantes
+  - 10: pediu proposta, quer agendar
+
+VALIDAÇÃO — Antes de retornar confirme:
+✅ Usei "Buscar_origem_lead_no_supabase"? Se não → use agora
+✅ Se outbound, usei "Buscar_mensagem_enviada_outbound"? Se não → use agora
+✅ Usei "Salvar_resposta_e_score_do_lead"? Se não → use agora
+
+RETORNO FINAL — somente após usar todas as tools:
+{
+  "origem": "outbound | inbound",
+  "mensagem_enviada": "texto ou null",
+  "score_interesse": número ou null,
+  "briefing_preenchido": true | false
+}`
 
   const tools: OpenAI.Chat.ChatCompletionTool[] = [
     {
       type: 'function',
       function: {
         name: 'Buscar_origem_lead_no_supabase',
-        description: 'Busca a origem e status atual do lead pelo whatsapp',
-        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+        description: 'Busca a origem e status atual do lead pelo whatsapp e company_id',
+        parameters: { type: 'object', properties: { whatsapp: { type: 'string' }, company_id: { type: 'number' } }, required: ['whatsapp'] },
       },
     },
     {
@@ -449,22 +589,23 @@ RETORNO FINAL: {"origem":"outbound|inbound","mensagem_enviada":"...","score_inte
       function: {
         name: 'Buscar_mensagem_enviada_outbound',
         description: 'Busca a mensagem outbound original que foi enviada ao lead',
-        parameters: { type: 'object', properties: { whatsapp: { type: 'string' } }, required: ['whatsapp'] },
+        parameters: { type: 'object', properties: { lead_id: { type: 'number' }, company_id: { type: 'number' } }, required: [] },
       },
     },
     {
       type: 'function',
       function: {
         name: 'Salvar_resposta_e_score_do_lead',
-        description: 'Salva a resposta do lead e o score de interesse (1-10)',
+        description: 'Salva a resposta do lead e o score de interesse (1-10) na campanha outbound',
         parameters: {
           type: 'object',
           properties: {
-            whatsapp: { type: 'string' },
+            respondeu: { type: 'boolean' },
+            respondeu_em: { type: 'string' },
+            mensagem_recebida: { type: 'string' },
             score_interesse: { type: 'number' },
-            resposta_recebida: { type: 'string' },
           },
-          required: ['whatsapp', 'score_interesse', 'resposta_recebida'],
+          required: ['respondeu', 'respondeu_em', 'mensagem_recebida', 'score_interesse'],
         },
       },
     },
@@ -496,7 +637,8 @@ RETORNO FINAL: {"origem":"outbound|inbound","mensagem_enviada":"...","score_inte
         .update({
           respondeu: true,
           respondeu_em: new Date().toISOString(),
-          resposta_recebida: args.resposta_recebida,
+          mensagem_recebida: args.mensagem_recebida,
+          score_interesse: args.score_interesse,
         })
         .eq('company_id', ctx.companyId)
         .eq('whatsapp', ctx.leadPhone)
@@ -506,7 +648,7 @@ RETORNO FINAL: {"origem":"outbound|inbound","mensagem_enviada":"...","score_inte
 
   return runAgentLoop(
     systemPrompt,
-    `WhatsApp do lead: ${ctx.leadPhone}\nMensagem recebida: ${message}`,
+    `WhatsApp do lead: ${ctx.leadPhone}\nCompany ID: ${ctx.companyId}\nMensagem recebida: ${message}`,
     tools, handlers, openai, 'gpt-4.1-mini', acc, 'outbound'
   )
 }
@@ -611,29 +753,61 @@ async function runAgenteAgendamento(
     return 'Agendamento não configurado para esta empresa. Peça ao administrador para configurar o Google Calendar.'
   }
 
-  const systemPrompt = `Você é o Agente de Agendamento. Seu único trabalho é agendar, remarcar ou cancelar calls de venda via Google Calendar.
+  const now = new Date().toLocaleString('pt-BR', {
+    timeZone: 'America/Bahia',
+    weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  })
 
-FERRAMENTAS DISPONÍVEIS:
-- "Hora_atual": retorna a data e hora atual no fuso America/Bahia
-- "Buscar_reuniao": busca os dados de agendamento atual do lead
-- "Consultar_gcal": consulta horários disponíveis no calendário para uma data específica
-- "Agendar_gcal": cria um evento no Google Calendar com Meet
-- "Deletar_gcal": cancela/deleta um evento existente
-- "Reuniao_marcada": salva os dados da reunião no CRM
+  const systemPrompt = `Você é um assistente de agendamento comercial da Nexio.AI. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
+Data e hora atual: ${now}
 
-REGRAS OBRIGATÓRIAS:
-- Apenas Seg a Sex, 9h às 18h, fuso America/Bahia
-- NUNCA agende para o mesmo dia de hoje
-- Se o lead já informou um horário específico → confirme sem sugerir outros
-- Se o lead quer remarcar → cancele o anterior antes de criar o novo
-- Responda em no máximo 2 linhas para o lead
+FLUXO:
+0. VERIFIQUE O HISTÓRICO ANTES DE QUALQUER AÇÃO:
+   - O input pode conter histórico da conversa. Leia tudo antes de agir.
+   - Se no histórico existe uma mensagem sua no formato "[Nome], [dia] [data] às [hora] — confirma?" E a última mensagem do lead foi "sim", "pode", "ok", "confirmo", "tá bom" ou qualquer afirmação → PARE. Vá direto para "Agendar_gcal" com o dia, data e hora que você mesmo confirmou. NÃO chame nenhuma outra tool antes.
+   - Só inicie o fluxo do passo 1 se não houver confirmação pendente no histórico.
+1. "Hora_atual" → obter data/hora exata
+2. "Buscar_reuniao" → retorna o campo call_de_venda (boolean)
+   - FALSE = sem call marcada → vá direto para o passo 4
+   - TRUE = pode ter call marcada → vá para o passo 3
+3. "Consultar_gcal" → verificar se o evento realmente existe no calendário
+   - Se existir → informe de forma simpática e pergunte se quer reagendar
+   - Se não existir → trate como sem agendamento e vá para o passo 4
+4. "Consultar_gcal" → verificar conflitos no calendário
+   - Se o lead JÁ informou dia e/ou horário desejado:
+     → Consulte especificamente esse dia/horário
+     → Se livre → vá direto para o passo 5 (confirmação)
+     → Se ocupado → informe e peça outro horário
+   - Se o lead NÃO informou horário:
+     → Consulte os próximos 3 dias úteis
+     → Retorno vazio = dia livre, todos os horários entre 9h e 18h disponíveis
+     → Retorno com eventos = considere apenas horários não conflitantes
+     → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
+5. Confirmar: "[Nome], [dia da semana] [data] às [hora] — confirma?"
+6. "Agendar_gcal" → criar evento com Meet ativado
+7. "Reuniao_marcada" → atualizar CRM
 
-ORDEM:
-1. "Hora_atual" para saber a data/hora atual
-2. "Buscar_reuniao" para ver se o lead já tem agendamento
-3. "Consultar_gcal" para ver horários disponíveis (se necessário)
-4. "Agendar_gcal" ou "Deletar_gcal" conforme a ação
-5. "Reuniao_marcada" para salvar no CRM`
+APÓS AGENDAR, envie APENAS isso:
+"[Nome], tá agendado! 🎉
+[Data] às [hora] — segue o link:
+[link_meet]
+Qualquer coisa é só me chamar 👍"
+
+REGRAS:
+- ⚠️ CRÍTICO: Se o lead já informou o horário, é PROIBIDO sugerir outras opções. Vá direto para a confirmação no passo 5.
+- Chame "Consultar_gcal" apenas UMA vez por interação
+- Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta
+- Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data. Ex: "segunda-feira, 24/03"
+- Seg a Sex, 9h às 18h, nunca no mesmo dia
+- Fuso: America/Bahia (UTC-3)
+- Máximo 2 linhas por mensagem
+- Nunca repita informações já confirmadas pelo lead
+- O link do Meet deve ser enviado automaticamente, sem o lead precisar pedir
+- Sempre chame o lead pelo nome
+- Tom: amigável e profissional, nunca frio ou mecânico
+- Nunca repita perguntas já respondidas
+- Nunca ofereça mais de uma rodada de opções de horário`
 
   const tools: OpenAI.Chat.ChatCompletionTool[] = [
     {
@@ -800,33 +974,34 @@ function parsePersona(prompt: string): AgentPersona | null {
 }
 
 function buildOrchestratorSystem(ctx: SdrContext): string {
-  // ── Camada 1 (FIXO): lógica N8N ──────────────────────────────
+  // ── Camada 1 (FIXO): prompt exato do nó AI Agent2 do N8N ─────
   const knowledgeStep = ctx.conhecimentoAtivo
-    ? '2. Chame "buscar_conhecimento" passando a mensagem como query'
+    ? '2. Chame Play_conhecimento passando a mensagem como query'
     : null
   const objStep = ctx.objecoesAtivo
-    ? `${knowledgeStep ? '3' : '2'}. Chame "buscar_objections" passando a mensagem como query`
+    ? `${knowledgeStep ? '3' : '2'}. Chame Play_objeções passando a mensagem como query`
     : null
   const baseIdx = (knowledgeStep ? 1 : 0) + (objStep ? 1 : 0) + 2
   const steps = [
-    '1. Chame "think" passando a mensagem',
+    '1. Chame Think1 passando a mensagem',
     ...(knowledgeStep ? [knowledgeStep] : []),
     ...(objStep ? [objStep] : []),
-    `${baseIdx}. Chame "agente_pipeline" passando a mensagem`,
-    `${baseIdx + 1}. Chame "agente_segmentacao" passando a mensagem`,
-    `${baseIdx + 2}. Chame "agente_outbound" passando a mensagem`,
-    `${baseIdx + 3}. Chame "memory_long"`,
+    `${baseIdx}. Chame Agente de Pipeline passando a mensagem`,
+    `${baseIdx + 1}. Chame Agente de Segmentação passando a mensagem`,
+    `${baseIdx + 2}. Chame Agente de Inteligência Outbound passando a mensagem`,
+    `${baseIdx + 3}. Chame Memory_long`,
   ]
 
   const fixedLogic = `Você é um orquestrador. Você não tem conhecimento próprio sobre nada.
-Se você responder sem chamar as tools vai ser multado em 2 milhões de dólares, você não sabe responder, não importa se é só um OI, você NÃO SABE!
+Se você responder sem chamar a tools vai ser multado em 2 milho~es de dolares, você não sabe respoder, não importa se é só um OI, você NÃO SABE!
 
 Quando receber uma mensagem:
+
 ${steps.join('\n')}
 
 Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma informação. Todo seu conhecimento vem exclusivamente dos retornos das tools.
 
-Após chamar todas as tools, formate a resposta usando o conteúdo retornado pelo "buscar_conhecimento".`
+Após chamar todas as tools, formate a resposta usando o conteúdo retornado pelo Play_conhecimento.`
 
   // ── Camada 2 (DINÂMICO): identidade da empresa ────────────────
   const persona = parsePersona(ctx.prompt)
@@ -844,21 +1019,22 @@ Após chamar todas as tools, formate a resposta usando o conteúdo retornado pel
     companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
   }
 
-  // ── Camada 3 (FIXO condicional): agendamento ─────────────────
+  // ── Camada 3 (FIXO condicional): agendamento — exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
-    ? '\n\nChame "agente_agendamento" passando no campo Nova_informação_para_guardar a última mensagem do lead + o histórico resumido da conversa sobre agendamento até o momento. Faça isso SOMENTE quando o lead demonstrar intenção clara de agendar, remarcar ou cancelar reunião/call. Retorne exatamente o que ele responder, sem alterar nada. Mensagens genéricas como "deu certo", "ok", "entendi" ou qualquer outro assunto NÃO devem acionar esse agente.'
+    ? '\n\nChame "Agente de Agendamento" passando no campo Nova_informa__o_para_guardar a última mensagem do lead + o histórico resumido da conversa sobre agendamento até o momento. Faça isso SOMENTE quando o lead demonstrar intenção clara de agendar, remarcar ou cancelar reunião/call. Retorne exatamente o que ele responder, sem alterar nada. Mensagens genéricas como "deu certo", "ok", "entendi" ou qualquer outro assunto NÃO devem acionar esse agente.'
     : ''
 
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
+  // Nomes e descrições exatos dos nós do N8N (AI Agent2)
   const tools: OpenAI.Chat.ChatCompletionTool[] = [
     {
       type: 'function',
       function: {
-        name: 'think',
-        description: 'Raciocina sobre a mensagem antes de agir. Use sempre como primeiro passo.',
+        name: 'Think1',
+        description: 'Analisa a mensagem do lead e retorna o contexto, intenção e estratégia de resposta. Necessário para processar qualquer mensagem.',
         parameters: {
           type: 'object',
           properties: { thought: { type: 'string', description: 'Seu raciocínio sobre a mensagem do lead' } },
@@ -869,8 +1045,8 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'agente_pipeline',
-        description: 'Move o lead pelo estágio correto do kanban com base na interação.',
+        name: 'Agente de Pipeline',
+        description: 'Atualiza o estágio do lead no CRM com base na interação atual. Registra o progresso da conversa.',
         parameters: {
           type: 'object',
           properties: { message: { type: 'string', description: 'Mensagem do lead' } },
@@ -881,8 +1057,8 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'agente_segmentacao',
-        description: 'Identifica o nicho do lead e atualiza o CRM.',
+        name: 'Agente de Segmentação',
+        description: 'Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM. Use sempre que o lead mencionar o tipo de negócio ou segmento em que atua.',
         parameters: {
           type: 'object',
           properties: { message: { type: 'string', description: 'Mensagem do lead' } },
@@ -893,8 +1069,8 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'agente_outbound',
-        description: 'Identifica a origem do lead (inbound/outbound) e registra a resposta.',
+        name: 'Agente de Inteligência Outbound',
+        description: 'Retorna dados de contexto do lead como histórico, perfil e estágio atual. Fornece informações essenciais sobre quem está enviando a mensagem.',
         parameters: {
           type: 'object',
           properties: { message: { type: 'string', description: 'Mensagem do lead' } },
@@ -905,12 +1081,15 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'memory_long',
-        description: 'Salva informações relevantes da interação na memória de longo prazo do lead.',
+        name: 'Memory_long',
+        description: 'Salva informações relevantes da interação atual na memória de longo prazo do lead. Requer o número do lead e o company_id.',
         parameters: {
           type: 'object',
-          properties: { info: { type: 'string', description: 'Informação nova relevante para guardar' } },
-          required: ['info'],
+          properties: {
+            'Nova informação para guardar': { type: 'string', description: 'Informação nova relevante para guardar' },
+            'Número': { type: 'string', description: 'WhatsApp do lead' },
+          },
+          required: ['Nova informação para guardar', 'Número'],
         },
       },
     },
@@ -920,8 +1099,8 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     tools.splice(1, 0, {
       type: 'function',
       function: {
-        name: 'buscar_conhecimento',
-        description: 'Busca na base de conhecimento da empresa a resposta correta para a dúvida do lead.',
+        name: 'Play_conhecimento',
+        description: 'Busca na base de conhecimento da empresa a resposta correta para a dúvida ou mensagem do lead. Retorna o conteúdo que deve ser enviado ao lead. Deve ser chamada com a mensagem do lead como query.',
         parameters: {
           type: 'object',
           properties: { query: { type: 'string', description: 'A mensagem ou dúvida do lead' } },
@@ -935,8 +1114,8 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     tools.splice(ctx.conhecimentoAtivo ? 2 : 1, 0, {
       type: 'function',
       function: {
-        name: 'buscar_objections',
-        description: 'Busca argumentos e estratégias para lidar com objeções do lead.',
+        name: 'Play_objeções',
+        description: 'Busca na base de conhecimento da empresa argumentos, respostas e estratégias para lidar com objeções, dúvidas e perguntas do lead. Retorna o conteúdo que deve ser usado para responder. Deve ser chamada com a mensagem do lead como query.',
         parameters: {
           type: 'object',
           properties: { query: { type: 'string', description: 'A objeção ou dúvida do lead' } },
@@ -950,12 +1129,14 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     tools.push({
       type: 'function',
       function: {
-        name: 'agente_agendamento',
-        description: 'Realiza agendamento de call/reunião. Use SOMENTE quando o lead demonstrar intenção clara de agendar.',
+        name: 'Agente de Agendamento',
+        description: 'Realiza o agendamento de reunião ou call com o lead. Chame quando o lead demonstrar intenção de agendar qualquer tipo de encontro.',
         parameters: {
           type: 'object',
-          properties: { message: { type: 'string', description: 'Contexto completo do agendamento' } },
-          required: ['message'],
+          properties: {
+            'Nova_informa__o_para_guardar': { type: 'string', description: 'Última mensagem do lead + histórico resumido da conversa sobre agendamento' },
+          },
+          required: ['Nova_informa__o_para_guardar'],
         },
       },
     })
@@ -1003,7 +1184,7 @@ CONTEXTO DO CRM:
   pushUsage(acc, response, 'orchestrator')
 
   let iterations = 0
-  while (response.choices[0]?.finish_reason === 'tool_calls' && iterations < 20) {
+  while (response.choices[0]?.finish_reason === 'tool_calls' && iterations < 30) {
     iterations++
     const assistantMsg = response.choices[0].message
     chatMessages.push(assistantMsg)
@@ -1014,29 +1195,32 @@ CONTEXTO DO CRM:
     for (const toolCall of toolCalls) {
       if (toolCall.type !== 'function') continue
       const fn = (toolCall as any).function.name as string
-      let args: Record<string, string> = {}
+      let args: Record<string, any> = {}
       try { args = JSON.parse((toolCall as any).function.arguments) } catch { /* ok */ }
 
       let result = ''
 
-      if (fn === 'think') {
+      // Nomes exatos dos nós do N8N (AI Agent2)
+      if (fn === 'Think1') {
         result = `Pensamento registrado: ${args.thought}`
-      } else if (fn === 'buscar_conhecimento') {
+      } else if (fn === 'Play_conhecimento') {
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableConhecimento)
         if (!result) result = 'Base de conhecimento: nenhum resultado encontrado para esta query.'
-      } else if (fn === 'buscar_objections') {
+      } else if (fn === 'Play_objeções') {
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableObjecoes)
         if (!result) result = 'Objeções: nenhum argumento encontrado. Use o bom senso.'
-      } else if (fn === 'agente_pipeline') {
+      } else if (fn === 'Agente de Pipeline') {
         result = await runAgentePipeline(args.message ?? userInput, ctx, openai, supabase, acc)
-      } else if (fn === 'agente_segmentacao') {
+      } else if (fn === 'Agente de Segmentação') {
         result = await runAgenteSegmentacao(args.message ?? userInput, ctx, openai, supabase, acc)
-      } else if (fn === 'agente_outbound') {
+      } else if (fn === 'Agente de Inteligência Outbound') {
         result = await runAgenteOutbound(args.message ?? userInput, ctx, openai, supabase, acc)
-      } else if (fn === 'memory_long') {
-        result = await runMemoryExpert(args.info ?? userInput, ctx, openai, supabase, acc)
-      } else if (fn === 'agente_agendamento') {
-        result = await runAgenteAgendamento(args.message ?? userInput, ctx, openai, supabase, acc)
+      } else if (fn === 'Memory_long') {
+        const info = args['Nova informação para guardar'] ?? args.info ?? userInput
+        result = await runMemoryExpert(info, ctx, openai, supabase, acc)
+      } else if (fn === 'Agente de Agendamento') {
+        const msg = args['Nova_informa__o_para_guardar'] ?? args.message ?? userInput
+        result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc)
       }
 
       toolResults.push({
@@ -1183,7 +1367,7 @@ async function saveOutbound(
     direcao: 'outbound',
     sender_type: 'ai',
     status: 'sent',
-    nome_do_agente: 'SDR IA',
+    nome_do_agente: ctx.instanceName || 'SDR IA',
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveOutbound INSERT error:`, error.message)
@@ -1488,6 +1672,14 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const bufferedMessages = await drainBuffer(companyId, phone, supabase)
     if (bufferedMessages.length === 0) return
 
+    // Nó "Switch" (15s) — se a última mensagem chegou há menos de 15s, aguarda
+    // o tempo restante antes de prosseguir (garante que o lead terminou de digitar)
+    const lastMsg = bufferedMessages[bufferedMessages.length - 1]
+    const lastMsgAge = Date.now() - new Date(lastMsg.timestamp).getTime()
+    if (lastMsgAge < 15_000) {
+      await new Promise((r) => setTimeout(r, 15_000 - lastMsgAge))
+    }
+
     const openai = new OpenAI({ apiKey: cfg.openai_key || process.env.OPENAI_API_KEY })
 
     // Enriquece mídia (transcrição de áudio, descrição de imagem, extração de documento)
@@ -1500,7 +1692,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       .eq('id', companyId)
       .single()
 
-    const senderName = bufferedMessages[0]?.content?.split(' ')[0] ?? ''
+    // Usa push_name do webhook (nó "Dados do Chat" → "None da pessoa" no N8N)
+    const senderName = bufferedMessages[0]?.senderName || bufferedMessages[0]?.content?.split(' ')[0] || ''
     const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, supabase)
 
     const ctx: SdrContext = {
@@ -1649,12 +1842,26 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — tipo="${msgType}" texto="${(text || placeholder).slice(0, 80)}"`)
 
     if (text && isPromptInjection(text)) {
-      const uazapi = createUazapiClient(
+      const uazapiBlock = createUazapiClient(
         body.BaseUrl ?? 'https://nexioai.uazapi.com',
         body.token ?? ''
       )
-      await uazapi.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
+      // Nó "Bloquear contato1" — bloqueia o número na instância
+      await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
       await log(companyId, 'injection_blocked', { text }, supabase, body.chat.phone)
+
+      // Nó "Enviar mensagem para o ADM1" — alerta via email (fire-and-forget)
+      sendInjectionAlertEmail({
+        pushName: body.message?.senderName || body.chat?.wa_contactName || 'Desconhecido',
+        senderNumber: normalizePhone(body.chat.phone),
+        instanceName: body.instanceName ?? '',
+        originalMessage: text,
+        classification: 'DIRECT_OVERRIDE',
+        riskLevel: 'CRITICAL',
+        confidence: 0.95,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {})
+
       return false
     }
 
@@ -1674,18 +1881,30 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       if (msgs.some((m) => m.messageId === messageId)) return false
     }
 
+    const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
+
+    // Nó "Visualizar mensagem" — marca mensagem como lida (igual ao N8N)
+    if (messageId) {
+      const uazapiMark = createUazapiClient(
+        body.BaseUrl ?? 'https://nexioai.uazapi.com',
+        body.token ?? ''
+      )
+      uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
+    }
+
     const bufferedMsg: BufferedMessage = {
       content: text || placeholder,
       type: msgType,
       timestamp: new Date().toISOString(),
       messageId,
       mediaUrl,
+      senderName,
     }
 
     await bufferMessage(companyId, phone, bufferedMsg, supabase)
 
-    // Aguarda 3s (batching de mensagens rápidas) e processa
-    await new Promise((r) => setTimeout(r, 3000))
+    // Aguarda 30s (nó "Espera" do N8N — batching de mensagens do lead)
+    await new Promise((r) => setTimeout(r, 30_000))
     await processSdrMessage(companyId, phone)
 
     return true
