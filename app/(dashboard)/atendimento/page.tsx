@@ -97,6 +97,7 @@ export default function AtendimentoPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAiActive, setIsAiActive] = useState(true);
   const [convAgentePausado, setConvAgentePausado] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: number; text: string; sender: string; waId?: string } | null>(null);
 
   // WhatsApp connection state
   const [waStatus, setWaStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -418,6 +419,8 @@ export default function AtendimentoPage() {
     scrollToBottom();
 
     try {
+      const replySnapshot = replyingTo;
+      setReplyingTo(null);
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -427,6 +430,7 @@ export default function AtendimentoPage() {
           message: messageText,
           companyId: company!.id,
           userId: user.auth_user_id,
+          replyId: replySnapshot?.waId,
         }),
       });
 
@@ -1503,6 +1507,7 @@ export default function AtendimentoPage() {
                     <MessageContextMenu
                       isOutbound={msg.direcao === 'outbound'}
                       onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
+                      onReply={typeof msg.id === 'number' ? () => setReplyingTo({ id: msg.id as number, text: msg.texto_da_mensagem, sender: msg.direcao === 'inbound' ? (selectedConversation?.nome_do_contato || 'Contato') : (msg.user?.name || 'Você'), waId: (msg as any).whatsapp_message_id }) : undefined}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
                       onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
@@ -1579,7 +1584,19 @@ export default function AtendimentoPage() {
               </CardContent>
 
               {/* Input de Mensagem */}
-              <div className="border-t p-4 flex-shrink-0">
+              <div className="border-t flex-shrink-0">
+                {replyingTo && (
+                  <div className="flex items-center gap-2 px-4 pt-3 pb-1 border-b border-border bg-muted/30">
+                    <div className="flex-1 min-w-0 border-l-4 border-primary pl-2">
+                      <p className="text-xs font-semibold text-primary truncate">{replyingTo.sender}</p>
+                      <p className="text-xs text-muted-foreground truncate">{replyingTo.text}</p>
+                    </div>
+                    <button onClick={() => setReplyingTo(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              <div className="p-4">
                 {imagePreview ? (
                   <div className="space-y-3">
                     <div className="relative rounded overflow-hidden bg-black/5">
@@ -1664,6 +1681,7 @@ export default function AtendimentoPage() {
                     </Button>
                   </form>
                 )}
+              </div>
               </div>
             </>
           ) : (

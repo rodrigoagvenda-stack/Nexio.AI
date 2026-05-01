@@ -5,7 +5,7 @@ import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename } = body
+    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename, replyId } = body
 
     if (!conversationId || !phoneNumber || !companyId) {
       return NextResponse.json({ success: false, message: 'Dados obrigatórios faltando' }, { status: 400 })
@@ -36,16 +36,15 @@ export async function POST(request: NextRequest) {
 
     let waMessageId: string | undefined
     if (type === 'text') {
-      const result = await uazapi.sendText({ number: phoneNumber, text: message })
+      const result = await uazapi.sendText({ number: phoneNumber, text: message, replyid: replyId || undefined })
       waMessageId = result?.id
     } else {
       const mediaType = type === 'audio' ? 'ptt' : (type as 'image' | 'video' | 'document' | 'ptt')
-      const fallbackText = type === 'image' ? '📷 Imagem' : type === 'video' ? '🎥 Vídeo' : type === 'document' ? '📄 Documento' : '🎵 Áudio'
       const result = await uazapi.sendMedia({
         number: phoneNumber,
         type: mediaType,
         file: mediaUrl,
-        text: caption || (type !== 'audio' ? fallbackText : undefined),
+        text: caption || undefined,
         docName: filename || undefined,
       })
       waMessageId = result?.id
