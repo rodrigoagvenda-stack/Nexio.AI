@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { motion } from 'framer-motion';
 import { Bell } from 'lucide-react';
@@ -96,8 +96,17 @@ function FunnelBarChart({ data, isMobile }: { data: { name: string; quantidade: 
   );
 }
 
+type TabValue = 'vendas' | 'noshow' | 'remarketing';
+
+const TAB_LABELS: Record<TabValue, string> = {
+  vendas: 'Funil de Vendas',
+  noshow: 'Anti Noshow',
+  remarketing: 'Remarketing',
+};
+
 export function SalesFunnelTabs({ stages, antiNoshowCounts }: SalesFunnelTabsProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabValue>('vendas');
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -124,33 +133,33 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts }: SalesFunnelTabsPro
       className="h-full"
     >
       <Card className="h-full flex flex-col overflow-hidden">
-        <CardContent className="flex-1 pt-4 md:pt-6 px-3 md:px-6">
-          <Tabs defaultValue="vendas" className="h-full flex flex-col">
-            <TabsList
-              className="mb-3 flex w-full overflow-x-auto flex-nowrap sm:flex-wrap sm:w-auto h-auto gap-0.5 !justify-start"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
-              <TabsTrigger value="vendas" className="flex-shrink-0 text-xs md:text-sm">Funil de Vendas</TabsTrigger>
-              <TabsTrigger value="noshow" className="flex-shrink-0 text-xs md:text-sm">Anti Noshow</TabsTrigger>
-              <TabsTrigger value="remarketing" className="flex-shrink-0 text-xs md:text-sm">Remarketing</TabsTrigger>
-            </TabsList>
+        <CardContent className="flex-1 pt-4 md:pt-6 px-3 md:px-6 flex flex-col">
+          <div className="mb-3">
+            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
+              <SelectTrigger className="w-[200px] h-9 text-sm">
+                <SelectValue>{TAB_LABELS[activeTab]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vendas">Funil de Vendas</SelectItem>
+                <SelectItem value="noshow">Anti Noshow</SelectItem>
+                <SelectItem value="remarketing">Remarketing</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <TabsContent value="vendas">
-              <FunnelBarChart data={salesData} isMobile={isMobile} />
-            </TabsContent>
-
-            <TabsContent value="noshow">
-              <FunnelBarChart data={noshowData} isMobile={isMobile} />
-            </TabsContent>
-
-            <TabsContent value="remarketing" className="flex flex-col items-center justify-center h-[200px] md:h-[290px] gap-3">
-              <Bell className="h-10 w-10 text-muted-foreground/30" />
-              <p className="text-sm font-medium text-muted-foreground">Remarketing em breve</p>
-              <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
-                As métricas de Remarketing serão configuradas em breve.
-              </p>
-            </TabsContent>
-          </Tabs>
+          <div className="flex-1">
+            {activeTab === 'vendas' && <FunnelBarChart data={salesData} isMobile={isMobile} />}
+            {activeTab === 'noshow' && <FunnelBarChart data={noshowData} isMobile={isMobile} />}
+            {activeTab === 'remarketing' && (
+              <div className="flex flex-col items-center justify-center h-[200px] md:h-[290px] gap-3">
+                <Bell className="h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm font-medium text-muted-foreground">Remarketing em breve</p>
+                <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
+                  As métricas de Remarketing serão configuradas em breve.
+                </p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>

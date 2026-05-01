@@ -501,7 +501,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Cards de Métricas */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           title="Novos leads"
           value={novosLeads}
