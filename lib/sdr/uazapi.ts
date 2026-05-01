@@ -164,6 +164,34 @@ export class UazapiClient {
     })
   }
 
+  async reactToMessage(number: string, messageId: string, emoji: string): Promise<void> {
+    await this.request('/message/react', {
+      method: 'POST',
+      body: JSON.stringify({ number, text: emoji, id: messageId }),
+    })
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    await this.request('/message/delete', {
+      method: 'POST',
+      body: JSON.stringify({ id: messageId }),
+    })
+  }
+
+  async editMessage(messageId: string, text: string): Promise<void> {
+    await this.request('/message/edit', {
+      method: 'POST',
+      body: JSON.stringify({ id: messageId, text }),
+    })
+  }
+
+  async pinMessage(messageId: string, pin: boolean, duration = 7): Promise<void> {
+    await this.request('/message/pin', {
+      method: 'POST',
+      body: JSON.stringify({ id: messageId, pin, duration }),
+    })
+  }
+
   // ─── Webhook ─────────────────────────────────────────────
 
   async setWebhook(url: string): Promise<void> {

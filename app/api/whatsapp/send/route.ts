@@ -1,83 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { sendWhatsAppMessage } from '@/lib/n8n/client';
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename } = body;
+    const body = await request.json()
+    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename } = body
 
     if (!conversationId || !phoneNumber || !companyId) {
-      return NextResponse.json(
-        { success: false, message: 'Dados obrigatórios faltando' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Dados obrigatórios faltando' }, { status: 400 })
     }
 
-    // Validação específica por tipo de mensagem
-    const type = messageType || 'text';
+    const type: string = messageType || 'text'
     if (type === 'text' && !message) {
-      return NextResponse.json(
-        { success: false, message: 'Mensagem de texto não pode estar vazia' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Mensagem não pode estar vazia' }, { status: 400 })
     }
     if (type !== 'text' && !mediaUrl) {
-      return NextResponse.json(
-        { success: false, message: 'URL da mídia é obrigatória' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'URL da mídia é obrigatória' }, { status: 400 })
     }
 
-    const supabase = await createClient();
+    const supabase = await createClient()
 
-    // 1. Buscar conversa + empresa em paralelo (webhook agora fica na empresa)
-    const [
-      { data: conversation, error: convCheckError },
-      { data: company, error: companyError },
-    ] = await Promise.all([
-      supabase
-        .from('conversas_do_whatsapp')
-        .select('id, company_id, id_do_lead')
-        .eq('id', conversationId)
-        .eq('company_id', companyId)
-        .single(),
-      supabase
-        .from('companies')
-        .select('whatsapp_instance, whatsapp_token, webhook_whatsapp_url')
-        .eq('id', companyId)
-        .single(),
-    ]);
+    const { data: conversation, error: convError } = await supabase
+      .from('conversas_do_whatsapp')
+      .select('id, company_id, id_do_lead')
+      .eq('id', conversationId)
+      .eq('company_id', companyId)
+      .single()
 
-    // Validações de segurança
-    if (convCheckError || !conversation) {
-      return NextResponse.json(
-        { success: false, message: 'Conversa não encontrada ou acesso negado' },
-        { status: 403 }
-      );
+    if (convError || !conversation) {
+      return NextResponse.json({ success: false, message: 'Conversa não encontrada ou acesso negado' }, { status: 403 })
     }
 
-    if (companyError || !company?.whatsapp_instance || !company?.whatsapp_token) {
-      return NextResponse.json(
-        { success: false, message: 'Credenciais WhatsApp não configuradas' },
-        { status: 400 }
-      );
+    const uazapi = await getUazapiForCompany(Number(companyId))
+
+    let waMessageId: string | undefined
+    if (type === 'text') {
+      const result = await uazapi.sendText({ number: phoneNumber, text: message })
+      waMessageId = result?.id
+    } else {
+      const mediaType = type === 'audio' ? 'ptt' : (type as 'image' | 'video' | 'document' | 'ptt')
+      const fallbackText = type === 'image' ? '📷 Imagem' : type === 'video' ? '🎥 Vídeo' : type === 'document' ? '📄 Documento' : '🎵 Áudio'
+      const result = await uazapi.sendMedia({
+        number: phoneNumber,
+        type: mediaType,
+        file: mediaUrl,
+        text: caption || (type !== 'audio' ? fallbackText : undefined),
+        docName: filename || undefined,
+      })
+      waMessageId = result?.id
     }
 
-    if (!company.webhook_whatsapp_url) {
-      return NextResponse.json(
-        { success: false, message: 'Webhook WhatsApp não configurado para esta empresa. Configure em Admin > Empresas.' },
-        { status: 400 }
-      );
-    }
-
-    const leadId = conversation.id_do_lead || null;
-
-    // 2. Preparar dados da mensagem
+    const fallbackText = type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : type === 'audio' ? '🎵 Áudio' : type === 'video' ? '🎥 Vídeo' : ''
     const messageData: any = {
       company_id: companyId,
       id_da_conversacao: conversationId,
-      texto_da_mensagem: message || (type === 'image' ? '📷 Imagem' : type === 'document' ? '📄 Documento' : type === 'audio' ? '🎵 Áudio' : type === 'video' ? '🎥 Vídeo' : ''),
+      texto_da_mensagem: message || fallbackText,
       tipo_de_mensagem: type,
       direcao: 'outbound',
       sender_type: 'human',
@@ -85,66 +63,23 @@ export async function POST(request: NextRequest) {
       status: 'sent',
       carimbo_de_data_e_hora: new Date().toISOString(),
       url_da_midia: mediaUrl || null,
-    };
-
-    if (leadId) {
-      messageData.id_do_lead = leadId;
     }
+    if (waMessageId) messageData.whatsapp_message_id = waMessageId
+    if (conversation.id_do_lead) messageData.id_do_lead = conversation.id_do_lead
 
-    // 3. Salvar mensagem + atualizar conversa em paralelo (ANTES do n8n)
-    const [
-      { data: savedMessage, error: messageError },
-      { error: conversationError }
-    ] = await Promise.all([
-      supabase
-        .from('mensagens_do_whatsapp')
-        .insert(messageData)
-        .select()
-        .single(),
-      supabase
-        .from('conversas_do_whatsapp')
-        .update({
-          ultima_mensagem: message,
-          hora_da_ultima_mensagem: new Date().toISOString(),
-        })
-        .eq('id', conversationId)
-        .eq('company_id', companyId)
-    ]);
+    const [{ data: savedMessage, error: messageError }] = await Promise.all([
+      supabase.from('mensagens_do_whatsapp').insert(messageData).select().single(),
+      supabase.from('conversas_do_whatsapp').update({
+        ultima_mensagem: messageData.texto_da_mensagem,
+        hora_da_ultima_mensagem: new Date().toISOString(),
+      }).eq('id', conversationId).eq('company_id', companyId),
+    ])
 
-    if (messageError) throw messageError;
-    if (conversationError) throw conversationError;
+    if (messageError) throw messageError
 
-    // 4. Disparar n8n em background (fire-and-forget) — não bloqueia a resposta
-    sendWhatsAppMessage(
-      {
-        number: phoneNumber,
-        text: message || '',
-        messageType: type,
-        mediaUrl: mediaUrl || '',
-        caption: caption || '',
-        filename: filename || '',
-        company_id: parseInt(companyId),
-        url_instancia: company.whatsapp_instance,
-        token: company.whatsapp_token,
-        conversa_id: conversationId.toString(),
-        lead_id: leadId ? leadId.toString() : '',
-        message_id: savedMessage.id?.toString() || '',
-      },
-      { webhook_url: company.webhook_whatsapp_url }
-    ).catch((err) => {
-      console.error('Error sending via n8n (background):', err);
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Mensagem enviada com sucesso',
-      data: savedMessage,
-    });
+    return NextResponse.json({ success: true, message: 'Mensagem enviada com sucesso', data: savedMessage })
   } catch (error: any) {
-    console.error('Error sending WhatsApp message:', error);
-    return NextResponse.json(
-      { success: false, message: error.message || 'Erro ao enviar mensagem' },
-      { status: 500 }
-    );
+    console.error('[whatsapp/send]', error)
+    return NextResponse.json({ success: false, message: error.message || 'Erro ao enviar mensagem' }, { status: 500 })
   }
 }
