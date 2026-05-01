@@ -1007,7 +1007,7 @@ ${steps.join('\n')}
 
 Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma informação. Todo seu conhecimento vem exclusivamente dos retornos das tools.
 
-Após chamar todas as tools, formate a resposta usando o conteúdo retornado pelo Play_conhecimento.`
+Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para FORMULAR uma resposta natural e humana ao lead. NUNCA copie headers, checklists, títulos ou estruturas internas dos documentos. Responda como um atendente — direto, natural, baseado no que as tools retornaram.`
 
   // ── Camada 2 (DINÂMICO): identidade da empresa ────────────────
   const persona = parsePersona(ctx.prompt)
