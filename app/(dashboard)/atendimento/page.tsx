@@ -61,10 +61,13 @@ interface Message {
   status: string;
   carimbo_de_data_e_hora: string;
   url_da_midia?: string;
-  reactions?: string[]; // Array de emojis
+  reactions?: string[];
   is_edited?: boolean;
   edited_at?: string;
   is_pinned?: boolean;
+  reply_to_text?: string;
+  reply_to_sender?: string;
+  whatsapp_message_id?: string;
   user?: {
     name: string;
   };
@@ -399,6 +402,9 @@ export default function AtendimentoPage() {
     const messageText = newMessage.trim();
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    const replySnapshot = replyingTo;
+    setReplyingTo(null);
+
     // UI Otimista: Adicionar mensagem imediatamente
     const optimisticMessage: Message = {
       id: tempId,
@@ -409,8 +415,10 @@ export default function AtendimentoPage() {
       direcao: 'outbound',
       sender_type: 'human',
       sender_user_id: user.auth_user_id,
-      status: 'sending', // Status temporário
+      status: 'sending',
       carimbo_de_data_e_hora: new Date().toISOString(),
+      reply_to_text: replySnapshot?.text,
+      reply_to_sender: replySnapshot?.sender,
     };
 
     setMessages(prev => [...prev, optimisticMessage]);
@@ -419,8 +427,6 @@ export default function AtendimentoPage() {
     scrollToBottom();
 
     try {
-      const replySnapshot = replyingTo;
-      setReplyingTo(null);
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -431,6 +437,8 @@ export default function AtendimentoPage() {
           companyId: company!.id,
           userId: user.auth_user_id,
           replyId: replySnapshot?.waId,
+          replyToText: replySnapshot?.text,
+          replyToSender: replySnapshot?.sender,
         }),
       });
 
@@ -550,61 +558,33 @@ export default function AtendimentoPage() {
   }
 
   async function handleReactToMessage(messageId: number | string, emoji: string) {
-    if (typeof messageId === 'string') return; // Não reagir a mensagens otimistas
+    if (typeof messageId === 'string') return;
 
-    // Atualizar UI imediatamente (otimista)
-    setMessages(prev =>
-      prev.map(msg => {
-        if (msg.id === messageId) {
-          const currentReactions = msg.reactions || [];
-          const hasReaction = currentReactions.includes(emoji);
-          return {
-            ...msg,
-            reactions: hasReaction
-              ? currentReactions.filter(r => r !== emoji)
-              : [...currentReactions, emoji]
-          };
-        }
-        return msg;
-      })
-    );
+    const currentMsg = messages.find(m => m.id === messageId);
+    const currentReactions = currentMsg?.reactions || [];
+    const hasReaction = currentReactions.includes(emoji);
+    const newReactions = hasReaction
+      ? currentReactions.filter(r => r !== emoji)
+      : [...currentReactions, emoji];
 
-    // Enviar reação via API para WhatsApp
-    try {
-      const response = await fetch('/api/whatsapp/react', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId,
-          emoji,
-          companyId: company!.id,
-        }),
-      });
+    // Atualiza estado e persiste no DB simultaneamente
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId ? { ...msg, reactions: newReactions } : msg
+    ));
 
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.message);
-      }
-    } catch (error: any) {
-      console.error('Error sending reaction:', error);
-      toast({ title: error.message || 'Erro ao enviar reação', variant: 'destructive' });
-      // Reverter mudança otimista em caso de erro
-      setMessages(prev =>
-        prev.map(msg => {
-          if (msg.id === messageId) {
-            const currentReactions = msg.reactions || [];
-            const hasReaction = currentReactions.includes(emoji);
-            return {
-              ...msg,
-              reactions: hasReaction
-                ? currentReactions.filter(r => r !== emoji)
-                : [...currentReactions, emoji]
-            };
-          }
-          return msg;
-        })
-      );
-    }
+    supabase
+      .from('mensagens_do_whatsapp')
+      .update({ reactions: newReactions })
+      .eq('id', messageId)
+      .eq('company_id', company!.id)
+      .then(() => {}, () => {});
+
+    // Envia para o WhatsApp (fire-and-forget, não reverte UI)
+    fetch('/api/whatsapp/react', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId, emoji, companyId: company!.id }),
+    }).catch(() => {});
   }
 
   async function handleSendAudio(audioBlob: Blob, duration: number) {
@@ -1541,6 +1521,16 @@ export default function AtendimentoPage() {
                           <Badge variant="secondary" className="mb-2 text-xs">
                             📌 Fixada
                           </Badge>
+                        )}
+                        {msg.reply_to_text && (
+                          <div className={`mb-2 rounded-lg overflow-hidden border-l-4 ${msg.direcao === 'outbound' ? 'border-green-300 bg-green-600/20' : 'border-primary bg-muted/60'}`}>
+                            <div className="px-3 py-2">
+                              <p className={`text-xs font-semibold mb-0.5 ${msg.direcao === 'outbound' ? 'text-green-200' : 'text-primary'}`}>
+                                {msg.reply_to_sender}
+                              </p>
+                              <p className="text-xs opacity-75 truncate">{msg.reply_to_text}</p>
+                            </div>
+                          </div>
                         )}
                         {renderMessageContent(msg)}
                         {msg.reactions && msg.reactions.length > 0 && (

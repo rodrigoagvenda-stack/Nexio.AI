@@ -5,7 +5,7 @@ import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename, replyId } = body
+    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename, replyId, replyToText, replyToSender } = body
 
     if (!conversationId || !phoneNumber || !companyId) {
       return NextResponse.json({ success: false, message: 'Dados obrigatórios faltando' }, { status: 400 })
@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
       url_da_midia: mediaUrl || null,
     }
     if (conversation.id_do_lead) messageData.id_do_lead = conversation.id_do_lead
+    if (replyToText) messageData.reply_to_text = replyToText
+    if (replyToSender) messageData.reply_to_sender = replyToSender
 
     const [{ data: savedMessage, error: messageError }] = await Promise.all([
       supabase.from('mensagens_do_whatsapp').insert(messageData).select().single(),
