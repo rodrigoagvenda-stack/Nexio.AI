@@ -1346,8 +1346,8 @@ async function saveInbound(
     texto_da_mensagem: displayText,
     tipo_de_mensagem: tipo,
     direcao: 'inbound',
-    sender_type: 'lead',
-    status: 'received',
+    sender_type: 'human',
+    status: 'delivered',
     url_da_midia: mediaUrl ?? null,
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
@@ -1829,6 +1829,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     if (body.message?.fromMe) {
       console.log(`[SDR:${companyId}] ignorado — fromMe=true`)
+      return false
+    }
+
+    // Ignora mensagens de grupos (wa_chatid termina em @g.us ou phone vazio)
+    const chatId = body.chat?.wa_chatid ?? body.chat?.id ?? ''
+    if (chatId.endsWith('@g.us') || !body.chat?.phone) {
+      console.log(`[SDR:${companyId}] ignorado — mensagem de grupo ou phone vazio`)
       return false
     }
 
