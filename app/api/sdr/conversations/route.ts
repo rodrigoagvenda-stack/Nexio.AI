@@ -29,7 +29,7 @@ export async function GET() {
 
     let baseQuery = service
       .from('conversas_do_whatsapp')
-      .select(`*, lead:leads(*)`)
+      .select(`*, lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*)`)
       .eq('company_id', userData.company_id)
       .order('hora_da_ultima_mensagem', { ascending: false })
       .limit(50)

@@ -1396,6 +1396,7 @@ async function findOrCreateLead(
   companyId: number,
   phone: string,
   name: string,
+  companyName: string,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<{ id: number; notes: string }> {
   const { data: existing } = await supabase
@@ -1411,6 +1412,7 @@ async function findOrCreateLead(
     .from('leads')
     .insert({
       company_id: companyId,
+      company_name: companyName || 'Empresa',
       whatsapp: phone,
       contact_name: name || 'Não identificado',
       status: 'Lead novo',
@@ -1710,7 +1712,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // Usa push_name do webhook (nó "Dados do Chat" → "None da pessoa" no N8N)
     const senderName = bufferedMessages[0]?.senderName || bufferedMessages[0]?.content?.split(' ')[0] || ''
-    const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, supabase)
+    const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase)
 
     const ctx: SdrContext = {
       companyId,
