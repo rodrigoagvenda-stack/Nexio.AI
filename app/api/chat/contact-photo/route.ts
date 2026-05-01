@@ -5,9 +5,11 @@ const cache = new Map<string, string | null>()
 
 export async function GET(request: NextRequest) {
   const phone = request.nextUrl.searchParams.get('phone')
+  const leadId = request.nextUrl.searchParams.get('leadId')
   if (!phone) return NextResponse.json({ photo: null })
 
-  if (cache.has(phone)) return NextResponse.json({ photo: cache.get(phone) ?? null })
+  const cacheKey = leadId ? `lead:${leadId}` : phone
+  if (cache.has(cacheKey)) return NextResponse.json({ photo: cache.get(cacheKey) ?? null })
 
   try {
     const supabase = await createClient()
@@ -20,17 +22,23 @@ export async function GET(request: NextRequest) {
 
     const service = createServiceClient()
 
-    // Primeiro tenta o whatsapp_photo_url salvo na conversa (sem chamada externa)
-    const { data: conv } = await service
+    // Primeiro tenta por id_do_lead (mais confiável que phone matching)
+    let convQuery = service
       .from('conversas_do_whatsapp')
       .select('whatsapp_photo_url')
       .eq('company_id', userData.company_id)
-      .eq('numero_de_telefone', phone)
       .not('whatsapp_photo_url', 'is', null)
-      .maybeSingle()
+
+    if (leadId) {
+      convQuery = (convQuery as any).eq('id_do_lead', Number(leadId))
+    } else {
+      convQuery = (convQuery as any).eq('numero_de_telefone', phone)
+    }
+
+    const { data: conv } = await (convQuery as any).maybeSingle()
 
     if (conv?.whatsapp_photo_url) {
-      cache.set(phone, conv.whatsapp_photo_url)
+      cache.set(cacheKey, conv.whatsapp_photo_url)
       return NextResponse.json({ photo: conv.whatsapp_photo_url })
     }
 
@@ -55,16 +63,20 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({ number: phone }),
     })
 
-    if (!res.ok) { cache.set(phone, null); return NextResponse.json({ photo: null }) }
+    if (!res.ok) { cache.set(cacheKey, null); return NextResponse.json({ photo: null }) }
 
     const data = await res.json()
+    // /chat/details retorna campos iguais ao webhook: image, imagePreview
     const photo: string | null =
+      data?.image ||
+      data?.imagePreview ||
       data?.wa_profilePicUrl ||
       data?.wa_profilePicThumbObj?.url ||
       data?.chat?.wa_profilePicUrl ||
+      data?.chat?.image ||
       null
 
-    cache.set(phone, photo)
+    cache.set(cacheKey, photo)
     return NextResponse.json({ photo })
   } catch {
     return NextResponse.json({ photo: null })

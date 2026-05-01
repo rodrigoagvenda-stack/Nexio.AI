@@ -80,7 +80,7 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
   useEffect(() => {
     if (!lead.whatsapp) return;
     if (lead.whatsapp in photoCache) { setPhotoUrl(photoCache[lead.whatsapp]); return; }
-    fetch(`/api/chat/contact-photo?phone=${encodeURIComponent(lead.whatsapp)}`)
+    fetch(`/api/chat/contact-photo?phone=${encodeURIComponent(lead.whatsapp)}&leadId=${lead.id}`)
       .then(r => r.json())
       .then(d => { photoCache[lead.whatsapp!] = d.photo ?? null; setPhotoUrl(d.photo ?? null); })
       .catch(() => {});
