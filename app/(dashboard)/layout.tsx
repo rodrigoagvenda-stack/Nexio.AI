@@ -1,6 +1,7 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { SystemTopBar } from '@/components/SystemTopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
+import { ZaapliLoader } from '@/components/brand/ZaapliLoader';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -71,6 +72,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-background">
+      <ZaapliLoader minDuration={900} />
       <Sidebar
         isAdmin={isAdmin}
         companyName={companyName}

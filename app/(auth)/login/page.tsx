@@ -217,12 +217,6 @@ export default function LoginPage() {
               </p>
             )}
 
-            <p className="text-center text-sm text-muted-foreground">
-              Precisa de ajuda?{' '}
-              <a href="mailto:contato@zaapli.com.br" className="underline underline-offset-4 hover:text-foreground">
-                Entre em contato
-              </a>
-            </p>
           </div>
         </div>
 

@@ -245,3 +245,9 @@
 .animate-zaapli-in {
   animation: zaapli-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
+
+/* Zaapli loader dots */
+@keyframes zaapli-dot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%            { transform: scale(1.2); opacity: 1; }
+}
