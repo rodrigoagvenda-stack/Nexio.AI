@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil } from 'lucide-react';
 import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -1564,9 +1564,14 @@ export default function AtendimentoPage() {
                             msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'
                           }`}
                         >
+                          {msg.is_edited && (
+                            <span className="flex items-center gap-0.5 opacity-70">
+                              <Pencil className="h-2.5 w-2.5" />
+                              <span>Editada ·</span>
+                            </span>
+                          )}
                           {formatDateTime(msg.carimbo_de_data_e_hora)}
-                          {msg.is_edited && ' • Editada'}
-                          {msg.status === 'sending' && ' • Enviando...'}
+                          {msg.status === 'sending' && ' · Enviando...'}
                         </p>
                       </div>
                     </MessageContextMenu>
