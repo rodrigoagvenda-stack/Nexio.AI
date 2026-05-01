@@ -1185,6 +1185,7 @@ CONTEXTO DO CRM:
 - Data/hora: ${now}`
 
   const TOOLS = buildOrchestratorTools(ctx)
+  console.log(`[SDR:${ctx.companyId}] tools disponíveis: [${TOOLS.map(t => t.function.name).join(', ')}]`)
 
   const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemMsg },
@@ -1586,8 +1587,8 @@ async function loadSdrConfig(
   console.log(
     `[SDR:${companyId}] config resolvida — flow="${flow?.id ?? 'nenhum'}" ` +
     `prompt=${resolvedPrompt.length}chars ` +
-    `conhecimento="${resolvedVectorConhecimento ?? 'documents(default)'}" ` +
-    `objecoes="${resolvedVectorObjecoes ?? 'off'}"`
+    `conhecimentoAtivo=${resolvedConhecimentoAtivo} table="${resolvedVectorConhecimento ?? 'documents(default)'}" ` +
+    `objecoesAtivo=${resolvedObjecoesAtivo} table="${resolvedVectorObjecoes ?? 'off'}"`
   )
 
   return {
