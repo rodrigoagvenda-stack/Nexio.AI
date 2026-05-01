@@ -90,6 +90,17 @@ export function MessageContextMenu({
             </div>
           )}
 
+          {/* Reply shortcut — sempre visível na toolbar */}
+          {onReply && (
+            <button
+              onClick={() => { onReply(); setHovered(false); }}
+              className="flex items-center justify-center w-7 h-7 rounded-full bg-background border border-border shadow-md hover:bg-accent transition-colors"
+              title="Responder"
+            >
+              <Reply className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+
           {/* Dropdown trigger */}
           {menuItems.length > 0 && (
             <div className="relative" ref={dropdownRef}>

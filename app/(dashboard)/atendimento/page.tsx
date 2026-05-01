@@ -801,28 +801,33 @@ export default function AtendimentoPage() {
   }
 
   // Handler para editar mensagem
-  async function handleEditMessage(messageId: number | string, newMessage: string) {
+  async function handleEditMessage(messageId: number | string, newText: string) {
     if (typeof messageId === 'string') return;
+
+    // Optimistic update
+    const original = messages.find(m => m.id === messageId);
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId
+        ? { ...msg, texto_da_mensagem: newText, is_edited: true, edited_at: new Date().toISOString() }
+        : msg
+    ));
 
     try {
       const response = await fetch(`/api/whatsapp/messages/${messageId}/edit`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newMessage,
-          companyId: company!.id,
-        }),
+        body: JSON.stringify({ newMessage: newText, companyId: company!.id }),
       });
 
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      // Atualizar mensagem localmente
-      setMessages(prev =>
-        prev.map(msg => msg.id === messageId ? data.data : msg)
-      );
+      // Sync with server data
+      setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, ...data.data } : msg));
       toast({ title: 'Mensagem editada!' });
     } catch (error: any) {
+      // Revert optimistic update
+      if (original) setMessages(prev => prev.map(msg => msg.id === messageId ? original : msg));
       console.error('Error editing message:', error);
       toast({ title: error.message || 'Erro ao editar mensagem', variant: 'destructive' });
       throw error;
@@ -1594,13 +1599,19 @@ export default function AtendimentoPage() {
               {/* Input de Mensagem */}
               <div className="border-t flex-shrink-0">
                 {replyingTo && (
-                  <div className="flex items-center gap-2 px-4 pt-3 pb-1 border-b border-border bg-muted/30">
-                    <div className="flex-1 min-w-0 border-l-4 border-primary pl-2">
-                      <p className="text-xs font-semibold text-primary truncate">{replyingTo.sender}</p>
-                      <p className="text-xs text-muted-foreground truncate">{replyingTo.text}</p>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border-b border-border">
+                    <div className="flex-1 min-w-0 flex items-stretch gap-0 rounded-lg overflow-hidden bg-background/60 border border-border">
+                      <div className="w-1 flex-shrink-0 bg-primary rounded-l-lg" />
+                      <div className="flex-1 min-w-0 px-3 py-1.5">
+                        <p className="text-xs font-semibold text-primary truncate leading-tight">{replyingTo.sender}</p>
+                        <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">{replyingTo.text}</p>
+                      </div>
                     </div>
-                    <button onClick={() => setReplyingTo(null)} className="text-muted-foreground hover:text-foreground">
-                      <X className="h-4 w-4" />
+                    <button
+                      onClick={() => setReplyingTo(null)}
+                      className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 )}

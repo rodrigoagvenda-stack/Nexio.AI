@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       status: 'sent',
       carimbo_de_data_e_hora: new Date().toISOString(),
       url_da_midia: mediaUrl || null,
+      whatsapp_message_id: waMessageId || null,
     }
     if (conversation.id_do_lead) messageData.id_do_lead = conversation.id_do_lead
     if (replyToText) messageData.reply_to_text = replyToText
