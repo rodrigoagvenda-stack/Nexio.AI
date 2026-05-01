@@ -232,7 +232,7 @@ export const Sidebar = memo(function Sidebar({
         )}
       >
         {/* Logo */}
-        <div className="flex items-center h-16 px-4">
+        <div className={cn('flex items-center h-16', isCollapsed ? 'justify-center px-0' : 'px-4')}>
           {isCollapsed ? (
             <ZaapliLogo variant="icon" iconSize={30} />
           ) : (
