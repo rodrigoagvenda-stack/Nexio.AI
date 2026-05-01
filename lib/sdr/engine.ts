@@ -986,16 +986,16 @@ function buildOrchestratorSystem(ctx: SdrContext): string {
     ? '2. Chame Play_conhecimento passando a mensagem como query'
     : null
   const objStep = ctx.objecoesAtivo
-    ? `${knowledgeStep ? '3' : '2'}. Chame Play_objecoes passando a mensagem como query`
+    ? `${knowledgeStep ? '3' : '2'}. Chame Play_objeções passando a mensagem como query`
     : null
   const baseIdx = (knowledgeStep ? 1 : 0) + (objStep ? 1 : 0) + 2
   const steps = [
     '1. Chame Think1 passando a mensagem',
     ...(knowledgeStep ? [knowledgeStep] : []),
     ...(objStep ? [objStep] : []),
-    `${baseIdx}. Chame Agente_de_Pipeline passando a mensagem`,
-    `${baseIdx + 1}. Chame Agente_de_Segmentacao passando a mensagem`,
-    `${baseIdx + 2}. Chame Agente_de_Inteligencia_Outbound passando a mensagem`,
+    `${baseIdx}. Chame Agente de Pipeline passando a mensagem`,
+    `${baseIdx + 1}. Chame Agente de Segmentação passando a mensagem`,
+    `${baseIdx + 2}. Chame Agente de Inteligência Outbound passando a mensagem`,
     `${baseIdx + 3}. Chame Memory_long`,
   ]
 
