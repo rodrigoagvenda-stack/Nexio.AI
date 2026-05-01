@@ -33,6 +33,7 @@ export function MessageContextMenu({
   const [hovered, setHovered] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -56,15 +57,20 @@ export function MessageContextMenu({
   return (
     <div
       className={`relative group ${className}`}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); }}
+      onMouseEnter={() => {
+        if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+        setHovered(true);
+      }}
+      onMouseLeave={() => {
+        hideTimer.current = setTimeout(() => { setHovered(false); }, 300);
+      }}
     >
       {children}
 
       {/* Hover toolbar — aparece acima do balão, alinhado à direita (outbound) ou esquerda (inbound) */}
       {(hovered || dropdownOpen) && (
         <div
-          className={`absolute bottom-full mb-1 flex items-center gap-1 z-20 ${
+          className={`absolute bottom-full pb-1 flex items-center gap-1 z-20 ${
             isOutbound ? 'right-0' : 'left-0'
           }`}
         >
@@ -96,7 +102,7 @@ export function MessageContextMenu({
 
               {dropdownOpen && (
                 <div
-                  className={`absolute bottom-full mb-1 z-30 bg-background border border-border rounded-lg shadow-xl min-w-[180px] py-1 ${
+                  className={`absolute bottom-full pb-1 z-30 bg-background border border-border rounded-lg shadow-xl min-w-[180px] py-1 ${
                     isOutbound ? 'right-0' : 'left-0'
                   }`}
                 >
