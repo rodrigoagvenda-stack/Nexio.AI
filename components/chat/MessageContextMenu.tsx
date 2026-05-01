@@ -61,11 +61,11 @@ export function MessageContextMenu({
     >
       {children}
 
-      {/* Hover toolbar */}
+      {/* Hover toolbar — aparece acima do balão, alinhado à direita (outbound) ou esquerda (inbound) */}
       {(hovered || dropdownOpen) && (
         <div
-          className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 z-20 ${
-            isOutbound ? 'right-full mr-2' : 'left-full ml-2'
+          className={`absolute bottom-full mb-1 flex items-center gap-1 z-20 ${
+            isOutbound ? 'right-0' : 'left-0'
           }`}
         >
           {/* Quick reactions */}
@@ -96,7 +96,7 @@ export function MessageContextMenu({
 
               {dropdownOpen && (
                 <div
-                  className={`absolute top-full mt-1 z-30 bg-background border border-border rounded-lg shadow-xl min-w-[180px] py-1 ${
+                  className={`absolute bottom-full mb-1 z-30 bg-background border border-border rounded-lg shadow-xl min-w-[180px] py-1 ${
                     isOutbound ? 'right-0' : 'left-0'
                   }`}
                 >

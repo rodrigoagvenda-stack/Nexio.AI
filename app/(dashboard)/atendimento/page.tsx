@@ -1032,7 +1032,7 @@ export default function AtendimentoPage() {
       <div className="space-y-1">
         {parts.map((part, i) =>
           part.type === 'text'
-            ? (part.content ? <p key={i} className="text-sm whitespace-pre-wrap">{part.content}</p> : null)
+            ? (part.content ? <p key={i} className="text-sm whitespace-pre-wrap break-words">{part.content}</p> : null)
             : <LinkPreviewCard key={i} url={part.content} />
         )}
       </div>
@@ -1047,11 +1047,11 @@ export default function AtendimentoPage() {
       switch (msg.tipo_de_mensagem) {
         case 'image':
           return (
-            <div className="space-y-2">
+            <div className="space-y-1">
               <img
                 src={msg.url_da_midia}
                 alt="Imagem enviada"
-                className="rounded-lg max-h-96 max-w-md object-contain"
+                className="rounded-lg max-h-80 w-full object-cover"
                 loading="lazy"
               />
               {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && msg.texto_da_mensagem !== '[Imagem]' && (
@@ -1062,11 +1062,11 @@ export default function AtendimentoPage() {
 
         case 'video':
           return (
-            <div className="space-y-2">
+            <div className="space-y-1">
               <video
                 src={msg.url_da_midia}
                 controls
-                className="max-w-full rounded-lg max-h-96"
+                className="w-full rounded-lg max-h-80"
               >
                 Seu navegador não suporta vídeo.
               </video>
@@ -1513,14 +1513,10 @@ export default function AtendimentoPage() {
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
                       onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
-                      className={msg.direcao === 'outbound' && (msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video') ? 'ml-auto' : ''}
+                      className="max-w-[65%]"
                     >
                         <div
-                          className={`${
-                            msg.tipo_de_mensagem === 'image' || msg.tipo_de_mensagem === 'video'
-                              ? 'w-fit'
-                              : 'w-full max-w-full'
-                          } rounded-2xl p-4 cursor-pointer ${
+                          className={`w-full rounded-2xl p-3 cursor-pointer ${
                             msg.direcao === 'outbound'
                               ? 'bg-green-500/30 text-foreground border border-green-500/20'
                               : 'bg-muted'
