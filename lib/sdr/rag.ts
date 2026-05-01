@@ -113,3 +113,76 @@ export async function processKnowledgePdf(params: {
 
   return { chunks: insertedCount, table: tableName }
 }
+
+/** Processa texto estruturado diretamente (sem PDF), usando o mesmo pipeline de chunking + embeddings */
+export async function processKnowledgeText(params: {
+  companyId: number
+  flowId: string
+  filename: string
+  text: string
+  tableType: 'conhecimento' | 'objecoes'
+}): Promise<{ chunks: number; table: string }> {
+  const { companyId, flowId, filename, text, tableType } = params
+  const supabase = createServiceClient()
+
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('openai_key')
+    .eq('company_id', companyId)
+    .single()
+
+  const openaiKey = cfg?.openai_key ? decrypt(cfg.openai_key) : process.env.OPENAI_API_KEY ?? ''
+  const openai = new OpenAI({ apiKey: openaiKey })
+
+  const { data: flow } = await supabase
+    .from('sdr_flows')
+    .select('vector_table_conhecimento, vector_table_objecoes')
+    .eq('id', flowId)
+    .eq('company_id', companyId)
+    .single()
+
+  if (!flow) throw new Error('Fluxo não encontrado')
+
+  const tableName = tableType === 'conhecimento'
+    ? (flow.vector_table_conhecimento ?? `nexio_conhecimento_${companyId}`)
+    : (flow.vector_table_objecoes ?? `nexio_objecoes_${companyId}`)
+
+  const updateField = tableType === 'conhecimento' ? 'vector_table_conhecimento' : 'vector_table_objecoes'
+  if (!flow[updateField]) {
+    await supabase.from('sdr_flows').update({ [updateField]: tableName }).eq('id', flowId)
+  }
+
+  if (!text.trim()) throw new Error('Conteúdo vazio')
+
+  const chunks = chunkText(text)
+
+  await supabase
+    .from('rag_documents')
+    .delete()
+    .eq('company_id', companyId)
+    .eq('flow_id', flowId)
+    .eq('filename', filename)
+    .eq('table_name', tableName)
+
+  const batchSize = 20
+  let insertedCount = 0
+
+  for (let i = 0; i < chunks.length; i += batchSize) {
+    const batch = chunks.slice(i, i + batchSize)
+    const embRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input: batch })
+    const rows = batch.map((content, j) => ({
+      company_id: companyId,
+      flow_id: flowId,
+      filename,
+      table_name: tableName,
+      chunk_index: i + j,
+      content,
+      embedding: embRes.data[j].embedding,
+    }))
+    const { error } = await supabase.from('rag_documents').insert(rows)
+    if (error) throw error
+    insertedCount += batch.length
+  }
+
+  return { chunks: insertedCount, table: tableName }
+}

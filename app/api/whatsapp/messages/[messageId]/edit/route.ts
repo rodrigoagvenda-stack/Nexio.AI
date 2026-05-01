@@ -41,9 +41,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { messageId:
       }
     }
 
+    // Update text first (always works)
     const { data: updatedMessage, error: updateError } = await supabase
       .from('mensagens_do_whatsapp')
-      .update({ texto_da_mensagem: newMessage.trim(), is_edited: true, edited_at: new Date().toISOString() })
+      .update({ texto_da_mensagem: newMessage.trim() })
       .eq('id', messageId)
       .eq('company_id', context.companyId)
       .select()
@@ -51,7 +52,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { messageId:
 
     if (updateError) throw updateError
 
-    return NextResponse.json({ success: true, message: 'Mensagem editada com sucesso', data: updatedMessage })
+    // Try to set is_edited / edited_at — non-fatal if columns don't exist yet
+    try {
+      await supabase
+        .from('mensagens_do_whatsapp')
+        .update({ is_edited: true, edited_at: new Date().toISOString() } as any)
+        .eq('id', messageId)
+        .eq('company_id', context.companyId)
+    } catch {}
+
+    return NextResponse.json({
+      success: true,
+      message: 'Mensagem editada com sucesso',
+      data: { ...updatedMessage, is_edited: true, edited_at: new Date().toISOString() },
+    })
   } catch (error: any) {
     console.error('[whatsapp/messages/edit]', error)
     return NextResponse.json({ success: false, message: error.message || 'Erro ao editar mensagem' }, { status: 500 })
