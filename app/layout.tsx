@@ -4,10 +4,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { KeepAlive } from "@/components/KeepAlive";
 
 export const metadata: Metadata = {
-  title: "nexio.ai - CRM Inteligente com IA",
+  title: "Zaapli — CRM Inteligente com IA",
   description: "Sistema completo de CRM com automação e inteligência artificial",
   icons: {
-    icon: "https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/Fivecon%20-%20NEXIO%20-%20Branca.png",
+    icon: "/favicon.svg",
   },
 };
 
@@ -21,7 +21,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className="font-roboto antialiased">
         {children}

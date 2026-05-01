@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 
 function GoogleIcon() {
   return (
@@ -79,17 +80,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
-      {/* Left — formulário */}
-      <div className="flex flex-col gap-4 p-6 md:p-10">
+    <div className="grid min-h-svh lg:grid-cols-2 light" data-theme="light">
+      {/* Left — formulário (sempre light) */}
+      <div className="flex flex-col gap-4 p-6 md:p-10 bg-white">
         {/* Logo */}
         <div className="flex justify-center md:justify-start">
-          <a href="/" className="flex items-center gap-2">
-            <img
-              src="https://qbhxmgzogjqokjqvzunp.supabase.co/storage/v1/object/public/branding/nexio%20ai%20logo%20branca.png"
-              alt="Zaapli"
-              style={{ height: '32px', width: 'auto', filter: 'invert(1)' }}
-            />
+          <a href="/">
+            <ZaapliLogo variant="full" iconSize={34} theme="light" animate />
           </a>
         </div>
 

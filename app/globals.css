@@ -235,3 +235,13 @@
     }
   }
 }
+
+/* Zaapli logo entrance animation */
+@keyframes zaapli-in {
+  0%   { opacity: 0; transform: scale(0.7); }
+  60%  { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-zaapli-in {
+  animation: zaapli-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}

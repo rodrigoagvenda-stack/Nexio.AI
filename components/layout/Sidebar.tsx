@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
+import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import {
   TrendingUp,
@@ -233,9 +234,9 @@ export const Sidebar = memo(function Sidebar({
         {/* Logo */}
         <div className="flex items-center h-16 px-4">
           {isCollapsed ? (
-            <span className="text-sm font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">Z</span>
+            <ZaapliLogo variant="icon" iconSize={30} />
           ) : (
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent select-none">Zaapli</span>
+            <ZaapliLogo variant="full" iconSize={30} />
           )}
         </div>
 
