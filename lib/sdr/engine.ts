@@ -1027,13 +1027,25 @@ Após chamar todas as tools, formate a resposta usando o conteúdo retornado pel
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
 }
 
+// Mapa de nome-display (n8n) → nome-função (OpenAI: ^[a-zA-Z0-9_-]+$)
+const TOOL_NAME_MAP: Record<string, string> = {
+  'Think1':                          'Think1',
+  'Play_conhecimento':               'Play_conhecimento',
+  'Play_objeções':                   'Play_objecoes',
+  'Agente de Pipeline':              'Agente_de_Pipeline',
+  'Agente de Segmentação':           'Agente_de_Segmentacao',
+  'Agente de Inteligência Outbound': 'Agente_de_Inteligencia_Outbound',
+  'Memory_long':                     'Memory_long',
+  'Agente de Agendamento':           'Agente_de_Agendamento',
+}
+
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
-  // Nomes e descrições exatos dos nós do N8N (AI Agent2)
+  // Nomes de função válidos para a API OpenAI (^[a-zA-Z0-9_-]+$)
   const tools: OpenAI.Chat.ChatCompletionTool[] = [
     {
       type: 'function',
       function: {
-        name: 'Think1',
+        name: TOOL_NAME_MAP['Think1'],
         description: 'Analisa a mensagem do lead e retorna o contexto, intenção e estratégia de resposta. Necessário para processar qualquer mensagem.',
         parameters: {
           type: 'object',
@@ -1045,7 +1057,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'Agente de Pipeline',
+        name: TOOL_NAME_MAP['Agente de Pipeline'],
         description: 'Atualiza o estágio do lead no CRM com base na interação atual. Registra o progresso da conversa.',
         parameters: {
           type: 'object',
@@ -1057,7 +1069,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'Agente de Segmentação',
+        name: TOOL_NAME_MAP['Agente de Segmentação'],
         description: 'Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM. Use sempre que o lead mencionar o tipo de negócio ou segmento em que atua.',
         parameters: {
           type: 'object',
@@ -1069,7 +1081,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'Agente de Inteligência Outbound',
+        name: TOOL_NAME_MAP['Agente de Inteligência Outbound'],
         description: 'Retorna dados de contexto do lead como histórico, perfil e estágio atual. Fornece informações essenciais sobre quem está enviando a mensagem.',
         parameters: {
           type: 'object',
@@ -1081,15 +1093,15 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     {
       type: 'function',
       function: {
-        name: 'Memory_long',
+        name: TOOL_NAME_MAP['Memory_long'],
         description: 'Salva informações relevantes da interação atual na memória de longo prazo do lead. Requer o número do lead e o company_id.',
         parameters: {
           type: 'object',
           properties: {
-            'Nova informação para guardar': { type: 'string', description: 'Informação nova relevante para guardar' },
-            'Número': { type: 'string', description: 'WhatsApp do lead' },
+            nova_informacao: { type: 'string', description: 'Informação nova relevante para guardar' },
+            numero: { type: 'string', description: 'WhatsApp do lead' },
           },
-          required: ['Nova informação para guardar', 'Número'],
+          required: ['nova_informacao', 'numero'],
         },
       },
     },
@@ -1099,7 +1111,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     tools.splice(1, 0, {
       type: 'function',
       function: {
-        name: 'Play_conhecimento',
+        name: TOOL_NAME_MAP['Play_conhecimento'],
         description: 'Busca na base de conhecimento da empresa a resposta correta para a dúvida ou mensagem do lead. Retorna o conteúdo que deve ser enviado ao lead. Deve ser chamada com a mensagem do lead como query.',
         parameters: {
           type: 'object',
@@ -1114,7 +1126,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     tools.splice(ctx.conhecimentoAtivo ? 2 : 1, 0, {
       type: 'function',
       function: {
-        name: 'Play_objeções',
+        name: TOOL_NAME_MAP['Play_objeções'],
         description: 'Busca na base de conhecimento da empresa argumentos, respostas e estratégias para lidar com objeções, dúvidas e perguntas do lead. Retorna o conteúdo que deve ser usado para responder. Deve ser chamada com a mensagem do lead como query.',
         parameters: {
           type: 'object',
@@ -1129,14 +1141,14 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     tools.push({
       type: 'function',
       function: {
-        name: 'Agente de Agendamento',
+        name: TOOL_NAME_MAP['Agente de Agendamento'],
         description: 'Realiza o agendamento de reunião ou call com o lead. Chame quando o lead demonstrar intenção de agendar qualquer tipo de encontro.',
         parameters: {
           type: 'object',
           properties: {
-            'Nova_informa__o_para_guardar': { type: 'string', description: 'Última mensagem do lead + histórico resumido da conversa sobre agendamento' },
+            nova_informacao_agendamento: { type: 'string', description: 'Última mensagem do lead + histórico resumido da conversa sobre agendamento' },
           },
-          required: ['Nova_informa__o_para_guardar'],
+          required: ['nova_informacao_agendamento'],
         },
       },
     })
@@ -1200,25 +1212,25 @@ CONTEXTO DO CRM:
 
       let result = ''
 
-      // Nomes exatos dos nós do N8N (AI Agent2)
+      // Nomes sanitizados (OpenAI ^[a-zA-Z0-9_-]+$) — mapeados via TOOL_NAME_MAP
       if (fn === 'Think1') {
         result = `Pensamento registrado: ${args.thought}`
       } else if (fn === 'Play_conhecimento') {
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableConhecimento)
         if (!result) result = 'Base de conhecimento: nenhum resultado encontrado para esta query.'
-      } else if (fn === 'Play_objeções') {
+      } else if (fn === 'Play_objecoes') {
         result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableObjecoes)
         if (!result) result = 'Objeções: nenhum argumento encontrado. Use o bom senso.'
-      } else if (fn === 'Agente de Pipeline') {
+      } else if (fn === 'Agente_de_Pipeline') {
         result = await runAgentePipeline(args.message ?? userInput, ctx, openai, supabase, acc)
-      } else if (fn === 'Agente de Segmentação') {
+      } else if (fn === 'Agente_de_Segmentacao') {
         result = await runAgenteSegmentacao(args.message ?? userInput, ctx, openai, supabase, acc)
-      } else if (fn === 'Agente de Inteligência Outbound') {
+      } else if (fn === 'Agente_de_Inteligencia_Outbound') {
         result = await runAgenteOutbound(args.message ?? userInput, ctx, openai, supabase, acc)
       } else if (fn === 'Memory_long') {
         const info = args['Nova informação para guardar'] ?? args.info ?? userInput
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
-      } else if (fn === 'Agente de Agendamento') {
+      } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc)
       }
@@ -1395,7 +1407,7 @@ async function findOrCreateLead(
 
   if (existing) return { id: existing.id, notes: existing.notes ?? '' }
 
-  const { data: created } = await supabase
+  const { data: created, error: insertError } = await supabase
     .from('leads')
     .insert({
       company_id: companyId,
@@ -1409,7 +1421,11 @@ async function findOrCreateLead(
     .select('id')
     .single()
 
-  return { id: created?.id ?? 0, notes: '' }
+  if (insertError || !created?.id) {
+    throw new Error(`findOrCreateLead: falha ao criar lead — ${insertError?.message ?? 'id nulo'}`)
+  }
+
+  return { id: created.id, notes: '' }
 }
 
 // ─── Envio com delay humanizado ────────────────────────────────
