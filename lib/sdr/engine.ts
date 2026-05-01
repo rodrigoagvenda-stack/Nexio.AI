@@ -290,9 +290,8 @@ async function searchDocuments(
 
     const { data, error } = await supabase.rpc('match_documents', {
       query_embedding: embedding,
-      match_count: 5,
+      match_count: 4,
       filter: { company_id: companyId },
-      table_name: table,
     })
 
     if (error) {
