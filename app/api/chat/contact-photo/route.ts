@@ -19,6 +19,22 @@ export async function GET(request: NextRequest) {
     if (!userData) return NextResponse.json({ photo: null })
 
     const service = createServiceClient()
+
+    // Primeiro tenta o whatsapp_photo_url salvo na conversa (sem chamada externa)
+    const { data: conv } = await service
+      .from('conversas_do_whatsapp')
+      .select('whatsapp_photo_url')
+      .eq('company_id', userData.company_id)
+      .eq('numero_de_telefone', phone)
+      .not('whatsapp_photo_url', 'is', null)
+      .maybeSingle()
+
+    if (conv?.whatsapp_photo_url) {
+      cache.set(phone, conv.whatsapp_photo_url)
+      return NextResponse.json({ photo: conv.whatsapp_photo_url })
+    }
+
+    // Fallback: busca na uazapi
     const { data: config } = await service
       .from('sdr_configs')
       .select('uazapi_instance_url, uazapi_token')
