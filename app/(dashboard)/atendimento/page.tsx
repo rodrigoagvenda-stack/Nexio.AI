@@ -68,6 +68,7 @@ interface Message {
   reply_to_text?: string;
   reply_to_sender?: string;
   whatsapp_message_id?: string;
+  is_deleted?: boolean;
   user?: {
     name: string;
   };
@@ -518,7 +519,11 @@ export default function AtendimentoPage() {
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
 
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? { ...msg, is_deleted: true, texto_da_mensagem: 'Esta mensagem foi apagada', reactions: [], reply_to_text: undefined }
+          : msg
+      ));
       toast({ title: 'Mensagem apagada para todos' });
     } catch (error: any) {
       console.error('Error deleting message for everyone:', error);
@@ -1022,6 +1027,18 @@ export default function AtendimentoPage() {
   };
 
   const renderMessageContent = (msg: Message) => {
+    // Mensagem apagada — estilo WhatsApp
+    if (msg.is_deleted) {
+      return (
+        <p className="text-sm italic opacity-60 flex items-center gap-1.5">
+          <svg viewBox="0 0 12 17" width="12" height="17" className="opacity-50" fill="currentColor">
+            <path d="M1.418 0h9.167C11.374 0 12 .627 12 1.415v13.16c0 .788-.626 1.415-1.415 1.415H1.415C.627 16 0 15.373 0 14.585V1.415C0 .627.627 0 1.418 0zm.83 3.835l-.48 8.553h.905l-.005-.094.45-8.459h-.87zm8.086 0h-.87l.45 8.459-.005.094h.905l-.48-8.553zM6 3.5A1.5 1.5 0 1 0 6 .5 1.5 1.5 0 0 0 6 3.5z"/>
+          </svg>
+          Esta mensagem foi apagada
+        </p>
+      );
+    }
+
     // Se tem mídia, renderiza o preview
     if (msg.url_da_midia) {
       switch (msg.tipo_de_mensagem) {
