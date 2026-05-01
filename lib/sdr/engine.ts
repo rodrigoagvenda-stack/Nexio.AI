@@ -61,6 +61,7 @@ interface BufferedMessage {
   messageId: string
   mediaUrl?: string
   senderName?: string
+  senderPhoto?: string
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -1746,6 +1747,16 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const conversationId = await ensureConversation(ctx, supabase)
     ctx.conversationId = conversationId
 
+    // Salva foto de perfil do WhatsApp na conversa (best-effort)
+    const senderPhoto = bufferedMessages[0]?.senderPhoto
+    if (conversationId && senderPhoto) {
+      supabase
+        .from('conversas_do_whatsapp')
+        .update({ whatsapp_photo_url: senderPhoto })
+        .eq('id', conversationId)
+        .then(() => {}, () => {})
+    }
+
     // Verifica se agente está pausado nesta conversa
     const { data: conv } = await supabase
       .from('conversas_do_whatsapp')
@@ -1914,6 +1925,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
+    const senderPhoto: string | undefined = body.chat?.image || body.chat?.imagePreview || undefined
 
     // Nó "Visualizar mensagem" — marca mensagem como lida (igual ao N8N)
     if (messageId) {
@@ -1931,6 +1943,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       messageId,
       mediaUrl,
       senderName,
+      senderPhoto,
     }
 
     await bufferMessage(companyId, phone, bufferedMsg, supabase)
