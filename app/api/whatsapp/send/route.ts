@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
       carimbo_de_data_e_hora: new Date().toISOString(),
       url_da_midia: mediaUrl || null,
     }
-    if (waMessageId) messageData.whatsapp_message_id = waMessageId
     if (conversation.id_do_lead) messageData.id_do_lead = conversation.id_do_lead
 
     const [{ data: savedMessage, error: messageError }] = await Promise.all([

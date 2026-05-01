@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
           url_da_midia: message.url_da_midia || null,
           carimbo_de_data_e_hora: new Date().toISOString(),
         }
-        if (waId) msgData.whatsapp_message_id = waId
+        // whatsapp_message_id só salvo após migração da coluna no Supabase
 
         await Promise.all([
           supabase.from('mensagens_do_whatsapp').insert(msgData),
