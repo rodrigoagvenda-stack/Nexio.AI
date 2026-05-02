@@ -8,7 +8,7 @@ import { TypeCycle } from '@/components/ui/type-cycle';
 import {
   Phone, Upload, ChevronRight, ChevronLeft,
   Check, Play, MessageSquare, Users, Bot, Zap, ArrowRight,
-  Loader2, X, Shield, AlertCircle,
+  Loader2, X, Shield, AlertCircle, TrendingUp, Rocket, Sparkles, CreditCard,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -19,7 +19,39 @@ interface FormData {
   segment: string;
   companySize: string;
   logoUrl: string | null;
+  selectedPlan: string;
 }
+
+const PLANS = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: 397,
+    desc: 'Ideal para começar a vender',
+    icon: TrendingUp,
+    color: 'green',
+    features: ['1 número WhatsApp', 'Agente SDR', 'CRM Kanban', 'Até 3 atendentes', '5M tokens IA/mês'],
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 597,
+    desc: 'Para times em crescimento',
+    icon: Rocket,
+    color: 'blue',
+    popular: true,
+    features: ['1 número WhatsApp', 'SDR + Google Calendar', 'CRM Kanban', 'Até 10 atendentes', '15M tokens IA/mês'],
+  },
+  {
+    id: 'scale',
+    name: 'Scale',
+    price: 997,
+    desc: 'Para operações escaláveis',
+    icon: Sparkles,
+    color: 'purple',
+    features: ['Até 10 números', 'Tudo do Pro', 'Atendentes ilimitados', 'Suporte prioritário', '50M tokens IA/mês'],
+  },
+];
 
 const SEGMENTS = [
   'Tecnologia', 'Saúde', 'Educação', 'Varejo',
@@ -62,7 +94,7 @@ const GUIDE_STEPS = [
   },
 ];
 
-const STEPS_META = ['Sua empresa', 'Primeiros passos', 'Pronto!'];
+const STEPS_META = ['Sua empresa', 'Primeiros passos', 'Plano', 'Pronto!'];
 const TOTAL = STEPS_META.length;
 
 const inputCls = `w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 text-sm
@@ -495,7 +527,94 @@ function StepPrimeiros() {
   );
 }
 
-// ── Step 3: Pronto! ────────────────────────────────────────────────────────────
+// ── Step 3: Plano ─────────────────────────────────────────────────────────────
+function StepPlanos({
+  selected,
+  onSelect,
+}: {
+  selected: string;
+  onSelect: (plan: string) => void;
+}) {
+  const colorMap: Record<string, { ring: string; bg: string; text: string; badge: string }> = {
+    green:  { ring: 'ring-[#369E47] border-[#369E47]', bg: 'bg-[#369E47]/10', text: 'text-[#369E47]', badge: 'bg-[#369E47] text-white' },
+    blue:   { ring: 'ring-blue-500 border-blue-500',   bg: 'bg-blue-50',       text: 'text-blue-600',   badge: 'bg-blue-600 text-white' },
+    purple: { ring: 'ring-purple-500 border-purple-500', bg: 'bg-purple-50',   text: 'text-purple-600', badge: 'bg-purple-600 text-white' },
+  };
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Escolha seu plano</h2>
+        <p className="text-gray-500 mt-1 text-sm">
+          Você pode alterar ou cancelar a qualquer momento.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {PLANS.map((plan) => {
+          const Icon = plan.icon;
+          const c = colorMap[plan.color];
+          const isSelected = selected === plan.id;
+          return (
+            <button
+              key={plan.id}
+              type="button"
+              onClick={() => onSelect(plan.id)}
+              className={`relative text-left rounded-2xl border-2 p-4 transition-all ${
+                isSelected
+                  ? `${c.ring} ring-2 shadow-sm`
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              {plan.popular && (
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-600 text-white whitespace-nowrap">
+                  Mais popular
+                </span>
+              )}
+              {isSelected && (
+                <span className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#369E47] flex items-center justify-center">
+                  <Check className="h-3 w-3 text-white" />
+                </span>
+              )}
+              <div className={`w-8 h-8 rounded-lg ${c.bg} flex items-center justify-center mb-3`}>
+                <Icon className={`h-4 w-4 ${c.text}`} />
+              </div>
+              <p className="font-bold text-gray-900 text-sm">{plan.name}</p>
+              <p className="text-xs text-gray-500 mb-2">{plan.desc}</p>
+              <p className="font-black text-gray-900">
+                R$ {plan.price}
+                <span className="text-xs font-normal text-gray-400">/mês</span>
+              </p>
+              <ul className="mt-3 space-y-1">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <Check className="h-3 w-3 text-[#369E47] flex-shrink-0" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onSelect('basic')}
+        className={`w-full py-2.5 rounded-xl border text-sm transition-all ${
+          selected === 'basic'
+            ? 'border-gray-400 text-gray-700 bg-gray-50 font-medium'
+            : 'border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300'
+        }`}
+      >
+        {selected === 'basic' && <Check className="h-3.5 w-3.5 inline mr-1.5 text-gray-500" />}
+        Continuar grátis por enquanto
+      </button>
+    </div>
+  );
+}
+
+// ── Step 4: Pronto! ────────────────────────────────────────────────────────────
 function StepPronto({ companyName }: { companyName: string }) {
   const features = [
     {
@@ -578,7 +697,13 @@ export default function OnboardingPage() {
     segment: '',
     companySize: '',
     logoUrl: null,
+    selectedPlan: 'basic',
   });
+
+  // CPF/CNPJ modal para planos pagos
+  const [cpfCnpjInput, setCpfCnpjInput] = useState('');
+  const [showCpfModal, setShowCpfModal] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     createClient()
@@ -603,8 +728,8 @@ export default function OnboardingPage() {
   };
 
   const canNext = step === 1 ? data.companyName.trim().length > 0 : true;
-  const isLastSetup = step === 2;
-  const isDone = step === 3;
+  const isLastSetup = step === 3; // step 3 = planos
+  const isDone = step === 4;
 
   async function handleFinish() {
     setSaving(true);
@@ -625,11 +750,47 @@ export default function OnboardingPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Erro ao criar conta');
-      go(3);
+
+      // Se plano pago, abre modal CPF/CNPJ para checkout
+      if (data.selectedPlan !== 'basic') {
+        setSaving(false);
+        setShowCpfModal(true);
+        return;
+      }
+      go(4);
     } catch (e: any) {
       setError(e.message || 'Erro ao salvar. Tente novamente.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCheckout() {
+    const doc = cpfCnpjInput.replace(/\D/g, '');
+    if (doc.length !== 11 && doc.length !== 14) {
+      setError('CPF (11 dígitos) ou CNPJ (14 dígitos) inválido.');
+      return;
+    }
+    setCheckoutLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/asaas/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: data.selectedPlan, cpfCnpj: doc }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      if (d.url) {
+        window.location.href = d.url;
+      } else {
+        setShowCpfModal(false);
+        go(4);
+      }
+    } catch (e: any) {
+      setError(e.message || 'Erro no checkout.');
+    } finally {
+      setCheckoutLoading(false);
     }
   }
 
@@ -716,15 +877,74 @@ export default function OnboardingPage() {
         {/* Step content */}
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full flex items-start sm:items-center justify-center px-4 sm:px-6 py-6 sm:py-10 lg:px-12 xl:px-20">
-            <div key={animKey} className={`w-full max-w-xl ${slideIn}`}>
+            <div key={animKey} className={`w-full max-w-xl ${step === 3 ? 'max-w-2xl' : 'max-w-xl'} ${slideIn}`}>
               {step === 1 && (
                 <StepEmpresa data={data} onChange={onChange} userEmail={userEmail} />
               )}
               {step === 2 && <StepPrimeiros />}
-              {step === 3 && <StepPronto companyName={data.companyName} />}
+              {step === 3 && (
+                <StepPlanos
+                  selected={data.selectedPlan}
+                  onSelect={(plan) => onChange({ selectedPlan: plan })}
+                />
+              )}
+              {step === 4 && <StepPronto companyName={data.companyName} />}
             </div>
           </div>
         </div>
+
+        {/* Modal CPF/CNPJ para checkout */}
+        {showCpfModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#369E47]/10 flex items-center justify-center flex-shrink-0">
+                  <CreditCard className="h-5 w-5 text-[#369E47]" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 text-sm">Dados de cobrança</p>
+                  <p className="text-xs text-gray-500">Necessário para emissão da fatura</p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">CPF ou CNPJ</label>
+                <input
+                  type="text"
+                  value={cpfCnpjInput}
+                  onChange={e => { setCpfCnpjInput(e.target.value); setError(''); }}
+                  placeholder="000.000.000-00 ou 00.000.000/0001-00"
+                  className={inputCls}
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleCheckout()}
+                />
+                {error && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowCpfModal(false); setError(''); }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCheckout}
+                  disabled={checkoutLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  {checkoutLoading
+                    ? <><Loader2 className="h-4 w-4 animate-spin" />Aguarde…</>
+                    : <><ArrowRight className="h-4 w-4" />Ir para pagamento</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bottom bar — fixo no mobile */}
         <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 sm:px-6 py-3 sm:py-4 lg:px-12 xl:px-20 flex items-center justify-between gap-2 z-10">
@@ -755,8 +975,7 @@ export default function OnboardingPage() {
               {step === 2 && (
                 <button
                   type="button"
-                  onClick={handleFinish}
-                  disabled={saving}
+                  onClick={() => go(3)}
                   className="text-xs sm:text-sm text-gray-400 hover:text-gray-600 transition-colors whitespace-nowrap"
                 >
                   Pular
@@ -780,8 +999,10 @@ export default function OnboardingPage() {
                 >
                   {saving ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /><span className="hidden sm:inline">Criando...</span><span className="sm:hidden">...</span></>
+                  ) : data.selectedPlan === 'basic' ? (
+                    <><Check className="h-4 w-4" />Criar conta grátis</>
                   ) : (
-                    <><Check className="h-4 w-4" />Criar conta</>
+                    <><CreditCard className="h-4 w-4" />Criar conta e assinar</>
                   )}
                 </button>
               ) : (
