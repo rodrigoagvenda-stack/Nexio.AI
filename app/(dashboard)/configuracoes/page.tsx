@@ -97,7 +97,7 @@ function ConfiguracoesContent() {
   const [company, setCompany] = useState<CompanyFull | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [extraNumbers, setExtraNumbers] = useState(1);
+  const [extraNumbers, setExtraNumbers] = useState(0);
 
   const [cpfCnpjPrompt, setCpfCnpjPrompt] = useState<string | null>(null); // null = closed; string = plan being purchased
   const [cpfCnpjInput, setCpfCnpjInput] = useState('');
@@ -412,12 +412,53 @@ function ConfiguracoesContent() {
               {/* Cards de planos */}
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-4">Planos disponíveis</p>
+
+                {/* Add-on número adicional — acima dos cards */}
+                <div className="mb-4 p-4 rounded-xl border border-dashed border-border bg-muted/20">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Plus className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Número adicional</p>
+                        <p className="text-xs text-muted-foreground">R$ 97/mês por número extra</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setExtraNumbers(n => Math.max(0, n - 1))}
+                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                        >
+                          <span className="text-base leading-none">−</span>
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold tabular-nums">{extraNumbers}</span>
+                        <button
+                          onClick={() => setExtraNumbers(n => Math.min(9, n + 1))}
+                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                        >
+                          <span className="text-base leading-none">+</span>
+                        </button>
+                      </div>
+                      <div className="text-right min-w-[80px]">
+                        {extraNumbers > 0
+                          ? <><p className="font-semibold text-sm">R$ {extraNumbers * 97}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                            <p className="text-xs text-muted-foreground">+{extraNumbers} número{extraNumbers > 1 ? 's' : ''}</p></>
+                          : <p className="text-xs text-muted-foreground">Nenhum extra</p>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid sm:grid-cols-3 gap-4">
                   {(['starter', 'pro', 'scale'] as const).map((plan) => {
                     const cfg = PLANS[plan];
                     const features = PLAN_FEATURES[plan];
                     const isCurrent = currentPlanKey === plan;
                     const isPopular = plan === 'pro';
+                    const totalPrice = cfg.price + extraNumbers * 97;
                     return (
                       <div key={plan} className={cn(
                         'relative rounded-2xl border flex flex-col transition-all',
@@ -441,10 +482,15 @@ function ConfiguracoesContent() {
                             <span className="font-semibold text-sm">{cfg.name}</span>
                           </div>
                           <p className="text-2xl font-bold leading-none">
-                            R$ {cfg.price}
+                            R$ {totalPrice}
                             <span className="text-sm font-normal text-muted-foreground">/mês</span>
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1.5">{cfg.desc}</p>
+                          {extraNumbers > 0 && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              R$ {cfg.price} + {extraNumbers}× R$ 97
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">{cfg.desc}</p>
                         </div>
 
                         {/* Divider */}
@@ -477,42 +523,6 @@ function ConfiguracoesContent() {
                       </div>
                     );
                   })}
-                </div>
-
-                {/* Add-on número adicional */}
-                <div className="mt-4 p-4 rounded-xl border border-dashed border-border bg-muted/20">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <Plus className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Número adicional</p>
-                        <p className="text-xs text-muted-foreground">R$ 97/mês por número extra</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setExtraNumbers(n => Math.max(1, n - 1))}
-                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                        >
-                          <span className="text-base leading-none">−</span>
-                        </button>
-                        <span className="w-6 text-center text-sm font-semibold tabular-nums">{extraNumbers}</span>
-                        <button
-                          onClick={() => setExtraNumbers(n => Math.min(9, n + 1))}
-                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                        >
-                          <span className="text-base leading-none">+</span>
-                        </button>
-                      </div>
-                      <div className="text-right min-w-[72px]">
-                        <p className="font-semibold text-sm">R$ {extraNumbers * 97}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
-                        <p className="text-xs text-muted-foreground">{extraNumbers} número{extraNumbers > 1 ? 's' : ''}</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </>
