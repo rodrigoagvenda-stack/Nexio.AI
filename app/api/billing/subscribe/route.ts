@@ -60,11 +60,12 @@ export async function POST(request: NextRequest) {
 
     if (!company) return NextResponse.json({ success: false, message: 'Empresa não encontrada' }, { status: 404 })
 
-    // 1. Criar ou recuperar cliente Asaas
+    // 1. Criar ou recuperar cliente Asaas (PUT se já existe, POST se novo)
     const customer = await createOrGetCustomer({
       name: company.name,
       email: company.email,
       cpfCnpj,
+      existingCustomerId: company.asaas_customer_id ?? undefined,
     })
 
     // 2. Cancelar assinatura anterior se existir

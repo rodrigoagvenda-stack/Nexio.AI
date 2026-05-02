@@ -49,19 +49,48 @@ export interface AsaasCustomer {
   cpfCnpj: string
 }
 
+/** Atualiza dados de um customer existente via PUT (nunca POST) */
+export async function updateCustomer(
+  customerId: string,
+  params: { name?: string; email?: string; cpfCnpj?: string },
+): Promise<AsaasCustomer> {
+  return asaasRequest<AsaasCustomer>('PUT', `/customers/${customerId}`, {
+    ...params,
+    ...(params.cpfCnpj ? { cpfCnpj: params.cpfCnpj.replace(/\D/g, '') } : {}),
+  })
+}
+
 export async function createOrGetCustomer(params: {
   name: string
   email: string
   cpfCnpj: string
+  /** asaas_customer_id já salvo na empresa — se existir, faz PUT para garantir cpfCnpj */
+  existingCustomerId?: string
 }): Promise<AsaasCustomer> {
+  // Se a empresa já tem um customer no Asaas, atualiza via PUT para garantir cpfCnpj correto
+  if (params.existingCustomerId) {
+    return updateCustomer(params.existingCustomerId, {
+      name: params.name,
+      email: params.email,
+      cpfCnpj: params.cpfCnpj,
+    })
+  }
+
   // Tenta buscar existente pelo CPF/CNPJ
   const search = await asaasRequest<{ data: AsaasCustomer[] }>(
     'GET',
     `/customers?cpfCnpj=${params.cpfCnpj.replace(/\D/g, '')}`
   )
 
-  if (search.data?.length) return search.data[0]
+  if (search.data?.length) {
+    // Customer encontrado — garante cpfCnpj via PUT
+    return updateCustomer(search.data[0].id, {
+      name: params.name,
+      cpfCnpj: params.cpfCnpj,
+    })
+  }
 
+  // Não existe — cria novo via POST
   return asaasRequest<AsaasCustomer>('POST', '/customers', {
     name: params.name,
     email: params.email,

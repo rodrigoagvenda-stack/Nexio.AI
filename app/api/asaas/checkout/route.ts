@@ -77,12 +77,17 @@ export async function POST(request: NextRequest) {
       customerId = custData.id
       await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
     } else if (company.asaas_cpf_cnpj) {
-      // Atualiza CPF/CNPJ no customer existente (pode ter sido criado sem ele)
-      await fetch(`${baseUrl}/customers/${customerId}`, {
-        method: 'POST',
+      // Atualiza CPF/CNPJ no customer existente via PUT (criado anteriormente sem CPF/CNPJ)
+      const updateRes = await fetch(`${baseUrl}/customers/${customerId}`, {
+        method: 'PUT',
         headers,
         body: JSON.stringify({ cpfCnpj: company.asaas_cpf_cnpj }),
       })
+      if (!updateRes.ok) {
+        const updateErr = await updateRes.json()
+        console.error('[asaas/checkout] falha ao atualizar customer:', updateErr)
+        throw new Error(updateErr.errors?.[0]?.description || 'Erro ao atualizar cliente no Asaas')
+      }
     }
 
     // ── 2. Criar assinatura ───────────────────────────────────────────────────

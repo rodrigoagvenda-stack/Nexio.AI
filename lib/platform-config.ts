@@ -64,7 +64,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       stripe_price_pro: map.stripe_price_pro || process.env.STRIPE_PRICE_PRO || '',
       stripe_price_scale: map.stripe_price_scale || process.env.STRIPE_PRICE_SCALE || '',
       asaas_api_key: map.asaas_api_key || process.env.ASAAS_API_KEY || '',
-      asaas_base_url: map.asaas_base_url || process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3',
+      asaas_base_url: map.asaas_base_url || process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3',
       asaas_webhook_token: map.asaas_webhook_token || process.env.ASAAS_WEBHOOK_TOKEN || '',
     };
   } catch {
@@ -81,7 +81,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       stripe_price_pro: process.env.STRIPE_PRICE_PRO || '',
       stripe_price_scale: process.env.STRIPE_PRICE_SCALE || '',
       asaas_api_key: process.env.ASAAS_API_KEY || '',
-      asaas_base_url: process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3',
+      asaas_base_url: process.env.ASAAS_BASE_URL || 'https://sandbox.asaas.com/api/v3',
       asaas_webhook_token: process.env.ASAAS_WEBHOOK_TOKEN || '',
     };
   }
