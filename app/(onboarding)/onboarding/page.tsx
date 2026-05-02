@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import { TypeCycle } from '@/components/ui/type-cycle';
 import {
-  Building2, Phone, Upload, ChevronRight, ChevronLeft,
+  Phone, Upload, ChevronRight, ChevronLeft,
   Check, Play, MessageSquare, Users, Bot, Zap, ArrowRight,
   Loader2, X, Shield, AlertCircle,
 } from 'lucide-react';
@@ -48,8 +48,8 @@ const GUIDE_STEPS = [
   },
   {
     icon: <Bot className="h-5 w-5 text-[#369E47]" />,
-    title: 'Ativar o agente de IA',
-    desc: 'Configure o SDR para responder automaticamente 24 horas por dia.',
+    title: 'Ativar o Nexio',
+    desc: 'Configure o SDR de IA para responder e qualificar leads automaticamente 24h.',
     time: '5 min',
     videoId: 'dQw4w9WgXcQ',
   },
@@ -72,38 +72,38 @@ const inputCls = `w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-9
 // ── Hero animado ───────────────────────────────────────────────────────────────
 function HeroSlide({ onStart }: { onStart: () => void }) {
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 relative overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-5 sm:px-8 relative overflow-hidden">
       {/* Blobs */}
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#369E47]/6 blur-3xl animate-pulse pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[#369E47]/5 blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '1.2s' }} />
+      <div className="absolute -top-32 -left-32 w-72 sm:w-[500px] h-72 sm:h-[500px] rounded-full bg-[#369E47]/6 blur-3xl animate-pulse pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-72 sm:w-[500px] h-72 sm:h-[500px] rounded-full bg-[#369E47]/5 blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '1.2s' }} />
 
-      <div className="relative z-10 text-center max-w-2xl mx-auto">
+      <div className="relative z-10 text-center max-w-2xl mx-auto w-full">
         {/* Logo */}
-        <div className="flex justify-center mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-          <ZaapliLogo iconSize={44} theme="light" animate />
+        <div className="flex justify-center mb-8 sm:mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
+          <ZaapliLogo iconSize={40} theme="light" animate />
         </div>
 
-        {/* Headline estática */}
+        {/* Eyebrow */}
         <p
-          className="text-lg font-semibold tracking-widest uppercase text-[#369E47]/70 mb-3 animate-in fade-in duration-700"
+          className="text-xs sm:text-sm font-semibold tracking-widest uppercase text-[#369E47]/70 mb-3 animate-in fade-in duration-700"
           style={{ animationDelay: '150ms', animationFillMode: 'both' }}
         >
           CRM · WhatsApp · IA
         </p>
 
-        {/* Slogan principal com typing */}
+        {/* Headline com typing */}
         <h1
-          className="text-5xl sm:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700"
+          className="text-4xl sm:text-5xl md:text-6xl font-black text-gray-900 leading-[1.1] tracking-tight mb-5 animate-in fade-in slide-in-from-bottom-6 duration-700"
           style={{ animationDelay: '250ms', animationFillMode: 'both' }}
         >
           Venda enquanto{' '}
-          <br />
+          <br className="hidden sm:block" />
           <TypeCycle
             texts={[
               'você dorme.',
               'a IA trabalha.',
               'os leads chegam.',
-              'o bot fecha.',
+              'o Nexio fecha.',
               'o time descansa.',
             ]}
             typingSpeed={65}
@@ -118,7 +118,7 @@ function HeroSlide({ onStart }: { onStart: () => void }) {
         </h1>
 
         <p
-          className="text-lg text-gray-500 mb-10 max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700"
+          className="text-base sm:text-lg text-gray-500 mb-8 sm:mb-10 max-w-md mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700"
           style={{ animationDelay: '450ms', animationFillMode: 'both' }}
         >
           Do primeiro contato ao fechamento — no piloto automático.
@@ -126,19 +126,15 @@ function HeroSlide({ onStart }: { onStart: () => void }) {
 
         {/* Feature pills */}
         <div
-          className="flex flex-wrap items-center justify-center gap-3 mb-12 animate-in fade-in duration-700"
+          className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-8 sm:mb-12 animate-in fade-in duration-700"
           style={{ animationDelay: '600ms', animationFillMode: 'both' }}
         >
-          {[
-            'WhatsApp integrado',
-            'CRM com Kanban',
-            'SDR com IA 24h',
-          ].map((item, i) => (
+          {['WhatsApp integrado', 'CRM com Kanban', 'Nexio 24h'].map((item, i) => (
             <span
               key={i}
-              className="flex items-center gap-1.5 text-sm text-gray-600 bg-white border border-gray-200 px-4 py-2 rounded-full shadow-sm"
+              className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600 bg-white border border-gray-200 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm"
             >
-              <Check className="h-3.5 w-3.5 text-[#369E47] flex-shrink-0" />
+              <Check className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-[#369E47] flex-shrink-0" />
               {item}
             </span>
           ))}
@@ -147,7 +143,7 @@ function HeroSlide({ onStart }: { onStart: () => void }) {
         {/* CTA */}
         <button
           onClick={onStart}
-          className="animate-in fade-in zoom-in-95 duration-500 group inline-flex items-center gap-3 bg-[#369E47] hover:bg-[#2d8a3e] text-white font-bold text-lg px-10 py-4 rounded-2xl shadow-lg shadow-[#369E47]/25 hover:shadow-[#369E47]/40 hover:scale-[1.02] transition-all"
+          className="animate-in fade-in zoom-in-95 duration-500 group w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-[#369E47] hover:bg-[#2d8a3e] text-white font-bold text-base sm:text-lg px-8 sm:px-10 py-4 rounded-2xl shadow-lg shadow-[#369E47]/25 hover:shadow-[#369E47]/40 active:scale-95 transition-all"
           style={{ animationDelay: '700ms', animationFillMode: 'both' }}
         >
           Configurar minha conta
@@ -197,20 +193,21 @@ function StepEmpresa({
         setUploadError(json.error || 'Falha no upload. Tente novamente.');
       }
     } catch {
-      setUploadError('Erro ao enviar arquivo. Verifique sua conexão.');
+      setUploadError('Erro ao enviar. Verifique sua conexão.');
     } finally {
       setUploading(false);
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Sua empresa</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Sua empresa</h2>
         <p className="text-gray-500 mt-1 text-sm">Informações básicas para começar.</p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
+      {/* Nome + Seu nome */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Nome da empresa <span className="text-[#369E47]">*</span>
@@ -234,6 +231,10 @@ function StepEmpresa({
             className={inputCls}
           />
         </div>
+      </div>
+
+      {/* WhatsApp + E-mail */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             <Phone className="h-3.5 w-3.5 inline mr-1 text-gray-400" />
@@ -261,16 +262,16 @@ function StepEmpresa({
       {/* Segmento */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Segmento</label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {SEGMENTS.map(seg => (
             <button
               key={seg}
               type="button"
               onClick={() => onChange({ segment: seg })}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all border ${
                 data.segment === seg
                   ? 'bg-[#369E47]/10 border-[#369E47] text-[#369E47] font-semibold'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 active:bg-gray-50'
               }`}
             >
               {seg}
@@ -280,19 +281,19 @@ function StepEmpresa({
       </div>
 
       {/* Tamanho + Logo */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tamanho da equipe</label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {SIZES.map(s => (
               <button
                 key={s}
                 type="button"
                 onClick={() => onChange({ companySize: s })}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all border ${
                   data.companySize === s
                     ? 'bg-[#369E47]/10 border-[#369E47] text-[#369E47] font-semibold'
-                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 active:bg-gray-50'
                 }`}
               >
                 {SIZE_LABELS[s]}
@@ -301,7 +302,7 @@ function StepEmpresa({
           </div>
         </div>
 
-        {/* Logo */}
+        {/* Logo upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Logo{' '}
@@ -315,10 +316,12 @@ function StepEmpresa({
               const f = e.dataTransfer.files[0];
               if (f) handleFile(f);
             }}
-            className={`cursor-pointer border-2 border-dashed rounded-xl p-4 flex items-center gap-3 transition-colors group ${
+            className={`cursor-pointer border-2 border-dashed rounded-xl p-4 flex items-center gap-3 transition-colors group min-h-[64px] ${
               uploadError
-                ? 'border-red-300 hover:border-red-400'
-                : 'border-gray-200 hover:border-[#369E47]'
+                ? 'border-red-300 hover:border-red-400 bg-red-50/40'
+                : data.logoUrl
+                ? 'border-[#369E47]/40 bg-[#369E47]/5'
+                : 'border-gray-200 hover:border-[#369E47] active:bg-gray-50'
             }`}
           >
             <input
@@ -334,17 +337,17 @@ function StepEmpresa({
             />
             {uploading ? (
               <div className="flex items-center gap-2 text-[#369E47] text-sm">
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin flex-shrink-0" />
                 Enviando...
               </div>
             ) : data.logoUrl ? (
-              <div className="flex items-center gap-2 w-full">
+              <div className="flex items-center gap-2 w-full min-w-0">
                 <img
                   src={data.logoUrl}
                   alt="Logo"
-                  className="h-10 w-auto max-w-[80px] object-contain rounded"
+                  className="h-10 w-auto max-w-[80px] object-contain rounded flex-shrink-0"
                 />
-                <span className="text-xs text-gray-500 flex-1">Logo enviado</span>
+                <span className="text-xs text-gray-500 flex-1 truncate">Logo enviado ✓</span>
                 <button
                   type="button"
                   onClick={e => {
@@ -352,7 +355,7 @@ function StepEmpresa({
                     onChange({ logoUrl: null });
                     setUploadError('');
                   }}
-                  className="text-red-400 hover:text-red-500 flex-shrink-0"
+                  className="text-red-400 hover:text-red-500 flex-shrink-0 p-1"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -370,8 +373,8 @@ function StepEmpresa({
             )}
           </div>
           {uploadError && (
-            <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            <p className="mt-1.5 text-xs text-red-500 flex items-start gap-1">
+              <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
               {uploadError}
             </p>
           )}
@@ -389,9 +392,9 @@ function StepPrimeiros() {
   const step = GUIDE_STEPS[current];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Primeiros passos</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Primeiros passos</h2>
         <p className="text-gray-500 mt-1 text-sm">
           Veja como tirar o máximo do zaapli desde o início.
         </p>
@@ -425,31 +428,31 @@ function StepPrimeiros() {
               allowFullScreen
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-[#369E47]/20 border-2 border-[#369E47]/40 flex items-center justify-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 sm:gap-4 px-4">
+              <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-full bg-[#369E47]/20 border-2 border-[#369E47]/40 flex items-center justify-center">
                 {step.icon}
               </div>
               <button
                 onClick={() => setShowVideo(true)}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors border border-white/20"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-sm font-medium px-4 sm:px-5 py-2.5 rounded-xl transition-colors border border-white/20"
               >
-                <Play className="h-4 w-4" /> Assistir tutorial — {step.time}
+                <Play className="h-4 w-4 flex-shrink-0" /> Assistir tutorial — {step.time}
               </button>
-              <p className="text-white/30 text-xs">Conteúdo real em breve</p>
+              <p className="text-white/30 text-xs text-center">Conteúdo real em breve</p>
             </div>
           )}
         </div>
 
-        <div className="flex items-start gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-[#369E47] bg-[#369E47]/10 px-2 py-0.5 rounded-full">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-xs font-semibold text-[#369E47] bg-[#369E47]/10 px-2 py-0.5 rounded-full whitespace-nowrap">
                 {current + 1} de {GUIDE_STEPS.length}
               </span>
               <span className="text-xs text-gray-400">{step.time}</span>
             </div>
-            <h3 className="font-bold text-gray-900 text-lg">{step.title}</h3>
-            <p className="text-gray-500 text-sm mt-1">{step.desc}</p>
+            <h3 className="font-bold text-gray-900 text-base sm:text-lg">{step.title}</h3>
+            <p className="text-gray-500 text-sm mt-1 leading-relaxed">{step.desc}</p>
           </div>
           <button
             type="button"
@@ -470,12 +473,12 @@ function StepPrimeiros() {
       </div>
 
       {/* Nav interna */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-1">
         <button
           type="button"
           onClick={() => { setCurrent(c => c - 1); setShowVideo(false); }}
           disabled={current === 0}
-          className="text-sm text-gray-400 hover:text-gray-700 disabled:opacity-0 flex items-center gap-1 transition-colors"
+          className="text-sm text-gray-400 hover:text-gray-700 disabled:opacity-0 disabled:pointer-events-none flex items-center gap-1 transition-colors py-2"
         >
           <ChevronLeft className="h-4 w-4" />Anterior
         </button>
@@ -483,7 +486,7 @@ function StepPrimeiros() {
           type="button"
           onClick={() => { setCurrent(c => c + 1); setShowVideo(false); }}
           disabled={current === GUIDE_STEPS.length - 1}
-          className="text-sm text-[#369E47] hover:text-[#2d8a3e] disabled:opacity-0 flex items-center gap-1 font-medium transition-colors"
+          className="text-sm text-[#369E47] hover:text-[#2d8a3e] disabled:opacity-0 disabled:pointer-events-none flex items-center gap-1 font-medium transition-colors py-2"
         >
           Próximo<ChevronRight className="h-4 w-4" />
         </button>
@@ -496,34 +499,34 @@ function StepPrimeiros() {
 function StepPronto({ companyName }: { companyName: string }) {
   const features = [
     {
-      icon: <MessageSquare className="h-5 w-5 text-[#369E47]" />,
+      icon: <MessageSquare className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
       title: 'Atendimento multicanal',
       desc: 'Receba e responda mensagens de todos os números em um só lugar.',
     },
     {
-      icon: <Bot className="h-5 w-5 text-[#369E47]" />,
-      title: 'SDR com IA 24/7',
-      desc: 'Nosso agente qualifica leads e agenda reuniões enquanto você descansa.',
+      icon: <Bot className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
+      title: 'Nexio — seu SDR 24h',
+      desc: 'Qualifica leads e agenda reuniões enquanto você descansa.',
     },
     {
-      icon: <Users className="h-5 w-5 text-[#369E47]" />,
+      icon: <Users className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
       title: 'CRM com Kanban',
-      desc: 'Visualize o pipeline de vendas e mova negócios de fase com um clique.',
+      desc: 'Visualize o pipeline e mova negócios de fase com um clique.',
     },
     {
-      icon: <Zap className="h-5 w-5 text-[#369E47]" />,
+      icon: <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
       title: 'Disparos em massa',
-      desc: 'Envie campanhas segmentadas para sua base com alta taxa de entrega.',
+      desc: 'Campanhas segmentadas com alta taxa de entrega.',
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <div>
-        <div className="inline-flex items-center gap-2 bg-[#369E47]/10 text-[#369E47] text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+        <div className="inline-flex items-center gap-2 bg-[#369E47]/10 text-[#369E47] text-xs font-bold px-3 py-1.5 rounded-full mb-3 sm:mb-4">
           <Check className="h-3.5 w-3.5" /> Conta criada com sucesso
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
           {companyName ? `Bem-vindo, ${companyName}!` : 'Tudo pronto!'}
         </h2>
         <p className="text-gray-500 mt-1 text-sm">
@@ -531,13 +534,13 @@ function StepPronto({ companyName }: { companyName: string }) {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         {features.map((f, i) => (
           <div
             key={i}
-            className="flex items-start gap-3 p-4 rounded-xl border border-gray-100 bg-gray-50/60"
+            className="flex items-start gap-3 p-3 sm:p-4 rounded-xl border border-gray-100 bg-gray-50/60"
           >
-            <div className="w-9 h-9 rounded-lg bg-white border border-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <div className="w-8 sm:w-9 h-8 sm:h-9 rounded-lg bg-white border border-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm">
               {f.icon}
             </div>
             <div>
@@ -548,9 +551,9 @@ function StepPronto({ companyName }: { companyName: string }) {
         ))}
       </div>
 
-      <div className="flex items-center gap-3 p-4 bg-[#369E47]/5 rounded-xl border border-[#369E47]/20">
-        <Shield className="h-5 w-5 text-[#369E47] flex-shrink-0" />
-        <p className="text-sm text-gray-600">
+      <div className="flex items-start gap-3 p-3 sm:p-4 bg-[#369E47]/5 rounded-xl border border-[#369E47]/20">
+        <Shield className="h-5 w-5 text-[#369E47] flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-gray-600 leading-relaxed">
           Nossa equipe entrará em contato para ajudar na configuração e escolha do plano ideal.
         </p>
       </div>
@@ -583,8 +586,7 @@ export default function OnboardingPage() {
       .then(({ data: { user } }) => {
         if (!user) return;
         setUserEmail(user.email ?? '');
-        const name =
-          user.user_metadata?.full_name || user.user_metadata?.name || '';
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || '';
         if (name) setData(p => ({ ...p, userName: name }));
       });
   }, []);
@@ -596,9 +598,13 @@ export default function OnboardingPage() {
     setStep(next);
     setAnimKey(k => k + 1);
     setError('');
+    // Scroll to top on mobile
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const canNext = step === 1 ? data.companyName.trim().length > 0 : true;
+  const isLastSetup = step === 2;
+  const isDone = step === 3;
 
   async function handleFinish() {
     setSaving(true);
@@ -619,7 +625,6 @@ export default function OnboardingPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Erro ao criar conta');
-      // Step 3 mostra o resumo — aí o botão vira "Entrar no painel"
       go(3);
     } catch (e: any) {
       setError(e.message || 'Erro ao salvar. Tente novamente.');
@@ -635,12 +640,9 @@ export default function OnboardingPage() {
       ? 'animate-in fade-in slide-in-from-right-6 duration-300'
       : 'animate-in fade-in slide-in-from-left-6 duration-300';
 
-  const isLastSetup = step === 2; // step 2 = Primeiros passos, botão "Criar conta"
-  const isDone = step === 3;      // step 3 = success screen
-
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row">
+      {/* Sidebar — desktop only */}
       <aside className="hidden lg:flex flex-col w-64 border-r border-gray-100 bg-gray-50/50 px-7 py-8 flex-shrink-0">
         <ZaapliLogo iconSize={30} theme="light" />
         <div className="mt-10 space-y-1">
@@ -666,11 +668,7 @@ export default function OnboardingPage() {
                 >
                   {done ? <Check className="h-3.5 w-3.5" /> : n}
                 </div>
-                <span
-                  className={`text-sm font-medium ${
-                    active ? 'text-gray-900' : 'text-gray-400'
-                  }`}
-                >
+                <span className={`text-sm font-medium ${active ? 'text-gray-900' : 'text-gray-400'}`}>
                   {label}
                 </span>
               </div>
@@ -690,55 +688,76 @@ export default function OnboardingPage() {
         </div>
       </aside>
 
-      {/* Conteúdo */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      {/* Conteúdo principal */}
+      <div className="flex-1 flex flex-col min-h-screen lg:min-h-0">
+
         {/* Mobile header */}
-        <div className="flex lg:hidden items-center justify-between px-5 py-4 border-b border-gray-100">
-          <ZaapliLogo iconSize={26} theme="light" />
+        <div className="flex lg:hidden items-center justify-between px-4 py-3 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <ZaapliLogo iconSize={24} theme="light" />
+          {/* Mobile steps mini */}
+          <div className="flex items-center gap-1.5">
+            {STEPS_META.map((_, i) => {
+              const n = i + 1;
+              const done = step > n;
+              const active = step === n;
+              return (
+                <div
+                  key={i}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    done ? 'bg-[#369E47]' : active ? 'bg-[#369E47]/60 w-4' : 'bg-gray-200'
+                  }`}
+                />
+              );
+            })}
+          </div>
           <span className="text-xs text-gray-400 font-medium">{step}/{TOTAL}</span>
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-6 py-10 lg:px-12 xl:px-20">
-          <div key={animKey} className={`w-full max-w-xl ${slideIn}`}>
-            {step === 1 && (
-              <StepEmpresa data={data} onChange={onChange} userEmail={userEmail} />
-            )}
-            {step === 2 && <StepPrimeiros />}
-            {step === 3 && <StepPronto companyName={data.companyName} />}
+        {/* Step content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="min-h-full flex items-start sm:items-center justify-center px-4 sm:px-6 py-6 sm:py-10 lg:px-12 xl:px-20">
+            <div key={animKey} className={`w-full max-w-xl ${slideIn}`}>
+              {step === 1 && (
+                <StepEmpresa data={data} onChange={onChange} userEmail={userEmail} />
+              )}
+              {step === 2 && <StepPrimeiros />}
+              {step === 3 && <StepPronto companyName={data.companyName} />}
+            </div>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="border-t border-gray-100 px-6 py-4 lg:px-12 xl:px-20 flex items-center justify-between">
+        {/* Bottom bar — fixo no mobile */}
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-4 sm:px-6 py-3 sm:py-4 lg:px-12 xl:px-20 flex items-center justify-between gap-2 z-10">
           {/* Voltar */}
           {!isDone ? (
             <button
               type="button"
               disabled={step === 1}
               onClick={() => go(step - 1)}
-              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 disabled:opacity-0 disabled:pointer-events-none transition-colors font-medium"
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 disabled:opacity-0 disabled:pointer-events-none transition-colors font-medium py-2 px-1 flex-shrink-0"
             >
-              <ChevronLeft className="h-4 w-4" />Voltar
+              <ChevronLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Voltar</span>
             </button>
           ) : (
             <span />
           )}
 
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex flex-col items-end gap-1 min-w-0">
             {error && (
-              <p className="text-xs text-red-500 flex items-center gap-1">
+              <p className="text-xs text-red-500 flex items-center gap-1 text-right">
                 <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                {error}
+                <span className="line-clamp-2">{error}</span>
               </p>
             )}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               {/* Pular primeiros passos */}
               {step === 2 && (
                 <button
                   type="button"
                   onClick={handleFinish}
                   disabled={saving}
-                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-xs sm:text-sm text-gray-400 hover:text-gray-600 transition-colors whitespace-nowrap"
                 >
                   Pular
                 </button>
@@ -748,7 +767,7 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard')}
-                  className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors shadow-sm"
+                  className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] active:bg-[#267535] text-white font-semibold text-sm px-5 sm:px-6 py-2.5 rounded-xl transition-colors shadow-sm whitespace-nowrap"
                 >
                   <ArrowRight className="h-4 w-4" /> Entrar no painel
                 </button>
@@ -757,12 +776,12 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={handleFinish}
                   disabled={saving}
-                  className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-60 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors shadow-sm"
+                  className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] active:bg-[#267535] disabled:opacity-60 text-white font-semibold text-sm px-5 sm:px-6 py-2.5 rounded-xl transition-colors shadow-sm whitespace-nowrap"
                 >
                   {saving ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Criando conta...</>
+                    <><Loader2 className="h-4 w-4 animate-spin" /><span className="hidden sm:inline">Criando...</span><span className="sm:hidden">...</span></>
                   ) : (
-                    <><Check className="h-4 w-4" />Criar minha conta</>
+                    <><Check className="h-4 w-4" />Criar conta</>
                   )}
                 </button>
               ) : (
@@ -770,7 +789,7 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => go(step + 1)}
                   disabled={!canNext}
-                  className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 bg-[#369E47] hover:bg-[#2d8a3e] active:bg-[#267535] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm px-5 sm:px-6 py-2.5 rounded-xl transition-colors shadow-sm whitespace-nowrap"
                 >
                   Continuar <ChevronRight className="h-4 w-4" />
                 </button>

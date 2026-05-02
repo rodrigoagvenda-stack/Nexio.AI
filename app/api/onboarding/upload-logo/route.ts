@@ -18,12 +18,12 @@ export async function POST(req: NextRequest) {
     // Service client bypassa RLS do storage
     const service = createServiceClient()
     const { error } = await service.storage
-      .from('company-assets')
+      .from('company_assets')
       .upload(path, bytes, { contentType: file.type, upsert: true })
 
     if (error) throw error
 
-    const { data: { publicUrl } } = service.storage.from('company-assets').getPublicUrl(path)
+    const { data: { publicUrl } } = service.storage.from('company_assets').getPublicUrl(path)
     return NextResponse.json({ url: publicUrl })
   } catch (err: any) {
     console.error('[upload-logo]', err)
