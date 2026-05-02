@@ -159,10 +159,11 @@ function ConfiguracoesContent() {
     finally { setSaving(false); }
   };
 
-  const doCheckout = async (plan: string) => {
+  const doCheckout = async (plan: string, cpfCnpj?: string) => {
     setCheckoutLoading(plan);
     try {
-      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
+      const doc = cpfCnpj || company?.asaas_cpf_cnpj || '';
+      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       if (d.url) {
@@ -195,7 +196,7 @@ function ConfiguracoesContent() {
       if (error) throw error;
       setCompany(prev => prev ? { ...prev, asaas_cpf_cnpj: doc } : prev);
       setCpfCnpjPrompt(null);
-      doCheckout(cpfCnpjPrompt!);
+      doCheckout(cpfCnpjPrompt!, doc);
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar documento', variant: 'destructive' });
     } finally {

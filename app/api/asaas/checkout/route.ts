@@ -28,10 +28,13 @@ export async function POST(request: NextRequest) {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const body = await request.json()
-    const { plan } = body as { plan: string }
+    const { plan, cpfCnpj: cpfCnpjRaw } = body as { plan: string; cpfCnpj?: string }
 
     const planValue = PLAN_VALUES[plan]
     if (!planValue) return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
+
+    const cpfCnpj = (cpfCnpjRaw || '').replace(/\D/g, '')
+    if (!cpfCnpj) return NextResponse.json({ error: 'CPF ou CNPJ obrigatório para processar pagamento' }, { status: 400 })
 
     const cfg = await getPlatformConfig()
     const apiKey = cfg.asaas_api_key
@@ -56,32 +59,35 @@ export async function POST(request: NextRequest) {
       'access_token': apiKey,
     }
 
+    // Salva cpfCnpj na empresa (para uso futuro)
+    await service.from('companies').update({ asaas_cpf_cnpj: cpfCnpj }).eq('id', company.id)
+
     // ── 1. Garantir cliente no Asaas ──────────────────────────────────────────
     let customerId = company.asaas_customer_id
 
     if (!customerId) {
-      const customerBody: Record<string, any> = {
-        name: company.name || userData.name || 'Cliente',
-        email: userData.email,
-      }
-      if (company.asaas_cpf_cnpj) customerBody.cpfCnpj = company.asaas_cpf_cnpj
-
+      // Cria novo customer já com cpfCnpj
       const custRes = await fetch(`${baseUrl}/customers`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(customerBody),
+        body: JSON.stringify({
+          name: company.name || userData.name || 'Cliente',
+          email: userData.email,
+          cpfCnpj,
+          notificationDisabled: false,
+        }),
       })
       const custData = await custRes.json()
       if (!custRes.ok) throw new Error(custData.errors?.[0]?.description || 'Erro ao criar cliente no Asaas')
 
       customerId = custData.id
       await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
-    } else if (company.asaas_cpf_cnpj) {
-      // Atualiza CPF/CNPJ no customer existente via PUT (criado anteriormente sem CPF/CNPJ)
+    } else {
+      // Customer já existe — sempre atualiza cpfCnpj via PUT para garantir que está correto
       const updateRes = await fetch(`${baseUrl}/customers/${customerId}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ cpfCnpj: company.asaas_cpf_cnpj }),
+        body: JSON.stringify({ cpfCnpj }),
       })
       if (!updateRes.ok) {
         const updateErr = await updateRes.json()
