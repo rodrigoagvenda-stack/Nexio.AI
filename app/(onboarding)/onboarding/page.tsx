@@ -1,16 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import {
   Building2, User, Phone, Upload, ChevronRight, ChevronLeft,
-  Check, Play, MessageSquare, Users, Bot, Zap,
-  ArrowRight, Loader2, X, Star, CreditCard,
+  Check, Play, MessageSquare, Users, Bot, Zap, ArrowRight,
+  Loader2, X, Star, CreditCard, Briefcase, LayoutGrid,
 } from 'lucide-react';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 interface FormData {
   userName: string;
   companyName: string;
@@ -36,157 +35,109 @@ const SIZES = [
 
 const PLANS = [
   {
-    id: 'starter',
-    name: 'Starter',
-    price: 'R$ 197',
-    period: '/mês',
-    badge: null,
-    features: [
-      '1 número WhatsApp',
-      'CRM até 500 leads',
-      'Agente IA SDR',
-      'Relatórios básicos',
-    ],
+    id: 'starter', name: 'Starter', price: 'R$ 197', period: '/mês', badge: null,
+    features: ['1 número WhatsApp', 'CRM até 500 leads', 'Agente IA SDR', 'Relatórios básicos'],
   },
   {
-    id: 'pro',
-    name: 'Pro',
-    price: 'R$ 397',
-    period: '/mês',
-    badge: 'Mais popular',
-    features: [
-      '3 números WhatsApp',
-      'CRM ilimitado',
-      'Agente IA SDR avançado',
-      'Agendamento automático',
-      'Relatórios completos',
-      'Suporte prioritário',
-    ],
+    id: 'pro', name: 'Pro', price: 'R$ 397', period: '/mês', badge: 'Mais popular',
+    features: ['3 números WhatsApp', 'CRM ilimitado', 'IA SDR avançada', 'Agendamento automático', 'Suporte prioritário'],
   },
   {
-    id: 'scale',
-    name: 'Scale',
-    price: 'R$ 797',
-    period: '/mês',
-    badge: null,
-    features: [
-      'Números ilimitados',
-      'CRM ilimitado + API',
-      'Múltiplos agentes IA',
-      'White-label',
-      'Integrações avançadas',
-      'Gerente de conta dedicado',
-    ],
+    id: 'scale', name: 'Scale', price: 'R$ 797', period: '/mês', badge: null,
+    features: ['Números ilimitados', 'CRM + API', 'Múltiplos agentes IA', 'White-label', 'Gerente dedicado'],
   },
 ];
 
-const FIRST_STEPS = [
-  {
-    icon: <MessageSquare className="h-6 w-6 text-[#369E47]" />,
-    title: 'Conectar seu WhatsApp',
-    description: 'Escaneie o QR Code e comece a atender clientes em minutos.',
-    videoUrl: null,
-  },
-  {
-    icon: <Users className="h-6 w-6 text-[#369E47]" />,
-    title: 'Adicionar seu primeiro lead',
-    description: 'Importe contatos ou adicione manualmente no CRM Kanban.',
-    videoUrl: null,
-  },
-  {
-    icon: <Bot className="h-6 w-6 text-[#369E47]" />,
-    title: 'Ativar o agente de IA',
-    description: 'Configure o SDR para responder automaticamente 24h/dia.',
-    videoUrl: null,
-  },
-  {
-    icon: <Zap className="h-6 w-6 text-[#369E47]" />,
-    title: 'Enviar sua primeira mensagem',
-    description: 'Use o painel de Atendimento para falar com seus leads.',
-    videoUrl: null,
-  },
+const STEPS_META = [
+  { label: 'Sua empresa', icon: <Building2 className="h-4 w-4" /> },
+  { label: 'Sobre você',  icon: <Briefcase className="h-4 w-4" /> },
+  { label: 'Logo',        icon: <LayoutGrid className="h-4 w-4" /> },
+  { label: 'Primeiros passos', icon: <Zap className="h-4 w-4" /> },
+  { label: 'Plano',       icon: <Star className="h-4 w-4" /> },
 ];
 
-const TOTAL_STEPS = 5;
+const TOTAL = STEPS_META.length;
 
-// ─── Shared input style ───────────────────────────────────────────────────────
-const inputCls = 'w-full bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:border-[#369E47] focus:ring-1 focus:ring-[#369E47]/40 transition-colors';
-const chipActive = 'bg-[#369E47]/20 border-[#369E47] text-green-300';
-const chipIdle = 'bg-slate-800/60 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-300';
+// ── shared styles ─────────────────────────────────────────────────────────────
+const inputCls = `w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 text-sm
+  placeholder:text-gray-400 bg-white focus:outline-none focus:border-[#369E47]
+  focus:ring-2 focus:ring-[#369E47]/15 transition-all`;
 
-// ─── Steps ───────────────────────────────────────────────────────────────────
+// ── Steps ─────────────────────────────────────────────────────────────────────
 
-function StepWelcome({ data, onChange, userEmail }: { data: FormData; onChange: (f: Partial<FormData>) => void; userEmail: string }) {
+function StepEmpresa({ data, onChange }: { data: FormData; onChange: (f: Partial<FormData>) => void }) {
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Bem-vindo ao zaapli!</h1>
-        <p className="text-slate-400 text-lg">Vamos configurar sua conta em menos de 3 minutos.</p>
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Como se chama sua empresa?</h2>
+        <p className="text-gray-500 mt-1 text-sm">Esse nome vai aparecer no sistema e nos documentos.</p>
       </div>
-
-      <div className="space-y-4">
+      <div className="space-y-4 pt-2">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            <User className="h-4 w-4 inline mr-1.5" />Seu nome
-          </label>
-          <input type="text" value={data.userName} onChange={e => onChange({ userName: e.target.value })}
-            placeholder="Como prefere ser chamado?" className={inputCls} />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            <Building2 className="h-4 w-4 inline mr-1.5" />Nome da empresa <span className="text-[#369E47]">*</span>
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome da empresa <span className="text-[#369E47]">*</span></label>
           <input type="text" value={data.companyName} onChange={e => onChange({ companyName: e.target.value })}
             placeholder="Ex: Acme Soluções" className={inputCls} autoFocus />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-500 mb-2">E-mail</label>
-          <input type="email" value={userEmail} disabled
-            className="w-full bg-slate-800/30 border border-slate-700/50 rounded-xl px-4 py-3 text-slate-400 cursor-not-allowed" />
-          <p className="text-xs text-slate-600 mt-1 ml-1">Vinculado à sua conta</p>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Seu nome</label>
+          <input type="text" value={data.userName} onChange={e => onChange({ userName: e.target.value })}
+            placeholder="Como você prefere ser chamado?" className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">E-mail</label>
+          <input type="email" value={data.companyPhone} disabled
+            className="w-full border border-gray-100 rounded-xl px-4 py-3 text-gray-400 text-sm bg-gray-50 cursor-not-allowed" />
+          <p className="text-xs text-gray-400 mt-1">Vinculado à sua conta</p>
         </div>
       </div>
     </div>
   );
 }
 
-function StepAbout({ data, onChange }: { data: FormData; onChange: (f: Partial<FormData>) => void }) {
+function StepSobre({ data, onChange }: { data: FormData; onChange: (f: Partial<FormData>) => void }) {
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Sobre sua empresa</h2>
-        <p className="text-slate-400">Ajuda a personalizar sua experiência.</p>
-      </div>
-
+    <div className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          <Phone className="h-4 w-4 inline mr-1.5" />Telefone / WhatsApp da empresa
-        </label>
-        <input type="tel" value={data.companyPhone} onChange={e => onChange({ companyPhone: e.target.value })}
-          placeholder="+55 (11) 99999-9999" className={inputCls} />
+        <h2 className="text-2xl font-bold text-gray-900">Conta mais sobre a empresa</h2>
+        <p className="text-gray-500 mt-1 text-sm">Vamos personalizar a experiência para o seu mercado.</p>
       </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-3">Segmento de atuação</label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {SEGMENTS.map(seg => (
-            <button key={seg} type="button" onClick={() => onChange({ segment: seg })}
-              className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left border ${data.segment === seg ? chipActive : chipIdle}`}>
-              {seg}
-            </button>
-          ))}
+      <div className="space-y-5 pt-2">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <Phone className="h-4 w-4 inline mr-1 text-gray-400" />WhatsApp da empresa
+          </label>
+          <input type="tel" value={data.companyPhone} onChange={e => onChange({ companyPhone: e.target.value })}
+            placeholder="+55 (11) 99999-9999" className={inputCls} />
         </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-3">Tamanho da equipe</label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {SIZES.map(s => (
-            <button key={s.value} type="button" onClick={() => onChange({ companySize: s.value })}
-              className={`px-4 py-3 rounded-xl text-sm font-medium transition-all border ${data.companySize === s.value ? chipActive : chipIdle}`}>
-              {s.label}
-            </button>
-          ))}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Segmento de atuação</label>
+          <div className="grid grid-cols-3 gap-2">
+            {SEGMENTS.map(seg => (
+              <button key={seg} type="button" onClick={() => onChange({ segment: seg })}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all border text-left ${
+                  data.segment === seg
+                    ? 'bg-[#369E47]/10 border-[#369E47] text-[#369E47] font-semibold'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}>
+                {seg}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tamanho da equipe</label>
+          <div className="flex flex-wrap gap-2">
+            {SIZES.map(s => (
+              <button key={s.value} type="button" onClick={() => onChange({ companySize: s.value })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                  data.companySize === s.value
+                    ? 'bg-[#369E47]/10 border-[#369E47] text-[#369E47] font-semibold'
+                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -208,153 +159,162 @@ function StepLogo({ data, onChange }: { data: FormData; onChange: (f: Partial<Fo
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from('company-assets').getPublicUrl(path);
       onChange({ logoUrl: publicUrl });
-    } catch (e) {
-      console.error('Logo upload error:', e);
-    } finally {
-      setUploading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setUploading(false); }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Logo da empresa</h2>
-        <p className="text-slate-400">Opcional — aparece no sistema e nos documentos.</p>
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Adicione a logo da empresa</h2>
+        <p className="text-gray-500 mt-1 text-sm">Opcional. Aparece no sistema e nos documentos gerados.</p>
       </div>
-
       <div
-        className="relative cursor-pointer border-2 border-dashed border-slate-700 hover:border-[#369E47] rounded-2xl p-10 flex flex-col items-center gap-4 transition-colors"
         onClick={() => fileRef.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+        className="mt-4 cursor-pointer border-2 border-dashed border-gray-200 hover:border-[#369E47] rounded-2xl p-12 flex flex-col items-center gap-3 transition-colors group"
       >
         <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
-
         {uploading ? (
           <Loader2 className="h-10 w-10 text-[#369E47] animate-spin" />
         ) : data.logoUrl ? (
           <div className="relative">
-            <img src={data.logoUrl} alt="Logo" className="h-24 w-auto object-contain rounded-xl" />
-            <button type="button"
-              onClick={e => { e.stopPropagation(); onChange({ logoUrl: null }); }}
+            <img src={data.logoUrl} alt="Logo" className="h-24 w-auto object-contain" />
+            <button type="button" onClick={e => { e.stopPropagation(); onChange({ logoUrl: null }); }}
               className="absolute -top-2 -right-2 bg-red-500 rounded-full p-0.5 text-white hover:bg-red-600">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
         ) : (
           <>
-            <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center">
-              <Upload className="h-7 w-7 text-slate-500" />
+            <div className="w-14 h-14 rounded-xl bg-gray-100 group-hover:bg-[#369E47]/10 flex items-center justify-center transition-colors">
+              <Upload className="h-6 w-6 text-gray-400 group-hover:text-[#369E47] transition-colors" />
             </div>
             <div className="text-center">
-              <p className="text-slate-300 font-medium">Clique ou arraste sua logo aqui</p>
-              <p className="text-slate-500 text-sm mt-1">PNG, JPG, SVG — até 5 MB</p>
+              <p className="font-medium text-gray-700">Clique ou arraste sua logo aqui</p>
+              <p className="text-sm text-gray-400 mt-0.5">PNG, JPG ou SVG — até 5 MB</p>
             </div>
           </>
         )}
       </div>
-      <p className="text-center text-slate-500 text-sm">Pode adicionar depois nas configurações.</p>
+      <p className="text-sm text-gray-400 text-center">Pode pular e adicionar depois em Configurações.</p>
     </div>
   );
 }
 
-function StepFirstSteps() {
-  const [done, setDone] = useState<number[]>([]);
+const GUIDE_STEPS = [
+  { icon: <MessageSquare className="h-5 w-5 text-[#369E47]" />, title: 'Conectar seu WhatsApp', desc: 'Escaneie o QR Code no painel de Atendimento.', time: '2 min' },
+  { icon: <Users className="h-5 w-5 text-[#369E47]" />, title: 'Adicionar seu primeiro lead', desc: 'Importe uma lista ou cadastre manualmente no CRM.', time: '3 min' },
+  { icon: <Bot className="h-5 w-5 text-[#369E47]" />, title: 'Ativar o agente de IA', desc: 'Configure o SDR para atender automaticamente 24h.', time: '5 min' },
+  { icon: <Zap className="h-5 w-5 text-[#369E47]" />, title: 'Enviar sua primeira mensagem', desc: 'Use o Atendimento para falar com um lead agora.', time: '1 min' },
+];
 
+function StepPrimeiros() {
+  const [done, setDone] = useState<number[]>([]);
   return (
     <div className="space-y-5">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Seus primeiros passos</h2>
-        <p className="text-slate-400">Guias rápidos para você começar a usar o zaapli.</p>
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">O que fazer primeiro</h2>
+        <p className="text-gray-500 mt-1 text-sm">Quatro passos para tirar o máximo do zaapli desde o início.</p>
       </div>
-
-      <div className="grid gap-3">
-        {FIRST_STEPS.map((step, i) => (
-          <div key={i}
-            className={`bg-slate-800/60 border rounded-xl p-4 flex items-start gap-4 transition-all ${done.includes(i) ? 'border-[#369E47]/50 bg-[#369E47]/5' : 'border-slate-700'}`}>
-            <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-slate-700/60 flex items-center justify-center">
-              {step.icon}
+      <div className="space-y-3 pt-2">
+        {GUIDE_STEPS.map((s, i) => (
+          <div key={i} onClick={() => setDone(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])}
+            className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all select-none ${
+              done.includes(i) ? 'border-[#369E47]/30 bg-[#369E47]/5' : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}>
+            <div className="w-10 h-10 rounded-lg bg-[#369E47]/10 flex items-center justify-center flex-shrink-0">
+              {s.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-white text-sm">{step.title}</p>
-              <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{step.description}</p>
-              <button type="button"
-                className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#369E47] hover:text-green-300 transition-colors">
-                <Play className="h-3.5 w-3.5 opacity-50" />
-                <span className="opacity-60">Vídeo em breve</span>
-              </button>
+              <p className={`text-sm font-semibold ${done.includes(i) ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{s.title}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{s.desc}</p>
             </div>
-            <button type="button"
-              onClick={() => setDone(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
-              className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${done.includes(i) ? 'bg-[#369E47] border-[#369E47]' : 'border-slate-600 hover:border-slate-400'}`}>
-              {done.includes(i) && <Check className="h-3.5 w-3.5 text-white" />}
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{s.time}</span>
+              {/* video placeholder */}
+              <button type="button" onClick={e => e.stopPropagation()}
+                className="w-7 h-7 rounded-full bg-gray-100 hover:bg-[#369E47]/10 flex items-center justify-center transition-colors"
+                title="Vídeo em breve">
+                <Play className="h-3 w-3 text-gray-400" />
+              </button>
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                done.includes(i) ? 'bg-[#369E47] border-[#369E47]' : 'border-gray-300'
+              }`}>
+                {done.includes(i) && <Check className="h-3 w-3 text-white" />}
+              </div>
+            </div>
           </div>
         ))}
       </div>
-      <p className="text-slate-500 text-xs text-center">Pode continuar sem marcar — acesse quando quiser em Ajuda.</p>
+      <p className="text-xs text-gray-400 text-center">Pode pular — os guias ficam disponíveis em Ajuda.</p>
     </div>
   );
 }
 
-function StepPlan({ data, onChange }: { data: FormData; onChange: (f: Partial<FormData>) => void }) {
+function StepPlano({ data, onChange }: { data: FormData; onChange: (f: Partial<FormData>) => void }) {
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Escolha seu plano</h2>
-        <p className="text-slate-400">Comece grátis por 14 dias. Cancele quando quiser.</p>
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Escolha seu plano</h2>
+        <p className="text-gray-500 mt-1 text-sm">14 dias grátis em qualquer plano. Sem cartão agora.</p>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 pt-2">
         {PLANS.map(plan => (
           <button key={plan.id} type="button" onClick={() => onChange({ planType: plan.id })}
-            className={`relative text-left rounded-2xl border-2 p-5 transition-all ${
+            className={`relative text-left rounded-xl border-2 p-4 transition-all ${
               data.planType === plan.id
-                ? 'border-[#369E47] bg-[#369E47]/10'
-                : 'border-slate-700 bg-slate-800/40 hover:bg-slate-800/70'
+                ? 'border-[#369E47] bg-[#369E47]/5'
+                : 'border-gray-200 bg-white hover:border-gray-300'
             }`}>
             {plan.badge && (
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#369E47] text-white text-xs font-semibold px-3 py-0.5 rounded-full flex items-center gap-1">
-                <Star className="h-3 w-3" />{plan.badge}
+              <span className="absolute top-4 right-4 bg-[#369E47] text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                {plan.badge}
               </span>
             )}
-            <p className="font-bold text-white text-lg">{plan.name}</p>
-            <div className="flex items-baseline gap-1 mt-1 mb-4">
-              <span className="text-2xl font-black text-white">{plan.price}</span>
-              <span className="text-slate-400 text-sm">{plan.period}</span>
+            <div className="flex items-center gap-4">
+              <div>
+                <p className="font-bold text-gray-900">{plan.name}</p>
+                <div className="flex items-baseline gap-0.5 mt-0.5">
+                  <span className="text-xl font-black text-gray-900">{plan.price}</span>
+                  <span className="text-gray-400 text-xs">{plan.period}</span>
+                </div>
+              </div>
+              <div className="h-10 w-px bg-gray-100 mx-2" />
+              <ul className="flex flex-wrap gap-x-4 gap-y-1">
+                {plan.features.map((f, i) => (
+                  <li key={i} className="flex items-center gap-1 text-xs text-gray-500">
+                    <Check className="h-3 w-3 text-[#369E47] flex-shrink-0" />{f}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-2">
-              {plan.features.map((f, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                  <Check className="h-4 w-4 text-[#369E47] flex-shrink-0 mt-0.5" />{f}
-                </li>
-              ))}
-            </ul>
             {data.planType === plan.id && (
-              <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-[#369E47] flex items-center justify-center">
-                <Check className="h-3 w-3 text-white" />
+              <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-[#369E47] flex items-center justify-center">
+                <Check className="h-2.5 w-2.5 text-white" />
               </div>
             )}
           </button>
         ))}
       </div>
-
-      <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-4 flex items-start gap-3">
-        <CreditCard className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-slate-300 text-sm font-medium">14 dias grátis, sem cartão agora</p>
-          <p className="text-slate-500 text-xs mt-0.5">Você insere os dados de pagamento só ao final do trial.</p>
-        </div>
+      <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+        <CreditCard className="h-5 w-5 text-gray-400 flex-shrink-0" />
+        <p className="text-sm text-gray-500">
+          Dados de pagamento só são pedidos <strong className="text-gray-700">após o trial de 14 dias</strong>. Cancele quando quiser.
+        </p>
       </div>
     </div>
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState<'fwd' | 'bwd'>('fwd');
+  const [animKey, setAnimKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [data, setData] = useState<FormData>({
@@ -363,17 +323,24 @@ export default function OnboardingPage() {
   });
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       setUserEmail(user.email ?? '');
       const name = user.user_metadata?.full_name || user.user_metadata?.name || '';
-      if (name) setData(prev => ({ ...prev, userName: name }));
+      if (name) setData(p => ({ ...p, userName: name }));
     });
   }, []);
 
-  const onChange = (fields: Partial<FormData>) => setData(prev => ({ ...prev, ...fields }));
-  const canAdvance = () => step === 1 ? data.companyName.trim().length > 0 : true;
+  const onChange = (fields: Partial<FormData>) => setData(p => ({ ...p, ...fields }));
+
+  const go = (next: number) => {
+    setDirection(next > step ? 'fwd' : 'bwd');
+    setStep(next);
+    setAnimKey(k => k + 1);
+  };
+
+  const canNext = step === 1 ? data.companyName.trim().length > 0 : true;
+  const optional = [2, 3, 4].includes(step);
 
   async function handleFinish() {
     setSaving(true);
@@ -390,74 +357,94 @@ export default function OnboardingPage() {
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
       router.push('/dashboard');
-    } catch (e: any) {
-      alert('Erro ao salvar. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
+    } catch { alert('Erro ao salvar. Tente novamente.'); }
+    finally { setSaving(false); }
   }
 
-  const progress = ((step - 1) / (TOTAL_STEPS - 1)) * 100;
+  const slideIn = direction === 'fwd'
+    ? 'animate-in slide-in-from-right-6 fade-in duration-300'
+    : 'animate-in slide-in-from-left-6 fade-in duration-300';
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-white flex">
 
-      {/* Logo real do produto */}
-      <div className="mb-10">
-        <ZaapliLogo iconSize={36} theme="dark" />
-      </div>
+      {/* ── Sidebar esquerda ─────────────────────────────────────────── */}
+      <aside className="hidden lg:flex flex-col w-72 xl:w-80 border-r border-gray-100 bg-gray-50/60 px-8 py-10 flex-shrink-0">
+        <ZaapliLogo iconSize={32} theme="light" />
 
-      {/* Barra de progresso */}
-      <div className="w-full max-w-2xl mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-slate-500 text-xs">Etapa {step} de {TOTAL_STEPS}</span>
-          <span className="text-slate-500 text-xs">{Math.round(progress)}% concluído</span>
+        <div className="mt-12 space-y-1">
+          {STEPS_META.map((s, i) => {
+            const n = i + 1;
+            const done = step > n;
+            const active = step === n;
+            return (
+              <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-white shadow-sm' : ''}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all text-sm font-bold ${
+                  done ? 'bg-[#369E47] text-white' :
+                  active ? 'bg-[#369E47]/10 text-[#369E47] ring-2 ring-[#369E47]/20' :
+                  'bg-gray-100 text-gray-400'
+                }`}>
+                  {done ? <Check className="h-3.5 w-3.5" /> : n}
+                </div>
+                <span className={`text-sm font-medium transition-colors ${
+                  active ? 'text-gray-900' : done ? 'text-gray-500' : 'text-gray-400'
+                }`}>{s.label}</span>
+              </div>
+            );
+          })}
         </div>
-        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-          <div className="h-full bg-[#369E47] rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-        </div>
-        <div className="flex items-center justify-between mt-3">
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <div key={i} className={`w-2 h-2 rounded-full transition-all ${
-              i + 1 < step ? 'bg-[#369E47]' :
-              i + 1 === step ? 'bg-[#369E47] ring-4 ring-[#369E47]/20' :
-              'bg-slate-700'
-            }`} />
-          ))}
-        </div>
-      </div>
 
-      {/* Card */}
-      <div className="w-full max-w-2xl bg-slate-900/80 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-sm">
-        {step === 1 && <StepWelcome data={data} onChange={onChange} userEmail={userEmail} />}
-        {step === 2 && <StepAbout data={data} onChange={onChange} />}
-        {step === 3 && <StepLogo data={data} onChange={onChange} />}
-        {step === 4 && <StepFirstSteps />}
-        {step === 5 && <StepPlan data={data} onChange={onChange} />}
+        <div className="mt-auto pt-8">
+          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className="h-full bg-[#369E47] rounded-full transition-all duration-500"
+              style={{ width: `${((step - 1) / (TOTAL - 1)) * 100}%` }} />
+          </div>
+          <p className="text-xs text-gray-400 mt-2">{Math.round(((step - 1) / (TOTAL - 1)) * 100)}% concluído</p>
+        </div>
+      </aside>
 
-        {/* Navegação */}
-        <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-800">
-          <button type="button" onClick={() => setStep(s => s - 1)} disabled={step === 1}
-            className="flex items-center gap-2 text-slate-400 hover:text-slate-200 disabled:opacity-0 disabled:pointer-events-none transition-colors text-sm">
+      {/* ── Conteúdo principal ──────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col">
+
+        {/* Top bar mobile */}
+        <div className="flex lg:hidden items-center justify-between px-6 py-4 border-b border-gray-100">
+          <ZaapliLogo iconSize={28} theme="light" />
+          <span className="text-xs text-gray-400">{step} / {TOTAL}</span>
+        </div>
+
+        {/* Step content */}
+        <div className="flex-1 flex items-center justify-center px-6 py-10 lg:px-16 xl:px-24">
+          <div key={animKey} className={`w-full max-w-xl ${slideIn}`}>
+            {step === 1 && <StepEmpresa data={data} onChange={onChange} />}
+            {step === 2 && <StepSobre data={data} onChange={onChange} />}
+            {step === 3 && <StepLogo data={data} onChange={onChange} />}
+            {step === 4 && <StepPrimeiros />}
+            {step === 5 && <StepPlano data={data} onChange={onChange} />}
+          </div>
+        </div>
+
+        {/* Bottom nav */}
+        <div className="border-t border-gray-100 px-6 py-4 lg:px-16 xl:px-24 flex items-center justify-between bg-white">
+          <button type="button" disabled={step === 1} onClick={() => go(step - 1)}
+            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 disabled:opacity-0 disabled:pointer-events-none transition-colors font-medium">
             <ChevronLeft className="h-4 w-4" />Voltar
           </button>
 
           <div className="flex items-center gap-3">
-            {(step === 2 || step === 3 || step === 4) && (
-              <button type="button" onClick={() => setStep(s => s + 1)}
-                className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
-                Pular
+            {optional && (
+              <button type="button" onClick={() => go(step + 1)}
+                className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+                Pular esta etapa
               </button>
             )}
-
-            {step < TOTAL_STEPS ? (
-              <button type="button" onClick={() => setStep(s => s + 1)} disabled={!canAdvance()}
-                className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-2.5 rounded-xl transition-colors">
-                Continuar<ChevronRight className="h-4 w-4" />
+            {step < TOTAL ? (
+              <button type="button" onClick={() => go(step + 1)} disabled={!canNext}
+                className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors shadow-sm">
+                Continuar <ChevronRight className="h-4 w-4" />
               </button>
             ) : (
               <button type="button" onClick={handleFinish} disabled={saving}
-                className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-60 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors">
+                className="flex items-center gap-2 bg-[#369E47] hover:bg-[#2d8a3e] disabled:opacity-60 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors shadow-sm">
                 {saving
                   ? <><Loader2 className="h-4 w-4 animate-spin" />Criando conta...</>
                   : <><ArrowRight className="h-4 w-4" />Começar a usar</>}
@@ -466,13 +453,6 @@ export default function OnboardingPage() {
           </div>
         </div>
       </div>
-
-      <p className="mt-6 text-slate-600 text-xs">
-        Ao continuar você concorda com nossos{' '}
-        <a href="#" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Termos de Uso</a>
-        {' '}e{' '}
-        <a href="#" className="text-slate-400 underline underline-offset-2 hover:text-slate-300">Política de Privacidade</a>.
-      </p>
     </div>
   );
 }
