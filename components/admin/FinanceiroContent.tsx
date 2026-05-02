@@ -1,392 +1,268 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DollarSign, TrendingUp, TrendingDown, Wallet, Plus } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { toast } from '@/components/ui/use-toast';
-import { useRouter } from 'next/navigation';
+  TrendingUp, Zap, Clock, Users, CheckCircle2, AlertCircle, XCircle,
+} from 'lucide-react';
 
-interface TransacaoData {
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface Subscription {
+  id: number;
+  name: string;
+  email: string;
+  plan_type: string | null;
+  plan_name: string | null;
+  asaas_subscription_id: string | null;
+  subscription_start_date: string | null;
+  subscription_expires_at: string | null;
+  is_active: boolean;
+}
+
+interface TokenCharge {
   id: string;
-  tipo: 'receita' | 'despesa';
-  categoria: string;
-  valor: number;
-  descricao: string;
-  company_id?: string;
-  company?: { name: string };
-  data_transacao: string;
+  amount: number;
+  tokens_to_grant: number;
+  status: 'pending' | 'confirmed' | 'overdue' | 'cancelled';
+  confirmed_at: string | null;
   created_at: string;
-  metodo_pagamento?: string;
-  status: 'pendente' | 'concluida' | 'cancelada';
+  valid_until: string | null;
+  company: { name: string } | null;
 }
 
-interface FinanceiroContentProps {
-  transacoes: TransacaoData[];
-  stats: {
-    receitas: number;
-    despesas: number;
-    saldo: number;
-    total: number;
-  };
+interface Stats {
+  mrr: number;
+  activeSubs: number;
+  tokenRevenue: number;
+  pendingAmount: number;
+  pendingCount: number;
 }
 
-export function FinanceiroContent({ transacoes: initialTransacoes, stats }: FinanceiroContentProps) {
-  const router = useRouter();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [filter, setFilter] = useState<string>('todas');
+interface Props {
+  subscriptions: Subscription[];
+  tokenCharges: TokenCharge[];
+  stats: Stats;
+}
 
-  // Form state
-  const [tipo, setTipo] = useState<'receita' | 'despesa'>('receita');
-  const [categoria, setCategoria] = useState('');
-  const [valor, setValor] = useState('');
-  const [descricao, setDescricao] = useState('');
-  const [dataTransacao, setDataTransacao] = useState(new Date().toISOString().split('T')[0]);
-  const [metodoPagamento, setMetodoPagamento] = useState('');
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const brl = (n: number) =>
+  n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const categorias = {
-    receita: ['Assinatura', 'Consultoria', 'Venda', 'Outro'],
-    despesa: ['Servidor', 'Marketing', 'Salários', 'Infraestrutura', 'Outro'],
-  };
+const dateBR = (s: string | null) =>
+  s ? new Date(s).toLocaleDateString('pt-BR') : '—';
 
-  const handleCreateTransacao = async () => {
-    if (!categoria || !valor || !descricao) {
-      toast({ title: 'Preencha todos os campos obrigatórios', variant: 'destructive' });
-      return;
-    }
+const tkFmt = (n: number) =>
+  n >= 1_000_000 ? `${n / 1_000_000}M` : `${n / 1_000}K`;
 
-    setIsSubmitting(true);
-    try {
-      const supabase = createClient();
+const PLAN_LABELS: Record<string, string> = {
+  basic: 'Basic', starter: 'Starter', pro: 'Pro', scale: 'Scale',
+};
 
-      await supabase.from('transacoes_financeiras').insert({
-        tipo,
-        categoria,
-        valor: parseFloat(valor),
-        descricao,
-        data_transacao: dataTransacao,
-        metodo_pagamento: metodoPagamento || null,
-        status: 'concluida',
-      });
+const PLAN_COLORS: Record<string, string> = {
+  basic:   'bg-gray-100 text-gray-600',
+  starter: 'bg-blue-100 text-blue-700',
+  pro:     'bg-purple-100 text-purple-700',
+  scale:   'bg-amber-100 text-amber-700',
+};
 
-      toast({ title: 'Transação criada com sucesso!' });
-      setIsDialogOpen(false);
-      resetForm();
-      router.refresh();
-    } catch (error) {
-      toast({ title: 'Erro ao criar transação', variant: 'destructive' });
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+function StatusBadge({ expires }: { expires: string | null }) {
+  if (!expires) return <Badge variant="outline">Sem data</Badge>;
+  const active = new Date(expires) > new Date();
+  return active
+    ? <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full"><CheckCircle2 className="h-3 w-3" />Ativa</span>
+    : <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full"><XCircle className="h-3 w-3" />Expirada</span>;
+}
 
-  const resetForm = () => {
-    setTipo('receita');
-    setCategoria('');
-    setValor('');
-    setDescricao('');
-    setDataTransacao(new Date().toISOString().split('T')[0]);
-    setMetodoPagamento('');
-  };
+function ChargeStatus({ status }: { status: TokenCharge['status'] }) {
+  if (status === 'confirmed')
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full"><CheckCircle2 className="h-3 w-3" />Confirmado</span>;
+  if (status === 'pending')
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full"><Clock className="h-3 w-3" />Pendente</span>;
+  if (status === 'overdue')
+    return <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full"><AlertCircle className="h-3 w-3" />Vencido</span>;
+  return <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full"><XCircle className="h-3 w-3" />Cancelado</span>;
+}
 
-  const filteredTransacoes = filter === 'todas'
-    ? initialTransacoes
-    : initialTransacoes.filter(t => t.tipo === filter);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+// ── Component ──────────────────────────────────────────────────────────────────
+export function FinanceiroContent({ subscriptions, tokenCharges, stats }: Props) {
+  const [tab, setTab] = useState<'assinaturas' | 'tokens'>('assinaturas');
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Financeiro</h1>
-          <p className="text-muted-foreground">
-            Gerencie receitas e despesas da plataforma
+      <div>
+        <h1 className="text-2xl font-bold">Financeiro</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Assinaturas e recargas de tokens via ASAAS
+        </p>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">MRR</p>
+            <TrendingUp className="h-4 w-4 text-[#369E47]" />
+          </div>
+          <p className="text-2xl font-black text-[#369E47]">{brl(stats.mrr)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{stats.activeSubs} assinatura{stats.activeSubs !== 1 ? 's' : ''} ativa{stats.activeSubs !== 1 ? 's' : ''}</p>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tokens</p>
+            <Zap className="h-4 w-4 text-purple-500" />
+          </div>
+          <p className="text-2xl font-black">{brl(stats.tokenRevenue)}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {tokenCharges.filter(c => c.status === 'confirmed').length} recarga{tokenCharges.filter(c => c.status === 'confirmed').length !== 1 ? 's' : ''} confirmada{tokenCharges.filter(c => c.status === 'confirmed').length !== 1 ? 's' : ''}
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Transação
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Transação</DialogTitle>
-              <DialogDescription>
-                Adicione uma nova receita ou despesa
-              </DialogDescription>
-            </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="tipo">Tipo</Label>
-                <Select value={tipo} onValueChange={(value: 'receita' | 'despesa') => {
-                  setTipo(value);
-                  setCategoria('');
-                }}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="receita">Receita</SelectItem>
-                    <SelectItem value="despesa">Despesa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="categoria">Categoria</Label>
-                <Select value={categoria} onValueChange={setCategoria}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categorias[tipo].map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="valor">Valor (R$)</Label>
-                <Input
-                  id="valor"
-                  type="number"
-                  step="0.01"
-                  value={valor}
-                  onChange={(e) => setValor(e.target.value)}
-                  placeholder="0.00"
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="data">Data da Transação</Label>
-                <Input
-                  id="data"
-                  type="date"
-                  value={dataTransacao}
-                  onChange={(e) => setDataTransacao(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="metodo">Método de Pagamento</Label>
-                <Select value={metodoPagamento} onValueChange={setMetodoPagamento}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione um método" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="boleto">Boleto</SelectItem>
-                    <SelectItem value="cartao">Cartão de Crédito</SelectItem>
-                    <SelectItem value="transferencia">Transferência</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea
-                  id="descricao"
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  placeholder="Descreva a transação..."
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateTransacao} disabled={isSubmitting}>
-                {isSubmitting ? 'Criando...' : 'Criar Transação'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Receitas</p>
-              <p className="text-2xl font-bold text-green-500">
-                {formatCurrency(stats.receitas)}
-              </p>
-            </div>
-            <TrendingUp className="h-8 w-8 text-green-500" />
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pendentes</p>
+            <Clock className="h-4 w-4 text-amber-500" />
           </div>
+          <p className="text-2xl font-black text-amber-600">{brl(stats.pendingAmount)}</p>
+          <p className="text-xs text-muted-foreground mt-1">{stats.pendingCount} aguardando pagamento</p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Despesas</p>
-              <p className="text-2xl font-bold text-red-500">
-                {formatCurrency(stats.despesas)}
-              </p>
-            </div>
-            <TrendingDown className="h-8 w-8 text-red-500" />
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Receita total</p>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Saldo</p>
-              <p className={`text-2xl font-bold ${stats.saldo >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {formatCurrency(stats.saldo)}
-              </p>
-            </div>
-            <Wallet className="h-8 w-8 text-muted-foreground" />
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Total Transações</p>
-              <p className="text-2xl font-bold">{stats.total}</p>
-            </div>
-            <DollarSign className="h-8 w-8 text-muted-foreground" />
-          </div>
+          <p className="text-2xl font-black">{brl(stats.mrr + stats.tokenRevenue)}</p>
+          <p className="text-xs text-muted-foreground mt-1">MRR + tokens</p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2">
-        <Button
-          variant={filter === 'todas' ? 'default' : 'outline'}
-          onClick={() => setFilter('todas')}
-        >
-          Todas
-        </Button>
-        <Button
-          variant={filter === 'receita' ? 'default' : 'outline'}
-          onClick={() => setFilter('receita')}
-        >
-          Receitas
-        </Button>
-        <Button
-          variant={filter === 'despesa' ? 'default' : 'outline'}
-          onClick={() => setFilter('despesa')}
-        >
-          Despesas
-        </Button>
+      {/* Tabs */}
+      <div className="flex gap-1 bg-muted/40 border border-border rounded-xl p-1 w-fit">
+        {([
+          { key: 'assinaturas', label: `Assinaturas (${subscriptions.length})` },
+          { key: 'tokens',      label: `Recargas de tokens (${tokenCharges.length})` },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              tab === t.key
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Transactions Table */}
-      <div className="bg-card border border-border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Data</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead>Empresa</TableHead>
-              <TableHead>Método</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredTransacoes.length === 0 ? (
+      {/* Tab: Assinaturas */}
+      {tab === 'assinaturas' && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  Nenhuma transação encontrada
-                </TableCell>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Plano</TableHead>
+                <TableHead>Valor/mês</TableHead>
+                <TableHead>Início</TableHead>
+                <TableHead>Vencimento</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>ID ASAAS</TableHead>
               </TableRow>
-            ) : (
-              filteredTransacoes.map((transacao) => (
-                <TableRow key={transacao.id}>
-                  <TableCell>
-                    {new Date(transacao.data_transacao).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={
-                        transacao.tipo === 'receita'
-                          ? 'bg-green-500'
-                          : 'bg-red-500'
-                      }
-                    >
-                      {transacao.tipo === 'receita' ? 'Receita' : 'Despesa'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{transacao.categoria}</TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {transacao.descricao}
-                  </TableCell>
-                  <TableCell>{transacao.company?.name || '-'}</TableCell>
-                  <TableCell>{transacao.metodo_pagamento || '-'}</TableCell>
-                  <TableCell
-                    className={`text-right font-semibold ${
-                      transacao.tipo === 'receita'
-                        ? 'text-green-500'
-                        : 'text-red-500'
-                    }`}
-                  >
-                    {transacao.tipo === 'receita' ? '+' : '-'}
-                    {formatCurrency(transacao.valor)}
+            </TableHeader>
+            <TableBody>
+              {subscriptions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    Nenhuma assinatura cadastrada ainda
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ) : subscriptions.map(s => (
+                <TableRow key={s.id}>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium text-sm">{s.name}</p>
+                      <p className="text-xs text-muted-foreground">{s.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PLAN_COLORS[s.plan_type ?? 'basic'] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {PLAN_LABELS[s.plan_type ?? ''] ?? s.plan_type ?? '—'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-semibold text-[#369E47]">
+                    {brl(({ starter: 1600, pro: 2000, scale: 2600 } as Record<string, number>)[s.plan_type ?? ''] ?? 0)}
+                  </TableCell>
+                  <TableCell className="text-sm">{dateBR(s.subscription_start_date)}</TableCell>
+                  <TableCell className="text-sm">{dateBR(s.subscription_expires_at)}</TableCell>
+                  <TableCell><StatusBadge expires={s.subscription_expires_at} /></TableCell>
+                  <TableCell>
+                    <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      {s.asaas_subscription_id?.slice(0, 16) ?? '—'}…
+                    </code>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Tab: Recargas de tokens */}
+      {tab === 'tokens' && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Tokens</TableHead>
+                <TableHead>Valor</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Solicitado em</TableHead>
+                <TableHead>Confirmado em</TableHead>
+                <TableHead>Válido até</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tokenCharges.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    Nenhuma recarga de tokens ainda
+                  </TableCell>
+                </TableRow>
+              ) : tokenCharges.map(c => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium text-sm">
+                    {c.company?.name ?? '—'}
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-semibold text-purple-600">
+                      +{tkFmt(c.tokens_to_grant)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-semibold">{brl(c.amount)}</TableCell>
+                  <TableCell><ChargeStatus status={c.status} /></TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {dateBR(c.created_at)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {c.confirmed_at ? dateBR(c.confirmed_at) : '—'}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {dateBR(c.valid_until)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

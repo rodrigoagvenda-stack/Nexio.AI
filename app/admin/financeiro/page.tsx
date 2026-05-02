@@ -1,47 +1,59 @@
 export const dynamic = 'force-dynamic';
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { FinanceiroContent } from '@/components/admin/FinanceiroContent';
 
 export default async function FinanceiroPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
-  // Buscar transações financeiras
-  const { data: transacoes } = await supabase
-    .from('transacoes_financeiras')
+  // ── Assinaturas ativas ─────────────────────────────────────────────────────
+  const { data: subscriptions } = await supabase
+    .from('companies')
+    .select('id, name, email, plan_type, plan_name, asaas_subscription_id, asaas_customer_id, subscription_start_date, subscription_expires_at, is_active')
+    .not('asaas_subscription_id', 'is', null)
+    .order('subscription_start_date', { ascending: false });
+
+  // ── Recargas de tokens confirmadas ─────────────────────────────────────────
+  const { data: tokenCharges } = await supabase
+    .from('extra_package_charges')
     .select(`
-      *,
+      id, amount, tokens_to_grant, status, confirmed_at, created_at, valid_until,
+      tenant_id,
       company:companies(name)
     `)
     .order('created_at', { ascending: false });
 
-  // Estatísticas
-  const { data: statsData } = await supabase
-    .from('transacoes_financeiras')
-    .select('tipo, valor');
+  // ── Recargas pendentes ─────────────────────────────────────────────────────
+  const pendingCharges = (tokenCharges ?? []).filter(c => c.status === 'pending');
 
-  const receitas = statsData
-    ?.filter(t => t.tipo === 'receita')
-    .reduce((sum, t) => sum + (t.valor || 0), 0) || 0;
+  // ── MRR (soma dos planos com subscription ativa) ───────────────────────────
+  const PLAN_PRICES: Record<string, number> = {
+    starter: 1600, pro: 2000, scale: 2600,
+  };
+  const activeSubs = (subscriptions ?? []).filter(s => {
+    if (!s.subscription_expires_at) return false;
+    return new Date(s.subscription_expires_at) > new Date();
+  });
+  const mrr = activeSubs.reduce((sum, s) => sum + (PLAN_PRICES[s.plan_type ?? ''] ?? 0), 0);
 
-  const despesas = statsData
-    ?.filter(t => t.tipo === 'despesa')
-    .reduce((sum, t) => sum + (t.valor || 0), 0) || 0;
+  // ── Receita de tokens (confirmadas) ───────────────────────────────────────
+  const tokenRevenue = (tokenCharges ?? [])
+    .filter(c => c.status === 'confirmed')
+    .reduce((sum, c) => sum + (c.amount ?? 0), 0);
 
-  const saldo = receitas - despesas;
-
-  const { count: totalTransacoes } = await supabase
-    .from('transacoes_financeiras')
-    .select('*', { count: 'exact', head: true });
+  // ── Pendentes (valor a receber) ────────────────────────────────────────────
+  const pendingAmount = pendingCharges.reduce((sum, c) => sum + (c.amount ?? 0), 0);
 
   return (
     <FinanceiroContent
-      transacoes={transacoes || []}
+      subscriptions={subscriptions ?? []}
+      tokenCharges={tokenCharges ?? []}
       stats={{
-        receitas,
-        despesas,
-        saldo,
-        total: totalTransacoes || 0,
+        mrr,
+        activeSubs: activeSubs.length,
+        tokenRevenue,
+        pendingAmount,
+        pendingCount: pendingCharges.length,
       }}
     />
   );
