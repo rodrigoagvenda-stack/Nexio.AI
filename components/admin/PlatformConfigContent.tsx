@@ -50,19 +50,6 @@ const SECTIONS = [
     info: 'URI de redirecionamento autorizada: {APP_URL}/api/google/callback',
   },
   {
-    id: 'stripe',
-    label: 'Stripe',
-    icon: CreditCard,
-    description: 'Chaves da API Stripe para processar pagamentos e gerenciar assinaturas.',
-    fields: [
-      { key: 'stripe_secret_key', label: 'Secret Key', placeholder: 'sk_live_...', sensitive: true },
-      { key: 'stripe_webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...', sensitive: true },
-      { key: 'stripe_price_starter', label: 'Price ID — Starter', placeholder: 'price_...', sensitive: false },
-      { key: 'stripe_price_pro', label: 'Price ID — Pro', placeholder: 'price_...', sensitive: false },
-      { key: 'stripe_price_scale', label: 'Price ID — Scale', placeholder: 'price_...', sensitive: false },
-    ],
-  },
-  {
     id: 'asaas',
     label: 'Asaas',
     icon: CreditCard,
@@ -114,6 +101,14 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
+      // Refetch para atualizar o estado com valores mascarados (•••) — corrige badge "Pendente"
+      const fresh = await fetch('/api/admin/platform-config');
+      if (fresh.ok) {
+        const freshData = await fresh.json();
+        setConfig((prev) => ({ ...prev, ...freshData.config }));
+      }
+
       toast({ title: `${section.label} salvo!` });
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });

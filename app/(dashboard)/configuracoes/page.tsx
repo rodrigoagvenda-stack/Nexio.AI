@@ -26,8 +26,7 @@ interface CompanyFull {
   tokens_limit?: number;
   is_active: boolean;
   subscription_expires_at?: string | null;
-  stripe_customer_id?: string | null;
-  stripe_subscription_id?: string | null;
+  asaas_subscription_id?: string | null;
 }
 
 interface GoogleStatus { connected: boolean; email: string | null }
@@ -97,7 +96,6 @@ function ConfiguracoesContent() {
   const [company, setCompany] = useState<CompanyFull | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [extraNumbers, setExtraNumbers] = useState(1);
 
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
@@ -119,7 +117,7 @@ function ConfiguracoesContent() {
   const fetchCompany = useCallback(async () => {
     if (!user?.company_id) return;
     const { data } = await createClient().from('companies')
-      .select('id,plan_type,plan_monthly_limit,tokens_used,tokens_limit,is_active,subscription_expires_at,stripe_customer_id,stripe_subscription_id')
+      .select('id,plan_type,plan_monthly_limit,tokens_used,tokens_limit,is_active,subscription_expires_at,asaas_subscription_id')
       .eq('id', user.company_id).single();
     if (data) setCompany(data as CompanyFull);
     setLoadingCompany(false);
@@ -159,21 +157,16 @@ function ConfiguracoesContent() {
   const handleCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
     try {
-      const res = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
+      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      window.location.href = d.url;
+      if (d.url) {
+        window.location.href = d.url;
+      } else {
+        toast({ title: d.message || 'Assinatura criada! Verifique seu email para o link de pagamento.' });
+        setCheckoutLoading(null);
+      }
     } catch (err: any) { toast({ title: err.message || 'Erro no checkout', variant: 'destructive' }); setCheckoutLoading(null); }
-  };
-
-  const handlePortal = async () => {
-    setPortalLoading(true);
-    try {
-      const res = await fetch('/api/stripe/portal', { method: 'POST' });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error);
-      window.location.href = d.url;
-    } catch (err: any) { toast({ title: err.message || 'Erro', variant: 'destructive' }); setPortalLoading(false); }
   };
 
   const handleGoogleDisconnect = async () => {
@@ -323,11 +316,16 @@ function ConfiguracoesContent() {
                     )}>
                       {company?.is_active ? '● Ativo' : '● Inativo'}
                     </span>
-                    {company?.stripe_subscription_id && (
-                      <Button variant="outline" size="sm" onClick={handlePortal} disabled={portalLoading} className="h-8 text-xs">
-                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <ExternalLink className="h-3.5 w-3.5 mr-1" />}
+                    {company?.asaas_subscription_id && (
+                      <a
+                        href="https://wa.me/5511999999999?text=Olá,%20preciso%20gerenciar%20minha%20assinatura%20Nexio%20AI"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 h-8 px-3 rounded-md border border-border text-xs font-medium hover:bg-accent transition-colors"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
                         Gerenciar
-                      </Button>
+                      </a>
                     )}
                   </div>
                 </div>
