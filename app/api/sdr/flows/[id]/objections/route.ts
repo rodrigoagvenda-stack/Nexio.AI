@@ -5,6 +5,41 @@ import { processKnowledgePdf } from '@/lib/sdr/rag'
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
+// GET /api/sdr/flows/:id/objections — info da base de objeções atual
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+    const { data: userData } = await supabase
+      .from('users').select('company_id').eq('auth_user_id', user.id).single()
+    if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+
+    const service = createServiceClient()
+    const { data: flow } = await service
+      .from('sdr_flows').select('vector_table_objecoes')
+      .eq('id', params.id).eq('company_id', userData.company_id).single()
+
+    if (!flow?.vector_table_objecoes) return NextResponse.json({ exists: false })
+
+    const { data: docs, count } = await service
+      .from('rag_documents')
+      .select('filename', { count: 'exact' })
+      .eq('flow_id', params.id)
+      .eq('table_name', flow.vector_table_objecoes)
+      .limit(1)
+
+    if (!docs?.length) return NextResponse.json({ exists: false })
+    return NextResponse.json({ exists: true, filename: docs[0].filename, chunks: count ?? 0 })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // POST /api/sdr/flows/:id/objections — upload PDF base de objeções
 export async function POST(
   request: NextRequest,

@@ -75,13 +75,12 @@ export async function processKnowledgePdf(params: {
   // Chunking
   const chunks = chunkText(rawText)
 
-  // Remove chunks anteriores do mesmo arquivo nesta tabela
+  // Remove TODOS os chunks anteriores desta tabela/fluxo (substituição completa)
   await supabase
     .from('rag_documents')
     .delete()
     .eq('company_id', companyId)
     .eq('flow_id', flowId)
-    .eq('filename', filename)
     .eq('table_name', tableName)
 
   // Gera embeddings em lotes de 20
@@ -156,12 +155,12 @@ export async function processKnowledgeText(params: {
 
   const chunks = chunkText(text)
 
+  // Remove TODOS os chunks anteriores desta tabela/fluxo (substituição completa)
   await supabase
     .from('rag_documents')
     .delete()
     .eq('company_id', companyId)
     .eq('flow_id', flowId)
-    .eq('filename', filename)
     .eq('table_name', tableName)
 
   const batchSize = 20

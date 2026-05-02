@@ -90,6 +90,13 @@ function Field({ label, hint, children, optional }: { label: string; hint?: stri
 
 type KBMode = 'template' | 'form' | 'pdf'
 
+interface ExistingBase { filename: string; chunks: number }
+interface PendingAction { newName: string; execute: () => void }
+
+function friendlyFilename(filename: string): string {
+  return filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
   flowId: string | null; type: 'conhecimento' | 'objecoes'
   active: boolean; onActiveChange: (v: boolean) => void
@@ -107,9 +114,27 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
       : [{ id: uid(), objecao: '', resposta: '', exemplo: '' }] as ObjectionItem[]
   )
   const fileRef = useRef<HTMLInputElement>(null)
+  const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
 
   const isConhecimento = type === 'conhecimento'
   const label = isConhecimento ? 'conhecimento' : 'objeções'
+
+  useEffect(() => {
+    if (!flowId || !active) return
+    const url = isConhecimento
+      ? `/api/sdr/flows/${flowId}/knowledge`
+      : `/api/sdr/flows/${flowId}/objections`
+    fetch(url)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.exists) setExistingBase({ filename: d.filename, chunks: d.chunks }) })
+      .catch(() => {})
+  }, [flowId, active, isConhecimento])
+
+  function withConfirm(execute: () => void, newName: string) {
+    if (!existingBase) { execute(); return }
+    setPendingAction({ newName, execute })
+  }
 
   const selectedNiche = NICHES.find((n) => n.id === selectedNicheId)
 
@@ -333,7 +358,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
 
               <Button
                 size="sm"
-                onClick={processTemplate}
+                onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'template')}
                 disabled={processing || !flowId || !selectedNicheId}
                 className="gap-1.5 text-xs h-8 w-full"
               >
@@ -377,7 +402,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
                 <Button variant="outline" size="sm" onClick={addItem} className="gap-1.5 text-xs h-8">
                   <Plus className="w-3 h-3" />Adicionar {isConhecimento ? 'pergunta' : 'objeção'}
                 </Button>
-                <Button size="sm" onClick={processForm} disabled={processing || !flowId} className="gap-1.5 text-xs h-8 min-w-[120px]">
+                <Button size="sm" onClick={() => withConfirm(processForm, `Base manual de ${label}`)} disabled={processing || !flowId} className="gap-1.5 text-xs h-8 min-w-[120px]">
                   {processing ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</> : 'Salvar na base'}
                 </Button>
               </div>
@@ -387,7 +412,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
           {/* ── PDF mode ── */}
           {mode === 'pdf' && (
             <div>
-              <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdf(f) }} />
+              <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) withConfirm(() => uploadPdf(f), f.name) }} />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={processing || !flowId}
@@ -397,6 +422,40 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
                   ? <><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">{uploadProgress}</p></>
                   : <><Upload className="w-5 h-5 text-muted-foreground" /><p className="text-sm font-medium">Clique para enviar PDF</p><p className="text-xs text-muted-foreground">Máximo 10 MB</p></>}
               </button>
+            </div>
+          )}
+
+          {pendingAction && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-3.5 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-semibold text-foreground">Substituir base de {label}?</p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Você possui <span className="font-medium text-foreground">"{friendlyFilename(existingBase!.filename)}"</span> cadastrada ({existingBase!.chunks} chunks).
+                    Ao prosseguir, ela será <span className="text-destructive font-medium">permanentemente deletada</span> e substituída por{' '}
+                    <span className="font-medium text-foreground">"{friendlyFilename(pendingAction.newName)}"</span>.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 pl-6">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => {
+                    const action = pendingAction.execute
+                    setPendingAction(null)
+                    setExistingBase(null)
+                    action()
+                  }}
+                >
+                  <ShieldAlert className="w-3 h-3" />Substituir
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPendingAction(null)}>
+                  Cancelar
+                </Button>
+              </div>
             </div>
           )}
 
