@@ -1,31 +1,28 @@
 /**
  * lib/asaas/client.ts
  * Wrapper para a API ASAAS v3.
+ * Credenciais lidas do banco via getPlatformConfig (admin → Configurações).
  * Docs: https://docs.asaas.com
  */
 
-function getBaseUrl(): string {
-  const env = process.env.ASAAS_ENV ?? 'sandbox'
-  return env === 'production'
-    ? 'https://api.asaas.com/v3'
-    : 'https://sandbox.asaas.com/api/v3'
-}
-
-function getApiKey(): string {
-  const key = process.env.ASAAS_API_KEY
-  if (!key) throw new Error('ASAAS_API_KEY não configurada')
-  return key
-}
+import { getPlatformConfig } from '@/lib/platform-config'
 
 async function asaasRequest<T = any>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   body?: object,
 ): Promise<T> {
-  const res = await fetch(`${getBaseUrl()}${path}`, {
+  const cfg = await getPlatformConfig()
+
+  const baseUrl = cfg.asaas_base_url || 'https://sandbox.asaas.com/api/v3'
+  const apiKey  = cfg.asaas_api_key
+
+  if (!apiKey) throw new Error('ASAAS API Key não configurada. Acesse Admin → Configurações → ASAAS.')
+
+  const res = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
-      'access_token': getApiKey(),
+      'access_token': apiKey,
       'Content-Type': 'application/json',
       'User-Agent': 'zaapli/1.0',
     },
