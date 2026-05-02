@@ -356,19 +356,11 @@ export default function AtendimentoPage() {
   async function handleDeleteConversation(conv: Conversation) {
     setIsDeletingConv(true);
     try {
-      // 1. Apaga todas as mensagens da conversa
-      await supabase
-        .from('mensagens_do_whatsapp')
-        .delete()
-        .eq('id_da_conversacao', conv.id)
-        .eq('company_id', company!.id);
-
-      // 2. Apaga a conversa
-      await supabase
-        .from('conversas_do_whatsapp')
-        .delete()
-        .eq('id', conv.id)
-        .eq('company_id', company!.id);
+      const res = await fetch(`/api/conversations/${conv.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Erro ao apagar conversa');
+      }
 
       setConversations(prev => prev.filter(c => c.id !== conv.id));
       if (selectedConversation?.id === conv.id) {
@@ -376,8 +368,9 @@ export default function AtendimentoPage() {
         setMessages([]);
       }
       toast({ title: 'Conversa apagada' });
-    } catch {
-      toast({ title: 'Erro ao apagar conversa', variant: 'destructive' });
+    } catch (err: any) {
+      console.error('Error deleting conversation:', err);
+      toast({ title: err.message || 'Erro ao apagar conversa', variant: 'destructive' });
     } finally {
       setIsDeletingConv(false);
       setDeleteConvDialog({ open: false, conv: null });
