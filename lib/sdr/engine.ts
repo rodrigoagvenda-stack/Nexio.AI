@@ -1270,7 +1270,8 @@ CONTEXTO DO CRM:
 
 async function ensureConversation(
   ctx: SdrContext,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  inboxMode: 'vendas' | 'suporte' = 'suporte'
 ): Promise<string> {
   // Seleciona apenas id — não depende de colunas opcionais (instance_name pode não existir)
   const { data: existing, error: selectError } = await supabase
@@ -1322,6 +1323,46 @@ async function ensureConversation(
       .update({ instance_name: ctx.instanceName })
       .eq('id', created.id)
       .then((_r: any) => {/* best-effort */}, () => {/* ignored */})
+  }
+
+  // Round-robin auto-assign para modo 'vendas'
+  if (created?.id && inboxMode === 'vendas') {
+    try {
+      const { data: attendants } = await supabase
+        .from('users')
+        .select('id')
+        .eq('company_id', ctx.companyId)
+        .eq('is_active', true)
+        .in('role', ['sdr', 'closer', 'sdr_closer', 'manager', 'admin'])
+
+      if (attendants && attendants.length > 0) {
+        const { data: loads } = await supabase
+          .from('conversas_do_whatsapp')
+          .select('assigned_to')
+          .eq('company_id', ctx.companyId)
+          .eq('status_da_conversa', 'aberto')
+          .not('assigned_to', 'is', null)
+
+        const countMap: Record<number, number> = {}
+        for (const a of attendants) countMap[a.id] = 0
+        for (const c of (loads ?? [])) {
+          if (c.assigned_to != null && countMap[c.assigned_to] !== undefined) {
+            countMap[c.assigned_to]++
+          }
+        }
+
+        const nextUser = attendants.reduce((min, a) =>
+          (countMap[a.id] ?? 0) < (countMap[min.id] ?? 0) ? a : min
+        )
+
+        await supabase
+          .from('conversas_do_whatsapp')
+          .update({ assigned_to: nextUser.id, assigned_at: new Date().toISOString() })
+          .eq('id', created.id)
+      }
+    } catch (err: any) {
+      console.error(`[SDR:${ctx.companyId}] round-robin assign error:`, err.message)
+    }
   }
 
   return created?.id ? String(created.id) : ''
@@ -1511,6 +1552,7 @@ interface SdrFullConfig {
   vectorTableObjecoes: string | null
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
+  inboxMode: 'vendas' | 'suporte'
 }
 
 async function loadSdrConfig(
@@ -1607,6 +1649,7 @@ async function loadSdrConfig(
     vectorTableObjecoes: resolvedVectorObjecoes,
     conhecimentoAtivo: resolvedConhecimentoAtivo,
     objecoesAtivo: resolvedObjecoesAtivo,
+    inboxMode: (flow?.inbox_mode as 'vendas' | 'suporte') ?? 'suporte',
   }
 }
 
@@ -1746,7 +1789,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       objecoesAtivo: cfg.objecoesAtivo,
     }
 
-    const conversationId = await ensureConversation(ctx, supabase)
+    const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
     ctx.conversationId = conversationId
 
     // Salva foto de perfil do WhatsApp na conversa (best-effort)

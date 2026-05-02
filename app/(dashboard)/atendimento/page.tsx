@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useUser } from '@/lib/hooks/useUser';
 import { createClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils/format';
+import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { AudioRecorder } from '@/components/chat/AudioRecorder';
 import { WhatsAppAudioPlayer } from '@/components/chat/WhatsAppAudioPlayer';
@@ -82,6 +83,7 @@ export default function AtendimentoPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [convTab, setConvTab] = useState<'minhas' | 'nao_atribuidas' | 'todas'>('minhas');
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
@@ -978,7 +980,15 @@ export default function AtendimentoPage() {
     inputRef.current?.focus();
   }
 
-  const filteredConversations = conversations.filter((conv) =>
+  const isAdmin = user?.role === 'admin' || user?.role === 'manager';
+
+  const tabFilteredConversations = conversations.filter((conv) => {
+    if (convTab === 'minhas') return conv.assigned_to === user?.id;
+    if (convTab === 'nao_atribuidas') return conv.assigned_to == null;
+    return true; // 'todas' — admin/manager only
+  });
+
+  const filteredConversations = tabFilteredConversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.numero_de_telefone.includes(searchQuery) ||
     conv.lead?.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1263,6 +1273,45 @@ export default function AtendimentoPage() {
                 className="pl-9"
               />
             </div>
+            {/* View tabs */}
+            {(() => {
+              type ConvTabKey = 'minhas' | 'nao_atribuidas' | 'todas';
+              const tabs: ConvTabKey[] = isAdmin
+                ? ['minhas', 'nao_atribuidas', 'todas']
+                : ['minhas', 'nao_atribuidas'];
+              const labels: Record<ConvTabKey, string> = { minhas: 'Minhas', nao_atribuidas: 'Livres', todas: 'Todas' };
+              const counts: Record<ConvTabKey, number> = {
+                minhas: conversations.filter(c => c.assigned_to === user?.id).length,
+                nao_atribuidas: conversations.filter(c => c.assigned_to == null).length,
+                todas: conversations.length,
+              };
+              return (
+                <div className="flex mt-2 bg-muted/40 rounded-lg p-0.5 gap-0.5">
+                  {tabs.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setConvTab(t)}
+                      className={cn(
+                        'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
+                        convTab === t
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {labels[t]}
+                      {counts[t] > 0 && (
+                        <span className={cn(
+                          'text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center tabular-nums',
+                          convTab === t ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+                        )}>
+                          {counts[t]}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </CardHeader>
 
           <CardContent className="flex-1 overflow-y-auto space-y-2 scrollbar-minimal">

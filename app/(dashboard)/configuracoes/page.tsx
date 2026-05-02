@@ -34,7 +34,7 @@ interface GoogleStatus { connected: boolean; email: string | null }
 
 const PLANS = {
   basic:   { name: 'Basic',   price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
-  starter: { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Ideal para quem está começando' },
+  starter: { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Ideal para começar a vender' },
   pro:     { name: 'Pro',     price: 597, tokens: 15_000_000, icon: Rocket,     desc: 'Para times em crescimento' },
   scale:   { name: 'Scale',   price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Para operações escaláveis' },
 } as const;
@@ -42,34 +42,30 @@ const PLANS = {
 const PLAN_FEATURES: Record<'starter' | 'pro' | 'scale', string[]> = {
   starter: [
     '1 número WhatsApp conectado',
-    'Agente SDR com IA (atendimento automático)',
-    'CRM Kanban (até 2 quadros)',
-    'Chat com até 5 atendentes simultâneos',
-    'Agendamento Google Calendar',
-    'Sempre online 24h/7',
+    'Agente SDR (atendimento + venda)',
+    'CRM Kanban completo',
+    'Até 3 atendentes',
+    'Follow-up automático',
+    'Base de conhecimento RAG',
     '5M tokens de IA/mês',
-    'Até 10.000 contatos',
+    'Sempre online 24h/7',
   ],
   pro: [
     '1 número WhatsApp conectado',
-    'Agente SDR avançado + agendamento',
-    'CRM Kanban ilimitado',
-    'Atendentes ilimitados no chat',
-    'Sempre online 24h/7',
+    'Agente SDR + agendamento Google Calendar',
+    'CRM Kanban completo',
+    'Até 10 atendentes',
+    'Relatórios de desempenho',
     '15M tokens de IA/mês',
-    'Até 50.000 contatos',
-    'Relatórios avançados',
+    'Sempre online 24h/7',
   ],
   scale: [
-    'Múltiplos números WhatsApp',
+    'Até 10 números WhatsApp',
     'Tudo do plano Pro',
-    'CRM Kanban ilimitado',
     'Atendentes ilimitados',
-    'Sempre online 24h/7',
     '50M tokens de IA/mês',
-    'Contatos ilimitados',
     'Suporte prioritário',
-    'Webhooks & API avançada',
+    'Sempre online 24h/7',
   ],
 };
 
@@ -102,6 +98,7 @@ function ConfiguracoesContent() {
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [extraNumbers, setExtraNumbers] = useState(1);
 
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
   const [googleLoading, setGoogleLoading] = useState(true);
@@ -428,19 +425,38 @@ function ConfiguracoesContent() {
                 </div>
 
                 {/* Add-on número adicional */}
-                <div className="mt-4 flex items-center justify-between p-4 rounded-xl border border-dashed border-border bg-muted/20">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Plus className="h-4 w-4 text-primary" />
+                <div className="mt-4 p-4 rounded-xl border border-dashed border-border bg-muted/20">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Plus className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">Número adicional</p>
+                        <p className="text-xs text-muted-foreground">R$ 97/mês por número extra</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Número adicional</p>
-                      <p className="text-xs text-muted-foreground">Conecte mais de um número WhatsApp na mesma conta</p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setExtraNumbers(n => Math.max(1, n - 1))}
+                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                        >
+                          <span className="text-base leading-none">−</span>
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold tabular-nums">{extraNumbers}</span>
+                        <button
+                          onClick={() => setExtraNumbers(n => Math.min(9, n + 1))}
+                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
+                        >
+                          <span className="text-base leading-none">+</span>
+                        </button>
+                      </div>
+                      <div className="text-right min-w-[72px]">
+                        <p className="font-semibold text-sm">R$ {extraNumbers * 97}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                        <p className="text-xs text-muted-foreground">{extraNumbers} número{extraNumbers > 1 ? 's' : ''}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-semibold text-sm">R$ 97<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
-                    <p className="text-xs text-muted-foreground">por número</p>
                   </div>
                 </div>
               </div>

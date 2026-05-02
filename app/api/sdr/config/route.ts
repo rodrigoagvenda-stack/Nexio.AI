@@ -51,6 +51,7 @@ export async function GET() {
         conhecimento_ativo: flow?.conhecimento_ativo ?? true,
         objecoes_ativo: flow?.objecoes_ativo ?? false,
         flow_id: flow?.id ?? null,
+        inbox_mode: flow?.inbox_mode ?? 'suporte',
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -90,6 +91,7 @@ export async function PUT(request: NextRequest) {
       vector_table_objecoes,
       conhecimento_ativo,
       objecoes_ativo,
+      inbox_mode,
     } = body
 
     const service = createServiceClient()
@@ -157,6 +159,7 @@ export async function PUT(request: NextRequest) {
     if (vector_table_objecoes !== undefined) flowUpdates.vector_table_objecoes = vector_table_objecoes || null
     if (conhecimento_ativo !== undefined) flowUpdates.conhecimento_ativo = conhecimento_ativo
     if (objecoes_ativo !== undefined) flowUpdates.objecoes_ativo = objecoes_ativo
+    if (inbox_mode !== undefined) flowUpdates.inbox_mode = inbox_mode
 
     if (Object.keys(flowUpdates).length > 0) {
       if (existingFlow) {

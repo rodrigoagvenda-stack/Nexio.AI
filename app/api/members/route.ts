@@ -59,6 +59,29 @@ export async function POST(request: NextRequest) {
 
     const supabaseService = await createServiceClient();
 
+    // 0. Verificar limite de atendentes do plano
+    const ATTENDANT_LIMITS: Record<string, number> = { basic: 1, starter: 3, pro: 10 };
+    const { data: companyPlan } = await supabaseService
+      .from('companies')
+      .select('plan_type')
+      .eq('id', companyId)
+      .single();
+    const planType = companyPlan?.plan_type ?? 'basic';
+    const limit = ATTENDANT_LIMITS[planType]; // undefined = scale = unlimited
+    if (limit !== undefined) {
+      const { count: currentCount } = await supabaseService
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('is_active', true);
+      if ((currentCount ?? 0) >= limit) {
+        return NextResponse.json(
+          { success: false, message: `Seu plano ${planType} permite até ${limit} atendentes. Faça upgrade para adicionar mais.` },
+          { status: 403 }
+        );
+      }
+    }
+
     // 1. Verificar se o email já existe no Auth
     console.log('[INVITE] Verificando email:', email);
     const { data: existingUsers } = await supabaseService.auth.admin.listUsers();

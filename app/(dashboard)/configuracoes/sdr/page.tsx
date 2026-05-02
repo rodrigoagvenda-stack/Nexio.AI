@@ -34,6 +34,7 @@ interface SdrConfig {
   vector_table_conhecimento: string; vector_table_objecoes: string
   conhecimento_ativo: boolean; objecoes_ativo: boolean
   google_calendar_id: string; flow_id: string | null
+  inbox_mode: 'suporte' | 'vendas'
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -508,7 +509,7 @@ export default function SdrConfigPage() {
     instance_status: 'disconnected', instance_phone: null,
     vector_table_conhecimento: '', vector_table_objecoes: '',
     conhecimento_ativo: true, objecoes_ativo: false,
-    google_calendar_id: '', flow_id: null,
+    google_calendar_id: '', flow_id: null, inbox_mode: 'suporte',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -534,6 +535,7 @@ export default function SdrConfigPage() {
           objecoes_ativo: data.config.objecoes_ativo ?? false,
           google_calendar_id: data.config.google_calendar_id ?? '',
           flow_id: data.config.flow_id ?? null,
+          inbox_mode: data.config.inbox_mode ?? 'suporte',
         })
       }
     } catch { toast({ title: 'Erro ao carregar configuração', variant: 'destructive' }) }
@@ -559,6 +561,7 @@ export default function SdrConfigPage() {
           vector_table_objecoes: config.vector_table_objecoes,
           conhecimento_ativo: config.conhecimento_ativo,
           objecoes_ativo: config.objecoes_ativo,
+          inbox_mode: config.inbox_mode,
         }),
       })
       const data = await res.json()
@@ -642,6 +645,24 @@ export default function SdrConfigPage() {
                     <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center mb-2', selected ? 'bg-primary/15' : 'bg-muted')}>
                       <Icon className={cn('w-3.5 h-3.5', selected ? 'text-primary' : 'text-muted-foreground')} />
                     </div>
+                    <p className="text-xs font-semibold leading-tight">{opt.label}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Modo de atendimento</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar' },
+                { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)' },
+              ] as const).map((opt) => {
+                const selected = config.inbox_mode === opt.value
+                return (
+                  <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
+                    className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
                     <p className="text-xs font-semibold leading-tight">{opt.label}</p>
                     <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
                   </button>
