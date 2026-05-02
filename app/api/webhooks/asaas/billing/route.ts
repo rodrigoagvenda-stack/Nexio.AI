@@ -30,20 +30,31 @@ function nextMonthFromDate(from: Date): Date {
 }
 
 export async function POST(request: NextRequest) {
-  // ── Validar token ──────────────────────────────────────────────────────────
-  const incomingToken = request.headers.get('asaas-access-token') ?? ''
-  const cfg = await getPlatformConfig()
-  const expectedToken = cfg.asaas_webhook_token
+  // ── IMPORTANTE: sempre retornar HTTP 200 — qualquer outro status pausa a fila no Asaas ──
 
-  if (expectedToken && incomingToken !== expectedToken) {
-    return NextResponse.json({ error: 'Token inválido' }, { status: 403 })
+  // ── Validar token ──────────────────────────────────────────────────────────
+  try {
+    const incomingToken = request.headers.get('asaas-access-token') ?? ''
+    const cfg = await getPlatformConfig()
+    const expectedToken = cfg.asaas_webhook_token
+
+    if (expectedToken && incomingToken !== expectedToken) {
+      // Loga mas retorna 200 — token inválido não deve pausar a fila
+      console.warn('[webhook/asaas/billing] token inválido recebido:', incomingToken.slice(0, 8) + '...')
+      return NextResponse.json({ received: true, warning: 'token_invalido' })
+    }
+  } catch (err: any) {
+    console.error('[webhook/asaas/billing] erro ao validar token:', err.message)
+    return NextResponse.json({ received: true, warning: 'config_error' })
   }
 
   let payload: any
   try {
     payload = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
+    // Payload inválido — loga e retorna 200
+    console.error('[webhook/asaas/billing] payload inválido')
+    return NextResponse.json({ received: true, warning: 'payload_invalido' })
   }
 
   const event: string = payload.event ?? ''
@@ -51,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   if (!payment?.id) {
     // Evento sem payment (ex: SUBSCRIPTION_CREATED) — aceita sem erro
-    return NextResponse.json({ received: true })
+    return NextResponse.json({ received: true, event })
   }
 
   const supabase = createServiceClient()
@@ -59,21 +70,18 @@ export async function POST(request: NextRequest) {
   try {
     if (CONFIRMED_EVENTS.has(event)) {
       if (payment.subscription) {
-        // ── Mensalidade confirmada ─────────────────────────────────────────
         await handleSubscriptionPayment(payment, supabase)
       } else if (payment.billingType === 'PIX') {
-        // ── Pacote extra PIX confirmado ────────────────────────────────────
         await handleExtraPackagePayment(payment, supabase)
       }
     } else if (event === 'SUBSCRIPTION_DELETED') {
       await handleSubscriptionDeleted(payment, supabase)
     }
-    // PAYMENT_OVERDUE: Asaas retenta — não pausamos o agente aqui
 
     return NextResponse.json({ received: true, event })
   } catch (err: any) {
     console.error('[webhook/asaas/billing]', event, err)
-    // Retorna 200 para Asaas não retentar — o erro está no nosso lado
+    // Retorna 200 — erro interno não deve pausar a fila
     return NextResponse.json({ received: true, warning: err.message })
   }
 }
