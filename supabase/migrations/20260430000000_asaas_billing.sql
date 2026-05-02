@@ -29,7 +29,8 @@ CREATE INDEX IF NOT EXISTS extra_package_charges_asaas_id_idx ON extra_package_c
 -- RLS: visible apenas para a própria empresa
 ALTER TABLE extra_package_charges ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "extra_package_charges_own_company"
+DROP POLICY IF EXISTS "extra_package_charges_own_company" ON extra_package_charges;
+CREATE POLICY "extra_package_charges_own_company"
   ON extra_package_charges FOR ALL
   USING (
     tenant_id IN (
