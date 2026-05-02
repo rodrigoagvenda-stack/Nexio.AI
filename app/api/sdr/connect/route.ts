@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!config?.uazapi_token || !config?.uazapi_instance_url) {
-      return NextResponse.json({ error: 'Falha ao criar instância. Verifique o UAZAPI_ADMIN_TOKEN em Admin → Configurações.' }, { status: 500 })
+      return NextResponse.json({ error: 'Não foi possível iniciar a conexão WhatsApp. Tente novamente em instantes ou contate o suporte.' }, { status: 500 })
     }
 
     // Token armazenado como plain text — tenta descriptografar legado se necessário
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
   } catch (err: any) {
     console.error('[SDR connect]', err)
-    return NextResponse.json({ error: err.message || 'Erro ao conectar' }, { status: 500 })
+    return NextResponse.json({ error: 'Não foi possível conectar o WhatsApp. Tente novamente.' }, { status: 500 })
   }
 }
 

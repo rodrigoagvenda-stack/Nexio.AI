@@ -30,7 +30,7 @@ export default async function DashboardLayout({
       .from('users')
       .select('company_id, role')
       .eq('auth_user_id', user.id)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('admin_users')
       .select('id')
@@ -53,6 +53,11 @@ export default async function DashboardLayout({
       .eq('is_active', true)
       .maybeSingle(),
   ]);
+
+  // Usuário sem empresa → onboarding (criou conta mas não completou setup)
+  if (!userData?.company_id) {
+    redirect('/onboarding');
+  }
 
   const companyName = companyData?.name;
   const companyEmail = companyData?.email;
