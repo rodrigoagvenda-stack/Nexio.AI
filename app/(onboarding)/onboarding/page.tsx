@@ -505,8 +505,8 @@ function StepPronto({ companyName }: { companyName: string }) {
     },
     {
       icon: <Bot className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
-      title: 'Nexio — seu SDR 24h',
-      desc: 'Qualifica leads e agenda reuniões enquanto você descansa.',
+      title: 'Nexio — atendimento com IA',
+      desc: 'Responde, qualifica e atende seus leads automaticamente 24h por dia.',
     },
     {
       icon: <Users className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
@@ -515,8 +515,8 @@ function StepPronto({ companyName }: { companyName: string }) {
     },
     {
       icon: <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
-      title: 'Disparos em massa',
-      desc: 'Campanhas segmentadas com alta taxa de entrega.',
+      title: 'Automações de atendimento',
+      desc: 'Crie fluxos automáticos para qualificar e distribuir leads para o time.',
     },
   ];
 
