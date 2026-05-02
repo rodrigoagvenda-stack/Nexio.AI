@@ -697,12 +697,10 @@ export default function SdrConfigPage() {
               )}
             </div>
             <p className="text-xs text-muted-foreground mb-3">Calendário usado pelo agente para agendar reuniões automaticamente</p>
-            <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
-              <CalendarSection
-                calendarId={config.google_calendar_id}
-                onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))}
-              />
-            </div>
+            <CalendarSection
+              calendarId={config.google_calendar_id}
+              onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))}
+            />
           </div>
 
           {/* Webhook URL */}
