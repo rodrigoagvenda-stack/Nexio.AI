@@ -40,11 +40,15 @@ export async function POST(request: NextRequest) {
     if (!apiKey) return NextResponse.json({ error: 'Gateway de pagamentos não configurado. Contate o suporte.' }, { status: 503 })
 
     const service = createServiceClient()
-    const { data: company } = await service
+    const { data: company, error: companyError } = await service
       .from('companies')
       .select('id, name, asaas_customer_id, asaas_cpf_cnpj')
       .eq('id', userData.company_id)
       .single()
+    if (companyError) {
+      console.error('[asaas/checkout] erro ao buscar empresa:', companyError.message, '| company_id:', userData.company_id)
+      throw new Error('Erro ao buscar empresa: ' + companyError.message)
+    }
     if (!company) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 })
 
     const headers = {
