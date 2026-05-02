@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { randomUUID } from 'crypto'
 
 // POST /api/onboarding — cria company + user para novos usuários
 export async function POST(req: NextRequest) {
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     const service = createServiceClient()
 
-    // Garante idempotência: se já tem registro, só retorna
+    // Idempotência: se já existe, retorna
     const { data: existing } = await service
       .from('users')
       .select('id, company_id')
@@ -22,15 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const {
-      companyName,
-      companyPhone,
-      segment,
-      companySize,
-      userName,
-      planType = 'starter',
-      logoUrl,
-    } = body
+    const { companyName, companyPhone, segment, companySize, userName, planType = 'basic', logoUrl } = body
 
     if (!companyName?.trim()) {
       return NextResponse.json({ error: 'Nome da empresa é obrigatório' }, { status: 400 })
@@ -55,39 +48,36 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (companyErr || !company) {
-      console.error('[onboarding] company insert error:', companyErr)
+      console.error('[onboarding] company insert:', companyErr)
       throw companyErr ?? new Error('Erro ao criar empresa')
     }
 
-    // 2. Cria o usuário vinculado à empresa
+    // 2. Cria o usuário — user_id é NOT NULL, usa o auth UUID
     const { error: userErr } = await service
       .from('users')
       .upsert({
         auth_user_id: user.id,
+        user_id: user.id,          // campo NOT NULL obrigatório
         company_id: company.id,
         name: userDisplayName,
         email: userEmail,
         role: 'admin',
         department: segment || null,
+        is_active: true,
       }, { onConflict: 'auth_user_id' })
 
     if (userErr) {
-      console.error('[onboarding] user upsert error:', userErr)
-      // Tenta limpar empresa criada
+      console.error('[onboarding] user upsert:', userErr)
       await service.from('companies').delete().eq('id', company.id)
       throw userErr
     }
 
-    // 3. Salva metadata extra na empresa se precisar (segmento, tamanho)
-    if (segment || companySize) {
-      await service.from('companies').update({
-        ...(segment ? { plan_features: [segment] } : {}),
-      }).eq('id', company.id)
-    }
-
     return NextResponse.json({ success: true, companyId: company.id })
   } catch (err: any) {
-    console.error('[onboarding]', err)
-    return NextResponse.json({ error: 'Não foi possível criar sua conta. Tente novamente.' }, { status: 500 })
+    console.error('[onboarding] FATAL:', err?.message, err?.details, err?.hint)
+    return NextResponse.json(
+      { error: err?.message || 'Não foi possível criar sua conta. Tente novamente.' },
+      { status: 500 }
+    )
   }
 }
