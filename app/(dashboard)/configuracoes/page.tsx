@@ -27,6 +27,7 @@ interface CompanyFull {
   is_active: boolean;
   subscription_expires_at?: string | null;
   asaas_subscription_id?: string | null;
+  asaas_cpf_cnpj?: string | null;
 }
 
 interface GoogleStatus { connected: boolean; email: string | null }
@@ -98,6 +99,10 @@ function ConfiguracoesContent() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [extraNumbers, setExtraNumbers] = useState(1);
 
+  const [cpfCnpjPrompt, setCpfCnpjPrompt] = useState<string | null>(null); // null = closed; string = plan being purchased
+  const [cpfCnpjInput, setCpfCnpjInput] = useState('');
+  const [savingCpfCnpj, setSavingCpfCnpj] = useState(false);
+
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
   const [googleLoading, setGoogleLoading] = useState(true);
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
@@ -117,7 +122,7 @@ function ConfiguracoesContent() {
   const fetchCompany = useCallback(async () => {
     if (!user?.company_id) return;
     const { data } = await createClient().from('companies')
-      .select('id,plan_type,plan_monthly_limit,tokens_used,tokens_limit,is_active,subscription_expires_at,asaas_subscription_id')
+      .select('id,plan_type,plan_monthly_limit,tokens_used,tokens_limit,is_active,subscription_expires_at,asaas_subscription_id,asaas_cpf_cnpj')
       .eq('id', user.company_id).single();
     if (data) setCompany(data as CompanyFull);
     setLoadingCompany(false);
@@ -154,7 +159,7 @@ function ConfiguracoesContent() {
     finally { setSaving(false); }
   };
 
-  const handleCheckout = async (plan: string) => {
+  const doCheckout = async (plan: string) => {
     setCheckoutLoading(plan);
     try {
       const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) });
@@ -167,6 +172,35 @@ function ConfiguracoesContent() {
         setCheckoutLoading(null);
       }
     } catch (err: any) { toast({ title: err.message || 'Erro no checkout', variant: 'destructive' }); setCheckoutLoading(null); }
+  };
+
+  const handleCheckout = (plan: string) => {
+    if (!company?.asaas_cpf_cnpj) {
+      setCpfCnpjPrompt(plan);
+      setCpfCnpjInput('');
+      return;
+    }
+    doCheckout(plan);
+  };
+
+  const handleCpfCnpjSubmit = async () => {
+    const doc = cpfCnpjInput.replace(/\D/g, '');
+    if (doc.length !== 11 && doc.length !== 14) {
+      toast({ title: 'CPF (11 dígitos) ou CNPJ (14 dígitos) inválido', variant: 'destructive' });
+      return;
+    }
+    setSavingCpfCnpj(true);
+    try {
+      const { error } = await createClient().from('companies').update({ asaas_cpf_cnpj: doc }).eq('id', company!.id);
+      if (error) throw error;
+      setCompany(prev => prev ? { ...prev, asaas_cpf_cnpj: doc } : prev);
+      setCpfCnpjPrompt(null);
+      doCheckout(cpfCnpjPrompt!);
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar documento', variant: 'destructive' });
+    } finally {
+      setSavingCpfCnpj(false);
+    }
   };
 
   const handleGoogleDisconnect = async () => {
@@ -351,6 +385,29 @@ function ConfiguracoesContent() {
                   </p>
                 )}
               </div>
+
+              {/* Prompt CPF/CNPJ */}
+              {cpfCnpjPrompt && (
+                <div className="p-5 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
+                  <p className="text-sm font-semibold">Informe o CPF ou CNPJ da empresa</p>
+                  <p className="text-xs text-muted-foreground">Necessário para emissão de cobrança pelo Asaas.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      value={cpfCnpjInput}
+                      onChange={e => setCpfCnpjInput(e.target.value)}
+                      placeholder="00.000.000/0001-00 ou 000.000.000-00"
+                      className="flex-1 font-mono text-sm h-10"
+                      onKeyDown={e => e.key === 'Enter' && handleCpfCnpjSubmit()}
+                    />
+                    <Button size="sm" onClick={handleCpfCnpjSubmit} disabled={savingCpfCnpj} className="h-10 px-4">
+                      {savingCpfCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setCpfCnpjPrompt(null)} className="h-10">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Cards de planos */}
               <div>
