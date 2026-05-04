@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils/cn';
 import {
   Smartphone, KeyRound, Save, Loader2, Eye, EyeOff,
-  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle, Bot,
+  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle, Bot, Mic,
 } from 'lucide-react';
 
 interface Props {
@@ -48,6 +48,15 @@ const SECTIONS = [
       { key: 'google_client_secret', label: 'Client Secret', placeholder: 'GOCSPX-...', sensitive: true },
     ],
     info: 'URI de redirecionamento autorizada: {APP_URL}/api/google/callback',
+  },
+  {
+    id: 'groq',
+    label: 'Groq',
+    icon: Mic,
+    description: 'Transcrição de áudio (Whisper) para mensagens de voz do WhatsApp. Groq oferece Whisper com latência extremamente baixa.',
+    fields: [
+      { key: 'groq_api_key', label: 'API Key', placeholder: 'gsk_...', sensitive: true },
+    ],
   },
   {
     id: 'asaas',
