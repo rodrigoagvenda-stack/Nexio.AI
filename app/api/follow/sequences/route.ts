@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
         dia_offset: s.dia_offset ?? i + 1,
         horario: s.horario ?? '09:00',
         mensagem: s.mensagem ?? null,
+        pool_mensagens: s.pool_mensagens?.length ? s.pool_mensagens : null,
         usar_ia: s.usar_ia ?? false,
+        usar_contexto_sdr: s.usar_contexto_sdr ?? false,
         ordem: i,
       }))
       await service.from('follow_steps').insert(stepsToInsert)
