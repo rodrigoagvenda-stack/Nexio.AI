@@ -180,10 +180,20 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nicheId: selectedNicheId, variables: buildVariables() }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+
+      // 502 = gateway timeout (nginx cortou antes do Next.js responder)
+      if (res.status === 502 || res.status === 504) {
+        throw new Error('Tempo limite excedido. Verifique se a chave OpenAI está configurada em Admin → Configurações de Plataforma, depois tente novamente.')
+      }
+
+      let data: any
+      try { data = await res.json() } catch {
+        throw new Error(`Erro ${res.status}: resposta inválida do servidor`)
+      }
+      if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
       setLastResult(data)
-      toast({ title: `Template processado! ${data.chunks} chunks salvos.` })
+      setExistingBase({ filename: `${selectedNicheId}_${type}`, chunks: data.chunks })
+      toast({ title: `✓ ${data.chunks} chunks processados e salvos!` })
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao processar template', variant: 'destructive' })
     } finally { setProcessing(false) }
@@ -284,6 +294,14 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
           {/* ── Template mode ── */}
           {mode === 'template' && (
             <div className="space-y-4">
+              {/* Descrição do que este template faz */}
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                {isConhecimento
+                  ? 'Gera o conteúdo de conhecimento do agente — fluxo de conversa, scripts de venda e informações do produto, personalizado para o seu nicho.'
+                  : 'Gera scripts de tratamento de objeções — respostas prontas para "está caro", "preciso pensar", "vou falar com meu sócio" e outras objeções comuns do seu nicho.'}
+              </div>
+
               {/* Niche selector */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Nicho de atuação</label>

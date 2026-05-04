@@ -4,11 +4,30 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { getPlatformConfig } from '@/lib/platform-config'
 import OpenAI from 'openai'
 import { decrypt } from '@/lib/crypto'
 
-const CHUNK_SIZE = 1000  // caracteres por chunk
+const CHUNK_SIZE = 1000
 const CHUNK_OVERLAP = 100
+
+/** Resolve OpenAI key: sdr_configs (empresa) → platform_config (global) */
+async function resolveOpenAIKey(companyId: number): Promise<string> {
+  const supabase = createServiceClient()
+  const { data: cfg } = await supabase
+    .from('sdr_configs').select('openai_key').eq('company_id', companyId).single()
+  if (cfg?.openai_key) return decrypt(cfg.openai_key)
+  const platform = await getPlatformConfig()
+  if (platform.openai_api_key) return platform.openai_api_key
+  throw new Error('Chave OpenAI não configurada. Acesse Admin → Configurações de Plataforma e cadastre a API Key da OpenAI.')
+}
+
+/** Gera embeddings para TODOS os chunks em uma única chamada (evita timeout serial) */
+async function embedAll(chunks: string[], openai: OpenAI): Promise<number[][]> {
+  if (chunks.length === 0) return []
+  const res = await openai.embeddings.create({ model: 'text-embedding-3-small', input: chunks })
+  return res.data.map((d) => d.embedding)
+}
 
 function chunkText(text: string): string[] {
   const chunks: string[] = []
@@ -38,79 +57,42 @@ export async function processKnowledgePdf(params: {
   const { companyId, flowId, filename, fileBuffer, tableType } = params
   const supabase = createServiceClient()
 
-  // Busca config openai
-  const { data: cfg } = await supabase
-    .from('sdr_configs')
-    .select('openai_key')
-    .eq('company_id', companyId)
-    .single()
-
-  const openaiKey = cfg?.openai_key ? decrypt(cfg.openai_key) : process.env.OPENAI_API_KEY ?? ''
-  const openai = new OpenAI({ apiKey: openaiKey })
-
-  // Busca nome da tabela vector do fluxo
-  const { data: flow } = await supabase
-    .from('sdr_flows')
-    .select('vector_table_conhecimento, vector_table_objecoes')
-    .eq('id', flowId)
-    .eq('company_id', companyId)
-    .single()
-
+  const [openaiKey, flow] = await Promise.all([
+    resolveOpenAIKey(companyId),
+    supabase.from('sdr_flows')
+      .select('vector_table_conhecimento, vector_table_objecoes')
+      .eq('id', flowId).eq('company_id', companyId).single()
+      .then((r) => r.data),
+  ])
   if (!flow) throw new Error('Fluxo não encontrado')
 
-  const tableName = tableType === 'conhecimento'
-    ? (flow.vector_table_conhecimento ?? `nexio_conhecimento_${companyId}`)
-    : (flow.vector_table_objecoes ?? `nexio_objecoes_${companyId}`)
-
-  // Salva o nome da tabela no fluxo se ainda não estava
+  const openai = new OpenAI({ apiKey: openaiKey })
   const updateField = tableType === 'conhecimento' ? 'vector_table_conhecimento' : 'vector_table_objecoes'
-  if (!flow[updateField === 'vector_table_conhecimento' ? 'vector_table_conhecimento' : 'vector_table_objecoes']) {
+  const tableName = flow[updateField] ?? `nexio_${tableType === 'conhecimento' ? 'conhecimento' : 'objecoes'}_${companyId}`
+  if (!flow[updateField]) {
     await supabase.from('sdr_flows').update({ [updateField]: tableName }).eq('id', flowId)
   }
 
-  // Extrai texto
   const rawText = await extractTextFromPdf(fileBuffer)
   if (!rawText.trim()) throw new Error('PDF sem texto extraível')
 
-  // Chunking
   const chunks = chunkText(rawText)
 
-  // Remove TODOS os chunks anteriores desta tabela/fluxo (substituição completa)
-  await supabase
-    .from('rag_documents')
-    .delete()
-    .eq('company_id', companyId)
-    .eq('flow_id', flowId)
-    .eq('table_name', tableName)
+  await supabase.from('rag_documents').delete()
+    .eq('company_id', companyId).eq('flow_id', flowId).eq('table_name', tableName)
 
-  // Gera embeddings em lotes de 20
-  const batchSize = 20
-  let insertedCount = 0
+  // Uma única chamada de embeddings para todos os chunks
+  const embeddings = await embedAll(chunks, openai)
 
-  for (let i = 0; i < chunks.length; i += batchSize) {
-    const batch = chunks.slice(i, i + batchSize)
+  const rows = chunks.map((content, i) => ({
+    company_id: companyId, flow_id: flowId, filename, table_name: tableName,
+    chunk_index: i, content, embedding: embeddings[i],
+  }))
 
-    const embRes = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: batch,
-    })
+  const { error } = await supabase.from('rag_documents').insert(rows)
+  if (error) throw error
 
-    const rows = batch.map((content, j) => ({
-      company_id: companyId,
-      flow_id: flowId,
-      filename,
-      table_name: tableName,
-      chunk_index: i + j,
-      content,
-      embedding: embRes.data[j].embedding,
-    }))
-
-    const { error } = await supabase.from('rag_documents').insert(rows)
-    if (error) throw error
-    insertedCount += batch.length
-  }
-
-  return { chunks: insertedCount, table: tableName }
+  return { chunks: rows.length, table: tableName }
 }
 
 /** Processa texto estruturado diretamente (sem PDF), usando o mesmo pipeline de chunking + embeddings */
@@ -122,66 +104,41 @@ export async function processKnowledgeText(params: {
   tableType: 'conhecimento' | 'objecoes'
 }): Promise<{ chunks: number; table: string }> {
   const { companyId, flowId, filename, text, tableType } = params
+  if (!text.trim()) throw new Error('Conteúdo vazio')
+
   const supabase = createServiceClient()
 
-  const { data: cfg } = await supabase
-    .from('sdr_configs')
-    .select('openai_key')
-    .eq('company_id', companyId)
-    .single()
-
-  const openaiKey = cfg?.openai_key ? decrypt(cfg.openai_key) : process.env.OPENAI_API_KEY ?? ''
-  const openai = new OpenAI({ apiKey: openaiKey })
-
-  const { data: flow } = await supabase
-    .from('sdr_flows')
-    .select('vector_table_conhecimento, vector_table_objecoes')
-    .eq('id', flowId)
-    .eq('company_id', companyId)
-    .single()
-
+  const [openaiKey, flow] = await Promise.all([
+    resolveOpenAIKey(companyId),
+    supabase.from('sdr_flows')
+      .select('vector_table_conhecimento, vector_table_objecoes')
+      .eq('id', flowId).eq('company_id', companyId).single()
+      .then((r) => r.data),
+  ])
   if (!flow) throw new Error('Fluxo não encontrado')
 
-  const tableName = tableType === 'conhecimento'
-    ? (flow.vector_table_conhecimento ?? `nexio_conhecimento_${companyId}`)
-    : (flow.vector_table_objecoes ?? `nexio_objecoes_${companyId}`)
-
+  const openai = new OpenAI({ apiKey: openaiKey })
   const updateField = tableType === 'conhecimento' ? 'vector_table_conhecimento' : 'vector_table_objecoes'
+  const tableName = flow[updateField] ?? `nexio_${tableType === 'conhecimento' ? 'conhecimento' : 'objecoes'}_${companyId}`
   if (!flow[updateField]) {
     await supabase.from('sdr_flows').update({ [updateField]: tableName }).eq('id', flowId)
   }
 
-  if (!text.trim()) throw new Error('Conteúdo vazio')
-
   const chunks = chunkText(text)
 
-  // Remove TODOS os chunks anteriores desta tabela/fluxo (substituição completa)
-  await supabase
-    .from('rag_documents')
-    .delete()
-    .eq('company_id', companyId)
-    .eq('flow_id', flowId)
-    .eq('table_name', tableName)
+  await supabase.from('rag_documents').delete()
+    .eq('company_id', companyId).eq('flow_id', flowId).eq('table_name', tableName)
 
-  const batchSize = 20
-  let insertedCount = 0
+  // Uma única chamada de embeddings para todos os chunks (sem loop serial → sem timeout)
+  const embeddings = await embedAll(chunks, openai)
 
-  for (let i = 0; i < chunks.length; i += batchSize) {
-    const batch = chunks.slice(i, i + batchSize)
-    const embRes = await openai.embeddings.create({ model: 'text-embedding-3-small', input: batch })
-    const rows = batch.map((content, j) => ({
-      company_id: companyId,
-      flow_id: flowId,
-      filename,
-      table_name: tableName,
-      chunk_index: i + j,
-      content,
-      embedding: embRes.data[j].embedding,
-    }))
-    const { error } = await supabase.from('rag_documents').insert(rows)
-    if (error) throw error
-    insertedCount += batch.length
-  }
+  const rows = chunks.map((content, i) => ({
+    company_id: companyId, flow_id: flowId, filename, table_name: tableName,
+    chunk_index: i, content, embedding: embeddings[i],
+  }))
 
-  return { chunks: insertedCount, table: tableName }
+  const { error } = await supabase.from('rag_documents').insert(rows)
+  if (error) throw error
+
+  return { chunks: rows.length, table: tableName }
 }
