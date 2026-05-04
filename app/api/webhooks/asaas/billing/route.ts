@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
     if (CONFIRMED_EVENTS.has(event)) {
       if (payment.subscription) {
         await handleSubscriptionPayment(payment, supabase)
-      } else if (payment.billingType === 'PIX') {
+      } else {
+        // Cobrança avulsa — qualquer método (PIX, boleto, cartão)
         await handleExtraPackagePayment(payment, supabase)
       }
     } else if (event === 'SUBSCRIPTION_DELETED') {

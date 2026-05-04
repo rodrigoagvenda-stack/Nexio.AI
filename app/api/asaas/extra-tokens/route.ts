@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 
-// R$20 = 1M tokens
-export const TOKENS_PER_REAL = 50_000
+// R$1 = 50K tokens  →  R$20 = 1M tokens
+const TOKENS_PER_REAL = 50_000
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const amount = Math.max(20, Number(body.amount) || 20)
+    const tokensToGrant = amount * TOKENS_PER_REAL
 
     const cfg = await getPlatformConfig()
     const apiKey = cfg.asaas_api_key
@@ -29,32 +30,46 @@ export async function POST(request: NextRequest) {
     const service = createServiceClient()
     const { data: company } = await service
       .from('companies')
-      .select('id, name, asaas_customer_id')
+      .select('id, name, asaas_customer_id, subscription_expires_at')
       .eq('id', userData.company_id)
       .single()
     if (!company) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 })
-
-    const customerId = company.asaas_customer_id
-    if (!customerId) return NextResponse.json({ error: 'Complete o cadastro de pagamento primeiro' }, { status: 400 })
+    if (!company.asaas_customer_id) return NextResponse.json({ error: 'Complete o cadastro de pagamento primeiro' }, { status: 400 })
 
     const headers = { 'Content-Type': 'application/json', 'access_token': apiKey }
     const today = new Date().toISOString().split('T')[0]
-    const tokensAdded = amount * TOKENS_PER_REAL
 
+    // valid_until = fim do ciclo atual (subscription_expires_at) ou fim do mês
+    const validUntil = company.subscription_expires_at
+      ? new Date(company.subscription_expires_at)
+      : (() => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() + 1, 1); d.setUTCHours(0, 0, 0, 0); return d })()
+
+    // ── 1. Criar cobrança avulsa no Asaas ─────────────────────────────────────
     const payRes = await fetch(`${baseUrl}/payments`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        customer: customerId,
+        customer: company.asaas_customer_id,
         billingType: 'UNDEFINED',
         value: amount,
         dueDate: today,
-        description: `Zaapli — ${(tokensAdded / 1_000_000).toFixed(1)}M tokens extras`,
-        externalReference: `extra_tokens:${company.id}:${tokensAdded}`,
+        description: `Zaapli — ${(tokensToGrant / 1_000_000).toFixed(1)}M tokens extras`,
       }),
     })
     const payData = await payRes.json()
     if (!payRes.ok) throw new Error(payData.errors?.[0]?.description || 'Erro ao criar cobrança')
+
+    const asaasPaymentId: string = payData.id
+
+    // ── 2. Pré-registrar em extra_package_charges ─────────────────────────────
+    await service.from('extra_package_charges').insert({
+      tenant_id: company.id,
+      asaas_payment_id: asaasPaymentId,
+      tokens_to_grant: tokensToGrant,
+      amount,
+      status: 'pending',
+      valid_until: validUntil.toISOString(),
+    })
 
     const invoiceUrl = payData.invoiceUrl || payData.bankSlipUrl
     if (!invoiceUrl) {
