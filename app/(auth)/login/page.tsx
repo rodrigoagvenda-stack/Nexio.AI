@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Eye, EyeOff, ShieldCheck, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 
 function GoogleIcon() {
@@ -27,9 +26,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMode, setLoginMode] = useState<'user' | 'admin'>('user');
-
-  const isAdmin = loginMode === 'admin';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,25 +34,7 @@ export default function LoginPage() {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      if (data.user) {
-        const { data: adminUser } = await supabase
-          .from('admin_users')
-          .select('id')
-          .eq('auth_user_id', data.user.id)
-          .eq('is_active', true)
-          .single();
-
-        if (isAdmin) {
-          if (!adminUser) {
-            await supabase.auth.signOut();
-            throw new Error('Você não tem permissão de administrador');
-          }
-          window.location.href = '/admin';
-        } else {
-          window.location.href = '/dashboard';
-        }
-      }
+      if (data.user) window.location.href = '/dashboard';
     } catch (error: any) {
       toast({ title: error.message || 'Email ou senha incorretos', variant: 'destructive' });
     } finally {
@@ -81,88 +59,35 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2 light" data-theme="light">
-      {/* Left — formulário (sempre light) */}
+      {/* Left — formulário */}
       <div className="flex flex-col gap-4 p-6 md:p-10 bg-white">
-        {/* Logo */}
         <div className="flex justify-center md:justify-start">
           <a href="/">
             <ZaapliLogo variant="full" iconSize={34} theme="light" animate />
           </a>
         </div>
 
-        {/* Form area */}
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs flex flex-col gap-6">
             <div className="flex flex-col items-center gap-2 text-center">
-              <h1 className="text-2xl font-bold">
-                {isAdmin ? 'Acesso administrativo' : 'Acesse sua conta'}
-              </h1>
-              <p className="text-sm text-muted-foreground text-balance">
-                {isAdmin ? 'Área restrita a administradores' : 'Entre com seu e-mail ou Google'}
-              </p>
-            </div>
-
-            {/* Toggle Usuário / Admin */}
-            <div className="flex rounded-xl bg-muted p-1">
-              <button
-                type="button"
-                onClick={() => setLoginMode('user')}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg transition-all',
-                  !isAdmin ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <User className="h-3.5 w-3.5" />
-                Usuário
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginMode('admin')}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-lg transition-all',
-                  isAdmin ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Admin
-              </button>
+              <h1 className="text-2xl font-bold">Acesse sua conta</h1>
+              <p className="text-sm text-muted-foreground text-balance">Entre com seu e-mail ou Google</p>
             </div>
 
             <div className="grid gap-6">
-              {/* Google — só modo usuário */}
-              {!isAdmin && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={handleGoogleLogin}
-                    disabled={googleLoading}
-                  >
-                    {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-                    Entrar com Google
-                  </Button>
+              <Button type="button" variant="outline" className="w-full gap-2" onClick={handleGoogleLogin} disabled={googleLoading}>
+                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                Entrar com Google
+              </Button>
 
-                  <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-                    <span className="relative z-10 bg-background px-2 text-muted-foreground">
-                      ou continue com
-                    </span>
-                  </div>
-                </>
-              )}
+              <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
+                <span className="relative z-10 bg-background px-2 text-muted-foreground">ou continue com</span>
+              </div>
 
               <form onSubmit={handleLogin} className="grid gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={loading}
-                  />
+                  <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
                 </div>
 
                 <div className="grid gap-2">
@@ -178,54 +103,40 @@ export default function LoginPage() {
                       disabled={loading}
                       className="pr-10"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  className={cn(
-                    'w-full',
-                    isAdmin && 'bg-green-700 hover:bg-green-800'
-                  )}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Entrando...</>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      {isAdmin && <ShieldCheck className="h-4 w-4" />}
-                      Entrar
-                    </span>
-                  )}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Entrando…</> : 'Entrar'}
                 </Button>
               </form>
             </div>
 
-            {!isAdmin && (
-              <p className="text-center text-sm text-muted-foreground">
-                Não tem uma conta?{' '}
-                <a href="/signup" className="underline underline-offset-4 hover:text-foreground">
-                  Criar conta
-                </a>
-              </p>
-            )}
-
+            <p className="text-center text-sm text-muted-foreground">
+              Não tem uma conta?{' '}
+              <a href="/signup" className="underline underline-offset-4 hover:text-foreground">Criar conta</a>
+            </p>
           </div>
         </div>
 
-        <p className="text-center text-[11px] text-muted-foreground">
-          &copy; {new Date().getFullYear()} Zaapli — Todos os direitos reservados
-        </p>
+        {/* Footer com termos */}
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-center text-[11px] text-muted-foreground">
+            Ao entrar, você concorda com os{' '}
+            <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">Termos de Uso</a>
+            {' '}e a{' '}
+            <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">Política de Privacidade</a>
+          </p>
+          <p className="text-center text-[11px] text-muted-foreground">
+            &copy; {new Date().getFullYear()} Zaapli — Todos os direitos reservados
+          </p>
+        </div>
       </div>
 
-      {/* Right — imagem/background */}
+      {/* Right — background */}
       <div className="relative hidden bg-muted lg:block">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-primary/40" />
       </div>

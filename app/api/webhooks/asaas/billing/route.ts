@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { syslog } from '@/lib/logger'
 
 const CONFIRMED_EVENTS = new Set(['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED'])
 
@@ -71,18 +72,22 @@ export async function POST(request: NextRequest) {
     if (CONFIRMED_EVENTS.has(event)) {
       if (payment.subscription) {
         await handleSubscriptionPayment(payment, supabase)
+        await syslog({ type: 'billing', severity: 'info', message: `Pagamento confirmado — assinatura ${payment.subscription}`, payload: { event, paymentId: payment.id, value: payment.value } })
       } else {
-        // Cobrança avulsa — qualquer método (PIX, boleto, cartão)
         await handleExtraPackagePayment(payment, supabase)
+        await syslog({ type: 'billing', severity: 'info', message: `Cobrança avulsa confirmada — ${payment.id}`, payload: { event, paymentId: payment.id, value: payment.value } })
       }
     } else if (event === 'SUBSCRIPTION_DELETED') {
       await handleSubscriptionDeleted(payment, supabase)
+      await syslog({ type: 'billing', severity: 'warning', message: `Assinatura cancelada — ${payment.subscription}`, payload: { event, paymentId: payment.id } })
+    } else {
+      await syslog({ type: 'billing', severity: 'info', message: `Evento Asaas recebido: ${event}`, payload: { event, paymentId: payment.id } })
     }
 
     return NextResponse.json({ received: true, event })
   } catch (err: any) {
     console.error('[webhook/asaas/billing]', event, err)
-    // Retorna 200 — erro interno não deve pausar a fila
+    await syslog({ type: 'billing', severity: 'error', message: `Webhook billing falhou: ${err.message}`, payload: { event, error: err.message, stack: err.stack?.slice(0, 500) } })
     return NextResponse.json({ received: true, warning: err.message })
   }
 }

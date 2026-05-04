@@ -64,7 +64,6 @@ const SECTIONS = [
 ];
 
 function isConfigured(val: string | undefined) {
-  // MASK means the value is saved but hidden — counts as configured
   return !!val && val.trim() !== '';
 }
 
@@ -72,7 +71,8 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
   const [config, setConfig] = useState<Record<string, string>>(initialConfig);
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(SECTIONS[0].id);
 
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -102,7 +102,6 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      // Refetch para atualizar o estado com valores mascarados (•••) — corrige badge "Pendente"
       const fresh = await fetch('/api/admin/platform-config');
       if (fresh.ok) {
         const freshData = await fresh.json();
@@ -117,14 +116,19 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
     }
   }
 
-  function copyRedirectUri() {
-    navigator.clipboard.writeText(`${appUrl}/api/google/callback`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  function copyText(text: string, key: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   }
 
+  const activeSection = SECTIONS.find((s) => s.id === activeTab)!;
+  const Icon = activeSection.icon;
+  const isSaving = saving === activeSection.id;
+  const allConfigured = activeSection.fields.every((f) => isConfigured(config[f.key]));
+
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-8 pb-12">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Configurações de Plataforma</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -145,22 +149,53 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
         </div>
       )}
 
-      {SECTIONS.map((section) => {
-        const Icon = section.icon;
-        const isSaving = saving === section.id;
-        const allConfigured = section.fields.every((f) => isConfigured(config[f.key]));
+      <div className="flex gap-6">
+        {/* ── Sidebar de navegação ── */}
+        <aside className="w-48 shrink-0 space-y-1">
+          {SECTIONS.map((section) => {
+            const SIcon = section.icon;
+            const configured = section.fields.every((f) => isConfigured(config[f.key]));
+            const isActive = activeTab === section.id;
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveTab(section.id)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                <SIcon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                <span className="flex-1">{section.label}</span>
+                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', configured ? 'bg-emerald-500' : 'bg-yellow-500')} />
+              </button>
+            );
+          })}
 
-        return (
-          <div key={section.id} className="rounded-xl border border-border overflow-hidden">
-            {/* Section header */}
+          <div className="pt-4 px-3">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-muted/30 border border-border">
+              <KeyRound className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Valores sensíveis são criptografados com AES-256-GCM.
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Conteúdo da seção ativa ── */}
+        <div className="flex-1 min-w-0">
+          <div className="rounded-xl border border-border overflow-hidden">
+            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 bg-muted/20 border-b border-border">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Icon className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-sm">{section.label}</p>
-                  <p className="text-xs text-muted-foreground">{section.description}</p>
+                  <p className="font-semibold text-sm">{activeSection.label}</p>
+                  <p className="text-xs text-muted-foreground">{activeSection.description}</p>
                 </div>
               </div>
               <div className={cn(
@@ -177,7 +212,7 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
 
             {/* Fields */}
             <div className="p-5 space-y-4">
-              {section.fields.map((field) => {
+              {activeSection.fields.map((field) => {
                 const val = config[field.key] ?? '';
                 const show = visible[field.key];
                 const isMasked = val === MASK;
@@ -192,18 +227,10 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
                         onChange={(e) => handleChange(field.key, e.target.value)}
                         placeholder={field.placeholder}
                         className="flex-1 font-mono text-sm"
-                        onFocus={() => {
-                          if (isMasked) handleChange(field.key, '');
-                        }}
+                        onFocus={() => { if (isMasked) handleChange(field.key, ''); }}
                       />
                       {field.sensitive && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => toggle(field.key)}
-                          className="shrink-0"
-                        >
+                        <Button type="button" variant="outline" size="icon" onClick={() => toggle(field.key)} className="shrink-0">
                           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
                       )}
@@ -212,8 +239,8 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
                 );
               })}
 
-              {/* Asaas webhook URL info */}
-              {section.id === 'asaas' && (
+              {/* Asaas webhook URL */}
+              {activeSection.id === 'asaas' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">
                     Webhook URL — configure no painel Asaas → Integrações → Webhooks
@@ -222,18 +249,15 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
                     <code className="flex-1 text-xs font-mono text-muted-foreground truncate">
                       {appUrl}/api/webhooks/asaas/billing
                     </code>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(`${appUrl}/api/webhooks/asaas/billing`); }}
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                    >
-                      <Copy className="w-4 h-4" />
+                    <button onClick={() => copyText(`${appUrl}/api/webhooks/asaas/billing`, 'asaas_webhook')} className="shrink-0 text-muted-foreground hover:text-foreground">
+                      {copied === 'asaas_webhook' ? <CheckCheck className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Google redirect URI info */}
-              {section.id === 'google' && (
+              {/* Google redirect URI */}
+              {activeSection.id === 'google' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">
                     URI de Redirecionamento Autorizada
@@ -242,8 +266,8 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
                     <code className="flex-1 text-xs font-mono text-muted-foreground truncate">
                       {appUrl}/api/google/callback
                     </code>
-                    <button onClick={copyRedirectUri} className="shrink-0 text-muted-foreground hover:text-foreground">
-                      {copied ? <CheckCheck className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                    <button onClick={() => copyText(`${appUrl}/api/google/callback`, 'google_redirect')} className="shrink-0 text-muted-foreground hover:text-foreground">
+                      {copied === 'google_redirect' ? <CheckCheck className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -253,12 +277,7 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
               )}
 
               <div className="flex justify-end pt-1">
-                <Button
-                  onClick={() => handleSave(section.id)}
-                  disabled={!!saving}
-                  size="sm"
-                  className="min-w-[120px]"
-                >
+                <Button onClick={() => handleSave(activeSection.id)} disabled={!!saving} size="sm" className="min-w-[120px]">
                   {isSaving
                     ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Salvando…</>
                     : <><Save className="w-3.5 h-3.5 mr-1.5" />Salvar</>}
@@ -266,16 +285,7 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
               </div>
             </div>
           </div>
-        );
-      })}
-
-      {/* Security note */}
-      <div className="flex items-start gap-2 p-4 rounded-xl bg-muted/30 border border-border">
-        <KeyRound className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-        <p className="text-xs text-muted-foreground">
-          Valores sensíveis são criptografados com AES-256-GCM antes de serem armazenados.
-          A descriptografia requer a <code className="font-mono">ENCRYPTION_KEY</code> configurada no servidor.
-        </p>
+        </div>
       </div>
     </div>
   );

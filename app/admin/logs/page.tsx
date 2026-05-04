@@ -9,8 +9,63 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDateTime } from '@/lib/utils/format';
 import {
   AlertCircle, AlertTriangle, Info, Zap,
-  RefreshCw, Pause, Play, Search, ChevronDown, ChevronUp,
+  RefreshCw, Pause, Play, Search, ChevronDown, ChevronUp, Cpu, DollarSign,
 } from 'lucide-react';
+
+function fmtTokens(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
+}
+
+function TokenStats() {
+  const [stats, setStats] = useState<{ monthly: { tokens: number; cost_usd: number }; all_time: { tokens: number; cost_usd: number } } | null>(null);
+  useEffect(() => {
+    fetch('/api/admin/tokens').then(r => r.ok ? r.json() : null).then(d => { if (d) setStats(d); }).catch(() => {});
+  }, []);
+  if (!stats) return null;
+  const brl = (usd: number) => `R$ ${(usd * 5.5).toFixed(2)}`;
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-1">
+      <Card className="border-blue-500/20 bg-blue-500/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <Cpu className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground">Tokens este mês</p>
+            <p className="text-xl font-bold text-blue-400 mt-0.5">{fmtTokens(stats.monthly.tokens)}</p>
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-emerald-500/20 bg-emerald-500/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <DollarSign className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground">Custo este mês</p>
+            <p className="text-xl font-bold text-emerald-400 mt-0.5">{brl(stats.monthly.cost_usd)}</p>
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4 flex items-start gap-3">
+          <Cpu className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground">Tokens total</p>
+            <p className="text-xl font-bold mt-0.5">{fmtTokens(stats.all_time.tokens)}</p>
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4 flex items-start gap-3">
+          <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs text-muted-foreground">Custo total</p>
+            <p className="text-xl font-bold mt-0.5">{brl(stats.all_time.cost_usd)}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 type Log = {
   id: string;
@@ -212,7 +267,10 @@ export default function LogsDashboardPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Token stats globais */}
+      <TokenStats />
+
+      {/* Stats de logs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4">

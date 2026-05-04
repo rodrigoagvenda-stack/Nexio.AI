@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleWebhook } from '@/lib/sdr/engine'
 import type { UazapiWebhookMessage } from '@/lib/sdr/uazapi'
+import { syslog } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -19,17 +20,34 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
+    await syslog({ type: 'sdr', severity: 'error', message: `Webhook SDR: body inválido`, company_id: companyId })
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
-  // Log do payload bruto para diagnóstico
-  console.log('[SDR webhook]', companyId, JSON.stringify(body).slice(0, 500))
+  const msgType = (body as any).type ?? 'unknown'
+  const from = (body as any).from ?? (body as any).data?.from ?? '?'
 
-  // Aguarda handleWebhook para garantir que o buffer seja gravado antes de retornar
-  const handled = await handleWebhook(companyId, body).catch((err) => {
+  const handled = await handleWebhook(companyId, body).catch(async (err) => {
     console.error(`[SDR] Erro no webhook empresa ${companyId}:`, err)
+    await syslog({
+      type: 'sdr',
+      severity: 'error',
+      message: `SDR webhook falhou — empresa ${companyId}: ${err.message}`,
+      payload: { error: err.message, stack: err.stack?.slice(0, 500), msgType, from },
+      company_id: companyId,
+    })
     return false
   })
+
+  if (handled) {
+    await syslog({
+      type: 'sdr',
+      severity: 'info',
+      message: `SDR processou mensagem [${msgType}] de ${from}`,
+      payload: { msgType, from },
+      company_id: companyId,
+    })
+  }
 
   return NextResponse.json({ ok: true, handled }, { status: 200 })
 }
