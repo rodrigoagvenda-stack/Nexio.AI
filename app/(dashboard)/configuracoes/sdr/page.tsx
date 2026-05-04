@@ -843,21 +843,6 @@ export default function SdrConfigPage() {
               <CalendarSection calendarId={config.google_calendar_id} onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))} />
             </div>
           </div>
-          {config.webhook_url && (
-            <div className="border-t border-border/60 pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-semibold">Webhook URL</p>
-              </div>
-              <p className="text-xs text-muted-foreground mb-2">Configure esta URL na sua instância UAZapi</p>
-              <div className="flex gap-2 items-center p-3 rounded-lg bg-muted/30 border border-border">
-                <code className="flex-1 text-xs font-mono text-muted-foreground truncate">{config.webhook_url}</code>
-                <button onClick={() => { navigator.clipboard.writeText(config.webhook_url!); setCopied(true); setTimeout(() => setCopied(false), 2000) }} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
-                  {copied ? <CheckCheck className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

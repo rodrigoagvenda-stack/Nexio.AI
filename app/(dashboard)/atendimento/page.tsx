@@ -47,6 +47,7 @@ interface Conversation {
   id_do_lead?: number;
   lead?: Lead;
   assigned_to?: number | null;
+  agente_pausado?: boolean;
   whatsapp_photo_url?: string;
 }
 
@@ -212,16 +213,33 @@ export default function AtendimentoPage() {
     };
   }, [company?.id]);
 
-  // Sincronizar estado da IA com company.is_active
+  // Sincronizar estado da IA com company.agente_ativo
   useEffect(() => {
     if (company !== null) {
-      setIsAiActive(company.is_active ?? true);
+      setIsAiActive((company as any).agente_ativo ?? true);
     }
   }, [company]);
 
+  async function handleToggleGlobalAi() {
+    if (!company) return;
+    const novo = !isAiActive;
+    setIsAiActive(novo);
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update({ agente_ativo: novo })
+        .eq('id', company.id);
+      if (error) throw error;
+      toast({ title: novo ? 'Agente IA ativado' : 'Agente IA desativado' });
+    } catch {
+      setIsAiActive(!novo);
+      toast({ title: 'Erro ao atualizar agente', variant: 'destructive' });
+    }
+  }
+
   // Sincroniza agente_pausado ao trocar de conversa
   useEffect(() => {
-    setConvAgentePausado((selectedConversation as any)?.agente_pausado ?? false);
+    setConvAgentePausado(selectedConversation?.agente_pausado ?? false);
   }, [selectedConversation?.id]);
 
   // Carregar mensagens quando selecionar conversa
@@ -1213,16 +1231,6 @@ export default function AtendimentoPage() {
           <p className="text-center text-xs text-muted-foreground mt-4">
             🔒 Suas mensagens são protegidas com criptografia de ponta a ponta
           </p>
-          <div className="mt-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-xs text-amber-800 dark:text-amber-300 space-y-1.5">
-            <p className="font-semibold">⚠️ Importante — API não oficial do WhatsApp</p>
-            <p>Esta integração usa uma API de terceiros não homologada pelo WhatsApp/Meta. Ao usar este recurso, você está ciente de que:</p>
-            <ul className="list-disc pl-4 space-y-1">
-              <li>O WhatsApp pode suspender ou banir o número conectado a qualquer momento, sem aviso prévio.</li>
-              <li>Não há garantia de disponibilidade (SLA) — interrupções no servidor intermediário podem desconectar o número.</li>
-              <li>O uso desta API viola os Termos de Serviço do WhatsApp.</li>
-              <li>Recomendamos não usar o número principal da empresa — prefira um número dedicado.</li>
-            </ul>
-          </div>
         </div>
       </div>
     );
@@ -1264,6 +1272,20 @@ export default function AtendimentoPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </CardTitle>
+            {/* Toggle global IA */}
+            <button
+              onClick={handleToggleGlobalAi}
+              className={cn(
+                'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors w-full justify-center',
+                isAiActive
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                  : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+              )}
+            >
+              <Bot className="h-3 w-3" />
+              {isAiActive ? 'Agente IA ativo' : 'Agente IA inativo'}
+            </button>
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
