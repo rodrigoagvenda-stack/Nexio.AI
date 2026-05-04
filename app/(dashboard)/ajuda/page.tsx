@@ -1,53 +1,39 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
-  LayoutDashboard,
-  Users,
-  MapPin,
-  MessageSquare,
-  UserPlus,
-  Columns3,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
-  HelpCircle,
-  Megaphone,
-  FileText,
+  LayoutDashboard, Users, MapPin, MessageSquare, UserPlus,
+  Columns3, ChevronLeft, ChevronRight, BookOpen, HelpCircle,
+  Megaphone, FileText, Bot, Send, X, Loader2, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
-interface HelpItem {
-  question: string;
-  answer: string;
-}
+// ── Types ──────────────────────────────────────────────────────────────────
 
-interface HelpSection {
-  id: string;
-  title: string;
-  icon: LucideIcon;
-  description: string;
-  items: HelpItem[];
-}
+interface HelpItem { question: string; answer: string }
+interface HelpSection { id: string; title: string; icon: LucideIcon; description: string; items: HelpItem[] }
+interface ChatMessage { role: 'user' | 'assistant'; content: string }
+
+// ── Content ────────────────────────────────────────────────────────────────
 
 const sections: HelpSection[] = [
   {
     id: 'dashboard',
     title: 'Dashboard',
     icon: LayoutDashboard,
-    description: 'Visão geral do seu CRM',
+    description: 'Visão geral e métricas do seu negócio em tempo real',
     items: [
       {
         question: 'O que é o Dashboard?',
         answer:
-          'O Dashboard é sua página inicial com um resumo em tempo real do seu CRM:\n\n• **Total de leads** cadastrados na base\n• **Leads por estágio** do funil (Lead novo, Em contato, Interessado, etc.)\n• **Conversões recentes** — leads que fecharam\n• **Valor total do pipeline** — soma dos valores de projeto\n• **Gráfico do funil** — visualização da distribuição por estágio\n• **Atividades recentes** — últimas movimentações no CRM',
+          'O Dashboard é sua página inicial com um resumo em tempo real:\n\n• **Total de leads** cadastrados na base\n• **Leads por estágio** do funil\n• **Conversões recentes** — leads que fecharam\n• **Valor total do pipeline** — soma dos valores de projeto\n• **Gráfico do funil** — distribuição por estágio\n• **Atividades recentes** — últimas movimentações',
       },
       {
         question: 'Como interpretar as métricas?',
         answer:
-          'Cada card do Dashboard mostra uma métrica importante:\n\n• **Leads Ativos** — Total de leads que não estão em "Fechado" ou "Perdido"\n• **Taxa de Conversão** — Percentual de leads que chegaram a "Fechado"\n• **Valor do Pipeline** — Soma de todos os valores de projeto ativos\n• **Leads por Origem** — De onde seus leads estão vindo (PEG, LinkedIn, Meta Ads, etc.)\n\nUse essas métricas para identificar gargalos e otimizar seu funil de vendas.',
+          'Cada card mostra uma métrica importante:\n\n• **Leads Ativos** — Total de leads que não estão em "Fechado" ou "Perdido"\n• **Taxa de Conversão** — Percentual que chegou a "Fechado"\n• **Valor do Pipeline** — Soma de todos os valores ativos\n• **Leads por Origem** — De onde seus leads vêm\n\nUse essas métricas para identificar gargalos e otimizar o funil.',
       },
     ],
   },
@@ -55,37 +41,32 @@ const sections: HelpSection[] = [
     id: 'crm',
     title: 'CRM',
     icon: Users,
-    description: 'Gestão de leads e oportunidades',
+    description: 'Gestão completa de leads e oportunidades de venda',
     items: [
       {
         question: 'Como cadastrar um novo lead?',
         answer:
-          'O cadastro é feito em 3 etapas simples:\n\n**Etapa 1 — Empresa:**\n1. Clique em **+ Adicionar Lead** no topo da página\n2. Preencha o **Nome da Empresa** (obrigatório)\n3. Selecione o **Segmento** (E-commerce, Saúde, Educação, Tecnologia, etc.)\n4. Adicione o site ou Instagram (opcional)\n\n**Etapa 2 — Contato:**\n5. Nome do contato, WhatsApp e e-mail\n\n**Etapa 3 — Detalhes:**\n6. Prioridade (Alta, Média, Baixa)\n7. Nível de interesse (Quente, Morno, Frio)\n8. Fonte de importação (PEG, LinkedIn, Meta Ads, Google Ads, etc.)\n9. Valor do projeto em R$\n10. Observações\n\nO lead será criado automaticamente no estágio **Lead novo**.\n\n> **Leads captados pelo Orbit** entram diretamente no estágio **Triagem**, não em Lead novo.',
+          'Cadastro em 3 etapas:\n\n**Etapa 1 — Empresa:**\n1. Clique em **+ Adicionar Lead**\n2. Preencha o **Nome da Empresa** (obrigatório)\n3. Selecione o **Segmento**\n4. Adicione site ou Instagram (opcional)\n\n**Etapa 2 — Contato:**\n5. Nome, WhatsApp e e-mail do contato\n\n**Etapa 3 — Detalhes:**\n6. Prioridade, nível de interesse, fonte, valor do projeto e observações\n\nO lead entra automaticamente no estágio **Lead novo**.',
       },
       {
         question: 'Quais são os estágios do funil?',
         answer:
-          'O funil possui 9 estágios:\n\n• **Triagem** 🔍 — Leads captados pelo Orbit chegam aqui primeiro. O usuário avalia quais se encaixam no ICP antes de avançar\n• **Outbound** 📣 — Leads aprovados na triagem que entram no processo de prospecção ativa pelo Orbit.AI\n• **Lead novo** 🔵 — Leads adicionados manualmente que ainda não foram contactados\n• **Em contato** 💬 — Primeiro contato realizado\n• **Interessado** ⭐ — Demonstrou interesse no produto/serviço\n• **Proposta enviada** 📄 — Recebeu orçamento ou proposta comercial\n• **Fechado** ✅ — Venda concluída com sucesso\n• **Perdido** ❌ — Não converteu\n• **Remarketing** 🔁 — Para reativar no futuro\n\n**Como mover leads:**\n• No **Kanban**: arraste e solte o card entre as colunas\n• No **Mobile**: use o seletor de status dentro do card\n• A mudança é salva automaticamente no banco de dados',
+          'O funil tem 9 estágios:\n\n• **Triagem** 🔍 — Leads captados pelo Orbit chegam aqui para avaliação de ICP\n• **Outbound** 📣 — Leads aprovados na triagem prontos para prospecção\n• **Lead novo** 🔵 — Leads adicionados manualmente ainda não contactados\n• **Em contato** 💬 — Primeiro contato realizado\n• **Interessado** ⭐ — Demonstrou interesse\n• **Proposta enviada** 📄 — Recebeu orçamento ou proposta\n• **Fechado** ✅ — Venda concluída\n• **Perdido** ❌ — Não converteu\n• **Remarketing** 🔁 — Para reativar futuramente\n\nMova leads arrastando no Kanban ou usando o seletor no mobile.',
       },
       {
         question: 'Como alternar entre Planilha e Kanban?',
         answer:
-          'No menu lateral, dentro de **CRM**, você tem dois sub-itens:\n\n• **Planilha** — Visualização em tabela com todas as colunas. Ideal para:\n   • Ver muitos leads de uma vez\n   • Selecionar múltiplos leads (checkbox)\n   • Deletar em massa\n   • Exportar para CSV\n   • Paginação com 9 leads por página\n\n• **Kanban** — Visualização em quadros por estágio. Ideal para:\n   • Arrastar leads entre estágios (drag & drop)\n   • Ver o valor total por coluna\n   • Visão rápida do pipeline\n   • Contagem de leads por estágio',
+          'No menu lateral, dentro de **CRM**, você tem dois sub-itens:\n\n• **Planilha** — Tabela com todas as colunas. Ideal para ver muitos leads, selecionar em massa, deletar em lote e exportar para CSV\n• **Kanban** — Quadros por estágio com drag & drop, valor total por coluna e contagem de leads',
       },
       {
-        question: 'Como editar ou deletar um lead?',
+        question: 'Como editar, deletar e exportar leads?',
         answer:
-          '**Editar:**\n• No Kanban: passe o mouse sobre o card e clique no ícone de lápis\n• Na Planilha: clique no ícone de lápis na coluna "Ações"\n• O formulário de 3 etapas abrirá com os dados preenchidos\n\n**Deletar individual:**\n• Clique no ícone de lixeira no card ou na tabela\n• Confirme na caixa de diálogo\n\n**Deletar em massa (só na Planilha):**\n1. Marque os checkboxes dos leads que deseja deletar\n2. Clique no botão **Deletar X selecionado(s)**\n3. Confirme a exclusão\n\n**Atenção:** A exclusão é permanente e não pode ser desfeita.',
-      },
-      {
-        question: 'Como exportar leads para CSV?',
-        answer:
-          'Na página do CRM, clique no botão **Exportar CSV** no topo.\n\nO arquivo exportado inclui:\n• Nome da Empresa e Nome do Contato\n• Segmento e Status\n• Website/Instagram\n• WhatsApp e E-mail\n• Prioridade e Nível de Interesse\n• Valor do Projeto\n• Fonte de Importação\n• Observações\n• Data de Criação\n\nOs filtros ativos (busca, status, prioridade) são respeitados na exportação. Se você filtrou por "Alta prioridade", só esses leads serão exportados.',
+          '**Editar:** Clique no lápis no card (Kanban) ou na tabela (Planilha).\n\n**Deletar individual:** Ícone de lixeira → confirme na caixa de diálogo.\n\n**Deletar em massa** (só na Planilha):\n1. Marque os checkboxes dos leads\n2. Clique em **Deletar X selecionado(s)**\n3. Confirme — a exclusão é permanente.\n\n**Exportar CSV:** Clique em **Exportar CSV** no topo. Os filtros ativos são respeitados.',
       },
       {
         question: 'Como usar os filtros?',
         answer:
-          'No topo da página do CRM você tem 3 filtros:\n\n• **Busca** — Pesquise por nome da empresa, nome do contato ou e-mail\n• **Status** — Filtre por estágio do funil (Lead novo, Em contato, Interessado, etc.)\n• **Prioridade** — Filtre por Alta, Média ou Baixa\n\nVocê pode combinar os filtros. Por exemplo: buscar "Tecnologia" + Status "Interessado" + Prioridade "Alta".\n\nClique em **Limpar** para remover todos os filtros de uma vez.',
+          'No topo do CRM você tem 3 filtros combináveis:\n\n• **Busca** — Nome da empresa, contato ou e-mail\n• **Status** — Filtre por estágio do funil\n• **Prioridade** — Alta, Média ou Baixa\n\nClique em **Limpar** para remover todos os filtros de uma vez.',
       },
     ],
   },
@@ -93,57 +74,37 @@ const sections: HelpSection[] = [
     id: 'atendimento',
     title: 'Atendimento',
     icon: MessageSquare,
-    description: 'Chat WhatsApp integrado com SDR por IA',
+    description: 'Chat WhatsApp com SDR por IA integrado',
     items: [
       {
         question: 'O que é o módulo de Atendimento?',
         answer:
-          'O Atendimento é um **chat espelhado do WhatsApp** dentro do CRM, voltado 100% para **conversão de leads**.\n\nEle funciona com um **SDR virtual (IA)** que conversa com seus leads automaticamente pelo WhatsApp, coletando informações, identificando dores, quebrando objeções e qualificando o lead para a equipe comercial.\n\n**O que você vê na tela:**\n• **Painel esquerdo** — Lista de todas as conversas do WhatsApp\n• **Painel central** — Chat em tempo real (mensagens da IA e do lead)\n• **Painel direito** — Informações do lead, resumo IA, notas, tags, mídia e agenda',
+          'O Atendimento é um **chat espelhado do WhatsApp** dentro do CRM com um **SDR virtual por IA** que conversa automaticamente com seus leads.\n\n**O que você vê na tela:**\n• **Painel esquerdo** — Lista de conversas com tabs: Minhas / Livres / Todas\n• **Painel central** — Chat em tempo real\n• **Painel direito** — Informações do lead, resumo IA, notas, tags, mídia e agenda',
       },
       {
-        question: 'Como funciona o SDR por IA?',
+        question: 'Como funciona o Agente IA?',
         answer:
-          'O SDR (Sales Development Representative) é uma **IA que conversa pelo WhatsApp** como se fosse um vendedor real.\n\n**O que ele faz automaticamente:**\n• Responde mensagens dos leads em tempo real\n• Faz perguntas estratégicas para qualificar o lead\n• Coleta informações: nome, empresa, cargo, necessidades\n• Identifica **dores e objeções** do lead\n• Apresenta seus produtos/serviços\n• Tenta agendar reuniões ou fechar vendas\n\n**Resumo do Lead (o ouro):**\n• O SDR gera automaticamente um **resumo completo** do lead\n• Inclui: informações coletadas, dores identificadas, objeções levantadas, nível de interesse\n• Esse resumo fica disponível na aba lateral do chat\n• Você pode copiar o resumo e compartilhar com a equipe\n\nAs mensagens enviadas pela IA aparecem com o ícone de **robô** e a tag **"IA"** no chat.',
+          'O agente IA responde mensagens automaticamente como um vendedor real.\n\n**Dois níveis de controle:**\n• **Toggle global** "Agente IA ativo/inativo" no topo da lista de conversas — desativa para toda a empresa\n• **Toggle por conversa** "Agente ativo/pausado" no header do chat — pausa apenas aquela conversa para atendimento humano\n\n**O que o agente faz:**\n• Responde e qualifica leads em tempo real\n• Coleta informações e identifica dores/objeções\n• Apresenta produtos/serviços\n• Tenta agendar reuniões ou fechar vendas\n• Gera **resumo automático** do lead com tudo coletado',
       },
       {
-        question: 'Como interromper o SDR e enviar mensagem manualmente?',
+        question: 'Modos de atendimento: Suporte vs Vendas',
         answer:
-          'Você pode **assumir a conversa** a qualquer momento:\n\n1. Abra a conversa no Atendimento\n2. Digite sua mensagem na caixa de texto na parte inferior\n3. Clique em **Enviar** ou pressione **Enter**\n\nSua mensagem será enviada como **humano** (aparece com ícone de pessoa no chat, sem a tag "IA").\n\n**Para atribuir/transferir o chat:**\n• Clique no botão **Atribuir** no topo do chat\n• Selecione o membro da equipe que vai assumir\n• Adicione uma nota explicando o motivo (opcional)\n• O chat mostrará o badge "Atribuído" na lista\n\nIsso é útil quando o lead precisa de atendimento humano personalizado ou quando a IA não consegue resolver uma objeção específica.',
+          'Configure em **Configurações → SDR → Geral → Modo de atendimento**:\n\n• **Suporte** — Inbox compartilhado. Conversas novas ficam "Livres" e qualquer atendente pode atribuir para si\n• **Vendas** — Round-robin automático. Cada conversa nova é atribuída automaticamente ao atendente com menos conversas abertas\n\nAs tabs na lista de conversas:\n• **Minhas** — Conversas atribuídas a você\n• **Livres** — Sem atendente atribuído (modo suporte)\n• **Todas** — Todas as conversas da empresa (admin/gerente)',
       },
       {
         question: 'Que tipos de mídia posso enviar?',
         answer:
-          'Você pode enviar 5 tipos de mídia pelo chat:\n\n• **Texto** — Mensagens de texto normais. Use Shift+Enter para quebrar linha.\n\n• **Imagens** — Fotos e prints. Aceita qualquer formato de imagem. Você pode adicionar uma legenda antes de enviar.\n\n• **Áudios** — Grave áudios direto pelo sistema. Clique no microfone, grave, pause se precisar, ouça antes de enviar e confirme. O áudio aparece com um player de ondas sonoras.\n\n• **Vídeos** — Envie vídeos curtos. Aparece com player de reprodução no chat.\n\n• **Documentos** — PDFs, Word, Excel, TXT. Ideal para enviar propostas, contratos e orçamentos. O documento fica disponível para download.\n\nTodos os arquivos são salvos de forma segura e ficam disponíveis na aba **Mídia** do painel lateral.',
-      },
-      {
-        question: 'Como gravar e enviar áudios?',
-        answer:
-          'Para gravar um áudio:\n\n1. Clique no ícone de **microfone** ao lado da caixa de texto\n2. A gravação inicia automaticamente com um timer\n3. Você pode **pausar** e **retomar** a gravação\n4. Ao finalizar, **ouça o áudio** antes de enviar\n5. Clique em **Enviar** para mandar ou no **X** para descartar\n\nNo chat, o áudio aparece com um **player visual com ondas sonoras**, botão play/pause e a duração total.',
-      },
-      {
-        question: 'O que é o Resumo do Lead?',
-        answer:
-          'O Resumo do Lead é o **recurso mais valioso** do Atendimento.\n\nÉ um texto gerado automaticamente pela IA com tudo que foi coletado durante a conversa:\n\n• **Informações do contato** — Nome, empresa, cargo, segmento\n• **Necessidades identificadas** — O que o lead precisa\n• **Dores e problemas** — Quais são as frustrações do lead\n• **Objeções levantadas** — Preço, prazo, concorrência, etc.\n• **Nível de interesse** — Quente, morno ou frio\n• **Próximos passos** — O que foi combinado\n\n**Onde ver o resumo:**\n• No painel lateral direito do chat, seção **"nexio.ai resumo"**\n• O resumo tem um badge **"IA"** e a nota **"Gerado automaticamente"**\n• Você pode **copiar** o resumo com um clique\n\nEsse resumo permite que qualquer vendedor da equipe pegue a conversa e saiba exatamente onde parou, sem precisar ler todas as mensagens.',
+          '5 tipos de mídia suportados:\n\n• **Texto** — Shift+Enter para quebrar linha\n• **Imagens** — Qualquer formato, com legenda opcional\n• **Áudio** — Grave direto no sistema com player de ondas sonoras\n• **Vídeos** — Player de reprodução no chat\n• **Documentos** — PDF, Word, Excel, TXT\n\nTodos os arquivos ficam na aba **Mídia** do painel lateral.',
       },
       {
         question: 'Como usar Respostas Rápidas (Templates)?',
         answer:
-          'Templates aceleram o atendimento com mensagens pré-prontas.\n\n**Para usar durante uma conversa:**\n• Digite **/** na caixa de texto\n• Uma lista de templates aparece filtrada pelo que você digitar\n• Use as setas **↑↓** para navegar e **Enter** para selecionar\n• O template é inserido automaticamente\n\n**Variáveis dinâmicas disponíveis:**\n• **{{nome}}** — Nome do contato\n• **{{empresa}}** — Nome da empresa do lead\n• **{{telefone}}** — Telefone do lead\n• **{{usuario}}** — Seu nome\n• **{{minha_empresa}}** — Nome da sua empresa\n\n**Categorias de templates:**\n• Saudação, Follow-up, Preço, Agendamento, Encerramento, Geral\n\n**Criar templates:**\n• Acesse o gerenciador de templates dentro do Atendimento\n• Defina: nome, atalho (ex: /ola), categoria e conteúdo',
+          '**Durante uma conversa:**\n• Digite **/** na caixa de texto\n• Selecione o template com ↑↓ e Enter\n\n**Variáveis dinâmicas:**\n• **{{nome}}** — Nome do contato\n• **{{empresa}}** — Nome da empresa\n• **{{telefone}}** — Telefone\n• **{{usuario}}** — Seu nome\n• **{{minha_empresa}}** — Nome da sua empresa',
       },
       {
-        question: 'Como agendar mensagens?',
+        question: 'Como agendar mensagens e usar Tags?',
         answer:
-          'Você pode programar mensagens para serem enviadas em um horário específico:\n\n1. Clique no ícone de **calendário** no topo do chat\n2. Selecione a **data** e o **horário** de envio\n3. Digite a **mensagem** que será enviada\n4. Confirme o agendamento\n\n**Regras:**\n• A data/hora deve ser no futuro\n• O sistema avisa se o horário for fora do comercial (8h-18h)\n• Você pode confirmar mesmo fora do horário comercial\n\n**Gerenciar agendamentos:**\n• Na aba **Agenda** do painel lateral, veja todas as mensagens programadas\n• Cada agendamento mostra: data, tipo (texto ou mídia), preview e quem agendou\n• Você pode **cancelar** agendamentos pendentes',
-      },
-      {
-        question: 'Como usar Tags nas conversas?',
-        answer:
-          'Tags ajudam a organizar e categorizar seus leads visualmente.\n\n**Na aba Tags do painel lateral:**\n• Veja as tags já atribuídas ao lead\n• Clique em **+** para adicionar uma tag existente\n• Clique em **X** para remover uma tag\n• Crie novas tags com nome e cor personalizada\n\n**16 cores disponíveis** incluindo vermelho, verde, azul, roxo Nexio, rosa, entre outras.\n\nAs tags aparecem na lista de conversas para identificação visual rápida. Por exemplo: "VIP" em verde para clientes prioritários.',
-      },
-      {
-        question: 'Onde vejo as mídias enviadas e recebidas?',
-        answer:
-          'Na aba **Mídia** do painel lateral direito, você encontra uma galeria com todos os arquivos trocados na conversa.\n\n**Filtros disponíveis:**\n• **Todas** — Todos os tipos de mídia\n• **Imagens** — Fotos e prints (com preview e lightbox)\n• **Vídeos** — Vídeos enviados e recebidos\n• **Áudio** — Áudios gravados\n• **Documentos** — PDFs, Word, Excel, etc.\n\nCada item tem botão de **download** e as imagens podem ser ampliadas em tela cheia.',
+          '**Agendar mensagens:**\n1. Clique no ícone de calendário no header do chat\n2. Selecione data, hora e mensagem\n3. Gerencie agendamentos na aba **Agenda** do painel lateral\n\n**Tags:**\n• Acesse a aba **Tags** no painel lateral\n• Adicione, remova ou crie tags com cores customizadas\n• As tags aparecem na lista de conversas para identificação visual rápida',
       },
     ],
   },
@@ -151,17 +112,17 @@ const sections: HelpSection[] = [
     id: 'captacao',
     title: 'Orbit (Captação)',
     icon: MapPin,
-    description: 'Prospecção e extração de leads',
+    description: 'Prospecção e extração automática de leads',
     items: [
       {
         question: 'O que é o Orbit?',
         answer:
-          'O Orbit é a ferramenta de **captação e extração de leads** do Nexio. Disponível apenas nos planos **NEXIO GROWTH** e **NEXIO ADS**.\n\nCom ele você pode buscar empresas por localização e segmento, e importar diretamente para o seu CRM.\n\nSe você está no plano **NEXIO SALES**, o menu Orbit não aparece no sistema.',
+          'O Orbit é a ferramenta de **captação e extração de leads** do Zaapli.\n\nCom ele você busca empresas por localização e segmento e importa diretamente para o CRM.\n\nLeads captados pelo Orbit entram no estágio **Triagem** do funil — não em Lead novo — para você avaliar o ICP antes de avançar.',
       },
       {
-        question: 'Qual a diferença entre os planos?',
+        question: 'Qual o fluxo correto depois de captar leads?',
         answer:
-          '**NEXIO SALES** — R$ 1.600/mês\n• CRM completo com Planilha e Kanban\n• Chat WhatsApp com SDR por IA\n• Funil de vendas e Dashboard\n• Sem acesso ao Orbit (captação/extração)\n\n**NEXIO GROWTH** — R$ 2.000/mês\n• Tudo do Sales + acesso ao Orbit\n• 500 leads inclusos por mês\n• Busca por localização e segmento\n• Leads extras: R$ 1/lead ou R$ 400 por pacote de +500\n\n**NEXIO ADS** — R$ 2.600/mês\n• Tudo do Growth + Gestão de Tráfego Pago\n• Campanhas Google Ads e Meta Ads integradas\n• Otimização automática e relatórios de ROI',
+          'O fluxo ideal após captar pelo Orbit:\n\n1. 🔍 **Triagem** — Leads chegam aqui automaticamente\n2. Avalie se o lead se encaixa no seu **ICP (Perfil de Cliente Ideal)**\n3. ✅ Aprovado → arraste para **Outbound** para iniciar prospecção\n4. ❌ Reprovado → mova para **Perdido** ou delete\n\nEssa etapa garante que o agente só aborde empresas que realmente fazem sentido, aumentando a taxa de conversão.',
       },
     ],
   },
@@ -169,22 +130,22 @@ const sections: HelpSection[] = [
     id: 'membros',
     title: 'Membros',
     icon: UserPlus,
-    description: 'Gerenciar equipe e permissões',
+    description: 'Gerenciar equipe, funções e permissões',
     items: [
       {
         question: 'Como adicionar membros à equipe?',
         answer:
-          'Apenas administradores podem adicionar novos membros.\n\n1. Acesse **Membros** no menu lateral\n2. Clique em **+ Novo Membro**\n3. Preencha nome completo e e-mail corporativo\n4. Defina a função e permissões\n5. Clique em **Enviar Convite**\n\nO novo membro receberá um e-mail com instruções para criar sua senha e acessar o sistema.',
+          'Apenas administradores podem adicionar membros.\n\n1. Acesse **Membros** no menu lateral\n2. Clique em **+ Novo Membro**\n3. Preencha nome e e-mail\n4. Defina a função\n5. Clique em **Enviar Convite**\n\nO membro recebe um e-mail com instruções para criar senha e acessar o sistema.\n\n**Limites por plano:**\n• Starter — até 3 atendentes\n• Pro — até 10 atendentes\n• Scale — ilimitado',
       },
       {
         question: 'Quais são os níveis de permissão?',
         answer:
-          'Existem 3 níveis de permissão:\n\n**Vendedor** — Acessa o CRM, vê e edita seus leads, usa o chat de Atendimento, move leads no funil. Ideal para vendedores e SDRs.\n\n**Gerente** — Tudo do Vendedor + vê leads de toda a equipe, acessa relatórios completos, pode atribuir leads entre vendedores.\n\n**Administrador** — Acesso total. Gerencia membros, configura integrações (WhatsApp, IA), acessa painel Admin, configura planos e dados da empresa.',
+          '**Vendedor** — CRM, seus leads, chat de atendimento, movimentação no funil.\n\n**Gerente** — Tudo do Vendedor + vê leads de toda equipe, relatórios completos, atribuição entre vendedores, tabs "Todas" no atendimento.\n\n**Administrador** — Acesso total. Gerencia membros, configura WhatsApp e SDR, acessa painel Admin, configura planos.',
       },
       {
-        question: 'Como atribuir conversas para membros da equipe?',
+        question: 'Como atribuir conversas para membros?',
         answer:
-          'No módulo de Atendimento, cada conversa pode ser atribuída a um membro:\n\n1. Abra a conversa no chat\n2. Clique no botão **Atribuir** no topo\n3. Selecione o membro da equipe (veja quantos chats ativos cada um tem)\n4. Adicione uma nota explicando o motivo (opcional)\n5. Confirme a atribuição\n\nO chat mostrará o badge **"Atribuído"** na lista de conversas. Para transferir para outro membro, clique em **Transferir** e selecione o novo responsável.',
+          'No Atendimento, clique em **Atribuir** no header do chat, selecione o membro (veja quantos chats ativos cada um tem) e confirme.\n\nPara transferir, clique em **Transferir** e selecione o novo responsável.\n\nNo modo vendas, a atribuição é automática via round-robin — o sistema escolhe o atendente com menos conversas abertas.',
       },
     ],
   },
@@ -192,22 +153,17 @@ const sections: HelpSection[] = [
     id: 'kanban',
     title: 'Kanban',
     icon: Columns3,
-    description: 'Visualização em quadros do funil',
+    description: 'Visualização em quadros do funil de vendas',
     items: [
       {
         question: 'Como usar o Kanban?',
         answer:
-          'O Kanban mostra seus leads organizados em colunas por estágio do funil.\n\n**Cada coluna mostra:**\n• Nome do estágio com ícone\n• Contador de leads\n• Valor total em R$ dos leads naquele estágio\n\n**Cada card mostra:**\n• Iniciais da empresa\n• Nome da empresa e contato\n• Tags de prioridade (Alta, Média, Baixa)\n• Nível de interesse (Quente, Morno, Frio)\n• Segmento\n• Telefone e valor do projeto\n• Data de criação\n\n**Para mover um lead:**\n• Clique e segure o card\n• Arraste para a coluna do novo estágio\n• Solte — a mudança é salva automaticamente\n• Um toast confirma: "Lead movido para [estágio]"',
+          'O Kanban mostra leads em colunas por estágio.\n\n**Cada coluna mostra:**\n• Nome do estágio, contador de leads e valor total em R$\n\n**Cada card mostra:**\n• Empresa, contato, tags, prioridade, interesse, segmento, telefone e valor\n\n**Mover um lead:**\n• Clique, segure e arraste para a nova coluna — salva automaticamente\n\n**No celular:**\n• Use o seletor de status no card (não tem drag & drop no mobile)',
       },
       {
         question: 'O que é a coluna Triagem e por que ela existe?',
         answer:
-          'A **Triagem** é o primeiro estágio do funil e funciona como uma **porta de entrada para leads captados pelo Orbit**.\n\nTodo lead extraído automaticamente pelo Orbit (via Google Maps ou outras fontes) chega primeiro na coluna Triagem — não em Lead novo. Isso é intencional e estratégico.\n\n**Por que isso é importante?**\n\nNem todo lead captado automaticamente é ideal para o seu negócio. Antes de iniciar o processo de prospecção ativa, o usuário deve avaliar se aquele lead:\n• Se encaixa no seu **ICP (Perfil de Cliente Ideal)**\n• Tem o porte, segmento e potencial certos\n• Vale ser abordado agora ou descartado\n\n**O fluxo correto é:**\n1. 🔍 **Triagem** — Lead chega aqui vindo do Orbit\n2. ✅ Aprovado no ICP → arraste para **Outbound** (o Orbit.AI inicia a prospecção)\n3. ❌ Reprovado → mova para **Perdido** ou delete\n\nEssa etapa garante que o Orbit.AI só aborde empresas que realmente fazem sentido para você, aumentando a taxa de conversão e evitando desperdício de contatos.',
-      },
-      {
-        question: 'Como funciona no celular?',
-        answer:
-          'No celular o Kanban se adapta para uma **lista vertical** em vez de colunas horizontais.\n\n**Cada card no mobile mostra:**\n• Nome da empresa e contato\n• Telefone e valor do projeto\n• **Seletor de status** — um dropdown para mudar o estágio diretamente\n• Prioridade e nível de interesse\n• Segmento\n• Botões de editar e deletar\n\nComo não dá pra arrastar no celular, o seletor de status substitui o drag & drop. A mudança é salva automaticamente ao selecionar o novo estágio.',
+          'A **Triagem** é a porta de entrada dos leads captados pelo Orbit.\n\nO objetivo é separar os leads antes de iniciar qualquer prospecção — você avalia quais se encaixam no seu ICP e quais não valem o esforço.\n\n**Fluxo:** Triagem → aprovado no ICP → Outbound (prospecção inicia) → Em contato → … → Fechado',
       },
     ],
   },
@@ -215,37 +171,22 @@ const sections: HelpSection[] = [
     id: 'outbound',
     title: 'Outbound',
     icon: Megaphone,
-    description: 'Campanhas, templates e limites de disparo',
+    description: 'Campanhas em massa, templates e configurações de disparo',
     items: [
-      {
-        question: 'Quais são as etapas do Funil Outbound?',
-        answer:
-          'O **Funil Outbound** no Dashboard mostra a jornada completa de um lead desde a captação até o fechamento. São 6 etapas:\n\n1. 🔍 **Triagem** — Leads recém-captados pelo Orbit. Aguardando avaliação do ICP pelo usuário antes de avançar\n2. 📣 **Extraídos** — Leads aprovados na triagem e movidos para a coluna Outbound, prontos para prospecção\n3. 📲 **Abordados** — Leads que já receberam ao menos uma mensagem pelo Orbit.AI (tentativas > 0)\n4. 💬 **Retornaram contato** — Leads que responderam à abordagem\n5. 📅 **Conversão** — Leads que chegaram à etapa de reunião/negociação\n6. ✅ **Fechados** — Leads que converteram em clientes\n\nEsse funil é visível na aba **Funil Outbound** dentro do Dashboard e reflete os dados em tempo real do seu CRM e campanhas.',
-      },
       {
         question: 'O que é o módulo Outbound?',
         answer:
-          'O Outbound é o módulo de **campanhas de mensagens em massa** via WhatsApp. Com ele você pode:\n\n• **Campanhas** — Visualize todas as campanhas disparadas, veja status (enviado, respondido, erro), expanda cada campanha para ver os erros detalhados com paginação\n• **Templates** — Gerencie os templates de mensagem usados nas campanhas. Templates globais (disponíveis para todas as empresas) e templates da sua empresa\n• **Configurações** — Defina o limite diário de disparos para proteger sua conta WhatsApp de banimentos\n\nAcesse pelo menu lateral em **Ferramentas → Outbound**.',
-      },
-      {
-        question: 'Como visualizar campanhas e erros?',
-        answer:
-          'Na aba **Campanhas**:\n\n**Cards de campanha:**\n• Nome/ID da campanha\n• Status: Ativa, Pausada, Concluída\n• Total enviadas, respondidas e erros\n• Data de criação\n\n**Expandir campanha:**\n• Clique em **Ver Erros** para ver os detalhes de falhas\n• Os erros são exibidos em páginas de 6 itens com botões Anterior/Próximo\n• Cada erro mostra: ID do lead, mensagem de erro e data/hora\n\n**Paginação de campanhas:**\n• Máximo de 6 campanhas por página\n• Use os botões **Anterior** e **Próximo** para navegar',
-      },
-      {
-        question: 'Como gerenciar templates?',
-        answer:
-          'Na aba **Templates** você vê todos os templates disponíveis:\n\n• **Templates globais** (sem empresa vinculada) — disponíveis para todas as contas\n• **Templates da empresa** — exclusivos da sua conta\n\n**Cada template exibe:**\n• Nome e categoria\n• Preview do conteúdo\n• Botão de copiar conteúdo\n• Ações de editar e deletar (apenas templates da empresa)\n\nTemplates são criados e gerenciados pelo time Nexio ou admin da conta.',
+          'O Outbound gerencia **campanhas de mensagens em massa via WhatsApp**.\n\n• **Campanhas** — Veja status, enviados, respondidos e erros com paginação\n• **Templates** — Gerencie templates globais e da empresa\n• **Configurações** — Defina o limite diário de disparos\n\nAcesse pelo menu lateral em **Automações → Outbound**.',
       },
       {
         question: 'Como configurar o limite diário de disparos?',
         answer:
-          'Na aba **Configurações**, você encontra dois cards:\n\n**Limite de Disparos:**\n• Define o número máximo de mensagens enviadas por dia\n• Recomendado: comece com valores baixos (50-100/dia) e aumente gradualmente\n• Muitos disparos de uma vez podem acionar proteção do WhatsApp\n• Clique em **Salvar limite** para aplicar\n\n**Boas Práticas:**\n• Respeite os limites do WhatsApp Business\n• Use intervalos entre disparos\n• Monitore a taxa de erros nas campanhas\n• Se a taxa de erro for alta, reduza o limite diário',
+          'Em **Outbound → Configurações**, defina o número máximo de mensagens por dia.\n\n**Boas práticas:**\n• Comece com 50–100/dia e aumente gradualmente\n• Muitos disparos de uma vez ativam proteção do WhatsApp\n• Monitore a taxa de erros nas campanhas\n• Se erros aumentarem, reduza o limite',
       },
       {
-        question: 'Por que o Orbit.AI só opera de segunda a sexta, das 9h às 18h?',
+        question: 'Por que o Orbit.AI só opera em horário comercial?',
         answer:
-          'O Orbit.AI foi configurado para operar exclusivamente em **horário comercial: segunda a sexta, das 9h às 18h** (horário de Brasília/Bahia). Fora desse período, o sistema entra em repouso automaticamente e retoma as operações no próximo horário disponível.\n\n**Por que essa configuração?**\n\nContatos realizados fora do horário comercial tendem a gerar **experiências negativas para o lead** — ninguém quer receber uma abordagem comercial à noite, de madrugada ou no fim de semana. Além disso, essa prática vai contra as **boas práticas de outbound** e pode comprometer a reputação do número, aumentando o risco de bloqueios e denúncias.\n\n**Os benefícios são claros:**\n• ✅ Abordagens mais assertivas e bem recebidas\n• ✅ Taxas de resposta mais altas\n• ✅ Experiência mais profissional para o prospectado\n• ✅ Menor risco de bloqueio ou denúncia do número\n• ✅ Alinhamento com as boas práticas de prospecção ativa\n\nAo respeitar o horário comercial, garantimos que cada contato seja feito no momento certo — quando o lead está disponível, receptivo e mais propenso a responder positivamente.',
+          'O sistema opera de **segunda a sexta, das 9h às 18h** (horário de Brasília).\n\nPor quê:\n• Contatos fora do horário comercial geram experiência negativa\n• Aumenta risco de bloqueio e denúncias\n• Taxas de resposta são maiores no horário comercial\n\nFora desse período o sistema entra em repouso e retoma automaticamente.',
       },
     ],
   },
@@ -253,27 +194,58 @@ const sections: HelpSection[] = [
     id: 'briefing',
     title: 'Briefing',
     icon: FileText,
-    description: 'Formulário de briefing personalizado da sua empresa',
+    description: 'Formulário público personalizado da sua empresa',
     items: [
       {
         question: 'O que é o Briefing?',
         answer:
-          'O Briefing é um **formulário público personalizado** exclusivo da sua empresa, acessível por uma URL única.\n\nCom ele você coleta informações importantes de potenciais clientes antes de uma reunião ou proposta.\n\n**O que você pode configurar:**\n• URL própria no formato `nexio.ai/briefing/sua-empresa`\n• Cor primária e logo da empresa (branding)\n• Título e descrição do formulário\n• Perguntas totalmente customizadas\n• Webhook para receber respostas em tempo real\n\nO menu **Briefing** aparece no sidebar apenas se o admin ativar o briefing para sua empresa.',
+          'O Briefing é um **formulário público personalizado** com URL única da sua empresa.\n\n• URL no formato `nexioai.online/briefing/sua-empresa`\n• Branding com sua logo e cor primária\n• Perguntas totalmente customizáveis\n• Download de respostas em PDF\n• Acessível sem login por qualquer pessoa com o link',
       },
       {
-        question: 'Como acessar e configurar o Briefing?',
+        question: 'Como configurar e compartilhar o Briefing?',
         answer:
-          'Acesse **Briefing** no menu lateral (seção Gestão).\n\nA página tem 3 abas:\n\n**Aba Respostas:**\n• Lista todas as respostas recebidas\n• Clique em **Ver** para ver os detalhes de uma resposta\n• Clique em **PDF** para baixar a resposta em PDF\n• Botão de lixeira para remover respostas\n\n**Aba Formulário:**\n• Adicione, edite e remova perguntas\n• Tipos de pergunta: texto curto, texto longo, seleção única, múltiplas escolhas, radio, checkbox\n• Defina se a pergunta é obrigatória\n\n**Aba Configurações:**\n• Ative/desative o briefing\n• Configure slug (parte da URL)\n• Escolha tema (claro/escuro)\n• Personalize cor primária e logo',
+          'Acesse **Briefing** no menu lateral.\n\n**3 abas:**\n• **Respostas** — Lista de respostas com opção de ver detalhes ou baixar PDF\n• **Formulário** — Adicione/edite perguntas (texto, seleção, múltipla escolha, checkbox)\n• **Configurações** — Slug, tema, cor primária, logo\n\n**Compartilhar:**\nCopie a URL no topo da página e envie por WhatsApp, e-mail ou proposta comercial.',
+      },
+    ],
+  },
+  {
+    id: 'sdr',
+    title: 'Configuração SDR',
+    icon: Bot,
+    description: 'Configurar o agente, persona e base de conhecimento',
+    items: [
+      {
+        question: 'Como configurar o agente SDR?',
+        answer:
+          'Acesse **Configuração → SDR** no menu lateral. A configuração tem 4 abas:\n\n• **Geral** — Tipo de agente, modo de atendimento (suporte/vendas), ativar/desativar agente\n• **Identidade** — Persona: nome do agente, tom, empresa, produto, restrições, horário\n• **Conhecimento** — Base de conhecimento (template, formulário ou PDF) e base de objeções\n• **Integrações** — Google Calendar para agendamentos automáticos',
       },
       {
-        question: 'Como compartilhar o link do Briefing?',
+        question: 'Como adicionar base de conhecimento?',
         answer:
-          'No topo da página de Briefing, quando há um slug configurado, aparece a **URL do seu briefing**.\n\n• Clique no ícone de **copiar** para copiar o link\n• Clique no ícone de **link externo** para abrir em nova aba e visualizar o formulário\n\nO formulário público é **acessível sem login** — qualquer pessoa com o link pode preencher.\n\nCompartilhe via WhatsApp, e-mail, proposta comercial ou assinatura de e-mail.',
+          'Na aba **Conhecimento**, você tem 3 formas de criar a base:\n\n• **Template por nicho** — Escolha seu nicho e preencha as variáveis (produto, preço, link, etc.)\n• **Formulário livre** — Adicione perguntas e respostas manualmente\n• **PDF** — Faça upload de um documento e o sistema processa automaticamente\n\nAo trocar de base, o sistema pede confirmação antes de substituir o conteúdo existente.\n\nA mesma lógica vale para a **Base de Objeções**.',
       },
       {
-        question: 'Como baixar respostas em PDF?',
+        question: 'Como conectar o WhatsApp?',
         answer:
-          'Na aba **Respostas**, cada resposta tem um botão **PDF**.\n\nO PDF gerado inclui:\n• Logo e nome da empresa (branding)\n• Título e data do preenchimento\n• Todas as perguntas e respostas formatadas\n\nO download é feito direto no navegador, sem precisar de nenhuma configuração adicional.',
+          'Acesse **Atendimento** no menu lateral. Se o WhatsApp não estiver conectado, a tela de conexão aparece automaticamente.\n\n1. Abra o WhatsApp no celular\n2. Toque em **Mais opções → Aparelhos conectados**\n3. Toque em **Conectar um aparelho**\n4. Aponte o celular para o QR Code na tela\n\nApós conectar, o webhook é configurado automaticamente — nenhuma configuração manual necessária.',
+      },
+    ],
+  },
+  {
+    id: 'planos',
+    title: 'Planos',
+    icon: Sparkles,
+    description: 'Planos disponíveis e limites de cada um',
+    items: [
+      {
+        question: 'Quais são os planos disponíveis?',
+        answer:
+          '**Starter — R$ 397/mês**\n• 1 número WhatsApp conectado\n• Agente SDR (atendimento + venda)\n• CRM Kanban completo\n• Até 3 atendentes\n• Follow-up automático\n• Base de conhecimento RAG\n• 5M tokens de IA/mês\n\n**Pro — R$ 597/mês**\n• Tudo do Starter\n• Agente SDR + agendamento Google Calendar\n• Até 10 atendentes\n• Relatórios de desempenho\n• 15M tokens de IA/mês\n\n**Scale — R$ 997/mês**\n• Até 10 números WhatsApp\n• Tudo do Pro\n• Atendentes ilimitados\n• 50M tokens de IA/mês\n• Suporte prioritário\n\n**Número adicional:** R$ 97/mês por número extra',
+      },
+      {
+        question: 'Como assinar um plano?',
+        answer:
+          'Acesse **Configuração → Plano** no menu lateral.\n\n1. Escolha o plano desejado\n2. Informe o CPF ou CNPJ da empresa (necessário para emissão de cobrança)\n3. Clique em **Escolher plano**\n4. Você será redirecionado para a página de pagamento do Asaas (PIX, boleto ou cartão)\n\nApós o pagamento confirmado, o plano é ativado automaticamente.',
       },
     ],
   },
@@ -281,31 +253,33 @@ const sections: HelpSection[] = [
     id: 'faq',
     title: 'Dúvidas Frequentes',
     icon: HelpCircle,
-    description: 'Perguntas comuns e soluções',
+    description: 'Problemas comuns e como resolver',
     items: [
       {
         question: 'O sistema está lento, o que fazer?',
         answer:
-          'Se o sistema estiver demorando para carregar:\n\n• **Primeira vez do dia** — O primeiro acesso pode demorar alguns segundos enquanto o servidor "acorda". Depois disso, fica rápido.\n• **CRM com muitos leads** — O sistema carrega até 100 leads por vez. Use os filtros para encontrar leads específicos.\n• **Conexão lenta** — Verifique sua internet. O sistema precisa de conexão estável para funcionar.\n• **Limpar cache** — Pressione Ctrl+Shift+R para forçar atualização.',
+          '• **Primeiro acesso do dia** — Pode demorar alguns segundos enquanto o servidor inicializa\n• **CRM com muitos leads** — Use os filtros para encontrar leads específicos\n• **Conexão lenta** — O sistema precisa de conexão estável\n• **Limpar cache** — Pressione Ctrl+Shift+R para forçar atualização',
       },
       {
         question: 'Não estou recebendo mensagens do WhatsApp no chat',
         answer:
-          'Verifique os seguintes pontos:\n\n1. A integração do WhatsApp está configurada? (Configurações > WhatsApp)\n2. O número do WhatsApp está correto nas configurações?\n3. A instância do UAZapi está ativa e conectada?\n4. O webhook está configurado corretamente?\n\nSe tudo estiver correto e ainda não funcionar, entre em contato com o suporte: **contato@nexioai.online**',
+          'Verifique:\n\n1. WhatsApp está conectado? (tela de Atendimento mostra "Conectado" no topo)\n2. O Agente IA está ativo? (toggle no topo da lista de conversas)\n3. A conversa não está com "Agente pausado"?\n\nSe tudo estiver correto, desconecte e reconecte o WhatsApp. O webhook é reconfigurado automaticamente.',
       },
       {
         question: 'Como alterar os dados da minha empresa?',
         answer:
-          'Apenas administradores podem alterar dados da empresa.\n\n1. Acesse **Configurações** no menu lateral\n2. Edite os campos: nome da empresa, e-mail, logo, etc.\n3. Salve as alterações\n\nSe você não é admin, peça para o administrador da conta fazer as alterações.',
+          'Apenas administradores podem alterar dados da empresa.\n\nAcesse **Configuração → Perfil** no menu lateral, edite os campos e salve.',
       },
       {
         question: 'Perdi minha senha, como recuperar?',
         answer:
-          'Na tela de login:\n\n1. Clique em **Esqueci minha senha**\n2. Digite seu e-mail cadastrado\n3. Verifique sua caixa de entrada (e spam)\n4. Clique no link de recuperação\n5. Defina uma nova senha\n\nO link expira em 24 horas. Se não receber o e-mail, verifique se está usando o mesmo e-mail cadastrado no sistema.',
+          'Na tela de login:\n\n1. Clique em **Esqueci minha senha**\n2. Digite seu e-mail cadastrado\n3. Verifique a caixa de entrada (e spam)\n4. Clique no link de recuperação — expira em 24 horas',
       },
     ],
   },
 ];
+
+// ── FormatText ─────────────────────────────────────────────────────────────
 
 function FormatText({ text }: { text: string }) {
   const elements = useMemo(() => {
@@ -315,77 +289,177 @@ function FormatText({ text }: { text: string }) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
+      if (!trimmed) { result.push(<div key={i} className="h-2" />); continue; }
 
-      if (!trimmed) {
-        result.push(<div key={i} className="h-3" />);
-        continue;
-      }
+      const renderInline = (str: string) =>
+        str.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
+          part.startsWith('**') && part.endsWith('**')
+            ? <strong key={j} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>
+            : <span key={j}>{part}</span>
+        );
 
-      // Parse inline bold
-      const renderInline = (str: string) => {
-        const parts = str.split(/(\*\*[^*]+\*\*)/g);
-        return parts.map((part, j) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return (
-              <strong key={j} className="text-foreground font-semibold">
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          return <span key={j}>{part}</span>;
-        });
-      };
-
-      // Numbered items: "1. Text here"
       const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
       if (numMatch) {
         result.push(
           <div key={i} className="flex gap-3 mt-1.5 ml-1">
             <span className="text-primary/70 font-mono text-xs mt-0.5 min-w-[16px]">{numMatch[1]}.</span>
-            <span className="text-muted-foreground">{renderInline(numMatch[2])}</span>
+            <span className="text-muted-foreground text-sm">{renderInline(numMatch[2])}</span>
           </div>
         );
         continue;
       }
-
-      // Bullet points: "• Text here"
       if (trimmed.startsWith('•')) {
         const indent = line.search(/\S/);
-        const content = trimmed.slice(1).trim();
         result.push(
-          <div key={i} className={cn('flex gap-2.5 mt-1', indent > 2 ? 'ml-7' : 'ml-1')}>
+          <div key={i} className={cn('flex gap-2.5 mt-1.5', indent > 2 ? 'ml-7' : 'ml-1')}>
             <span className="text-primary/50 mt-1.5 text-[6px]">●</span>
-            <span className="text-muted-foreground">{renderInline(content)}</span>
+            <span className="text-muted-foreground text-sm">{renderInline(trimmed.slice(1).trim())}</span>
           </div>
         );
         continue;
       }
-
-      // Sub-items: "- Text" or "  - Text"
       if (/^\s*-\s/.test(line)) {
-        const content = trimmed.slice(1).trim();
         result.push(
           <div key={i} className="flex gap-2.5 ml-7 mt-0.5">
             <span className="text-muted-foreground/50">–</span>
-            <span className="text-muted-foreground">{renderInline(content)}</span>
+            <span className="text-muted-foreground text-sm">{renderInline(trimmed.slice(1).trim())}</span>
           </div>
         );
         continue;
       }
-
-      // Regular paragraph
       result.push(
-        <p key={i} className="text-muted-foreground mt-1.5 leading-relaxed">
+        <p key={i} className="text-muted-foreground text-sm mt-1.5 leading-relaxed">
           {renderInline(trimmed)}
         </p>
       );
     }
-
     return result;
   }, [text]);
 
   return <>{elements}</>;
 }
+
+// ── AiChat ─────────────────────────────────────────────────────────────────
+
+function AiChat() {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput('');
+    const history = messages.slice(-6);
+    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/help/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || 'Erro ao responder.' }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Erro ao conectar. Tente novamente.' }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen(true)}
+        className={cn(
+          'fixed bottom-6 right-6 z-50 w-13 h-13 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:scale-105 active:scale-95',
+          open && 'hidden'
+        )}
+        style={{ width: 52, height: 52 }}
+        title="Chat com IA"
+      >
+        <Bot className="w-5 h-5" />
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div className="fixed bottom-6 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-xl flex flex-col overflow-hidden" style={{ height: 480 }}>
+          {/* Header */}
+          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-primary/5">
+            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
+              <Bot className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold leading-none">Assistente Zaapli</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Tire dúvidas sobre o sistema</p>
+            </div>
+            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 && (
+              <div className="text-center py-8">
+                <Bot className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Olá! Como posso ajudar?</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Pergunte sobre qualquer funcionalidade do Zaapli</p>
+              </div>
+            )}
+            {messages.map((msg, i) => (
+              <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div className={cn(
+                  'max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap',
+                  msg.role === 'user'
+                    ? 'bg-primary text-primary-foreground rounded-br-sm'
+                    : 'bg-muted text-foreground rounded-bl-sm'
+                )}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-muted rounded-2xl rounded-bl-sm px-3 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              </div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-border p-3 flex gap-2">
+            <input
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+              placeholder="Digite sua pergunta…"
+              disabled={loading}
+              className="flex-1 text-sm bg-muted/50 border border-border rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 disabled:opacity-50"
+            />
+            <button
+              onClick={send}
+              disabled={!input.trim() || loading}
+              className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
 
 export default function AjudaPage() {
   const [activeId, setActiveId] = useState(sections[0].id);
@@ -395,10 +469,12 @@ export default function AjudaPage() {
   const ActiveIcon = activeSection.icon;
 
   return (
-    <div className="flex -m-3 md:-m-6 min-h-[calc(100vh-80px)]">
-      {/* Conteúdo principal */}
+    <div className="flex h-[calc(100vh-80px)] overflow-hidden -m-3 md:-m-6">
+
+      {/* ── Conteúdo principal (scroll aqui) ───────────────────────── */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 md:px-12 py-8 md:py-12">
+
           {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
             <BookOpen className="h-3.5 w-3.5" />
@@ -407,7 +483,7 @@ export default function AjudaPage() {
             <span className="text-foreground">{activeSection.title}</span>
           </nav>
 
-          {/* Título da seção */}
+          {/* Título */}
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-2">
               <ActiveIcon className="h-5 w-5 text-primary" />
@@ -422,15 +498,11 @@ export default function AjudaPage() {
           <div className="space-y-12">
             {activeSection.items.map((item, index) => (
               <article key={index}>
-                <h2 className="text-base font-semibold mb-4 text-foreground">
-                  {item.question}
-                </h2>
-                <div className="text-sm leading-relaxed">
+                <h2 className="text-base font-semibold mb-4 text-foreground">{item.question}</h2>
+                <div className="leading-relaxed">
                   <FormatText text={item.answer} />
                 </div>
-                {index < activeSection.items.length - 1 && (
-                  <Separator className="mt-12" />
-                )}
+                {index < activeSection.items.length - 1 && <Separator className="mt-12" />}
               </article>
             ))}
           </div>
@@ -438,35 +510,25 @@ export default function AjudaPage() {
           {/* Navegação entre seções */}
           <div className="mt-16 pt-8 border-t border-border/30 flex justify-between">
             {activeIdx > 0 ? (
-              <button
-                onClick={() => setActiveId(sections[activeIdx - 1].id)}
-                className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <button onClick={() => setActiveId(sections[activeIdx - 1].id)} className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                 {sections[activeIdx - 1].title}
               </button>
-            ) : (
-              <div />
-            )}
+            ) : <div />}
             {activeIdx < sections.length - 1 ? (
-              <button
-                onClick={() => setActiveId(sections[activeIdx + 1].id)}
-                className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
+              <button onClick={() => setActiveId(sections[activeIdx + 1].id)} className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
                 {sections[activeIdx + 1].title}
                 <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
-            ) : (
-              <div />
-            )}
+            ) : <div />}
           </div>
         </div>
       </div>
 
-      {/* Table of Contents — direita, fixo */}
-      <aside className="hidden lg:block w-56 flex-shrink-0">
-        <div className="sticky top-0 h-[calc(100vh-80px)] py-8 pr-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 pl-3">
+      {/* ── Sidebar direita (fixo — não scrolla) ───────────────────── */}
+      <aside className="hidden lg:flex flex-col w-56 flex-shrink-0 border-l border-border/40">
+        <div className="flex-1 overflow-y-auto py-8 px-4">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2">
             Nesta página
           </p>
           <nav className="space-y-0.5">
@@ -478,41 +540,44 @@ export default function AjudaPage() {
                   key={section.id}
                   onClick={() => setActiveId(section.id)}
                   className={cn(
-                    'w-full flex items-center gap-2.5 px-3 py-1.5 text-[13px] rounded-md transition-colors text-left',
+                    'w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] rounded-lg transition-colors text-left',
                     isActive
-                      ? 'text-primary font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-primary/8 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   )}
                 >
-                  <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', isActive && 'text-primary')} />
+                  <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/70')} />
                   <span>{section.title}</span>
                 </button>
               );
             })}
           </nav>
+        </div>
 
-          <div className="mt-8 pl-3">
-            <Separator className="mb-6" />
-            <p className="text-xs text-muted-foreground mb-3">
-              Precisa de ajuda?{' '}
-              <a href="mailto:contato@nexioai.online" className="text-primary font-medium hover:underline">
-                contato@nexioai.online
-              </a>
-            </p>
-            <a
-              href="https://wa.me/5577988650528"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] text-xs font-medium transition-colors"
-            >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current flex-shrink-0">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              Falar no WhatsApp
+        {/* Footer fixo */}
+        <div className="border-t border-border/40 p-4 space-y-3">
+          <p className="text-[11px] text-muted-foreground">
+            Precisa de ajuda?{' '}
+            <a href="mailto:contato@nexioai.online" className="text-primary font-medium hover:underline">
+              contato@nexioai.online
             </a>
-          </div>
+          </p>
+          <a
+            href="https://wa.me/5577988650528"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] text-xs font-medium transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current flex-shrink-0">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+            </svg>
+            Falar no WhatsApp
+          </a>
         </div>
       </aside>
+
+      {/* Chat IA flutuante */}
+      <AiChat />
     </div>
   );
 }
