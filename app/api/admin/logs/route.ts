@@ -51,14 +51,18 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      // Se a tabela não existir
       if (error.code === '42P01' || error.message?.includes('does not exist')) {
-        return NextResponse.json({ success: true, data: [], message: 'Tabela system_logs não existe' });
+        return NextResponse.json({
+          success: true,
+          data: [],
+          table_missing: true,
+          message: 'Tabela system_logs não encontrada — execute a migration 20260504000000_system_logs.sql no Supabase.',
+        });
       }
       throw error;
     }
 
-    return NextResponse.json({ success: true, data: data || [] });
+    return NextResponse.json({ success: true, data: data || [], table_missing: false });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message },

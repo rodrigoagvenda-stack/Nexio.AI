@@ -10,6 +10,7 @@ import { formatDateTime } from '@/lib/utils/format';
 import {
   AlertCircle, AlertTriangle, Info, Zap,
   RefreshCw, Pause, Play, Search, ChevronDown, ChevronUp, Cpu, DollarSign,
+  FlaskConical, Database,
 } from 'lucide-react';
 
 function fmtTokens(n: number) {
@@ -171,10 +172,14 @@ export default function LogsDashboardPage() {
   const [severity, setSeverity]   = useState('all');
   const [type, setType]           = useState('all');
   const [search, setSearch]       = useState('');
+  const [tableMissing, setTableMissing] = useState(false);
+  const [apiError, setApiError]   = useState<string | null>(null);
+  const [testingLog, setTestingLog] = useState(false);
   const latestIdRef               = useRef<string | null>(null);
 
   const fetchLogs = useCallback(async (isBackground = false) => {
     if (!isBackground) setLoading(true);
+    setApiError(null);
     try {
       const { from, to } = periodToDateRange(period);
       const params = new URLSearchParams({ limit: '200', from_date: from, to_date: to });
@@ -182,7 +187,20 @@ export default function LogsDashboardPage() {
       if (type !== 'all') params.set('type', type);
 
       const res = await fetch(`/api/admin/logs?${params}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setApiError(err.message || `Erro HTTP ${res.status}`);
+        return;
+      }
       const data = await res.json();
+
+      if (data.table_missing) {
+        setTableMissing(true);
+        setLogs([]);
+        return;
+      }
+      setTableMissing(false);
+
       const newLogs: Log[] = data.data || [];
 
       if (isBackground && latestIdRef.current && newLogs.length > 0 && newLogs[0].id !== latestIdRef.current) {
@@ -192,12 +210,33 @@ export default function LogsDashboardPage() {
 
       if (newLogs.length > 0) latestIdRef.current = newLogs[0].id;
       setLogs(newLogs);
-    } catch (err) {
-      console.error('Erro ao carregar logs:', err);
+    } catch (err: any) {
+      setApiError(err.message || 'Erro desconhecido ao carregar logs');
     } finally {
       if (!isBackground) setLoading(false);
     }
   }, [period, severity, type]);
+
+  async function sendTestLog() {
+    setTestingLog(true);
+    try {
+      const res = await fetch('/api/admin/logs/test', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        if (data.table_missing) {
+          setTableMissing(true);
+          alert('Tabela system_logs não existe!\n\nExecute a migration no Supabase:\nsupabase/migrations/20260504000000_system_logs.sql');
+        } else {
+          alert('Erro: ' + (data.error || 'desconhecido'));
+        }
+      } else {
+        setTableMissing(false);
+        await fetchLogs();
+      }
+    } finally {
+      setTestingLog(false);
+    }
+  }
 
   // Fetch on filter change
   useEffect(() => {
@@ -264,8 +303,37 @@ export default function LogsDashboardPage() {
             <RefreshCw className="h-3.5 w-3.5" />
             Atualizar
           </Button>
+          <Button variant="outline" size="sm" onClick={sendTestLog} disabled={testingLog} className="gap-2" title="Escreve um log de teste para verificar se a tabela existe">
+            {testingLog ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+            Testar
+          </Button>
         </div>
       </div>
+
+      {/* Diagnóstico: tabela ausente */}
+      {tableMissing && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400">
+          <Database className="w-5 h-5 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Tabela <code className="font-mono">system_logs</code> não encontrada</p>
+            <p className="text-xs mt-1 text-muted-foreground">
+              Execute a migration no painel Supabase → SQL Editor:
+              <code className="ml-1 font-mono bg-muted/40 px-1 rounded">supabase/migrations/20260504000000_system_logs.sql</code>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Diagnóstico: erro de API */}
+      {apiError && !tableMissing && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-700 dark:text-yellow-400">
+          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Erro ao carregar logs</p>
+            <p className="text-xs mt-0.5 font-mono">{apiError}</p>
+          </div>
+        </div>
+      )}
 
       {/* Token stats globais */}
       <TokenStats />
@@ -338,9 +406,11 @@ export default function LogsDashboardPage() {
               <SelectContent>
                 <SelectItem value="all">Todos os tipos</SelectItem>
                 <SelectItem value="sdr">SDR</SelectItem>
+                <SelectItem value="follow_up">Follow-up</SelectItem>
+                <SelectItem value="billing">Billing</SelectItem>
                 <SelectItem value="webhook">Webhook</SelectItem>
                 <SelectItem value="error">Error</SelectItem>
-                <SelectItem value="user_action">User Action</SelectItem>
+                <SelectItem value="system">Sistema</SelectItem>
               </SelectContent>
             </Select>
 
@@ -365,9 +435,13 @@ export default function LogsDashboardPage() {
               Carregando logs...
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2">
+            <div className="flex flex-col items-center justify-center h-40 gap-2 text-center">
               <Info className="h-8 w-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Nenhum log encontrado para os filtros selecionados</p>
+              <p className="text-sm text-muted-foreground font-medium">Nenhum log no período selecionado</p>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                Logs aparecem aqui quando o agente SDR processa mensagens, o follow-up roda, ou ocorrem erros.
+                Use o botão <strong>Testar</strong> para verificar se a tabela está configurada.
+              </p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
