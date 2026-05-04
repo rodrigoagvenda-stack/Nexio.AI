@@ -4,9 +4,9 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
-  LayoutDashboard, Users, MapPin, MessageSquare, UserPlus,
+  LayoutDashboard, Users, MessageSquare, UserPlus,
   Columns3, ChevronLeft, ChevronRight, BookOpen, HelpCircle,
-  Megaphone, FileText, Bot, Send, X, Loader2, Sparkles,
+  FileText, Bot, Send, X, Loader2, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -109,24 +109,6 @@ const sections: HelpSection[] = [
     ],
   },
   {
-    id: 'captacao',
-    title: 'Orbit (Captação)',
-    icon: MapPin,
-    description: 'Prospecção e extração automática de leads',
-    items: [
-      {
-        question: 'O que é o Orbit?',
-        answer:
-          'O Orbit é a ferramenta de **captação e extração de leads** do Zaapli.\n\nCom ele você busca empresas por localização e segmento e importa diretamente para o CRM.\n\nLeads captados pelo Orbit entram no estágio **Triagem** do funil — não em Lead novo — para você avaliar o ICP antes de avançar.',
-      },
-      {
-        question: 'Qual o fluxo correto depois de captar leads?',
-        answer:
-          'O fluxo ideal após captar pelo Orbit:\n\n1. 🔍 **Triagem** — Leads chegam aqui automaticamente\n2. Avalie se o lead se encaixa no seu **ICP (Perfil de Cliente Ideal)**\n3. ✅ Aprovado → arraste para **Outbound** para iniciar prospecção\n4. ❌ Reprovado → mova para **Perdido** ou delete\n\nEssa etapa garante que o agente só aborde empresas que realmente fazem sentido, aumentando a taxa de conversão.',
-      },
-    ],
-  },
-  {
     id: 'membros',
     title: 'Membros',
     icon: UserPlus,
@@ -164,29 +146,6 @@ const sections: HelpSection[] = [
         question: 'O que é a coluna Triagem e por que ela existe?',
         answer:
           'A **Triagem** é a porta de entrada dos leads captados pelo Orbit.\n\nO objetivo é separar os leads antes de iniciar qualquer prospecção — você avalia quais se encaixam no seu ICP e quais não valem o esforço.\n\n**Fluxo:** Triagem → aprovado no ICP → Outbound (prospecção inicia) → Em contato → … → Fechado',
-      },
-    ],
-  },
-  {
-    id: 'outbound',
-    title: 'Outbound',
-    icon: Megaphone,
-    description: 'Campanhas em massa, templates e configurações de disparo',
-    items: [
-      {
-        question: 'O que é o módulo Outbound?',
-        answer:
-          'O Outbound gerencia **campanhas de mensagens em massa via WhatsApp**.\n\n• **Campanhas** — Veja status, enviados, respondidos e erros com paginação\n• **Templates** — Gerencie templates globais e da empresa\n• **Configurações** — Defina o limite diário de disparos\n\nAcesse pelo menu lateral em **Automações → Outbound**.',
-      },
-      {
-        question: 'Como configurar o limite diário de disparos?',
-        answer:
-          'Em **Outbound → Configurações**, defina o número máximo de mensagens por dia.\n\n**Boas práticas:**\n• Comece com 50–100/dia e aumente gradualmente\n• Muitos disparos de uma vez ativam proteção do WhatsApp\n• Monitore a taxa de erros nas campanhas\n• Se erros aumentarem, reduza o limite',
-      },
-      {
-        question: 'Por que o Orbit.AI só opera em horário comercial?',
-        answer:
-          'O sistema opera de **segunda a sexta, das 9h às 18h** (horário de Brasília).\n\nPor quê:\n• Contatos fora do horário comercial geram experiência negativa\n• Aumenta risco de bloqueio e denúncias\n• Taxas de resposta são maiores no horário comercial\n\nFora desse período o sistema entra em repouso e retoma automaticamente.',
       },
     ],
   },
