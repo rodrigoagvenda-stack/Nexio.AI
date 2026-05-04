@@ -27,29 +27,29 @@ const PLANS = [
     id: 'starter',
     name: 'Starter',
     price: 397,
-    desc: 'Ideal para começar a vender',
+    desc: 'Para quem quer vender mais sem contratar mais',
     icon: TrendingUp,
     color: 'green',
-    features: ['1 número WhatsApp', 'Agente SDR', 'CRM Kanban', 'Até 3 atendentes', '5M tokens IA/mês'],
+    features: ['1 número WhatsApp conectado', 'Agente SDR com IA — 24/7', 'Follow-up automático', 'Base de conhecimento RAG', 'CRM Kanban completo', 'Até 3 atendentes', '5M tokens IA/mês'],
   },
   {
     id: 'pro',
     name: 'Pro',
     price: 597,
-    desc: 'Para times em crescimento',
+    desc: 'Para times que não podem perder nenhuma oportunidade',
     icon: Rocket,
     color: 'blue',
     popular: true,
-    features: ['1 número WhatsApp', 'SDR + Google Calendar', 'CRM Kanban', 'Até 10 atendentes', '15M tokens IA/mês'],
+    features: ['Tudo do Starter', 'Agendamento Google Calendar', 'Relatórios de desempenho', 'Até 10 atendentes', '15M tokens IA/mês'],
   },
   {
     id: 'scale',
     name: 'Scale',
     price: 997,
-    desc: 'Para operações escaláveis',
+    desc: 'Para operações que vendem em escala',
     icon: Sparkles,
     color: 'purple',
-    features: ['Até 10 números', 'Tudo do Pro', 'Atendentes ilimitados', 'Suporte prioritário', '50M tokens IA/mês'],
+    features: ['Tudo do Pro', 'Até 10 números WhatsApp', 'Atendentes ilimitados', 'Suporte prioritário', '50M tokens IA/mês'],
   },
 ];
 
@@ -598,18 +598,6 @@ function StepPlanos({
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={() => onSelect('basic')}
-        className={`w-full py-2.5 rounded-xl border text-sm transition-all ${
-          selected === 'basic'
-            ? 'border-gray-400 text-gray-700 bg-gray-50 font-medium'
-            : 'border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300'
-        }`}
-      >
-        {selected === 'basic' && <Check className="h-3.5 w-3.5 inline mr-1.5 text-gray-500" />}
-        Continuar grátis por enquanto
-      </button>
     </div>
   );
 }
@@ -697,7 +685,7 @@ export default function OnboardingPage() {
     segment: '',
     companySize: '',
     logoUrl: null,
-    selectedPlan: 'basic',
+    selectedPlan: 'starter',
   });
 
   // CPF/CNPJ modal para planos pagos

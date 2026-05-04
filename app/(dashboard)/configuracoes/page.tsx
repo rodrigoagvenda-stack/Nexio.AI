@@ -34,38 +34,34 @@ interface GoogleStatus { connected: boolean; email: string | null }
 
 const PLANS = {
   basic:   { name: 'Basic',   price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
-  starter: { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Ideal para começar a vender' },
-  pro:     { name: 'Pro',     price: 597, tokens: 15_000_000, icon: Rocket,     desc: 'Para times em crescimento' },
-  scale:   { name: 'Scale',   price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Para operações escaláveis' },
+  starter: { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Para quem quer vender mais sem contratar mais' },
+  pro:     { name: 'Pro',     price: 597, tokens: 15_000_000, icon: Rocket,     desc: 'Para times que não podem perder nenhuma oportunidade' },
+  scale:   { name: 'Scale',   price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Para operações que vendem em escala' },
 } as const;
 
 const PLAN_FEATURES: Record<'starter' | 'pro' | 'scale', string[]> = {
   starter: [
     '1 número WhatsApp conectado',
-    'Agente SDR (atendimento + venda)',
+    'Agente SDR com IA — responde, qualifica e agenda 24/7',
+    'Follow-up automático para nenhum lead esfriar',
+    'Base de conhecimento RAG — o agente aprende sobre seu negócio',
     'CRM Kanban completo',
     'Até 3 atendentes',
-    'Follow-up automático',
-    'Base de conhecimento RAG',
     '5M tokens de IA/mês',
-    'Sempre online 24h/7',
   ],
   pro: [
-    '1 número WhatsApp conectado',
-    'Agente SDR + agendamento Google Calendar',
-    'CRM Kanban completo',
-    'Até 10 atendentes',
+    'Tudo do Starter',
+    'Agendamento direto no Google Calendar',
     'Relatórios de desempenho',
+    'Até 10 atendentes',
     '15M tokens de IA/mês',
-    'Sempre online 24h/7',
   ],
   scale: [
-    'Até 10 números WhatsApp',
-    'Tudo do plano Pro',
+    'Tudo do Pro',
+    'Até 10 números WhatsApp conectados',
     'Atendentes ilimitados',
-    '50M tokens de IA/mês',
     'Suporte prioritário',
-    'Sempre online 24h/7',
+    '50M tokens de IA/mês',
   ],
 };
 
@@ -98,6 +94,8 @@ function ConfiguracoesContent() {
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [extraNumbers, setExtraNumbers] = useState(0);
+  const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const [cpfCnpjPrompt, setCpfCnpjPrompt] = useState<string | null>(null); // null = closed; string = plan being purchased
   const [cpfCnpjInput, setCpfCnpjInput] = useState('');
@@ -159,11 +157,37 @@ function ConfiguracoesContent() {
     finally { setSaving(false); }
   };
 
+  const handleChangePassword = async () => {
+    if (passwords.next !== passwords.confirm) {
+      toast({ title: 'As senhas não conferem', variant: 'destructive' }); return;
+    }
+    if (passwords.next.length < 6) {
+      toast({ title: 'A nova senha deve ter pelo menos 6 caracteres', variant: 'destructive' }); return;
+    }
+    setChangingPassword(true);
+    try {
+      const sb = createClient();
+      const { error: signInError } = await sb.auth.signInWithPassword({
+        email: profileData.email,
+        password: passwords.current,
+      });
+      if (signInError) throw new Error('Senha atual incorreta');
+      const { error } = await sb.auth.updateUser({ password: passwords.next });
+      if (error) throw error;
+      setPasswords({ current: '', next: '', confirm: '' });
+      toast({ title: 'Senha alterada com sucesso!' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao alterar senha', variant: 'destructive' });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const doCheckout = async (plan: string, cpfCnpj?: string) => {
     setCheckoutLoading(plan);
     try {
       const doc = cpfCnpj || company?.asaas_cpf_cnpj || '';
-      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc }) });
+      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       if (d.url) {
@@ -195,8 +219,10 @@ function ConfiguracoesContent() {
       const { error } = await createClient().from('companies').update({ asaas_cpf_cnpj: doc }).eq('id', company!.id);
       if (error) throw error;
       setCompany(prev => prev ? { ...prev, asaas_cpf_cnpj: doc } : prev);
+      const pending = cpfCnpjPrompt;
       setCpfCnpjPrompt(null);
-      doCheckout(cpfCnpjPrompt!, doc);
+      if (pending === '_extra_tokens_') handleBuyExtraTokens();
+      else doCheckout(pending!, doc);
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar documento', variant: 'destructive' });
     } finally {
@@ -217,6 +243,26 @@ function ConfiguracoesContent() {
   const tokensUsed = company?.tokens_used ?? 0;
   const tokensLimit = company?.tokens_limit ?? company?.plan_monthly_limit ?? 0;
   const tokensPct = tokensLimit > 0 ? Math.min((tokensUsed / tokensLimit) * 100, 100) : 0;
+
+  const [extraTokensOpen, setExtraTokensOpen] = useState(false);
+  const [extraTokensAmount, setExtraTokensAmount] = useState(20);
+  const [buyingTokens, setBuyingTokens] = useState(false);
+
+  const handleBuyExtraTokens = async () => {
+    if (!company?.asaas_cpf_cnpj) { setCpfCnpjPrompt('_extra_tokens_'); setCpfCnpjInput(''); return; }
+    setBuyingTokens(true);
+    try {
+      const res = await fetch('/api/asaas/extra-tokens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: extraTokensAmount }) });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      if (d.url) window.location.href = d.url;
+      else toast({ title: d.message || 'Pagamento criado! Verifique seu email.' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao processar compra', variant: 'destructive' });
+    } finally {
+      setBuyingTokens(false);
+    }
+  };
 
   const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações' };
 
@@ -312,10 +358,21 @@ function ConfiguracoesContent() {
                 <Shield className="h-4 w-4 text-primary" />
                 <h2 className="font-semibold text-sm">Segurança</h2>
               </div>
-              <div className="space-y-1.5"><Label className="text-xs text-muted-foreground uppercase tracking-wider">Senha atual</Label><Input type="password" placeholder="••••••••" className="h-10" /></div>
-              <div className="space-y-1.5"><Label className="text-xs text-muted-foreground uppercase tracking-wider">Nova senha</Label><Input type="password" placeholder="••••••••" className="h-10" /></div>
-              <div className="space-y-1.5"><Label className="text-xs text-muted-foreground uppercase tracking-wider">Confirmar nova senha</Label><Input type="password" placeholder="••••••••" className="h-10" /></div>
-              <Button variant="outline" className="w-full h-10" disabled>Alterar senha <span className="ml-2 text-xs text-muted-foreground">(em breve)</span></Button>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Senha atual</Label>
+                <Input type="password" placeholder="••••••••" className="h-10" value={passwords.current} onChange={e => setPasswords(p => ({ ...p, current: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Nova senha</Label>
+                <Input type="password" placeholder="••••••••" className="h-10" value={passwords.next} onChange={e => setPasswords(p => ({ ...p, next: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Confirmar nova senha</Label>
+                <Input type="password" placeholder="••••••••" className="h-10" value={passwords.confirm} onChange={e => setPasswords(p => ({ ...p, confirm: e.target.value }))} onKeyDown={e => e.key === 'Enter' && handleChangePassword()} />
+              </div>
+              <Button onClick={handleChangePassword} disabled={changingPassword || !passwords.current || !passwords.next || !passwords.confirm} variant="outline" className="w-full h-10">
+                {changingPassword ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Alterando…</> : 'Alterar senha'}
+              </Button>
             </div>
           </div>
         </div>
@@ -384,6 +441,40 @@ function ConfiguracoesContent() {
                   <p className="mt-3 text-xs text-muted-foreground">
                     Renova em {new Date(company.subscription_expires_at).toLocaleDateString('pt-BR')}
                   </p>
+                )}
+
+                {/* Extra tokens */}
+                {tokensLimit > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/60">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">Tokens extras</p>
+                      <button onClick={() => setExtraTokensOpen(o => !o)} className="text-xs text-primary font-medium hover:underline">
+                        {extraTokensOpen ? 'Fechar' : 'Comprar pacote'}
+                      </button>
+                    </div>
+                    {extraTokensOpen && (
+                      <div className="mt-3 space-y-3">
+                        <p className="text-xs text-muted-foreground">Cada R$20 adiciona 1M tokens. Pagamento via PIX ou cartão.</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {[20, 50, 100].map(val => (
+                            <button key={val} onClick={() => setExtraTokensAmount(val)}
+                              className={cn('px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors', extraTokensAmount === val ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-foreground/40')}>
+                              R$ {val} <span className="opacity-60">({val / 20}M tokens)</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="number" min={20} step={10} value={extraTokensAmount}
+                            onChange={e => setExtraTokensAmount(Math.max(20, Number(e.target.value)))}
+                            className="w-24 h-8 border border-border rounded-lg px-2.5 text-xs bg-background text-center font-mono" />
+                          <span className="text-xs text-muted-foreground">mínimo R$ 20</span>
+                          <Button size="sm" onClick={handleBuyExtraTokens} disabled={buyingTokens} className="h-8 ml-auto">
+                            {buyingTokens ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Comprar'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 

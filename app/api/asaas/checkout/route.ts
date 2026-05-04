@@ -28,10 +28,12 @@ export async function POST(request: NextRequest) {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const body = await request.json()
-    const { plan, cpfCnpj: cpfCnpjRaw } = body as { plan: string; cpfCnpj?: string }
+    const { plan, cpfCnpj: cpfCnpjRaw, extraNumbers: extraNumbersRaw } = body as { plan: string; cpfCnpj?: string; extraNumbers?: number }
 
-    const planValue = PLAN_VALUES[plan]
-    if (!planValue) return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
+    const basePlanValue = PLAN_VALUES[plan]
+    if (!basePlanValue) return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
+    const extraNumbers = Math.max(0, Math.min(9, Number(extraNumbersRaw) || 0))
+    const planValue = basePlanValue + extraNumbers * 97
 
     const cpfCnpj = (cpfCnpjRaw || '').replace(/\D/g, '')
     if (!cpfCnpj) return NextResponse.json({ error: 'CPF ou CNPJ obrigatório para processar pagamento' }, { status: 400 })
