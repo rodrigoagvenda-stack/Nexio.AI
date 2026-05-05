@@ -57,6 +57,10 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
+# Limita heap do Node.js em runtime — evita OOM kill no container.
+# Valor conservador: força GC antes de estourar a RAM disponível.
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+
 # 🔒 SECRETS são injetados em RUNTIME via env vars do EasyPanel
 # Não use ARG para secrets! O EasyPanel vai passar automaticamente:
 # - SUPABASE_SERVICE_ROLE_KEY
