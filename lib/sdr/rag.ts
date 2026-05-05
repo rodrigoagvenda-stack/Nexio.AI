@@ -10,15 +10,24 @@ import { decrypt } from '@/lib/crypto'
 const CHUNK_SIZE = 1000
 const CHUNK_OVERLAP = 100
 
-/** Resolve OpenAI key: sdr_configs (empresa) → platform_config (global) */
+/** Resolve OpenAI key: env var → sdr_configs (empresa) → platform_config (global) */
 async function resolveOpenAIKey(companyId: number): Promise<string> {
-  const supabase = createServiceClient()
-  const { data: cfg } = await supabase
-    .from('sdr_configs').select('openai_key').eq('company_id', companyId).single()
-  if (cfg?.openai_key) return decrypt(cfg.openai_key)
+  // 1. Env var direto (EasyPanel runtime) — sem DB, sem decrypt
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
+
+  // 2. Chave por empresa (sdr_configs), criptografada
+  try {
+    const supabase = createServiceClient()
+    const { data: cfg } = await supabase
+      .from('sdr_configs').select('openai_key').eq('company_id', companyId).single()
+    if (cfg?.openai_key) return decrypt(cfg.openai_key)
+  } catch { /* ignora — tenta platform_config */ }
+
+  // 3. Chave global (platform_config), decriptada internamente
   const platform = await getPlatformConfig()
   if (platform.openai_api_key) return platform.openai_api_key
-  throw new Error('Chave OpenAI não configurada. Acesse Admin → Configurações de Plataforma e cadastre a API Key da OpenAI.')
+
+  throw new Error('Chave OpenAI não configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente do EasyPanel, ou acesse Admin → Configurações de Plataforma.')
 }
 
 /** Gera embeddings para TODOS os chunks em uma única chamada (evita timeout serial) */
