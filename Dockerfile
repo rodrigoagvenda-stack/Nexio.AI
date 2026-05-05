@@ -65,4 +65,4 @@ ENV HOSTNAME="0.0.0.0"
 # - N8N_WEBHOOK_ICP
 # - N8N_WEBHOOK_WHATSAPP
 
-CMD ["node", "--enable-source-maps", "server.js"]
+CMD ["node", "server.js"]
