@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const store = new Map<string, { count: number; resetAt: number }>();
 
+// Limpa entradas expiradas a cada 5 minutos para evitar crescimento ilimitado do Map
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of store) {
+    if (now > entry.resetAt) store.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
+
 export function rateLimit(options: { limit: number; windowMs: number }) {
   return function check(request: NextRequest): NextResponse | null {
     const ip =

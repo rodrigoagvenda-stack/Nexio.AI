@@ -1,13 +1,16 @@
 /**
  * Google Calendar integration — cria eventos com Meet para agendamento de calls.
  * Suporta OAuth2 por empresa (google_integrations) e service account fallback.
+ *
+ * googleapis é importado dinamicamente (lazy) para não inflar o bundle de startup (~190 MB).
  */
 
-import { google, calendar_v3 } from 'googleapis'
+import type { calendar_v3 } from 'googleapis'
 import { createServiceClient } from '@/lib/supabase/server'
 
 /** Retorna cliente Calendar usando OAuth tokens da empresa */
 async function getCalendarClientForCompany(companyId: number) {
+  const { google } = await import('googleapis')
   const service = createServiceClient();
   const { data: integration } = await service
     .from('google_integrations')
@@ -74,7 +77,8 @@ export interface CreateEventParams {
 }
 
 // Credenciais via env (service account JSON)
-function getCalendarClient() {
+async function getCalendarClient() {
+  const { google } = await import('googleapis')
   const credsRaw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON
   if (!credsRaw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON não configurado')
 
@@ -95,7 +99,7 @@ export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
   const { calendarId, date, durationMinutes = 60 } = params
-  const calendar = getCalendarClient()
+  const calendar = await getCalendarClient()
 
   // Define janela do dia em America/Bahia (UTC-3)
   const dayStart = new Date(date)
@@ -151,7 +155,7 @@ export async function createEventWithMeet(
     organizerName,
   } = params
 
-  const calendar = getCalendarClient()
+  const calendar = await getCalendarClient()
   const end = new Date(start.getTime() + durationMinutes * 60_000)
 
   const eventBody: calendar_v3.Schema$Event = {
@@ -200,7 +204,7 @@ export async function createEventWithMeet(
 
 /** Cancela evento no Google Calendar */
 export async function cancelEvent(calendarId: string, eventId: string): Promise<void> {
-  const calendar = getCalendarClient()
+  const calendar = await getCalendarClient()
   await calendar.events.delete({ calendarId, eventId, sendUpdates: 'all' })
 }
 
