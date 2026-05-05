@@ -161,11 +161,13 @@ export async function PUT(request: NextRequest) {
     if (objecoes_ativo !== undefined) flowUpdates.objecoes_ativo = objecoes_ativo
     if (inbox_mode !== undefined) flowUpdates.inbox_mode = inbox_mode
 
+    let flowId: string | null = existingFlow?.id ?? null
+
     if (Object.keys(flowUpdates).length > 0) {
       if (existingFlow) {
         await service.from('sdr_flows').update(flowUpdates).eq('id', existingFlow.id)
       } else {
-        await service.from('sdr_flows').insert({
+        const { data: newFlow } = await service.from('sdr_flows').insert({
           company_id: companyId,
           nome: 'Principal',
           uazapi_instance: '',
@@ -173,7 +175,8 @@ export async function PUT(request: NextRequest) {
           tipo: 'ambos',
           ativo: true,
           ...flowUpdates,
-        })
+        }).select('id').single()
+        flowId = newFlow?.id ?? null
       }
     }
 
@@ -182,6 +185,7 @@ export async function PUT(request: NextRequest) {
         ...result,
         uazapi_token: result.uazapi_token ? '••••••••' : null,
         openai_key: result.openai_key ? '••••••••' : null,
+        flow_id: flowId,
       },
     })
   } catch (err: any) {

@@ -90,7 +90,10 @@ export async function processKnowledgePdf(params: {
   }))
 
   const { error } = await supabase.from('rag_documents').insert(rows)
-  if (error) throw error
+  if (error) {
+    if (error.code === '42P01') throw new Error('Tabela rag_documents não existe. Execute a migration 20260505000000_rag_documents.sql no Supabase.')
+    throw error
+  }
 
   return { chunks: rows.length, table: tableName }
 }
@@ -138,7 +141,10 @@ export async function processKnowledgeText(params: {
   }))
 
   const { error } = await supabase.from('rag_documents').insert(rows)
-  if (error) throw error
+  if (error) {
+    if (error.code === '42P01') throw new Error('Tabela rag_documents não existe. Execute a migration 20260505000000_rag_documents.sql no Supabase.')
+    throw error
+  }
 
   return { chunks: rows.length, table: tableName }
 }
