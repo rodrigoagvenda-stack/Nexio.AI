@@ -1,21 +1,23 @@
 /**
  * RAG — Upload de PDF/texto, chunking, embeddings e inserção na tabela `documents`.
+ *
+ * Módulos pesados são lazy:
+ *   - OpenAI: await import('openai') dentro de cada função (não no topo do módulo)
+ *   - pdf-parse / pdfjs-dist: isolados em lib/pdf-extractor.ts + serverExternalPackages
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
-import OpenAI from 'openai'
 import { decrypt } from '@/lib/crypto'
+import type OpenAI from 'openai'  // type-only: apagado em compile-time, sem impacto no bundle
 
 const CHUNK_SIZE = 1000
 const CHUNK_OVERLAP = 100
 
 /** Resolve OpenAI key: env var → sdr_configs (empresa) → platform_config (global) */
 async function resolveOpenAIKey(companyId: number): Promise<string> {
-  // 1. Env var direto (EasyPanel runtime) — sem DB, sem decrypt
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
 
-  // 2. Chave por empresa (sdr_configs), criptografada
   try {
     const supabase = createServiceClient()
     const { data: cfg } = await supabase
@@ -23,14 +25,13 @@ async function resolveOpenAIKey(companyId: number): Promise<string> {
     if (cfg?.openai_key) return decrypt(cfg.openai_key)
   } catch { /* ignora — tenta platform_config */ }
 
-  // 3. Chave global (platform_config), decriptada internamente
   const platform = await getPlatformConfig()
   if (platform.openai_api_key) return platform.openai_api_key
 
   throw new Error('Chave OpenAI não configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente do EasyPanel, ou acesse Admin → Configurações de Plataforma.')
 }
 
-/** Gera embeddings para TODOS os chunks em uma única chamada (evita timeout serial) */
+/** Gera embeddings para TODOS os chunks em uma única chamada */
 async function embedAll(chunks: string[], openai: OpenAI): Promise<number[][]> {
   if (chunks.length === 0) return []
   const res = await openai.embeddings.create({ model: 'text-embedding-3-small', input: chunks })
@@ -48,13 +49,6 @@ function chunkText(text: string): string[] {
   return chunks.filter((c) => c.length > 50)
 }
 
-async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string }>
-  const data = await pdfParse(buffer)
-  return data.text
-}
-
 /** Remove chunks antigos da tabela documents para company+flow+tipo */
 async function deleteOldChunks(
   supabase: ReturnType<typeof createServiceClient>,
@@ -62,7 +56,6 @@ async function deleteOldChunks(
   flowId: string,
   docType: string
 ) {
-  // Deleta chunks com metadata correspondente (novos uploads)
   await supabase
     .from('documents')
     .delete()
@@ -81,8 +74,12 @@ export async function processKnowledgePdf(params: {
   const supabase = createServiceClient()
 
   const openaiKey = await resolveOpenAIKey(companyId)
+  // Lazy import — openai só carrega quando esta função é chamada
+  const { default: OpenAI } = await import('openai')
   const openai = new OpenAI({ apiKey: openaiKey })
 
+  // Lazy import — pdf-parse/pdfjs-dist só carregam para uploads de PDF
+  const { extractTextFromPdf } = await import('@/lib/pdf-extractor')
   const rawText = await extractTextFromPdf(fileBuffer)
   if (!rawText.trim()) throw new Error('PDF sem texto extraível')
 
@@ -104,7 +101,7 @@ export async function processKnowledgePdf(params: {
   return { chunks: rows.length, table: 'documents' }
 }
 
-/** Processa texto estruturado diretamente (sem PDF), usando o mesmo pipeline de chunking + embeddings */
+/** Processa texto estruturado diretamente (sem PDF) */
 export async function processKnowledgeText(params: {
   companyId: number
   flowId: string
@@ -117,6 +114,8 @@ export async function processKnowledgeText(params: {
 
   const supabase = createServiceClient()
   const openaiKey = await resolveOpenAIKey(companyId)
+  // Lazy import — openai só carrega quando esta função é chamada
+  const { default: OpenAI } = await import('openai')
   const openai = new OpenAI({ apiKey: openaiKey })
 
   const chunks = chunkText(text)
