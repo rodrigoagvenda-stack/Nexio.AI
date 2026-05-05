@@ -1,7 +1,7 @@
 -- ─── SDR Schema Safety — garante todas as colunas necessárias ────────────────
 -- Idempotente: usa IF NOT EXISTS / DO NOTHING em tudo
 
--- sdr_configs: tabela pode ter sido criada pelo database/sdr-migration.sql manualmente
+-- sdr_configs: cria se não existir (pode ter sido criada manualmente antes)
 CREATE TABLE IF NOT EXISTS sdr_configs (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id            BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
@@ -26,10 +26,10 @@ CREATE TABLE IF NOT EXISTS sdr_configs (
 
 ALTER TABLE sdr_configs ENABLE ROW LEVEL SECURITY;
 
--- Política de leitura (service role bypassa RLS)
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename = 'sdr_configs' AND policyname = 'users_read_own_company_sdr'
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'sdr_configs' AND policyname = 'users_read_own_company_sdr'
   ) THEN
     CREATE POLICY "users_read_own_company_sdr" ON sdr_configs
       FOR SELECT USING (
@@ -38,10 +38,9 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- sdr_flows: garante colunas que podem ter sido adicionadas depois da criação original
+-- sdr_flows: garante colunas que podem ter sido adicionadas depois
 ALTER TABLE sdr_flows ADD COLUMN IF NOT EXISTS inbox_mode TEXT DEFAULT 'suporte'
   CHECK (inbox_mode IN ('vendas', 'suporte'));
-
 ALTER TABLE sdr_flows ADD COLUMN IF NOT EXISTS vector_table_conhecimento TEXT;
 ALTER TABLE sdr_flows ADD COLUMN IF NOT EXISTS vector_table_objecoes TEXT;
 ALTER TABLE sdr_flows ADD COLUMN IF NOT EXISTS orchestrator_prompt TEXT;
@@ -53,7 +52,7 @@ INSERT INTO platform_config (key, value, is_encrypted) VALUES
   ('groq_api_key', '', true)
 ON CONFLICT (key) DO NOTHING;
 
--- Função updated_at para sdr_configs (idempotente)
+-- Trigger updated_at para sdr_configs (idempotente)
 CREATE OR REPLACE FUNCTION update_sdr_configs_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

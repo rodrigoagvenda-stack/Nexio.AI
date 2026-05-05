@@ -1,6 +1,5 @@
 /**
- * RAG — Upload de PDF, extração de texto, chunking, embeddings e inserção no Supabase Vector.
- * Seção 9 do PRD.
+ * RAG — Upload de PDF/texto, chunking, embeddings e inserção na tabela `documents`.
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
@@ -47,6 +46,21 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   return data.text
 }
 
+/** Remove chunks antigos da tabela documents para company+flow+tipo */
+async function deleteOldChunks(
+  supabase: ReturnType<typeof createServiceClient>,
+  companyId: number,
+  flowId: string,
+  docType: string
+) {
+  // Deleta chunks com metadata correspondente (novos uploads)
+  await supabase
+    .from('documents')
+    .delete()
+    .eq('company_id', companyId)
+    .contains('metadata', { flow_id: flowId, doc_type: docType })
+}
+
 export async function processKnowledgePdf(params: {
   companyId: number
   flowId: string
@@ -57,45 +71,28 @@ export async function processKnowledgePdf(params: {
   const { companyId, flowId, filename, fileBuffer, tableType } = params
   const supabase = createServiceClient()
 
-  const [openaiKey, flow] = await Promise.all([
-    resolveOpenAIKey(companyId),
-    supabase.from('sdr_flows')
-      .select('vector_table_conhecimento, vector_table_objecoes')
-      .eq('id', flowId).eq('company_id', companyId).single()
-      .then((r) => r.data),
-  ])
-  if (!flow) throw new Error('Fluxo não encontrado')
-
+  const openaiKey = await resolveOpenAIKey(companyId)
   const openai = new OpenAI({ apiKey: openaiKey })
-  const updateField = tableType === 'conhecimento' ? 'vector_table_conhecimento' : 'vector_table_objecoes'
-  const tableName = flow[updateField] ?? `nexio_${tableType === 'conhecimento' ? 'conhecimento' : 'objecoes'}_${companyId}`
-  if (!flow[updateField]) {
-    await supabase.from('sdr_flows').update({ [updateField]: tableName }).eq('id', flowId)
-  }
 
   const rawText = await extractTextFromPdf(fileBuffer)
   if (!rawText.trim()) throw new Error('PDF sem texto extraível')
 
   const chunks = chunkText(rawText)
+  await deleteOldChunks(supabase, companyId, flowId, tableType)
 
-  await supabase.from('rag_documents').delete()
-    .eq('company_id', companyId).eq('flow_id', flowId).eq('table_name', tableName)
-
-  // Uma única chamada de embeddings para todos os chunks
   const embeddings = await embedAll(chunks, openai)
 
   const rows = chunks.map((content, i) => ({
-    company_id: companyId, flow_id: flowId, filename, table_name: tableName,
-    chunk_index: i, content, embedding: embeddings[i],
+    company_id: companyId,
+    content,
+    embedding: embeddings[i],
+    metadata: { flow_id: flowId, doc_type: tableType, filename, chunk_index: i },
   }))
 
-  const { error } = await supabase.from('rag_documents').insert(rows)
-  if (error) {
-    if (error.code === '42P01') throw new Error('Tabela rag_documents não existe. Execute a migration 20260505000000_rag_documents.sql no Supabase.')
-    throw error
-  }
+  const { error } = await supabase.from('documents').insert(rows)
+  if (error) throw new Error(`Erro ao salvar na base: ${error.message}`)
 
-  return { chunks: rows.length, table: tableName }
+  return { chunks: rows.length, table: 'documents' }
 }
 
 /** Processa texto estruturado diretamente (sem PDF), usando o mesmo pipeline de chunking + embeddings */
@@ -110,41 +107,23 @@ export async function processKnowledgeText(params: {
   if (!text.trim()) throw new Error('Conteúdo vazio')
 
   const supabase = createServiceClient()
-
-  const [openaiKey, flow] = await Promise.all([
-    resolveOpenAIKey(companyId),
-    supabase.from('sdr_flows')
-      .select('vector_table_conhecimento, vector_table_objecoes')
-      .eq('id', flowId).eq('company_id', companyId).single()
-      .then((r) => r.data),
-  ])
-  if (!flow) throw new Error('Fluxo não encontrado')
-
+  const openaiKey = await resolveOpenAIKey(companyId)
   const openai = new OpenAI({ apiKey: openaiKey })
-  const updateField = tableType === 'conhecimento' ? 'vector_table_conhecimento' : 'vector_table_objecoes'
-  const tableName = flow[updateField] ?? `nexio_${tableType === 'conhecimento' ? 'conhecimento' : 'objecoes'}_${companyId}`
-  if (!flow[updateField]) {
-    await supabase.from('sdr_flows').update({ [updateField]: tableName }).eq('id', flowId)
-  }
 
   const chunks = chunkText(text)
+  await deleteOldChunks(supabase, companyId, flowId, tableType)
 
-  await supabase.from('rag_documents').delete()
-    .eq('company_id', companyId).eq('flow_id', flowId).eq('table_name', tableName)
-
-  // Uma única chamada de embeddings para todos os chunks (sem loop serial → sem timeout)
   const embeddings = await embedAll(chunks, openai)
 
   const rows = chunks.map((content, i) => ({
-    company_id: companyId, flow_id: flowId, filename, table_name: tableName,
-    chunk_index: i, content, embedding: embeddings[i],
+    company_id: companyId,
+    content,
+    embedding: embeddings[i],
+    metadata: { flow_id: flowId, doc_type: tableType, filename, chunk_index: i },
   }))
 
-  const { error } = await supabase.from('rag_documents').insert(rows)
-  if (error) {
-    if (error.code === '42P01') throw new Error('Tabela rag_documents não existe. Execute a migration 20260505000000_rag_documents.sql no Supabase.')
-    throw error
-  }
+  const { error } = await supabase.from('documents').insert(rows)
+  if (error) throw new Error(`Erro ao salvar na base: ${error.message}`)
 
-  return { chunks: rows.length, table: tableName }
+  return { chunks: rows.length, table: 'documents' }
 }

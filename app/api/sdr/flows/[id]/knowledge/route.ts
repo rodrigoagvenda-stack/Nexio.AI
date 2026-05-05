@@ -20,21 +20,17 @@ export async function GET(
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const service = createServiceClient()
-    const { data: flow } = await service
-      .from('sdr_flows').select('vector_table_conhecimento')
-      .eq('id', params.id).eq('company_id', userData.company_id).single()
-
-    if (!flow?.vector_table_conhecimento) return NextResponse.json({ exists: false })
-
+    // Verifica se existe base de conhecimento para este flow
     const { data: docs, count } = await service
-      .from('rag_documents')
-      .select('filename', { count: 'exact' })
-      .eq('flow_id', params.id)
-      .eq('table_name', flow.vector_table_conhecimento)
+      .from('documents')
+      .select('metadata', { count: 'exact' })
+      .eq('company_id', userData.company_id)
+      .contains('metadata', { flow_id: params.id, doc_type: 'conhecimento' })
       .limit(1)
 
-    if (!docs?.length) return NextResponse.json({ exists: false })
-    return NextResponse.json({ exists: true, filename: docs[0].filename, chunks: count ?? 0 })
+    if (!count) return NextResponse.json({ exists: false })
+    const filename = docs?.[0]?.metadata?.filename ?? 'Base de conhecimento'
+    return NextResponse.json({ exists: true, filename, chunks: count })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
