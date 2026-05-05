@@ -6,12 +6,14 @@ export const dynamic = 'force-dynamic'
 
 function mb(bytes: number) { return Math.round(bytes / 1024 / 1024) }
 
-// Protegido por CRON_SECRET — leitura em tempo real do heap V8
+// Aceita secret via header Authorization ou query param ?secret=
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
   const auth = request.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const querySecret = request.nextUrl.searchParams.get('secret')
+  const provided = auth === `Bearer ${secret}` || querySecret === secret
+  if (secret && !provided) {
+    return NextResponse.json({ error: 'Unauthorized — passe ?secret=CRON_SECRET na URL' }, { status: 401 })
   }
 
   const mem = process.memoryUsage()
