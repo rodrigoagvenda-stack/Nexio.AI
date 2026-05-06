@@ -12,7 +12,7 @@ export async function register() {
       if (heapUsed > THRESHOLD) {
         saved = true
         clearInterval(interval)
-        const file = writeHeapSnapshot(`/tmp/heap-auto-${Date.now()}.heapsnapshot`)
+        const file = writeHeapSnapshot(`/app/public/heap-auto-${Date.now()}.heapsnapshot`)
         console.log(`[heap-monitor] snapshot salvo: ${file} (heapUsed=${Math.round(heapUsed / 1024 / 1024)}MB)`)
       }
     }, 30_000)
