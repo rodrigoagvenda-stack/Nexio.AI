@@ -19,6 +19,7 @@ import {
   formatDateTimeBR,
   nextBusinessDay,
   isBusinessDay,
+  parseBrazilDateTime,
 } from '@/lib/google-calendar'
 import type OpenAI from 'openai'  // type-only: apagado em compile-time, sem impacto no bundle
 
@@ -771,7 +772,7 @@ async function runAgenteAgendamento(
   }
 
   const now = new Date().toLocaleString('pt-BR', {
-    timeZone: 'America/Bahia',
+    timeZone: 'America/Sao_Paulo',
     weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
   })
@@ -817,7 +818,7 @@ REGRAS:
 - Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data. Ex: "segunda-feira, 24/03"
 - Seg a Sex, 9h às 18h, nunca no mesmo dia
-- Fuso: America/Bahia (UTC-3)
+- Fuso: America/Sao_Paulo (UTC-3)
 - Máximo 2 linhas por mensagem
 - Nunca repita informações já confirmadas pelo lead
 - O link do Meet deve ser enviado automaticamente, sem o lead precisar pedir
@@ -831,7 +832,7 @@ REGRAS:
       type: 'function',
       function: {
         name: 'Hora_atual',
-        description: 'Retorna a data e hora atual no fuso America/Bahia',
+        description: 'Retorna a data e hora atual no fuso America/Sao_Paulo',
         parameters: { type: 'object', properties: {} },
       },
     },
@@ -900,7 +901,7 @@ REGRAS:
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
     'Hora_atual': async (_args) => {
-      return new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia', dateStyle: 'full', timeStyle: 'short' })
+      return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })
     },
     'Buscar_reuniao': async (_args) => {
       const { data } = await supabase
@@ -917,7 +918,7 @@ REGRAS:
         const available = slots.filter((s) => s.available).slice(0, 5)
         if (available.length === 0) return 'Nenhum horário disponível nesta data.'
         return available.map((s) =>
-          s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bahia' })
+          s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
         ).join(', ')
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] Consultar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
@@ -926,10 +927,7 @@ REGRAS:
     },
     'Agendar_gcal': async (args) => {
       try {
-        // Força timezone Bahia (UTC-3) se a string não tiver offset — sem isso new Date() interpreta como UTC
-        const raw: string = args.data_hora
-        const normalized = /[Zz+\-]\d{2}:?\d{2}$/.test(raw) ? raw : raw.replace(/Z$/, '') + '-03:00'
-        const start = new Date(normalized)
+        const start = parseBrazilDateTime(args.data_hora)
         const event = await createEventWithMeet({
           calendarId: ctx.calendarId!,
           title: args.titulo ?? `Call de venda — ${ctx.leadName}`,
@@ -1190,7 +1188,7 @@ async function runOrchestrator(
   acc: UsageAcc
 ): Promise<string> {
   const userInput = messages.map((m) => m.content).join('\n\n')
-  const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia' })
+  const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
   const systemMsg = `${buildOrchestratorSystem(ctx)}
 

@@ -9,6 +9,27 @@ import type { calendar_v3 } from 'googleapis'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 
+const TZ = 'America/Sao_Paulo'
+
+/**
+ * Converte string "YYYY-MM-DDTHH:MM:SS" (sem timezone) para Date no fuso Brasil.
+ * Usa Intl para determinar offset correto incluindo horário de verão (UTC-3/-2).
+ */
+export function parseBrazilDateTime(naive: string): Date {
+  const clean = naive.replace(/Z$/, '').split('.')[0]
+  const [datePart, timePart = '00:00:00'] = clean.split('T')
+  const [y, mo, d] = datePart.split('-').map(Number)
+  const [h, mi, s = 0] = timePart.split(':').map(Number)
+  for (const offsetH of [3, 2]) {
+    const utc = new Date(Date.UTC(y, mo - 1, d, h + offsetH, mi, s))
+    const localH = parseInt(
+      new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }).format(utc)
+    )
+    if (localH === h) return utc
+  }
+  return new Date(Date.UTC(y, mo - 1, d, h + 3, mi, s))
+}
+
 /** Retorna cliente Calendar usando OAuth tokens da empresa */
 async function getCalendarClientForCompany(companyId: number) {
   const { google } = await import('googleapis')
@@ -102,7 +123,7 @@ async function getCalendarClient() {
   return google.calendar({ version: 'v3', auth })
 }
 
-/** Verifica slots disponíveis em um dia (Seg-Sex, 9h-18h, fuso America/Bahia) */
+/** Verifica slots disponíveis em um dia (Seg-Sex, 9h-18h, fuso America/Sao_Paulo) */
 export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
@@ -111,12 +132,10 @@ export async function checkAvailableSlots(
     ? await getCalendarClientForCompany(companyId)
     : await getCalendarClient()
 
-  // Define janela do dia em America/Bahia (UTC-3, sem DST)
-  // setUTCHours garante horário correto independente do timezone do servidor
-  const dayStart = new Date(date)
-  dayStart.setUTCHours(12, 0, 0, 0)  // 9h Bahia = 12h UTC
-  const dayEnd = new Date(date)
-  dayEnd.setUTCHours(21, 0, 0, 0)   // 18h Bahia = 21h UTC
+  // Define janela 9h–18h no fuso Brasil (DST-aware via parseBrazilDateTime)
+  const dateStr = date.toISOString().slice(0, 10)
+  const dayStart = parseBrazilDateTime(`${dateStr}T09:00:00`)
+  const dayEnd = parseBrazilDateTime(`${dateStr}T18:00:00`)
 
   // Busca eventos existentes no dia
   const { data } = await calendar.events.list({
@@ -125,7 +144,7 @@ export async function checkAvailableSlots(
     timeMax: dayEnd.toISOString(),
     singleEvents: true,
     orderBy: 'startTime',
-    timeZone: 'America/Bahia',
+    timeZone: 'America/Sao_Paulo',
   })
 
   const busyIntervals = (data.items ?? [])
@@ -175,8 +194,8 @@ export async function createEventWithMeet(
   const eventBody: calendar_v3.Schema$Event = {
     summary: title,
     description: description ?? 'Call agendada via Nexio.AI SDR',
-    start: { dateTime: start.toISOString(), timeZone: 'America/Bahia' },
-    end: { dateTime: end.toISOString(), timeZone: 'America/Bahia' },
+    start: { dateTime: start.toISOString(), timeZone: 'America/Sao_Paulo' },
+    end: { dateTime: end.toISOString(), timeZone: 'America/Sao_Paulo' },
     conferenceData: {
       createRequest: {
         requestId: `nexio-${Date.now()}`,
@@ -222,10 +241,10 @@ export async function cancelEvent(calendarId: string, eventId: string): Promise<
   await calendar.events.delete({ calendarId, eventId, sendUpdates: 'all' })
 }
 
-/** Formata data/hora para exibição em PT-BR (fuso America/Bahia) */
+/** Formata data/hora para exibição em PT-BR (fuso America/Sao_Paulo) */
 export function formatDateTimeBR(date: Date): string {
   return date.toLocaleString('pt-BR', {
-    timeZone: 'America/Bahia',
+    timeZone: 'America/Sao_Paulo',
     weekday: 'long',
     day: '2-digit',
     month: 'long',
@@ -236,7 +255,7 @@ export function formatDateTimeBR(date: Date): string {
 
 /** Verifica se é dia útil (Seg-Sex) no fuso Bahia */
 export function isBusinessDay(date: Date): boolean {
-  const day = new Date(date.toLocaleString('en-US', { timeZone: 'America/Bahia' })).getDay()
+  const day = new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay()
   return day >= 1 && day <= 5
 }
 
