@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getPlatformConfig } from '@/lib/platform-config';
 
@@ -19,6 +18,7 @@ export async function GET(request: NextRequest) {
     const companyId = parseInt(state);
     if (!companyId) throw new Error('company_id inválido');
 
+    const { google } = await import('googleapis')
     const cfg = await getPlatformConfig();
     const oauth2Client = new google.auth.OAuth2(
       cfg.google_client_id,

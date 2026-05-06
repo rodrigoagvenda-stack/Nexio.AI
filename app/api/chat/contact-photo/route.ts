@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
-const cache = new Map<string, string | null>()
+// Cache com TTL (30 min) e limite de tamanho — evita crescimento ilimitado
+const CACHE_TTL = 30 * 60 * 1000
+const MAX_ENTRIES = 5_000
+
+interface CacheEntry { value: string | null; expiresAt: number }
+const cache = new Map<string, CacheEntry>()
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [k, e] of cache) if (now > e.expiresAt) cache.delete(k)
+}, 10 * 60 * 1000).unref()
+
+function cacheGet(key: string): string | null | undefined {
+  const e = cache.get(key)
+  if (!e) return undefined
+  if (Date.now() > e.expiresAt) { cache.delete(key); return undefined }
+  return e.value
+}
+function cacheSet(key: string, value: string | null) {
+  if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value)
+  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL })
+}
 
 export async function GET(request: NextRequest) {
   const phone = request.nextUrl.searchParams.get('phone')
@@ -9,7 +30,7 @@ export async function GET(request: NextRequest) {
   if (!phone) return NextResponse.json({ photo: null })
 
   const cacheKey = leadId ? `lead:${leadId}` : phone
-  if (cache.has(cacheKey)) return NextResponse.json({ photo: cache.get(cacheKey) ?? null })
+  const cached = cacheGet(cacheKey); if (cached !== undefined) return NextResponse.json({ photo: cached })
 
   try {
     const supabase = await createClient()
@@ -38,7 +59,7 @@ export async function GET(request: NextRequest) {
     const { data: conv } = await (convQuery as any).maybeSingle()
 
     if (conv?.whatsapp_photo_url) {
-      cache.set(cacheKey, conv.whatsapp_photo_url)
+      cacheSet(cacheKey, conv.whatsapp_photo_url)
       return NextResponse.json({ photo: conv.whatsapp_photo_url })
     }
 
@@ -63,7 +84,7 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({ number: phone }),
     })
 
-    if (!res.ok) { cache.set(cacheKey, null); return NextResponse.json({ photo: null }) }
+    if (!res.ok) { cacheSet(cacheKey, null); return NextResponse.json({ photo: null }) }
 
     const data = await res.json()
     // /chat/details retorna campos iguais ao webhook: image, imagePreview
@@ -76,7 +97,7 @@ export async function GET(request: NextRequest) {
       data?.chat?.image ||
       null
 
-    cache.set(cacheKey, photo)
+    cacheSet(cacheKey, photo)
     return NextResponse.json({ photo })
   } catch {
     return NextResponse.json({ photo: null })

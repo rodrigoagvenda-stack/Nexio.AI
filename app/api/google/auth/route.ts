@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getPlatformConfig } from '@/lib/platform-config';
 
@@ -7,6 +6,7 @@ export async function GET(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
+  const { google } = await import('googleapis');
   const cfg = await getPlatformConfig();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
   const oauth2Client = new google.auth.OAuth2(

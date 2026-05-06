@@ -5,7 +5,7 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Impede webpack de bundlar esses pacotes no chunk do servidor.
   // Ficam como require() nativo em runtime — carregados só quando chamados.
-  serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'openai'],
+  serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'openai', 'googleapis'],
   // Skip TSC and ESLint during Docker build — saves ~400MB peak RAM.
   // Type errors are caught in development, not at deploy time.
   typescript: { ignoreBuildErrors: true },

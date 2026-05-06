@@ -18,58 +18,64 @@ export async function GET(request: NextRequest) {
 
   const mem = process.memoryUsage()
   const v8stats = getHeapStatistics()
-  const spaces = getHeapSpaceStatistics()
+  const rawSpaces = getHeapSpaceStatistics()
 
-  // Conta módulos carregados (Node.js require cache)
+  // Conta módulos carregados via require.cache (CJS — Next.js ESM pode ser 0)
   const moduleCount = Object.keys(require.cache ?? {}).length
-
-  // Top 20 módulos por tamanho de path (proxy para módulos grandes)
-  const largeModules = Object.keys(require.cache ?? {})
+  const loadedPackages = Object.keys(require.cache ?? {})
     .filter(k => k.includes('node_modules'))
-    .map(k => {
-      const mod = require.cache[k]
-      // Módulos com muitas exports são geralmente maiores
-      const exportCount = mod?.exports ? Object.keys(mod.exports).length : 0
-      return { path: k.split('node_modules/').pop()?.split('/')[0] ?? k, exportCount }
-    })
-    .reduce((acc, { path, exportCount }) => {
-      acc[path] = (acc[path] ?? 0) + exportCount
-      return acc
-    }, {} as Record<string, number>)
+    .map(k => k.split('node_modules/').pop()?.split('/')[0] ?? k)
+    .reduce((acc, pkg) => { acc[pkg] = (acc[pkg] ?? 0) + 1; return acc }, {} as Record<string, number>)
 
-  const topModules = Object.entries(largeModules)
+  const topPackages = Object.entries(loadedPackages)
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 20)
-    .map(([name, count]) => ({ name, exportCount: count }))
+    .slice(0, 30)
+    .map(([name, files]) => ({ name, files }))
+
+  // Espacos de heap V8 — chave para identificar o culpado:
+  // code_space alto = código JS compilado (googleapis, pdfjs, etc)
+  // old_space alto   = objetos retidos (Maps, caches, closures)
+  // large_object_space alto = buffers/arrays grandes
+  const spaces = rawSpaces.map(s => ({
+    name: s.space_name,
+    used_mb: mb(s.space_used_size),
+    size_mb: mb(s.space_size),
+  }))
+  const spaceMap = Object.fromEntries(rawSpaces.map(s => [
+    s.space_name.replace('_space', ''),
+    mb(s.space_used_size),
+  ]))
 
   return NextResponse.json({
     uptime_s: Math.round(process.uptime()),
+    // RSS = tudo que o processo usa (heap + code + stack + shared libs)
     process: {
       rss_mb: mb(mem.rss),
       heap_used_mb: mb(mem.heapUsed),
       heap_total_mb: mb(mem.heapTotal),
-      external_mb: mb(mem.external),
+      external_mb: mb(mem.external),     // buffers C++ (ex: Buffer, TLS)
       array_buffers_mb: mb(mem.arrayBuffers),
     },
-    v8: {
-      heap_size_limit_mb: mb(v8stats.heap_size_limit),
-      total_heap_mb: mb(v8stats.total_heap_size),
-      used_heap_mb: mb(v8stats.used_heap_size),
-      malloced_memory_mb: mb(v8stats.malloced_memory),
-      peak_malloced_mb: mb(v8stats.peak_malloced_memory),
-      does_zap_garbage: v8stats.does_zap_garbage,
-      number_of_native_contexts: v8stats.number_of_native_contexts,
-      number_of_detached_contexts: v8stats.number_of_detached_contexts,
+    // Diagnóstico rápido: old_space = leak; code_space = módulos pesados
+    heap_diagnosis: {
+      old_space_mb: spaceMap['old'] ?? 0,
+      code_space_mb: spaceMap['code'] ?? 0,
+      large_object_mb: spaceMap['large_object'] ?? 0,
+      map_space_mb: spaceMap['map'] ?? 0,
+      new_space_mb: spaceMap['new'] ?? 0,
+      total_used_mb: mb(v8stats.used_heap_size),
+      limit_mb: mb(v8stats.heap_size_limit),
+      // mu próximo de 0 = GC thrash (OOM iminente)
+      gc_health: {
+        malloced_mb: mb(v8stats.malloced_memory),
+        peak_malloced_mb: mb(v8stats.peak_malloced_memory),
+        detached_contexts: v8stats.number_of_detached_contexts,
+      },
     },
-    spaces: spaces.map(s => ({
-      name: s.space_name,
-      used_mb: mb(s.space_used_size),
-      size_mb: mb(s.space_size),
-      capacity_mb: mb(s.space_available_size),
-    })),
+    spaces,
     modules: {
-      total_loaded: moduleCount,
-      top_by_exports: topModules,
+      total_cjs_loaded: moduleCount,
+      top_packages_by_files: topPackages,
     },
   })
 }
