@@ -920,6 +920,7 @@ REGRAS:
           s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bahia' })
         ).join(', ')
       } catch (err: any) {
+        console.error(`[SDR:${ctx.companyId}] Consultar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
         return `Erro ao consultar calendário: ${err.message}`
       }
     },
@@ -936,6 +937,7 @@ REGRAS:
         })
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
       } catch (err: any) {
+        console.error(`[SDR:${ctx.companyId}] Agendar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
         return `Erro ao criar evento: ${err.message}`
       }
     },
