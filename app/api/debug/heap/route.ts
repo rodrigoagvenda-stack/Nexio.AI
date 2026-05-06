@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
-    const file = writeHeapSnapshot('/tmp')
+    const file = writeHeapSnapshot(`/tmp/heap-${Date.now()}.heapsnapshot`)
     return NextResponse.json({ file })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
