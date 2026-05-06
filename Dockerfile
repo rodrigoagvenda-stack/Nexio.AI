@@ -58,10 +58,10 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Limite de heap do Node.js em runtime.
-# 2048 MB: o app precisa de ~1.5 GB de live set; GC precisa de headroom adicional para trabalhar.
-# mu=0.265 com 1536 indica GC thrash — 2048 resolve o headroom.
-# Container EasyPanel deve ter ≥3 GB de RAM.
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# 2048 MB: V8 força GC agressivo mantendo RSS total ~3 GB (seguro para 4.6 GB disponível).
+# 4096 MB era ERRADO — permitia RSS de 5+ GB → Linux OOM killer matava o processo.
+# Se live set > 1 GB persistir após GC → há leak, aumentar limite não resolve.
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # 🔒 SECRETS são injetados em RUNTIME via env vars do EasyPanel
 # Não use ARG para secrets! O EasyPanel vai passar automaticamente:
