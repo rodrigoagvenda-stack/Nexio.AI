@@ -7,6 +7,7 @@
 
 import type { calendar_v3 } from 'googleapis'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getPlatformConfig } from '@/lib/platform-config'
 
 /** Retorna cliente Calendar usando OAuth tokens da empresa */
 async function getCalendarClientForCompany(companyId: number) {
@@ -22,10 +23,15 @@ async function getCalendarClientForCompany(companyId: number) {
     throw new Error('Google Calendar não conectado para esta empresa');
   }
 
+  const cfg = await getPlatformConfig();
+  const clientId = cfg.google_client_id || process.env.GOOGLE_CLIENT_ID!;
+  const clientSecret = cfg.google_client_secret || process.env.GOOGLE_CLIENT_SECRET!;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID!,
-    process.env.GOOGLE_CLIENT_SECRET!,
-    `${process.env.NEXT_PUBLIC_APP_URL}/api/google/callback`
+    clientId,
+    clientSecret,
+    `${appUrl}/api/google/callback`
   );
 
   oauth2Client.setCredentials({
