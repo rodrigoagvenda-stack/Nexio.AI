@@ -1042,7 +1042,10 @@ Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e 
 
   // ── Camada 3 (FIXO condicional): agendamento — exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
-    ? '\n\nREGRA CRÍTICA DE AGENDAMENTO: Quando o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE a tool "Agente_de_Agendamento" — sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico". Chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas como "deu certo", "ok", "entendi" ou qualquer outro assunto NÃO devem acionar esse agente.'
+    ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
+1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] — confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" — NÃO processe mais nada, NÃO chame outras tools.
+2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE "Agente_de_Agendamento" — sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
+Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.`
     : ''
 
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
@@ -1207,11 +1210,31 @@ CONTEXTO DO CRM:
     { role: 'user', content: userInput },
   ]
 
+  // Detecção determinística de confirmação de agendamento pendente:
+  // se o último assistente perguntou "— confirma?" e o lead respondeu com afirmação curta,
+  // forçamos Agente_de_Agendamento sem depender da interpretação do modelo.
+  const AFFIRMATIONS = /^(sim|s|pode|ok|certo|confirmo|isso|quero|tá bom|ta bom|claro|ótimo|otimo|perfeito|combinado|vai|fechado|fecha|topo|top)\.?\s*$/i
+  const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant')
+  const pendingScheduleConfirm =
+    ctx.calendarId &&
+    lastAssistant &&
+    typeof lastAssistant.content === 'string' &&
+    /—\s*confirma\?/i.test(lastAssistant.content) &&
+    AFFIRMATIONS.test(userInput.trim())
+
+  const forcedTool: OpenAI.Chat.ChatCompletionToolChoiceOption = pendingScheduleConfirm
+    ? { type: 'function', function: { name: 'Agente_de_Agendamento' } }
+    : 'required'
+
+  if (pendingScheduleConfirm) {
+    console.log(`[SDR:${ctx.companyId}] confirmação de agendamento detectada — forçando Agente_de_Agendamento`)
+  }
+
   let response = await openai.chat.completions.create({
     model: 'gpt-4.1',
     messages: chatMessages,
     tools: TOOLS,
-    tool_choice: 'required',
+    tool_choice: forcedTool,
     max_tokens: 2000,
     temperature: 0.1,
   })
