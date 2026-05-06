@@ -926,7 +926,10 @@ REGRAS:
     },
     'Agendar_gcal': async (args) => {
       try {
-        const start = new Date(args.data_hora)
+        // Força timezone Bahia (UTC-3) se a string não tiver offset — sem isso new Date() interpreta como UTC
+        const raw: string = args.data_hora
+        const normalized = /[Zz+\-]\d{2}:?\d{2}$/.test(raw) ? raw : raw.replace(/Z$/, '') + '-03:00'
+        const start = new Date(normalized)
         const event = await createEventWithMeet({
           calendarId: ctx.calendarId!,
           title: args.titulo ?? `Call de venda — ${ctx.leadName}`,

@@ -111,11 +111,12 @@ export async function checkAvailableSlots(
     ? await getCalendarClientForCompany(companyId)
     : await getCalendarClient()
 
-  // Define janela do dia em America/Bahia (UTC-3)
+  // Define janela do dia em America/Bahia (UTC-3, sem DST)
+  // setUTCHours garante horário correto independente do timezone do servidor
   const dayStart = new Date(date)
-  dayStart.setHours(9, 0, 0, 0)
+  dayStart.setUTCHours(12, 0, 0, 0)  // 9h Bahia = 12h UTC
   const dayEnd = new Date(date)
-  dayEnd.setHours(18, 0, 0, 0)
+  dayEnd.setUTCHours(21, 0, 0, 0)   // 18h Bahia = 21h UTC
 
   // Busca eventos existentes no dia
   const { data } = await calendar.events.list({
