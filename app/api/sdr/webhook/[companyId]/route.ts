@@ -20,14 +20,26 @@ export async function POST(
   try {
     body = await request.json()
   } catch {
-    await syslog({ type: 'sdr', severity: 'error', message: `Webhook SDR: body inválido`, company_id: companyId })
+    void syslog({ type: 'sdr', severity: 'error', message: `Webhook SDR: body inválido`, company_id: companyId })
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
   const msgType = (body as any).type ?? 'unknown'
   const from = (body as any).from ?? (body as any).data?.from ?? '?'
 
-  const handled = await handleWebhook(companyId, body).catch(async (err) => {
+  // Retorna 200 imediatamente — o handleWebhook pode levar 30-45s (buffer + switch).
+  // Fire-and-forget é seguro em standalone Docker: o processo continua após a response.
+  handleWebhook(companyId, body).then(async (handled) => {
+    if (handled) {
+      await syslog({
+        type: 'sdr',
+        severity: 'info',
+        message: `SDR processou mensagem [${msgType}] de ${from}`,
+        payload: { msgType, from },
+        company_id: companyId,
+      })
+    }
+  }).catch(async (err) => {
     console.error(`[SDR] Erro no webhook empresa ${companyId}:`, err)
     await syslog({
       type: 'sdr',
@@ -36,18 +48,7 @@ export async function POST(
       payload: { error: err.message, stack: err.stack?.slice(0, 500), msgType, from },
       company_id: companyId,
     })
-    return false
   })
 
-  if (handled) {
-    await syslog({
-      type: 'sdr',
-      severity: 'info',
-      message: `SDR processou mensagem [${msgType}] de ${from}`,
-      payload: { msgType, from },
-      company_id: companyId,
-    })
-  }
-
-  return NextResponse.json({ ok: true, handled }, { status: 200 })
+  return NextResponse.json({ ok: true }, { status: 200 })
 }

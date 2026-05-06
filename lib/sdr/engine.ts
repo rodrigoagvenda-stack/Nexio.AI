@@ -20,7 +20,17 @@ import {
   nextBusinessDay,
   isBusinessDay,
 } from '@/lib/google-calendar'
-import OpenAI from 'openai'
+import type OpenAI from 'openai'  // type-only: apagado em compile-time, sem impacto no bundle
+
+// Cache de clientes OpenAI por chave — evita criar nova instância (e conexões HTTP) a cada mensagem
+const _openaiCache = new Map<string, OpenAI>()
+async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
+  if (!_openaiCache.has(apiKey)) {
+    const { default: OpenAIClass } = await import('openai')
+    _openaiCache.set(apiKey, new OpenAIClass({ apiKey }))
+  }
+  return _openaiCache.get(apiKey)!
+}
 import {
   type UsageAcc,
   checkTenantQuota,
@@ -1751,7 +1761,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       await new Promise((r) => setTimeout(r, 15_000 - lastMsgAge))
     }
 
-    const openai = new OpenAI({ apiKey: cfg.openai_key || process.env.OPENAI_API_KEY })
+    const openai = await getOpenAIClient(cfg.openai_key || process.env.OPENAI_API_KEY || '')
 
     // Enriquece mídia (transcrição de áudio, descrição de imagem, extração de documento)
     const uazapiMediaClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
