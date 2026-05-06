@@ -913,7 +913,7 @@ REGRAS:
     'Consultar_gcal': async (args) => {
       try {
         const date = new Date(args.data)
-        const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date })
+        const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
         const available = slots.filter((s) => s.available).slice(0, 5)
         if (available.length === 0) return 'Nenhum horário disponível nesta data.'
         return available.map((s) =>
@@ -932,6 +932,7 @@ REGRAS:
           description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start,
           durationMinutes: args.duracao_minutos ?? 60,
+          companyId: ctx.companyId,
         })
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
       } catch (err: any) {

@@ -63,6 +63,7 @@ export interface CheckSlotsParams {
   calendarId: string
   date: Date // dia a verificar
   durationMinutes?: number
+  companyId?: number
 }
 
 export interface CreateEventParams {
@@ -74,6 +75,7 @@ export interface CreateEventParams {
   attendeeEmail?: string
   attendeeName?: string
   organizerName?: string
+  companyId?: number
 }
 
 // Credenciais via env (service account JSON)
@@ -98,8 +100,10 @@ async function getCalendarClient() {
 export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
-  const { calendarId, date, durationMinutes = 60 } = params
-  const calendar = await getCalendarClient()
+  const { calendarId, date, durationMinutes = 60, companyId } = params
+  const calendar = companyId
+    ? await getCalendarClientForCompany(companyId)
+    : await getCalendarClient()
 
   // Define janela do dia em America/Bahia (UTC-3)
   const dayStart = new Date(date)
@@ -153,9 +157,12 @@ export async function createEventWithMeet(
     attendeeEmail,
     attendeeName,
     organizerName,
+    companyId,
   } = params
 
-  const calendar = await getCalendarClient()
+  const calendar = companyId
+    ? await getCalendarClientForCompany(companyId)
+    : await getCalendarClient()
   const end = new Date(start.getTime() + durationMinutes * 60_000)
 
   const eventBody: calendar_v3.Schema$Event = {
