@@ -1,4 +1,5 @@
 export async function register() {
+  console.log('[Instrumentation] register() chamado')
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     import('openai').catch(() => {})
 
