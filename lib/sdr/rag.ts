@@ -54,6 +54,7 @@ function chunkText(text: string): string[] {
   while (start < text.length) {
     const end = Math.min(start + CHUNK_SIZE, text.length)
     chunks.push(text.slice(start, end).trim())
+    if (end >= text.length) break
     start = end - CHUNK_OVERLAP
   }
   return chunks.filter((c) => c.length > 50)
