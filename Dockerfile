@@ -61,7 +61,7 @@ ENV HOSTNAME="0.0.0.0"
 # 2048 MB: V8 força GC agressivo mantendo RSS total ~3 GB (seguro para 4.6 GB disponível).
 # 4096 MB era ERRADO — permitia RSS de 5+ GB → Linux OOM killer matava o processo.
 # Se live set > 1 GB persistir após GC → há leak, aumentar limite não resolve.
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=3072"
 
 # 🔒 SECRETS são injetados em RUNTIME via env vars do EasyPanel
 # Não use ARG para secrets! O EasyPanel vai passar automaticamente:
