@@ -11,6 +11,16 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { decrypt } from '@/lib/crypto'
 import type OpenAI from 'openai'  // type-only: apagado em compile-time, sem impacto no bundle
 
+// Cache compartilhado por API key — evita criar instâncias duplicadas entre chamadas
+const _openaiCache = new Map<string, OpenAI>()
+async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
+  if (!_openaiCache.has(apiKey)) {
+    const { default: OpenAIClass } = await import('openai')
+    _openaiCache.set(apiKey, new OpenAIClass({ apiKey }))
+  }
+  return _openaiCache.get(apiKey)!
+}
+
 const CHUNK_SIZE = 1000
 const CHUNK_OVERLAP = 100
 
@@ -74,9 +84,7 @@ export async function processKnowledgePdf(params: {
   const supabase = createServiceClient()
 
   const openaiKey = await resolveOpenAIKey(companyId)
-  // Lazy import — openai só carrega quando esta função é chamada
-  const { default: OpenAI } = await import('openai')
-  const openai = new OpenAI({ apiKey: openaiKey })
+  const openai = await getOpenAIClient(openaiKey)
 
   // Lazy import — pdf-parse/pdfjs-dist só carregam para uploads de PDF
   const { extractTextFromPdf } = await import('@/lib/pdf-extractor')
@@ -114,9 +122,7 @@ export async function processKnowledgeText(params: {
 
   const supabase = createServiceClient()
   const openaiKey = await resolveOpenAIKey(companyId)
-  // Lazy import — openai só carrega quando esta função é chamada
-  const { default: OpenAI } = await import('openai')
-  const openai = new OpenAI({ apiKey: openaiKey })
+  const openai = await getOpenAIClient(openaiKey)
 
   const chunks = chunkText(text)
   await deleteOldChunks(supabase, companyId, flowId, tableType)
