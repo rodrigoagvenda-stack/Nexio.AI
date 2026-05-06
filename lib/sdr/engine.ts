@@ -1038,7 +1038,7 @@ Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e 
 
   // ── Camada 3 (FIXO condicional): agendamento — exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
-    ? '\n\nChame "Agente de Agendamento" passando no campo Nova_informa__o_para_guardar a última mensagem do lead + o histórico resumido da conversa sobre agendamento até o momento. Faça isso SOMENTE quando o lead demonstrar intenção clara de agendar, remarcar ou cancelar reunião/call. Retorne exatamente o que ele responder, sem alterar nada. Mensagens genéricas como "deu certo", "ok", "entendi" ou qualquer outro assunto NÃO devem acionar esse agente.'
+    ? '\n\nREGRA CRÍTICA DE AGENDAMENTO: Quando o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE a tool "Agente_de_Agendamento" — sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico". Chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas como "deu certo", "ok", "entendi" ou qualquer outro assunto NÃO devem acionar esse agente.'
     : ''
 
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
