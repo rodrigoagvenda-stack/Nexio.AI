@@ -19,6 +19,7 @@ const nextConfig = {
     ],
   },
   experimental: {
+    instrumentationHook: true,
     // Reduce memory during build trace collection
     outputFileTracingExcludes: {
       '*': [
