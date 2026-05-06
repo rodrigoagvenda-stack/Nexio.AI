@@ -4,7 +4,7 @@ export async function register() {
     import('openai').catch(() => {})
 
     const { writeHeapSnapshot } = await import('v8')
-    const THRESHOLD = 500 * 1024 * 1024 // 500 MB — confirmar que writeHeapSnapshot funciona
+    const THRESHOLD = 3000 * 1024 * 1024 // 3000 MB
     let saved = false
 
     const interval = setInterval(() => {
