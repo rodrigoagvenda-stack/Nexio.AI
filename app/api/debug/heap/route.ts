@@ -8,8 +8,10 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET
   const auth = request.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const querySecret = request.nextUrl.searchParams.get('secret')
+  const provided = auth === `Bearer ${secret}` || querySecret === secret
+  if (secret && !provided) {
+    return NextResponse.json({ error: 'Unauthorized — passe ?secret=CRON_SECRET' }, { status: 401 })
   }
 
   try {
