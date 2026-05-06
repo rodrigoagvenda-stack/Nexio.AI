@@ -1,23 +1,11 @@
 import { writeHeapSnapshot } from 'v8'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
-
-// Protegido por CRON_SECRET — apenas para diagnóstico temporário
-export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  const auth = request.headers.get('authorization')
-  const querySecret = request.nextUrl.searchParams.get('secret')
-  const provided = auth === `Bearer ${secret}` || querySecret === secret
-  if (secret && !provided) {
-    return NextResponse.json({ error: 'Unauthorized — passe ?secret=CRON_SECRET' }, { status: 401 })
+export async function GET(req: Request) {
+  const secret = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (secret !== process.env.CRON_SECRET) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-
-  try {
-    const file = writeHeapSnapshot()
-    return NextResponse.json({ file, note: 'Download o arquivo do container e abra no Chrome DevTools Memory tab' })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
-  }
+  const file = writeHeapSnapshot()
+  return NextResponse.json({ file })
 }
