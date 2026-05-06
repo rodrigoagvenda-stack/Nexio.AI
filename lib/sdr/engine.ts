@@ -1228,6 +1228,8 @@ CONTEXTO DO CRM:
       let args: Record<string, any> = {}
       try { args = JSON.parse((toolCall as any).function.arguments) } catch { /* ok */ }
 
+      console.log(`[SDR:${ctx.companyId}] → tool: ${fn} | args: ${JSON.stringify(args).slice(0, 200)}`)
+
       let result = ''
 
       // Nomes sanitizados (OpenAI ^[a-zA-Z0-9_-]+$) — mapeados via TOOL_NAME_MAP
@@ -1249,9 +1251,11 @@ CONTEXTO DO CRM:
         const info = args['Nova informação para guardar'] ?? args.info ?? userInput
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
-        const msg = args['Nova_informa__o_para_guardar'] ?? args.message ?? userInput
+        const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc)
       }
+
+      console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
 
       toolResults.push({
         role: 'tool',
