@@ -356,10 +356,12 @@ async function runAgentLoop(
   model: string,
   acc?: UsageAcc,
   agentName?: string,
-  maxIterations = 10
+  maxIterations = 10,
+  history: ChatMsg[] = []
 ): Promise<string> {
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
+    ...history,
     { role: 'user', content: userMessage },
   ]
 
@@ -765,7 +767,8 @@ async function runAgenteAgendamento(
   ctx: SdrContext,
   openai: OpenAI,
   supabase: ReturnType<typeof createServiceClient>,
-  acc?: UsageAcc
+  acc?: UsageAcc,
+  history: ChatMsg[] = []
 ): Promise<string> {
   if (!ctx.calendarId) {
     return 'Agendamento não configurado para esta empresa. Peça ao administrador para configurar o Google Calendar.'
@@ -969,7 +972,7 @@ REGRAS:
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nNome: ${ctx.leadName}\nMensagem: ${message}`,
-    tools, handlers, openai, 'gpt-4.1', acc, 'agendamento'
+    tools, handlers, openai, 'gpt-4.1', acc, 'agendamento', 10, history
   )
 }
 
@@ -1279,7 +1282,7 @@ CONTEXTO DO CRM:
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
-        result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc)
+        result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
       }
 
       console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
