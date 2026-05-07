@@ -33,6 +33,7 @@ export interface NicheTemplate {
   emoji: string
   category: NicheCategory
   description: string
+  features: string[]
   requiredVars: VariableKey[]
   optionalVars: VariableKey[]
   conhecimento: string
@@ -1438,6 +1439,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '💻',
     category: 'vendas',
     description: 'Qualifica leads e direciona para teste grátis',
+    features: [
+      'Fluxo completo de qualificação e direcionamento para teste grátis',
+      'Scripts de apresentação do produto e perguntas de descoberta do negócio',
+      'Base de objeções: preço, timing, "já tenho sistema" e concorrência',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['preco', 'periodo_teste', 'link_teste', 'link_playlist', 'url_empresa'],
     conhecimento: SAAS_CONHECIMENTO,
@@ -1449,6 +1455,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🏥',
     category: 'vendas',
     description: 'Esclarece sobre serviços e agenda consultas',
+    features: [
+      'Fluxo de esclarecimento de serviços e agendamento de consulta',
+      'Scripts humanizados para atendimento em saúde',
+      'Base de objeções: valor da consulta, plano de saúde e urgência do atendimento',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_agendamento', 'horario', 'endereco', 'url_empresa'],
     conhecimento: CLINICA_CONHECIMENTO,
@@ -1460,6 +1471,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '📊',
     category: 'vendas',
     description: 'Qualifica o desafio do lead e agenda call de discovery',
+    features: [
+      'Qualificação do desafio do lead e agendamento de call de discovery',
+      'Scripts consultivos para serviços de alto valor percebido',
+      'Base de objeções: ROI, orçamento, "vou pensar" e comparação com concorrente',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_agendamento', 'url_empresa'],
     conhecimento: CONSULTORIA_CONHECIMENTO,
@@ -1471,6 +1487,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🛒',
     category: 'vendas',
     description: 'Responde sobre produtos e direciona para compra',
+    features: [
+      'Fluxo de atendimento e direcionamento para o catálogo e finalização da compra',
+      'Scripts de suporte a dúvidas sobre produtos, tamanho e estoque',
+      'Base de objeções: frete, prazo de entrega, preço e troca',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_catalogo', 'link_pedido', 'url_empresa'],
     conhecimento: ECOMMERCE_CONHECIMENTO,
@@ -1482,6 +1503,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🎓',
     category: 'vendas',
     description: 'Qualifica interesse e direciona para matrícula',
+    features: [
+      'Fluxo de qualificação do interesse e direcionamento para matrícula ou aula experimental',
+      'Scripts de apresentação do curso e resultado esperado pelo aluno',
+      'Base de objeções: preço, tempo disponível, "não tenho certeza" e parcelamento',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['preco', 'link_teste', 'link_playlist', 'url_empresa'],
     conhecimento: EDUCACAO_CONHECIMENTO,
@@ -1493,6 +1519,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🍔',
     category: 'atendimento',
     description: 'Atende pedidos, informa cardápio e delivery',
+    features: [
+      'Atendimento de pedidos e informações sobre cardápio e delivery',
+      'Scripts de confirmação de pedido, tempo de entrega e taxa',
+      'Base de objeções: demora na entrega, taxa de entrega e disponibilidade de item',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_catalogo', 'link_pedido', 'horario', 'endereco', 'taxa_entrega', 'tempo_entrega'],
     conhecimento: RESTAURANTE_CONHECIMENTO,
@@ -1504,6 +1535,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '👗',
     category: 'atendimento',
     description: 'Auxilia na escolha de peças e direciona para compra',
+    features: [
+      'Auxilia na escolha de peças com perguntas de estilo, ocasião e tamanho',
+      'Scripts de apresentação de produtos e direcionamento para compra ou catálogo',
+      'Base de objeções: preço, tamanho, prazo de entrega e política de troca',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_catalogo', 'link_pedido', 'url_empresa'],
     conhecimento: MODA_CONHECIMENTO,
@@ -1515,6 +1551,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '✂️',
     category: 'atendimento',
     description: 'Informa serviços e agenda horários',
+    features: [
+      'Fluxo de apresentação dos serviços e agendamento de horário',
+      'Scripts de atendimento natural e humanizado para serviços de beleza',
+      'Base de objeções: preço, disponibilidade de horário e localização',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_agendamento', 'horario', 'endereco', 'preco'],
     conhecimento: BELEZA_CONHECIMENTO,
@@ -1526,6 +1567,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🐾',
     category: 'atendimento',
     description: 'Atende sobre serviços, produtos e agenda banho/tosa',
+    features: [
+      'Atendimento sobre serviços, produtos e agendamento de banho e tosa',
+      'Scripts de apresentação dos serviços por porte e raça do pet',
+      'Base de objeções: preço, horário disponível e distância',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['link_agendamento', 'link_catalogo', 'horario', 'endereco'],
     conhecimento: PETSHOP_CONHECIMENTO,
@@ -1537,6 +1583,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🏋️',
     category: 'atendimento',
     description: 'Apresenta planos e agenda aula experimental',
+    features: [
+      'Apresentação dos planos e agendamento de aula experimental gratuita',
+      'Scripts de qualificação do objetivo do lead (emagrecer, hipertrofia, saúde)',
+      'Base de objeções: preço do plano, horário disponível e "vou pensar"',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['preco', 'link_agendamento', 'horario', 'endereco'],
     conhecimento: ACADEMIA_CONHECIMENTO,
@@ -1548,6 +1599,11 @@ export const NICHES: NicheTemplate[] = [
     emoji: '🤖',
     category: 'atendimento',
     description: 'Para qualquer segmento — somente variáveis universais',
+    features: [
+      'Fluxo universal adaptável a qualquer segmento de negócio',
+      'Scripts de qualificação e apresentação do negócio',
+      'Base de objeções: preço, urgência e confiança na empresa',
+    ],
     requiredVars: ['nome_agente', 'nome_empresa', 'descricao_produto', 'tom_agente'],
     optionalVars: ['url_empresa'],
     conhecimento: GENERICO_CONHECIMENTO,

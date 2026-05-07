@@ -232,6 +232,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   const [nicheDropdownOpen, setNicheDropdownOpen] = useState(false)
   const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
+  const [linksExpanded, setLinksExpanded] = useState(false)
 
   // Typeform wizard state
   const [wizardStep, setWizardStep] = useState(0)
@@ -240,6 +241,9 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   const isConhecimento = type === 'conhecimento'
   const label = isConhecimento ? 'conhecimento' : 'objeções'
   const selectedNiche = NICHES.find((n) => n.id === sharedNicheId)
+
+  // Reset links panel when niche changes
+  useEffect(() => { setLinksExpanded(false) }, [sharedNicheId])
 
   useEffect(() => {
     if (!flowId || !active) return
@@ -360,6 +364,15 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   const vendas = NICHES.filter((n) => n.category === 'vendas')
   const atendimento = NICHES.filter((n) => n.category === 'atendimento')
 
+  // URL-type wizard questions relevant to the selected niche (for template mode link quick-fill)
+  const nicheUrlQuestions = selectedNiche
+    ? WIZARD_QUESTIONS.filter(
+        (q) =>
+          q.type === 'url' &&
+          (selectedNiche.requiredVars.includes(q.key) || selectedNiche.optionalVars.includes(q.key))
+      )
+    : []
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -443,6 +456,78 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                   )}
                 </div>
               </div>
+
+              {/* Niche description card */}
+              {selectedNiche && (
+                <div className="rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">{selectedNiche.emoji}</span>
+                    <p className="text-xs font-semibold">{selectedNiche.label}</p>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {selectedNiche.features.map((f, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground leading-snug">
+                        <span className="w-1 h-1 rounded-full bg-muted-foreground/60 mt-1.5 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href="/ajuda"
+                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline underline-offset-2"
+                  >
+                    Saiba mais sobre os modelos <ChevronRight className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+
+              {/* Link quick-fill */}
+              {selectedNiche && nicheUrlQuestions.length > 0 && (
+                <div>
+                  {!linksExpanded ? (
+                    <button
+                      onClick={() => setLinksExpanded(true)}
+                      className="w-full flex items-center justify-between gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Link2 className="w-3.5 h-3.5 shrink-0" />
+                        Tem site ou links para enviar ao lead?
+                      </span>
+                      <span className="text-primary font-medium">Sim, adicionar →</span>
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-border bg-card p-3.5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium flex items-center gap-1.5">
+                          <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          Links do negócio
+                        </p>
+                        <button
+                          onClick={() => setLinksExpanded(false)}
+                          className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Ocultar
+                        </button>
+                      </div>
+                      {nicheUrlQuestions.map((q) => (
+                        <div key={q.key} className="space-y-1">
+                          <label className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            {VAR_LABELS[q.key]}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground/70">opcional</span>
+                          </label>
+                          <Input
+                            type="url"
+                            value={getWizardValue(q)}
+                            onChange={(e) => setWizardValue(q, e.target.value)}
+                            placeholder={q.placeholder}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Variable status */}
               {selectedNiche && (() => {
