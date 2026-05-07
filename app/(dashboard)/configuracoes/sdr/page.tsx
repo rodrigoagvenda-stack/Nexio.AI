@@ -35,6 +35,7 @@ interface SdrConfig {
   conhecimento_ativo: boolean; objecoes_ativo: boolean
   google_calendar_id: string; flow_id: string | null
   inbox_mode: 'suporte' | 'vendas'
+  event_title_template: string
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -867,6 +868,7 @@ export default function SdrConfigPage() {
     vector_table_conhecimento: '', vector_table_objecoes: '',
     conhecimento_ativo: true, objecoes_ativo: false,
     google_calendar_id: '', flow_id: null, inbox_mode: 'suporte',
+    event_title_template: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -896,6 +898,7 @@ export default function SdrConfigPage() {
           google_calendar_id: data.config.google_calendar_id ?? '',
           flow_id: data.config.flow_id ?? null,
           inbox_mode: data.config.inbox_mode ?? 'suporte',
+          event_title_template: data.config.event_title_template ?? '',
         })
         if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
       }
@@ -923,6 +926,7 @@ export default function SdrConfigPage() {
           prompt: JSON.stringify({ ...config.persona, nicho_id: sharedNicheId }),
           agente_ativo: config.agente_ativo,
           google_calendar_id: config.google_calendar_id,
+          event_title_template: config.event_title_template || null,
           vector_table_conhecimento: config.vector_table_conhecimento,
           vector_table_objecoes: config.vector_table_objecoes,
           conhecimento_ativo: config.conhecimento_ativo,
@@ -1117,6 +1121,19 @@ export default function SdrConfigPage() {
             <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
               <CalendarSection calendarId={config.google_calendar_id} onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))} />
             </div>
+          </div>
+
+          <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
+            <div className="flex items-center gap-2 mb-1">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-sm font-semibold">Título da reunião</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">Nome do evento criado no Google Calendar. Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para incluir o nome do lead.</p>
+            <Input
+              placeholder="Ex: Call de vendas — {nome}"
+              value={config.event_title_template}
+              onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
+            />
           </div>
         </div>
       )}
