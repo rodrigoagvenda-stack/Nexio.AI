@@ -403,6 +403,15 @@ async function runAgentLoop(
   return 'Agente atingiu limite de iterações'
 }
 
+/** Extrai email de qualquer mensagem do histórico */
+function extractEmailFromHistory(history: ChatMsg[]): string | undefined {
+  for (const msg of [...history].reverse()) {
+    const m = String(msg.content).match(/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/)
+    if (m) return m[0]
+  }
+  return undefined
+}
+
 /** Extrai datetime confirmado de mensagens como "quinta-feira, 08/05 às 9h — confirma?" */
 function parseConfirmedDateTime(text: string): Date | null {
   const m = text.match(/(\d{2})\/(\d{2})\s+às\s+(\d{1,2})(?:h(\d{2})?|:(\d{2}))/)
@@ -849,6 +858,7 @@ async function runAgenteAgendamento(
           const title = ctx.eventTitleTemplate
             ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
             : `Call de venda — ${ctx.leadName}`
+          const leadEmail = extractEmailFromHistory(history)
           const event = await createEventWithMeet({
             calendarId: ctx.calendarId,
             companyId: ctx.companyId,
@@ -856,6 +866,8 @@ async function runAgenteAgendamento(
             description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
             start: confirmedDt,
             durationMinutes: 60,
+            attendeeEmail: leadEmail,
+            attendeeName: ctx.leadName,
           })
           await supabase.from('leads').update({
             call_de_venda: true,
@@ -898,15 +910,19 @@ FLUXO:
 4. "Consultar_gcal" → verificar conflitos no calendário
    - Se o lead JÁ informou dia e/ou horário desejado:
      → Consulte especificamente esse dia/horário
-     → Se livre → vá direto para o passo 5 (confirmação)
+     → Se livre → vá direto para o passo 4.5
      → Se ocupado → informe e peça outro horário
    - Se o lead NÃO informou horário:
      → Consulte os próximos 3 dias úteis
      → Retorno vazio = dia livre, todos os horários entre 9h e 18h disponíveis
      → Retorno com eventos = considere apenas horários não conflitantes
      → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
+4.5. Coletar dados para o convite (OBRIGATÓRIO antes de confirmar):
+   - Se ainda não tiver o nome completo E o email do lead, pergunte em UMA mensagem: "Para enviar o convite da call, pode me informar seu nome completo e email?"
+   - Aguarde a resposta antes de ir para o passo 5.
+   - Se o lead já forneceu nome completo e email anteriormente no histórico, pule este passo.
 5. Confirmar: "[Nome], [dia da semana] [data] às [hora] — confirma?"
-6. "Agendar_gcal" → criar evento com Meet ativado
+6. "Agendar_gcal" → criar evento com Meet ativado, passando email e nome_completo coletados
 7. "Reuniao_marcada" → atualizar CRM
 
 APÓS AGENDAR, envie APENAS isso:
@@ -971,15 +987,16 @@ REGRAS:
       type: 'function',
       function: {
         name: 'Agendar_gcal',
-        description: 'Cria um evento no Google Calendar com link Meet',
+        description: 'Cria um evento no Google Calendar com link Meet. Exige email e nome completo do lead para enviar o convite.',
         parameters: {
           type: 'object',
           properties: {
             data_hora: { type: 'string', description: 'ISO8601, ex: 2026-05-05T10:00:00' },
-            titulo: { type: 'string' },
+            email: { type: 'string', description: 'Email do lead para envio do convite' },
+            nome_completo: { type: 'string', description: 'Nome completo do lead' },
             duracao_minutos: { type: 'number' },
           },
-          required: ['data_hora', 'titulo'],
+          required: ['data_hora', 'email', 'nome_completo'],
         },
       },
     },
@@ -1041,16 +1058,19 @@ REGRAS:
     'Agendar_gcal': async (args) => {
       try {
         const start = parseBrazilDateTime(args.data_hora)
-        const resolvedTitle = args.titulo ?? (ctx.eventTitleTemplate
-          ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
-          : `Call de venda — ${ctx.leadName}`)
+        const nomeCompleto: string = args.nome_completo ?? ctx.leadName
+        const resolvedTitle = ctx.eventTitleTemplate
+          ? ctx.eventTitleTemplate.replace('{nome}', nomeCompleto)
+          : `Call de venda — ${nomeCompleto}`
         const event = await createEventWithMeet({
           calendarId: ctx.calendarId!,
           companyId: ctx.companyId,
           title: resolvedTitle,
-          description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
+          description: `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start,
           durationMinutes: args.duracao_minutos ?? 60,
+          attendeeEmail: args.email ?? undefined,
+          attendeeName: nomeCompleto,
         })
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
       } catch (err: any) {
@@ -1425,6 +1445,7 @@ CONTEXTO DO CRM:
           const confirmedDt = parseConfirmedDateTime(lastAssistant.content)
           if (confirmedDt) {
             try {
+              const leadEmail = extractEmailFromHistory(history)
               const title = ctx.eventTitleTemplate
                 ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
                 : `Call de venda — ${ctx.leadName}`
@@ -1435,6 +1456,8 @@ CONTEXTO DO CRM:
                 description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
                 start: confirmedDt,
                 durationMinutes: 60,
+                attendeeEmail: leadEmail,
+                attendeeName: ctx.leadName,
               })
               await supabase.from('leads').update({
                 call_de_venda: true,
