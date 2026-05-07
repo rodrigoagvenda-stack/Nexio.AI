@@ -845,47 +845,6 @@ async function runAgenteAgendamento(
     return 'Agendamento não configurado para esta empresa. Peça ao administrador para configurar o Google Calendar.'
   }
 
-  // Segunda barreira: se a mensagem é uma afirmação curta E o histórico tem "— confirma?",
-  // cria o evento direto sem envolver o modelo (evita chamar Consultar_gcal de novo).
-  const AFFIRM_RE = /^(sim|s|pode|ok|certo|confirmo|isso|quero|tá bom|ta bom|claro|ótimo|otimo|perfeito|combinado|vai|fechado|fecha|topo|top)\.?\s*$/i
-  if (AFFIRM_RE.test(message.trim()) && history.length > 0) {
-    const lastAssist = [...history].reverse().find((m) => m.role === 'assistant')
-    if (lastAssist && typeof lastAssist.content === 'string' && /—\s*confirma\?/i.test(lastAssist.content)) {
-      const confirmedDt = parseConfirmedDateTime(lastAssist.content)
-      if (confirmedDt) {
-        console.log(`[SDR:${ctx.companyId}] runAgenteAgendamento: confirmação detectada na segunda barreira — criando evento direto`)
-        try {
-          const title = ctx.eventTitleTemplate
-            ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
-            : `Call de venda — ${ctx.leadName}`
-          const leadEmail = extractEmailFromHistory(history)
-          const event = await createEventWithMeet({
-            calendarId: ctx.calendarId,
-            companyId: ctx.companyId,
-            title,
-            description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
-            start: confirmedDt,
-            durationMinutes: 60,
-            attendeeEmail: leadEmail,
-            attendeeName: ctx.leadName,
-          })
-          await supabase.from('leads').update({
-            call_de_venda: true,
-            call_agendada_para: event.start.toISOString(),
-            meet_url: event.meetUrl,
-            call_status: 'agendada',
-            calendar_event_id: event.eventId,
-            updated_at: new Date().toISOString(),
-          }).eq('id', ctx.leadId)
-          return `${ctx.leadName}, tá agendado! 🎉\n${formatDateTimeBR(event.start)} — segue o link:\n${event.meetUrl}\nQualquer coisa é só me chamar 👍`
-        } catch (err: any) {
-          console.error(`[SDR:${ctx.companyId}] runAgenteAgendamento segunda barreira falhou:`, err.message)
-          return `Desculpe, ${ctx.leadName}, tive um problema técnico ao criar o evento. Pode tentar novamente? 🙏`
-        }
-      }
-    }
-  }
-
   const now = new Date().toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -1363,11 +1322,12 @@ CONTEXTO DO CRM:
     { role: 'user', content: userInput },
   ]
 
-  // Detecção determinística de confirmação de agendamento pendente:
-  // se o último assistente perguntou "— confirma?" e o lead respondeu com afirmação curta,
-  // forçamos Agente_de_Agendamento sem depender da interpretação do modelo.
+  // ── Detecção determinística de estados de agendamento ────────────────────
   const AFFIRMATIONS = /^(sim|s|pode|ok|certo|confirmo|isso|quero|tá bom|ta bom|claro|ótimo|otimo|perfeito|combinado|vai|fechado|fecha|topo|top)\.?\s*$/i
+  const EMAIL_PATTERN = /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/
   const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant')
+
+  // State 1: lead confirmou horário ("Sim"), ainda não temos o email
   const pendingScheduleConfirm =
     ctx.calendarId &&
     lastAssistant &&
@@ -1375,8 +1335,17 @@ CONTEXTO DO CRM:
     /—\s*confirma\?/i.test(lastAssistant.content) &&
     AFFIRMATIONS.test(userInput.trim())
 
+  // State 2: agente pediu email/nome e lead acabou de enviar (mensagem contém @)
+  const pendingEmailCollection =
+    ctx.calendarId &&
+    lastAssistant &&
+    typeof lastAssistant.content === 'string' &&
+    /nome completo|e-?mail para enviar|seu e-?mail/i.test(lastAssistant.content) &&
+    EMAIL_PATTERN.test(userInput)
+
   console.log(
     `[SDR:${ctx.companyId}] pendingScheduleConfirm=${!!pendingScheduleConfirm}` +
+    ` | pendingEmailCollection=${!!pendingEmailCollection}` +
     ` | calendarId=${!!ctx.calendarId}` +
     ` | lastAssistantRole=${lastAssistant?.role ?? 'none'}` +
     ` | lastAssistantSnippet="${(lastAssistant?.content as string | undefined)?.slice(0, 60) ?? 'N/A'}"` +
@@ -1384,13 +1353,65 @@ CONTEXTO DO CRM:
     ` | historyLen=${history.length}`
   )
 
-  const forcedTool: OpenAI.Chat.ChatCompletionToolChoiceOption = pendingScheduleConfirm
-    ? { type: 'function', function: { name: 'Agente_de_Agendamento' } }
-    : 'required'
-
-  if (pendingScheduleConfirm) {
-    console.log(`[SDR:${ctx.companyId}] confirmação de agendamento detectada — forçando Agente_de_Agendamento`)
+  // Short-circuit 1: lead confirmou → pede email/nome (sem chamar o modelo)
+  if (pendingScheduleConfirm && ctx.calendarId) {
+    const confirmedDt = parseConfirmedDateTime((lastAssistant!.content as string))
+    if (confirmedDt) {
+      const existingEmail = extractEmailFromHistory(history)
+      if (!existingEmail) {
+        console.log(`[SDR:${ctx.companyId}] confirmação detectada — solicitando email/nome antes de criar evento`)
+        return `Ótimo, ${ctx.leadName}! ✅ Antes de confirmar, preciso do seu nome completo e e-mail para enviar o convite da reunião 😊`
+      }
+      // Já tem email — cria o evento direto abaixo em Short-circuit 2
+    }
   }
+
+  // Short-circuit 2: lead forneceu email → encontra datetime no histórico e cria evento
+  if (pendingEmailCollection && ctx.calendarId) {
+    const emailMatch = userInput.match(EMAIL_PATTERN)
+    const leadEmail = emailMatch?.[0]
+    // Nome = input sem o email e sem pontuação, ou leadName como fallback
+    const leadName = userInput.replace(EMAIL_PATTERN, '').replace(/[,\-;\s]+/g, ' ').trim() || ctx.leadName
+
+    // Busca a última mensagem "— confirma?" no histórico para recuperar o datetime
+    const confirmaMsg = [...history].reverse().find(
+      (m) => m.role === 'assistant' && /—\s*confirma\?/i.test(m.content as string)
+    )
+    const confirmedDt = confirmaMsg ? parseConfirmedDateTime(confirmaMsg.content as string) : null
+
+    if (leadEmail && confirmedDt) {
+      console.log(`[SDR:${ctx.companyId}] email coletado — criando evento para ${leadEmail} em ${confirmedDt.toISOString()}`)
+      try {
+        const title = ctx.eventTitleTemplate
+          ? ctx.eventTitleTemplate.replace('{nome}', leadName)
+          : `Call de venda — ${leadName}`
+        const event = await createEventWithMeet({
+          calendarId: ctx.calendarId,
+          companyId: ctx.companyId,
+          title,
+          description: `Lead: ${leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
+          start: confirmedDt,
+          durationMinutes: 60,
+          attendeeEmail: leadEmail,
+          attendeeName: leadName,
+        })
+        await supabase.from('leads').update({
+          call_de_venda: true,
+          call_agendada_para: event.start.toISOString(),
+          meet_url: event.meetUrl,
+          call_status: 'agendada',
+          calendar_event_id: event.eventId,
+          updated_at: new Date().toISOString(),
+        }).eq('id', ctx.leadId)
+        return `Perfeito, ${leadName}! Reunião criada com sucesso ✅\n📅 ${formatDateTimeBR(event.start)}\n🔗 ${event.meetUrl}\n\nConvite enviado para ${leadEmail}. Qualquer dúvida é só me chamar 👍`
+      } catch (err: any) {
+        console.error(`[SDR:${ctx.companyId}] criação de evento (pós-email) falhou:`, err.message)
+        return `Desculpe, ${ctx.leadName}, tive um problema técnico ao criar o evento. Pode tentar novamente? 🙏`
+      }
+    }
+  }
+
+  const forcedTool: OpenAI.Chat.ChatCompletionToolChoiceOption = 'required'
 
   let response = await openai.chat.completions.create({
     model: 'gpt-4.1',
@@ -1440,50 +1461,8 @@ CONTEXTO DO CRM:
         const info = args['Nova informação para guardar'] ?? args.info ?? userInput
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
-        // Confirmação determinística: parseia datetime da última mensagem e cria evento direto
-        if (pendingScheduleConfirm && lastAssistant && typeof lastAssistant.content === 'string' && ctx.calendarId) {
-          const confirmedDt = parseConfirmedDateTime(lastAssistant.content)
-          if (confirmedDt) {
-            try {
-              const leadEmail = extractEmailFromHistory(history)
-              const title = ctx.eventTitleTemplate
-                ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
-                : `Call de venda — ${ctx.leadName}`
-              const event = await createEventWithMeet({
-                calendarId: ctx.calendarId,
-                companyId: ctx.companyId,
-                title,
-                description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
-                start: confirmedDt,
-                durationMinutes: 60,
-                attendeeEmail: leadEmail,
-                attendeeName: ctx.leadName,
-              })
-              await supabase.from('leads').update({
-                call_de_venda: true,
-                call_agendada_para: event.start.toISOString(),
-                meet_url: event.meetUrl,
-                call_status: 'agendada',
-                calendar_event_id: event.eventId,
-                updated_at: new Date().toISOString(),
-              }).eq('id', ctx.leadId)
-              result = `${ctx.leadName}, tá agendado! 🎉\n${formatDateTimeBR(event.start)} — segue o link:\n${event.meetUrl}\nQualquer coisa é só me chamar 👍`
-              console.log(`[SDR:${ctx.companyId}] agendamento direto (sem sub-agente) — eventId=${event.eventId}`)
-            } catch (err: any) {
-              console.error(`[SDR:${ctx.companyId}] agendamento direto falhou:`, err.message)
-              result = `Desculpe, ${ctx.leadName}, tive um problema técnico ao criar o evento. Pode tentar novamente? 🙏`
-            }
-          } else {
-            // Não conseguiu parsear datetime — fallback para sub-agente
-            result = await runAgenteAgendamento(
-              args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput,
-              ctx, openai, supabase, acc, history
-            )
-          }
-        } else {
-          const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
-          result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
-        }
+        const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
+        result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
       }
 
       console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
