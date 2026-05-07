@@ -599,6 +599,14 @@ RETORNO FINAL — somente após usar todas as tools:
     {
       type: 'function',
       function: {
+        name: 'Think7',
+        description: 'Use para pensar sobre algo. Não obtém novas informações nem altera o banco. Use quando precisar de raciocínio complexo.',
+        parameters: { type: 'object', properties: { thought: { type: 'string' } }, required: ['thought'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'Buscar_origem_lead_no_supabase',
         description: 'Busca a origem e status atual do lead pelo whatsapp e company_id',
         parameters: { type: 'object', properties: { whatsapp: { type: 'string' }, company_id: { type: 'number' } }, required: ['whatsapp'] },
@@ -632,6 +640,7 @@ RETORNO FINAL — somente após usar todas as tools:
   ]
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Think7': async (args) => `Raciocínio registrado: ${args.thought}`,
     'Buscar_origem_lead_no_supabase': async (_args) => {
       const { data } = await supabase
         .from('leads')
@@ -680,23 +689,51 @@ async function runMemoryExpert(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const systemPrompt = `Você é o Agente de Registro. Consolida informações do lead e atualiza o CRM após cada interação.
+  const systemPrompt = `Você é o Agente de Registro. Sua função é consolidar informações do lead e atualizar o CRM após cada interação.
+
+IMPORTANTE: Só atualize um campo se tiver informação nova relevante. Nunca atualize segment, priority ou nivel_interesse se a conversa não tiver dados suficientes para determinar isso com certeza.
+
+FERRAMENTAS DISPONÍVEIS:
+- "Think4": use para raciocinar antes de qualquer atualização
+- "Buscar_lead": busca os dados atuais do lead no CRM usando o whatsapp como identificador único
+- "Atualizar_resumo": atualiza os campos do lead no CRM
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
-1. Use "Think4" para raciocinar sobre o que deve ser atualizado
-2. Use "Buscar_lead" para obter os dados atuais do lead
-3. Compare as informações novas com as existentes
-4. Use "Think4" novamente para decidir exatamente o que atualizar
-5. Use "Atualizar_resumo" para salvar as atualizações
+1. Use "Think4" para raciocinar sobre o que precisa ser atualizado
+2. Use "Buscar_lead" passando o número do whatsapp do lead
+3. Compare os dados atuais com a nova informação recebida
+4. Use "Think4" novamente para consolidar o que vai atualizar
+5. Use "Atualizar_resumo" para salvar as atualizações no CRM
 
 CAMPOS QUE VOCÊ ATUALIZA:
-- resumo_ia: resumo executivo (máx 200 palavras, bullet points)
-- segment: segmento/nicho do lead
-- priority: "Alta" | "Média" | "Baixa"
-- nivel_interesse: "Quente 🔥" | "Morno 🌡️" | "Frio ❄️"
-- updated_at: sempre atualizar
+- resumo_ia: resumo executivo da conversa
+- segment: segmento do lead
+- priority: prioridade do lead
+- nivel_interesse: temperatura do lead
+- updated_at: sempre atualizar com a data/hora atual
 
-Só atualize um campo se tiver informação nova relevante.`
+REGRAS DO RESUMO (resumo_ia):
+- Máximo 200 palavras
+- Use bullet points
+- Inclua: interesse demonstrado, objeções, próximos passos, informações relevantes
+- Priorize informações novas sobre antigas
+- Seja direto — o SDR precisa entender em 30 segundos
+
+NÍVEL DE INTERESSE (use exatamente assim):
+- "Quente 🔥"
+- "Morno 🌡️"
+- "Frio ❄️"
+
+PRIORIDADE (use exatamente assim):
+- "Alta"
+- "Média"
+- "Baixa"
+
+SEGMENTOS (use exatamente assim):
+- "E-commerce", "Saúde/Medicina", "Educação", "Alimentação", "Beleza/Estética", "Imobiliária", "Advocacia", "Consultoria", "Tecnologia", "Moda/Fashion", "Arquitetura", "Outros"
+
+NUNCA invente valores fora dos listados acima.
+Se não tiver certeza de um campo, mantenha o valor atual do lead.`
 
   const tools: OpenAI.Chat.ChatCompletionTool[] = [
     {
@@ -834,6 +871,14 @@ REGRAS:
     {
       type: 'function',
       function: {
+        name: 'Think3',
+        description: 'Use para pensar sobre algo. Não obtém novas informações nem altera o banco. Use quando precisar de raciocínio complexo.',
+        parameters: { type: 'object', properties: { thought: { type: 'string' } }, required: ['thought'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'Hora_atual',
         description: 'Retorna a data e hora atual no fuso America/Sao_Paulo',
         parameters: { type: 'object', properties: {} },
@@ -903,6 +948,7 @@ REGRAS:
   ]
 
   const handlers: Record<string, (args: any) => Promise<string>> = {
+    'Think3': async (args) => `Raciocínio registrado: ${args.thought}`,
     'Hora_atual': async (_args) => {
       return new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'full', timeStyle: 'short' })
     },
@@ -972,7 +1018,7 @@ REGRAS:
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nNome: ${ctx.leadName}\nMensagem: ${message}`,
-    tools, handlers, openai, 'gpt-4.1', acc, 'agendamento', 10, history
+    tools, handlers, openai, 'gpt-4.1-mini', acc, 'agendamento', 10, history
   )
 }
 
