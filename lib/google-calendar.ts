@@ -1,6 +1,6 @@
 /**
  * Google Calendar integration — cria eventos com Meet para agendamento de calls.
- * Suporta OAuth2 por empresa (google_integrations) e service account fallback.
+ * Usa OAuth2 por empresa (google_integrations). Service account removido.
  */
 
 import { google, calendar_v3 } from 'googleapis'
@@ -31,7 +31,6 @@ async function getCalendarClientForCompany(companyId: number) {
     expiry_date: integration.expires_at ? new Date(integration.expires_at).getTime() : undefined,
   });
 
-  // Auto-refresh se expirado
   oauth2Client.on('tokens', async (tokens) => {
     await service.from('google_integrations').update({
       access_token: tokens.access_token,
@@ -58,52 +57,34 @@ export interface ScheduledEvent {
 
 export interface CheckSlotsParams {
   calendarId: string
-  date: Date // dia a verificar
+  companyId: number
+  date: Date
   durationMinutes?: number
 }
 
 export interface CreateEventParams {
   calendarId: string
+  companyId: number
   title: string
   description?: string
   start: Date
   durationMinutes?: number
   attendeeEmail?: string
   attendeeName?: string
-  organizerName?: string
-}
-
-// Credenciais via env (service account JSON)
-function getCalendarClient() {
-  const credsRaw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON
-  if (!credsRaw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON não configurado')
-
-  const creds = JSON.parse(credsRaw)
-  const auth = new google.auth.GoogleAuth({
-    credentials: creds,
-    scopes: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events',
-    ],
-  })
-
-  return google.calendar({ version: 'v3', auth })
 }
 
 /** Verifica slots disponíveis em um dia (Seg-Sex, 9h-18h, fuso America/Bahia) */
 export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
-  const { calendarId, date, durationMinutes = 60 } = params
-  const calendar = getCalendarClient()
+  const { calendarId, companyId, date, durationMinutes = 60 } = params
+  const calendar = await getCalendarClientForCompany(companyId)
 
-  // Define janela do dia em America/Bahia (UTC-3)
   const dayStart = new Date(date)
   dayStart.setHours(9, 0, 0, 0)
   const dayEnd = new Date(date)
   dayEnd.setHours(18, 0, 0, 0)
 
-  // Busca eventos existentes no dia
   const { data } = await calendar.events.list({
     calendarId,
     timeMin: dayStart.toISOString(),
@@ -120,7 +101,6 @@ export async function checkAvailableSlots(
       end: new Date(e.end?.dateTime ?? e.end?.date ?? ''),
     }))
 
-  // Gera slots de 1h das 9h às 17h
   const slots: CalendarSlot[] = []
   let cursor = new Date(dayStart)
 
@@ -130,7 +110,7 @@ export async function checkAvailableSlots(
       (b) => cursor < b.end && slotEnd > b.start
     )
     slots.push({ start: new Date(cursor), end: slotEnd, available: !overlaps })
-    cursor = new Date(cursor.getTime() + 30 * 60_000) // avança 30min
+    cursor = new Date(cursor.getTime() + 30 * 60_000)
   }
 
   return slots
@@ -142,16 +122,16 @@ export async function createEventWithMeet(
 ): Promise<ScheduledEvent> {
   const {
     calendarId,
+    companyId,
     title,
     description,
     start,
     durationMinutes = 60,
     attendeeEmail,
     attendeeName,
-    organizerName,
   } = params
 
-  const calendar = getCalendarClient()
+  const calendar = await getCalendarClientForCompany(companyId)
   const end = new Date(start.getTime() + durationMinutes * 60_000)
 
   const eventBody: calendar_v3.Schema$Event = {
@@ -199,8 +179,12 @@ export async function createEventWithMeet(
 }
 
 /** Cancela evento no Google Calendar */
-export async function cancelEvent(calendarId: string, eventId: string): Promise<void> {
-  const calendar = getCalendarClient()
+export async function cancelEvent(
+  calendarId: string,
+  eventId: string,
+  companyId: number
+): Promise<void> {
+  const calendar = await getCalendarClientForCompany(companyId)
   await calendar.events.delete({ calendarId, eventId, sendUpdates: 'all' })
 }
 

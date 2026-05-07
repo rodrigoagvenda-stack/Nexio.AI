@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!existing) return NextResponse.json({ error: 'Fluxo não encontrado' }, { status: 404 })
 
     const body = await request.json()
-    const allowed = ['nome', 'descricao', 'numero_whatsapp', 'tipo', 'ativo', 'orchestrator_prompt', 'conhecimento_ativo', 'objecoes_ativo', 'vector_table_conhecimento', 'vector_table_objecoes']
+    const allowed = ['nome', 'descricao', 'numero_whatsapp', 'tipo', 'ativo', 'orchestrator_prompt', 'conhecimento_ativo', 'objecoes_ativo', 'vector_table_conhecimento', 'vector_table_objecoes', 'event_title_template']
     const updates: Record<string, any> = {}
     for (const key of allowed) {
       if (body[key] !== undefined) updates[key] = body[key]

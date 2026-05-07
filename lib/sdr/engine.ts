@@ -15,6 +15,7 @@ import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebho
 import {
   checkAvailableSlots,
   createEventWithMeet,
+  cancelEvent,
   formatDateTimeBR,
   nextBusinessDay,
   isBusinessDay,
@@ -42,6 +43,7 @@ interface SdrContext {
   vectorTableObjecoes: string | null
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
+  eventTitleTemplate: string | null
 }
 
 interface BufferedMessage {
@@ -392,15 +394,16 @@ async function runAgenteAgendamento(
   const now = new Date()
   const nowBR = now.toLocaleString('pt-BR', { timeZone: 'America/Bahia' })
 
-  // Busca dados atuais de agendamento do lead
+  // Busca dados atuais de agendamento do lead (incluindo event_id para cancelamento real)
   const { data: lead } = await supabase
     .from('leads')
-    .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name')
+    .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name, calendar_event_id')
     .eq('id', ctx.leadId)
     .single()
 
-  // Busca slots disponíveis nos próximos 3 dias úteis
+  // Busca slots disponíveis nos próximos 3 dias úteis via Google Calendar real
   let slotsInfo = ''
+  let calendarConectado = false
   try {
     const diasUteis: Date[] = []
     let cursor = nextBusinessDay(now)
@@ -410,12 +413,13 @@ async function runAgenteAgendamento(
     }
 
     const allSlots = await Promise.all(
-      diasUteis.map((d) => checkAvailableSlots({ calendarId: ctx.calendarId!, date: d }))
+      diasUteis.map((d) => checkAvailableSlots({ calendarId: ctx.calendarId!, companyId: ctx.companyId, date: d }))
     )
 
+    calendarConectado = true
     slotsInfo = diasUteis
       .map((d, i) => {
-        const available = allSlots[i].filter((s) => s.available).slice(0, 3)
+        const available = allSlots[i].filter((s) => s.available).slice(0, 4)
         const dayLabel = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', timeZone: 'America/Bahia' })
         if (available.length === 0) return `${dayLabel}: sem horários disponíveis`
         const times = available.map((s) =>
@@ -425,28 +429,42 @@ async function runAgenteAgendamento(
       })
       .join('\n')
   } catch (err) {
-    slotsInfo = 'Não foi possível consultar os horários disponíveis.'
+    calendarConectado = false
+    slotsInfo = 'INDISPONÍVEL — não foi possível conectar ao Google Calendar'
   }
+
+  // Status de agendamento atual sempre lido do banco (source of truth)
+  const agendamentoAtual = lead?.call_de_venda && lead?.call_status !== 'cancelada'
+    ? `Sim — ${lead.call_agendada_para ? formatDateTimeBR(new Date(lead.call_agendada_para)) : 'horário não definido'} — status: ${lead.call_status ?? 'agendada'}`
+    : 'Nenhum agendamento ativo'
 
   const systemPrompt = `Você é o Agente de Agendamento. Seu único trabalho é agendar, remarcar ou cancelar calls de venda.
 
 CONTEXTO:
 - Data/hora atual: ${nowBR}
 - Lead: ${ctx.leadName} (${ctx.leadPhone})
-- Agendamento atual: ${lead?.call_de_venda ? `Sim — ${lead.call_agendada_para ?? 'horário não definido'} — status: ${lead.call_status ?? 'agendada'}` : 'Nenhum agendamento ativo'}
+- Agendamento no banco: ${agendamentoAtual}
 - Meet atual: ${lead?.meet_url ?? 'nenhum'}
 
-SLOTS DISPONÍVEIS:
+SLOTS DISPONÍVEIS (dados reais do calendário):
 ${slotsInfo}
 
-REGRAS:
+REGRAS CRÍTICAS:
+- NUNCA invente horários. Use APENAS os slots listados acima.
+- Se SLOTS DISPONÍVEIS estiver "INDISPONÍVEL", retorne {"acao":"conversa","resposta":"Estou com dificuldade de acessar o calendário agora. Tente novamente em alguns instantes."}
 - Apenas Seg a Sex, 9h às 18h, fuso America/Bahia
-- NUNCA agende para o mesmo dia de hoje
-- Se o lead já informou um horário específico → confirme sem sugerir outros
-- Máximo 2 linhas na resposta ao lead
-- Se confirmar agendamento: retorne JSON {"acao":"agendar","data_hora":"<ISO8601>","titulo":"<título da reunião>"}
-- Se cancelar: retorne JSON {"acao":"cancelar"}
-- Se apenas consultando/conversando: retorne JSON {"acao":"conversa","resposta":"<sua resposta ao lead>"}
+- NUNCA agende para hoje (data atual: ${now.toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' })})
+- Antes de confirmar o agendamento, verifique se já coletou: nome completo e e-mail do lead. Se não tiver, peça.
+- Se o lead pediu um horário que NÃO está nos slots disponíveis, diga que esse horário não está disponível e mostre os slots.
+- Se o lead pediu para VER os horários disponíveis, liste TODOS os slots do contexto acima.
+- Ao remarcar: cancele o anterior e agende no novo horário.
+- Máximo 3 linhas na resposta ao lead.
+
+AÇÕES JSON:
+- Agendar: {"acao":"agendar","data_hora":"<ISO8601>","titulo":"<título>","lead_email":"<email>","lead_nome":"<nome completo>"}
+- Cancelar: {"acao":"cancelar"}
+- Remarcar (cancela + agenda novo): {"acao":"remarcar","data_hora":"<ISO8601>","titulo":"<título>","lead_email":"<email>","lead_nome":"<nome completo>"}
+- Conversa/consulta: {"acao":"conversa","resposta":"<resposta ao lead>"}
 
 Retorne APENAS o JSON, sem texto adicional.`
 
@@ -456,7 +474,7 @@ Retorne APENAS o JSON, sem texto adicional.`
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message },
     ],
-    max_tokens: 300,
+    max_tokens: 400,
     temperature: 0.1,
     response_format: { type: 'json_object' },
   })
@@ -468,18 +486,32 @@ Retorne APENAS o JSON, sem texto adicional.`
     return 'Agendamento: não foi possível processar a solicitação.'
   }
 
-  if (parsed.acao === 'agendar' && parsed.data_hora) {
+  // ─── Agendar ─────────────────────────────────────────────────
+  if ((parsed.acao === 'agendar' || parsed.acao === 'remarcar') && parsed.data_hora) {
     try {
+      // Se for remarcação, cancela o evento anterior no Google Calendar
+      if (parsed.acao === 'remarcar' && lead?.call_de_venda && lead?.calendar_event_id) {
+        try {
+          await cancelEvent(ctx.calendarId, lead.calendar_event_id, ctx.companyId)
+        } catch {
+          // Evento pode já ter sido deletado manualmente — continua sem erro
+        }
+      }
+
       const start = new Date(parsed.data_hora)
       const event = await createEventWithMeet({
         calendarId: ctx.calendarId,
-        title: parsed.titulo ?? `Call de venda — ${ctx.leadName}`,
-        description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
+        companyId: ctx.companyId,
+        title: parsed.titulo ?? (ctx.eventTitleTemplate
+          ? ctx.eventTitleTemplate.replace('{nome}', parsed.lead_nome ?? ctx.leadName)
+          : `Call de venda — ${parsed.lead_nome ?? ctx.leadName}`),
+        description: `Lead: ${parsed.lead_nome ?? ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nE-mail: ${parsed.lead_email ?? 'não informado'}\nAgendado via Nexio.AI SDR`,
         start,
         durationMinutes: 60,
+        attendeeEmail: parsed.lead_email,
+        attendeeName: parsed.lead_nome ?? ctx.leadName,
       })
 
-      // Atualiza lead com dados do agendamento
       await supabase
         .from('leads')
         .update({
@@ -487,30 +519,43 @@ Retorne APENAS o JSON, sem texto adicional.`
           call_agendada_para: event.start.toISOString(),
           meet_url: event.meetUrl,
           call_status: 'agendada',
+          calendar_event_id: event.eventId,
           updated_at: new Date().toISOString(),
         })
         .eq('id', ctx.leadId)
 
       const dataFormatada = formatDateTimeBR(event.start)
-      return `Reunião agendada com sucesso!\n📅 ${dataFormatada}\n🔗 Meet: ${event.meetUrl}\nEventId: ${event.eventId}`
+      const acao = parsed.acao === 'remarcar' ? 'Reunião remarcada' : 'Reunião agendada'
+      return `${acao} com sucesso!\n📅 ${dataFormatada}\n🔗 Meet: ${event.meetUrl}`
     } catch (err: any) {
       return `Erro ao criar evento no Google Calendar: ${err.message}`
     }
   }
 
+  // ─── Cancelar ────────────────────────────────────────────────
   if (parsed.acao === 'cancelar' && lead?.call_de_venda) {
+    // Cancela o evento real no Google Calendar
+    if (lead?.calendar_event_id) {
+      try {
+        await cancelEvent(ctx.calendarId, lead.calendar_event_id, ctx.companyId)
+      } catch {
+        // Evento pode já ter sido deletado manualmente — continua
+      }
+    }
+
     await supabase
       .from('leads')
       .update({
         call_de_venda: false,
         call_status: 'cancelada',
+        calendar_event_id: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', ctx.leadId)
     return 'Agendamento cancelado com sucesso.'
   }
 
-  return parsed.resposta ?? 'Consulte os horários disponíveis acima.'
+  return parsed.resposta ?? 'Como posso ajudar com seu agendamento?'
 }
 
 // ─── Orquestrador Principal ─────────────────────────────────────
@@ -931,6 +976,7 @@ interface SdrFullConfig {
   vectorTableObjecoes: string | null
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
+  eventTitleTemplate: string | null
 }
 
 async function loadSdrConfig(
@@ -972,6 +1018,7 @@ async function loadSdrConfig(
     vectorTableObjecoes: flow?.vector_table_objecoes ?? null,
     conhecimentoAtivo: flow?.conhecimento_ativo ?? true,
     objecoesAtivo: flow?.objecoes_ativo ?? false,
+    eventTitleTemplate: flow?.event_title_template ?? null,
   }
 }
 
@@ -1020,6 +1067,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       vectorTableObjecoes: cfg.vectorTableObjecoes,
       conhecimentoAtivo: cfg.conhecimentoAtivo,
       objecoesAtivo: cfg.objecoesAtivo,
+      eventTitleTemplate: cfg.eventTitleTemplate,
     }
 
     const conversationId = await ensureConversation(ctx, supabase)
