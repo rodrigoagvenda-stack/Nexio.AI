@@ -8,11 +8,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils/cn'
 import {
-  Loader2, Save, MessageSquare, Copy, CheckCheck, Calendar,
-  Zap, Wifi, WifiOff, Bot, Plus,
-  Upload, FileText, AlertCircle,
-  CheckCircle2, X, BookOpen, ShieldAlert, LogOut,
+  Loader2, Save, MessageSquare, Calendar,
+  Zap, Wifi, WifiOff, Bot,
+  AlertCircle,
+  CheckCircle2, BookOpen, ShieldAlert, LogOut,
   Settings, Brain, Link2, Sparkles, ChevronDown,
+  ChevronRight, ChevronLeft, ArrowRight,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -21,7 +22,6 @@ import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type Variabl
 interface AgentPersona {
   nome_agente: string; tom: string; empresa: string
   produto: string; restricoes: string; horario: string
-  // Template variables
   url_empresa: string; preco: string; periodo_teste: string
   link_teste: string; link_playlist: string; link_agendamento: string
   link_catalogo: string; link_pedido: string; endereco: string
@@ -38,8 +38,6 @@ interface SdrConfig {
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
-interface KnowledgeItem { id: string; pergunta: string; resposta: string }
-interface ObjectionItem { id: string; objecao: string; resposta: string; exemplo: string }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -71,6 +69,129 @@ const TABS = [
 ] as const
 type TabId = typeof TABS[number]['id']
 
+// ── Typeform wizard questions ──────────────────────────────────────────────
+
+interface WizardQuestion {
+  key: VariableKey
+  question: string
+  hint?: string
+  placeholder: string
+  type: 'text' | 'url' | 'textarea'
+  optional?: boolean
+}
+
+const WIZARD_QUESTIONS: WizardQuestion[] = [
+  {
+    key: 'descricao_produto',
+    question: 'Como você descreveria o que vende ou oferece?',
+    hint: 'Seja específico — isso aparece quando o agente apresenta seu negócio ao cliente.',
+    placeholder: 'Ex: sistema de gestão com controle de vendas, estoque e financeiro em um único lugar',
+    type: 'textarea',
+  },
+  {
+    key: 'preco',
+    question: 'Qual o preço do seu produto ou serviço?',
+    placeholder: 'Ex: R$ 49,90/mês',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'periodo_teste',
+    question: 'Você oferece período de teste gratuito? Qual o prazo?',
+    placeholder: 'Ex: 7 dias',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'link_teste',
+    question: 'Qual o link para o teste grátis ou aula experimental?',
+    placeholder: 'https://',
+    type: 'url',
+    optional: true,
+  },
+  {
+    key: 'link_playlist',
+    question: 'Tem playlist de vídeos ou tutoriais sobre seu produto?',
+    placeholder: 'https://youtube.com/...',
+    type: 'url',
+    optional: true,
+  },
+  {
+    key: 'link_agendamento',
+    question: 'Qual o link para agendar uma consulta, avaliação ou visita?',
+    placeholder: 'https://',
+    type: 'url',
+    optional: true,
+  },
+  {
+    key: 'link_catalogo',
+    question: 'Tem catálogo, cardápio ou lista de produtos online?',
+    placeholder: 'https://',
+    type: 'url',
+    optional: true,
+  },
+  {
+    key: 'link_pedido',
+    question: 'Qual o link para o cliente fazer um pedido ou compra?',
+    placeholder: 'https://',
+    type: 'url',
+    optional: true,
+  },
+  {
+    key: 'horario',
+    question: 'Qual o horário de funcionamento do seu negócio?',
+    placeholder: 'Ex: Seg–Sex das 9h às 18h, Sáb das 9h às 13h',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'endereco',
+    question: 'Qual o endereço físico do seu negócio?',
+    hint: 'Preencha se atende presencialmente.',
+    placeholder: 'Ex: Rua das Flores, 123 – Centro, São Paulo',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'taxa_entrega',
+    question: 'Qual a taxa de entrega cobrada?',
+    placeholder: 'Ex: R$ 5,00 ou Grátis para pedidos acima de R$ 50',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'tempo_entrega',
+    question: 'Qual o tempo estimado de entrega?',
+    placeholder: 'Ex: 40–60 minutos',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'url_empresa',
+    question: 'Qual o site da sua empresa?',
+    placeholder: 'https://suaempresa.com.br',
+    type: 'url',
+    optional: true,
+  },
+]
+
+// Maps VariableKey to the corresponding AgentPersona field name
+const WIZARD_KEY_TO_PERSONA: Record<string, keyof AgentPersona> = {
+  descricao_produto: 'produto',
+  preco: 'preco',
+  periodo_teste: 'periodo_teste',
+  link_teste: 'link_teste',
+  link_playlist: 'link_playlist',
+  link_agendamento: 'link_agendamento',
+  link_catalogo: 'link_catalogo',
+  link_pedido: 'link_pedido',
+  horario: 'horario',
+  endereco: 'endereco',
+  taxa_entrega: 'taxa_entrega',
+  tempo_entrega: 'tempo_entrega',
+  url_empresa: 'url_empresa',
+}
+
 // ── Field ──────────────────────────────────────────────────────────────────
 
 function Field({ label, hint, children, optional }: { label: string; hint?: string; children: React.ReactNode; optional?: boolean }) {
@@ -88,7 +209,7 @@ function Field({ label, hint, children, optional }: { label: string; hint?: stri
 
 // ── Knowledge Builder ──────────────────────────────────────────────────────
 
-type KBMode = 'template' | 'form' | 'pdf'
+type KBMode = 'template' | 'form'
 
 interface ExistingBase { filename: string; chunks: number }
 interface PendingAction { newName: string; execute: () => void }
@@ -97,28 +218,28 @@ function friendlyFilename(filename: string): string {
   return filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
+function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPersonaChange, sharedNicheId, onNicheChange }: {
   flowId: string | null; type: 'conhecimento' | 'objecoes'
   active: boolean; onActiveChange: (v: boolean) => void
   persona: AgentPersona
+  onPersonaChange: (field: keyof AgentPersona, value: string) => void
+  sharedNicheId: string
+  onNicheChange: (id: string) => void
 }) {
   const [mode, setMode] = useState<KBMode>('template')
-  const [selectedNicheId, setSelectedNicheId] = useState<string>(persona.nicho_id || '')
   const [processing, setProcessing] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<{ chunks: number; table: string } | null>(null)
   const [nicheDropdownOpen, setNicheDropdownOpen] = useState(false)
-  const [items, setItems] = useState<KnowledgeItem[] | ObjectionItem[]>(
-    type === 'conhecimento'
-      ? [{ id: uid(), pergunta: '', resposta: '' }] as KnowledgeItem[]
-      : [{ id: uid(), objecao: '', resposta: '', exemplo: '' }] as ObjectionItem[]
-  )
-  const fileRef = useRef<HTMLInputElement>(null)
   const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
 
+  // Typeform wizard state
+  const [wizardStep, setWizardStep] = useState(0)
+  const wizardInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+
   const isConhecimento = type === 'conhecimento'
   const label = isConhecimento ? 'conhecimento' : 'objeções'
+  const selectedNiche = NICHES.find((n) => n.id === sharedNicheId)
 
   useEffect(() => {
     if (!flowId || !active) return
@@ -135,8 +256,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
     if (!existingBase) { execute(); return }
     setPendingAction({ newName, execute })
   }
-
-  const selectedNiche = NICHES.find((n) => n.id === selectedNicheId)
 
   // Build variables from persona
   const buildVariables = (): SdrVariables => ({
@@ -170,7 +289,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
 
   async function processTemplate() {
     if (!flowId) { toast({ title: 'Salve a configuração primeiro', variant: 'destructive' }); return }
-    if (!selectedNicheId) { toast({ title: 'Selecione um nicho', variant: 'destructive' }); return }
+    if (!sharedNicheId) { toast({ title: 'Selecione um nicho', variant: 'destructive' }); return }
     setProcessing(true)
     try {
       const endpoint = isConhecimento
@@ -178,10 +297,9 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
         : `/api/sdr/flows/${flowId}/objections/from-template`
       const res = await fetch(endpoint, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nicheId: selectedNicheId, variables: buildVariables() }),
+        body: JSON.stringify({ nicheId: sharedNicheId, variables: buildVariables() }),
       })
 
-      // 502 = gateway timeout (nginx cortou antes do Next.js responder)
       if (res.status === 502 || res.status === 504) {
         throw new Error('Tempo limite excedido. Verifique se a chave OpenAI está configurada em Admin → Configurações de Plataforma, depois tente novamente.')
       }
@@ -192,68 +310,51 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
       }
       if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
       setLastResult(data)
-      setExistingBase({ filename: `${selectedNicheId}_${type}`, chunks: data.chunks })
+      setExistingBase({ filename: `${sharedNicheId}_${type}`, chunks: data.chunks })
       toast({ title: `✓ ${data.chunks} chunks processados e salvos!` })
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao processar template', variant: 'destructive' })
     } finally { setProcessing(false) }
   }
 
-  function addItem() {
-    if (isConhecimento) {
-      setItems((prev) => [...prev, { id: uid(), pergunta: '', resposta: '' }] as KnowledgeItem[])
-    } else {
-      setItems((prev) => [...prev, { id: uid(), objecao: '', resposta: '', exemplo: '' }] as ObjectionItem[])
+  // Wizard questions filtered to niche
+  const wizardQuestions = selectedNiche
+    ? WIZARD_QUESTIONS.filter((q) =>
+        selectedNiche.requiredVars.includes(q.key) ||
+        selectedNiche.optionalVars.includes(q.key)
+      )
+    : WIZARD_QUESTIONS
+
+  const currentQ = wizardQuestions[wizardStep]
+  const wizardTotal = wizardQuestions.length
+  const wizardProgress = wizardTotal > 0 ? Math.round((wizardStep / wizardTotal) * 100) : 0
+
+  function getWizardValue(q: WizardQuestion): string {
+    const personaField = WIZARD_KEY_TO_PERSONA[q.key]
+    return personaField ? (persona[personaField] as string) || '' : ''
+  }
+
+  function setWizardValue(q: WizardQuestion, value: string) {
+    const personaField = WIZARD_KEY_TO_PERSONA[q.key]
+    if (personaField) onPersonaChange(personaField, value)
+  }
+
+  function handleWizardKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey && currentQ?.type !== 'textarea') {
+      e.preventDefault()
+      if (wizardStep < wizardTotal - 1) setWizardStep((s) => s + 1)
     }
   }
-  function removeItem(id: string) { setItems((prev) => (prev as any[]).filter((i) => i.id !== id)) }
-  function updateItem(id: string, field: string, value: string) {
-    setItems((prev) => (prev as any[]).map((i) => i.id === id ? { ...i, [field]: value } : i))
-  }
 
-  async function processForm() {
-    if (!flowId) { toast({ title: 'Salve a configuração primeiro', variant: 'destructive' }); return }
-    setProcessing(true)
-    try {
-      const endpoint = isConhecimento
-        ? `/api/sdr/flows/${flowId}/knowledge/structured`
-        : `/api/sdr/flows/${flowId}/objections/structured`
-      const body = isConhecimento
-        ? { items: (items as KnowledgeItem[]).map(({ pergunta, resposta }) => ({ pergunta, resposta })) }
-        : { items: (items as ObjectionItem[]).map(({ objecao, resposta, exemplo }) => ({ objecao, resposta, exemplo })) }
-      const res = await fetch(endpoint, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setLastResult(data)
-      toast({ title: `Processado! ${data.chunks} chunks salvos.` })
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao processar', variant: 'destructive' })
-    } finally { setProcessing(false) }
-  }
-
-  async function uploadPdf(file: File) {
-    if (!flowId) { toast({ title: 'Salve a configuração primeiro', variant: 'destructive' }); return }
-    setProcessing(true); setUploadProgress(`Enviando ${file.name}…`)
-    try {
-      const fd = new FormData(); fd.append('file', file)
-      const endpoint = isConhecimento ? `/api/sdr/flows/${flowId}/knowledge` : `/api/sdr/flows/${flowId}/objections`
-      const res = await fetch(endpoint, { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setLastResult(data)
-      toast({ title: `PDF processado! ${data.chunks} chunks salvos.` })
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao processar PDF', variant: 'destructive' })
-    } finally { setProcessing(false); setUploadProgress(null) }
-  }
+  useEffect(() => {
+    if (mode === 'form') {
+      setTimeout(() => wizardInputRef.current?.focus(), 80)
+    }
+  }, [wizardStep, mode])
 
   const MODES: { id: KBMode; label: string; icon: React.ElementType }[] = [
     { id: 'template', label: 'Nosso padrão', icon: Sparkles },
-    { id: 'form', label: 'Formulário', icon: FileText },
-    { id: 'pdf', label: 'Upload PDF', icon: Upload },
+    { id: 'form', label: 'Guiado', icon: ChevronRight },
   ]
 
   const vendas = NICHES.filter((n) => n.category === 'vendas')
@@ -294,12 +395,11 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
           {/* ── Template mode ── */}
           {mode === 'template' && (
             <div className="space-y-4">
-              {/* Descrição do que este template faz */}
               <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 {isConhecimento
-                  ? 'Gera o conteúdo de conhecimento do agente — fluxo de conversa, scripts de venda e informações do produto, personalizado para o seu nicho.'
-                  : 'Gera scripts de tratamento de objeções — respostas prontas para "está caro", "preciso pensar", "vou falar com meu sócio" e outras objeções comuns do seu nicho.'}
+                  ? 'Gera o fluxo de conversa, scripts de venda e comportamento do agente, personalizado para o seu nicho.'
+                  : 'Gera scripts de tratamento de objeções — respostas imutáveis e validadas para as objeções mais comuns do seu nicho.'}
               </div>
 
               {/* Niche selector */}
@@ -323,10 +423,10 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
                           {group.items.map((n) => (
                             <button
                               key={n.id}
-                              onClick={() => { setSelectedNicheId(n.id); setNicheDropdownOpen(false) }}
+                              onClick={() => { onNicheChange(n.id); setNicheDropdownOpen(false) }}
                               className={cn(
                                 'w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left',
-                                selectedNicheId === n.id && 'bg-primary/5'
+                                sharedNicheId === n.id && 'bg-primary/5'
                               )}
                             >
                               <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
@@ -334,7 +434,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
                                 <p className="text-sm font-medium">{n.label}</p>
                                 <p className="text-xs text-muted-foreground">{n.description}</p>
                               </div>
-                              {selectedNicheId === n.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
+                              {sharedNicheId === n.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
                             </button>
                           ))}
                         </div>
@@ -355,7 +455,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
                         <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <div>
                           <p className="font-semibold">Campos obrigatórios faltando:</p>
-                          <p className="mt-0.5">{missing.map((k) => VAR_LABELS[k]).join(', ')} — preencha na aba Identidade.</p>
+                          <p className="mt-0.5">{missing.map((k) => VAR_LABELS[k]).join(', ')} — use o modo Guiado para preencher.</p>
                         </div>
                       </div>
                     ) : (
@@ -367,7 +467,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
                     {missingOpt.length > 0 && (
                       <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>Opcionais não preenchidos (o template usará [placeholder]): {missingOpt.map((k) => VAR_LABELS[k]).join(', ')}</span>
+                        <span>Opcionais não preenchidos: {missingOpt.map((k) => VAR_LABELS[k]).join(', ')}</span>
                       </div>
                     )}
                   </div>
@@ -377,7 +477,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
               <Button
                 size="sm"
                 onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'template')}
-                disabled={processing || !flowId || !selectedNicheId}
+                disabled={processing || !flowId || !sharedNicheId}
                 className="gap-1.5 text-xs h-8 w-full"
               >
                 {processing
@@ -387,59 +487,154 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona }: {
             </div>
           )}
 
-          {/* ── Form mode ── */}
+          {/* ── Form mode — Typeform wizard ── */}
           {mode === 'form' && (
-            <div className="space-y-3">
-              {(items as any[]).map((item, idx) => (
-                <div key={item.id} className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      {isConhecimento ? `Pergunta ${idx + 1}` : `Objeção ${idx + 1}`}
-                    </span>
-                    {(items as any[]).length > 1 && (
-                      <button onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+            <div className="space-y-4">
+              {/* Niche selector (shared) */}
+              {!sharedNicheId && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">Primeiro, selecione o nicho para filtrar as perguntas relevantes.</p>
+                  <div className="relative">
+                    <button
+                      onClick={() => setNicheDropdownOpen((o) => !o)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors"
+                    >
+                      <span className="text-muted-foreground">Selecione o nicho…</span>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </button>
+                    {nicheDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-60 overflow-y-auto">
+                        {[{ label: '🎯 Vendas', items: vendas }, { label: '🛎️ Atendimento', items: atendimento }].map((group) => (
+                          <div key={group.label}>
+                            <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
+                            {group.items.map((n) => (
+                              <button key={n.id} onClick={() => { onNicheChange(n.id); setNicheDropdownOpen(false) }}
+                                className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left">
+                                <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium">{n.label}</p>
+                                  <p className="text-xs text-muted-foreground">{n.description}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {isConhecimento ? (
-                    <>
-                      <Input value={(item as KnowledgeItem).pergunta} onChange={(e) => updateItem(item.id, 'pergunta', e.target.value)} placeholder="Ex: Como funciona o onboarding?" className="h-8 text-sm" />
-                      <Textarea value={(item as KnowledgeItem).resposta} onChange={(e) => updateItem(item.id, 'resposta', e.target.value)} placeholder="Resposta completa…" className="min-h-[60px] text-sm resize-none" />
-                    </>
-                  ) : (
-                    <>
-                      <Input value={(item as ObjectionItem).objecao} onChange={(e) => updateItem(item.id, 'objecao', e.target.value)} placeholder="Ex: Está muito caro" className="h-8 text-sm" />
-                      <Textarea value={(item as ObjectionItem).resposta} onChange={(e) => updateItem(item.id, 'resposta', e.target.value)} placeholder="Como responder…" className="min-h-[60px] text-sm resize-none" />
-                      <Input value={(item as ObjectionItem).exemplo} onChange={(e) => updateItem(item.id, 'exemplo', e.target.value)} placeholder="Exemplo de uso (opcional)" className="h-8 text-sm" />
-                    </>
+                </div>
+              )}
+
+              {/* Wizard steps */}
+              {wizardQuestions.length > 0 && wizardStep < wizardTotal && (
+                <div className="space-y-4">
+                  {/* Progress */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{wizardStep + 1} de {wizardTotal}</span>
+                      {currentQ?.optional && <span className="text-amber-600 dark:text-amber-400">opcional</span>}
+                    </div>
+                    <div className="h-1 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${wizardProgress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Question card */}
+                  <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                    <p className="text-sm font-semibold leading-snug">{currentQ?.question}</p>
+                    {currentQ?.hint && <p className="text-[11px] text-muted-foreground">{currentQ.hint}</p>}
+                    {currentQ?.type === 'textarea' ? (
+                      <Textarea
+                        ref={wizardInputRef as React.RefObject<HTMLTextAreaElement>}
+                        value={getWizardValue(currentQ)}
+                        onChange={(e) => setWizardValue(currentQ, e.target.value)}
+                        placeholder={currentQ.placeholder}
+                        className="min-h-[72px] text-sm resize-none"
+                      />
+                    ) : (
+                      <Input
+                        ref={wizardInputRef as React.RefObject<HTMLInputElement>}
+                        type={currentQ?.type === 'url' ? 'url' : 'text'}
+                        value={getWizardValue(currentQ!)}
+                        onChange={(e) => setWizardValue(currentQ!, e.target.value)}
+                        placeholder={currentQ?.placeholder}
+                        className="h-9 text-sm"
+                        onKeyDown={handleWizardKeyDown}
+                      />
+                    )}
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setWizardStep((s) => Math.max(0, s - 1))}
+                      disabled={wizardStep === 0}
+                      className="gap-1.5 text-xs h-8"
+                    >
+                      <ChevronLeft className="w-3 h-3" />Anterior
+                    </Button>
+                    {wizardStep < wizardTotal - 1 ? (
+                      <Button
+                        size="sm"
+                        onClick={() => setWizardStep((s) => s + 1)}
+                        className="gap-1.5 text-xs h-8 flex-1"
+                      >
+                        Próxima <ArrowRight className="w-3 h-3" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'guiado')}
+                        disabled={processing || !flowId || !sharedNicheId}
+                        className="gap-1.5 text-xs h-8 flex-1"
+                      >
+                        {processing
+                          ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
+                          : <><Sparkles className="w-3 h-3" />Gerar base de {label}</>}
+                      </Button>
+                    )}
+                  </div>
+
+                  {wizardStep < wizardTotal - 1 && (
+                    <button
+                      onClick={() => setWizardStep(wizardTotal - 1)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 w-full text-center transition-colors"
+                    >
+                      Pular e ir para o final →
+                    </button>
                   )}
                 </div>
-              ))}
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={addItem} className="gap-1.5 text-xs h-8">
-                  <Plus className="w-3 h-3" />Adicionar {isConhecimento ? 'pergunta' : 'objeção'}
-                </Button>
-                <Button size="sm" onClick={() => withConfirm(processForm, `Base manual de ${label}`)} disabled={processing || !flowId} className="gap-1.5 text-xs h-8 min-w-[120px]">
-                  {processing ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</> : 'Salvar na base'}
-                </Button>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* ── PDF mode ── */}
-          {mode === 'pdf' && (
-            <div>
-              <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) withConfirm(() => uploadPdf(f), f.name) }} />
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={processing || !flowId}
-                className={cn('w-full rounded-xl border-2 border-dashed p-6 flex flex-col items-center gap-2 transition-colors hover:border-primary/50 hover:bg-primary/5', processing && 'opacity-50 pointer-events-none')}
-              >
-                {processing
-                  ? <><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /><p className="text-xs text-muted-foreground">{uploadProgress}</p></>
-                  : <><Upload className="w-5 h-5 text-muted-foreground" /><p className="text-sm font-medium">Clique para enviar PDF</p><p className="text-xs text-muted-foreground">Máximo 10 MB</p></>}
-              </button>
+              {/* Summary after wizard */}
+              {wizardStep >= wizardTotal && wizardTotal > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-500/20 bg-green-500/5 text-xs text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    Todas as respostas preenchidas!
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setWizardStep(0)} className="text-xs h-8 gap-1.5">
+                      <ChevronLeft className="w-3 h-3" />Revisar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'guiado')}
+                      disabled={processing || !flowId || !sharedNicheId}
+                      className="gap-1.5 text-xs h-8 flex-1"
+                    >
+                      {processing
+                        ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
+                        : <><Sparkles className="w-3 h-3" />Gerar base de {label}</>}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -590,7 +785,9 @@ export default function SdrConfigPage() {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [copied, setCopied] = useState(false)
+
+  // Shared niche selection across KnowledgeBuilders
+  const [sharedNicheId, setSharedNicheId] = useState('')
 
   const loadConfig = useCallback(async () => {
     try {
@@ -598,10 +795,11 @@ export default function SdrConfigPage() {
       const data = await configRes.json()
       const liveStatus = statusRes.ok ? await statusRes.json() : null
       if (data.config) {
+        const persona = parsePersona(data.config.prompt ?? '')
         setConfig({
           id: data.config.id,
           agent_type: data.config.agent_type ?? 'atendimento_venda',
-          persona: parsePersona(data.config.prompt ?? ''),
+          persona,
           agente_ativo: data.config.agente_ativo ?? false,
           webhook_url: data.config.webhook_url ?? null,
           instance_status: liveStatus?.status ?? data.config.instance_status ?? 'disconnected',
@@ -614,6 +812,7 @@ export default function SdrConfigPage() {
           flow_id: data.config.flow_id ?? null,
           inbox_mode: data.config.inbox_mode ?? 'suporte',
         })
+        if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
       }
     } catch { toast({ title: 'Erro ao carregar configuração', variant: 'destructive' }) }
     finally { setLoading(false) }
@@ -624,6 +823,11 @@ export default function SdrConfigPage() {
   const setPersona = (field: keyof AgentPersona, value: string) =>
     setConfig((prev) => ({ ...prev, persona: { ...prev.persona, [field]: value } }))
 
+  function handleNicheChange(id: string) {
+    setSharedNicheId(id)
+    setPersona('nicho_id', id)
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -631,7 +835,7 @@ export default function SdrConfigPage() {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           agent_type: config.agent_type,
-          prompt: JSON.stringify(config.persona),
+          prompt: JSON.stringify({ ...config.persona, nicho_id: sharedNicheId }),
           agente_ativo: config.agente_ativo,
           google_calendar_id: config.google_calendar_id,
           vector_table_conhecimento: config.vector_table_conhecimento,
@@ -752,74 +956,24 @@ export default function SdrConfigPage() {
 
       {/* ── Identidade ── */}
       {activeTab === 'identidade' && (
-        <div className="space-y-5">
-          {/* Persona */}
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Persona do agente</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Nome do agente">
-                <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana" className="h-8 text-sm" />
-              </Field>
-              <Field label="Tom de voz">
-                <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Ex: informal e consultivo" className="h-8 text-sm" />
-              </Field>
-              <Field label="Nome da empresa">
-                <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva" className="h-8 text-sm" />
-              </Field>
-              <Field label="Horário de atendimento">
-                <Input value={config.persona.horario} onChange={(e) => setPersona('horario', e.target.value)} placeholder="Ex: Seg-Sex 9h-18h" className="h-8 text-sm" />
-              </Field>
-            </div>
-            <Field label="Produto / serviço oferecido">
-              <Textarea value={config.persona.produto} onChange={(e) => setPersona('produto', e.target.value)} placeholder="Ex: procedimentos estéticos de laser e harmonização facial" className="min-h-[60px] text-sm resize-none" />
-            </Field>
-            <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar">
-              <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)} placeholder="Ex: não mencione preços sem entender a necessidade" className="min-h-[60px] text-sm resize-none" />
-            </Field>
+        <div className="space-y-4">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+            <Bot className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            Defina a persona do seu agente — quem ele é, como fala e o que nunca deve dizer. As informações do negócio são configuradas na aba Conhecimento.
           </div>
 
-          {/* Links e valores */}
-          <div className="border-t border-border/60 pt-4 space-y-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Informações do negócio</p>
-            <p className="text-xs text-muted-foreground">Usadas automaticamente pelo template do nicho escolhido.</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Site / URL da empresa" optional>
-                <Input value={config.persona.url_empresa} onChange={(e) => setPersona('url_empresa', e.target.value)} placeholder="https://suaempresa.com.br" className="h-8 text-sm" />
-              </Field>
-              <Field label="Endereço" optional>
-                <Input value={config.persona.endereco} onChange={(e) => setPersona('endereco', e.target.value)} placeholder="Rua X, 123 — Bairro, Cidade" className="h-8 text-sm" />
-              </Field>
-              <Field label="Preço" optional>
-                <Input value={config.persona.preco} onChange={(e) => setPersona('preco', e.target.value)} placeholder="Ex: R$ 49,90/mês" className="h-8 text-sm" />
-              </Field>
-              <Field label="Período de teste" optional>
-                <Input value={config.persona.periodo_teste} onChange={(e) => setPersona('periodo_teste', e.target.value)} placeholder="Ex: 7 dias" className="h-8 text-sm" />
-              </Field>
-              <Field label="Taxa de entrega" optional>
-                <Input value={config.persona.taxa_entrega} onChange={(e) => setPersona('taxa_entrega', e.target.value)} placeholder="Ex: R$ 5,00 ou Grátis" className="h-8 text-sm" />
-              </Field>
-              <Field label="Tempo de entrega" optional>
-                <Input value={config.persona.tempo_entrega} onChange={(e) => setPersona('tempo_entrega', e.target.value)} placeholder="Ex: 40–60 min" className="h-8 text-sm" />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              <Field label="Link de teste grátis / aula experimental" optional>
-                <Input value={config.persona.link_teste} onChange={(e) => setPersona('link_teste', e.target.value)} placeholder="https://" className="h-8 text-sm" />
-              </Field>
-              <Field label="Link de playlist / tutoriais" optional>
-                <Input value={config.persona.link_playlist} onChange={(e) => setPersona('link_playlist', e.target.value)} placeholder="https://" className="h-8 text-sm" />
-              </Field>
-              <Field label="Link de agendamento" optional>
-                <Input value={config.persona.link_agendamento} onChange={(e) => setPersona('link_agendamento', e.target.value)} placeholder="https://" className="h-8 text-sm" />
-              </Field>
-              <Field label="Link do catálogo / cardápio" optional>
-                <Input value={config.persona.link_catalogo} onChange={(e) => setPersona('link_catalogo', e.target.value)} placeholder="https://" className="h-8 text-sm" />
-              </Field>
-              <Field label="Link de pedido / compra" optional>
-                <Input value={config.persona.link_pedido} onChange={(e) => setPersona('link_pedido', e.target.value)} placeholder="https://" className="h-8 text-sm" />
-              </Field>
-            </div>
-          </div>
+          <Field label="Nome do agente">
+            <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana, João, Sofia" className="h-9 text-sm" />
+          </Field>
+          <Field label="Nome da empresa">
+            <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva, Tocli, Studio Bella" className="h-9 text-sm" />
+          </Field>
+          <Field label="Tom de voz" hint="Como o agente deve se comunicar com os leads.">
+            <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Ex: informal e consultivo, direto e descontraído" className="h-9 text-sm" />
+          </Field>
+          <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar." optional>
+            <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" className="min-h-[72px] text-sm resize-none" />
+          </Field>
         </div>
       )}
 
@@ -831,14 +985,32 @@ export default function SdrConfigPage() {
               <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-sm font-semibold">Base de conhecimento</p>
             </div>
-            <KnowledgeBuilder flowId={config.flow_id} type="conhecimento" active={config.conhecimento_ativo} onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))} persona={config.persona} />
+            <KnowledgeBuilder
+              flowId={config.flow_id}
+              type="conhecimento"
+              active={config.conhecimento_ativo}
+              onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
+              persona={config.persona}
+              onPersonaChange={setPersona}
+              sharedNicheId={sharedNicheId}
+              onNicheChange={handleNicheChange}
+            />
           </div>
           <div className="border-t border-border/60 pt-5">
             <div className="flex items-center gap-2 mb-3">
               <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-sm font-semibold">Base de objeções</p>
             </div>
-            <KnowledgeBuilder flowId={config.flow_id} type="objecoes" active={config.objecoes_ativo} onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))} persona={config.persona} />
+            <KnowledgeBuilder
+              flowId={config.flow_id}
+              type="objecoes"
+              active={config.objecoes_ativo}
+              onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
+              persona={config.persona}
+              onPersonaChange={setPersona}
+              sharedNicheId={sharedNicheId}
+              onNicheChange={handleNicheChange}
+            />
           </div>
         </div>
       )}
