@@ -359,7 +359,8 @@ async function runAgentLoop(
   acc?: UsageAcc,
   agentName?: string,
   maxIterations = 10,
-  history: ChatMsg[] = []
+  history: ChatMsg[] = [],
+  abortOnResult?: (toolName: string, result: string) => string | null
 ): Promise<string> {
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
@@ -391,11 +392,33 @@ async function runAgentLoop(
       try { args = JSON.parse(fnCall.arguments) } catch { /* ok */ }
       const handler = toolHandlers[fnCall.name]
       const result = handler ? await handler(args) : `Tool ${fnCall.name} não implementada`
+      if (abortOnResult) {
+        const abort = abortOnResult(fnCall.name, result)
+        if (abort !== null) return abort
+      }
       messages.push({ role: 'tool', tool_call_id: tc.id, content: result })
     }
   }
 
   return 'Agente atingiu limite de iterações'
+}
+
+/** Extrai datetime confirmado de mensagens como "quinta-feira, 08/05 às 9h — confirma?" */
+function parseConfirmedDateTime(text: string): Date | null {
+  const m = text.match(/(\d{2})\/(\d{2})\s+às\s+(\d{1,2})(?:h(\d{2})?|:(\d{2}))/)
+  if (!m) return null
+  const day = parseInt(m[1])
+  const month = parseInt(m[2]) - 1
+  const hour = parseInt(m[3])
+  const min = parseInt(m[4] ?? m[5] ?? '0') || 0
+  const year = new Date().getFullYear()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const isoStr = `${year}-${pad(month + 1)}-${pad(day)}T${pad(hour)}:${pad(min)}:00`
+  const dt = parseBrazilDateTime(isoStr)
+  if (dt < new Date()) {
+    return parseBrazilDateTime(`${year + 1}-${pad(month + 1)}-${pad(day)}T${pad(hour)}:${pad(min)}:00`)
+  }
+  return dt
 }
 
 // ─── Sub-agentes ───────────────────────────────────────────────
@@ -856,8 +879,6 @@ Qualquer coisa é só me chamar 👍"
 
 REGRAS:
 - ⚠️ CRÍTICO: Se o lead já informou o horário, é PROIBIDO sugerir outras opções. Vá direto para a confirmação no passo 5.
-- ⚠️ CRÍTICO: Se "Consultar_gcal" retornar texto que começa com "ERRO_CALENDARIO", PARE TUDO e responda: "Desculpe [Nome], estou com uma dificuldade técnica para acessar o calendário agora. Pode tentar novamente em instantes? 🙏" — NUNCA fabrique disponibilidade quando há erro de calendário.
-- ⚠️ CRÍTICO: Se a mensagem de entrada contiver "CONFIRMAÇÃO EXPLÍCITA" seguida do horário, vá DIRETAMENTE para "Agendar_gcal" com esse horário — NÃO chame "Consultar_gcal", NÃO faça mais perguntas.
 - Chame "Consultar_gcal" apenas UMA vez por interação
 - Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data. Ex: "segunda-feira, 24/03"
@@ -1036,7 +1057,14 @@ REGRAS:
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nNome: ${ctx.leadName}\nMensagem: ${message}`,
-    tools, handlers, openai, 'gpt-4.1-mini', acc, 'agendamento', 10, history
+    tools, handlers, openai, 'gpt-4.1-mini', acc, 'agendamento', 10, history,
+    (toolName, result) => {
+      if (toolName === 'Consultar_gcal' && result.startsWith('ERRO_CALENDARIO')) {
+        console.error(`[SDR:${ctx.companyId}] Consultar_gcal abortou — retornando erro ao lead`)
+        return `Desculpe, ${ctx.leadName}, tive um problema técnico pra acessar o calendário agora. Pode tentar novamente em instantes? 🙏`
+      }
+      return null
+    }
   )
 }
 
@@ -1345,15 +1373,47 @@ CONTEXTO DO CRM:
         const info = args['Nova informação para guardar'] ?? args.info ?? userInput
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
-        let agendamentoMsg: string
-        if (pendingScheduleConfirm && lastAssistant && typeof lastAssistant.content === 'string') {
-          agendamentoMsg = `CONFIRMAÇÃO EXPLÍCITA: O lead confirmou o agendamento com "${userInput}".
-A mensagem confirmada foi: "${lastAssistant.content}"
-→ Extraia o dia, data e hora EXATOS desta mensagem e chame IMEDIATAMENTE Agendar_gcal. NÃO chame Consultar_gcal. NÃO faça mais perguntas.`
+        // Confirmação determinística: parseia datetime da última mensagem e cria evento direto
+        if (pendingScheduleConfirm && lastAssistant && typeof lastAssistant.content === 'string' && ctx.calendarId) {
+          const confirmedDt = parseConfirmedDateTime(lastAssistant.content)
+          if (confirmedDt) {
+            try {
+              const title = ctx.eventTitleTemplate
+                ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
+                : `Call de venda — ${ctx.leadName}`
+              const event = await createEventWithMeet({
+                calendarId: ctx.calendarId,
+                companyId: ctx.companyId,
+                title,
+                description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
+                start: confirmedDt,
+                durationMinutes: 60,
+              })
+              await supabase.from('leads').update({
+                call_de_venda: true,
+                call_agendada_para: event.start.toISOString(),
+                meet_url: event.meetUrl,
+                call_status: 'agendada',
+                calendar_event_id: event.eventId,
+                updated_at: new Date().toISOString(),
+              }).eq('id', ctx.leadId)
+              result = `${ctx.leadName}, tá agendado! 🎉\n${formatDateTimeBR(event.start)} — segue o link:\n${event.meetUrl}\nQualquer coisa é só me chamar 👍`
+              console.log(`[SDR:${ctx.companyId}] agendamento direto (sem sub-agente) — eventId=${event.eventId}`)
+            } catch (err: any) {
+              console.error(`[SDR:${ctx.companyId}] agendamento direto falhou:`, err.message)
+              result = `Desculpe, ${ctx.leadName}, tive um problema técnico ao criar o evento. Pode tentar novamente? 🙏`
+            }
+          } else {
+            // Não conseguiu parsear datetime — fallback para sub-agente
+            result = await runAgenteAgendamento(
+              args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput,
+              ctx, openai, supabase, acc, history
+            )
+          }
         } else {
-          agendamentoMsg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
+          const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
+          result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
         }
-        result = await runAgenteAgendamento(agendamentoMsg, ctx, openai, supabase, acc, history)
       }
 
       console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
