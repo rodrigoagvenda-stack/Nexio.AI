@@ -856,6 +856,8 @@ Qualquer coisa é só me chamar 👍"
 
 REGRAS:
 - ⚠️ CRÍTICO: Se o lead já informou o horário, é PROIBIDO sugerir outras opções. Vá direto para a confirmação no passo 5.
+- ⚠️ CRÍTICO: Se "Consultar_gcal" retornar texto que começa com "ERRO_CALENDARIO", PARE TUDO e responda: "Desculpe [Nome], estou com uma dificuldade técnica para acessar o calendário agora. Pode tentar novamente em instantes? 🙏" — NUNCA fabrique disponibilidade quando há erro de calendário.
+- ⚠️ CRÍTICO: Se a mensagem de entrada contiver "CONFIRMAÇÃO EXPLÍCITA" seguida do horário, vá DIRETAMENTE para "Agendar_gcal" com esse horário — NÃO chame "Consultar_gcal", NÃO faça mais perguntas.
 - Chame "Consultar_gcal" apenas UMA vez por interação
 - Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data. Ex: "segunda-feira, 24/03"
@@ -965,15 +967,16 @@ REGRAS:
     'Consultar_gcal': async (args) => {
       try {
         const date = new Date(args.data)
+        if (isNaN(date.getTime())) return 'ERRO_CALENDARIO: data inválida'
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
-        const available = slots.filter((s) => s.available).slice(0, 5)
-        if (available.length === 0) return 'Nenhum horário disponível nesta data.'
-        return available.map((s) =>
+        const available = slots.filter((s) => s.available).slice(0, 6)
+        if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio ou fim de semana).'
+        return `Horários livres: ${available.map((s) =>
           s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
-        ).join(', ')
+        ).join(', ')}`
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] Consultar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
-        return `Erro ao consultar calendário: ${err.message}`
+        return `ERRO_CALENDARIO: ${err.message}`
       }
     },
     'Agendar_gcal': async (args) => {
@@ -1342,8 +1345,15 @@ CONTEXTO DO CRM:
         const info = args['Nova informação para guardar'] ?? args.info ?? userInput
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
-        const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
-        result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
+        let agendamentoMsg: string
+        if (pendingScheduleConfirm && lastAssistant && typeof lastAssistant.content === 'string') {
+          agendamentoMsg = `CONFIRMAÇÃO EXPLÍCITA: O lead confirmou o agendamento com "${userInput}".
+A mensagem confirmada foi: "${lastAssistant.content}"
+→ Extraia o dia, data e hora EXATOS desta mensagem e chame IMEDIATAMENTE Agendar_gcal. NÃO chame Consultar_gcal. NÃO faça mais perguntas.`
+        } else {
+          agendamentoMsg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
+        }
+        result = await runAgenteAgendamento(agendamentoMsg, ctx, openai, supabase, acc, history)
       }
 
       console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
