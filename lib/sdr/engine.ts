@@ -334,7 +334,7 @@ async function getHistory(
     .select('texto_da_mensagem, sender_type')
     .eq('id_do_lead', leadId)
     .eq('company_id', companyId)
-    .order('created_at', { ascending: false })
+    .order('carimbo_de_data_e_hora', { ascending: false })
     .limit(limit)
 
   if (!data) return []
@@ -499,7 +499,7 @@ RETORNO FINAL: {"atualizado": true|false, "estagio": "nome"}`
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nMensagem: ${message}`,
-    tools, handlers, openai, 'gpt-4.1-mini', acc, 'pipeline'
+    tools, handlers, openai, 'gpt-4.1', acc, 'pipeline'
   )
 }
 
@@ -571,7 +571,7 @@ RETORNO FINAL: {"atualizado": true|false, "segmento": "nome"}`
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nMensagem: ${message}`,
-    tools, handlers, openai, 'gpt-4.1-mini', acc, 'segmentacao'
+    tools, handlers, openai, 'gpt-4.1', acc, 'segmentacao'
   )
 }
 
@@ -703,7 +703,7 @@ RETORNO FINAL — somente após usar todas as tools:
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nCompany ID: ${ctx.companyId}\nMensagem recebida: ${message}`,
-    tools, handlers, openai, 'gpt-4.1-mini', acc, 'outbound'
+    tools, handlers, openai, 'gpt-4.1', acc, 'outbound'
   )
 }
 
@@ -819,7 +819,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nNova informação: ${info}`,
-    tools, handlers, openai, 'gpt-4.1-mini', acc, 'memory'
+    tools, handlers, openai, 'gpt-4.1', acc, 'memory'
   )
 }
 
@@ -1095,7 +1095,7 @@ REGRAS:
   return runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nNome: ${ctx.leadName}\nMensagem: ${message}`,
-    tools, handlers, openai, 'gpt-4.1-mini', acc, 'agendamento', 10, history,
+    tools, handlers, openai, 'gpt-4.1', acc, 'agendamento', 10, history,
     (toolName, result) => {
       if (toolName === 'Consultar_gcal' && result.startsWith('ERRO_CALENDARIO')) {
         console.error(`[SDR:${ctx.companyId}] Consultar_gcal abortou — retornando erro ao lead`)
