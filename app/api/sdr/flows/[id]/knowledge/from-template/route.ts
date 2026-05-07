@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
+import { processKnowledgeText } from '@/lib/sdr/rag'
 
 export const runtime = 'nodejs'
+export const maxDuration = 120
 
 export async function POST(
   request: NextRequest,
@@ -35,20 +37,15 @@ export async function POST(
 
     const text = interpolate(niche.conhecimento, variables)
 
-    const { error } = await service.from('jobs').insert({
-      type: 'process_knowledge',
-      payload: {
-        companyId: userData.company_id,
-        flowId: params.id,
-        filename: `conhecimento_${nicheId}.txt`,
-        text,
-        tableType: 'conhecimento',
-      },
+    const result = await processKnowledgeText({
+      companyId: userData.company_id,
+      flowId: params.id,
+      filename: `conhecimento_${nicheId}.txt`,
+      text,
+      tableType: 'conhecimento',
     })
 
-    if (error) throw new Error(error.message)
-
-    return NextResponse.json({ ok: true, queued: true })
+    return NextResponse.json({ ok: true, ...result })
   } catch (err: any) {
     console.error('[knowledge/from-template]', err)
     return NextResponse.json({ error: err.message || 'Erro ao processar' }, { status: 500 })

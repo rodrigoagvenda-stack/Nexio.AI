@@ -21,9 +21,6 @@ async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
   return _openaiCache.get(apiKey)!
 }
 
-const CHUNK_SIZE = 1000
-const CHUNK_OVERLAP = 100
-
 /** Resolve OpenAI key: env var → sdr_configs (empresa) → platform_config (global) */
 async function resolveOpenAIKey(companyId: number): Promise<string> {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
@@ -49,6 +46,34 @@ async function embedAll(chunks: string[], openai: OpenAI): Promise<number[][]> {
 }
 
 function chunkText(text: string): string[] {
+  // Structured templates: split by === section headers and [TIPO] script blocks
+  if (/\n=== /.test(text)) {
+    const parts = text.split(/\n(?====|\[)/).map((s) => s.trim()).filter((s) => s.length > 30)
+    const chunks: string[] = []
+    for (const part of parts) {
+      if (part.length <= 4000) {
+        chunks.push(part)
+      } else {
+        // Oversized section: split by blank lines
+        const paras = part.split(/\n\n+/)
+        let current = ''
+        for (const p of paras) {
+          if (current && current.length + p.length + 2 > 4000) {
+            chunks.push(current.trim())
+            current = p
+          } else {
+            current = current ? current + '\n\n' + p : p
+          }
+        }
+        if (current.trim()) chunks.push(current.trim())
+      }
+    }
+    return chunks.filter((c) => c.length > 50)
+  }
+
+  // PDFs / plain text: character-based fallback
+  const CHUNK_SIZE = 1000
+  const CHUNK_OVERLAP = 100
   const chunks: string[] = []
   let start = 0
   while (start < text.length) {
