@@ -16,6 +16,7 @@ import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebho
 import {
   checkAvailableSlots,
   createEventWithMeet,
+  cancelEvent,
   formatDateTimeBR,
   nextBusinessDay,
   isBusinessDay,
@@ -63,6 +64,7 @@ interface SdrContext {
   vectorTableObjecoes: string | null
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
+  eventTitleTemplate: string | null
 }
 
 interface BufferedMessage {
@@ -955,7 +957,7 @@ REGRAS:
     'Buscar_reuniao': async (_args) => {
       const { data } = await supabase
         .from('leads')
-        .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name')
+        .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name, calendar_event_id')
         .eq('id', ctx.leadId)
         .single()
       return JSON.stringify(data ?? {})
@@ -977,13 +979,16 @@ REGRAS:
     'Agendar_gcal': async (args) => {
       try {
         const start = parseBrazilDateTime(args.data_hora)
+        const resolvedTitle = args.titulo ?? (ctx.eventTitleTemplate
+          ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
+          : `Call de venda — ${ctx.leadName}`)
         const event = await createEventWithMeet({
           calendarId: ctx.calendarId!,
-          title: args.titulo ?? `Call de venda — ${ctx.leadName}`,
+          companyId: ctx.companyId,
+          title: resolvedTitle,
           description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start,
           durationMinutes: args.duracao_minutos ?? 60,
-          companyId: ctx.companyId,
         })
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
       } catch (err: any) {
@@ -993,7 +998,15 @@ REGRAS:
     },
     'Deletar_gcal': async (args) => {
       try {
-        await supabase.from('leads').update({ call_de_venda: false, call_status: 'cancelada', updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
+        if (args.event_id && ctx.calendarId) {
+          await cancelEvent(ctx.calendarId, args.event_id, ctx.companyId)
+        }
+        await supabase.from('leads').update({
+          call_de_venda: false,
+          call_status: 'cancelada',
+          calendar_event_id: null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', ctx.leadId)
         return JSON.stringify({ deletado: true, event_id: args.event_id })
       } catch (err: any) {
         return `Erro ao cancelar: ${err.message}`
@@ -1004,11 +1017,13 @@ REGRAS:
       if (args.acao === 'cancelar') {
         updates.call_de_venda = false
         updates.call_status = 'cancelada'
+        updates.calendar_event_id = null
       } else if (args.data_hora_iso) {
         updates.call_de_venda = true
         updates.call_agendada_para = args.data_hora_iso
         updates.meet_url = args.meet_url ?? null
         updates.call_status = 'agendada'
+        if (args.event_id) updates.calendar_event_id = args.event_id
       }
       await supabase.from('leads').update(updates).eq('id', ctx.leadId)
       return JSON.stringify({ salvo: true, acao: args.acao })
@@ -1643,6 +1658,7 @@ interface SdrFullConfig {
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
   inboxMode: 'vendas' | 'suporte'
+  eventTitleTemplate: string | null
 }
 
 async function loadSdrConfig(
@@ -1740,6 +1756,7 @@ async function loadSdrConfig(
     conhecimentoAtivo: resolvedConhecimentoAtivo,
     objecoesAtivo: resolvedObjecoesAtivo,
     inboxMode: (flow?.inbox_mode as 'vendas' | 'suporte') ?? 'suporte',
+    eventTitleTemplate: flow?.event_title_template ?? null,
   }
 }
 
@@ -1877,6 +1894,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       vectorTableObjecoes: cfg.vectorTableObjecoes,
       conhecimentoAtivo: cfg.conhecimentoAtivo,
       objecoesAtivo: cfg.objecoesAtivo,
+      eventTitleTemplate: cfg.eventTitleTemplate,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)

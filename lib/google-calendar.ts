@@ -88,49 +88,28 @@ export interface ScheduledEvent {
 
 export interface CheckSlotsParams {
   calendarId: string
-  date: Date // dia a verificar
+  companyId: number
+  date: Date
   durationMinutes?: number
-  companyId?: number
 }
 
 export interface CreateEventParams {
   calendarId: string
+  companyId: number
   title: string
   description?: string
   start: Date
   durationMinutes?: number
   attendeeEmail?: string
   attendeeName?: string
-  organizerName?: string
-  companyId?: number
-}
-
-// Credenciais via env (service account JSON)
-async function getCalendarClient() {
-  const { google } = await import('googleapis')
-  const credsRaw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON
-  if (!credsRaw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON não configurado')
-
-  const creds = JSON.parse(credsRaw)
-  const auth = new google.auth.GoogleAuth({
-    credentials: creds,
-    scopes: [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events',
-    ],
-  })
-
-  return google.calendar({ version: 'v3', auth })
 }
 
 /** Verifica slots disponíveis em um dia (Seg-Sex, 9h-18h, fuso America/Sao_Paulo) */
 export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
-  const { calendarId, date, durationMinutes = 60, companyId } = params
-  const calendar = companyId
-    ? await getCalendarClientForCompany(companyId)
-    : await getCalendarClient()
+  const { calendarId, companyId, date, durationMinutes = 60 } = params
+  const calendar = await getCalendarClientForCompany(companyId)
 
   // Define janela 9h–18h no fuso Brasil (DST-aware via parseBrazilDateTime)
   const dateStr = date.toISOString().slice(0, 10)
@@ -176,19 +155,16 @@ export async function createEventWithMeet(
 ): Promise<ScheduledEvent> {
   const {
     calendarId,
+    companyId,
     title,
     description,
     start,
     durationMinutes = 60,
     attendeeEmail,
     attendeeName,
-    organizerName,
-    companyId,
   } = params
 
-  const calendar = companyId
-    ? await getCalendarClientForCompany(companyId)
-    : await getCalendarClient()
+  const calendar = await getCalendarClientForCompany(companyId)
   const end = new Date(start.getTime() + durationMinutes * 60_000)
 
   const eventBody: calendar_v3.Schema$Event = {
@@ -236,8 +212,8 @@ export async function createEventWithMeet(
 }
 
 /** Cancela evento no Google Calendar */
-export async function cancelEvent(calendarId: string, eventId: string): Promise<void> {
-  const calendar = await getCalendarClient()
+export async function cancelEvent(calendarId: string, eventId: string, companyId: number): Promise<void> {
+  const calendar = await getCalendarClientForCompany(companyId)
   await calendar.events.delete({ calendarId, eventId, sendUpdates: 'all' })
 }
 

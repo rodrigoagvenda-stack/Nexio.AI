@@ -35,6 +35,7 @@ interface SdrFlow {
   orchestrator_prompt: string | null
   conhecimento_ativo: boolean
   objecoes_ativo: boolean
+  event_title_template: string | null
   created_at: string
 }
 
@@ -60,6 +61,7 @@ const DEFAULT_FORM: {
   orchestrator_prompt: string
   conhecimento_ativo: boolean
   objecoes_ativo: boolean
+  event_title_template: string
 } = {
   nome: '',
   descricao: '',
@@ -68,6 +70,7 @@ const DEFAULT_FORM: {
   orchestrator_prompt: '',
   conhecimento_ativo: true,
   objecoes_ativo: false,
+  event_title_template: '',
 }
 
 export default function FluxosPage() {
@@ -111,6 +114,7 @@ export default function FluxosPage() {
       orchestrator_prompt: flow.orchestrator_prompt ?? '',
       conhecimento_ativo: flow.conhecimento_ativo,
       objecoes_ativo: flow.objecoes_ativo,
+      event_title_template: flow.event_title_template ?? '',
     })
     setDialogOpen(true)
   }
@@ -122,7 +126,12 @@ export default function FluxosPage() {
     }
     setSaving(true)
     try {
-      const body = { ...form, descricao: form.descricao || null, orchestrator_prompt: form.orchestrator_prompt || null }
+      const body = {
+        ...form,
+        descricao: form.descricao || null,
+        orchestrator_prompt: form.orchestrator_prompt || null,
+        event_title_template: form.event_title_template || null,
+      }
 
       let res: Response
       if (editing) {
@@ -411,6 +420,18 @@ export default function FluxosPage() {
                   placeholder="Descreva o objetivo deste fluxo"
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Título dos eventos no Google Calendar</Label>
+              <Input
+                value={form.event_title_template}
+                onChange={(e) => setForm((p) => ({ ...p, event_title_template: e.target.value }))}
+                placeholder="Ex: Reunião com {nome} — Tocli"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para inserir o nome do lead. Se vazio: &quot;Call de venda — {'{nome}'}&quot;.
+              </p>
             </div>
 
             <div className="space-y-1.5">

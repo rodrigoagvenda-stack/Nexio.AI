@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { nome, descricao, numero_whatsapp, tipo, orchestrator_prompt, conhecimento_ativo, objecoes_ativo } = body
+    const { nome, descricao, numero_whatsapp, tipo, orchestrator_prompt, conhecimento_ativo, objecoes_ativo, event_title_template } = body
 
     if (!nome || !tipo) {
       return NextResponse.json({ error: 'nome e tipo são obrigatórios' }, { status: 400 })
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
         orchestrator_prompt: orchestrator_prompt ?? null,
         conhecimento_ativo: conhecimento_ativo ?? true,
         objecoes_ativo: objecoes_ativo ?? false,
+        event_title_template: event_title_template ?? null,
       })
       .select()
       .single()
