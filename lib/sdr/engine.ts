@@ -836,6 +836,44 @@ async function runAgenteAgendamento(
     return 'Agendamento não configurado para esta empresa. Peça ao administrador para configurar o Google Calendar.'
   }
 
+  // Segunda barreira: se a mensagem é uma afirmação curta E o histórico tem "— confirma?",
+  // cria o evento direto sem envolver o modelo (evita chamar Consultar_gcal de novo).
+  const AFFIRM_RE = /^(sim|s|pode|ok|certo|confirmo|isso|quero|tá bom|ta bom|claro|ótimo|otimo|perfeito|combinado|vai|fechado|fecha|topo|top)\.?\s*$/i
+  if (AFFIRM_RE.test(message.trim()) && history.length > 0) {
+    const lastAssist = [...history].reverse().find((m) => m.role === 'assistant')
+    if (lastAssist && typeof lastAssist.content === 'string' && /—\s*confirma\?/i.test(lastAssist.content)) {
+      const confirmedDt = parseConfirmedDateTime(lastAssist.content)
+      if (confirmedDt) {
+        console.log(`[SDR:${ctx.companyId}] runAgenteAgendamento: confirmação detectada na segunda barreira — criando evento direto`)
+        try {
+          const title = ctx.eventTitleTemplate
+            ? ctx.eventTitleTemplate.replace('{nome}', ctx.leadName)
+            : `Call de venda — ${ctx.leadName}`
+          const event = await createEventWithMeet({
+            calendarId: ctx.calendarId,
+            companyId: ctx.companyId,
+            title,
+            description: `Lead: ${ctx.leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
+            start: confirmedDt,
+            durationMinutes: 60,
+          })
+          await supabase.from('leads').update({
+            call_de_venda: true,
+            call_agendada_para: event.start.toISOString(),
+            meet_url: event.meetUrl,
+            call_status: 'agendada',
+            calendar_event_id: event.eventId,
+            updated_at: new Date().toISOString(),
+          }).eq('id', ctx.leadId)
+          return `${ctx.leadName}, tá agendado! 🎉\n${formatDateTimeBR(event.start)} — segue o link:\n${event.meetUrl}\nQualquer coisa é só me chamar 👍`
+        } catch (err: any) {
+          console.error(`[SDR:${ctx.companyId}] runAgenteAgendamento segunda barreira falhou:`, err.message)
+          return `Desculpe, ${ctx.leadName}, tive um problema técnico ao criar o evento. Pode tentar novamente? 🙏`
+        }
+      }
+    }
+  }
+
   const now = new Date().toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -1316,6 +1354,15 @@ CONTEXTO DO CRM:
     typeof lastAssistant.content === 'string' &&
     /—\s*confirma\?/i.test(lastAssistant.content) &&
     AFFIRMATIONS.test(userInput.trim())
+
+  console.log(
+    `[SDR:${ctx.companyId}] pendingScheduleConfirm=${!!pendingScheduleConfirm}` +
+    ` | calendarId=${!!ctx.calendarId}` +
+    ` | lastAssistantRole=${lastAssistant?.role ?? 'none'}` +
+    ` | lastAssistantSnippet="${(lastAssistant?.content as string | undefined)?.slice(0, 60) ?? 'N/A'}"` +
+    ` | affirm=${AFFIRMATIONS.test(userInput.trim())}` +
+    ` | historyLen=${history.length}`
+  )
 
   const forcedTool: OpenAI.Chat.ChatCompletionToolChoiceOption = pendingScheduleConfirm
     ? { type: 'function', function: { name: 'Agente_de_Agendamento' } }
