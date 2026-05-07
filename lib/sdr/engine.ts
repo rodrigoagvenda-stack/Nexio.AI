@@ -1045,9 +1045,9 @@ REGRAS:
         const date = new Date(args.data)
         if (isNaN(date.getTime())) return 'ERRO_CALENDARIO: data inválida'
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
-        const available = slots.filter((s) => s.available).slice(0, 6)
+        const available = slots.filter((s) => s.available)
         if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio ou fim de semana).'
-        return `Horários livres: ${available.map((s) =>
+        return `Horários livres (9h–18h): ${available.map((s) =>
           s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
         ).join(', ')}`
       } catch (err: any) {
