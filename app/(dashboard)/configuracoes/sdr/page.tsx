@@ -233,7 +233,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   const [nicheDropdownOpen, setNicheDropdownOpen] = useState(false)
   const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
-  const [linksExpanded, setLinksExpanded] = useState(false)
 
   // Typeform wizard state
   const [wizardStep, setWizardStep] = useState(0)
@@ -243,8 +242,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   const label = isConhecimento ? 'conhecimento' : 'objeções'
   const selectedNiche = NICHES.find((n) => n.id === sharedNicheId)
 
-  // Reset links panel when niche changes
-  useEffect(() => { setLinksExpanded(false) }, [sharedNicheId])
 
   useEffect(() => {
     if (!flowId || !active) return
@@ -365,15 +362,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   const vendas = NICHES.filter((n) => n.category === 'vendas')
   const atendimento = NICHES.filter((n) => n.category === 'atendimento')
 
-  // URL-type wizard questions relevant to the selected niche (for template mode link quick-fill)
-  const nicheUrlQuestions = selectedNiche
-    ? WIZARD_QUESTIONS.filter(
-        (q) =>
-          q.type === 'url' &&
-          (selectedNiche.requiredVars.includes(q.key) || selectedNiche.optionalVars.includes(q.key))
-      )
-    : []
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -458,102 +446,88 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                 </div>
               </div>
 
-              {/* Niche description card */}
-              {selectedNiche && (
-                <div className="rounded-xl border border-border bg-muted/20 p-3.5 space-y-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base leading-none">{selectedNiche.emoji}</span>
-                    <p className="text-xs font-semibold">{selectedNiche.label}</p>
-                  </div>
-                  <ul className="space-y-1.5">
-                    {selectedNiche.features.map((f, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[11px] text-muted-foreground leading-snug">
-                        <span className="w-1 h-1 rounded-full bg-muted-foreground/60 mt-1.5 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <a
-                    href="/ajuda"
-                    className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline underline-offset-2"
-                  >
-                    Saiba mais sobre os modelos <ChevronRight className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
-
-              {/* Link quick-fill */}
-              {selectedNiche && nicheUrlQuestions.length > 0 && (
-                <div>
-                  {!linksExpanded ? (
-                    <button
-                      onClick={() => setLinksExpanded(true)}
-                      className="w-full flex items-center justify-between gap-2 rounded-lg border border-dashed border-border px-3 py-2.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Link2 className="w-3.5 h-3.5 shrink-0" />
-                        Tem site ou links para enviar ao lead?
-                      </span>
-                      <span className="text-primary font-medium">Sim, adicionar →</span>
-                    </button>
-                  ) : (
-                    <div className="rounded-xl border border-border bg-card p-3.5 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium flex items-center gap-1.5">
-                          <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
-                          Links do negócio
-                        </p>
-                        <button
-                          onClick={() => setLinksExpanded(false)}
-                          className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          Ocultar
-                        </button>
-                      </div>
-                      {nicheUrlQuestions.map((q) => (
-                        <div key={q.key} className="space-y-1">
-                          <label className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            {VAR_LABELS[q.key]}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground/70">opcional</span>
-                          </label>
-                          <Input
-                            type="url"
-                            value={getWizardValue(q)}
-                            onChange={(e) => setWizardValue(q, e.target.value)}
-                            placeholder={q.placeholder}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Variable status */}
+              {/* Inline variable editor */}
               {selectedNiche && (() => {
-                const missing = getMissingRequired(selectedNiche)
-                const missingOpt = getMissingOptional(selectedNiche)
+                const reqQuestions = WIZARD_QUESTIONS.filter((q) => selectedNiche.requiredVars.includes(q.key))
+                const optQuestions = WIZARD_QUESTIONS.filter((q) => selectedNiche.optionalVars.includes(q.key))
+                const missingRequired = getMissingRequired(selectedNiche)
                 return (
-                  <div className="space-y-2">
-                    {missing.length > 0 ? (
-                      <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold">Campos obrigatórios faltando:</p>
-                          <p className="mt-0.5">{missing.map((k) => VAR_LABELS[k]).join(', ')} — use o modo Guiado para preencher.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-500/20 bg-green-500/5 text-xs text-green-700 dark:text-green-400">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        Todos os campos obrigatórios preenchidos.
+                  <div className="space-y-4">
+                    {/* Required fields */}
+                    {reqQuestions.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Obrigatórios</p>
+                        {reqQuestions.map((q) => (
+                          <div key={q.key} className="space-y-1">
+                            <label className="text-xs font-medium flex items-center gap-1.5">
+                              {VAR_LABELS[q.key]}
+                              {!getWizardValue(q) && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">faltando</span>
+                              )}
+                            </label>
+                            {q.hint && <p className="text-[11px] text-muted-foreground">{q.hint}</p>}
+                            {q.type === 'textarea' ? (
+                              <Textarea
+                                value={getWizardValue(q)}
+                                onChange={(e) => setWizardValue(q, e.target.value)}
+                                placeholder={q.placeholder}
+                                className="min-h-[72px] text-sm resize-none"
+                              />
+                            ) : (
+                              <Input
+                                type={q.type === 'url' ? 'url' : 'text'}
+                                value={getWizardValue(q)}
+                                onChange={(e) => setWizardValue(q, e.target.value)}
+                                placeholder={q.placeholder}
+                                className="h-9 text-sm"
+                              />
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
-                    {missingOpt.length > 0 && (
-                      <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>Opcionais não preenchidos: {missingOpt.map((k) => VAR_LABELS[k]).join(', ')}</span>
+
+                    {/* Optional fields */}
+                    {optQuestions.length > 0 && (
+                      <details className="group">
+                        <summary className="cursor-pointer list-none flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors select-none">
+                          <ChevronRight className="w-3 h-3 transition-transform duration-150 group-open:rotate-90 shrink-0" />
+                          Campos opcionais ({optQuestions.length})
+                        </summary>
+                        <div className="mt-3 space-y-3">
+                          {optQuestions.map((q) => (
+                            <div key={q.key} className="space-y-1">
+                              <label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                {VAR_LABELS[q.key]}
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground/70">opcional</span>
+                              </label>
+                              {q.type === 'textarea' ? (
+                                <Textarea
+                                  value={getWizardValue(q)}
+                                  onChange={(e) => setWizardValue(q, e.target.value)}
+                                  placeholder={q.placeholder}
+                                  className="min-h-[72px] text-sm resize-none"
+                                />
+                              ) : (
+                                <Input
+                                  type={q.type === 'url' ? 'url' : 'text'}
+                                  value={getWizardValue(q)}
+                                  onChange={(e) => setWizardValue(q, e.target.value)}
+                                  placeholder={q.placeholder}
+                                  className="h-9 text-sm"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    {/* Status */}
+                    {missingRequired.length === 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-500/20 bg-green-500/5 text-xs text-green-700 dark:text-green-400">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        Tudo preenchido. Pronto para gerar.
                       </div>
                     )}
                   </div>
@@ -914,6 +888,8 @@ export default function SdrConfigPage() {
   function handleNicheChange(id: string) {
     setSharedNicheId(id)
     setPersona('nicho_id', id)
+    const niche = NICHES.find((n) => n.id === id)
+    if (niche) setPersona('produto', niche.label)
   }
 
   const handleSave = async () => {
