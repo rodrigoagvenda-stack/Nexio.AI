@@ -1114,6 +1114,7 @@ interface AgentPersona {
   produto?: string
   restricoes?: string
   horario?: string
+  area_entrega?: string
 }
 
 function parsePersona(prompt: string): AgentPersona | null {
@@ -1174,12 +1175,13 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   let companyBlock = ''
   if (persona) {
     const lines: string[] = []
-    if (persona.nome_agente) lines.push(`Você se chama ${persona.nome_agente}.`)
-    if (persona.tom)         lines.push(`Tom: ${persona.tom}.`)
-    if (persona.empresa)     lines.push(`Empresa: ${persona.empresa}.`)
-    if (persona.produto)     lines.push(`Produto/serviço: ${persona.produto}.`)
-    if (persona.restricoes)  lines.push(`Nunca diga: ${persona.restricoes}.`)
-    if (persona.horario)     lines.push(`Horário de atendimento: ${persona.horario}.`)
+    if (persona.nome_agente)  lines.push(`Você se chama ${persona.nome_agente}.`)
+    if (persona.tom)          lines.push(`Tom: ${persona.tom}.`)
+    if (persona.empresa)      lines.push(`Empresa: ${persona.empresa}.`)
+    if (persona.produto)      lines.push(`Produto/serviço: ${persona.produto}.`)
+    if (persona.restricoes)   lines.push(`Nunca diga: ${persona.restricoes}.`)
+    if (persona.horario)      lines.push(`Horário de atendimento: ${persona.horario}.`)
+    if (persona.area_entrega) lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
     if (lines.length > 0) companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${lines.join('\n')}`
   } else if (ctx.prompt) {
     companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
@@ -2062,7 +2064,13 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         .then(() => {}, () => {})
     }
 
-    // Verifica se agente está pausado nesta conversa
+    // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
+    // SEMPRE salva, mesmo quando pausado — garante histórico no chat e contexto ao reativar
+    for (const em of enrichedMessages) {
+      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
+    }
+
+    // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
     const { data: conv } = await supabase
       .from('conversas_do_whatsapp')
       .select('agente_pausado')
@@ -2072,11 +2080,6 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (conv?.agente_pausado) {
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
       return
-    }
-
-    // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
-    for (const em of enrichedMessages) {
-      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
     }
 
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)

@@ -25,7 +25,7 @@ interface AgentPersona {
   url_empresa: string; preco: string; periodo_teste: string
   link_teste: string; link_playlist: string; link_agendamento: string
   link_catalogo: string; link_pedido: string; endereco: string
-  taxa_entrega: string; tempo_entrega: string; nicho_id: string
+  taxa_entrega: string; tempo_entrega: string; area_entrega: string; nicho_id: string
 }
 interface SdrConfig {
   id?: string; agent_type: 'atendimento_venda' | 'atendimento_venda_agendamento'
@@ -48,7 +48,7 @@ const EMPTY_PERSONA: AgentPersona = {
   nome_agente: '', tom: '', empresa: '', produto: '', restricoes: '', horario: '',
   url_empresa: '', preco: '', periodo_teste: '', link_teste: '', link_playlist: '',
   link_agendamento: '', link_catalogo: '', link_pedido: '', endereco: '',
-  taxa_entrega: '', tempo_entrega: '', nicho_id: '',
+  taxa_entrega: '', tempo_entrega: '', area_entrega: '', nicho_id: '',
 }
 
 function parsePersona(raw: string): AgentPersona {
@@ -168,6 +168,14 @@ const WIZARD_QUESTIONS: WizardQuestion[] = [
     optional: true,
   },
   {
+    key: 'area_entrega',
+    question: 'Qual a área de entrega e as taxas por bairro/zona?',
+    hint: 'Liste os bairros ou CEPs atendidos e o valor de cada taxa. A IA usará isso para confirmar entrega e informar o valor correto.',
+    placeholder: 'Ex: Centro – R$ 3,00 | Zona Norte – R$ 5,00 | Zona Sul – R$ 7,00 | CEP 01000-000 a 01999-999 – R$ 4,00',
+    type: 'textarea',
+    optional: true,
+  },
+  {
     key: 'url_empresa',
     question: 'Qual o site da sua empresa?',
     placeholder: 'https://suaempresa.com.br',
@@ -190,6 +198,7 @@ const WIZARD_KEY_TO_PERSONA: Record<string, keyof AgentPersona> = {
   endereco: 'endereco',
   taxa_entrega: 'taxa_entrega',
   tempo_entrega: 'tempo_entrega',
+  area_entrega: 'area_entrega',
   url_empresa: 'url_empresa',
 }
 
@@ -277,6 +286,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
     endereco: persona.endereco,
     taxa_entrega: persona.taxa_entrega,
     tempo_entrega: persona.tempo_entrega,
+    area_entrega: persona.area_entrega,
   })
 
   function getMissingRequired(niche: NicheTemplate): VariableKey[] {
