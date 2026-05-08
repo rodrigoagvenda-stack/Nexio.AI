@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
-import { DEFAULT_AGENT_PROMPTS } from '@/lib/sdr/default-prompts'
 
 // GET /api/sdr/config — lê config SDR da empresa do usuário logado
 export async function GET() {
@@ -54,8 +53,6 @@ export async function GET() {
         flow_id: flow?.id ?? null,
         inbox_mode: flow?.inbox_mode ?? 'suporte',
         event_title_template: flow?.event_title_template ?? null,
-        agent_prompts: flow?.agent_prompts ?? {},
-        default_agent_prompts: DEFAULT_AGENT_PROMPTS,
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -97,7 +94,6 @@ export async function PUT(request: NextRequest) {
       objecoes_ativo,
       inbox_mode,
       event_title_template,
-      agent_prompts,
     } = body
 
     const service = createServiceClient()
@@ -167,7 +163,6 @@ export async function PUT(request: NextRequest) {
     if (objecoes_ativo !== undefined) flowUpdates.objecoes_ativo = objecoes_ativo
     if (inbox_mode !== undefined) flowUpdates.inbox_mode = inbox_mode
     if (event_title_template !== undefined) flowUpdates.event_title_template = event_title_template || null
-    if (agent_prompts !== undefined) flowUpdates.agent_prompts = agent_prompts
 
     let flowId: string | null = existingFlow?.id ?? null
 
