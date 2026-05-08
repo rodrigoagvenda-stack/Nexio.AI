@@ -28,9 +28,9 @@ export default function AdminSdrPromptsPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/companies')
+    fetch('/api/admin/companies?limit=200')
       .then((r) => r.json())
-      .then((d) => { if (d.companies) setCompanies(d.companies) })
+      .then((d) => { if (d.data) setCompanies(d.data.map((c: any) => ({ id: c.id, name: c.name }))) })
   }, [])
 
   const loadPrompts = useCallback(async (companyId: number) => {
