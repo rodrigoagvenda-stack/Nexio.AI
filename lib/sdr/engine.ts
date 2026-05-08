@@ -857,7 +857,7 @@ Data e hora atual: ${now}
 FLUXO:
 0. VERIFIQUE O HISTÓRICO ANTES DE QUALQUER AÇÃO:
    - O input pode conter histórico da conversa. Leia tudo antes de agir.
-   - Se no histórico existe uma mensagem sua no formato "[Nome], [dia] [data] às [hora] — confirma?" E a última mensagem do lead foi "sim", "pode", "ok", "confirmo", "tá bom" ou qualquer afirmação → PARE. Vá direto para "Agendar_gcal" com o dia, data e hora que você mesmo confirmou. NÃO chame nenhuma outra tool antes.
+   - Se no histórico existe uma mensagem sua no formato "[Nome], [dia] [data] às [hora] — confirma?" E a última mensagem do lead foi "sim", "pode", "ok", "confirmo", "tá bom" ou qualquer afirmação → verifique se já tem email no histórico. Se sim: vá direto para "Agendar_gcal". Se não: vá para o passo 4.5.
    - Só inicie o fluxo do passo 1 se não houver confirmação pendente no histórico.
 1. "Hora_atual" → obter data/hora exata
 2. "Buscar_reuniao" → retorna o campo call_de_venda (boolean)
@@ -877,8 +877,8 @@ FLUXO:
      → Retorno com eventos = considere apenas horários não conflitantes
      → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
 4.5. Coletar dados para o convite (OBRIGATÓRIO antes de confirmar):
-   - Se ainda não tiver o nome completo E o email do lead, pergunte em UMA mensagem: "Para enviar o convite da call, pode me informar seu nome completo e email?"
-   - Aguarde a resposta antes de ir para o passo 5.
+   - Se ainda não tiver o nome completo E o email do lead no histórico, pergunte em UMA mensagem: "Para enviar o convite da call, pode me informar seu nome completo e e-mail?"
+   - Aguarde a resposta antes de continuar.
    - Se o lead já forneceu nome completo e email anteriormente no histórico, pule este passo.
 5. Confirmar: "[Nome], [dia da semana] [data] às [hora] — confirma?"
 6. "Agendar_gcal" → criar evento com Meet ativado, passando email e nome_completo coletados
