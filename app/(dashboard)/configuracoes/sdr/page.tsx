@@ -1080,8 +1080,14 @@ export default function SdrConfigPage() {
           <Field label="Nome da empresa">
             <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva, Tocli, Studio Bella" className="h-9 text-sm" />
           </Field>
+          <Field label="Produto / Serviço" hint="O que a empresa vende ou oferece. Usado diretamente no comportamento do agente.">
+            <Input value={config.persona.produto} onChange={(e) => setPersona('produto', e.target.value)} placeholder="Ex: roupas masculinas, consultoria de marketing, planos de saúde" className="h-9 text-sm" />
+          </Field>
           <Field label="Tom de voz" hint="Como o agente deve se comunicar com os leads.">
             <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Ex: informal e consultivo, direto e descontraído" className="h-9 text-sm" />
+          </Field>
+          <Field label="Horário de atendimento" hint="Informado ao lead quando perguntar sobre disponibilidade." optional>
+            <Input value={config.persona.horario} onChange={(e) => setPersona('horario', e.target.value)} placeholder="Ex: Seg a Sex das 9h às 18h" className="h-9 text-sm" />
           </Field>
           <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar." optional>
             <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" className="min-h-[72px] text-sm resize-none" />
