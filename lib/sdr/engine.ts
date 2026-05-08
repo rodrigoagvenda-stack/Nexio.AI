@@ -65,6 +65,7 @@ interface SdrContext {
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
   eventTitleTemplate: string | null
+  agentPrompts: Record<string, string>
 }
 
 interface BufferedMessage {
@@ -439,7 +440,7 @@ async function runAgentePipeline(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const systemPrompt = `Você é responsável por mover o lead entre os estágios do kanban no CRM.
+  const systemPrompt = ctx.agentPrompts['pipeline'] || `Você é responsável por mover o lead entre os estágios do kanban no CRM.
 IMPORTANTE: Se não houver informação suficiente na conversa para determinar o estágio com certeza, NÃO atualize o campo. Mantenha o estágio atual do lead.
 
 FERRAMENTAS DISPONÍVEIS:
@@ -519,7 +520,7 @@ async function runAgenteSegmentacao(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const systemPrompt = `Você é o Agente de Segmentação. Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM.
+  const systemPrompt = ctx.agentPrompts['segmentacao'] || `Você é o Agente de Segmentação. Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM.
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
 1. Use "Buscar_nincho" passando o whatsapp do lead
@@ -591,7 +592,7 @@ async function runAgenteOutbound(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const systemPrompt = `Você é o Agente de Contexto Outbound. Sua função é identificar a origem do lead e fornecer contexto completo para o SDR.
+  const systemPrompt = ctx.agentPrompts['outbound'] || `Você é o Agente de Contexto Outbound. Sua função é identificar a origem do lead e fornecer contexto completo para o SDR.
 
 ⚠️ ATENÇÃO: Você TEM tools disponíveis. Use-as OBRIGATORIAMENTE. NUNCA responda sem usar as tools.
 
@@ -723,7 +724,7 @@ async function runMemoryExpert(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
-  const systemPrompt = `Você é o Agente de Registro. Sua função é consolidar informações do lead e atualizar o CRM após cada interação.
+  const systemPrompt = ctx.agentPrompts['memory'] || `Você é o Agente de Registro. Sua função é consolidar informações do lead e atualizar o CRM após cada interação.
 
 IMPORTANTE: Só atualize um campo se tiver informação nova relevante. Nunca atualize segment, priority ou nivel_interesse se a conversa não tiver dados suficientes para determinar isso com certeza.
 
@@ -851,7 +852,7 @@ async function runAgenteAgendamento(
     hour: '2-digit', minute: '2-digit',
   })
 
-  const systemPrompt = `Você é um assistente de agendamento comercial da Nexio.AI. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
+  const systemPrompt = ctx.agentPrompts['agendamento'] || `Você é um assistente de agendamento comercial da Nexio.AI. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
 Data e hora atual: ${now}
 
 FLUXO:
@@ -1778,6 +1779,7 @@ interface SdrFullConfig {
   objecoesAtivo: boolean
   inboxMode: 'vendas' | 'suporte'
   eventTitleTemplate: string | null
+  agentPrompts: Record<string, string>
 }
 
 async function loadSdrConfig(
@@ -1876,6 +1878,7 @@ async function loadSdrConfig(
     objecoesAtivo: resolvedObjecoesAtivo,
     inboxMode: (flow?.inbox_mode as 'vendas' | 'suporte') ?? 'suporte',
     eventTitleTemplate: flow?.event_title_template ?? null,
+    agentPrompts: (flow?.agent_prompts as Record<string, string>) ?? {},
   }
 }
 
@@ -2014,6 +2017,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       conhecimentoAtivo: cfg.conhecimentoAtivo,
       objecoesAtivo: cfg.objecoesAtivo,
       eventTitleTemplate: cfg.eventTitleTemplate,
+      agentPrompts: cfg.agentPrompts,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)

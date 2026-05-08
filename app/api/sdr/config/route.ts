@@ -53,6 +53,7 @@ export async function GET() {
         flow_id: flow?.id ?? null,
         inbox_mode: flow?.inbox_mode ?? 'suporte',
         event_title_template: flow?.event_title_template ?? null,
+        agent_prompts: flow?.agent_prompts ?? {},
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -94,6 +95,7 @@ export async function PUT(request: NextRequest) {
       objecoes_ativo,
       inbox_mode,
       event_title_template,
+      agent_prompts,
     } = body
 
     const service = createServiceClient()
@@ -163,6 +165,7 @@ export async function PUT(request: NextRequest) {
     if (objecoes_ativo !== undefined) flowUpdates.objecoes_ativo = objecoes_ativo
     if (inbox_mode !== undefined) flowUpdates.inbox_mode = inbox_mode
     if (event_title_template !== undefined) flowUpdates.event_title_template = event_title_template || null
+    if (agent_prompts !== undefined) flowUpdates.agent_prompts = agent_prompts
 
     let flowId: string | null = existingFlow?.id ?? null
 

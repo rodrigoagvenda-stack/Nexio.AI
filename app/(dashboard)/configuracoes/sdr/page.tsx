@@ -13,7 +13,7 @@ import {
   AlertCircle,
   CheckCircle2, BookOpen, ShieldAlert, LogOut,
   Settings, Brain, Link2, Sparkles, ChevronDown,
-  ChevronRight, ChevronLeft, ArrowRight,
+  ChevronRight, ChevronLeft, ArrowRight, Code2,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -36,6 +36,7 @@ interface SdrConfig {
   google_calendar_id: string; flow_id: string | null
   inbox_mode: 'suporte' | 'vendas'
   event_title_template: string
+  agent_prompts: Record<string, string>
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -67,6 +68,7 @@ const TABS = [
   { id: 'identidade', label: 'Identidade', icon: Bot },
   { id: 'conhecimento', label: 'Conhecimento', icon: Brain },
   { id: 'integracoes', label: 'Integrações', icon: Link2 },
+  { id: 'prompts', label: 'Prompts', icon: Code2 },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -869,6 +871,7 @@ export default function SdrConfigPage() {
     conhecimento_ativo: true, objecoes_ativo: false,
     google_calendar_id: '', flow_id: null, inbox_mode: 'suporte',
     event_title_template: '',
+    agent_prompts: {},
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -899,6 +902,7 @@ export default function SdrConfigPage() {
           flow_id: data.config.flow_id ?? null,
           inbox_mode: data.config.inbox_mode ?? 'suporte',
           event_title_template: data.config.event_title_template ?? '',
+          agent_prompts: data.config.agent_prompts ?? {},
         })
         if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
       }
@@ -927,6 +931,7 @@ export default function SdrConfigPage() {
           agente_ativo: config.agente_ativo,
           google_calendar_id: config.google_calendar_id,
           event_title_template: config.event_title_template || null,
+          agent_prompts: config.agent_prompts,
           vector_table_conhecimento: config.vector_table_conhecimento,
           vector_table_objecoes: config.vector_table_objecoes,
           conhecimento_ativo: config.conhecimento_ativo,
@@ -1135,6 +1140,40 @@ export default function SdrConfigPage() {
               onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
             />
           </div>
+        </div>
+      )}
+
+      {/* ── Prompts ── */}
+      {activeTab === 'prompts' && (
+        <div className="space-y-6">
+          <p className="text-xs text-muted-foreground">
+            Personalize o prompt de cada sub-agente. Deixe em branco para usar o prompt padrão do sistema.
+          </p>
+
+          {([
+            { key: 'agendamento', label: 'Agente de Agendamento', desc: 'Gerencia consulta e criação de eventos no Google Calendar.' },
+            { key: 'pipeline', label: 'Agente de Pipeline', desc: 'Move o lead entre os estágios do kanban no CRM.' },
+            { key: 'segmentacao', label: 'Agente de Segmentação', desc: 'Identifica o nicho do lead e atualiza o segmento no CRM.' },
+            { key: 'outbound', label: 'Agente de Outbound', desc: 'Identifica a origem do lead e registra contexto outbound.' },
+            { key: 'memory', label: 'Agente de Memória', desc: 'Consolida informações do lead e atualiza o CRM após cada interação.' },
+          ] as const).map(({ key, label, desc }) => (
+            <div key={key}>
+              <div className="flex items-center gap-2 mb-1">
+                <Code2 className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-semibold">{label}</p>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">{desc}</p>
+              <Textarea
+                className="font-mono text-xs min-h-[160px] resize-y"
+                placeholder="Deixe em branco para usar o prompt padrão do sistema..."
+                value={config.agent_prompts[key] ?? ''}
+                onChange={(e) => setConfig((p) => ({
+                  ...p,
+                  agent_prompts: { ...p.agent_prompts, [key]: e.target.value },
+                }))}
+              />
+            </div>
+          ))}
         </div>
       )}
 
