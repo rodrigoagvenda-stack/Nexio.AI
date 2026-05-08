@@ -102,7 +102,6 @@ export default function AtendimentoPage() {
   const [mobileLeadInfoOpen, setMobileLeadInfoOpen] = useState(false);
   const [isDeletingConv, setIsDeletingConv] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isAiActive, setIsAiActive] = useState(true);
   const [convAgentePausado, setConvAgentePausado] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: number; text: string; sender: string; waId?: string } | null>(null);
 
@@ -212,30 +211,6 @@ export default function AtendimentoPage() {
       supabase.removeChannel(conversationsChannel);
     };
   }, [company?.id]);
-
-  // Sincronizar estado da IA com company.agente_ativo
-  useEffect(() => {
-    if (company !== null) {
-      setIsAiActive((company as any).agente_ativo ?? true);
-    }
-  }, [company]);
-
-  async function handleToggleGlobalAi() {
-    if (!company) return;
-    const novo = !isAiActive;
-    setIsAiActive(novo);
-    try {
-      const { error } = await supabase
-        .from('companies')
-        .update({ agente_ativo: novo })
-        .eq('id', company.id);
-      if (error) throw error;
-      toast({ title: novo ? 'Agente IA ativado' : 'Agente IA desativado' });
-    } catch {
-      setIsAiActive(!novo);
-      toast({ title: 'Erro ao atualizar agente', variant: 'destructive' });
-    }
-  }
 
   // Sincroniza agente_pausado ao trocar de conversa
   useEffect(() => {
@@ -1272,20 +1247,6 @@ export default function AtendimentoPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </CardTitle>
-            {/* Toggle global IA */}
-            <button
-              onClick={handleToggleGlobalAi}
-              className={cn(
-                'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors w-full justify-center',
-                isAiActive
-                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
-                  : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
-              )}
-            >
-              <Bot className="h-3 w-3" />
-              {isAiActive ? 'Agente IA ativo' : 'Agente IA inativo'}
-            </button>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
