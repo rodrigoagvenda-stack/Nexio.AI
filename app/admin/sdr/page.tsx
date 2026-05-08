@@ -28,9 +28,13 @@ export default function AdminSdrPromptsPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/companies?limit=200')
-      .then((r) => r.json())
-      .then((d) => { if (d.data) setCompanies(d.data.map((c: any) => ({ id: c.id, name: c.name }))) })
+    fetch('/api/admin/companies?limit=200', { credentials: 'include' })
+      .then(async (r) => {
+        const d = await r.json()
+        if (!r.ok) { toast({ title: `Erro ao carregar empresas: ${d.message ?? r.status}`, variant: 'destructive' }); return }
+        setCompanies((d.data ?? []).map((c: any) => ({ id: c.id, name: c.name })))
+      })
+      .catch((e) => toast({ title: `Erro: ${e.message}`, variant: 'destructive' }))
   }, [])
 
   const loadPrompts = useCallback(async (companyId: number) => {
