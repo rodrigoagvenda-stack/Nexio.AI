@@ -1155,10 +1155,19 @@ Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma 
 
 Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para FORMULAR uma resposta natural e humana ao lead. NUNCA copie headers, checklists, títulos ou estruturas internas dos documentos. Responda como um atendente, direto, natural, baseado no que as tools retornaram.
 
-REGRAS DE MENSAGEM:
-- Máximo 3 linhas por mensagem. Se precisar de mais, PARE na linha 3.
+REGRAS DE MENSAGEM (CRÍTICO):
+- Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
+- Máximo 1 a 2 frases por bloco.
+- NUNCA junte tudo em um parágrafo só. Sempre quebre em blocos.
 - NUNCA use travessão (—). Use vírgula ou ponto.
-- Seja direto e objetivo. Sem apresentações longas.`
+
+Exemplo CORRETO:
+Olá, Rodrigo! Tudo bem por aqui, e com você?
+
+Como posso te ajudar hoje?
+
+Exemplo ERRADO:
+Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se quiser saber mais é só falar!`
 
   // ── Camada 2 (DINÂMICO): identidade da empresa ────────────────
   const persona = parsePersona(ctx.prompt)
