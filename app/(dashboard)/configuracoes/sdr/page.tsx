@@ -1051,6 +1051,29 @@ export default function SdrConfigPage() {
             Defina a persona do seu agente — quem ele é, como fala e o que nunca deve dizer. As informações do negócio são configuradas na aba Conhecimento.
           </div>
 
+          <Field label="Nicho" hint="Segmento de atuação da empresa. Define o comportamento base do agente.">
+            <div className="relative">
+              <select
+                className="w-full appearance-none border border-border rounded-lg px-3 py-2 text-sm bg-background pr-8 focus:outline-none focus:ring-2 focus:ring-ring"
+                value={sharedNicheId}
+                onChange={(e) => handleNicheChange(e.target.value)}
+              >
+                <option value="">Selecione o nicho...</option>
+                <optgroup label="Vendas">
+                  {NICHES.filter((n) => n.category === 'vendas').map((n) => (
+                    <option key={n.id} value={n.id}>{n.emoji} {n.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Atendimento">
+                  {NICHES.filter((n) => n.category === 'atendimento').map((n) => (
+                    <option key={n.id} value={n.id}>{n.emoji} {n.label}</option>
+                  ))}
+                </optgroup>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
+          </Field>
+
           <Field label="Nome do agente">
             <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana, João, Sofia" className="h-9 text-sm" />
           </Field>
