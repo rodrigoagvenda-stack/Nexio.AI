@@ -25,7 +25,9 @@ interface AgentPersona {
   url_empresa: string; preco: string; periodo_teste: string
   link_teste: string; link_playlist: string; link_agendamento: string
   link_catalogo: string; link_pedido: string; endereco: string
-  taxa_entrega: string; tempo_entrega: string; area_entrega: string; nicho_id: string
+  taxa_entrega: string; tempo_entrega: string; area_entrega: string
+  formas_pagamento: string; valor_minimo_pedido: string; pedido_tipo: string
+  nicho_id: string
 }
 interface SdrConfig {
   id?: string; agent_type: 'atendimento_venda' | 'atendimento_venda_agendamento'
@@ -48,7 +50,9 @@ const EMPTY_PERSONA: AgentPersona = {
   nome_agente: '', tom: '', empresa: '', produto: '', restricoes: '', horario: '',
   url_empresa: '', preco: '', periodo_teste: '', link_teste: '', link_playlist: '',
   link_agendamento: '', link_catalogo: '', link_pedido: '', endereco: '',
-  taxa_entrega: '', tempo_entrega: '', area_entrega: '', nicho_id: '',
+  taxa_entrega: '', tempo_entrega: '', area_entrega: '',
+  formas_pagamento: '', valor_minimo_pedido: '', pedido_tipo: '',
+  nicho_id: '',
 }
 
 function parsePersona(raw: string): AgentPersona {
@@ -170,9 +174,32 @@ const WIZARD_QUESTIONS: WizardQuestion[] = [
   {
     key: 'area_entrega',
     question: 'Qual a área de entrega e as taxas por bairro/zona?',
-    hint: 'Liste os bairros ou CEPs atendidos e o valor de cada taxa. A IA usará isso para confirmar entrega e informar o valor correto.',
-    placeholder: 'Ex: Centro – R$ 3,00 | Zona Norte – R$ 5,00 | Zona Sul – R$ 7,00 | CEP 01000-000 a 01999-999 – R$ 4,00',
+    hint: 'Uma linha por bairro/zona com o valor da taxa. A IA verifica isso antes de confirmar entrega.',
+    placeholder: 'Ex:\nCentro – R$ 3,00\nZona Norte – R$ 5,00\nZona Sul – R$ 7,00\nJaraguá do Sul – R$ 8,00',
     type: 'textarea',
+    optional: true,
+  },
+  {
+    key: 'formas_pagamento',
+    question: 'Quais formas de pagamento vocês aceitam?',
+    hint: 'Liste todas as formas aceitas. O agente usará isso ao coletar o pedido.',
+    placeholder: 'Ex: PIX, cartão de débito/crédito, dinheiro',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'valor_minimo_pedido',
+    question: 'Tem valor mínimo de pedido?',
+    placeholder: 'Ex: R$ 25,00',
+    type: 'text',
+    optional: true,
+  },
+  {
+    key: 'pedido_tipo',
+    question: 'Como o cliente finaliza o pedido — pelo WhatsApp ou por um link?',
+    hint: 'Digite "whatsapp" para o agente coletar o pedido na conversa, ou "link" para redirecionar para o link de pedido.',
+    placeholder: 'whatsapp  ou  link',
+    type: 'text',
     optional: true,
   },
   {
@@ -199,6 +226,9 @@ const WIZARD_KEY_TO_PERSONA: Record<string, keyof AgentPersona> = {
   taxa_entrega: 'taxa_entrega',
   tempo_entrega: 'tempo_entrega',
   area_entrega: 'area_entrega',
+  formas_pagamento: 'formas_pagamento',
+  valor_minimo_pedido: 'valor_minimo_pedido',
+  pedido_tipo: 'pedido_tipo',
   url_empresa: 'url_empresa',
 }
 
@@ -287,6 +317,9 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
     taxa_entrega: persona.taxa_entrega,
     tempo_entrega: persona.tempo_entrega,
     area_entrega: persona.area_entrega,
+    formas_pagamento: persona.formas_pagamento,
+    valor_minimo_pedido: persona.valor_minimo_pedido,
+    pedido_tipo: persona.pedido_tipo,
   })
 
   function getMissingRequired(niche: NicheTemplate): VariableKey[] {

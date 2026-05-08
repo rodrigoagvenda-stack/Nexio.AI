@@ -1115,6 +1115,9 @@ interface AgentPersona {
   restricoes?: string
   horario?: string
   area_entrega?: string
+  formas_pagamento?: string
+  valor_minimo_pedido?: string
+  pedido_tipo?: string
 }
 
 function parsePersona(prompt: string): AgentPersona | null {
@@ -1143,6 +1146,7 @@ function buildOrchestratorSystem(ctx: SdrContext): string {
     `${baseIdx + 1}. Chame Agente de Segmentação passando a mensagem`,
     `${baseIdx + 2}. Chame Agente de Inteligência Outbound passando a mensagem`,
     `${baseIdx + 3}. Chame Memory_long`,
+    `(CONDICIONAL) Se a mensagem indicar rastreamento de pedido, cancelamento ou reclamação grave: chame Pausar_conversa antes de responder`,
   ]
 
   const fixedLogic = `Você é um orquestrador. Você não tem conhecimento próprio sobre nada.
@@ -1175,13 +1179,16 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   let companyBlock = ''
   if (persona) {
     const lines: string[] = []
-    if (persona.nome_agente)  lines.push(`Você se chama ${persona.nome_agente}.`)
-    if (persona.tom)          lines.push(`Tom: ${persona.tom}.`)
-    if (persona.empresa)      lines.push(`Empresa: ${persona.empresa}.`)
-    if (persona.produto)      lines.push(`Produto/serviço: ${persona.produto}.`)
-    if (persona.restricoes)   lines.push(`Nunca diga: ${persona.restricoes}.`)
-    if (persona.horario)      lines.push(`Horário de atendimento: ${persona.horario}.`)
-    if (persona.area_entrega) lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
+    if (persona.nome_agente)       lines.push(`Você se chama ${persona.nome_agente}.`)
+    if (persona.tom)               lines.push(`Tom: ${persona.tom}.`)
+    if (persona.empresa)           lines.push(`Empresa: ${persona.empresa}.`)
+    if (persona.produto)           lines.push(`Produto/serviço: ${persona.produto}.`)
+    if (persona.restricoes)        lines.push(`Nunca diga: ${persona.restricoes}.`)
+    if (persona.horario)           lines.push(`Horário de atendimento: ${persona.horario}.`)
+    if (persona.area_entrega)      lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
+    if (persona.formas_pagamento)  lines.push(`Formas de pagamento aceitas: ${persona.formas_pagamento}.`)
+    if (persona.valor_minimo_pedido) lines.push(`Valor mínimo do pedido: ${persona.valor_minimo_pedido}.`)
+    if (persona.pedido_tipo)       lines.push(`Como o pedido é finalizado: ${persona.pedido_tipo}.`)
     if (lines.length > 0) companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${lines.join('\n')}`
   } else if (ctx.prompt) {
     companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
@@ -1208,6 +1215,7 @@ const TOOL_NAME_MAP: Record<string, string> = {
   'Agente de Inteligência Outbound': 'Agente_de_Inteligencia_Outbound',
   'Memory_long':                     'Memory_long',
   'Agente de Agendamento':           'Agente_de_Agendamento',
+  'Pausar_conversa':                 'Pausar_conversa',
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
@@ -1324,6 +1332,22 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
       },
     })
   }
+
+  // Sempre disponível — pausa o bot nesta conversa e sinaliza necessidade de atendimento humano
+  tools.push({
+    type: 'function',
+    function: {
+      name: TOOL_NAME_MAP['Pausar_conversa'],
+      description: 'Pausa o agente nesta conversa e transfere para atendimento humano. Use OBRIGATORIAMENTE quando: (1) cliente perguntar sobre rastreamento/motoboy/onde está seu pedido, (2) cliente quiser cancelar pedido, (3) cliente reclamar de pedido recebido errado/incompleto, (4) qualquer situação que exija intervenção humana urgente.',
+      parameters: {
+        type: 'object',
+        properties: {
+          motivo: { type: 'string', description: 'Motivo do handoff: rastreamento, cancelamento, reclamação ou outro' },
+        },
+        required: ['motivo'],
+      },
+    },
+  })
 
   return tools
 }
@@ -1498,6 +1522,23 @@ CONTEXTO DO CRM:
       } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
+      } else if (fn === 'Pausar_conversa') {
+        // Pausa o bot nesta conversa — atendimento humano irá assumir
+        if (ctx.conversationId) {
+          const { error } = await supabase
+            .from('conversas_do_whatsapp')
+            .update({ agente_pausado: true })
+            .eq('id', ctx.conversationId)
+          if (error) {
+            console.error(`[SDR:${ctx.companyId}] Pausar_conversa erro:`, error.message)
+            result = 'ERRO ao pausar conversa: ' + error.message
+          } else {
+            await log(ctx.companyId, 'agent_paused_handoff', { motivo: args.motivo }, supabase, ctx.leadPhone, ctx.leadId)
+            result = `Conversa pausada com sucesso. Motivo: ${args.motivo ?? 'handoff'}. Atendente humano será notificado.`
+          }
+        } else {
+          result = 'conversationId não disponível — handoff não executado'
+        }
       }
 
       console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
