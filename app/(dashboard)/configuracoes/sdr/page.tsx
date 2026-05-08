@@ -37,6 +37,7 @@ interface SdrConfig {
   inbox_mode: 'suporte' | 'vendas'
   event_title_template: string
   agent_prompts: Record<string, string>
+  default_agent_prompts: Record<string, string>
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -872,6 +873,7 @@ export default function SdrConfigPage() {
     google_calendar_id: '', flow_id: null, inbox_mode: 'suporte',
     event_title_template: '',
     agent_prompts: {},
+    default_agent_prompts: {},
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -903,6 +905,7 @@ export default function SdrConfigPage() {
           inbox_mode: data.config.inbox_mode ?? 'suporte',
           event_title_template: data.config.event_title_template ?? '',
           agent_prompts: data.config.agent_prompts ?? {},
+          default_agent_prompts: data.config.default_agent_prompts ?? {},
         })
         if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
       }
@@ -1147,7 +1150,7 @@ export default function SdrConfigPage() {
       {activeTab === 'prompts' && (
         <div className="space-y-6">
           <p className="text-xs text-muted-foreground">
-            Personalize o prompt de cada sub-agente. Deixe em branco para usar o prompt padrão do sistema.
+            Edite o prompt de cada sub-agente. O texto que você vê é o prompt ativo — altere e salve para customizar.
           </p>
 
           {([
@@ -1156,24 +1159,43 @@ export default function SdrConfigPage() {
             { key: 'segmentacao', label: 'Agente de Segmentação', desc: 'Identifica o nicho do lead e atualiza o segmento no CRM.' },
             { key: 'outbound', label: 'Agente de Outbound', desc: 'Identifica a origem do lead e registra contexto outbound.' },
             { key: 'memory', label: 'Agente de Memória', desc: 'Consolida informações do lead e atualiza o CRM após cada interação.' },
-          ] as const).map(({ key, label, desc }) => (
-            <div key={key}>
-              <div className="flex items-center gap-2 mb-1">
-                <Code2 className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-semibold">{label}</p>
+          ] as const).map(({ key, label, desc }) => {
+            const isCustom = !!(config.agent_prompts[key])
+            const effectivePrompt = config.agent_prompts[key] ?? config.default_agent_prompts[key] ?? ''
+            return (
+              <div key={key}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Code2 className="w-3.5 h-3.5 text-muted-foreground" />
+                  <p className="text-sm font-semibold">{label}</p>
+                  {isCustom
+                    ? <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">Customizado</span>
+                    : <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Padrão</span>
+                  }
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">{desc}</p>
+                <Textarea
+                  className="font-mono text-xs min-h-[220px] resize-y"
+                  value={effectivePrompt}
+                  onChange={(e) => setConfig((p) => ({
+                    ...p,
+                    agent_prompts: { ...p.agent_prompts, [key]: e.target.value },
+                  }))}
+                />
+                {isCustom && (
+                  <button
+                    className="mt-1 text-xs text-muted-foreground hover:text-destructive underline"
+                    onClick={() => setConfig((p) => {
+                      const next = { ...p.agent_prompts }
+                      delete next[key]
+                      return { ...p, agent_prompts: next }
+                    })}
+                  >
+                    Restaurar padrão
+                  </button>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground mb-2">{desc}</p>
-              <Textarea
-                className="font-mono text-xs min-h-[160px] resize-y"
-                placeholder="Deixe em branco para usar o prompt padrão do sistema..."
-                value={config.agent_prompts[key] ?? ''}
-                onChange={(e) => setConfig((p) => ({
-                  ...p,
-                  agent_prompts: { ...p.agent_prompts, [key]: e.target.value },
-                }))}
-              />
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
