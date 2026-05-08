@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   DollarSign,
   Settings2,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -31,6 +32,7 @@ const navLinks = [
   { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
   { href: '/admin/usuarios', label: 'Usuários', icon: Users },
   { href: '/admin/financeiro', label: 'Financeiro', icon: DollarSign },
+  { href: '/admin/sdr', label: 'Agente SDR', icon: Bot },
   { href: '/admin/logs', label: 'Logs', icon: Activity },
   { href: '/admin/configuracoes', label: 'Configurações', icon: Settings2 },
 ];
