@@ -1020,8 +1020,14 @@ REGRAS:
     },
     'Agendar_gcal': async (args) => {
       try {
+        if (!args.email || !args.email.includes('@')) {
+          return 'BLOQUEADO: Você precisa coletar o email do lead antes de agendar. Pergunte agora: "Para enviar o convite, pode me informar seu nome completo e e-mail?"'
+        }
+        if (!args.nome_completo || args.nome_completo.trim().split(' ').length < 2) {
+          return 'BLOQUEADO: Você precisa coletar o nome completo do lead antes de agendar. Pergunte agora: "Para enviar o convite, pode me informar seu nome completo e e-mail?"'
+        }
         const start = parseBrazilDateTime(args.data_hora)
-        const nomeCompleto: string = args.nome_completo ?? ctx.leadName
+        const nomeCompleto: string = args.nome_completo
         const resolvedTitle = ctx.eventTitleTemplate
           ? ctx.eventTitleTemplate.replace('{nome}', nomeCompleto)
           : `Call de venda — ${nomeCompleto}`
@@ -1032,7 +1038,7 @@ REGRAS:
           description: `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start,
           durationMinutes: args.duracao_minutos ?? 60,
-          attendeeEmail: args.email ?? undefined,
+          attendeeEmail: args.email,
           attendeeName: nomeCompleto,
         })
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
