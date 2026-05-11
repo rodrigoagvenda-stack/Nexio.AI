@@ -603,7 +603,11 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                           )}
                         </label>
                         {q.hint && <p className="text-[11px] text-muted-foreground">{q.hint}</p>}
-                        {q.type === 'textarea' ? (
+                        {q.type === 'delivery-zones' ? (
+                          <DeliveryZonesEditor value={getWizardValue(q)} onChange={(v) => setWizardValue(q, v)} />
+                        ) : q.type === 'payment-chips' ? (
+                          <PaymentChipsEditor value={getWizardValue(q)} onChange={(v) => setWizardValue(q, v)} />
+                        ) : q.type === 'textarea' ? (
                           <Textarea
                             value={getWizardValue(q)}
                             onChange={(e) => setWizardValue(q, e.target.value)}
