@@ -1589,7 +1589,8 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     if (!turn?.feedback.melhorar || applyingIndex !== null || !flowId) return
     setApplyingIndex(index)
     try {
-      const res = await fetch(`/api/sdr/flows/${flowId}/knowledge/patch`, {
+      // 1. Save correction to KB
+      const patchRes = await fetch(`/api/sdr/flows/${flowId}/knowledge/patch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1599,10 +1600,33 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           sdrMsg: turn.sdrMsgs.filter((m) => parseSdrMsg(m).type === 'text').join('\n'),
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao salvar correção')
+      const patchData = await patchRes.json()
+      if (!patchRes.ok) throw new Error(patchData.error || 'Erro ao salvar correção')
+
+      // 2. Regenerate this turn with correction applied
+      const historyUpToHere: SimMessage[] = turns.slice(0, index).flatMap((t) => [
+        { role: 'user' as const, content: t.userMsg },
+        { role: 'assistant' as const, content: t.sdrMsgs.filter((m) => !parseSdrMsg(m).type.match(/image|audio|doc/)).join('\n') },
+      ])
+      const regenRes = await fetch('/api/sdr/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nicheId, variables, flowId, mode,
+          history: historyUpToHere,
+          userMessage: turn.userMsg,
+          correctionHint: turn.feedback.melhorar,
+        }),
+      })
+      const regenData = await regenRes.json()
+      if (regenRes.ok && regenData.sdrMessages?.length) {
+        saveTurns(turns.map((t, i) =>
+          i === index ? { ...t, sdrMsgs: regenData.sdrMessages, feedback: regenData.feedback } : t
+        ))
+      }
+
       setAppliedIndices((prev) => new Set(prev).add(index))
-      toast({ title: '✓ Correção salva na base de conhecimento' })
+      toast({ title: '✓ Correção aplicada — resposta regenerada' })
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao aplicar correção', variant: 'destructive' })
     } finally { setApplyingIndex(null) }
@@ -1706,11 +1730,18 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
             {/* SDR messages — left, one bubble per message */}
             <div className="flex items-end gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
+              <div className={cn(
+                "w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4",
+                applyingIndex === i && "animate-pulse"
+              )}>
                 <Bot className="w-3 h-3 text-primary" />
               </div>
-              <div className="max-w-[75%] space-y-1">
-                {turn.sdrMsgs.map((msg, j) => (
+              <div className={cn("max-w-[75%] space-y-1 transition-opacity duration-300", applyingIndex === i && "opacity-50")}>
+                {applyingIndex === i ? (
+                  <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 shadow-sm">
+                    <TypingDots />
+                  </div>
+                ) : turn.sdrMsgs.map((msg, j) => (
                   <SdrMsgBubble key={j} msg={msg} />
                 ))}
                 <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
