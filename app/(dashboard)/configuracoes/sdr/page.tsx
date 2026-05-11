@@ -1494,13 +1494,12 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
   async function regenerateTurn(index: number) {
     const turn = turns[index]
-    if (!turn || loading || regeneratingIndex !== null) return
+    if (!turn || regeneratingIndex !== null) return
     const historyUpTo = turns.slice(0, index).flatMap((t) => [
       { role: 'user' as const, content: t.userMsg },
       { role: 'assistant' as const, content: t.sdrMsg },
     ])
     setRegeneratingIndex(index)
-    setError(null)
     try {
       const res = await fetch('/api/sdr/simulate', {
         method: 'POST',
@@ -1509,9 +1508,14 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao regenerar')
-      saveTurns(turns.map((t, i) => i === index ? { ...t, sdrMsg: data.sdrResponse, feedback: data.feedback } : t))
+      setTurns((prev) => {
+        const next = prev.map((t, i) => i === index ? { ...t, sdrMsg: data.sdrResponse, feedback: data.feedback } : t)
+        if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {} }
+        return next
+      })
+      toast({ title: '✓ Resposta atualizada com a correção aplicada' })
     } catch (err: any) {
-      setError(err.message)
+      toast({ title: err.message || 'Erro ao regenerar resposta', variant: 'destructive' })
     } finally { setRegeneratingIndex(null) }
   }
 
@@ -1599,37 +1603,47 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           </div>
         )}
 
-        {turns.map((turn, i) => (
-          <div key={i} className="space-y-1">
-            {/* Lead message — right */}
-            <div className="flex justify-end">
-              <div className="max-w-[75%]">
-                <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
-                  {turn.userMsg}
+        {turns.map((turn, i) => {
+          const isRegen = regeneratingIndex === i
+          return (
+            <div key={i} className="space-y-1">
+              {/* Lead message — right */}
+              <div className="flex justify-end">
+                <div className="max-w-[75%]">
+                  <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+                    {turn.userMsg}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50 text-right mt-0.5 pr-1">{turn.ts}</p>
                 </div>
-                <p className="text-[10px] text-muted-foreground/50 text-right mt-0.5 pr-1">{turn.ts}</p>
               </div>
-            </div>
 
-            {/* SDR message — left */}
-            <div className="flex items-end gap-2">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
-                <Bot className="w-3 h-3 text-primary" />
-              </div>
-              <div className="max-w-[75%]">
-                <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
-                  {turn.sdrMsg}
+              {/* SDR message — left */}
+              <div className="flex items-end gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
+                  {isRegen ? <Loader2 className="w-3 h-3 text-primary animate-spin" /> : <Bot className="w-3 h-3 text-primary" />}
                 </div>
-                <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
-                <FeedbackPill
-                  feedback={turn.feedback}
-                  onRegenerate={turn.feedback.melhorar ? () => regenerateTurn(i) : undefined}
-                  regenerating={regeneratingIndex === i}
-                />
+                <div className="max-w-[75%]">
+                  <div className={cn(
+                    'rounded-2xl rounded-tl-none px-3 py-2 text-sm whitespace-pre-wrap shadow-sm transition-all',
+                    isRegen
+                      ? 'bg-primary/5 border border-primary/30 opacity-60'
+                      : 'bg-card border border-border/60'
+                  )}>
+                    {isRegen ? <TypingDots /> : turn.sdrMsg}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
+                  {!isRegen && (
+                    <FeedbackPill
+                      feedback={turn.feedback}
+                      onRegenerate={turn.feedback.melhorar ? () => regenerateTurn(i) : undefined}
+                      regenerating={false}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {loading && (
           <div className="flex items-end gap-2">
