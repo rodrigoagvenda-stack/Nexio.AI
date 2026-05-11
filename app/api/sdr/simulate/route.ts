@@ -48,7 +48,20 @@ export async function POST(request: NextRequest) {
     const correctionInstruction = correctionHint
       ? `\n\nCORREÇÃO OBRIGATÓRIA: Na resposta anterior você cometeu este erro — "${correctionHint}". Corrija isso agora sem mencionar que está corrigindo.`
       : ''
-    const systemPrompt = basePrompt + modeInstruction + correctionInstruction
+    const formatInstruction = `
+
+FORMATO OBRIGATÓRIO: Responda em JSON assim:
+{"messages": ["mensagem 1", "mensagem 2", "..."]}
+
+Cada item = uma mensagem separada enviada em sequência no WhatsApp.
+Máximo 3 linhas por mensagem. Tipicamente 2 a 4 mensagens por resposta.
+Você PODE incluir marcadores de mídia quando fizer sentido para o contexto:
+- "[FOTO]" — para simular envio de imagem (antes/depois, resultado, catálogo)
+- "[AUDIO]" — para simular mensagem de voz
+- "[PDF: nome.pdf]" — para simular envio de documento
+Nunca quebre uma frase lógica entre duas mensagens.`
+
+    const systemPrompt = basePrompt + modeInstruction + correctionInstruction + formatInstruction
 
     // ── Gera resposta do SDR ───────────────────────────────────────────────
     const messages: OpenAI.ChatCompletionMessageParam[] = [
@@ -61,10 +74,20 @@ export async function POST(request: NextRequest) {
       model: 'gpt-4.1-mini',
       messages,
       temperature: 0.4,
-      max_tokens: 400,
+      max_tokens: 600,
+      response_format: { type: 'json_object' },
     })
 
-    const sdrResponse = sdrRes.choices[0]?.message?.content?.trim() ?? ''
+    let sdrMessages: string[] = []
+    try {
+      const parsed = JSON.parse(sdrRes.choices[0]?.message?.content ?? '{}')
+      sdrMessages = Array.isArray(parsed.messages)
+        ? parsed.messages.map(String).filter(Boolean)
+        : parsed.message ? [String(parsed.message)] : []
+    } catch {}
+    if (sdrMessages.length === 0) sdrMessages = ['...']
+
+    const sdrResponse = sdrMessages.filter((m) => !m.match(/^\[(FOTO|AUDIO|VOZ|IMAGEM|PDF:)/)).join('\n')
 
     // ── Gera feedback da IA ───────────────────────────────────────────────
     const feedbackPrompt = `Você é um especialista em SDR e vendas consultivas pelo WhatsApp.
@@ -105,7 +128,7 @@ Responda em JSON:
       feedback = JSON.parse(raw)
     } catch {}
 
-    return NextResponse.json({ sdrResponse, feedback })
+    return NextResponse.json({ sdrMessages, sdrResponse, feedback })
   } catch (err: any) {
     console.error('[sdr/simulate]', err)
     return NextResponse.json({ error: err.message || 'Erro interno' }, { status: 500 })

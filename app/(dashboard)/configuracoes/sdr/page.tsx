@@ -16,6 +16,7 @@ import {
   ChevronRight, ChevronLeft, ArrowRight, Plus, Trash2, X,
   ShoppingBag, Pencil, Send, RefreshCw,
   ThumbsUp, AlertTriangle, Star, ChevronUp, Trash,
+  Mic, FileImage, FileText,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -1360,7 +1361,75 @@ function CatalogManager() {
 type SimMode = 'inbound' | 'outbound'
 interface SimMessage { role: 'user' | 'assistant'; content: string }
 interface SimFeedback { score: number; positivo: string; melhorar: string | null }
-interface SimTurn { userMsg: string; sdrMsg: string; feedback: SimFeedback; ts: string }
+interface SimTurn { userMsg: string; sdrMsgs: string[]; feedback: SimFeedback; ts: string }
+
+type SdrMsgType = 'text' | 'image' | 'audio' | 'doc'
+interface ParsedMsg { type: SdrMsgType; content: string }
+
+function parseSdrMsg(msg: string): ParsedMsg {
+  const m = msg.trim()
+  if (m === '[FOTO]' || m === '[IMAGEM]') return { type: 'image', content: '' }
+  if (m === '[AUDIO]' || m === '[VOZ]') return { type: 'audio', content: '' }
+  const doc = m.match(/^\[PDF:\s*(.+?)\]$/)
+  if (doc) return { type: 'doc', content: doc[1] }
+  return { type: 'text', content: m }
+}
+
+const WAVEFORM = [6, 14, 8, 20, 12, 18, 6, 16, 22, 10, 18, 8, 14, 20, 6, 12, 18, 10, 16, 8]
+
+function AudioBubble() {
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl rounded-tl-none bg-card border border-border/60 shadow-sm min-w-[180px]">
+      <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+        <Mic className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+      </div>
+      <div className="flex items-end gap-0.5 flex-1 h-6">
+        {WAVEFORM.map((h, i) => (
+          <div key={i} className="w-0.5 rounded-full bg-muted-foreground/35" style={{ height: `${h}px` }} />
+        ))}
+      </div>
+      <span className="text-[10px] text-muted-foreground/50 shrink-0">0:08</span>
+    </div>
+  )
+}
+
+function ImageBubble({ caption }: { caption?: string }) {
+  return (
+    <div className="rounded-2xl rounded-tl-none overflow-hidden border border-border/60 shadow-sm w-48">
+      <div className="h-32 bg-muted/50 flex flex-col items-center justify-center gap-1.5">
+        <FileImage className="w-7 h-7 text-muted-foreground/40" />
+        <span className="text-[11px] text-muted-foreground/60">Foto</span>
+      </div>
+      {caption && <p className="text-xs px-3 py-1.5 bg-card border-t border-border/40">{caption}</p>}
+    </div>
+  )
+}
+
+function DocBubble({ name }: { name: string }) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl rounded-tl-none bg-card border border-border/60 shadow-sm min-w-[180px] max-w-[220px]">
+      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        <FileText className="w-4.5 h-4.5 text-primary" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium truncate">{name}</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5">PDF · Documento</p>
+      </div>
+    </div>
+  )
+}
+
+function SdrMsgBubble({ msg }: { msg: string }) {
+  const parsed = parseSdrMsg(msg)
+  if (parsed.type === 'audio') return <AudioBubble />
+  if (parsed.type === 'image') return <ImageBubble />
+  if (parsed.type === 'doc') return <DocBubble name={parsed.content} />
+  return (
+    <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+      {parsed.content}
+    </div>
+  )
+}
 
 function now() { return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
 
@@ -1438,9 +1507,12 @@ function FeedbackPill({ feedback, onApply, applying, applied }: {
 function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variables: Record<string, string>; flowId: string | null }) {
   const storageKey = flowId && nicheId ? `sdr_sim_${flowId}_${nicheId}` : null
 
+  const normalizeTurns = (raw: any[]): SimTurn[] =>
+    raw.map((t) => ({ ...t, sdrMsgs: t.sdrMsgs ?? (t.sdrMsg ? [t.sdrMsg] : ['...']) }))
+
   const [turns, setTurns] = useState<SimTurn[]>(() => {
     if (!storageKey) return []
-    try { const s = localStorage.getItem(storageKey); if (s) return JSON.parse(s) } catch {}
+    try { const s = localStorage.getItem(storageKey); if (s) return normalizeTurns(JSON.parse(s)) } catch {}
     return []
   })
   const [input, setInput] = useState('')
@@ -1471,7 +1543,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     if (!storageKey) { setTurns([]); setAppliedIndices(new Set()); return }
     try {
       const s = localStorage.getItem(storageKey)
-      setTurns(s ? JSON.parse(s) : [])
+      setTurns(s ? normalizeTurns(JSON.parse(s)) : [])
     } catch { setTurns([]) }
     setAppliedIndices(new Set())
     setError(null)
@@ -1483,7 +1555,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
   const history: SimMessage[] = turns.flatMap((t) => [
     { role: 'user', content: t.userMsg },
-    { role: 'assistant', content: t.sdrMsg },
+    { role: 'assistant', content: t.sdrMsgs.filter((m) => !parseSdrMsg(m).type.match(/image|audio|doc/)).join('\n') },
   ])
 
   async function send() {
@@ -1500,7 +1572,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao simular')
-      saveTurns([...turns, { userMsg: msg, sdrMsg: data.sdrResponse, feedback: data.feedback, ts: now() }])
+      saveTurns([...turns, { userMsg: msg, sdrMsgs: data.sdrMessages ?? [data.sdrResponse ?? '...'], feedback: data.feedback, ts: now() }])
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1521,7 +1593,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           correction: turn.feedback.melhorar,
           type: 'conhecimento',
           userMsg: turn.userMsg,
-          sdrMsg: turn.sdrMsg,
+          sdrMsg: turn.sdrMsgs.filter((m) => parseSdrMsg(m).type === 'text').join('\n'),
         }),
       })
       const data = await res.json()
@@ -1629,15 +1701,15 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
               </div>
             </div>
 
-            {/* SDR message — left */}
+            {/* SDR messages — left, one bubble per message */}
             <div className="flex items-end gap-2">
               <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
                 <Bot className="w-3 h-3 text-primary" />
               </div>
-              <div className="max-w-[75%]">
-                <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
-                  {turn.sdrMsg}
-                </div>
+              <div className="max-w-[75%] space-y-1">
+                {turn.sdrMsgs.map((msg, j) => (
+                  <SdrMsgBubble key={j} msg={msg} />
+                ))}
                 <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
                 <FeedbackPill
                   feedback={turn.feedback}
