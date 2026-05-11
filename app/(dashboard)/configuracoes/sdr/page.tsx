@@ -69,11 +69,11 @@ const AGENT_TYPES = [
 ]
 
 const TABS = [
-  { id: 'geral', label: 'Geral', icon: Settings },
-  { id: 'identidade', label: 'Identidade', icon: Bot },
-  { id: 'conhecimento', label: 'Conhecimento', icon: Brain },
-  { id: 'integracoes', label: 'Integrações', icon: Link2 },
-  { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag },
+  { id: 'geral', label: 'Geral', icon: Settings, desc: 'Ative o agente, tipo e modo de atendimento' },
+  { id: 'identidade', label: 'Identidade', icon: Bot, desc: 'Persona, tom de voz e restrições do agente' },
+  { id: 'conhecimento', label: 'Conhecimento', icon: Brain, desc: 'Base de conhecimento e simulador de conversas' },
+  { id: 'integracoes', label: 'Integrações', icon: Link2, desc: 'Google Calendar e demais integrações' },
+  { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag, desc: 'Produtos e itens para pedidos via WhatsApp' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -1378,7 +1378,11 @@ function TypingDots() {
   )
 }
 
-function FeedbackPill({ feedback }: { feedback: SimFeedback }) {
+function FeedbackPill({ feedback, onRegenerate, regenerating }: {
+  feedback: SimFeedback
+  onRegenerate?: () => void
+  regenerating?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const scoreColor = feedback.score >= 8 ? 'text-emerald-500' : feedback.score >= 6 ? 'text-amber-500' : 'text-red-500'
   return (
@@ -1390,7 +1394,7 @@ function FeedbackPill({ feedback }: { feedback: SimFeedback }) {
       >
         <Star className={cn('w-2.5 h-2.5', scoreColor)} />
         <span className={cn('font-semibold', scoreColor)}>{feedback.score}/10</span>
-        <span>· Análise IA</span>
+        <span>· Nexio AI</span>
         {open ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
       </button>
       {open && (
@@ -1402,9 +1406,22 @@ function FeedbackPill({ feedback }: { feedback: SimFeedback }) {
             </div>
           )}
           {feedback.melhorar && (
-            <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-              <span>{feedback.melhorar}</span>
+            <div className="flex items-start justify-between gap-2 text-amber-600 dark:text-amber-400">
+              <div className="flex items-start gap-1.5 min-w-0">
+                <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                <span>{feedback.melhorar}</span>
+              </div>
+              {onRegenerate && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onRegenerate() }}
+                  disabled={regenerating}
+                  className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-[10px] font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                >
+                  {regenerating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                  Aplicar
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1423,6 +1440,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<SimMode>('inbound')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -1472,6 +1490,29 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
+  }
+
+  async function regenerateTurn(index: number) {
+    const turn = turns[index]
+    if (!turn || loading || regeneratingIndex !== null) return
+    const historyUpTo = turns.slice(0, index).flatMap((t) => [
+      { role: 'user' as const, content: t.userMsg },
+      { role: 'assistant' as const, content: t.sdrMsg },
+    ])
+    setRegeneratingIndex(index)
+    setError(null)
+    try {
+      const res = await fetch('/api/sdr/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nicheId, variables, history: historyUpTo, userMessage: turn.userMsg, mode, correctionHint: turn.feedback.melhorar }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao regenerar')
+      saveTurns(turns.map((t, i) => i === index ? { ...t, sdrMsg: data.sdrResponse, feedback: data.feedback } : t))
+    } catch (err: any) {
+      setError(err.message)
+    } finally { setRegeneratingIndex(null) }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -1580,7 +1621,11 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
                   {turn.sdrMsg}
                 </div>
                 <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
-                <FeedbackPill feedback={turn.feedback} />
+                <FeedbackPill
+                  feedback={turn.feedback}
+                  onRegenerate={turn.feedback.melhorar ? () => regenerateTurn(i) : undefined}
+                  regenerating={regeneratingIndex === i}
+                />
               </div>
             </div>
           </div>
@@ -1680,6 +1725,7 @@ export default function SdrConfigPage() {
 
   // Shared niche selection across KnowledgeBuilders
   const [sharedNicheId, setSharedNicheId] = useState('')
+  const [identNicheOpen, setIdentNicheOpen] = useState(false)
 
   const loadConfig = useCallback(async () => {
     try {
@@ -1759,14 +1805,41 @@ export default function SdrConfigPage() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
 
+  const simVariables = {
+    nome_agente: config.persona.nome_agente,
+    nome_empresa: config.persona.empresa,
+    descricao_produto: config.persona.produto,
+    tom_agente: config.persona.tom,
+    horario: config.persona.horario,
+    url_empresa: config.persona.url_empresa,
+    preco: config.persona.preco,
+    periodo_teste: config.persona.periodo_teste,
+    link_teste: config.persona.link_teste,
+    link_playlist: config.persona.link_playlist,
+    link_agendamento: config.persona.link_agendamento,
+    link_catalogo: config.persona.link_catalogo,
+    link_pedido: config.persona.link_pedido,
+    endereco: config.persona.endereco,
+    taxa_entrega: config.persona.taxa_entrega,
+    tempo_entrega: config.persona.tempo_entrega,
+    area_entrega: config.persona.area_entrega,
+    formas_pagamento: config.persona.formas_pagamento,
+    valor_minimo_pedido: config.persona.valor_minimo_pedido,
+    pedido_tipo: config.persona.pedido_tipo,
+  }
+
+  const identSelectedNiche = NICHES.find((n) => n.id === sharedNicheId)
+  const identVendas = NICHES.filter((n) => n.category === 'vendas' && n.id !== 'monte-o-seu')
+  const identAtendimento = NICHES.filter((n) => n.category === 'atendimento')
+
   return (
-    <div className={cn('mx-auto p-4 md:p-6 pb-8', activeTab === 'conhecimento' ? 'max-w-[1280px]' : 'max-w-2xl')}>
+    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-5">
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Agente SDR</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Atendimento automático via WhatsApp</p>
+          <h1 className="text-2xl font-bold tracking-tight">Agente SDR</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Atendimento automático via WhatsApp</p>
         </div>
         <div className="flex items-center gap-2">
           <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
@@ -1783,241 +1856,277 @@ export default function SdrConfigPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-0.5 p-1 bg-muted rounded-xl mb-5">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setActiveTab(id)}
-            className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all',
-              activeTab === id ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-            <Icon className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden sm:inline">{label}</span>
-          </button>
-        ))}
-      </div>
+      {/* Body */}
+      <div className="flex gap-6">
 
-      {/* ── Geral ── */}
-      {activeTab === 'geral' && (
-        <div className="space-y-4">
-          <div className={cn('flex items-center justify-between gap-4 p-4 rounded-xl border transition-colors',
-            config.agente_ativo ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border')}>
-            <div className="flex items-center gap-3">
-              <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', config.agente_ativo ? 'bg-primary/15' : 'bg-muted')}>
-                <Zap className={cn('w-4 h-4', config.agente_ativo ? 'text-primary' : 'text-muted-foreground')} />
-              </div>
-              <div>
-                <p className="text-sm font-medium">Agente ativo</p>
-                <p className="text-xs text-muted-foreground">{config.agente_ativo ? 'Respondendo automaticamente' : 'Ative para responder automaticamente'}</p>
-              </div>
-            </div>
-            <Switch checked={config.agente_ativo} onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de agente</p>
-            <div className="grid grid-cols-2 gap-2">
-              {AGENT_TYPES.map((opt) => {
-                const Icon = opt.icon; const selected = config.agent_type === opt.value
-                return (
-                  <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, agent_type: opt.value as any }))}
-                    className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-                    <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center mb-2', selected ? 'bg-primary/15' : 'bg-muted')}>
-                      <Icon className={cn('w-3.5 h-3.5', selected ? 'text-primary' : 'text-muted-foreground')} />
-                    </div>
-                    <p className="text-xs font-semibold leading-tight">{opt.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">Modo de atendimento</p>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar' },
-                { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)' },
-              ] as const).map((opt) => {
-                const selected = config.inbox_mode === opt.value
-                return (
-                  <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
-                    className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-                    <p className="text-xs font-semibold leading-tight">{opt.label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Identidade ── */}
-      {activeTab === 'identidade' && (
-        <div className="space-y-4">
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
-            <Bot className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            Defina a persona do seu agente — quem ele é, como fala e o que nunca deve dizer. As informações do negócio são configuradas na aba Conhecimento.
-          </div>
-
-          <Field label="Nicho" hint="Segmento de atuação da empresa. Define o comportamento base do agente.">
-            <div className="relative">
-              <select
-                className="w-full appearance-none border border-border rounded-lg px-3 py-2 text-sm bg-background pr-8 focus:outline-none focus:ring-2 focus:ring-ring"
-                value={sharedNicheId}
-                onChange={(e) => handleNicheChange(e.target.value)}
-              >
-                <option value="">Selecione o nicho...</option>
-                <optgroup label="Vendas">
-                  {NICHES.filter((n) => n.category === 'vendas').map((n) => (
-                    <option key={n.id} value={n.id}>{n.emoji} {n.label}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Atendimento">
-                  {NICHES.filter((n) => n.category === 'atendimento').map((n) => (
-                    <option key={n.id} value={n.id}>{n.emoji} {n.label}</option>
-                  ))}
-                </optgroup>
-              </select>
-              <ChevronDown className="absolute right-2.5 top-2.5 w-4 h-4 text-muted-foreground pointer-events-none" />
-            </div>
-          </Field>
-
-          <Field label="Nome do agente">
-            <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana, João, Sofia" className="h-9 text-sm" />
-          </Field>
-          <Field label="Nome da empresa">
-            <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva, Tocli, Studio Bella" className="h-9 text-sm" />
-          </Field>
-          <Field label="Produto / Serviço" hint="O que a empresa vende ou oferece. Usado diretamente no comportamento do agente.">
-            <Input value={config.persona.produto} onChange={(e) => setPersona('produto', e.target.value)} placeholder="Ex: roupas masculinas, consultoria de marketing, planos de saúde" className="h-9 text-sm" />
-          </Field>
-          <Field label="Tom de voz" hint="Como o agente deve se comunicar com os leads.">
-            <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Ex: informal e consultivo, direto e descontraído" className="h-9 text-sm" />
-          </Field>
-          <Field label="Horário de atendimento" hint="Informado ao lead quando perguntar sobre disponibilidade." optional>
-            <Input value={config.persona.horario} onChange={(e) => setPersona('horario', e.target.value)} placeholder="Ex: Seg a Sex das 9h às 18h" className="h-9 text-sm" />
-          </Field>
-          <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar." optional>
-            <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" className="min-h-[72px] text-sm resize-none" />
-          </Field>
-        </div>
-      )}
-
-      {/* ── Conhecimento — split panel ── */}
-      {activeTab === 'conhecimento' && (
-        <div className="flex gap-4 h-[calc(100vh-200px)] min-h-[560px]">
-          {/* Left — KB config */}
-          <div className="w-[400px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-semibold">Base de conhecimento</p>
-              </div>
-              <KnowledgeBuilder
-                flowId={config.flow_id}
-                type="conhecimento"
-                active={config.conhecimento_ativo}
-                onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
-                persona={config.persona}
-                onPersonaChange={setPersona}
-                sharedNicheId={sharedNicheId}
-                onNicheChange={handleNicheChange}
-              />
-            </div>
-            <div className="border-t border-border/60 pt-5">
-              <div className="flex items-center gap-2 mb-3">
-                <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
-                <p className="text-sm font-semibold">Base de objeções</p>
-              </div>
-              <KnowledgeBuilder
-                flowId={config.flow_id}
-                type="objecoes"
-                active={config.objecoes_ativo}
-                onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
-                persona={config.persona}
-                onPersonaChange={setPersona}
-                sharedNicheId={sharedNicheId}
-                onNicheChange={handleNicheChange}
-              />
-            </div>
-          </div>
-
-          {/* Right — Simulator */}
-          <div className="flex-1 min-w-0 rounded-xl border border-border overflow-hidden">
-            <SimulatorChat
-              nicheId={sharedNicheId}
-              flowId={config.flow_id}
-              variables={{
-                nome_agente: config.persona.nome_agente,
-                nome_empresa: config.persona.empresa,
-                descricao_produto: config.persona.produto,
-                tom_agente: config.persona.tom,
-                horario: config.persona.horario,
-                url_empresa: config.persona.url_empresa,
-                preco: config.persona.preco,
-                periodo_teste: config.persona.periodo_teste,
-                link_teste: config.persona.link_teste,
-                link_playlist: config.persona.link_playlist,
-                link_agendamento: config.persona.link_agendamento,
-                link_catalogo: config.persona.link_catalogo,
-                link_pedido: config.persona.link_pedido,
-                endereco: config.persona.endereco,
-                taxa_entrega: config.persona.taxa_entrega,
-                tempo_entrega: config.persona.tempo_entrega,
-                area_entrega: config.persona.area_entrega,
-                formas_pagamento: config.persona.formas_pagamento,
-                valor_minimo_pedido: config.persona.valor_minimo_pedido,
-                pedido_tipo: config.persona.pedido_tipo,
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── Integrações ── */}
-      {activeTab === 'integracoes' && (
-        <div className="space-y-5">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-sm font-semibold">Google Calendar</p>
-              {!needsAgendamento && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium ml-auto">
-                  Ative o tipo "Agendamento" na aba Geral
-                </span>
+        {/* ── Sidebar ── */}
+        <aside className="w-44 shrink-0 space-y-1">
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={cn(
+                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
+                activeTab === id
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               )}
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">Calendário usado pelo agente para agendar reuniões automaticamente</p>
-            <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
-              <CalendarSection calendarId={config.google_calendar_id} onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))} />
-            </div>
-          </div>
+            >
+              <Icon className={cn('w-4 h-4 shrink-0', activeTab === id ? 'text-primary' : 'text-muted-foreground')} />
+              {label}
+            </button>
+          ))}
+        </aside>
 
-          <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-sm font-semibold">Título da reunião</p>
+        {/* ── Content ── */}
+        <div className="flex-1 min-w-0">
+
+          {/* Non-conhecimento tabs: card layout */}
+          {activeTab !== 'conhecimento' && (() => {
+            const tab = TABS.find((t) => t.id === activeTab)!
+            const TabIcon = tab.icon
+            return (
+              <div className="rounded-xl border border-border overflow-hidden">
+                {/* Card header */}
+                <div className="flex items-center gap-3 px-5 py-4 bg-muted/20 border-b border-border">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <TabIcon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">{tab.label}</p>
+                    <p className="text-xs text-muted-foreground">{tab.desc}</p>
+                  </div>
+                  {activeTab === 'geral' && (
+                    <div className={cn(
+                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border shrink-0',
+                      config.agente_ativo
+                        ? 'bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400'
+                        : 'bg-muted text-muted-foreground border-border'
+                    )}>
+                      <Zap className="w-3 h-3" />
+                      {config.agente_ativo ? 'Ativo' : 'Inativo'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Card body */}
+                <div className="p-5">
+
+                  {/* ── Geral ── */}
+                  {activeTab === 'geral' && (
+                    <div className="space-y-5">
+                      <div className={cn('flex items-center justify-between gap-4 p-4 rounded-xl border transition-colors',
+                        config.agente_ativo ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border')}>
+                        <div className="flex items-center gap-3">
+                          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', config.agente_ativo ? 'bg-primary/15' : 'bg-muted')}>
+                            <Zap className={cn('w-4 h-4', config.agente_ativo ? 'text-primary' : 'text-muted-foreground')} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Agente ativo</p>
+                            <p className="text-xs text-muted-foreground">{config.agente_ativo ? 'Respondendo automaticamente' : 'Ative para responder automaticamente'}</p>
+                          </div>
+                        </div>
+                        <Switch checked={config.agente_ativo} onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de agente</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {AGENT_TYPES.map((opt) => {
+                            const Icon = opt.icon; const selected = config.agent_type === opt.value
+                            return (
+                              <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, agent_type: opt.value as any }))}
+                                className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+                                <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center mb-2', selected ? 'bg-primary/15' : 'bg-muted')}>
+                                  <Icon className={cn('w-3.5 h-3.5', selected ? 'text-primary' : 'text-muted-foreground')} />
+                                </div>
+                                <p className="text-xs font-semibold leading-tight">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Modo de atendimento</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar' },
+                            { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)' },
+                          ] as const).map((opt) => {
+                            const selected = config.inbox_mode === opt.value
+                            return (
+                              <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
+                                className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+                                <p className="text-xs font-semibold leading-tight">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Identidade ── */}
+                  {activeTab === 'identidade' && (
+                    <div className="space-y-4">
+                      <Field label="Nicho" hint="Segmento de atuação da empresa. Define o comportamento base do agente.">
+                        <div className="relative">
+                          <button
+                            onClick={() => setIdentNicheOpen((o) => !o)}
+                            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors"
+                          >
+                            <span className={identSelectedNiche ? 'text-foreground' : 'text-muted-foreground'}>
+                              {identSelectedNiche ? `${identSelectedNiche.emoji} ${identSelectedNiche.label}` : 'Selecione o nicho…'}
+                            </span>
+                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </button>
+                          {identNicheOpen && (
+                            <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                              {[{ label: '🎯 Vendas', items: identVendas }, { label: '🛎️ Atendimento', items: identAtendimento }].map((group) => (
+                                <div key={group.label}>
+                                  <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
+                                  {group.items.map((n) => (
+                                    <button
+                                      key={n.id}
+                                      onClick={() => { handleNicheChange(n.id); setIdentNicheOpen(false) }}
+                                      className={cn(
+                                        'w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left',
+                                        sharedNicheId === n.id && 'bg-primary/5'
+                                      )}
+                                    >
+                                      <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium">{n.label}</p>
+                                        <p className="text-xs text-muted-foreground">{n.description}</p>
+                                      </div>
+                                      {sharedNicheId === n.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </Field>
+                      <Field label="Nome do agente">
+                        <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana, João, Sofia" className="h-9 text-sm" />
+                      </Field>
+                      <Field label="Nome da empresa">
+                        <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva, Tocli, Studio Bella" className="h-9 text-sm" />
+                      </Field>
+                      <Field label="Produto / Serviço" hint="O que a empresa vende ou oferece. Usado diretamente no comportamento do agente.">
+                        <Input value={config.persona.produto} onChange={(e) => setPersona('produto', e.target.value)} placeholder="Ex: roupas masculinas, consultoria de marketing, planos de saúde" className="h-9 text-sm" />
+                      </Field>
+                      <Field label="Tom de voz" hint="Como o agente deve se comunicar com os leads.">
+                        <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Ex: informal e consultivo, direto e descontraído" className="h-9 text-sm" />
+                      </Field>
+                      <Field label="Horário de atendimento" hint="Informado ao lead quando perguntar sobre disponibilidade." optional>
+                        <Input value={config.persona.horario} onChange={(e) => setPersona('horario', e.target.value)} placeholder="Ex: Seg a Sex das 9h às 18h" className="h-9 text-sm" />
+                      </Field>
+                      <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar." optional>
+                        <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" className="min-h-[72px] text-sm resize-none" />
+                      </Field>
+                    </div>
+                  )}
+
+                  {/* ── Integrações ── */}
+                  {activeTab === 'integracoes' && (
+                    <div className="space-y-5">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">Google Calendar</p>
+                          {!needsAgendamento && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium ml-auto">
+                              Ative o tipo "Agendamento" na aba Geral
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">Calendário usado pelo agente para agendar reuniões automaticamente</p>
+                        <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
+                          <CalendarSection calendarId={config.google_calendar_id} onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))} />
+                        </div>
+                      </div>
+                      <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">Título da reunião</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-2">Nome do evento criado no Google Calendar. Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para incluir o nome do lead.</p>
+                        <Input
+                          placeholder="Ex: Call de vendas — {nome}"
+                          value={config.event_title_template}
+                          onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Cardápio ── */}
+                  {activeTab === 'cardapio' && (
+                    <div className="space-y-4">
+                      <CatalogManager />
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── Conhecimento — split panel ── */}
+          {activeTab === 'conhecimento' && (
+            <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[560px]">
+              {/* Left — KB config */}
+              <div className="w-[360px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Base de conhecimento</p>
+                  </div>
+                  <KnowledgeBuilder
+                    flowId={config.flow_id}
+                    type="conhecimento"
+                    active={config.conhecimento_ativo}
+                    onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
+                    persona={config.persona}
+                    onPersonaChange={setPersona}
+                    sharedNicheId={sharedNicheId}
+                    onNicheChange={handleNicheChange}
+                  />
+                </div>
+                <div className="border-t border-border/60 pt-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Base de objeções</p>
+                  </div>
+                  <KnowledgeBuilder
+                    flowId={config.flow_id}
+                    type="objecoes"
+                    active={config.objecoes_ativo}
+                    onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
+                    persona={config.persona}
+                    onPersonaChange={setPersona}
+                    sharedNicheId={sharedNicheId}
+                    onNicheChange={handleNicheChange}
+                  />
+                </div>
+              </div>
+
+              {/* Right — Simulator */}
+              <div className="flex-1 min-w-0 rounded-xl border border-border overflow-hidden">
+                <SimulatorChat
+                  nicheId={sharedNicheId}
+                  flowId={config.flow_id}
+                  variables={simVariables}
+                />
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mb-2">Nome do evento criado no Google Calendar. Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para incluir o nome do lead.</p>
-            <Input
-              placeholder="Ex: Call de vendas — {nome}"
-              value={config.event_title_template}
-              onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
-            />
-          </div>
+          )}
+
         </div>
-      )}
-
-      {/* ── Cardápio ── */}
-      {activeTab === 'cardapio' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="w-3.5 h-3.5 text-muted-foreground" />
-            <p className="text-sm font-semibold">Cardápio / Produtos</p>
-          </div>
-          <CatalogManager />
-        </div>
-      )}
-
+      </div>
 
     </div>
   )

@@ -16,12 +16,13 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
     const body = await request.json()
-    const { nicheId, variables, history, userMessage, mode = 'inbound' } = body as {
+    const { nicheId, variables, history, userMessage, mode = 'inbound', correctionHint } = body as {
       nicheId: string
       variables: SdrVariables
       history: SimMessage[]
       userMessage: string
       mode?: 'inbound' | 'outbound'
+      correctionHint?: string | null
     }
 
     const niche = NICHE_MAP[nicheId]
@@ -44,7 +45,10 @@ export async function POST(request: NextRequest) {
     const modeInstruction = mode === 'outbound'
       ? '\n\n=== MODO OUTBOUND ===\nVocê está abordando ativamente o lead — ele não chegou até você. Seja mais direto na apresentação do valor antes de fazer perguntas. Contextualize por que está entrando em contato.'
       : ''
-    const systemPrompt = basePrompt + modeInstruction
+    const correctionInstruction = correctionHint
+      ? `\n\nCORREÇÃO OBRIGATÓRIA: Na resposta anterior você cometeu este erro — "${correctionHint}". Corrija isso agora sem mencionar que está corrigindo.`
+      : ''
+    const systemPrompt = basePrompt + modeInstruction + correctionInstruction
 
     // ── Gera resposta do SDR ───────────────────────────────────────────────
     const messages: OpenAI.ChatCompletionMessageParam[] = [
