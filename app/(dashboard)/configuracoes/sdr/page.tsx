@@ -1378,10 +1378,11 @@ function TypingDots() {
   )
 }
 
-function FeedbackPill({ feedback, onRegenerate, regenerating }: {
+function FeedbackPill({ feedback, onApply, applying, applied }: {
   feedback: SimFeedback
-  onRegenerate?: () => void
-  regenerating?: boolean
+  onApply?: () => void
+  applying?: boolean
+  applied?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const scoreColor = feedback.score >= 8 ? 'text-emerald-500' : feedback.score >= 6 ? 'text-amber-500' : 'text-red-500'
@@ -1411,14 +1412,18 @@ function FeedbackPill({ feedback, onRegenerate, regenerating }: {
                 <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                 <span>{feedback.melhorar}</span>
               </div>
-              {onRegenerate && (
+              {applied ? (
+                <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-2.5 h-2.5" /> Salvo
+                </span>
+              ) : onApply && (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); onRegenerate() }}
-                  disabled={regenerating}
+                  onClick={(e) => { e.stopPropagation(); onApply() }}
+                  disabled={applying}
                   className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-[10px] font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
                 >
-                  {regenerating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                  {applying ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Save className="w-2.5 h-2.5" />}
                   Aplicar
                 </button>
               )}
@@ -1431,7 +1436,7 @@ function FeedbackPill({ feedback, onRegenerate, regenerating }: {
 }
 
 function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variables: Record<string, string>; flowId: string | null }) {
-  const storageKey = flowId ? `sdr_sim_${flowId}` : null
+  const storageKey = flowId && nicheId ? `sdr_sim_${flowId}_${nicheId}` : null
 
   const [turns, setTurns] = useState<SimTurn[]>(() => {
     if (!storageKey) return []
@@ -1440,7 +1445,8 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null)
+  const [applyingIndex, setApplyingIndex] = useState<number | null>(null)
+  const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<SimMode>('inbound')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -1459,6 +1465,17 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     saveTurns([])
     setError(null)
   }
+
+  // Reload history when niche changes
+  useEffect(() => {
+    if (!storageKey) { setTurns([]); setAppliedIndices(new Set()); return }
+    try {
+      const s = localStorage.getItem(storageKey)
+      setTurns(s ? JSON.parse(s) : [])
+    } catch { setTurns([]) }
+    setAppliedIndices(new Set())
+    setError(null)
+  }, [storageKey])
 
   useEffect(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -1492,31 +1509,28 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     }
   }
 
-  async function regenerateTurn(index: number) {
+  async function applyCorrection(index: number) {
     const turn = turns[index]
-    if (!turn || regeneratingIndex !== null) return
-    const historyUpTo = turns.slice(0, index).flatMap((t) => [
-      { role: 'user' as const, content: t.userMsg },
-      { role: 'assistant' as const, content: t.sdrMsg },
-    ])
-    setRegeneratingIndex(index)
+    if (!turn?.feedback.melhorar || applyingIndex !== null || !flowId) return
+    setApplyingIndex(index)
     try {
-      const res = await fetch('/api/sdr/simulate', {
+      const res = await fetch(`/api/sdr/flows/${flowId}/knowledge/patch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nicheId, variables, history: historyUpTo, userMessage: turn.userMsg, mode, correctionHint: turn.feedback.melhorar }),
+        body: JSON.stringify({
+          correction: turn.feedback.melhorar,
+          type: 'conhecimento',
+          userMsg: turn.userMsg,
+          sdrMsg: turn.sdrMsg,
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao regenerar')
-      setTurns((prev) => {
-        const next = prev.map((t, i) => i === index ? { ...t, sdrMsg: data.sdrResponse, feedback: data.feedback } : t)
-        if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {} }
-        return next
-      })
-      toast({ title: '✓ Resposta atualizada com a correção aplicada' })
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar correção')
+      setAppliedIndices((prev) => new Set(prev).add(index))
+      toast({ title: '✓ Correção salva na base de conhecimento' })
     } catch (err: any) {
-      toast({ title: err.message || 'Erro ao regenerar resposta', variant: 'destructive' })
-    } finally { setRegeneratingIndex(null) }
+      toast({ title: err.message || 'Erro ao aplicar correção', variant: 'destructive' })
+    } finally { setApplyingIndex(null) }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -1603,47 +1617,38 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           </div>
         )}
 
-        {turns.map((turn, i) => {
-          const isRegen = regeneratingIndex === i
-          return (
-            <div key={i} className="space-y-1">
-              {/* Lead message — right */}
-              <div className="flex justify-end">
-                <div className="max-w-[75%]">
-                  <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
-                    {turn.userMsg}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/50 text-right mt-0.5 pr-1">{turn.ts}</p>
+        {turns.map((turn, i) => (
+          <div key={i} className="space-y-1">
+            {/* Lead message — right */}
+            <div className="flex justify-end">
+              <div className="max-w-[75%]">
+                <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+                  {turn.userMsg}
                 </div>
-              </div>
-
-              {/* SDR message — left */}
-              <div className="flex items-end gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
-                  {isRegen ? <Loader2 className="w-3 h-3 text-primary animate-spin" /> : <Bot className="w-3 h-3 text-primary" />}
-                </div>
-                <div className="max-w-[75%]">
-                  <div className={cn(
-                    'rounded-2xl rounded-tl-none px-3 py-2 text-sm whitespace-pre-wrap shadow-sm transition-all',
-                    isRegen
-                      ? 'bg-primary/5 border border-primary/30 opacity-60'
-                      : 'bg-card border border-border/60'
-                  )}>
-                    {isRegen ? <TypingDots /> : turn.sdrMsg}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
-                  {!isRegen && (
-                    <FeedbackPill
-                      feedback={turn.feedback}
-                      onRegenerate={turn.feedback.melhorar ? () => regenerateTurn(i) : undefined}
-                      regenerating={false}
-                    />
-                  )}
-                </div>
+                <p className="text-[10px] text-muted-foreground/50 text-right mt-0.5 pr-1">{turn.ts}</p>
               </div>
             </div>
-          )
-        })}
+
+            {/* SDR message — left */}
+            <div className="flex items-end gap-2">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
+                <Bot className="w-3 h-3 text-primary" />
+              </div>
+              <div className="max-w-[75%]">
+                <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+                  {turn.sdrMsg}
+                </div>
+                <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
+                <FeedbackPill
+                  feedback={turn.feedback}
+                  onApply={turn.feedback.melhorar && flowId ? () => applyCorrection(i) : undefined}
+                  applying={applyingIndex === i}
+                  applied={appliedIndices.has(i)}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
 
         {loading && (
           <div className="flex items-end gap-2">

@@ -68,23 +68,25 @@ export async function POST(request: NextRequest) {
 
     // ── Gera feedback da IA ───────────────────────────────────────────────
     const feedbackPrompt = `Você é um especialista em SDR e vendas consultivas pelo WhatsApp.
-Avalie a resposta do agente abaixo de forma objetiva e curta, levando em conta o nicho e o modo de operação.
+Avalie APENAS esta resposta específica do agente — o que ele fez NESTA mensagem.
 
 Nicho: ${niche.label}
-Modo: ${mode === 'inbound' ? 'Inbound (lead chegou até o agente)' : 'Outbound (agente abordou o lead)'}
+Modo: ${mode === 'inbound' ? 'Inbound' : 'Outbound'}
 Mensagem do lead: "${userMessage}"
 Resposta do agente: "${sdrResponse}"
 
-Critérios específicos para ${niche.label}:
-- A resposta segue as boas práticas deste nicho?
-- O tom e linguagem são adequados para ${mode === 'inbound' ? 'atendimento receptivo' : 'abordagem ativa'}?
-- Está avançando o lead no funil de forma natural?
+REGRAS ESTRITAS DE AVALIAÇÃO:
+1. Avalie SOMENTE o que o agente fez nesta resposta — não antecipe próximos passos
+2. Não penalize o agente por não ter feito algo que ainda não era necessário neste momento
+3. "melhorar" deve ser null se a resposta está correta e adequada para este momento da conversa
+4. Só preencha "melhorar" se houver um erro concreto e específico NESTA resposta (gênero errado, tom inadequado, informação incorreta, pergunta fechada quando deveria ser aberta, etc.)
+5. Não diga "poderia ter feito X" — só aponte erros reais que ocorreram
 
-Responda em JSON com este formato exato:
+Responda em JSON:
 {
-  "score": <número de 1 a 10>,
-  "positivo": "<o que o agente fez bem — máx 1 frase curta>",
-  "melhorar": "<o que poderia ser melhor — máx 1 frase curta, ou null se score >= 8>"
+  "score": <1 a 10>,
+  "positivo": "<o que o agente fez bem nesta mensagem — 1 frase curta>",
+  "melhorar": "<erro concreto e específico nesta mensagem — 1 frase curta — ou null se não há erro>"
 }`
 
     const feedbackRes = await openai.chat.completions.create({
