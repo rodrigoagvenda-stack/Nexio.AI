@@ -10,6 +10,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { getRedis } from '@/lib/sdr/redis'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
@@ -230,58 +231,39 @@ function isPromptInjection(text: string): boolean {
   return total >= BLOCK_CONFIDENCE
 }
 
-// ─── Buffer (Supabase) ────────────────────────────────────────
+// ─── Buffer (Redis) ────────────────────────────────────────────
+// Replica o fluxo N8N: RPUSH na lista, lock via SET NX para garantir
+// que apenas um handler aguarda os 30s de batching por lead.
 
-async function bufferMessage(
-  companyId: number,
-  phone: string,
-  message: BufferedMessage,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<void> {
-  const expiresAt = new Date(Date.now() + 30_000).toISOString()
-  const { data: existing } = await supabase
-    .from('sdr_message_buffer')
-    .select('messages')
-    .eq('company_id', companyId)
-    .eq('phone', phone)
-    .single()
-
-  if (existing) {
-    const messages = [...(existing.messages as BufferedMessage[]), message]
-    await supabase
-      .from('sdr_message_buffer')
-      .update({ messages, expires_at: expiresAt })
-      .eq('company_id', companyId)
-      .eq('phone', phone)
-  } else {
-    await supabase.from('sdr_message_buffer').insert({
-      company_id: companyId,
-      phone,
-      messages: [message],
-      expires_at: expiresAt,
-    })
-  }
+function redisKeys(companyId: number, phone: string) {
+  const base = `sdr:${companyId}:${phone}`
+  return { buf: `${base}:buf`, lock: `${base}:lock` }
 }
 
-async function drainBuffer(
-  companyId: number,
-  phone: string,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<BufferedMessage[]> {
-  const { data } = await supabase
-    .from('sdr_message_buffer')
-    .select('messages')
-    .eq('company_id', companyId)
-    .eq('phone', phone)
-    .single()
+async function bufferMessage(companyId: number, phone: string, message: BufferedMessage): Promise<void> {
+  const redis = getRedis()
+  const { buf } = redisKeys(companyId, phone)
+  await redis.rpush(buf, JSON.stringify(message))
+  await redis.expire(buf, 120)
+}
 
-  await supabase
-    .from('sdr_message_buffer')
-    .delete()
-    .eq('company_id', companyId)
-    .eq('phone', phone)
+async function drainBuffer(companyId: number, phone: string): Promise<BufferedMessage[]> {
+  const redis = getRedis()
+  const { buf } = redisKeys(companyId, phone)
+  const items = await redis.lrange(buf, 0, -1)
+  if (items.length > 0) await redis.del(buf)
+  return items.map((s: string) => {
+    try { return JSON.parse(s) as BufferedMessage } catch { return null }
+  }).filter(Boolean) as BufferedMessage[]
+}
 
-  return (data?.messages as BufferedMessage[]) ?? []
+async function isDuplicateMessage(companyId: number, phone: string, messageId: string): Promise<boolean> {
+  const redis = getRedis()
+  const { buf } = redisKeys(companyId, phone)
+  const items = await redis.lrange(buf, 0, -1)
+  return items.some((s: string) => {
+    try { return (JSON.parse(s) as BufferedMessage).messageId === messageId } catch { return false }
+  })
 }
 
 // ─── RAG — Busca vetorial no Supabase ─────────────────────────
@@ -2042,7 +2024,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       return
     }
 
-    const bufferedMessages = await drainBuffer(companyId, phone, supabase)
+    const bufferedMessages = await drainBuffer(companyId, phone)
     if (bufferedMessages.length === 0) return
 
     // Nó "Switch" (15s) — se a última mensagem chegou há menos de 15s, aguarda
@@ -2260,18 +2242,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     const phone = normalizePhone(body.chat.phone)
     const messageId = body.message.id ?? body.message.messageid
 
-    // Deduplicação por messageId
-    const { data: dup } = await supabase
-      .from('sdr_message_buffer')
-      .select('messages')
-      .eq('company_id', companyId)
-      .eq('phone', phone)
-      .maybeSingle()
-
-    if (dup?.messages) {
-      const msgs = dup.messages as BufferedMessage[]
-      if (msgs.some((m) => m.messageId === messageId)) return false
-    }
+    // Deduplicação por messageId (verifica na fila Redis)
+    if (await isDuplicateMessage(companyId, phone, messageId)) return false
 
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
     const senderPhoto: string | undefined = body.chat?.image || body.chat?.imagePreview || undefined
@@ -2295,10 +2267,18 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       senderPhoto,
     }
 
-    await bufferMessage(companyId, phone, bufferedMsg, supabase)
+    await bufferMessage(companyId, phone, bufferedMsg)
+
+    // Lock Redis (replica "Pausa Fila" do N8N): apenas o primeiro handler aguarda os 30s.
+    // Os demais retornam imediatamente — a mensagem já está na fila.
+    const redis = getRedis()
+    const { lock } = redisKeys(companyId, phone)
+    const acquired = await redis.set(lock, '1', 'EX', 35, 'NX')
+    if (!acquired) return true
 
     // Aguarda 30s (nó "Espera" do N8N — batching de mensagens do lead)
     await new Promise((r) => setTimeout(r, 30_000))
+    await redis.del(lock)
     await processSdrMessage(companyId, phone)
 
     return true

@@ -13,7 +13,7 @@ import {
   AlertCircle,
   CheckCircle2, BookOpen, ShieldAlert, LogOut,
   Settings, Brain, Link2, Sparkles, ChevronDown,
-  ChevronRight, ChevronLeft, ArrowRight,
+  ChevronRight, ChevronLeft, ArrowRight, Plus, Trash2, X,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -81,7 +81,7 @@ interface WizardQuestion {
   question: string
   hint?: string
   placeholder: string
-  type: 'text' | 'url' | 'textarea'
+  type: 'text' | 'url' | 'textarea' | 'delivery-zones' | 'payment-chips'
   optional?: boolean
 }
 
@@ -173,18 +173,18 @@ const WIZARD_QUESTIONS: WizardQuestion[] = [
   },
   {
     key: 'area_entrega',
-    question: 'Qual a área de entrega e as taxas por bairro/zona?',
-    hint: 'Uma linha por bairro/zona com o valor da taxa. A IA verifica isso antes de confirmar entrega.',
-    placeholder: 'Ex:\nCentro – R$ 3,00\nZona Norte – R$ 5,00\nZona Sul – R$ 7,00\nJaraguá do Sul – R$ 8,00',
-    type: 'textarea',
+    question: 'Quais bairros/zonas vocês atendem e qual a taxa de cada um?',
+    hint: 'Adicione uma linha por bairro ou zona. A IA verifica se o endereço do cliente está na área antes de confirmar.',
+    placeholder: '',
+    type: 'delivery-zones',
     optional: true,
   },
   {
     key: 'formas_pagamento',
     question: 'Quais formas de pagamento vocês aceitam?',
-    hint: 'Liste todas as formas aceitas. O agente usará isso ao coletar o pedido.',
-    placeholder: 'Ex: PIX, cartão de débito/crédito, dinheiro',
-    type: 'text',
+    hint: 'Selecione todas que se aplicam. O agente usará isso ao confirmar o pedido.',
+    placeholder: '',
+    type: 'payment-chips',
     optional: true,
   },
   {
@@ -230,6 +230,104 @@ const WIZARD_KEY_TO_PERSONA: Record<string, keyof AgentPersona> = {
   valor_minimo_pedido: 'valor_minimo_pedido',
   pedido_tipo: 'pedido_tipo',
   url_empresa: 'url_empresa',
+}
+
+// ── DeliveryZonesEditor ────────────────────────────────────────────────────
+
+interface DeliveryZone { id: string; bairro: string; taxa: string }
+
+function parseZones(value: string): DeliveryZone[] {
+  if (!value.trim()) return []
+  return value.split('\n').filter(Boolean).map((line) => {
+    const [bairro, taxa] = line.split(/\s*[–-]\s*R\$\s*/)
+    return { id: Math.random().toString(36).slice(2), bairro: bairro?.trim() ?? line, taxa: taxa?.trim() ?? '' }
+  })
+}
+
+function serializeZones(zones: DeliveryZone[]): string {
+  return zones.filter((z) => z.bairro.trim()).map((z) => `${z.bairro} – R$ ${z.taxa}`).join('\n')
+}
+
+function DeliveryZonesEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [zones, setZones] = useState<DeliveryZone[]>(() => {
+    const parsed = parseZones(value)
+    return parsed.length > 0 ? parsed : [{ id: 'init', bairro: '', taxa: '' }]
+  })
+
+  const update = (updated: DeliveryZone[]) => { setZones(updated); onChange(serializeZones(updated)) }
+  const setField = (id: string, field: 'bairro' | 'taxa', val: string) =>
+    update(zones.map((z) => z.id === id ? { ...z, [field]: val } : z))
+  const addRow = () => update([...zones, { id: Math.random().toString(36).slice(2), bairro: '', taxa: '' }])
+  const removeRow = (id: string) => update(zones.filter((z) => z.id !== id))
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-[1fr_100px_32px] gap-1.5 text-[11px] text-muted-foreground font-medium px-1">
+        <span>Bairro / Zona</span><span>Taxa (R$)</span><span />
+      </div>
+      {zones.map((z) => (
+        <div key={z.id} className="grid grid-cols-[1fr_100px_32px] gap-1.5 items-center">
+          <Input value={z.bairro} onChange={(e) => setField(z.id, 'bairro', e.target.value)} placeholder="Ex: Centro" className="h-8 text-sm" />
+          <Input value={z.taxa} onChange={(e) => setField(z.id, 'taxa', e.target.value)} placeholder="5,00" className="h-8 text-sm" />
+          <button type="button" onClick={() => removeRow(z.id)} disabled={zones.length === 1}
+            className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted disabled:opacity-30">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      <button type="button" onClick={addRow} className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-1">
+        <Plus className="w-3 h-3" /> Adicionar bairro/zona
+      </button>
+    </div>
+  )
+}
+
+// ── PaymentChipsEditor ─────────────────────────────────────────────────────
+
+const PAYMENT_OPTIONS = ['PIX', 'Cartão de crédito', 'Cartão de débito', 'Dinheiro', 'VR / VA', 'Link de pagamento']
+
+function PaymentChipsEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const selected = value ? value.split(',').map((s) => s.trim()).filter(Boolean) : []
+  const [custom, setCustom] = useState('')
+
+  const toggle = (opt: string) => {
+    const next = selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt]
+    onChange(next.join(', '))
+  }
+  const addCustom = () => {
+    const t = custom.trim()
+    if (!t || selected.includes(t)) { setCustom(''); return }
+    onChange([...selected, t].join(', ')); setCustom('')
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {PAYMENT_OPTIONS.map((opt) => (
+          <button key={opt} type="button" onClick={() => toggle(opt)}
+            className={cn('px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
+              selected.includes(opt)
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background text-muted-foreground border-border hover:border-primary/50')}>
+            {opt}
+          </button>
+        ))}
+        {selected.filter((s) => !PAYMENT_OPTIONS.includes(s)).map((c) => (
+          <span key={c} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-primary text-primary-foreground border border-primary">
+            {c}<button type="button" onClick={() => toggle(c)}><X className="w-3 h-3" /></button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2 items-center">
+        <Input value={custom} onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustom())}
+          placeholder="Outra forma… (Enter para adicionar)" className="h-8 text-sm flex-1" />
+        {custom.trim() && (
+          <Button size="sm" variant="outline" onClick={addCustom} className="h-8 text-xs"><Plus className="w-3 h-3" /></Button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ── Field ──────────────────────────────────────────────────────────────────
@@ -605,7 +703,11 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                   <div className="rounded-xl border border-border bg-card p-4 space-y-3">
                     <p className="text-sm font-semibold leading-snug">{currentQ?.question}</p>
                     {currentQ?.hint && <p className="text-[11px] text-muted-foreground">{currentQ.hint}</p>}
-                    {currentQ?.type === 'textarea' ? (
+                    {currentQ?.type === 'delivery-zones' ? (
+                      <DeliveryZonesEditor value={getWizardValue(currentQ)} onChange={(v) => setWizardValue(currentQ, v)} />
+                    ) : currentQ?.type === 'payment-chips' ? (
+                      <PaymentChipsEditor value={getWizardValue(currentQ)} onChange={(v) => setWizardValue(currentQ, v)} />
+                    ) : currentQ?.type === 'textarea' ? (
                       <Textarea
                         ref={wizardInputRef as React.RefObject<HTMLTextAreaElement>}
                         value={getWizardValue(currentQ)}

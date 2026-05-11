@@ -8,7 +8,7 @@ export function getRedis(): Redis {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
     })
-    client.on('error', (err) => console.error('[Redis]', err.message))
+    client.on('error', (err: Error) => console.error('[Redis]', err.message))
   }
   return client
 }
