@@ -66,6 +66,7 @@ interface SdrContext {
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
   eventTitleTemplate: string | null
+  productsBlock: string | null
 }
 
 interface BufferedMessage {
@@ -1100,6 +1101,8 @@ interface AgentPersona {
   formas_pagamento?: string
   valor_minimo_pedido?: string
   pedido_tipo?: string
+  link_catalogo?: string
+  link_pedido?: string
 }
 
 function parsePersona(prompt: string): AgentPersona | null {
@@ -1140,7 +1143,11 @@ ${steps.join('\n')}
 
 Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma informação. Todo seu conhecimento vem exclusivamente dos retornos das tools.
 
-Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para FORMULAR uma resposta natural e humana ao lead. NUNCA copie headers, checklists, títulos ou estruturas internas dos documentos. Responda como um atendente, direto, natural, baseado no que as tools retornaram.
+Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para formular a resposta. REGRAS DE USO DO CONHECIMENTO:
+- Se o documento contiver scripts marcados com "Responda APENAS", "PASSO X" ou frases exatas entre aspas: COPIE o script exatamente como escrito. NÃO parafraseie, NÃO misture passos, NÃO adicione informação extra.
+- Se o documento contiver apenas informações gerais (FAQ, specs, preços): formule uma resposta natural e humana baseada no conteúdo.
+- NUNCA copie títulos de seção, headers em maiúsculas, ou marcadores internos como "=== SEÇÃO ===" — apenas o texto da resposta.
+- NUNCA pule etapas do fluxo — se o passo diz perguntar algo antes de continuar, pergunte e PARE.
 
 REGRAS DE MENSAGEM (CRÍTICO):
 - Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
@@ -1167,10 +1174,13 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
     if (persona.produto)           lines.push(`Produto/serviço: ${persona.produto}.`)
     if (persona.restricoes)        lines.push(`Nunca diga: ${persona.restricoes}.`)
     if (persona.horario)           lines.push(`Horário de atendimento: ${persona.horario}.`)
-    if (persona.area_entrega)      lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
-    if (persona.formas_pagamento)  lines.push(`Formas de pagamento aceitas: ${persona.formas_pagamento}.`)
+    if (persona.area_entrega)        lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
+    if (persona.formas_pagamento)    lines.push(`Formas de pagamento aceitas: ${persona.formas_pagamento}.`)
     if (persona.valor_minimo_pedido) lines.push(`Valor mínimo do pedido: ${persona.valor_minimo_pedido}.`)
-    if (persona.pedido_tipo)       lines.push(`Como o pedido é finalizado: ${persona.pedido_tipo}.`)
+    if (persona.pedido_tipo)         lines.push(`Como o pedido é finalizado: ${persona.pedido_tipo}.`)
+    if (persona.link_catalogo)       lines.push(`Cardápio/catálogo: ${persona.link_catalogo}.`)
+    if (persona.link_pedido)         lines.push(`Link para pedido online: ${persona.link_pedido}.`)
+    if (ctx.productsBlock)           lines.push(`\nITENS DO CARDÁPIO:\n${ctx.productsBlock}`)
     if (lines.length > 0) companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${lines.join('\n')}`
   } else if (ctx.prompt) {
     companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
@@ -2051,6 +2061,17 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const senderName = bufferedMessages[0]?.senderName || bufferedMessages[0]?.content?.split(' ')[0] || ''
     const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase)
 
+    // Busca produtos ativos da empresa para injetar no contexto
+    const { data: products } = await supabase
+      .from('sdr_products')
+      .select('numero, nome, descricao, preco')
+      .eq('company_id', companyId)
+      .eq('ativo', true)
+      .order('numero')
+    const productsBlock = products && products.length > 0
+      ? products.map((p: any) => `#${p.numero} ${p.nome}${p.descricao ? ` — ${p.descricao}` : ''}${p.preco ? ` — R$ ${Number(p.preco).toFixed(2)}` : ''}`).join('\n')
+      : null
+
     const ctx: SdrContext = {
       companyId,
       companyName: company?.name ?? '',
@@ -2072,6 +2093,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       conhecimentoAtivo: cfg.conhecimentoAtivo,
       objecoesAtivo: cfg.objecoesAtivo,
       eventTitleTemplate: cfg.eventTitleTemplate,
+      productsBlock,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)

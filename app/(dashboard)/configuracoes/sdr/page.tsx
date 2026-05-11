@@ -14,6 +14,7 @@ import {
   CheckCircle2, BookOpen, ShieldAlert, LogOut,
   Settings, Brain, Link2, Sparkles, ChevronDown,
   ChevronRight, ChevronLeft, ArrowRight, Plus, Trash2, X,
+  ShoppingBag, Pencil,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -71,6 +72,7 @@ const TABS = [
   { id: 'identidade', label: 'Identidade', icon: Bot },
   { id: 'conhecimento', label: 'Conhecimento', icon: Brain },
   { id: 'integracoes', label: 'Integrações', icon: Link2 },
+  { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -935,6 +937,178 @@ function CalendarSection({ calendarId, onCalendarIdChange }: {
   )
 }
 
+// ── Catalog Manager ───────────────────────────────────────────────────────
+
+interface CatalogProduct { id: number; numero: number; nome: string; descricao: string | null; preco: number | null; ativo: boolean }
+interface ProductFormData { numero: string; nome: string; descricao: string; preco: string; ativo: boolean }
+const EMPTY_PRODUCT: ProductFormData = { numero: '', nome: '', descricao: '', preco: '', ativo: true }
+
+function CatalogManager() {
+  const [products, setProducts] = useState<CatalogProduct[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editForm, setEditForm] = useState<ProductFormData>(EMPTY_PRODUCT)
+  const [adding, setAdding] = useState(false)
+  const [addForm, setAddForm] = useState<ProductFormData>(EMPTY_PRODUCT)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/sdr/products')
+      const data = await res.json()
+      setProducts(data.products ?? [])
+    } catch { toast({ title: 'Erro ao carregar produtos', variant: 'destructive' }) }
+    finally { setLoading(false) }
+  }
+
+  async function addProduct() {
+    if (!addForm.numero || !addForm.nome) { toast({ title: 'Número e nome são obrigatórios', variant: 'destructive' }); return }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/sdr/products', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero: parseInt(addForm.numero), nome: addForm.nome, descricao: addForm.descricao || null, preco: addForm.preco ? parseFloat(addForm.preco.replace(',', '.')) : null, ativo: addForm.ativo }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setProducts((prev) => [...prev, data.product].sort((a, b) => a.numero - b.numero))
+      setAdding(false); setAddForm(EMPTY_PRODUCT)
+      toast({ title: 'Produto adicionado!' })
+    } catch (err: any) { toast({ title: err.message || 'Erro ao adicionar', variant: 'destructive' }) }
+    finally { setSaving(false) }
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editForm.numero || !editForm.nome) { toast({ title: 'Número e nome são obrigatórios', variant: 'destructive' }); return }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/sdr/products', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, numero: parseInt(editForm.numero), nome: editForm.nome, descricao: editForm.descricao || null, preco: editForm.preco ? parseFloat(editForm.preco.replace(',', '.')) : null, ativo: editForm.ativo }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setProducts((prev) => prev.map((p) => p.id === editingId ? data.product : p).sort((a, b) => a.numero - b.numero))
+      setEditingId(null)
+      toast({ title: 'Produto salvo!' })
+    } catch (err: any) { toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' }) }
+    finally { setSaving(false) }
+  }
+
+  async function deleteProduct(id: number) {
+    try {
+      const res = await fetch('/api/sdr/products', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      if (!res.ok) throw new Error((await res.json()).error)
+      setProducts((prev) => prev.filter((p) => p.id !== id))
+      toast({ title: 'Produto removido' })
+    } catch (err: any) { toast({ title: err.message || 'Erro ao remover', variant: 'destructive' }) }
+  }
+
+  async function toggleAtivo(product: CatalogProduct) {
+    try {
+      const res = await fetch('/api/sdr/products', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: product.id, ativo: !product.ativo }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setProducts((prev) => prev.map((p) => p.id === product.id ? data.product : p))
+    } catch (err: any) { toast({ title: err.message || 'Erro ao atualizar', variant: 'destructive' }) }
+  }
+
+  function startEdit(p: CatalogProduct) {
+    setEditingId(p.id)
+    setEditForm({ numero: String(p.numero), nome: p.nome, descricao: p.descricao ?? '', preco: p.preco != null ? String(p.preco) : '', ativo: p.ativo })
+    setAdding(false)
+  }
+
+  function ProductFormRow({ form, onChange, onSave, onCancel }: { form: ProductFormData; onChange: (f: ProductFormData) => void; onSave: () => void; onCancel: () => void }) {
+    return (
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-3">
+        <div className="grid grid-cols-[72px_1fr] gap-2">
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-muted-foreground">Nº *</label>
+            <Input type="number" value={form.numero} onChange={(e) => onChange({ ...form, numero: e.target.value })} placeholder="1" className="h-8 text-sm" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-muted-foreground">Nome *</label>
+            <Input value={form.nome} onChange={(e) => onChange({ ...form, nome: e.target.value })} placeholder="Ex: X-Burguer Duplo" className="h-8 text-sm" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-medium text-muted-foreground">Descrição</label>
+          <Input value={form.descricao} onChange={(e) => onChange({ ...form, descricao: e.target.value })} placeholder="Ex: 2 hambúrgueres, queijo, alface, tomate" className="h-8 text-sm" />
+        </div>
+        <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium text-muted-foreground">Preço (R$)</label>
+            <Input value={form.preco} onChange={(e) => onChange({ ...form, preco: e.target.value })} placeholder="Ex: 29,90" className="h-8 text-sm" />
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer h-8 pb-0.5">
+            <Switch checked={form.ativo} onCheckedChange={(v) => onChange({ ...form, ativo: v })} />
+            Ativo
+          </label>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={onSave} disabled={saving} className="h-7 text-xs gap-1.5 flex-1">
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}Salvar
+          </Button>
+          <Button size="sm" variant="outline" onClick={onCancel} className="h-7 text-xs">Cancelar</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+        Cadastre os itens do cardápio. O agente usa a lista para identificar pedidos por número — ex: "quero o item 30".
+      </div>
+
+      {products.length === 0 && !adding && (
+        <div className="text-center py-8 text-sm text-muted-foreground">Nenhum produto cadastrado ainda.</div>
+      )}
+
+      {products.map((p) =>
+        editingId === p.id ? (
+          <ProductFormRow key={p.id} form={editForm} onChange={setEditForm} onSave={saveEdit} onCancel={() => setEditingId(null)} />
+        ) : (
+          <div key={p.id} className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors', p.ativo ? 'border-border bg-card' : 'border-border/50 bg-muted/30 opacity-60')}>
+            <span className="text-[11px] font-mono font-semibold text-muted-foreground w-7 shrink-0">#{p.numero}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{p.nome}</p>
+              {p.descricao && <p className="text-[11px] text-muted-foreground truncate">{p.descricao}</p>}
+            </div>
+            {p.preco != null && (
+              <span className="text-xs font-semibold shrink-0">R$ {Number(p.preco).toFixed(2).replace('.', ',')}</span>
+            )}
+            <Switch checked={p.ativo} onCheckedChange={() => toggleAtivo(p)} />
+            <button onClick={() => startEdit(p)} className="text-muted-foreground hover:text-foreground transition-colors p-0.5">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => deleteProduct(p.id)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )
+      )}
+
+      {adding && (
+        <ProductFormRow form={addForm} onChange={setAddForm} onSave={addProduct} onCancel={() => { setAdding(false); setAddForm(EMPTY_PRODUCT) }} />
+      )}
+
+      {!adding && (
+        <button onClick={() => { setAdding(true); setEditingId(null) }} className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-1">
+          <Plus className="w-3.5 h-3.5" />Adicionar produto
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function SdrConfigPage() {
@@ -1245,6 +1419,17 @@ export default function SdrConfigPage() {
               onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
             />
           </div>
+        </div>
+      )}
+
+      {/* ── Cardápio ── */}
+      {activeTab === 'cardapio' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-3.5 h-3.5 text-muted-foreground" />
+            <p className="text-sm font-semibold">Cardápio / Produtos</p>
+          </div>
+          <CatalogManager />
         </div>
       )}
 
