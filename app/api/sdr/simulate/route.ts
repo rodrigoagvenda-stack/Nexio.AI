@@ -16,11 +16,12 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
     const body = await request.json()
-    const { nicheId, variables, history, userMessage } = body as {
+    const { nicheId, variables, history, userMessage, mode = 'inbound' } = body as {
       nicheId: string
       variables: SdrVariables
       history: SimMessage[]
       userMessage: string
+      mode?: 'inbound' | 'outbound'
     }
 
     const niche = NICHE_MAP[nicheId]
@@ -39,7 +40,11 @@ export async function POST(request: NextRequest) {
     const { default: OpenAI } = await import('openai')
     const openai = new OpenAI({ apiKey: openaiKey })
 
-    const systemPrompt = interpolate(niche.conhecimento, variables)
+    const basePrompt = interpolate(niche.conhecimento, variables)
+    const modeInstruction = mode === 'outbound'
+      ? '\n\n=== MODO OUTBOUND ===\nVocê está abordando ativamente o lead — ele não chegou até você. Seja mais direto na apresentação do valor antes de fazer perguntas. Contextualize por que está entrando em contato.'
+      : ''
+    const systemPrompt = basePrompt + modeInstruction
 
     // ── Gera resposta do SDR ───────────────────────────────────────────────
     const messages: OpenAI.ChatCompletionMessageParam[] = [
@@ -59,11 +64,17 @@ export async function POST(request: NextRequest) {
 
     // ── Gera feedback da IA ───────────────────────────────────────────────
     const feedbackPrompt = `Você é um especialista em SDR e vendas consultivas pelo WhatsApp.
-Avalie a resposta do agente abaixo de forma objetiva e curta.
+Avalie a resposta do agente abaixo de forma objetiva e curta, levando em conta o nicho e o modo de operação.
 
-Contexto do nicho: ${niche.label}
+Nicho: ${niche.label}
+Modo: ${mode === 'inbound' ? 'Inbound (lead chegou até o agente)' : 'Outbound (agente abordou o lead)'}
 Mensagem do lead: "${userMessage}"
 Resposta do agente: "${sdrResponse}"
+
+Critérios específicos para ${niche.label}:
+- A resposta segue as boas práticas deste nicho?
+- O tom e linguagem são adequados para ${mode === 'inbound' ? 'atendimento receptivo' : 'abordagem ativa'}?
+- Está avançando o lead no funil de forma natural?
 
 Responda em JSON com este formato exato:
 {

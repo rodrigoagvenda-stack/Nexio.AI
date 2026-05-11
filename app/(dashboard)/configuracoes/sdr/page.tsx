@@ -14,8 +14,8 @@ import {
   CheckCircle2, BookOpen, ShieldAlert, LogOut,
   Settings, Brain, Link2, Sparkles, ChevronDown,
   ChevronRight, ChevronLeft, ArrowRight, Plus, Trash2, X,
-  ShoppingBag, Pencil, FlaskConical, Send, RefreshCw,
-  ThumbsUp, AlertTriangle, Star,
+  ShoppingBag, Pencil, Send, RefreshCw,
+  ThumbsUp, AlertTriangle, Star, ChevronUp, Trash,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -74,7 +74,6 @@ const TABS = [
   { id: 'conhecimento', label: 'Conhecimento', icon: Brain },
   { id: 'integracoes', label: 'Integrações', icon: Link2 },
   { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag },
-  { id: 'simulador', label: 'Simulador', icon: FlaskConical },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -1358,34 +1357,93 @@ function CatalogManager() {
 
 // ── SimulatorChat ──────────────────────────────────────────────────────────
 
+type SimMode = 'inbound' | 'outbound'
 interface SimMessage { role: 'user' | 'assistant'; content: string }
 interface SimFeedback { score: number; positivo: string; melhorar: string | null }
-interface SimTurn { userMsg: string; sdrMsg: string; feedback: SimFeedback }
+interface SimTurn { userMsg: string; sdrMsg: string; feedback: SimFeedback; ts: string }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 8 ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
-    : score >= 6 ? 'text-amber-600 bg-amber-50 border-amber-200'
-    : 'text-red-600 bg-red-50 border-red-200'
+function now() { return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
+
+function TypingDots() {
   return (
-    <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border', color)}>
-      <Star className="w-2.5 h-2.5" /> {score}/10
-    </span>
+    <div className="flex items-center gap-1 px-1 py-0.5">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
+          style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.9s' }}
+        />
+      ))}
+    </div>
   )
 }
 
-function SimulatorChat({ nicheId, variables }: { nicheId: string; variables: Record<string, string> }) {
-  const [turns, setTurns] = useState<SimTurn[]>([])
+function FeedbackPill({ feedback }: { feedback: SimFeedback }) {
+  const [open, setOpen] = useState(false)
+  const scoreColor = feedback.score >= 8 ? 'text-emerald-500' : feedback.score >= 6 ? 'text-amber-500' : 'text-red-500'
+  return (
+    <div className="mt-1 ml-9">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+      >
+        <Star className={cn('w-2.5 h-2.5', scoreColor)} />
+        <span className={cn('font-semibold', scoreColor)}>{feedback.score}/10</span>
+        <span>· Análise IA</span>
+        {open ? <ChevronUp className="w-2.5 h-2.5" /> : <ChevronDown className="w-2.5 h-2.5" />}
+      </button>
+      {open && (
+        <div className="mt-1.5 rounded-lg border border-border/50 bg-card px-3 py-2 space-y-1.5 text-[11px]">
+          {feedback.positivo && (
+            <div className="flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <ThumbsUp className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>{feedback.positivo}</span>
+            </div>
+          )}
+          {feedback.melhorar && (
+            <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>{feedback.melhorar}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variables: Record<string, string>; flowId: string | null }) {
+  const storageKey = flowId ? `sdr_sim_${flowId}` : null
+
+  const [turns, setTurns] = useState<SimTurn[]>(() => {
+    if (!storageKey) return []
+    try { const s = localStorage.getItem(storageKey); if (s) return JSON.parse(s) } catch {}
+    return []
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mode, setMode] = useState<SimMode>('inbound')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const niche = NICHES.find((n) => n.id === nicheId)
   const missingRequired = niche ? niche.requiredVars.filter((k) => !variables[k]?.trim()) : []
+  const agentName = variables.nome_agente || 'Agente'
+
+  function saveTurns(next: SimTurn[]) {
+    setTurns(next)
+    if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {} }
+  }
+
+  function clearHistory() {
+    saveTurns([])
+    setError(null)
+  }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }, [turns, loading])
 
   const history: SimMessage[] = turns.flatMap((t) => [
@@ -1403,11 +1461,11 @@ function SimulatorChat({ nicheId, variables }: { nicheId: string; variables: Rec
       const res = await fetch('/api/sdr/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nicheId, variables, history, userMessage: msg }),
+        body: JSON.stringify({ nicheId, variables, history, userMessage: msg, mode }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao simular')
-      setTurns((prev) => [...prev, { userMsg: msg, sdrMsg: data.sdrResponse, feedback: data.feedback }])
+      saveTurns([...turns, { userMsg: msg, sdrMsg: data.sdrResponse, feedback: data.feedback, ts: now() }])
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1422,104 +1480,125 @@ function SimulatorChat({ nicheId, variables }: { nicheId: string; variables: Rec
 
   if (!nicheId) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground gap-2">
-        <FlaskConical className="w-8 h-8 opacity-30" />
-        <p className="text-sm">Selecione um nicho na aba Conhecimento para usar o simulador.</p>
+      <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-3 py-12">
+        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+          <Bot className="w-5 h-5 opacity-40" />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Simulador inativo</p>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">Selecione um nicho ao lado para ativar</p>
+        </div>
       </div>
     )
   }
 
   if (missingRequired.length > 0) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
-        <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
-          <AlertTriangle className="w-4 h-4" />
-          Preencha os campos obrigatórios para simular
+      <div className="flex flex-col gap-3 p-4">
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Campos obrigatórios faltando
+          </div>
+          <ul className="text-xs text-amber-600/80 space-y-1 pl-6 list-disc">
+            {missingRequired.map((k) => <li key={k}>{VAR_LABELS[k as VariableKey] ?? k}</li>)}
+          </ul>
+          <p className="text-xs text-muted-foreground">Preencha na aba <strong>Identidade</strong> e volte aqui.</p>
         </div>
-        <ul className="text-xs text-amber-600 space-y-1 pl-6 list-disc">
-          {missingRequired.map((k) => <li key={k}>{VAR_LABELS[k as VariableKey] ?? k}</li>)}
-        </ul>
-        <p className="text-xs text-amber-600">Vá para a aba <strong>Identidade</strong> e preencha os campos acima.</p>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FlaskConical className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-semibold">Simulador — {niche?.label}</span>
+    <div className="flex flex-col h-full min-h-0">
+      {/* ── WhatsApp header ── */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/60 bg-card shrink-0">
+        <div className="relative">
+          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+            <Bot className="w-4.5 h-4.5 text-primary" />
+          </div>
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-card" />
         </div>
-        {turns.length > 0 && (
-          <button
-            type="button"
-            onClick={() => { setTurns([]); setError(null) }}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <RefreshCw className="w-3 h-3" /> Reiniciar
-          </button>
-        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold leading-none truncate">{agentName}</p>
+          <p className="text-[11px] text-emerald-500 mt-0.5">online · {niche?.label}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          {turns.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={clearHistory}
+                title="Apagar histórico"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <Trash className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { saveTurns([]); setError(null) }}
+                title="Novo chat"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Info */}
-      {turns.length === 0 && (
-        <div className="rounded-lg bg-muted/50 border border-border/60 p-3 text-xs text-muted-foreground">
-          Digite como se você fosse um lead chegando pelo WhatsApp.
-          O agente vai responder usando seu template configurado.
-          A IA avalia cada resposta em tempo real.
-        </div>
-      )}
+      {/* ── Messages ── */}
+      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4 min-h-0" style={{ background: 'var(--sim-bg, hsl(var(--muted)/0.3))' }}>
+        {turns.length === 0 && (
+          <div className="flex flex-col items-center gap-2 pt-8 text-center">
+            <div className="px-3 py-1.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground/70 border border-border/40">
+              Simulação iniciada · {niche?.label}
+            </div>
+            <p className="text-xs text-muted-foreground/60 mt-1">Digite como um lead chegando pelo WhatsApp</p>
+          </div>
+        )}
 
-      {/* Chat */}
-      <div className="flex flex-col gap-4 min-h-[120px]">
         {turns.map((turn, i) => (
-          <div key={i} className="flex flex-col gap-2">
-            {/* Lead message */}
+          <div key={i} className="space-y-1">
+            {/* Lead message — right */}
             <div className="flex justify-end">
-              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3 py-2 text-sm">
-                {turn.userMsg}
+              <div className="max-w-[75%]">
+                <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+                  {turn.userMsg}
+                </div>
+                <p className="text-[10px] text-muted-foreground/50 text-right mt-0.5 pr-1">{turn.ts}</p>
               </div>
             </div>
-            {/* SDR response */}
-            <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap">
-                {turn.sdrMsg}
+
+            {/* SDR message — left */}
+            <div className="flex items-end gap-2">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4">
+                <Bot className="w-3 h-3 text-primary" />
               </div>
-            </div>
-            {/* Feedback */}
-            <div className="ml-1 flex flex-col gap-1 rounded-lg border border-border/50 bg-background px-3 py-2">
-              <div className="flex items-center gap-2">
-                <ScoreBadge score={turn.feedback.score} />
-                <span className="text-[11px] text-muted-foreground font-medium">Feedback da IA</span>
+              <div className="max-w-[75%]">
+                <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+                  {turn.sdrMsg}
+                </div>
+                <p className="text-[10px] text-muted-foreground/50 mt-0.5 pl-1">{turn.ts}</p>
+                <FeedbackPill feedback={turn.feedback} />
               </div>
-              {turn.feedback.positivo && (
-                <div className="flex items-start gap-1.5 text-[11px] text-emerald-700">
-                  <ThumbsUp className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span>{turn.feedback.positivo}</span>
-                </div>
-              )}
-              {turn.feedback.melhorar && (
-                <div className="flex items-start gap-1.5 text-[11px] text-amber-700">
-                  <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
-                  <span>{turn.feedback.melhorar}</span>
-                </div>
-              )}
             </div>
           </div>
         ))}
 
         {loading && (
-          <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted border border-border/60 px-3 py-2">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          <div className="flex items-end gap-2">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Bot className="w-3 h-3 text-primary" />
+            </div>
+            <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 shadow-sm">
+              <TypingDots />
             </div>
           </div>
         )}
 
         {error && (
-          <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
+          <div className="mx-2 flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-xl px-3 py-2">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             {error}
           </div>
@@ -1528,27 +1607,55 @@ function SimulatorChat({ nicheId, variables }: { nicheId: string; variables: Rec
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2 items-end border border-border rounded-xl p-2 bg-background focus-within:border-primary/50 transition-colors">
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Digite como um lead… (Enter para enviar)"
-          rows={1}
-          disabled={loading}
-          className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50 max-h-32"
-          style={{ fieldSizing: 'content' } as React.CSSProperties}
-        />
-        <button
-          type="button"
-          onClick={send}
-          disabled={!input.trim() || loading}
-          className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
-        >
-          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-        </button>
+      {/* ── Mode toggle + Input ── */}
+      <div className="border-t border-border/60 bg-card shrink-0">
+        {/* Inbound / Outbound toggle */}
+        <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+          <span className="text-[10px] text-muted-foreground/60 mr-1">Modo:</span>
+          {(['inbound', 'outbound'] as SimMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={cn(
+                'px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors',
+                mode === m
+                  ? 'bg-primary/10 border-primary/30 text-primary'
+                  : 'border-border/50 text-muted-foreground/60 hover:border-border hover:text-muted-foreground'
+              )}
+            >
+              {m === 'inbound' ? 'Inbound' : 'Outbound'}
+            </button>
+          ))}
+          <span className="text-[10px] text-muted-foreground/40 ml-auto">
+            {mode === 'inbound' ? 'Lead chegou até você' : 'Você abordou o lead'}
+          </span>
+        </div>
+
+        {/* Text input */}
+        <div className="flex gap-2 items-end px-3 pb-3">
+          <div className="flex-1 flex items-end gap-2 rounded-2xl border border-border bg-background px-3 py-2 focus-within:border-primary/40 transition-colors">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Mensagem…"
+              rows={1}
+              disabled={loading}
+              className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:opacity-50 max-h-28 leading-5"
+              style={{ fieldSizing: 'content' } as React.CSSProperties}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={send}
+            disabled={!input.trim() || loading}
+            className="w-9 h-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center disabled:opacity-40 transition-colors shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1653,7 +1760,7 @@ export default function SdrConfigPage() {
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 pb-8">
+    <div className={cn('mx-auto p-4 md:p-6 pb-8', activeTab === 'conhecimento' ? 'max-w-[1280px]' : 'max-w-2xl')}>
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-5">
@@ -1795,39 +1902,72 @@ export default function SdrConfigPage() {
         </div>
       )}
 
-      {/* ── Conhecimento ── */}
+      {/* ── Conhecimento — split panel ── */}
       {activeTab === 'conhecimento' && (
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-sm font-semibold">Base de conhecimento</p>
+        <div className="flex gap-4 h-[calc(100vh-200px)] min-h-[560px]">
+          {/* Left — KB config */}
+          <div className="w-[400px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-semibold">Base de conhecimento</p>
+              </div>
+              <KnowledgeBuilder
+                flowId={config.flow_id}
+                type="conhecimento"
+                active={config.conhecimento_ativo}
+                onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
+                persona={config.persona}
+                onPersonaChange={setPersona}
+                sharedNicheId={sharedNicheId}
+                onNicheChange={handleNicheChange}
+              />
             </div>
-            <KnowledgeBuilder
-              flowId={config.flow_id}
-              type="conhecimento"
-              active={config.conhecimento_ativo}
-              onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
-              persona={config.persona}
-              onPersonaChange={setPersona}
-              sharedNicheId={sharedNicheId}
-              onNicheChange={handleNicheChange}
-            />
+            <div className="border-t border-border/60 pt-5">
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="text-sm font-semibold">Base de objeções</p>
+              </div>
+              <KnowledgeBuilder
+                flowId={config.flow_id}
+                type="objecoes"
+                active={config.objecoes_ativo}
+                onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
+                persona={config.persona}
+                onPersonaChange={setPersona}
+                sharedNicheId={sharedNicheId}
+                onNicheChange={handleNicheChange}
+              />
+            </div>
           </div>
-          <div className="border-t border-border/60 pt-5">
-            <div className="flex items-center gap-2 mb-3">
-              <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
-              <p className="text-sm font-semibold">Base de objeções</p>
-            </div>
-            <KnowledgeBuilder
+
+          {/* Right — Simulator */}
+          <div className="flex-1 min-w-0 rounded-xl border border-border overflow-hidden">
+            <SimulatorChat
+              nicheId={sharedNicheId}
               flowId={config.flow_id}
-              type="objecoes"
-              active={config.objecoes_ativo}
-              onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
-              persona={config.persona}
-              onPersonaChange={setPersona}
-              sharedNicheId={sharedNicheId}
-              onNicheChange={handleNicheChange}
+              variables={{
+                nome_agente: config.persona.nome_agente,
+                nome_empresa: config.persona.empresa,
+                descricao_produto: config.persona.produto,
+                tom_agente: config.persona.tom,
+                horario: config.persona.horario,
+                url_empresa: config.persona.url_empresa,
+                preco: config.persona.preco,
+                periodo_teste: config.persona.periodo_teste,
+                link_teste: config.persona.link_teste,
+                link_playlist: config.persona.link_playlist,
+                link_agendamento: config.persona.link_agendamento,
+                link_catalogo: config.persona.link_catalogo,
+                link_pedido: config.persona.link_pedido,
+                endereco: config.persona.endereco,
+                taxa_entrega: config.persona.taxa_entrega,
+                tempo_entrega: config.persona.tempo_entrega,
+                area_entrega: config.persona.area_entrega,
+                formas_pagamento: config.persona.formas_pagamento,
+                valor_minimo_pedido: config.persona.valor_minimo_pedido,
+                pedido_tipo: config.persona.pedido_tipo,
+              }}
             />
           </div>
         </div>
@@ -1878,34 +2018,6 @@ export default function SdrConfigPage() {
         </div>
       )}
 
-      {/* ── Simulador ── */}
-      {activeTab === 'simulador' && (
-        <SimulatorChat
-          nicheId={sharedNicheId}
-          variables={{
-            nome_agente: config.persona.nome_agente,
-            nome_empresa: config.persona.empresa,
-            descricao_produto: config.persona.produto,
-            tom_agente: config.persona.tom,
-            horario: config.persona.horario,
-            url_empresa: config.persona.url_empresa,
-            preco: config.persona.preco,
-            periodo_teste: config.persona.periodo_teste,
-            link_teste: config.persona.link_teste,
-            link_playlist: config.persona.link_playlist,
-            link_agendamento: config.persona.link_agendamento,
-            link_catalogo: config.persona.link_catalogo,
-            link_pedido: config.persona.link_pedido,
-            endereco: config.persona.endereco,
-            taxa_entrega: config.persona.taxa_entrega,
-            tempo_entrega: config.persona.tempo_entrega,
-            area_entrega: config.persona.area_entrega,
-            formas_pagamento: config.persona.formas_pagamento,
-            valor_minimo_pedido: config.persona.valor_minimo_pedido,
-            pedido_tipo: config.persona.pedido_tipo,
-          }}
-        />
-      )}
 
     </div>
   )
