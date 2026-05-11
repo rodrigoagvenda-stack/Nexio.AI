@@ -59,37 +59,17 @@ export async function POST(request: NextRequest) {
           .contains('metadata', { flow_id: flowId, doc_type: 'conhecimento' })
           .order('created_at', { ascending: true })
 
-        const realDocs = knowledgeDocs?.filter(
-          (d) => !d.metadata?.is_correction
-        ) ?? []
+        // is_correction is stored as string "true" in metadata
+        const realDocs = knowledgeDocs?.filter((d) => !d.metadata?.is_correction) ?? []
+        const correctionDocs = knowledgeDocs?.filter((d) => d.metadata?.is_correction) ?? []
 
         if (realDocs.length > 0) {
-          // Use the flow's actual knowledge base instead of the static template
           basePrompt = realDocs.map((d) => d.content).join('\n\n')
         }
 
-        // Fetch corrections separately
-        const correctionDocs = knowledgeDocs?.filter(
-          (d) => d.metadata?.is_correction === true
-        ) ?? []
-
-        // Also query corrections saved from patch route (have is_correction at top level of metadata)
-        const { data: patchCorrections } = await service
-          .from('documents')
-          .select('content')
-          .eq('company_id', userData.company_id)
-          .contains('metadata', { flow_id: flowId, is_correction: true })
-          .order('created_at', { ascending: true })
-
-        const allCorrections = [
-          ...correctionDocs.map((d) => d.content),
-          ...(patchCorrections?.map((d) => d.content) ?? []),
-        ]
-        const uniqueCorrections = [...new Set(allCorrections)]
-
-        if (uniqueCorrections.length > 0) {
+        if (correctionDocs.length > 0) {
           correctionsBlock = '\n\n=== CORREÇÕES OBRIGATÓRIAS (aprendidas em simulações anteriores) ===\n' +
-            uniqueCorrections.join('\n\n') +
+            correctionDocs.map((d) => d.content).join('\n\n') +
             '\n=== FIM DAS CORREÇÕES ==='
         }
       }
