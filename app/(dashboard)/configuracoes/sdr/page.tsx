@@ -14,7 +14,8 @@ import {
   CheckCircle2, BookOpen, ShieldAlert, LogOut,
   Settings, Brain, Link2, Sparkles, ChevronDown,
   ChevronRight, ChevronLeft, ArrowRight, Plus, Trash2, X,
-  ShoppingBag, Pencil,
+  ShoppingBag, Pencil, FlaskConical, Send, RefreshCw,
+  ThumbsUp, AlertTriangle, Star,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 
@@ -73,6 +74,7 @@ const TABS = [
   { id: 'conhecimento', label: 'Conhecimento', icon: Brain },
   { id: 'integracoes', label: 'Integrações', icon: Link2 },
   { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag },
+  { id: 'simulador', label: 'Simulador', icon: FlaskConical },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -1109,6 +1111,204 @@ function CatalogManager() {
   )
 }
 
+// ── SimulatorChat ──────────────────────────────────────────────────────────
+
+interface SimMessage { role: 'user' | 'assistant'; content: string }
+interface SimFeedback { score: number; positivo: string; melhorar: string | null }
+interface SimTurn { userMsg: string; sdrMsg: string; feedback: SimFeedback }
+
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 8 ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+    : score >= 6 ? 'text-amber-600 bg-amber-50 border-amber-200'
+    : 'text-red-600 bg-red-50 border-red-200'
+  return (
+    <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border', color)}>
+      <Star className="w-2.5 h-2.5" /> {score}/10
+    </span>
+  )
+}
+
+function SimulatorChat({ nicheId, variables }: { nicheId: string; variables: Record<string, string> }) {
+  const [turns, setTurns] = useState<SimTurn[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const niche = NICHES.find((n) => n.id === nicheId)
+  const missingRequired = niche ? niche.requiredVars.filter((k) => !variables[k]?.trim()) : []
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [turns, loading])
+
+  const history: SimMessage[] = turns.flatMap((t) => [
+    { role: 'user', content: t.userMsg },
+    { role: 'assistant', content: t.sdrMsg },
+  ])
+
+  async function send() {
+    const msg = input.trim()
+    if (!msg || loading) return
+    setInput('')
+    setError(null)
+    setLoading(true)
+    try {
+      const res = await fetch('/api/sdr/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nicheId, variables, history, userMessage: msg }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao simular')
+      setTurns((prev) => [...prev, { userMsg: msg, sdrMsg: data.sdrResponse, feedback: data.feedback }])
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+  }
+
+  if (!nicheId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground gap-2">
+        <FlaskConical className="w-8 h-8 opacity-30" />
+        <p className="text-sm">Selecione um nicho na aba Conhecimento para usar o simulador.</p>
+      </div>
+    )
+  }
+
+  if (missingRequired.length > 0) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
+        <div className="flex items-center gap-2 text-amber-700 text-sm font-medium">
+          <AlertTriangle className="w-4 h-4" />
+          Preencha os campos obrigatórios para simular
+        </div>
+        <ul className="text-xs text-amber-600 space-y-1 pl-6 list-disc">
+          {missingRequired.map((k) => <li key={k}>{VAR_LABELS[k as VariableKey] ?? k}</li>)}
+        </ul>
+        <p className="text-xs text-amber-600">Vá para a aba <strong>Identidade</strong> e preencha os campos acima.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FlaskConical className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Simulador — {niche?.label}</span>
+        </div>
+        {turns.length > 0 && (
+          <button
+            type="button"
+            onClick={() => { setTurns([]); setError(null) }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" /> Reiniciar
+          </button>
+        )}
+      </div>
+
+      {/* Info */}
+      {turns.length === 0 && (
+        <div className="rounded-lg bg-muted/50 border border-border/60 p-3 text-xs text-muted-foreground">
+          Digite como se você fosse um lead chegando pelo WhatsApp.
+          O agente vai responder usando seu template configurado.
+          A IA avalia cada resposta em tempo real.
+        </div>
+      )}
+
+      {/* Chat */}
+      <div className="flex flex-col gap-4 min-h-[120px]">
+        {turns.map((turn, i) => (
+          <div key={i} className="flex flex-col gap-2">
+            {/* Lead message */}
+            <div className="flex justify-end">
+              <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary text-primary-foreground px-3 py-2 text-sm">
+                {turn.userMsg}
+              </div>
+            </div>
+            {/* SDR response */}
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted border border-border/60 px-3 py-2 text-sm whitespace-pre-wrap">
+                {turn.sdrMsg}
+              </div>
+            </div>
+            {/* Feedback */}
+            <div className="ml-1 flex flex-col gap-1 rounded-lg border border-border/50 bg-background px-3 py-2">
+              <div className="flex items-center gap-2">
+                <ScoreBadge score={turn.feedback.score} />
+                <span className="text-[11px] text-muted-foreground font-medium">Feedback da IA</span>
+              </div>
+              {turn.feedback.positivo && (
+                <div className="flex items-start gap-1.5 text-[11px] text-emerald-700">
+                  <ThumbsUp className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span>{turn.feedback.positivo}</span>
+                </div>
+              )}
+              {turn.feedback.melhorar && (
+                <div className="flex items-start gap-1.5 text-[11px] text-amber-700">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                  <span>{turn.feedback.melhorar}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted border border-border/60 px-3 py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2 items-end border border-border rounded-xl p-2 bg-background focus-within:border-primary/50 transition-colors">
+        <textarea
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Digite como um lead… (Enter para enviar)"
+          rows={1}
+          disabled={loading}
+          className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/60 disabled:opacity-50 max-h-32"
+          style={{ fieldSizing: 'content' } as React.CSSProperties}
+        />
+        <button
+          type="button"
+          onClick={send}
+          disabled={!input.trim() || loading}
+          className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
+        >
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function SdrConfigPage() {
@@ -1431,6 +1631,35 @@ export default function SdrConfigPage() {
           </div>
           <CatalogManager />
         </div>
+      )}
+
+      {/* ── Simulador ── */}
+      {activeTab === 'simulador' && (
+        <SimulatorChat
+          nicheId={sharedNicheId}
+          variables={{
+            nome_agente: config.persona.nome_agente,
+            nome_empresa: config.persona.empresa,
+            descricao_produto: config.persona.produto,
+            tom_agente: config.persona.tom,
+            horario: config.persona.horario,
+            url_empresa: config.persona.url_empresa,
+            preco: config.persona.preco,
+            periodo_teste: config.persona.periodo_teste,
+            link_teste: config.persona.link_teste,
+            link_playlist: config.persona.link_playlist,
+            link_agendamento: config.persona.link_agendamento,
+            link_catalogo: config.persona.link_catalogo,
+            link_pedido: config.persona.link_pedido,
+            endereco: config.persona.endereco,
+            taxa_entrega: config.persona.taxa_entrega,
+            tempo_entrega: config.persona.tempo_entrega,
+            area_entrega: config.persona.area_entrega,
+            formas_pagamento: config.persona.formas_pagamento,
+            valor_minimo_pedido: config.persona.valor_minimo_pedido,
+            pedido_tipo: config.persona.pedido_tipo,
+          }}
+        />
       )}
 
     </div>
