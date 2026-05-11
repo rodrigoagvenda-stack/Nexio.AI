@@ -1517,6 +1517,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendingUserMsg, setPendingUserMsg] = useState<string | null>(null)
   const [applyingIndex, setApplyingIndex] = useState<number | null>(null)
   const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
@@ -1564,6 +1565,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     setInput('')
     setError(null)
     setLoading(true)
+    setPendingUserMsg(msg)
     try {
       const res = await fetch('/api/sdr/simulate', {
         method: 'POST',
@@ -1577,6 +1579,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       setError(err.message)
     } finally {
       setLoading(false)
+      setPendingUserMsg(null)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
@@ -1721,6 +1724,16 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
             </div>
           </div>
         ))}
+
+        {pendingUserMsg && (
+          <div className="flex justify-end">
+            <div className="max-w-[75%]">
+              <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
+                {pendingUserMsg}
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading && (
           <div className="flex items-end gap-2">
