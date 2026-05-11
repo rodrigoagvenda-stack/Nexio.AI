@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
 import type OpenAI from 'openai'
@@ -16,13 +16,14 @@ export async function POST(request: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
     const body = await request.json()
-    const { nicheId, variables, history, userMessage, mode = 'inbound', correctionHint } = body as {
+    const { nicheId, variables, history, userMessage, mode = 'inbound', correctionHint, flowId } = body as {
       nicheId: string
       variables: SdrVariables
       history: SimMessage[]
       userMessage: string
       mode?: 'inbound' | 'outbound'
       correctionHint?: string | null
+      flowId?: string | null
     }
 
     const niche = NICHE_MAP[nicheId]
@@ -40,6 +41,27 @@ export async function POST(request: NextRequest) {
 
     const { default: OpenAI } = await import('openai')
     const openai = new OpenAI({ apiKey: openaiKey })
+
+    // ── Fetch saved corrections for this flow ──────────────────────────────
+    let correctionsBlock = ''
+    if (flowId) {
+      const service = createServiceClient()
+      const { data: userData } = await supabase
+        .from('users').select('company_id').eq('auth_user_id', user.id).single()
+      if (userData?.company_id) {
+        const { data: corrections } = await service
+          .from('documents')
+          .select('content')
+          .eq('company_id', userData.company_id)
+          .contains('metadata', { flow_id: flowId, is_correction: true })
+          .order('created_at', { ascending: true })
+        if (corrections && corrections.length > 0) {
+          correctionsBlock = '\n\n=== CORREÇÕES OBRIGATÓRIAS (aprendidas em simulações anteriores) ===\n' +
+            corrections.map((c) => c.content).join('\n\n') +
+            '\n=== FIM DAS CORREÇÕES ==='
+        }
+      }
+    }
 
     const basePrompt = interpolate(niche.conhecimento, variables)
     const modeInstruction = mode === 'outbound'
@@ -61,7 +83,7 @@ Você PODE incluir marcadores de mídia quando fizer sentido para o contexto:
 - "[PDF: nome.pdf]" — para simular envio de documento
 Nunca quebre uma frase lógica entre duas mensagens.`
 
-    const systemPrompt = basePrompt + modeInstruction + correctionInstruction + formatInstruction
+    const systemPrompt = basePrompt + correctionsBlock + modeInstruction + correctionInstruction + formatInstruction
 
     // ── Gera resposta do SDR ───────────────────────────────────────────────
     const messages: OpenAI.ChatCompletionMessageParam[] = [

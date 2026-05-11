@@ -1568,7 +1568,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       const res = await fetch('/api/sdr/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nicheId, variables, history, userMessage: msg, mode }),
+        body: JSON.stringify({ nicheId, variables, history, userMessage: msg, mode, flowId }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao simular')
