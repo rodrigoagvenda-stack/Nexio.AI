@@ -42,28 +42,58 @@ export async function POST(request: NextRequest) {
     const { default: OpenAI } = await import('openai')
     const openai = new OpenAI({ apiKey: openaiKey })
 
-    // ── Fetch saved corrections for this flow ──────────────────────────────
+    // ── Fetch flow documents (real KB) and corrections ───────────────────
+    let basePrompt = interpolate(niche.conhecimento, variables)
     let correctionsBlock = ''
+
     if (flowId) {
       const service = createServiceClient()
       const { data: userData } = await supabase
         .from('users').select('company_id').eq('auth_user_id', user.id).single()
       if (userData?.company_id) {
-        const { data: corrections } = await service
+        // Fetch all knowledge chunks for this flow (excludes corrections)
+        const { data: knowledgeDocs } = await service
+          .from('documents')
+          .select('content, metadata')
+          .eq('company_id', userData.company_id)
+          .contains('metadata', { flow_id: flowId, doc_type: 'conhecimento' })
+          .order('created_at', { ascending: true })
+
+        const realDocs = knowledgeDocs?.filter(
+          (d) => !d.metadata?.is_correction
+        ) ?? []
+
+        if (realDocs.length > 0) {
+          // Use the flow's actual knowledge base instead of the static template
+          basePrompt = realDocs.map((d) => d.content).join('\n\n')
+        }
+
+        // Fetch corrections separately
+        const correctionDocs = knowledgeDocs?.filter(
+          (d) => d.metadata?.is_correction === true
+        ) ?? []
+
+        // Also query corrections saved from patch route (have is_correction at top level of metadata)
+        const { data: patchCorrections } = await service
           .from('documents')
           .select('content')
           .eq('company_id', userData.company_id)
           .contains('metadata', { flow_id: flowId, is_correction: true })
           .order('created_at', { ascending: true })
-        if (corrections && corrections.length > 0) {
+
+        const allCorrections = [
+          ...correctionDocs.map((d) => d.content),
+          ...(patchCorrections?.map((d) => d.content) ?? []),
+        ]
+        const uniqueCorrections = [...new Set(allCorrections)]
+
+        if (uniqueCorrections.length > 0) {
           correctionsBlock = '\n\n=== CORREÇÕES OBRIGATÓRIAS (aprendidas em simulações anteriores) ===\n' +
-            corrections.map((c) => c.content).join('\n\n') +
+            uniqueCorrections.join('\n\n') +
             '\n=== FIM DAS CORREÇÕES ==='
         }
       }
     }
-
-    const basePrompt = interpolate(niche.conhecimento, variables)
     const modeInstruction = mode === 'outbound'
       ? '\n\n=== MODO OUTBOUND ===\nVocê está abordando ativamente o lead — ele não chegou até você. Seja mais direto na apresentação do valor antes de fazer perguntas. Contextualize por que está entrando em contato.'
       : ''
