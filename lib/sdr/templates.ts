@@ -52,6 +52,7 @@ export function interpolate(template: string, vars: SdrVariables): string {
 }
 
 // ── Blocos fixos compartilhados ────────────────────────────────────────────
+// Exported so the questionnaire generator can embed them in AI-generated prompts.
 
 const ORDEM_EXECUCAO = `
 === ORDEM DE EXECUÇÃO (siga SEMPRE nesta ordem) ===
@@ -2615,9 +2616,38 @@ export const NICHES: NicheTemplate[] = [
     conhecimento: GENERICO_CONHECIMENTO,
     objecoes: GENERICO_OBJECOES,
   },
+  {
+    id: 'monte-o-seu',
+    label: 'Monte o seu',
+    emoji: '🛠️',
+    category: 'vendas',
+    description: 'Template 100% personalizado gerado por IA a partir do seu negócio',
+    features: [
+      'Questionário estratégico de 8 blocos que captura identidade, produto, cliente ideal e objeções reais',
+      'IA gera fluxo, scripts e base de objeções personalizados — mantendo todos os blocos imutáveis de qualidade',
+      'Resultado equivalente a um template de nicho, mas moldado ao seu negócio específico',
+    ],
+    requiredVars: ['nome_agente', 'nome_empresa', 'tom_agente'],
+    optionalVars: [],
+    conhecimento: '',
+    objecoes: '',
+  },
 ]
 
 export const NICHE_MAP = Object.fromEntries(NICHES.map((n) => [n.id, n])) as Record<string, NicheTemplate>
+
+/** Immutable blocks exported so the questionnaire generator can embed them verbatim */
+export const IMUTABLE_BLOCKS = {
+  ORDEM_EXECUCAO,
+  CHECKLIST_BASE,
+  DETECCAO_BOT,
+  ANTI_REPETICAO,
+  TOM_FORMATACAO,
+  COMPORTAMENTOS_PROIBIDOS_BASE,
+  ENCERRAMENTO_GERAL,
+  OBJ_HEADER,
+  OBJ_FOOTER,
+}
 
 /** Labels amigáveis para cada variável */
 export const VAR_LABELS: Record<VariableKey, string> = {

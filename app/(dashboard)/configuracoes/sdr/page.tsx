@@ -349,6 +349,214 @@ function Field({ label, hint, children, optional }: { label: string; hint?: stri
   )
 }
 
+// ── QuestionnaireWizard ────────────────────────────────────────────────────
+
+interface QAnswers {
+  identidade: string; produto: string; cliente: string; chegada: string
+  proximo_passo: string; precos: string; objecoes: string; limites: string
+}
+
+const EMPTY_ANSWERS: QAnswers = {
+  identidade: '', produto: '', cliente: '', chegada: '',
+  proximo_passo: '', precos: '', objecoes: '', limites: '',
+}
+
+const Q_BLOCKS: { key: keyof QAnswers; label: string; question: string; hint: string; placeholder: string; required?: boolean }[] = [
+  {
+    key: 'identidade', label: '1. Identidade', required: true,
+    question: 'Como você descreveria seu negócio em 2–3 frases?',
+    hint: 'O que você faz, para quem atende e qual é o principal diferencial.',
+    placeholder: 'Ex: Somos uma clínica estética focada em procedimentos não cirúrgicos para mulheres 30+. Nosso diferencial é a avaliação personalizada antes de qualquer procedimento.',
+  },
+  {
+    key: 'produto', label: '2. Produto / Serviço', required: true,
+    question: 'O que exatamente você vende ou oferece?',
+    hint: 'Liste os principais produtos ou serviços e os benefícios reais para o cliente.',
+    placeholder: 'Ex: Botox, preenchimento labial, peeling e limpeza de pele. O benefício é autoestima elevada e resultado visível em até 48h.',
+  },
+  {
+    key: 'cliente', label: '3. Cliente Ideal', required: true,
+    question: 'Quem é o seu cliente ideal?',
+    hint: 'Perfil, dores, motivações e o que ele busca quando entra em contato.',
+    placeholder: 'Ex: Mulher entre 30 e 55 anos, com insegurança sobre envelhecimento. Busca resultado natural, segurança no procedimento e atendimento acolhedor.',
+  },
+  {
+    key: 'chegada', label: '4. Como o Lead Chega',
+    question: 'Como os leads chegam até você e o que costumam dizer?',
+    hint: 'Canais (anúncio, indicação, Google) e frases típicas na primeira mensagem.',
+    placeholder: 'Ex: Maioria vem pelo Instagram. Costumam dizer "vi um post sobre botox" ou "uma amiga me indicou".',
+  },
+  {
+    key: 'proximo_passo', label: '5. Próximo Passo', required: true,
+    question: 'Qual ação você quer que o lead tome?',
+    hint: 'Agendar consulta, fazer teste, comprar... e como esse processo funciona.',
+    placeholder: 'Ex: Agendar uma avaliação gratuita. O link é calendly.com/clinica. A avaliação dura 30 min e é sem compromisso.',
+  },
+  {
+    key: 'precos', label: '6. Preços e Condições',
+    question: 'Como funciona o investimento?',
+    hint: 'Valores, período de teste, avaliação gratuita, parcelamento ou condições especiais.',
+    placeholder: 'Ex: Botox a partir de R$ 800. Avaliação gratuita. Parcelamos em até 12x sem juros no cartão.',
+  },
+  {
+    key: 'objecoes', label: '7. Objeções Comuns',
+    question: 'Quais são as 3 objeções mais comuns? Como você costuma responder?',
+    hint: 'Para cada objeção, descreva como você responde. A IA vai transformar em scripts.',
+    placeholder: 'Ex:\n"Tá caro" → Explico que avaliação é gratuita e parcelamos.\n"Tenho medo de dor" → Mostramos que usamos anestesia e é tranquilo.\n"Vou pensar" → Proponho deixar um horário reservado.',
+  },
+  {
+    key: 'limites', label: '8. Limites do Agente',
+    question: 'O que o agente NUNCA deve fazer ou dizer?',
+    hint: 'O que deve evitar, limites de assunto e quando transferir para humano.',
+    placeholder: 'Ex: Nunca citar preço exato sem avaliação. Nunca fazer diagnóstico. Transferir para humano se pedir orçamento detalhado ou reclamar de procedimento anterior.',
+  },
+]
+
+function QuestionnaireWizard({
+  flowId, type, variables, onSuccess,
+}: {
+  flowId: string | null
+  type: 'conhecimento' | 'objecoes'
+  variables: SdrVariables
+  onSuccess: (result: { chunks: number }) => void
+}) {
+  const storageKey = flowId ? `sdr_questionnaire_${flowId}` : null
+  const [answers, setAnswers] = useState<QAnswers>(() => {
+    if (!storageKey) return { ...EMPTY_ANSWERS }
+    try { const saved = localStorage.getItem(storageKey); if (saved) return { ...EMPTY_ANSWERS, ...JSON.parse(saved) } } catch {}
+    return { ...EMPTY_ANSWERS }
+  })
+  const [step, setStep] = useState(0)
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const current = Q_BLOCKS[step]
+  const total = Q_BLOCKS.length
+  const progress = Math.round((step / total) * 100)
+
+  function setAnswer(key: keyof QAnswers, value: string) {
+    const next = { ...answers, [key]: value }
+    setAnswers(next)
+    if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {} }
+  }
+
+  useEffect(() => { setTimeout(() => textareaRef.current?.focus(), 80) }, [step])
+
+  const requiredFilled = Q_BLOCKS.filter((b) => b.required).every((b) => answers[b.key].trim())
+
+  async function generate() {
+    if (!flowId) { setError('Salve a configuração antes de gerar.'); return }
+    setError(null)
+    setProcessing(true)
+    try {
+      const res = await fetch(`/api/sdr/flows/${flowId}/knowledge/from-questionnaire`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, answers, variables }),
+      })
+      let data: any
+      try { data = await res.json() } catch { throw new Error(`Erro ${res.status}`) }
+      if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
+      onSuccess({ chunks: data.chunks })
+    } catch (err: any) {
+      setError(err.message)
+    } finally { setProcessing(false) }
+  }
+
+  const isLast = step === total - 1
+
+  return (
+    <div className="space-y-4">
+      {/* Progress bar */}
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-[10px] text-muted-foreground">
+          <span>{current.label}</span>
+          <span>{step + 1}/{total}</span>
+        </div>
+        <div className="h-1 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${progress + (100 / total)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Question card */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold">{current.question}</p>
+          {current.required && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">obrigatório</span>
+          )}
+        </div>
+        {current.hint && <p className="text-xs text-muted-foreground">{current.hint}</p>}
+        <textarea
+          ref={textareaRef}
+          value={answers[current.key]}
+          onChange={(e) => setAnswer(current.key, e.target.value)}
+          placeholder={current.placeholder}
+          rows={5}
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/60"
+        />
+      </div>
+
+      {/* Navigation */}
+      <div className="flex gap-2">
+        {step > 0 && (
+          <Button size="sm" variant="outline" onClick={() => setStep((s) => s - 1)} className="h-8 text-xs gap-1">
+            <ChevronLeft className="w-3 h-3" /> Anterior
+          </Button>
+        )}
+        {!isLast && (
+          <Button size="sm" onClick={() => setStep((s) => s + 1)} className="h-8 text-xs gap-1 ml-auto">
+            Próximo <ArrowRight className="w-3 h-3" />
+          </Button>
+        )}
+        {isLast && (
+          <Button
+            size="sm"
+            onClick={generate}
+            disabled={processing || !requiredFilled}
+            className="h-8 text-xs gap-1.5 ml-auto"
+          >
+            {processing
+              ? <><Loader2 className="w-3 h-3 animate-spin" />Gerando com IA…</>
+              : <><Sparkles className="w-3 h-3" />Gerar template personalizado</>}
+          </Button>
+        )}
+      </div>
+
+      {/* Step dots */}
+      <div className="flex gap-1 justify-center">
+        {Q_BLOCKS.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setStep(i)}
+            className={cn(
+              'w-1.5 h-1.5 rounded-full transition-colors',
+              i === step ? 'bg-primary' : answers[Q_BLOCKS[i].key].trim() ? 'bg-primary/40' : 'bg-muted-foreground/20'
+            )}
+          />
+        ))}
+      </div>
+
+      {!requiredFilled && isLast && (
+        <p className="text-xs text-amber-600 text-center">
+          Preencha os blocos obrigatórios (1, 2, 3 e 5) antes de gerar.
+        </p>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Knowledge Builder ──────────────────────────────────────────────────────
 
 type KBMode = 'template' | 'form'
@@ -504,8 +712,10 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
     { id: 'form', label: 'Guiado', icon: ChevronRight },
   ]
 
-  const vendas = NICHES.filter((n) => n.category === 'vendas')
+  const vendas = NICHES.filter((n) => n.category === 'vendas' && n.id !== 'monte-o-seu')
   const atendimento = NICHES.filter((n) => n.category === 'atendimento')
+  const monteOSeu = NICHES.find((n) => n.id === 'monte-o-seu')
+  const isMonteOSeu = sharedNicheId === 'monte-o-seu'
 
   return (
     <div className="space-y-4">
@@ -586,13 +796,32 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                           ))}
                         </div>
                       ))}
+                      {monteOSeu && (
+                        <div>
+                          <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">🛠️ Personalizado</p>
+                          <button
+                            onClick={() => { onNicheChange(monteOSeu.id); setNicheDropdownOpen(false) }}
+                            className={cn(
+                              'w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left',
+                              isMonteOSeu && 'bg-primary/5'
+                            )}
+                          >
+                            <span className="text-base shrink-0 mt-0.5">{monteOSeu.emoji}</span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">{monteOSeu.label}</p>
+                              <p className="text-xs text-muted-foreground">{monteOSeu.description}</p>
+                            </div>
+                            {isMonteOSeu && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Inline variable editor */}
-              {selectedNiche && (() => {
+              {/* Inline variable editor — only for regular niches */}
+              {selectedNiche && !isMonteOSeu && (() => {
                 const allKeys = [...selectedNiche.requiredVars, ...selectedNiche.optionalVars]
                 const allQuestions = WIZARD_QUESTIONS.filter((q) => allKeys.includes(q.key))
                 const allFilled = allQuestions.every((q) => !!getWizardValue(q))
@@ -639,16 +868,32 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                 )
               })()}
 
-              <Button
-                size="sm"
-                onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'template')}
-                disabled={processing || !flowId || !sharedNicheId}
-                className="gap-1.5 text-xs h-8 w-full"
-              >
-                {processing
-                  ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
-                  : <><Sparkles className="w-3 h-3" />Gerar e processar template</>}
-              </Button>
+              {/* Questionnaire — only for Monte o seu */}
+              {isMonteOSeu && (
+                <QuestionnaireWizard
+                  flowId={flowId}
+                  type={type}
+                  variables={buildVariables()}
+                  onSuccess={(result) => {
+                    setLastResult({ chunks: result.chunks, table: type })
+                    setExistingBase({ filename: `${type}_monte-o-seu`, chunks: result.chunks })
+                    toast({ title: `✓ ${result.chunks} chunks processados e salvos!` })
+                  }}
+                />
+              )}
+
+              {!isMonteOSeu && (
+                <Button
+                  size="sm"
+                  onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'template')}
+                  disabled={processing || !flowId || !sharedNicheId}
+                  className="gap-1.5 text-xs h-8 w-full"
+                >
+                  {processing
+                    ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
+                    : <><Sparkles className="w-3 h-3" />Gerar e processar template</>}
+                </Button>
+              )}
             </div>
           )}
 
