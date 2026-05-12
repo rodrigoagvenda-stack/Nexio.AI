@@ -413,12 +413,17 @@ async function processRemarketing(
   supabase: Supabase
 ): Promise<number> {
   let sent = 0
+  const now = Date.now()
+
+  // BRT hour:minute para comparar com step.horario
+  const brtNow = new Date(now - 3 * 3_600_000)
+  const nowMinutes = brtNow.getUTCHours() * 60 + brtNow.getUTCMinutes()
 
   const { data: leads } = await supabase
     .from('leads')
-    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, updated_at')
     .eq('company_id', company.id)
-    .eq('status', 'Perdido')
+    .eq('status', 'Remarketing')
     .not('whatsapp', 'is', null)
 
   for (const sequence of sequences) {
@@ -430,26 +435,19 @@ async function processRemarketing(
     if (!steps?.length) continue
 
     for (const step of steps as FollowStep[]) {
-      const cutoff = new Date(Date.now() - step.dia_offset * 86_400_000)
+      // Checa janela de horário (±30 min do horario configurado)
+      const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
+      const stepMinutes = hh * 60 + mm
+      if (Math.abs(nowMinutes - stepMinutes) > 30) continue
 
       for (const lead of (leads ?? []) as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
-        // Só re-envolve se não houve contato (nenhum outbound nosso) desde cutoff
-        const { data: ultimoOutbound } = await supabase
-          .from('mensagens_do_whatsapp')
-          .select('created_at')
-          .eq('id_do_lead', lead.id)
-          .eq('direcao', 'outbound')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (ultimoOutbound) {
-          const dias = (Date.now() - new Date(ultimoOutbound.created_at).getTime()) / 86_400_000
-          if (dias < step.dia_offset) continue
-        }
+        // Verifica se já passaram dia_offset dias desde que o lead foi movido para Remarketing
+        const movedAt = new Date((lead as any).updated_at ?? now).getTime()
+        const diasDesdeMovimento = (now - movedAt) / 86_400_000
+        if (diasDesdeMovimento < step.dia_offset) continue
 
         const phone = normalizePhone(lead.whatsapp)
         const texto = step.usar_ia
