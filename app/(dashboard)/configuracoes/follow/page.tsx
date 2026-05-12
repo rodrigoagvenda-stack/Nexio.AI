@@ -242,142 +242,124 @@ function AudioRecorder({ onUpload, current }: { onUpload: (url: string) => void;
   )
 }
 
-// ─── Phone Mockup — estilo idêntico ao SimulatorChat do SDR ─────────────────
+// ─── Chat Preview — estilo idêntico ao SimulatorChat do SDR ─────────────────
 
-function PhoneMockup({ step }: { step: FollowStep }) {
+function ChatPreview({ step }: { step: FollowStep }) {
   const { tipo_mensagem: tipo, mensagem, media_config: media } = step
   const text = mensagem || (tipo === 'text' ? 'Sua mensagem aparecerá aqui…' : '')
 
   return (
-    <div className="rounded-[36px] bg-foreground/10 p-[5px] shadow-2xl ring-1 ring-border shrink-0">
-      <div className="rounded-[31px] overflow-hidden flex flex-col bg-background" style={{ width: 200, height: 390 }}>
+    <div className="flex flex-col flex-1 overflow-hidden rounded-xl border border-border/60 bg-background">
 
-        {/* Notch */}
-        <div className="h-5 flex items-center justify-center shrink-0 bg-card">
-          <div className="w-12 h-1.5 rounded-full bg-foreground/20" />
+      {/* Header */}
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border/60 bg-card shrink-0">
+        <div className="relative shrink-0">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Bot className="w-4 h-4 text-primary" />
+          </div>
+          <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border-2 border-card" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold leading-none">Agente</p>
+          <p className="text-xs text-emerald-500 mt-0.5">online · SaaS</p>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 px-4 py-4 space-y-3 overflow-y-auto" style={{ background: 'hsl(var(--muted)/0.3)' }}>
+        <div className="flex justify-center">
+          <span className="px-3 py-1 rounded-full bg-muted/60 text-xs text-muted-foreground/70 border border-border/40">Hoje</span>
         </div>
 
-        {/* Screen */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-
-          {/* Header — cópia exata do SDR simulator */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-card shrink-0">
-            <div className="relative shrink-0">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                <Bot className="w-3 h-3 text-primary" />
-              </div>
-              <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 border border-card" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold leading-none truncate">Agente</p>
-              <p className="text-[9px] text-emerald-500 mt-0.5">online · SaaS</p>
-            </div>
+        <div className="flex items-end gap-2">
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-5">
+            <Bot className="w-3.5 h-3.5 text-primary" />
           </div>
+          <div className="space-y-1" style={{ maxWidth: '82%' }}>
+            <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3.5 py-2.5 shadow-sm">
 
-          {/* Messages — background igual ao SDR */}
-          <div className="flex-1 px-2 py-2 space-y-2 overflow-hidden" style={{ background: 'hsl(var(--muted)/0.3)' }}>
-            {/* Date chip — igual ao SDR */}
-            <div className="flex justify-center">
-              <span className="px-2 py-0.5 rounded-full bg-muted/60 text-[9px] text-muted-foreground/70 border border-border/40">Hoje</span>
-            </div>
-
-            {/* Bolha do agente — LEFT, igual ao SDR */}
-            <div className="flex items-end gap-1.5">
-              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-3">
-                <Bot className="w-2.5 h-2.5 text-primary" />
-              </div>
-              <div className="space-y-1" style={{ maxWidth: '80%' }}>
-                <div className="rounded-xl rounded-tl-none bg-card border border-border/60 px-2.5 py-2 shadow-sm">
-
-                  {tipo === 'image' && (
-                    <div className="rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center mb-1.5" style={{ height: 60 }}>
-                      {media.file ? <img src={media.file} className="h-full w-full object-cover" alt="" /> : <Image className="w-5 h-5 text-muted-foreground/40" />}
-                    </div>
-                  )}
-                  {tipo === 'video' && (
-                    <div className="rounded-lg bg-muted/50 flex items-center justify-center gap-1 mb-1.5" style={{ height: 60 }}>
-                      <Video className="w-4 h-4 text-muted-foreground/40" />
-                      <span className="text-[9px] text-muted-foreground/60">Vídeo</span>
-                    </div>
-                  )}
-                  {(tipo === 'audio' || tipo === 'ptt') && (
-                    <div className="flex items-center gap-1.5 py-0.5">
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                        <Mic className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div className="flex items-end gap-px flex-1 h-4">
-                        {[4,9,6,14,8,12,5,11,15,7,13,5].map((h, i) => (
-                          <div key={i} className="rounded-full bg-muted-foreground/35 flex-1" style={{ height: `${h}px` }} />
-                        ))}
-                      </div>
-                      <span className="text-[9px] text-muted-foreground/50">0:08</span>
-                    </div>
-                  )}
-                  {tipo === 'document' && (
-                    <div className="flex items-center gap-1.5 py-0.5">
-                      <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <FileText className="w-3 h-3 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-medium truncate">{media.docName || 'documento.pdf'}</p>
-                        <p className="text-[9px] text-muted-foreground/60">PDF · Documento</p>
-                      </div>
-                    </div>
-                  )}
-                  {tipo === 'location' && (
-                    <div className="rounded-lg bg-muted/50 flex flex-col items-center justify-center gap-0.5 mb-1" style={{ height: 50 }}>
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                      <p className="text-[9px] text-muted-foreground/60">{media.name || 'Local'}</p>
-                    </div>
-                  )}
-                  {tipo === 'menu' && (
-                    <div className="space-y-1">
-                      {text && <p className="text-[11px] whitespace-pre-wrap leading-relaxed">{text}</p>}
-                      {(media.choices ?? ['Opção 1', 'Opção 2']).slice(0, 3).map((c, i) => (
-                        <div key={i} className="text-center text-[10px] text-primary border border-border/60 rounded-lg py-0.5">
-                          {c || `Opção ${i + 1}`}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {tipo === 'carousel' && (
-                    <div className="space-y-1">
-                      {text && <p className="text-[11px] whitespace-pre-wrap leading-relaxed">{text}</p>}
-                      <div className="flex gap-1 overflow-hidden">
-                        {(media.carousel ?? [{ text: 'Item 1' }]).slice(0, 2).map((item, i) => (
-                          <div key={i} className="min-w-[70px] rounded-lg bg-muted/50 border border-border/60 overflow-hidden shrink-0">
-                            {item.image ? <img src={item.image} className="w-full object-cover" style={{ height: 36 }} alt="" /> : <div className="w-full bg-muted flex items-center justify-center" style={{ height: 36 }}><Image className="w-3 h-3 text-muted-foreground/40" /></div>}
-                            <p className="text-[9px] px-1 py-0.5 truncate">{item.text || `Item ${i + 1}`}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {tipo !== 'menu' && tipo !== 'carousel' && text && (
-                    <p className="text-[11px] whitespace-pre-wrap leading-relaxed">{text}</p>
-                  )}
+              {tipo === 'image' && (
+                <div className="rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center mb-2" style={{ height: 100 }}>
+                  {media.file ? <img src={media.file} className="h-full w-full object-cover" alt="" /> : <Image className="w-6 h-6 text-muted-foreground/40" />}
                 </div>
-                <p className="text-[9px] text-muted-foreground/50 pl-1">agora</p>
-              </div>
+              )}
+              {tipo === 'video' && (
+                <div className="rounded-lg bg-muted/50 flex items-center justify-center gap-2 mb-2" style={{ height: 100 }}>
+                  <Video className="w-5 h-5 text-muted-foreground/40" />
+                  <span className="text-xs text-muted-foreground/60">Vídeo</span>
+                </div>
+              )}
+              {(tipo === 'audio' || tipo === 'ptt') && (
+                <div className="flex items-center gap-2 py-1">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Mic className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="flex items-end gap-px flex-1 h-5">
+                    {[4,9,6,14,8,12,5,11,15,7,13,5,8,10,6].map((h, i) => (
+                      <div key={i} className="rounded-full bg-muted-foreground/35 flex-1" style={{ height: `${h}px` }} />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground/50">0:08</span>
+                </div>
+              )}
+              {tipo === 'document' && (
+                <div className="flex items-center gap-2 py-1">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{media.docName || 'documento.pdf'}</p>
+                    <p className="text-xs text-muted-foreground/60">PDF · Documento</p>
+                  </div>
+                </div>
+              )}
+              {tipo === 'location' && (
+                <div className="rounded-lg bg-muted/50 flex flex-col items-center justify-center gap-1 mb-1.5" style={{ height: 80 }}>
+                  <MapPin className="w-5 h-5 text-muted-foreground/60" />
+                  <p className="text-xs text-muted-foreground/60">{media.name || 'Local'}</p>
+                </div>
+              )}
+              {tipo === 'menu' && (
+                <div className="space-y-1.5">
+                  {text && <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>}
+                  {(media.choices ?? ['Opção 1', 'Opção 2']).slice(0, 3).map((c, i) => (
+                    <div key={i} className="text-center text-xs text-primary border border-border/60 rounded-lg py-1">
+                      {c || `Opção ${i + 1}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {tipo === 'carousel' && (
+                <div className="space-y-2">
+                  {text && <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>}
+                  <div className="flex gap-2 overflow-hidden">
+                    {(media.carousel ?? [{ text: 'Item 1' }]).slice(0, 2).map((item, i) => (
+                      <div key={i} className="min-w-[100px] rounded-lg bg-muted/50 border border-border/60 overflow-hidden shrink-0">
+                        {item.image ? <img src={item.image} className="w-full object-cover" style={{ height: 56 }} alt="" /> : <div className="w-full bg-muted flex items-center justify-center" style={{ height: 56 }}><Image className="w-4 h-4 text-muted-foreground/40" /></div>}
+                        <p className="text-xs px-2 py-1 truncate">{item.text || `Item ${i + 1}`}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {tipo !== 'menu' && tipo !== 'carousel' && text && (
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{text}</p>
+              )}
             </div>
-          </div>
-
-          {/* Input — cópia exata do SDR */}
-          <div className="border-t border-border/60 bg-card shrink-0">
-            <div className="flex gap-1.5 items-end px-2 py-2">
-              <div className="flex-1 flex items-center rounded-xl border border-border bg-background px-2.5 py-1.5">
-                <span className="text-[10px] text-muted-foreground/50">Mensagem…</span>
-              </div>
-              <div className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
-                <Send className="w-3 h-3 text-white" />
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground/50 pl-1">agora</p>
           </div>
         </div>
+      </div>
 
-        {/* Home indicator */}
-        <div className="h-4 flex items-end justify-center pb-1 shrink-0 bg-card">
-          <div className="w-14 h-[3px] rounded-full bg-foreground/10" />
+      {/* Input */}
+      <div className="border-t border-border/60 bg-card shrink-0">
+        <div className="flex gap-2 items-end px-3 py-3">
+          <div className="flex-1 flex items-center rounded-xl border border-border bg-background px-3 py-2">
+            <span className="text-sm text-muted-foreground/50">Mensagem…</span>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
+            <Send className="w-4 h-4 text-white" />
+          </div>
         </div>
       </div>
     </div>
@@ -1062,15 +1044,15 @@ export default function FollowPage() {
               )}
             </div>
 
-            {/* ── Direita: phone mockup ── */}
-            <div className="w-[260px] shrink-0 flex flex-col items-center gap-4 p-5 bg-muted/10">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide self-start">Preview</p>
+            {/* ── Direita: chat preview ── */}
+            <div className="w-[300px] shrink-0 flex flex-col gap-3 p-4 bg-muted/10">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</p>
 
-              {form.steps[activeStep] && <PhoneMockup step={form.steps[activeStep]} />}
+              {form.steps[activeStep] && <ChatPreview step={form.steps[activeStep]} />}
 
               {/* Step dots */}
               {form.steps.length > 1 && (
-                <div className="flex gap-1.5 items-center">
+                <div className="flex gap-1.5 items-center justify-center">
                   {form.steps.map((_, i) => (
                     <button key={i} onClick={() => setActiveStep(i)}
                       className={cn('rounded-full transition-all duration-200',
