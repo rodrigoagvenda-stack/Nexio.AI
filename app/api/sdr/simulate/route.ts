@@ -102,17 +102,23 @@ Nunca quebre uma frase lógica entre duas mensagens.`
       { role: 'user', content: userMessage },
     ]
 
-    const sdrRes = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+    // Garantia: "json" deve estar nas mensagens para usar json_object mode
+    const hasJson = messages.some((m) => typeof m.content === 'string' && m.content.toLowerCase().includes('json'))
+    const sdrParams = {
+      model: 'gpt-4.1-mini' as const,
       messages,
       temperature: 0.4,
       max_tokens: 600,
-      response_format: { type: 'json_object' },
-    })
+      ...(hasJson ? { response_format: { type: 'json_object' as const } } : {}),
+    }
+    const sdrRes = await openai.chat.completions.create(sdrParams)
 
     let sdrMessages: string[] = []
     try {
-      const parsed = JSON.parse(sdrRes.choices[0]?.message?.content ?? '{}')
+      const raw = sdrRes.choices[0]?.message?.content ?? '{}'
+      // Extrai JSON mesmo se vier com texto ao redor (quando sem json_object mode)
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw)
       sdrMessages = Array.isArray(parsed.messages)
         ? parsed.messages.map(String).filter(Boolean)
         : parsed.message ? [String(parsed.message)] : []
@@ -149,7 +155,7 @@ Responda em JSON:
       messages: [{ role: 'user', content: feedbackPrompt }],
       temperature: 0.2,
       max_tokens: 200,
-      response_format: { type: 'json_object' },
+      response_format: { type: 'json_object' }, // feedbackPrompt sempre contém "JSON:"
     })
 
     let feedback: { score: number; positivo: string; melhorar: string | null } = {
