@@ -21,7 +21,7 @@ export async function PATCH(
     const accessError = validateCompanyAccess(parseInt(companyId), context.companyId);
     if (accessError) return accessError;
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const allowedFields = [
       'segment', 'priority', 'status', 'nivel_interesse', 'import_source',
