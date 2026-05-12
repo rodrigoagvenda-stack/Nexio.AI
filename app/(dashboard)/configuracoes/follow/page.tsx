@@ -757,6 +757,7 @@ export default function FollowPage() {
   const [editing, setEditing] = useState<FollowSequence | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [firing, setFiring] = useState(false)
   const [activeStep, setActiveStep] = useState(0)
   const [form, setForm] = useState<{ nome: string; ativo: boolean; steps: FollowStep[] }>({
     nome: '', ativo: true, steps: [EMPTY_STEP()],
@@ -856,6 +857,20 @@ export default function FollowPage() {
     } catch { toast({ title: 'Erro ao alterar status', variant: 'destructive' }) }
   }
 
+  async function handleFireNow() {
+    setFiring(true)
+    try {
+      const res = await fetch('/api/follow/run-remarketing', { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        toast({ title: data.sent > 0 ? `✅ ${data.sent} mensagem(ns) enviada(s)!` : 'Nenhuma mensagem disparada (verifique se a hora já passou e a cadência está ativa com mensagem)' })
+      } else {
+        toast({ title: `Erro: ${data.error}`, variant: 'destructive' })
+      }
+    } catch { toast({ title: 'Erro ao disparar', variant: 'destructive' }) }
+    finally { setFiring(false) }
+  }
+
   async function handleDelete(id: string) {
     setDeleting(id)
     try {
@@ -925,9 +940,17 @@ export default function FollowPage() {
                 <p className="text-xs text-muted-foreground">{activeTab === 'metricas' ? 'Últimos 30 dias de disparos' : currentCfg?.desc}</p>
               </div>
               {activeTab !== 'metricas' && (
-                <Button onClick={openNew} size="sm" className="h-8 gap-1.5 shrink-0">
-                  <Plus className="w-3.5 h-3.5" /> Nova cadência
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {currentTipo === 'remarketing' && (
+                    <Button onClick={handleFireNow} disabled={firing} variant="outline" size="sm" className="h-8 gap-1.5">
+                      {firing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                      Disparar agora
+                    </Button>
+                  )}
+                  <Button onClick={openNew} size="sm" className="h-8 gap-1.5">
+                    <Plus className="w-3.5 h-3.5" /> Nova cadência
+                  </Button>
+                </div>
               )}
             </div>
 

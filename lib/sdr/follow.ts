@@ -729,3 +729,40 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
 
   return { processed, errors }
 }
+
+export async function runRemarketingForCompany(companyId: number): Promise<{ sent: number; error?: string }> {
+  const supabase = createServiceClient()
+
+  const platformCfg = await getPlatformConfig()
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!cfg) return { sent: 0, error: 'sdr_configs não encontrado para esta empresa' }
+  if (!cfg.agente_ativo) return { sent: 0, error: 'Agente SDR inativo para esta empresa' }
+
+  const company: CompanyCtx = {
+    id: cfg.company_id,
+    uazapi_url: cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url,
+    uazapi_token: cfg.uazapi_token ? decrypt(cfg.uazapi_token) : '',
+    openai_key: cfg.openai_key ? decrypt(cfg.openai_key) : platformCfg.openai_api_key,
+    sdr_prompt: cfg.prompt ?? null,
+  }
+  if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
+
+  const openai = new OpenAI({ apiKey: company.openai_key })
+
+  const { data: sequences } = await supabase
+    .from('follow_sequences')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('tipo', 'remarketing')
+    .eq('ativo', true)
+
+  if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência de remarketing ativa' }
+
+  const sent = await processRemarketing(company, sequences as FollowSequence[], openai, supabase)
+  return { sent }
+}
