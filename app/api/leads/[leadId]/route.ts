@@ -62,12 +62,29 @@ export async function PATCH(
           ? `Remarketing — ${lead.contact_name} [Lead #${leadId}]`
           : `Remarketing [Lead #${leadId}]`;
 
-        await supabase.from('follow_sequences').insert({
-          company_id: context.companyId,
-          nome,
-          tipo: 'remarketing',
-          ativo: false,
-        });
+        // Próxima hora cheia como horário padrão
+        const nextHour = new Date();
+        nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+        const horario = `${String(nextHour.getHours()).padStart(2, '0')}:00`;
+
+        const { data: seq, error: seqErr } = await supabase
+          .from('follow_sequences')
+          .insert({ company_id: context.companyId, nome, tipo: 'remarketing', ativo: false })
+          .select()
+          .single();
+
+        if (!seqErr && seq) {
+          await supabase.from('follow_steps').insert({
+            sequence_id: seq.id,
+            dia_offset: 0,
+            horario,
+            mensagem: '',
+            tipo_mensagem: 'text',
+            usar_ia: false,
+            usar_contexto_sdr: false,
+            ordem: 0,
+          });
+        }
       }
     }
 

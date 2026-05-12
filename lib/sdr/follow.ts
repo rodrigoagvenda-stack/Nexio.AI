@@ -415,18 +415,28 @@ async function processRemarketing(
   let sent = 0
   const now = Date.now()
 
-  // BRT hour:minute para comparar com step.horario
+  // Hora atual em BRT (UTC-3)
   const brtNow = new Date(now - 3 * 3_600_000)
   const nowMinutes = brtNow.getUTCHours() * 60 + brtNow.getUTCMinutes()
 
-  const { data: leads } = await supabase
+  const { data: allLeads } = await supabase
     .from('leads')
-    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, updated_at')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, updated_at')
     .eq('company_id', company.id)
     .eq('status', 'Remarketing')
     .not('whatsapp', 'is', null)
 
   for (const sequence of sequences) {
+    // Extrai lead_id específico do nome (ex: "Remarketing — João [Lead #62]")
+    const leadIdMatch = sequence.nome?.match(/\[Lead #(\d+)\]/)
+    const targetLeadId = leadIdMatch ? parseInt(leadIdMatch[1]) : null
+
+    const leads = targetLeadId
+      ? (allLeads ?? []).filter((l: any) => l.id === targetLeadId)
+      : (allLeads ?? [])
+
+    if (!leads.length) continue
+
     const { data: steps } = await supabase
       .from('follow_steps')
       .select('*')
@@ -435,12 +445,12 @@ async function processRemarketing(
     if (!steps?.length) continue
 
     for (const step of steps as FollowStep[]) {
-      // Checa janela de horário (±30 min do horario configurado)
+      // Só dispara se passou da hora configurada (cron roda a cada hora cheia)
       const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
       const stepMinutes = hh * 60 + mm
-      if (Math.abs(nowMinutes - stepMinutes) > 30) continue
+      if (nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
 
-      for (const lead of (leads ?? []) as Lead[]) {
+      for (const lead of leads as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
@@ -449,7 +459,7 @@ async function processRemarketing(
         const diasDesdeMovimento = (now - movedAt) / 86_400_000
         if (diasDesdeMovimento < step.dia_offset) continue
 
-        const phone = normalizePhone(lead.whatsapp)
+        // Não dispara se a mensagem está vazia
         const texto = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
@@ -459,6 +469,7 @@ async function processRemarketing(
           continue
         }
 
+        const phone = normalizePhone(lead.whatsapp)
         try {
           await enviarMensagem(phone, texto, company)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase)
