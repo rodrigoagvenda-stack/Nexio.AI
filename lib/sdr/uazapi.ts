@@ -27,11 +27,66 @@ export interface UazapiSendTextParams {
 
 export interface UazapiSendMediaParams {
   number: string
-  type: 'image' | 'video' | 'document' | 'audio' | 'ptt'
+  type: 'image' | 'video' | 'document' | 'audio' | 'ptt' | 'myaudio' | 'ptv' | 'sticker'
   file: string
   text?: string
   docName?: string
   delay?: number
+  viewOnce?: boolean
+}
+
+export interface UazapiSendMenuParams {
+  number: string
+  type: 'button' | 'list' | 'poll' | 'carousel'
+  text: string
+  choices: string[]
+  selectableCount?: number
+}
+
+export interface UazapiCarouselItem {
+  text: string
+  image?: string
+  buttons?: string[]
+}
+
+export interface UazapiSendCarouselParams {
+  number: string
+  text: string
+  carousel: UazapiCarouselItem[]
+}
+
+export interface UazapiSendLocationParams {
+  number: string
+  name: string
+  address: string
+  latitude: number
+  longitude: number
+}
+
+export type StepTipoMensagem =
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'ptt'
+  | 'document'
+  | 'menu'
+  | 'carousel'
+  | 'location'
+
+export interface StepMediaConfig {
+  file?: string
+  text?: string
+  docName?: string
+  viewOnce?: boolean
+  menuType?: 'button' | 'list' | 'poll'
+  choices?: string[]
+  selectableCount?: number
+  carousel?: UazapiCarouselItem[]
+  name?: string
+  address?: string
+  latitude?: number
+  longitude?: number
 }
 
 export interface UazapiWebhookMessage {
@@ -192,6 +247,27 @@ export class UazapiClient {
     })
   }
 
+  async sendMenu(params: UazapiSendMenuParams): Promise<{ id: string }> {
+    return this.request('/send/menu', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async sendCarousel(params: UazapiSendCarouselParams): Promise<{ id: string }> {
+    return this.request('/send/carousel', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
+  async sendLocation(params: UazapiSendLocationParams): Promise<{ id: string }> {
+    return this.request('/send/location', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+  }
+
   // ─── Webhook ─────────────────────────────────────────────
 
   async setWebhook(url: string): Promise<void> {
@@ -275,6 +351,68 @@ export function normalizePhone(raw: string): string {
   if (!n.startsWith('55')) n = '55' + n
   if (n.length === 12) n = n.slice(0, 4) + '9' + n.slice(4)
   return n
+}
+
+/** Despacha mensagem rica de um step de follow-up */
+export async function sendRichStep(
+  client: UazapiClient,
+  number: string,
+  tipo: StepTipoMensagem,
+  mensagem: string,
+  media?: StepMediaConfig
+): Promise<void> {
+  switch (tipo) {
+    case 'text':
+      await client.sendText({ number, text: mensagem })
+      break
+
+    case 'image':
+    case 'video':
+    case 'document':
+    case 'audio':
+    case 'ptt':
+      if (!media?.file) throw new Error(`sendRichStep: tipo ${tipo} requer media.file`)
+      await client.sendMedia({
+        number,
+        type: tipo,
+        file: media.file,
+        text: media.text,
+        docName: media.docName,
+        viewOnce: media.viewOnce,
+      })
+      break
+
+    case 'menu':
+      if (!media?.choices?.length) throw new Error('sendRichStep: menu requer media.choices')
+      await client.sendMenu({
+        number,
+        type: media.menuType ?? 'button',
+        text: mensagem,
+        choices: media.choices,
+        selectableCount: media.selectableCount,
+      })
+      break
+
+    case 'carousel':
+      if (!media?.carousel?.length) throw new Error('sendRichStep: carousel requer media.carousel')
+      await client.sendCarousel({ number, text: mensagem, carousel: media.carousel })
+      break
+
+    case 'location':
+      if (media?.latitude == null || media?.longitude == null)
+        throw new Error('sendRichStep: location requer latitude e longitude')
+      await client.sendLocation({
+        number,
+        name: media.name ?? mensagem,
+        address: media.address ?? '',
+        latitude: media.latitude,
+        longitude: media.longitude,
+      })
+      break
+
+    default:
+      await client.sendText({ number, text: mensagem })
+  }
 }
 
 /** Detecta tipo de mensagem do payload uazapi */

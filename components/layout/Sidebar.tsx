@@ -81,6 +81,7 @@ const navSections: NavSection[] = [
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
           { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
+          { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FileText },
         ],
       },
     ],
@@ -157,7 +158,7 @@ export const Sidebar = memo(function Sidebar({
   }, [isCrmRoute]);
 
   useEffect(() => {
-    if (pathname.startsWith('/configuracoes/sdr') || pathname.startsWith('/configuracoes/follow')) {
+    if (pathname.startsWith('/configuracoes/sdr') || pathname.startsWith('/configuracoes/follow') || pathname.startsWith('/configuracoes/trial')) {
       setExpandedSections(prev => { const n = new Set(prev); n.add('/automacoes'); return n; });
     }
   }, [pathname]);

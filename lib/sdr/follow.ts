@@ -16,13 +16,13 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
-import { createUazapiClient, normalizePhone } from './uazapi'
+import { createUazapiClient, normalizePhone, sendRichStep, StepTipoMensagem, StepMediaConfig } from './uazapi'
 import { syslog } from '@/lib/logger'
 import OpenAI from 'openai'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing' | 'follow_proposta'
+type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing' | 'follow_proposta' | 'trial_saas'
 
 interface FollowStep {
   id: string
@@ -34,6 +34,18 @@ interface FollowStep {
   usar_ia: boolean
   usar_contexto_sdr: boolean
   ordem: number
+  tipo_mensagem: StepTipoMensagem | null
+  media_config: StepMediaConfig | null
+}
+
+interface TrialSaas {
+  id: number
+  company_id: number
+  nome: string
+  whatsapp: string
+  status: string
+  criado_em: string
+  trial_days: number
 }
 
 interface FollowSequence {
@@ -111,6 +123,16 @@ async function stepJaDisparado(leadId: number, stepId: string, supabase: Supabas
   return !!data
 }
 
+async function stepJaDisparadoTrial(trialId: number, stepId: string, supabase: Supabase): Promise<boolean> {
+  const { data } = await supabase
+    .from('follow_executions')
+    .select('id')
+    .eq('trial_id', trialId)
+    .eq('step_id', stepId)
+    .maybeSingle()
+  return !!data
+}
+
 async function leadJaRespondeuDesde(
   leadId: number,
   companyId: number,
@@ -178,12 +200,19 @@ async function gerarMensagemIA(
     ?? `Oi ${lead.contact_name}! Tudo bem? Gostaria de retomar nossa conversa.`
 }
 
-async function enviarMensagem(phone: string, text: string, company: CompanyCtx): Promise<void> {
+async function enviarMensagem(
+  phone: string,
+  text: string,
+  company: CompanyCtx,
+  tipo: StepTipoMensagem = 'text',
+  media?: StepMediaConfig | null
+): Promise<void> {
   const uazapi = createUazapiClient(company.uazapi_url, company.uazapi_token)
   const typingMs = 2_000 + Math.floor(Math.random() * 3_000)
-  await uazapi.sendPresence(phone, 'composing', typingMs)
+  const presenceType = tipo === 'audio' || tipo === 'ptt' ? 'recording' : 'composing'
+  await uazapi.sendPresence(phone, presenceType, typingMs)
   await new Promise((r) => setTimeout(r, typingMs))
-  await uazapi.sendText({ number: phone, text })
+  await sendRichStep(uazapi, phone, tipo, text, media ?? undefined)
 }
 
 async function gravarMensagemFollow(
@@ -192,7 +221,8 @@ async function gravarMensagemFollow(
   phone: string,
   text: string,
   tipo: string,
-  supabase: Supabase
+  supabase: Supabase,
+  tipoMensagem: StepTipoMensagem = 'text'
 ): Promise<void> {
   const { data: conv } = await supabase
     .from('conversas_do_whatsapp')
@@ -206,7 +236,7 @@ async function gravarMensagemFollow(
     id_do_lead: leadId,
     company_id: companyId,
     texto_da_mensagem: text,
-    tipo_de_mensagem: 'text',
+    tipo_de_mensagem: tipoMensagem,
     direcao: 'outbound',
     sender_type: 'ai',
     status: 'sent',
@@ -223,6 +253,22 @@ async function gravarMensagemFollow(
   await supabase.from('follow_logs').insert({
     company_id: companyId,
     lead_id: leadId,
+    mensagem: text,
+    tipo,
+    enviado_em: new Date().toISOString(),
+  })
+}
+
+async function gravarMensagemTrial(
+  trialId: number,
+  companyId: number,
+  text: string,
+  tipo: string,
+  supabase: Supabase
+): Promise<void> {
+  await supabase.from('follow_logs').insert({
+    company_id: companyId,
+    trial_id: trialId,
     mensagem: text,
     tipo,
     enviado_em: new Date().toISOString(),
@@ -504,6 +550,84 @@ async function processFollowProposta(
   return sent
 }
 
+async function processTrialSaas(
+  company: CompanyCtx,
+  sequences: FollowSequence[],
+  supabase: Supabase
+): Promise<number> {
+  let sent = 0
+  const now = Date.now()
+
+  const { data: trials } = await supabase
+    .from('saas_trials')
+    .select('id, company_id, nome, whatsapp, status, criado_em, trial_days')
+    .eq('company_id', company.id)
+    .eq('status', 'ativo')
+    .not('whatsapp', 'is', null)
+
+  for (const sequence of sequences) {
+    const { data: steps } = await supabase
+      .from('follow_steps')
+      .select('*')
+      .eq('sequence_id', sequence.id)
+      .order('ordem', { ascending: true })
+    if (!steps?.length) continue
+
+    for (const trial of (trials ?? []) as TrialSaas[]) {
+      const signupTime = new Date(trial.criado_em).getTime()
+      const daysSinceSignup = (now - signupTime) / 86_400_000
+
+      // Skip expired trials (trial_days + 1 day grace)
+      if (daysSinceSignup > (trial.trial_days ?? 7) + 1) continue
+
+      for (const step of steps as FollowStep[]) {
+        if (!(await withinRateLimit(company.id, supabase))) return sent
+        if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) continue
+
+        // ±12h window around dia_offset
+        const diff = Math.abs(daysSinceSignup - step.dia_offset)
+        if (diff > 0.5) continue
+
+        const phone = normalizePhone(trial.whatsapp)
+        const tipo = step.tipo_mensagem ?? 'text'
+        const texto = pickMessage(step) || `Oi ${trial.nome}! Seu período de teste está em andamento. Precisa de ajuda? 😊`
+        const media = step.media_config
+
+        try {
+          await enviarMensagem(phone, texto, company, tipo, media)
+          await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase)
+          await supabase.from('follow_executions').insert({
+            trial_id: trial.id,
+            sequence_id: sequence.id,
+            step_id: step.id,
+            company_id: company.id,
+            status: 'sent',
+          })
+          sent++
+          await antiBanDelay()
+        } catch (err: any) {
+          await supabase.from('follow_executions').insert({
+            trial_id: trial.id,
+            sequence_id: sequence.id,
+            step_id: step.id,
+            company_id: company.id,
+            status: 'failed',
+          })
+          await syslog({
+            type: 'follow_up',
+            severity: 'error',
+            message: `Trial follow error: ${err.message}`,
+            company_id: company.id,
+            payload: { trial_id: trial.id },
+          })
+        }
+      }
+    }
+  }
+
+  return sent
+}
+
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 export async function runFollowUp(): Promise<{ processed: number; errors: string[] }> {
@@ -551,18 +675,19 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         const byTipo = (tipo: SequenceTipo) =>
           sequences.filter((s: any) => s.tipo === tipo) as FollowSequence[]
 
-        const [g, n, r, p] = await Promise.allSettled([
+        const [g, n, r, p, t] = await Promise.allSettled([
           processFollowGeral(company, byTipo('follow_geral'), openai, supabase),
           processAntiNoshow(company, byTipo('anti_noshow'), supabase),
           processRemarketing(company, byTipo('remarketing'), openai, supabase),
           processFollowProposta(company, byTipo('follow_proposta'), openai, supabase),
+          processTrialSaas(company, byTipo('trial_saas'), supabase),
         ])
 
-        const total = [g, n, r, p]
+        const total = [g, n, r, p, t]
           .filter((r) => r.status === 'fulfilled')
           .reduce((acc, r) => acc + (r as PromiseFulfilledResult<number>).value, 0)
 
-        for (const result of [g, n, r, p]) {
+        for (const result of [g, n, r, p, t]) {
           if (result.status === 'rejected') {
             errors.push(`Empresa ${company.id}: ${result.reason?.message}`)
           }

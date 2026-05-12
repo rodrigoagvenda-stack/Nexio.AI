@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
         pool_mensagens: s.pool_mensagens?.length ? s.pool_mensagens : null,
         usar_ia: s.usar_ia ?? false,
         usar_contexto_sdr: s.usar_contexto_sdr ?? false,
+        tipo_mensagem: s.tipo_mensagem ?? 'text',
+        media_config: s.media_config ?? null,
         ordem: i,
       }))
       await service.from('follow_steps').insert(stepsToInsert)
