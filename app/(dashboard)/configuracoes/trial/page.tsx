@@ -19,7 +19,7 @@ import {
   Plus, Trash2, Loader2, Copy, Check, Webhook, Settings2, ListChecks,
   Users, Pencil, Clock, CalendarDays, Info, Image, Video, FileAudio,
   FileText, MapPin, LayoutList, Rows3, Mic, ChevronLeft, ChevronRight,
-  Phone, MessageSquare, X, Square,
+  Phone, MessageSquare, X, Square, Bot, Send,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -209,122 +209,126 @@ function AudioRecorder({ onUpload, current }: { onUpload: (url: string) => void;
   )
 }
 
-// ─── Phone Mockup (WhatsApp preview completo) ────────────────────────────────
+// ─── Phone Mockup — estilo idêntico ao SimulatorChat do SDR ─────────────────
 
 function PhoneMockup({ step }: { step: TrialStep }) {
   const { tipo_mensagem: tipo, mensagem, media_config: media } = step
   const text = mensagem || (tipo === 'text' ? 'Sua mensagem aparecerá aqui…' : '')
 
   return (
-    <div className="rounded-[36px] bg-[#18181b] p-[5px] shadow-2xl ring-1 ring-white/10 shrink-0">
-      <div className="rounded-[31px] overflow-hidden flex flex-col" style={{ width: 200, height: 390 }}>
+    <div className="rounded-[36px] bg-foreground/10 p-[5px] shadow-2xl ring-1 ring-border shrink-0">
+      <div className="rounded-[31px] overflow-hidden flex flex-col bg-background" style={{ width: 200, height: 390 }}>
 
         {/* Notch */}
-        <div className="bg-[#18181b] h-5 flex items-center justify-center shrink-0">
-          <div className="w-12 h-1.5 rounded-full bg-black/60" />
+        <div className="h-5 flex items-center justify-center shrink-0 bg-card">
+          <div className="w-12 h-1.5 rounded-full bg-foreground/20" />
         </div>
 
-        {/* WA screen */}
+        {/* Screen */}
         <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* WA header */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#202c33] shrink-0">
-            <div className="w-7 h-7 rounded-full bg-[#3a4a54] flex items-center justify-center shrink-0">
-              <Phone className="w-3 h-3 text-[#8696a0]" />
+          {/* Header */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border/60 bg-card shrink-0">
+            <div className="relative shrink-0">
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                <Bot className="w-3 h-3 text-primary" />
+              </div>
+              <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-500 border border-card" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-[#e9edef] leading-none">Lead</p>
-              <p className="text-[9px] text-[#00a884] mt-0.5">online</p>
+              <p className="text-[11px] font-semibold leading-none truncate">Agente</p>
+              <p className="text-[9px] text-emerald-500 mt-0.5">online · SaaS</p>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 flex flex-col gap-2 px-2 pt-2 pb-1 bg-[#0b141a] overflow-hidden">
+          <div className="flex-1 px-2 py-2 space-y-2 overflow-hidden" style={{ background: 'hsl(var(--muted)/0.3)' }}>
             <div className="flex justify-center">
-              <span className="text-[9px] text-[#8696a0] bg-[#182229] px-2 py-0.5 rounded-lg">Hoje</span>
+              <span className="px-2 py-0.5 rounded-full bg-muted/60 text-[9px] text-muted-foreground/70 border border-border/40">Hoje</span>
             </div>
 
-            <div className="flex justify-end">
-              <div className="bg-[#005c4b] rounded-xl rounded-tr-none px-2.5 py-1.5 shadow" style={{ maxWidth: '85%' }}>
-                <div className="space-y-1.5">
+            <div className="flex items-end gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-3">
+                <Bot className="w-2.5 h-2.5 text-primary" />
+              </div>
+              <div className="space-y-1" style={{ maxWidth: '80%' }}>
+                <div className="rounded-xl rounded-tl-none bg-card border border-border/60 px-2.5 py-2 shadow-sm">
                   {tipo === 'image' && (
-                    <div className="w-full rounded-lg overflow-hidden bg-[#007a62] flex items-center justify-center" style={{ height: 72 }}>
-                      {media.file ? <img src={media.file} className="h-full w-full object-cover" alt="" /> : <Image className="w-5 h-5 text-[#00a884]/60" />}
+                    <div className="rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center mb-1.5" style={{ height: 60 }}>
+                      {media.file ? <img src={media.file} className="h-full w-full object-cover" alt="" /> : <Image className="w-5 h-5 text-muted-foreground/40" />}
                     </div>
                   )}
                   {tipo === 'video' && (
-                    <div className="w-full rounded-lg bg-[#007a62] flex items-center justify-center gap-1.5" style={{ height: 72 }}>
-                      <Video className="w-5 h-5 text-[#00a884]/60" />
-                      <span className="text-[9px] text-[#cfe9e5]">Vídeo</span>
+                    <div className="rounded-lg bg-muted/50 flex items-center justify-center gap-1 mb-1.5" style={{ height: 60 }}>
+                      <Video className="w-4 h-4 text-muted-foreground/40" />
+                      <span className="text-[9px] text-muted-foreground/60">Vídeo</span>
                     </div>
                   )}
                   {(tipo === 'audio' || tipo === 'ptt') && (
                     <div className="flex items-center gap-1.5 py-0.5">
-                      <div className="w-6 h-6 rounded-full bg-[#00a884] flex items-center justify-center shrink-0">
-                        <Mic className="w-3 h-3 text-white" />
+                      <div className="w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                        <Mic className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                       </div>
-                      <div className="flex items-end gap-px flex-1 h-5">
-                        {[4,9,6,14,8,12,5,11,15,7,13,5,9,12,4].map((h, i) => (
-                          <div key={i} className="w-0.5 rounded-full bg-[#00a884]/60 flex-1" style={{ height: `${h}px` }} />
+                      <div className="flex items-end gap-px flex-1 h-4">
+                        {[4,9,6,14,8,12,5,11,15,7,13,5].map((h, i) => (
+                          <div key={i} className="rounded-full bg-muted-foreground/35 flex-1" style={{ height: `${h}px` }} />
                         ))}
                       </div>
-                      <span className="text-[9px] text-[#8696a0]">0:12</span>
+                      <span className="text-[9px] text-muted-foreground/50">0:08</span>
                     </div>
                   )}
                   {tipo === 'document' && (
                     <div className="flex items-center gap-1.5 py-0.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#00a884]/30 flex items-center justify-center shrink-0">
-                        <FileText className="w-3.5 h-3.5 text-[#00a884]" />
+                      <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <FileText className="w-3 h-3 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[10px] text-[#e9edef] truncate">{media.docName || 'documento.pdf'}</p>
-                        <p className="text-[9px] text-[#8696a0]">PDF</p>
+                        <p className="text-[10px] font-medium truncate">{media.docName || 'documento.pdf'}</p>
+                        <p className="text-[9px] text-muted-foreground/60">PDF · Documento</p>
                       </div>
                     </div>
                   )}
                   {tipo === 'location' && (
-                    <div className="w-full rounded-lg bg-[#007a62] flex flex-col items-center justify-center gap-1" style={{ height: 60 }}>
-                      <MapPin className="w-4 h-4 text-[#00a884]" />
-                      <p className="text-[9px] text-[#cfe9e5]">{media.name || 'Local'}</p>
+                    <div className="rounded-lg bg-muted/50 flex flex-col items-center justify-center gap-0.5 mb-1" style={{ height: 50 }}>
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      <p className="text-[9px] text-muted-foreground/60">{media.name || 'Local'}</p>
                     </div>
                   )}
                   {tipo === 'menu' && (
-                    <>
-                      {text && <p className="text-[11px] text-[#e9edef] leading-relaxed whitespace-pre-wrap">{text}</p>}
-                      <div className="space-y-1 pt-0.5">
-                        {(media.choices ?? ['Opção 1', 'Opção 2']).slice(0, 3).map((c, i) => (
-                          <div key={i} className="text-center text-[10px] text-[#53bdeb] border border-[#2a3942] rounded-lg py-1">
-                            {c || `Opção ${i + 1}`}
-                          </div>
-                        ))}
-                      </div>
-                    </>
+                    <div className="space-y-1">
+                      {text && <p className="text-[11px] whitespace-pre-wrap leading-relaxed">{text}</p>}
+                      {(media.choices ?? ['Opção 1', 'Opção 2']).slice(0, 3).map((c, i) => (
+                        <div key={i} className="text-center text-[10px] text-primary border border-border/60 rounded-lg py-0.5">
+                          {c || `Opção ${i + 1}`}
+                        </div>
+                      ))}
+                    </div>
                   )}
                   {tipo !== 'menu' && text && (
-                    <p className="text-[11px] text-[#e9edef] leading-relaxed whitespace-pre-wrap">{text}</p>
+                    <p className="text-[11px] whitespace-pre-wrap leading-relaxed">{text}</p>
                   )}
-                  <div className="flex justify-end">
-                    <span className="text-[9px] text-[#8696a0]">agora ✓✓</span>
-                  </div>
                 </div>
+                <p className="text-[9px] text-muted-foreground/50 pl-1">agora</p>
               </div>
             </div>
           </div>
 
-          {/* Input bar (decorative) */}
-          <div className="flex items-center gap-1.5 px-2 py-1.5 bg-[#202c33] shrink-0">
-            <div className="flex-1 bg-[#2a3942] rounded-full h-7 flex items-center px-2.5">
-              <span className="text-[9px] text-[#8696a0]">Mensagem</span>
-            </div>
-            <div className="w-7 h-7 rounded-full bg-[#00a884] flex items-center justify-center shrink-0">
-              <Mic className="w-3 h-3 text-white" />
+          {/* Input */}
+          <div className="border-t border-border/60 bg-card shrink-0">
+            <div className="flex gap-1.5 items-end px-2 py-2">
+              <div className="flex-1 flex items-center rounded-xl border border-border bg-background px-2.5 py-1.5">
+                <span className="text-[10px] text-muted-foreground/50">Mensagem…</span>
+              </div>
+              <div className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
+                <Send className="w-3 h-3 text-white" />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Home indicator */}
-        <div className="bg-[#0b141a] h-4 flex items-end justify-center pb-1 shrink-0">
-          <div className="w-14 h-[3px] rounded-full bg-white/20" />
+        <div className="h-4 flex items-end justify-center pb-1 shrink-0 bg-card">
+          <div className="w-14 h-[3px] rounded-full bg-foreground/10" />
         </div>
       </div>
     </div>
