@@ -91,19 +91,23 @@ async function sdrRespond(
   mode: string
 ): Promise<string[]> {
   const modeNote = mode === 'outbound' ? '\n\n=== MODO OUTBOUND ===' : ''
-  const fmt = '\n\nFORMATO OBRIGATÓRIO: {"messages": ["msg1", "msg2"]}\nMáximo 3 linhas por mensagem.'
+  const fmt = '\n\nFORMATO OBRIGATÓRIO — responda em JSON assim: {"messages": ["msg1", "msg2"]}\nMáximo 3 linhas por mensagem.'
+  const allMessages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: 'system', content: sdrSystemPrompt + modeNote + fmt },
+    ...history,
+    { role: 'user', content: leadMsg },
+  ]
+  const hasJson = allMessages.some((m) => typeof m.content === 'string' && m.content.toLowerCase().includes('json'))
   const res = await openai.chat.completions.create({
     model: 'gpt-4.1-mini',
-    messages: [
-      { role: 'system', content: sdrSystemPrompt + modeNote + fmt },
-      ...history,
-      { role: 'user', content: leadMsg },
-    ],
+    messages: allMessages,
     temperature: 0.4, max_tokens: 400,
-    response_format: { type: 'json_object' },
+    ...(hasJson ? { response_format: { type: 'json_object' as const } } : {}),
   })
   try {
-    const p = JSON.parse(res.choices[0]?.message?.content ?? '{}')
+    const raw = res.choices[0]?.message?.content ?? '{}'
+    const jsonMatch = raw.match(/\{[\s\S]*\}/)
+    const p = JSON.parse(jsonMatch ? jsonMatch[0] : raw)
     return Array.isArray(p.messages) ? p.messages.map(String).filter(Boolean) : [p.message ?? '...']
   } catch { return ['...'] }
 }
