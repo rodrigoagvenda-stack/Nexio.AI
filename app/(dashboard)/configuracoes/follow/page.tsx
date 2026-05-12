@@ -557,10 +557,12 @@ function StepEditor({ step, tipo, onChange }: {
         ) : (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">Após</span>
-            <Input type="number" min={1} value={step.dia_offset}
-              onChange={(e) => onChange({ dia_offset: parseInt(e.target.value) || 1 })}
+            <Input type="number" min={0} value={step.dia_offset}
+              onChange={(e) => onChange({ dia_offset: Math.max(0, parseInt(e.target.value) || 0) })}
               className="w-20 h-9 text-sm text-center font-mono" />
-            <span className="text-sm text-muted-foreground">{step.dia_offset === 1 ? 'dia' : 'dias'} sem resposta, às</span>
+            <span className="text-sm text-muted-foreground">
+              {step.dia_offset === 0 ? 'dias (hoje), às' : step.dia_offset === 1 ? 'dia, às' : 'dias, às'}
+            </span>
             <Input type="time" value={step.horario} onChange={(e) => onChange({ horario: e.target.value })} className="w-28 h-9 text-sm font-mono" />
           </div>
         )}
@@ -806,9 +808,10 @@ export default function FollowPage() {
     const isHours = TIPO_CONFIG[tipo]?.isHours
     setForm((prev) => {
       const last = prev.steps[prev.steps.length - 1]
+      const defaultFirst = tipo === 'remarketing' ? 0 : 1
       const nextOffset = isHours
         ? (last?.dia_offset ?? -2) - 1
-        : (last?.dia_offset ?? 0) + 1
+        : last ? last.dia_offset + 1 : defaultFirst
       const newIdx = prev.steps.length
       setTimeout(() => setActiveStep(newIdx), 0)
       return { ...prev, steps: [...prev.steps, { ...EMPTY_STEP(), dia_offset: nextOffset, ordem: newIdx }] }
