@@ -30,29 +30,48 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
-  const member = { company_id: context.companyId }
   const service = createServiceClient()
 
   const body = await req.json()
   const { trial_days_options, trial_days_default } = body
 
-  const { data, error } = await service
+  // Check if config already exists to preserve webhook_token
+  const { data: existing } = await service
     .from('trial_configs')
-    .upsert(
-      {
-        company_id: member.company_id,
-        trial_days_options: trial_days_options ?? [7, 15, 30],
-        trial_days_default: trial_days_default ?? 7,
-      },
-      { onConflict: 'company_id' }
-    )
-    .select('webhook_token, trial_days_options, trial_days_default')
+    .select('webhook_token')
+    .eq('company_id', context.companyId)
     .maybeSingle()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  let result: any
+  if (existing) {
+    const { data, error } = await service
+      .from('trial_configs')
+      .update({
+        trial_days_options: trial_days_options ?? [7, 15, 30],
+        trial_days_default: trial_days_default ?? 7,
+      })
+      .eq('company_id', context.companyId)
+      .select('webhook_token, trial_days_options, trial_days_default')
+      .maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    result = data
+  } else {
+    const { data, error } = await service
+      .from('trial_configs')
+      .insert({
+        company_id: context.companyId,
+        webhook_token: crypto.randomUUID(),
+        trial_days_options: trial_days_options ?? [7, 15, 30],
+        trial_days_default: trial_days_default ?? 7,
+      })
+      .select('webhook_token, trial_days_options, trial_days_default')
+      .maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    result = data
+  }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://crm.nexioai.online'
-  const webhookUrl = `${baseUrl}/api/trial/webhook/${data?.webhook_token}`
+  const webhookUrl = `${baseUrl}/api/trial/webhook/${result?.webhook_token}`
 
-  return NextResponse.json({ config: data, webhookUrl })
+  return NextResponse.json({ config: result, webhookUrl })
 }
