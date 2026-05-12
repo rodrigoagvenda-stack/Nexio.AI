@@ -322,17 +322,20 @@ async function processFollowGeral(
         if (dias < step.dia_offset) continue
 
         const phone = normalizePhone(lead.whatsapp)
+        const tipo = step.tipo_mensagem ?? 'text'
+        const media = step.media_config
         const texto = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
 
-        if (!texto) {
+        const precisaTexto = tipo === 'text' || step.usar_ia
+        if (precisaTexto && !texto) {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'skipped', supabase)
           continue
         }
 
         try {
-          await enviarMensagem(phone, texto, company)
+          await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
@@ -387,11 +390,13 @@ async function processAntiNoshow(
         if (diff > 15 * 60_000) continue
 
         const phone = normalizePhone(lead.whatsapp)
+        const tipo = step.tipo_mensagem ?? 'text'
+        const media = step.media_config
         const texto = pickMessage(step)
           || `Olá ${lead.contact_name}! Lembrete: temos uma call agendada em breve. Te vejo lá! 🎯`
 
         try {
-          await enviarMensagem(phone, texto, company)
+          await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
@@ -460,19 +465,21 @@ async function processRemarketing(
         const diasDesdeMovimento = (now - movedAt) / 86_400_000
         if (diasDesdeMovimento < step.dia_offset) continue
 
-        // Não dispara se a mensagem está vazia
+        const tipo = step.tipo_mensagem ?? 'text'
+        const media = step.media_config
         const texto = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
 
-        if (!texto) {
+        const precisaTexto = tipo === 'text' || step.usar_ia
+        if (precisaTexto && !texto) {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'skipped', supabase)
           continue
         }
 
         const phone = normalizePhone(lead.whatsapp)
         try {
-          await enviarMensagem(phone, texto, company)
+          await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
@@ -535,17 +542,20 @@ async function processFollowProposta(
         if (dias < step.dia_offset) continue
 
         const phone = normalizePhone(lead.whatsapp)
+        const tipo = step.tipo_mensagem ?? 'text'
+        const media = step.media_config
         const texto = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
 
-        if (!texto) {
+        const precisaTexto = tipo === 'text' || step.usar_ia
+        if (precisaTexto && !texto) {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'skipped', supabase)
           continue
         }
 
         try {
-          await enviarMensagem(phone, texto, company)
+          await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_proposta', supabase)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
