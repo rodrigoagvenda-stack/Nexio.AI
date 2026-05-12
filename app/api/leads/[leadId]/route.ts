@@ -39,8 +39,36 @@ export async function PATCH(
     if (field === 'status' && value !== 'Fechado') updateData.closed_at = null;
 
     if (field === 'status' && value === 'Outbound') {
-      const serviceClient = createServiceClient();
-      await serviceClient.from('outbound_campaigns').delete().eq('campaign_id', parseInt(leadId));
+      await supabase.from('outbound_campaigns').delete().eq('campaign_id', parseInt(leadId));
+    }
+
+    if (field === 'status' && value === 'Remarketing') {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('contact_name')
+        .eq('id', leadId)
+        .single();
+
+      const { data: existing } = await supabase
+        .from('follow_sequences')
+        .select('id')
+        .eq('company_id', context.companyId)
+        .eq('tipo', 'remarketing')
+        .ilike('nome', `%[Lead #${leadId}]%`)
+        .maybeSingle();
+
+      if (!existing) {
+        const nome = lead?.contact_name
+          ? `Remarketing — ${lead.contact_name} [Lead #${leadId}]`
+          : `Remarketing [Lead #${leadId}]`;
+
+        await supabase.from('follow_sequences').insert({
+          company_id: context.companyId,
+          nome,
+          tipo: 'remarketing',
+          ativo: false,
+        });
+      }
     }
 
     const { data, error } = await supabase
