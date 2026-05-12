@@ -209,99 +209,121 @@ function AudioRecorder({ onUpload, current }: { onUpload: (url: string) => void;
   )
 }
 
-// ─── WhatsApp Preview ─────────────────────────────────────────────────────────
+// ─── Phone Mockup (WhatsApp preview completo) ────────────────────────────────
 
-function WaPreview({ step }: { step: TrialStep }) {
+function PhoneMockup({ step }: { step: TrialStep }) {
   const { tipo_mensagem: tipo, mensagem, media_config: media } = step
   const text = mensagem || (tipo === 'text' ? 'Sua mensagem aparecerá aqui…' : '')
 
   return (
-    <div className="bg-[#0b141a] flex flex-col" style={{ minHeight: 260 }}>
-      <div className="flex items-center gap-2.5 px-3 py-2.5 bg-[#202c33]">
-        <div className="w-7 h-7 rounded-full bg-[#3a4a54] flex items-center justify-center shrink-0">
-          <Phone className="w-3.5 h-3.5 text-[#8696a0]" />
+    <div className="rounded-[36px] bg-[#18181b] p-[5px] shadow-2xl ring-1 ring-white/10 shrink-0">
+      <div className="rounded-[31px] overflow-hidden flex flex-col" style={{ width: 200, height: 390 }}>
+
+        {/* Notch */}
+        <div className="bg-[#18181b] h-5 flex items-center justify-center shrink-0">
+          <div className="w-12 h-1.5 rounded-full bg-black/60" />
         </div>
-        <div>
-          <p className="text-[11px] font-medium text-[#e9edef]">Lead</p>
-          <p className="text-[10px] text-[#8696a0]">online</p>
-        </div>
-      </div>
-      <div className="flex-1 p-3 flex flex-col justify-end">
-        <div className="flex justify-end">
-          <div className="bg-[#005c4b] rounded-xl rounded-tr-sm px-3 py-2 max-w-[88%] space-y-1.5 shadow">
-            {tipo === 'image' && (
-              <div className="w-full h-24 rounded-lg overflow-hidden bg-[#007a62] flex items-center justify-center">
-                {media.file ? <img src={media.file} className="h-full w-full object-cover" alt="" /> : <Image className="w-6 h-6 text-[#00a884]/60" />}
-              </div>
-            )}
-            {tipo === 'video' && (
-              <div className="w-full h-24 rounded-lg bg-[#007a62] flex items-center justify-center gap-2">
-                <Video className="w-6 h-6 text-[#00a884]/60" />
-                <span className="text-[10px] text-[#cfe9e5]">Vídeo</span>
-              </div>
-            )}
-            {(tipo === 'audio' || tipo === 'ptt') && (
-              <div className="flex items-center gap-2 py-1">
-                <div className="w-6 h-6 rounded-full bg-[#00a884] flex items-center justify-center shrink-0">
-                  <Mic className="w-3 h-3 text-white" />
-                </div>
-                <div className="flex-1 h-1.5 rounded-full bg-[#00a884]/40">
-                  <div className="h-full w-[55%] bg-[#00a884] rounded-full" />
-                </div>
-                <span className="text-[10px] text-[#8696a0]">0:12</span>
-              </div>
-            )}
-            {tipo === 'document' && (
-              <div className="flex items-center gap-2 py-0.5">
-                <div className="w-7 h-7 rounded-lg bg-[#00a884]/30 flex items-center justify-center shrink-0">
-                  <FileText className="w-3.5 h-3.5 text-[#00a884]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-[#e9edef] truncate">{media.docName || 'documento.pdf'}</p>
-                  <p className="text-[10px] text-[#8696a0]">PDF</p>
-                </div>
-              </div>
-            )}
-            {tipo === 'location' && (
-              <div className="w-full h-20 rounded-lg bg-[#007a62] flex flex-col items-center justify-center gap-1">
-                <MapPin className="w-5 h-5 text-[#00a884]" />
-                <p className="text-[10px] text-[#cfe9e5]">{media.name || 'Local'}</p>
-              </div>
-            )}
-            {tipo === 'menu' && (
-              <div className="space-y-1.5">
-                {text && <p className="text-[12px] text-[#e9edef] leading-relaxed whitespace-pre-wrap">{text}</p>}
-                <div className="space-y-1 pt-1">
-                  {(media.choices ?? ['Opção 1', 'Opção 2']).slice(0, 3).map((c, i) => (
-                    <div key={i} className="text-center text-[11px] text-[#53bdeb] border border-[#2a3942] rounded-lg py-1.5">
-                      {c || `Opção ${i + 1}`}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {tipo !== 'menu' && text && (
-              <p className="text-[12px] text-[#e9edef] leading-relaxed whitespace-pre-wrap">{text}</p>
-            )}
+
+        {/* WA screen */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* WA header */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#202c33] shrink-0">
+            <div className="w-7 h-7 rounded-full bg-[#3a4a54] flex items-center justify-center shrink-0">
+              <Phone className="w-3 h-3 text-[#8696a0]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-[#e9edef] leading-none">Lead</p>
+              <p className="text-[9px] text-[#00a884] mt-0.5">online</p>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 flex flex-col gap-2 px-2 pt-2 pb-1 bg-[#0b141a] overflow-hidden">
+            <div className="flex justify-center">
+              <span className="text-[9px] text-[#8696a0] bg-[#182229] px-2 py-0.5 rounded-lg">Hoje</span>
+            </div>
+
             <div className="flex justify-end">
-              <span className="text-[10px] text-[#8696a0]">agora ✓✓</span>
+              <div className="bg-[#005c4b] rounded-xl rounded-tr-none px-2.5 py-1.5 shadow" style={{ maxWidth: '85%' }}>
+                <div className="space-y-1.5">
+                  {tipo === 'image' && (
+                    <div className="w-full rounded-lg overflow-hidden bg-[#007a62] flex items-center justify-center" style={{ height: 72 }}>
+                      {media.file ? <img src={media.file} className="h-full w-full object-cover" alt="" /> : <Image className="w-5 h-5 text-[#00a884]/60" />}
+                    </div>
+                  )}
+                  {tipo === 'video' && (
+                    <div className="w-full rounded-lg bg-[#007a62] flex items-center justify-center gap-1.5" style={{ height: 72 }}>
+                      <Video className="w-5 h-5 text-[#00a884]/60" />
+                      <span className="text-[9px] text-[#cfe9e5]">Vídeo</span>
+                    </div>
+                  )}
+                  {(tipo === 'audio' || tipo === 'ptt') && (
+                    <div className="flex items-center gap-1.5 py-0.5">
+                      <div className="w-6 h-6 rounded-full bg-[#00a884] flex items-center justify-center shrink-0">
+                        <Mic className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="flex items-end gap-px flex-1 h-5">
+                        {[4,9,6,14,8,12,5,11,15,7,13,5,9,12,4].map((h, i) => (
+                          <div key={i} className="w-0.5 rounded-full bg-[#00a884]/60 flex-1" style={{ height: `${h}px` }} />
+                        ))}
+                      </div>
+                      <span className="text-[9px] text-[#8696a0]">0:12</span>
+                    </div>
+                  )}
+                  {tipo === 'document' && (
+                    <div className="flex items-center gap-1.5 py-0.5">
+                      <div className="w-7 h-7 rounded-lg bg-[#00a884]/30 flex items-center justify-center shrink-0">
+                        <FileText className="w-3.5 h-3.5 text-[#00a884]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-[#e9edef] truncate">{media.docName || 'documento.pdf'}</p>
+                        <p className="text-[9px] text-[#8696a0]">PDF</p>
+                      </div>
+                    </div>
+                  )}
+                  {tipo === 'location' && (
+                    <div className="w-full rounded-lg bg-[#007a62] flex flex-col items-center justify-center gap-1" style={{ height: 60 }}>
+                      <MapPin className="w-4 h-4 text-[#00a884]" />
+                      <p className="text-[9px] text-[#cfe9e5]">{media.name || 'Local'}</p>
+                    </div>
+                  )}
+                  {tipo === 'menu' && (
+                    <>
+                      {text && <p className="text-[11px] text-[#e9edef] leading-relaxed whitespace-pre-wrap">{text}</p>}
+                      <div className="space-y-1 pt-0.5">
+                        {(media.choices ?? ['Opção 1', 'Opção 2']).slice(0, 3).map((c, i) => (
+                          <div key={i} className="text-center text-[10px] text-[#53bdeb] border border-[#2a3942] rounded-lg py-1">
+                            {c || `Opção ${i + 1}`}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {tipo !== 'menu' && text && (
+                    <p className="text-[11px] text-[#e9edef] leading-relaxed whitespace-pre-wrap">{text}</p>
+                  )}
+                  <div className="flex justify-end">
+                    <span className="text-[9px] text-[#8696a0]">agora ✓✓</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Input bar (decorative) */}
+          <div className="flex items-center gap-1.5 px-2 py-1.5 bg-[#202c33] shrink-0">
+            <div className="flex-1 bg-[#2a3942] rounded-full h-7 flex items-center px-2.5">
+              <span className="text-[9px] text-[#8696a0]">Mensagem</span>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-[#00a884] flex items-center justify-center shrink-0">
+              <Mic className="w-3 h-3 text-white" />
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
 
-function PhoneMockup({ step }: { step: TrialStep }) {
-  return (
-    <div className="rounded-[36px] bg-[#18181b] p-[5px] shadow-2xl ring-1 ring-white/10 shrink-0">
-      <div className="rounded-[31px] overflow-hidden" style={{ width: 200 }}>
-        <div className="bg-[#18181b] h-5 flex items-center justify-center">
-          <div className="w-12 h-1.5 rounded-full bg-black/60" />
-        </div>
-        <WaPreview step={step} />
-        <div className="bg-[#0b141a] h-4 flex items-end justify-center pb-1">
+        {/* Home indicator */}
+        <div className="bg-[#0b141a] h-4 flex items-end justify-center pb-1 shrink-0">
           <div className="w-14 h-[3px] rounded-full bg-white/20" />
         </div>
       </div>
