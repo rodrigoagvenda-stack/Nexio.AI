@@ -410,7 +410,8 @@ async function processRemarketing(
   company: CompanyCtx,
   sequences: FollowSequence[],
   openai: OpenAI,
-  supabase: Supabase
+  supabase: Supabase,
+  skipDelay = false
 ): Promise<number> {
   let sent = 0
   const now = Date.now()
@@ -475,7 +476,7 @@ async function processRemarketing(
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
-          await antiBanDelay()
+          if (!skipDelay) await antiBanDelay()
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
         }
@@ -730,7 +731,12 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
   return { processed, errors }
 }
 
-export async function runRemarketingForCompany(companyId: number): Promise<{ sent: number; error?: string }> {
+function safeDecrypt(value: string | null | undefined, fallback = ''): string {
+  if (!value) return fallback
+  try { return decrypt(value) } catch { return value }
+}
+
+export async function runRemarketingForCompany(companyId: number, skipDelay = false): Promise<{ sent: number; error?: string }> {
   const supabase = createServiceClient()
 
   const platformCfg = await getPlatformConfig()
@@ -746,8 +752,8 @@ export async function runRemarketingForCompany(companyId: number): Promise<{ sen
   const company: CompanyCtx = {
     id: cfg.company_id,
     uazapi_url: cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url,
-    uazapi_token: cfg.uazapi_token ? decrypt(cfg.uazapi_token) : '',
-    openai_key: cfg.openai_key ? decrypt(cfg.openai_key) : platformCfg.openai_api_key,
+    uazapi_token: safeDecrypt(cfg.uazapi_token),
+    openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
     sdr_prompt: cfg.prompt ?? null,
   }
   if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
@@ -763,6 +769,6 @@ export async function runRemarketingForCompany(companyId: number): Promise<{ sen
 
   if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência de remarketing ativa' }
 
-  const sent = await processRemarketing(company, sequences as FollowSequence[], openai, supabase)
+  const sent = await processRemarketing(company, sequences as FollowSequence[], openai, supabase, skipDelay)
   return { sent }
 }
