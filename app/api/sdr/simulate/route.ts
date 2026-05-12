@@ -160,7 +160,45 @@ Responda em JSON:
       feedback = JSON.parse(raw)
     } catch {}
 
-    return NextResponse.json({ sdrMessages, sdrResponse, feedback })
+    // ── Alerta de padrão da conversa ──────────────────────────────────────
+    let alert: { type: string; message: string; severity: 'warning' | 'critical' } | null = null
+    const totalTurns = Math.ceil(history.length / 2) + 1
+    if (totalTurns >= 2) {
+      const fullConv = [
+        ...history.map((m) => `${m.role === 'user' ? 'Lead' : 'Agente'}: ${m.content}`),
+        `Lead: ${userMessage}`,
+        `Agente: ${sdrResponse}`,
+      ].join('\n')
+
+      const alertPrompt = `Analise esta conversa de SDR e identifique SE EXISTIR um padrão problemático agora (troca ${totalTurns}):
+
+${fullConv}
+
+ALERTAS possíveis — retorne NO MÁXIMO UM, apenas se for evidente:
+- "sem_cta": Lead qualificado e interessado, agente não ofereceu próximo passo após 3+ trocas
+- "repeticao": Agente fez agora uma pergunta idêntica a uma já feita antes
+- "oportunidade_perdida": Lead sinalizou urgência ou decisão e agente ignorou
+- "sem_avanco": 4+ trocas sem avançar de etapa nenhuma
+
+Retorne null se não houver padrão crítico evidente.
+
+JSON: {"alert": null | {"type": "sem_cta"|"repeticao"|"oportunidade_perdida"|"sem_avanco", "message": "<1 frase direta>", "severity": "warning"|"critical"}}`
+
+      const [alertRes] = await Promise.allSettled([
+        openai.chat.completions.create({
+          model: 'gpt-4.1-mini',
+          messages: [{ role: 'user', content: alertPrompt }],
+          temperature: 0,
+          max_tokens: 120,
+          response_format: { type: 'json_object' },
+        })
+      ])
+      if (alertRes.status === 'fulfilled') {
+        try { alert = JSON.parse(alertRes.value.choices[0]?.message?.content ?? '{}').alert ?? null } catch {}
+      }
+    }
+
+    return NextResponse.json({ sdrMessages, sdrResponse, feedback, alert })
   } catch (err: any) {
     console.error('[sdr/simulate]', err)
     return NextResponse.json({ error: err.message || 'Erro interno' }, { status: 500 })

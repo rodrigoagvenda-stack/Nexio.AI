@@ -78,6 +78,13 @@ const TABS = [
 ] as const
 type TabId = typeof TABS[number]['id']
 
+const TOM_OPTIONS = [
+  { value: 'amigável e próximo', label: 'Amigável', desc: 'Próximo, descontraído, usa emojis com moderação' },
+  { value: 'profissional e direto', label: 'Profissional', desc: 'Formal, objetivo, sem emojis' },
+  { value: 'empático e acolhedor', label: 'Empático', desc: 'Caloroso, paciente, valida sentimentos' },
+  { value: 'dinâmico e entusiasmado', label: 'Dinâmico', desc: 'Energético, animado, motivador' },
+]
+
 // ── Typeform wizard questions ──────────────────────────────────────────────
 
 interface WizardQuestion {
@@ -1359,9 +1366,20 @@ function CatalogManager() {
 // ── SimulatorChat ──────────────────────────────────────────────────────────
 
 type SimMode = 'inbound' | 'outbound'
+type LeadPersona = 'default' | 'cold' | 'price' | 'urgent' | 'indecisive' | 'closing'
 interface SimMessage { role: 'user' | 'assistant'; content: string }
 interface SimFeedback { score: number; positivo: string; melhorar: string | null }
-interface SimTurn { userMsg: string; sdrMsgs: string[]; feedback: SimFeedback; ts: string }
+interface SimAlert { type: string; message: string; severity: 'warning' | 'critical' }
+interface SimTurn { userMsg: string; sdrMsgs: string[]; feedback: SimFeedback; alert?: SimAlert | null; ts: string; isAuto?: boolean }
+
+const LEAD_PERSONAS: Record<LeadPersona, { label: string; emoji: string; hint: string }> = {
+  default:    { label: 'Livre',            emoji: '💬', hint: 'Digite como quiser — você controla' },
+  cold:       { label: 'Lead Frio',        emoji: '🧊', hint: 'Seja cético, sem urgência, curioso mas desconfiado' },
+  price:      { label: 'Objeção de Preço', emoji: '💰', hint: 'Pergunte o preço logo de cara, compare com concorrentes' },
+  urgent:     { label: 'Lead Urgente',     emoji: '⚡', hint: 'Você precisa resolver hoje — seja direto e impaciente' },
+  indecisive: { label: 'Indeciso',         emoji: '🤔', hint: 'Use "vou pensar", "não sei ainda", peça garantias' },
+  closing:    { label: 'Quase Fechando',   emoji: '🎯', hint: 'Você já quer — só falta confirmar detalhes finais' },
+}
 
 type SdrMsgType = 'text' | 'image' | 'audio' | 'doc'
 interface ParsedMsg { type: SdrMsgType; content: string }
@@ -1504,6 +1522,178 @@ function FeedbackPill({ feedback, onApply, applying, applied }: {
   )
 }
 
+function QuickOnboarding({ onComplete }: {
+  onComplete: (data: { persona: AgentPersona; nicheId: string }) => void
+}) {
+  const [step, setStep] = useState(0)
+  const [nicheId, setNicheId] = useState('')
+  const [nome_agente, setNomeAgente] = useState('')
+  const [empresa, setEmpresa] = useState('')
+  const [tom, setTom] = useState('')
+  const [produto, setProduto] = useState('')
+  const [preco, setPreco] = useState('')
+  const [horario, setHorario] = useState('')
+  const [endereco, setEndereco] = useState('')
+  const [link_agendamento, setLinkAgendamento] = useState('')
+
+  const steps = [
+    { title: 'Qual o nicho do seu negócio?', desc: 'Isso define o comportamento do agente' },
+    { title: 'Quem é o agente?', desc: 'Nome do agente e da sua empresa' },
+    { title: 'Qual o tom de voz?', desc: 'Como o agente se comunica com os clientes' },
+    { title: 'O que você oferece?', desc: 'Produto, serviço e preços' },
+    { title: 'Onde e quando?', desc: 'Localização, horários e link de agendamento' },
+  ]
+
+  const canAdvance = [
+    !!nicheId,
+    !!nome_agente && !!empresa,
+    !!tom,
+    !!produto,
+    !!horario,
+  ][step] ?? false
+
+  function finish() {
+    const selectedNiche = NICHES.find((n) => n.id === nicheId)
+    onComplete({
+      nicheId,
+      persona: {
+        ...EMPTY_PERSONA,
+        nome_agente, empresa, tom,
+        produto: produto || selectedNiche?.label || '',
+        preco, horario, endereco, link_agendamento,
+        nicho_id: nicheId,
+      },
+    })
+  }
+
+  return (
+    <div className="max-w-lg mx-auto py-8 px-4">
+      {/* Progress */}
+      <div className="flex gap-1 mb-8">
+        {steps.map((_, i) => (
+          <div key={i} className={cn('h-1 flex-1 rounded-full transition-colors', i <= step ? 'bg-primary' : 'bg-muted')} />
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground mb-1">Passo {step + 1} de {steps.length}</p>
+      <h2 className="text-xl font-bold mb-1">{steps[step].title}</h2>
+      <p className="text-sm text-muted-foreground mb-6">{steps[step].desc}</p>
+
+      {/* Step 0 — Nicho */}
+      {step === 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {NICHES.filter((n) => n.id !== 'monte-o-seu').map((n) => (
+            <button key={n.id} type="button" onClick={() => setNicheId(n.id)}
+              className={cn('text-left p-3 rounded-xl border transition-all',
+                nicheId === n.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+              <span className="text-lg">{n.emoji}</span>
+              <p className="text-sm font-medium mt-1">{n.label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{n.description}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Step 1 — Agente + empresa */}
+      {step === 1 && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome do agente</label>
+            <Input value={nome_agente} onChange={(e) => setNomeAgente(e.target.value)} placeholder="Ex: Ana, Carlos, Maya…" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome da empresa</label>
+            <Input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Ex: Clínica Bella, Studio Fit…" />
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — Tom */}
+      {step === 2 && (
+        <div className="grid grid-cols-2 gap-2">
+          {TOM_OPTIONS.map((t) => (
+            <button key={t.value} type="button" onClick={() => setTom(t.value)}
+              className={cn('text-left p-3 rounded-xl border transition-all',
+                tom === t.value ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+              <p className="text-sm font-medium">{t.label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{t.desc}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Step 3 — Produto + Preço */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Descreva o que você oferece</label>
+            <Textarea value={produto} onChange={(e) => setProduto(e.target.value)} rows={3}
+              placeholder="Ex: Consulta de nutrição presencial e online, com plano alimentar personalizado…" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Preços e condições (opcional)</label>
+            <Textarea value={preco} onChange={(e) => setPreco(e.target.value)} rows={2}
+              placeholder="Ex: Consulta R$180, pacote com 3 sessões R$480. Pagamento no PIX ou cartão." />
+          </div>
+        </div>
+      )}
+
+      {/* Step 4 — Localização + horário */}
+      {step === 4 && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Horário de atendimento</label>
+            <Input value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex: Segunda a sexta das 8h às 18h" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Endereço (opcional)</label>
+            <Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Ex: Rua das Flores, 123 — São Paulo/SP" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Link de agendamento (opcional)</label>
+            <Input value={link_agendamento} onChange={(e) => setLinkAgendamento(e.target.value)} placeholder="https://calendly.com/…" />
+          </div>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="flex gap-2 mt-8">
+        {step > 0 && (
+          <Button variant="outline" onClick={() => setStep((s) => s - 1)} className="gap-1.5">
+            <ChevronLeft className="w-4 h-4" /> Voltar
+          </Button>
+        )}
+        {step < steps.length - 1 ? (
+          <Button onClick={() => setStep((s) => s + 1)} disabled={!canAdvance} className="flex-1 gap-1.5">
+            Continuar <ArrowRight className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button onClick={finish} disabled={!canAdvance} className="flex-1 gap-1.5">
+            <Sparkles className="w-4 h-4" /> Criar agente
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AlertBanner({ alert, onDismiss }: { alert: SimAlert; onDismiss: () => void }) {
+  return (
+    <div className={cn(
+      'mx-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-xs animate-in slide-in-from-bottom-2 duration-300',
+      alert.severity === 'critical'
+        ? 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+        : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+    )}>
+      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+      <span className="flex-1 font-medium leading-snug">{alert.message}</span>
+      <button type="button" onClick={onDismiss} className="opacity-50 hover:opacity-100 transition-opacity mt-0.5">
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  )
+}
+
 function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variables: Record<string, string>; flowId: string | null }) {
   const storageKey = flowId && nicheId ? `sdr_sim_${flowId}_${nicheId}` : null
 
@@ -1522,6 +1712,14 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   const [appliedIndices, setAppliedIndices] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<SimMode>('inbound')
+  const [persona, setPersona] = useState<LeadPersona>('default')
+  const [personaOpen, setPersonaOpen] = useState(false)
+  const [activeAlert, setActiveAlert] = useState<SimAlert | null>(null)
+  const [autoRunning, setAutoRunning] = useState(false)
+  const [autoPersona, setAutoPersona] = useState<LeadPersona>('cold')
+  const [autoRounds, setAutoRounds] = useState(4)
+  const [showAutoPanel, setShowAutoPanel] = useState(false)
+  const [autoSummary, setAutoSummary] = useState<{ avgScore: number; wouldConvert: boolean; errors: string[]; rounds: number } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -1574,7 +1772,8 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao simular')
-      saveTurns([...turns, { userMsg: msg, sdrMsgs: data.sdrMessages ?? [data.sdrResponse ?? '...'], feedback: data.feedback, ts: now() }])
+      saveTurns([...turns, { userMsg: msg, sdrMsgs: data.sdrMessages ?? [data.sdrResponse ?? '...'], feedback: data.feedback, alert: data.alert ?? null, ts: now() }])
+      if (data.alert) setActiveAlert(data.alert)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1632,6 +1831,28 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     } finally { setApplyingIndex(null) }
   }
 
+  async function runAutoSim() {
+    if (!nicheId || autoRunning) return
+    setAutoRunning(true)
+    setShowAutoPanel(false)
+    setAutoSummary(null)
+    saveTurns([])
+    setActiveAlert(null)
+    try {
+      const res = await fetch('/api/sdr/auto-simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nicheId, variables, flowId, mode, persona: autoPersona, rounds: autoRounds }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro na simulação automática')
+      saveTurns(data.turns ?? [])
+      setAutoSummary(data.summary)
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro na simulação automática', variant: 'destructive' })
+    } finally { setAutoRunning(false) }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
   }
@@ -1682,22 +1903,26 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           <p className="text-[11px] text-emerald-500 mt-0.5">online · {niche?.label}</p>
         </div>
         <div className="flex items-center gap-1">
+          {/* Auto-sim button */}
+          <button
+            type="button"
+            onClick={() => setShowAutoPanel((v) => !v)}
+            title="Simulação automática"
+            className={cn(
+              'p-1.5 rounded-lg transition-colors text-xs flex items-center gap-1',
+              showAutoPanel ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+          </button>
           {turns.length > 0 && (
             <>
-              <button
-                type="button"
-                onClick={clearHistory}
-                title="Apagar histórico"
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              >
+              <button type="button" onClick={clearHistory} title="Apagar histórico"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
                 <Trash className="w-3.5 h-3.5" />
               </button>
-              <button
-                type="button"
-                onClick={() => { saveTurns([]); setError(null) }}
-                title="Novo chat"
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
+              <button type="button" onClick={() => { saveTurns([]); setError(null); setAutoSummary(null) }} title="Novo chat"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </>
@@ -1705,14 +1930,58 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
         </div>
       </div>
 
+      {/* ── Auto-sim panel ── */}
+      {showAutoPanel && (
+        <div className="border-b border-border/60 bg-muted/20 px-4 py-3 space-y-3">
+          <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary" /> Simulação Automática — IA joga o lead
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {(Object.entries(LEAD_PERSONAS) as [LeadPersona, typeof LEAD_PERSONAS.default][])
+              .filter(([k]) => k !== 'default')
+              .map(([key, p]) => (
+                <button key={key} type="button" onClick={() => setAutoPersona(key as LeadPersona)}
+                  className={cn(
+                    'px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1',
+                    autoPersona === key ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border text-muted-foreground hover:bg-muted'
+                  )}>
+                  {p.emoji} {p.label}
+                </button>
+              ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Rodadas:</span>
+              {[3, 4, 5, 6].map((n) => (
+                <button key={n} type="button" onClick={() => setAutoRounds(n)}
+                  className={cn('w-7 h-7 rounded-lg border text-xs font-medium transition-colors',
+                    autoRounds === n ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <Button size="sm" onClick={runAutoSim} disabled={autoRunning} className="ml-auto h-8 gap-1.5 text-xs">
+              {autoRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              {autoRunning ? 'Simulando…' : 'Iniciar'}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ── Messages ── */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4 min-h-0" style={{ background: 'var(--sim-bg, hsl(var(--muted)/0.3))' }}>
-        {turns.length === 0 && (
+        {turns.length === 0 && !autoRunning && (
           <div className="flex flex-col items-center gap-2 pt-8 text-center">
             <div className="px-3 py-1.5 rounded-full bg-muted/60 text-[11px] text-muted-foreground/70 border border-border/40">
               Simulação iniciada · {niche?.label}
             </div>
             <p className="text-xs text-muted-foreground/60 mt-1">Digite como um lead chegando pelo WhatsApp</p>
+          </div>
+        )}
+        {autoRunning && (
+          <div className="flex flex-col items-center gap-3 pt-8 text-center">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground">IA simulando conversa como {LEAD_PERSONAS[autoPersona].emoji} {LEAD_PERSONAS[autoPersona].label}…</p>
           </div>
         )}
 
@@ -1784,33 +2053,86 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           </div>
         )}
 
+        {autoSummary && (
+          <div className="mx-3 rounded-xl border border-border bg-card p-4 space-y-2 animate-in fade-in duration-300">
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-primary" /> Resultado da Simulação Automática
+            </p>
+            <div className="flex items-center gap-3">
+              <div className={cn('text-2xl font-bold', autoSummary.avgScore >= 7 ? 'text-emerald-500' : autoSummary.avgScore >= 5 ? 'text-amber-500' : 'text-red-500')}>
+                {autoSummary.avgScore}/10
+              </div>
+              <div className="flex-1">
+                <p className={cn('text-xs font-medium', autoSummary.wouldConvert ? 'text-emerald-600' : 'text-red-600')}>
+                  {autoSummary.wouldConvert ? '✓ Converteria esse lead' : '✗ Esse lead não converteria'}
+                </p>
+                <p className="text-[11px] text-muted-foreground">{autoSummary.rounds} trocas simuladas</p>
+              </div>
+            </div>
+            {autoSummary.errors.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[11px] font-medium text-muted-foreground">Erros recorrentes:</p>
+                {autoSummary.errors.map((e, i) => (
+                  <p key={i} className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                    <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />{e}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
 
+      {/* ── Alert banner ── */}
+      {activeAlert && (
+        <div className="px-0 pt-2">
+          <AlertBanner alert={activeAlert} onDismiss={() => setActiveAlert(null)} />
+        </div>
+      )}
+
       {/* ── Mode toggle + Input ── */}
       <div className="border-t border-border/60 bg-card shrink-0">
-        {/* Inbound / Outbound toggle */}
-        <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+        {/* Inbound / Outbound / Persona row */}
+        <div className="flex items-center gap-1 px-3 pt-2 pb-1 flex-wrap gap-y-1">
           <span className="text-[10px] text-muted-foreground/60 mr-1">Modo:</span>
           {(['inbound', 'outbound'] as SimMode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={cn(
-                'px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors',
-                mode === m
-                  ? 'bg-primary/10 border-primary/30 text-primary'
-                  : 'border-border/50 text-muted-foreground/60 hover:border-border hover:text-muted-foreground'
-              )}
-            >
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors',
+                mode === m ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border/50 text-muted-foreground/60 hover:border-border hover:text-muted-foreground')}>
               {m === 'inbound' ? 'Inbound' : 'Outbound'}
             </button>
           ))}
-          <span className="text-[10px] text-muted-foreground/40 ml-auto">
-            {mode === 'inbound' ? 'Lead chegou até você' : 'Você abordou o lead'}
-          </span>
+          <div className="relative ml-auto">
+            <button type="button" onClick={() => setPersonaOpen((v) => !v)}
+              className={cn('px-2.5 py-0.5 rounded-full text-[10px] font-medium border transition-colors flex items-center gap-1',
+                persona !== 'default' ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border/50 text-muted-foreground/60 hover:border-border hover:text-muted-foreground')}>
+              {LEAD_PERSONAS[persona].emoji} {LEAD_PERSONAS[persona].label} <ChevronDown className="w-2.5 h-2.5" />
+            </button>
+            {personaOpen && (
+              <div className="absolute bottom-full right-0 mb-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-10 min-w-[180px]">
+                {(Object.entries(LEAD_PERSONAS) as [LeadPersona, typeof LEAD_PERSONAS.default][]).map(([key, p]) => (
+                  <button key={key} type="button"
+                    onClick={() => { setPersona(key as LeadPersona); setPersonaOpen(false) }}
+                    className={cn('w-full flex items-start gap-2 px-3 py-2 text-left text-xs hover:bg-muted/50 transition-colors',
+                      persona === key ? 'text-primary bg-primary/5' : 'text-foreground')}>
+                    <span className="text-sm leading-none mt-0.5">{p.emoji}</span>
+                    <div>
+                      <p className="font-medium">{p.label}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{p.hint}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+        {persona !== 'default' && (
+          <div className="mx-3 mb-1 px-2.5 py-1 rounded-lg bg-primary/5 border border-primary/10 text-[10px] text-primary/80">
+            {LEAD_PERSONAS[persona].hint}
+          </div>
+        )}
 
         {/* Text input */}
         <div className="flex gap-2 items-end px-3 pb-3">
@@ -1845,6 +2167,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
 export default function SdrConfigPage() {
   const [activeTab, setActiveTab] = useState<TabId>('geral')
+  const [setupMode, setSetupMode] = useState<'choosing' | 'quick' | 'advanced'>('advanced')
   const [config, setConfig] = useState<SdrConfig>({
     agent_type: 'atendimento_venda',
     persona: { ...EMPTY_PERSONA },
@@ -1887,6 +2210,7 @@ export default function SdrConfigPage() {
           event_title_template: data.config.event_title_template ?? '',
         })
         if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
+        if (!data.config.flow_id) setSetupMode('choosing')
       }
     } catch { toast({ title: 'Erro ao carregar configuração', variant: 'destructive' }) }
     finally { setLoading(false) }
@@ -1939,6 +2263,85 @@ export default function SdrConfigPage() {
   const needsAgendamento = config.agent_type === 'atendimento_venda_agendamento'
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+
+  // ── Choosing mode ──────────────────────────────────────────────────────
+  if (setupMode === 'choosing') {
+    return (
+      <div className="max-w-2xl mx-auto p-6 pb-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight">Agente SDR</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Como você quer configurar seu agente?</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <button type="button" onClick={() => setSetupMode('quick')}
+            className="text-left p-5 rounded-2xl border-2 border-primary bg-primary/5 hover:bg-primary/10 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center mb-3">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <p className="font-semibold text-sm">Configuração rápida</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Responda 5 perguntas simples e o agente fica pronto em minutos.</p>
+            <p className="text-[11px] text-primary font-medium mt-3">Recomendado para novos usuários →</p>
+          </button>
+          <button type="button" onClick={() => setSetupMode('advanced')}
+            className="text-left p-5 rounded-2xl border border-border hover:bg-muted/40 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center mb-3">
+              <Settings className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <p className="font-semibold text-sm">Avançado</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Controle total — templates, base de conhecimento, integrações e simulador.</p>
+            <p className="text-[11px] text-muted-foreground font-medium mt-3">Para usuários experientes →</p>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Quick onboarding ───────────────────────────────────────────────────
+  if (setupMode === 'quick') {
+    return (
+      <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <button type="button" onClick={() => setSetupMode('choosing')}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold">Configuração Rápida</h1>
+            <p className="text-xs text-muted-foreground">Seu agente pronto em minutos</p>
+          </div>
+          <button type="button" onClick={() => setSetupMode('advanced')}
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors">
+            Ir para avançado →
+          </button>
+        </div>
+        <QuickOnboarding onComplete={async ({ persona: newPersona, nicheId }) => {
+          setConfig((prev) => ({ ...prev, persona: newPersona }))
+          setSharedNicheId(nicheId)
+          setSaving(true)
+          try {
+            const res = await fetch('/api/sdr/config', {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                agent_type: config.agent_type,
+                prompt: JSON.stringify({ ...newPersona, nicho_id: nicheId }),
+                agente_ativo: config.agente_ativo,
+                conhecimento_ativo: true, objecoes_ativo: false,
+                inbox_mode: config.inbox_mode,
+              }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error)
+            if (data.config?.flow_id) setConfig((p) => ({ ...p, flow_id: data.config.flow_id }))
+            toast({ title: 'Agente criado! Agora gere a base de conhecimento.' })
+            setSetupMode('advanced')
+            setActiveTab('conhecimento')
+          } catch (err: any) {
+            toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' })
+          } finally { setSaving(false) }
+        }} />
+      </div>
+    )
+  }
 
   const simVariables = {
     nome_agente: config.persona.nome_agente,
@@ -1996,6 +2399,11 @@ export default function SdrConfigPage() {
 
         {/* ── Sidebar ── */}
         <aside className="w-44 shrink-0 space-y-1">
+          <button onClick={() => setSetupMode('quick')}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors text-left text-primary bg-primary/5 hover:bg-primary/10 mb-2 border border-primary/20">
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            Config. Rápida
+          </button>
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
