@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
@@ -30,7 +30,6 @@ Converte facilmente se o agente não complicar.`,
 }
 
 async function buildSdrPrompt(
-  openai: OpenAI,
   supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never,
   nicheId: string,
   variables: SdrVariables,
@@ -99,9 +98,9 @@ async function sdrRespond(
   ]
   const hasJson = allMessages.some((m) => typeof m.content === 'string' && m.content.toLowerCase().includes('json'))
   const res = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
+    model: 'gpt-4.1',
     messages: allMessages,
-    temperature: 0.4, max_tokens: 400,
+    temperature: 0.4, max_tokens: 600,
     ...(hasJson ? { response_format: { type: 'json_object' as const } } : {}),
   })
   try {
@@ -116,16 +115,22 @@ async function evalTurn(
   openai: OpenAI, nicheLabel: string, mode: string, leadMsg: string, sdrMsg: string
 ): Promise<{ score: number; positivo: string; melhorar: string | null }> {
   const res = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
+    model: 'gpt-4.1',
     messages: [{
       role: 'user',
       content: `Nicho: ${nicheLabel} | ${mode === 'inbound' ? 'Inbound' : 'Outbound'}
 Lead: "${leadMsg}"
 Agente: "${sdrMsg}"
-Avalie só esta resposta.
-JSON: {"score": 1-10, "positivo": "1 frase", "melhorar": "1 frase ou null se correto"}`,
+
+REGRAS ESTRITAS:
+1. Avalie SOMENTE o que o agente fez nesta resposta
+2. "melhorar" deve ser null se a resposta está correta e adequada para este momento
+3. Só preencha "melhorar" se houver erro concreto e específico (gênero errado, tom inadequado, informação incorreta, pergunta fechada quando deveria ser aberta)
+4. Não diga "poderia ter feito X" — só aponte erros reais que ocorreram
+
+Responda em JSON: {"score": 1-10, "positivo": "1 frase", "melhorar": "1 frase com erro real ou null"}`,
     }],
-    temperature: 0.2, max_tokens: 150,
+    temperature: 0.1, max_tokens: 200,
     response_format: { type: 'json_object' },
   })
   try { return JSON.parse(res.choices[0]?.message?.content ?? '{}') }
@@ -133,69 +138,89 @@ JSON: {"score": 1-10, "positivo": "1 frase", "melhorar": "1 frase ou null se cor
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Não autenticado' }), { status: 401 })
+  }
 
-    const body = await request.json()
-    const { nicheId, variables, flowId, mode = 'inbound', persona = 'cold', rounds = 4 } = body as {
-      nicheId: string; variables: SdrVariables; flowId?: string | null
-      mode?: 'inbound' | 'outbound'; persona?: string; rounds?: number
-    }
+  const body = await request.json()
+  const { nicheId, variables, flowId, mode = 'inbound', persona = 'cold', rounds = 4 } = body as {
+    nicheId: string; variables: SdrVariables; flowId?: string | null
+    mode?: 'inbound' | 'outbound'; persona?: string; rounds?: number
+  }
 
-    const niche = NICHE_MAP[nicheId]
-    if (!niche) return NextResponse.json({ error: 'Nicho inválido' }, { status: 400 })
+  const niche = NICHE_MAP[nicheId]
+  if (!niche) return new Response(JSON.stringify({ error: 'Nicho inválido' }), { status: 400 })
 
-    const platformConfig = await getPlatformConfig()
-    const openaiKey = platformConfig?.openai_api_key
-    if (!openaiKey) return NextResponse.json({ error: 'Chave OpenAI não configurada.' }, { status: 422 })
+  const platformConfig = await getPlatformConfig()
+  const openaiKey = platformConfig?.openai_api_key
+  if (!openaiKey) return new Response(JSON.stringify({ error: 'Chave OpenAI não configurada.' }), { status: 422 })
 
-    const { default: OpenAI } = await import('openai')
-    const openai = new OpenAI({ apiKey: openaiKey })
+  const { default: OpenAI } = await import('openai')
+  const openai = new OpenAI({ apiKey: openaiKey })
 
-    const sdrPrompt = await buildSdrPrompt(openai as any, supabase as any, nicheId, variables, flowId, user)
+  const sdrPrompt = await buildSdrPrompt(supabase as any, nicheId, variables, flowId, user)
 
-    const personaBase = LEAD_PERSONA_PROMPTS[persona] ?? LEAD_PERSONA_PROMPTS.cold
-    const leadSystemPrompt = `${personaBase}
+  const personaBase = LEAD_PERSONA_PROMPTS[persona] ?? LEAD_PERSONA_PROMPTS.cold
+  const leadSystemPrompt = `${personaBase}
 
 Negócio: ${variables.nome_empresa ?? 'empresa'} — ${niche.label}
 Responda APENAS em JSON: {"message": "sua mensagem"}`
 
-    type AutoTurn = {
-      userMsg: string; sdrMsgs: string[]
-      feedback: { score: number; positivo: string; melhorar: string | null }
-      ts: string; isAuto: true
-    }
-    const turns: AutoTurn[] = []
-    const convHistory: OpenAI.ChatCompletionMessageParam[] = []
-    const maxRounds = Math.min(Math.max(rounds, 2), 6)
+  const maxRounds = Math.min(Math.max(rounds, 2), 6)
+  const encoder = new TextEncoder()
 
-    for (let round = 0; round < maxRounds; round++) {
-      const leadMsg = await leadRespond(openai, leadSystemPrompt, convHistory, round === 0)
-      const sdrMsgs = await sdrRespond(openai, sdrPrompt, convHistory, leadMsg, mode)
-      const sdrText = sdrMsgs.filter((m) => !m.match(/^\[(FOTO|AUDIO|PDF:)/)).join('\n')
-      const feedback = await evalTurn(openai, niche.label, mode, leadMsg, sdrText)
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`)) } catch {}
+      }
 
-      const ts = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      turns.push({ userMsg: leadMsg, sdrMsgs, feedback, ts, isAuto: true })
+      try {
+        type TurnAcc = { leadMsg: string; sdrText: string; feedback: { score: number; positivo: string; melhorar: string | null } }
+        const allTurns: TurnAcc[] = []
+        const convHistory: OpenAI.ChatCompletionMessageParam[] = []
 
-      convHistory.push({ role: 'user', content: leadMsg })
-      convHistory.push({ role: 'assistant', content: sdrText })
+        for (let round = 0; round < maxRounds; round++) {
+          const leadMsg = await leadRespond(openai, leadSystemPrompt, convHistory, round === 0)
+          send({ type: 'lead', message: leadMsg, round })
 
-      // Stop early if lead clearly converted
-      if (round >= 2 && feedback.score >= 9) break
-    }
+          const sdrMsgs = await sdrRespond(openai, sdrPrompt, convHistory, leadMsg, mode)
+          send({ type: 'sdr', messages: sdrMsgs, round })
 
-    const avgScore = turns.length
-      ? Math.round(turns.reduce((s, t) => s + t.feedback.score, 0) / turns.length)
-      : 0
-    const errors = turns.filter((t) => t.feedback.melhorar).map((t) => t.feedback.melhorar!)
-    const wouldConvert = avgScore >= 7
+          const sdrText = sdrMsgs.filter((m) => !m.match(/^\[(FOTO|AUDIO|PDF:)/)).join('\n')
+          const feedback = await evalTurn(openai, niche.label, mode, leadMsg, sdrText)
+          send({ type: 'feedback', feedback, round })
 
-    return NextResponse.json({ turns, summary: { avgScore, wouldConvert, errors, rounds: turns.length } })
-  } catch (err: any) {
-    console.error('[auto-simulate]', err)
-    return NextResponse.json({ error: err.message || 'Erro interno' }, { status: 500 })
-  }
+          allTurns.push({ leadMsg, sdrText, feedback })
+          convHistory.push({ role: 'user', content: leadMsg })
+          convHistory.push({ role: 'assistant', content: sdrText })
+
+          if (round >= 2 && feedback.score >= 9) break
+        }
+
+        const avgScore = allTurns.length
+          ? Math.round(allTurns.reduce((s, t) => s + t.feedback.score, 0) / allTurns.length)
+          : 0
+        const errors = allTurns.filter((t) => t.feedback.melhorar).map((t) => t.feedback.melhorar!)
+        const wouldConvert = avgScore >= 7
+
+        send({ type: 'summary', summary: { avgScore, wouldConvert, errors, rounds: allTurns.length } })
+      } catch (err: any) {
+        console.error('[auto-simulate]', err)
+        send({ type: 'error', message: err.message || 'Erro interno' })
+      } finally {
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  })
 }

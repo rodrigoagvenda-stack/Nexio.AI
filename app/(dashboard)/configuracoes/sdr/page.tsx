@@ -1838,19 +1838,90 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     setAutoSummary(null)
     saveTurns([])
     setActiveAlert(null)
+
+    let currentTurns: SimTurn[] = []
+
+    const addOrUpdateTurn = (updater: (prev: SimTurn[]) => SimTurn[]) => {
+      currentTurns = updater(currentTurns)
+      saveTurns(currentTurns)
+    }
+
     try {
       const res = await fetch('/api/sdr/auto-simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nicheId, variables, flowId, mode, persona: autoPersona, rounds: autoRounds }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro na simulação automática')
-      saveTurns(data.turns ?? [])
-      setAutoSummary(data.summary)
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erro na simulação automática')
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+            const ts = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+
+            if (event.type === 'lead') {
+              addOrUpdateTurn((prev) => [...prev, {
+                userMsg: event.message,
+                sdrMsgs: [],
+                feedback: { score: 0, positivo: '', melhorar: null },
+                ts,
+                isAuto: true,
+              }])
+              setLoading(true)
+            } else if (event.type === 'sdr') {
+              setLoading(false)
+              addOrUpdateTurn((prev) => prev.map((t, i) =>
+                i === prev.length - 1 ? { ...t, sdrMsgs: event.messages } : t
+              ))
+            } else if (event.type === 'feedback') {
+              addOrUpdateTurn((prev) => prev.map((t, i) =>
+                i === prev.length - 1 ? { ...t, feedback: event.feedback } : t
+              ))
+            } else if (event.type === 'summary') {
+              setAutoSummary(event.summary)
+            } else if (event.type === 'error') {
+              throw new Error(event.message)
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes('JSON')) throw parseErr
+          }
+        }
+      }
     } catch (err: any) {
       toast({ title: err.message || 'Erro na simulação automática', variant: 'destructive' })
-    } finally { setAutoRunning(false) }
+    } finally {
+      setAutoRunning(false)
+      setLoading(false)
+    }
+  }
+
+  async function applyAutoError(error: string) {
+    if (!flowId) return
+    try {
+      await fetch(`/api/sdr/flows/${flowId}/knowledge/patch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correction: error, type: 'conhecimento' }),
+      })
+      toast({ title: 'Correção salva na base de conhecimento' })
+    } catch {
+      toast({ title: 'Erro ao salvar correção', variant: 'destructive' })
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -1978,10 +2049,10 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
             <p className="text-xs text-muted-foreground/60 mt-1">Digite como um lead chegando pelo WhatsApp</p>
           </div>
         )}
-        {autoRunning && (
+        {autoRunning && turns.length === 0 && (
           <div className="flex flex-col items-center gap-3 pt-8 text-center">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground">IA simulando conversa como {LEAD_PERSONAS[autoPersona].emoji} {LEAD_PERSONAS[autoPersona].label}…</p>
+            <p className="text-xs text-muted-foreground">IA iniciando conversa como {LEAD_PERSONAS[autoPersona].emoji} {LEAD_PERSONAS[autoPersona].label}…</p>
           </div>
         )}
 
@@ -2070,12 +2141,22 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
               </div>
             </div>
             {autoSummary.errors.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-[11px] font-medium text-muted-foreground">Erros recorrentes:</p>
+              <div className="space-y-2">
+                <p className="text-[11px] font-medium text-muted-foreground">Erros identificados:</p>
                 {autoSummary.errors.map((e, i) => (
-                  <p key={i} className="text-[11px] text-amber-600 dark:text-amber-400 flex items-start gap-1">
-                    <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />{e}
-                  </p>
+                  <div key={i} className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-2.5 py-2">
+                    <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0 text-amber-500" />
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex-1">{e}</p>
+                    {flowId && (
+                      <button
+                        type="button"
+                        onClick={() => applyAutoError(e)}
+                        className="shrink-0 text-[10px] font-medium text-primary hover:underline"
+                      >
+                        Aplicar
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
