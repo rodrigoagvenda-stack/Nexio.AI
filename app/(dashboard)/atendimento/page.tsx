@@ -350,6 +350,12 @@ export default function AtendimentoPage() {
 
       if (error) throw error;
       const incoming = (data || []).reverse();
+      const special = incoming.filter((m: any) => ['menu', 'button', 'location', 'audio', 'ptt'].includes(m.tipo_de_mensagem));
+      if (special.length > 0) {
+        console.log('[fetchMessages] tipos especiais encontrados:', special.map((m: any) => ({
+          id: m.id, tipo: m.tipo_de_mensagem, texto: m.texto_da_mensagem, url: m.url_da_midia
+        })));
+      }
       setMessages((prev) => {
         const lastPrevId = prev[prev.length - 1]?.id;
         const lastNewId = incoming[incoming.length - 1]?.id;
@@ -1043,6 +1049,15 @@ export default function AtendimentoPage() {
   };
 
   const renderMessageContent = (msg: Message) => {
+    if (['menu', 'button', 'location', 'audio', 'ptt'].includes(msg.tipo_de_mensagem)) {
+      console.log('[renderMsg]', {
+        id: msg.id,
+        tipo: msg.tipo_de_mensagem,
+        texto: msg.texto_da_mensagem,
+        url_da_midia: msg.url_da_midia,
+      });
+    }
+
     // Mensagem apagada — estilo WhatsApp
     if (msg.is_deleted) {
       return (
