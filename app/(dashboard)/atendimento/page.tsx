@@ -224,7 +224,7 @@ export default function AtendimentoPage() {
 
     // Inscrever para novas mensagens
     const messagesChannel = supabase
-      .channel('mensagens_realtime')
+      .channel(`mensagens_realtime_${selectedConversation.id}`)
       .on(
         'postgres_changes',
         {
@@ -276,6 +276,13 @@ export default function AtendimentoPage() {
     return () => {
       supabase.removeChannel(messagesChannel);
     };
+  }, [selectedConversation?.id]);
+
+  // Polling fallback: garante que mensagens apareçam mesmo se realtime falhar
+  useEffect(() => {
+    if (!selectedConversation) return;
+    const interval = setInterval(() => fetchMessages(selectedConversation.id), 8000);
+    return () => clearInterval(interval);
   }, [selectedConversation?.id]);
 
   // Auto scroll
@@ -337,12 +344,19 @@ export default function AtendimentoPage() {
           user:users(name)
         `)
         .eq('id_da_conversacao', conversationId)
-        .eq('company_id', company!.id) // 🔒 Segurança: garante isolamento por empresa
+        .eq('company_id', company!.id)
         .order('carimbo_de_data_e_hora', { ascending: false })
-        .limit(100); // 🚀 Performance: Carrega apenas últimas 100 mensagens
+        .limit(100);
 
       if (error) throw error;
-      setMessages((data || []).reverse()); // Reverter para ordem correta
+      const incoming = (data || []).reverse();
+      setMessages((prev) => {
+        // Evita re-render e flicker se não há mensagens novas
+        const lastPrevId = prev[prev.length - 1]?.id;
+        const lastNewId = incoming[incoming.length - 1]?.id;
+        if (prev.length === incoming.length && lastPrevId === lastNewId) return prev;
+        return incoming;
+      });
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -1040,6 +1054,30 @@ export default function AtendimentoPage() {
       );
     }
 
+    // Áudio/PTT — com ou sem URL
+    if (msg.tipo_de_mensagem === 'audio' || msg.tipo_de_mensagem === 'ptt') {
+      if (msg.url_da_midia) {
+        return <WhatsAppAudioPlayer src={msg.url_da_midia} isOutbound={msg.direcao === 'outbound'} />;
+      }
+      // Sem URL: mostra ícone + transcrição (se disponível)
+      const rawText = msg.texto_da_mensagem ?? '';
+      const transcription = rawText.startsWith('🎵 ') ? rawText.slice(2) : rawText;
+      const hasTranscription = transcription && transcription !== 'Áudio' && transcription.trim() !== '';
+      return (
+        <div className="flex items-start gap-2 py-0.5">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Mic className="w-4 h-4 text-primary" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs text-muted-foreground font-medium">Mensagem de voz</p>
+            {hasTranscription && (
+              <p className="text-sm whitespace-pre-wrap opacity-80 italic">&ldquo;{transcription}&rdquo;</p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     // Se tem mídia, renderiza o preview
     if (msg.url_da_midia) {
       switch (msg.tipo_de_mensagem) {
@@ -1074,19 +1112,6 @@ export default function AtendimentoPage() {
             </div>
           );
 
-        case 'audio':
-          return (
-            <div className="space-y-2">
-              <WhatsAppAudioPlayer
-                src={msg.url_da_midia}
-                isOutbound={msg.direcao === 'outbound'}
-              />
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎵') && msg.texto_da_mensagem !== '[Áudio]' && (
-                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
-              )}
-            </div>
-          );
-
         case 'document': {
           const fileName = msg.url_da_midia.split('/').pop() || 'documento';
           return (
@@ -1110,14 +1135,6 @@ export default function AtendimentoPage() {
             </div>
           );
         }
-
-        case 'ptt':
-          return (
-            <WhatsAppAudioPlayer
-              src={msg.url_da_midia}
-              isOutbound={msg.direcao === 'outbound'}
-            />
-          );
 
         case 'carousel': {
           let carouselItems: any[] = [];

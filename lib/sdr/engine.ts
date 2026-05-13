@@ -1669,16 +1669,36 @@ async function saveInbound(
   mediaUrl?: string,
   messageId?: string
 ): Promise<void> {
+  if (!conversationId) {
+    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
+    return
+  }
+
+  // Para áudio: usa a transcrição se disponível (text = enrichedContent), senão placeholder
   const displayText =
-    tipo === 'audio' ? '🎵 Áudio' :
+    tipo === 'audio' ? (text && text !== '🎵 Áudio' ? `🎵 ${text}` : '🎵 Áudio') :
     tipo === 'image' ? '📷 Imagem' :
     tipo === 'document' ? '📄 Documento' :
     tipo === 'video' ? '🎥 Vídeo' :
     text
 
-  if (!conversationId) {
-    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
-    return
+  // Se a mensagem já foi pré-salva (immediate save antes do buffer), apenas atualiza
+  if (messageId) {
+    const { data: existing } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('id')
+      .eq('whatsapp_message_id', messageId)
+      .eq('company_id', ctx.companyId)
+      .maybeSingle()
+    if (existing?.id) {
+      await supabase.from('mensagens_do_whatsapp')
+        .update({ texto_da_mensagem: displayText, url_da_midia: mediaUrl ?? null })
+        .eq('id', existing.id)
+      await supabase.from('conversas_do_whatsapp')
+        .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
+        .eq('id', conversationId)
+      return
+    }
   }
 
   const { error } = await supabase.from('mensagens_do_whatsapp').insert({
@@ -2291,23 +2311,59 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     await bufferMessage(companyId, phone, bufferedMsg)
 
-    // Marca follow_logs como respondido (fire-and-forget — não bloqueia o fluxo)
-    createServiceClient()
-      .from('leads')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('whatsapp', phone)
-      .maybeSingle()
-      .then(({ data: lead }) => {
+    // Pré-salva a mensagem imediatamente na conversa existente (antes do buffer de 30s)
+    // Garante que aparece no painel de atendimento sem esperar o processamento da IA
+    ;(async () => {
+      try {
+        const imm = createServiceClient()
+        const { data: conv } = await imm
+          .from('conversas_do_whatsapp')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('numero_de_telefone', phone)
+          .maybeSingle()
+        if (!conv?.id) return
+        const dispText = msgType === 'audio' ? '🎵 Áudio'
+          : msgType === 'image' ? '📷 Imagem'
+          : msgType === 'video' ? '🎥 Vídeo'
+          : msgType === 'document' ? '📄 Documento'
+          : text || ''
+        await imm.from('mensagens_do_whatsapp').insert({
+          id_da_conversacao: conv.id,
+          company_id: companyId,
+          texto_da_mensagem: dispText,
+          tipo_de_mensagem: msgType === 'unknown' ? 'text' : msgType,
+          direcao: 'inbound',
+          sender_type: 'human',
+          status: 'delivered',
+          url_da_midia: mediaUrl ?? null,
+          carimbo_de_data_e_hora: new Date().toISOString(),
+          whatsapp_message_id: messageId || null,
+        })
+        await imm.from('conversas_do_whatsapp')
+          .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: new Date().toISOString() })
+          .eq('id', conv.id)
+      } catch { /* best-effort */ }
+    })()
+
+    // Marca follow_logs como respondido (fire-and-forget)
+    ;(async () => {
+      try {
+        const { data: lead } = await createServiceClient()
+          .from('leads')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('whatsapp', phone)
+          .maybeSingle()
         if (!lead?.id) return
-        return createServiceClient()
+        await createServiceClient()
           .from('follow_logs')
           .update({ respondeu: true })
           .eq('company_id', companyId)
           .eq('lead_id', lead.id)
-          .eq('respondeu', false)
-      })
-      .catch(() => {/* best-effort */})
+          .neq('respondeu', true)
+      } catch { /* best-effort */ }
+    })()
 
     // Lock Redis (replica "Pausa Fila" do N8N): apenas o primeiro handler aguarda os 30s.
     // Os demais retornam imediatamente — a mensagem já está na fila.
