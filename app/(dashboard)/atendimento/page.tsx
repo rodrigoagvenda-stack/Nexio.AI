@@ -1087,7 +1087,7 @@ export default function AtendimentoPage() {
             </div>
           );
 
-        case 'document':
+        case 'document': {
           const fileName = msg.url_da_midia.split('/').pop() || 'documento';
           return (
             <div className="space-y-2">
@@ -1109,10 +1109,88 @@ export default function AtendimentoPage() {
               )}
             </div>
           );
+        }
+
+        case 'ptt':
+          return (
+            <WhatsAppAudioPlayer
+              src={msg.url_da_midia}
+              isOutbound={msg.direcao === 'outbound'}
+            />
+          );
+
+        case 'carousel': {
+          let carouselItems: any[] = [];
+          try { carouselItems = JSON.parse(msg.url_da_midia); } catch {}
+          return (
+            <div className="space-y-2">
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('[carousel') && (
+                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+              )}
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                {carouselItems.map((item: any, i: number) => (
+                  <div key={i} className="flex-shrink-0 w-44 rounded-xl border border-border/60 overflow-hidden bg-background/50">
+                    {item.image && (
+                      <img src={item.image} alt={item.title || ''} className="w-full h-24 object-cover" loading="lazy" />
+                    )}
+                    <div className="p-2 space-y-1">
+                      {item.title && <p className="text-sm font-semibold leading-tight">{item.title}</p>}
+                      {item.body && <p className="text-xs text-muted-foreground leading-snug">{item.body}</p>}
+                      {(item.buttons ?? []).map((btn: any, j: number) => (
+                        <div key={j} className="text-xs text-center py-1 px-2 rounded-lg bg-primary/10 text-primary font-medium">
+                          {typeof btn === 'string' ? btn : (btn.text ?? btn.title ?? JSON.stringify(btn))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        case 'menu':
+        case 'button': {
+          let menuData: { menuType?: string; choices?: any[] } = {};
+          try { menuData = JSON.parse(msg.url_da_midia); } catch {}
+          const choices = menuData.choices ?? [];
+          return (
+            <div className="space-y-2">
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('[') && (
+                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
+              )}
+              {choices.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  {choices.map((c: any, i: number) => (
+                    <div key={i} className="text-sm text-center py-1.5 px-3 rounded-xl border border-primary/30 text-primary bg-primary/5">
+                      {typeof c === 'string' ? c : (c.text ?? c.title ?? c.id ?? JSON.stringify(c))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         default:
           return renderTextWithLinks(msg.texto_da_mensagem || '');
       }
+    }
+
+    // Location sem url_da_midia
+    if (msg.tipo_de_mensagem === 'location') {
+      const coords = msg.texto_da_mensagem || '';
+      const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(coords)}`;
+      return (
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-2 p-3 bg-background/50 rounded-lg hover:bg-background/80 transition-colors">
+          <span className="text-2xl">📍</span>
+          <div>
+            <p className="text-sm font-medium">Localização</p>
+            {coords && <p className="text-xs text-muted-foreground">{coords}</p>}
+          </div>
+        </a>
+      );
     }
 
     // Se não tem mídia, só renderiza o texto

@@ -222,8 +222,11 @@ async function gravarMensagemFollow(
   text: string,
   tipo: string,
   supabase: Supabase,
-  tipoMensagem: StepTipoMensagem = 'text'
+  tipoMensagem: StepTipoMensagem = 'text',
+  media?: StepMediaConfig | null
 ): Promise<void> {
+  // Busca ou cria conversa para que apareça no painel de atendimento
+  let convId: number | null = null
   const { data: conv } = await supabase
     .from('conversas_do_whatsapp')
     .select('id')
@@ -231,29 +234,66 @@ async function gravarMensagemFollow(
     .eq('numero_de_telefone', phone)
     .maybeSingle()
 
+  if (conv?.id) {
+    convId = conv.id
+  } else {
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('contact_name, whatsapp')
+      .eq('id', leadId)
+      .single()
+
+    const { data: newConv } = await supabase
+      .from('conversas_do_whatsapp')
+      .insert({
+        company_id: companyId,
+        numero_de_telefone: phone,
+        nome_do_contato: lead?.contact_name ?? phone,
+        ultima_mensagem: text || `[${tipoMensagem}]`,
+        hora_da_ultima_mensagem: new Date().toISOString(),
+        status: 'aberta',
+      })
+      .select('id')
+      .single()
+    convId = newConv?.id ?? null
+  }
+
+  // Para carousel/menu, serializa os itens em url_da_midia (JSON)
+  let urlMidia: string | null = null
+  if (tipoMensagem === 'carousel' && media?.carousel?.length) {
+    urlMidia = JSON.stringify(media.carousel)
+  } else if (tipoMensagem === 'menu' && media?.choices?.length) {
+    urlMidia = JSON.stringify({ menuType: media.menuType ?? 'button', choices: media.choices })
+  } else if ((tipoMensagem === 'image' || tipoMensagem === 'video' || tipoMensagem === 'audio' || tipoMensagem === 'ptt' || tipoMensagem === 'document') && media?.file) {
+    urlMidia = media.file
+  }
+
+  const displayText = text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
+
   await supabase.from('mensagens_do_whatsapp').insert({
-    id_da_conversacao: conv?.id ?? null,
+    id_da_conversacao: convId,
     id_do_lead: leadId,
     company_id: companyId,
-    texto_da_mensagem: text,
+    texto_da_mensagem: displayText,
     tipo_de_mensagem: tipoMensagem,
+    url_da_midia: urlMidia,
     direcao: 'outbound',
     sender_type: 'ai',
     status: 'sent',
     nome_do_agente: 'Follow-up SDR',
   })
 
-  if (conv?.id) {
+  if (convId) {
     await supabase
       .from('conversas_do_whatsapp')
-      .update({ ultima_mensagem: text, hora_da_ultima_mensagem: new Date().toISOString() })
-      .eq('id', conv.id)
+      .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
+      .eq('id', convId)
   }
 
   await supabase.from('follow_logs').insert({
     company_id: companyId,
     lead_id: leadId,
-    mensagem: text,
+    mensagem: displayText,
     tipo,
     enviado_em: new Date().toISOString(),
   })
@@ -336,7 +376,7 @@ async function processFollowGeral(
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase)
+          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
           await antiBanDelay()
@@ -397,7 +437,7 @@ async function processAntiNoshow(
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase)
+          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
           await antiBanDelay()
@@ -456,7 +496,7 @@ async function processRemarketing(
       const stepMinutes = hh * 60 + mm
       if (nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
 
-      for (const lead of leads as Lead[]) {
+      for (const lead of leads as unknown as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
@@ -480,7 +520,7 @@ async function processRemarketing(
         const phone = normalizePhone(lead.whatsapp)
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase)
+          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
           if (!skipDelay) await antiBanDelay()
@@ -556,7 +596,7 @@ async function processFollowProposta(
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_proposta', supabase)
+          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_proposta', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
           await antiBanDelay()
