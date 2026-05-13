@@ -1109,7 +1109,10 @@ async function executeButtonActions(
   if (!text.trim() || !ctx.leadId) return
 
   // Find recent outbound menu messages for this lead (newest first, limit 5)
-  const { data: menuMsgs } = await supabase
+  // Primary: by id_do_lead; fallback: by conversationId (handles lead ID mismatch edge cases)
+  let menuMsgs: { url_da_midia: string | null }[] | null = null
+
+  const { data: byLead } = await supabase
     .from('mensagens_do_whatsapp')
     .select('url_da_midia')
     .eq('id_do_lead', ctx.leadId)
@@ -1118,6 +1121,24 @@ async function executeButtonActions(
     .in('tipo_de_mensagem', ['menu', 'button'])
     .order('created_at', { ascending: false })
     .limit(5)
+
+  if (byLead?.length) {
+    menuMsgs = byLead
+  } else if (ctx.conversationId) {
+    const { data: byConv } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('url_da_midia')
+      .eq('id_da_conversacao', ctx.conversationId)
+      .eq('company_id', ctx.companyId)
+      .eq('direcao', 'outbound')
+      .in('tipo_de_mensagem', ['menu', 'button'])
+      .order('created_at', { ascending: false })
+      .limit(5)
+    if (byConv?.length) {
+      menuMsgs = byConv
+      console.log(`[SDR:${ctx.companyId}] ButtonActions: encontrado ${byConv.length} menu(s) por conversationId=${ctx.conversationId} (fallback)`)
+    }
+  }
 
   console.log(`[SDR:${ctx.companyId}] ButtonActions: ${menuMsgs?.length ?? 0} menus outbound encontrados para lead #${ctx.leadId}`)
   if (!menuMsgs?.length) return
@@ -1655,12 +1676,16 @@ async function ensureConversation(
   inboxMode: 'vendas' | 'suporte' = 'suporte'
 ): Promise<string> {
   // Seleciona apenas id — não depende de colunas opcionais (instance_name pode não existir)
-  const { data: existing, error: selectError } = await supabase
+  // Usa phoneVariants para encontrar conversa mesmo se o número foi armazenado em formato diferente
+  const phoneVars = phoneVariants(ctx.leadPhone)
+  const { data: existingRows, error: selectError } = await supabase
     .from('conversas_do_whatsapp')
     .select('id')
     .eq('company_id', ctx.companyId)
-    .eq('numero_de_telefone', ctx.leadPhone)
-    .maybeSingle()
+    .in('numero_de_telefone', phoneVars)
+    .order('hora_da_ultima_mensagem', { ascending: false })
+    .limit(1)
+  const existing = existingRows?.[0] ?? null
 
   if (selectError) {
     console.error(`[SDR:${ctx.companyId}] ensureConversation SELECT error:`, selectError.message)
@@ -1844,6 +1869,30 @@ async function saveOutbound(
 
 // ─── Lead ──────────────────────────────────────────────────────
 
+/**
+ * Builds all plausible phone format variants for a normalized Brazilian number.
+ * Ensures leads are found regardless of how their phone was originally stored.
+ * Normalized = 5577981680532 (13 digits); without-9 = 557781680532 (12 digits).
+ */
+function phoneVariants(phone: string): string[] {
+  const variants: string[] = [phone]
+  const push = (v: string) => { if (!variants.includes(v)) variants.push(v) }
+  if (phone.startsWith('55')) {
+    if (phone.length === 13) {
+      push(phone.slice(0, 4) + phone.slice(5))
+      push('+' + phone)
+      push('+' + phone.slice(0, 4) + phone.slice(5))
+    } else if (phone.length === 12) {
+      push(phone.slice(0, 4) + '9' + phone.slice(4))
+      push('+' + phone)
+      push('+' + phone.slice(0, 4) + '9' + phone.slice(4))
+    } else {
+      push('+' + phone)
+    }
+  }
+  return variants
+}
+
 async function findOrCreateLead(
   companyId: number,
   phone: string,
@@ -1851,14 +1900,25 @@ async function findOrCreateLead(
   companyName: string,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<{ id: number; notes: string }> {
-  const { data: existing } = await supabase
-    .from('leads')
-    .select('id, notes')
-    .eq('company_id', companyId)
-    .eq('whatsapp', phone)
-    .maybeSingle()
+  const variants = phoneVariants(phone)
 
-  if (existing) return { id: existing.id, notes: existing.notes ?? '' }
+  const { data: rows } = await supabase
+    .from('leads')
+    .select('id, notes, whatsapp')
+    .eq('company_id', companyId)
+    .in('whatsapp', variants)
+    .order('id', { ascending: true })
+    .limit(1)
+
+  const existing = rows?.[0]
+  if (existing) {
+    // Normalize stored phone to canonical format (background, no-await)
+    if (existing.whatsapp !== phone) {
+      supabase.from('leads').update({ whatsapp: phone }).eq('id', existing.id)
+        .then(() => {}, () => {})
+    }
+    return { id: existing.id, notes: existing.notes ?? '' }
+  }
 
   const { data: created, error: insertError } = await supabase
     .from('leads')
@@ -2431,12 +2491,15 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     ;(async () => {
       try {
         const imm = createServiceClient()
-        const { data: conv } = await imm
+        const phoneVarsImm = phoneVariants(phone)
+        const { data: convRows } = await imm
           .from('conversas_do_whatsapp')
           .select('id')
           .eq('company_id', companyId)
-          .eq('numero_de_telefone', phone)
-          .maybeSingle()
+          .in('numero_de_telefone', phoneVarsImm)
+          .order('hora_da_ultima_mensagem', { ascending: false })
+          .limit(1)
+        const conv = convRows?.[0] ?? null
         if (!conv?.id) return
         const dispText = msgType === 'audio' ? '🎵 Áudio'
           : msgType === 'image' ? '📷 Imagem'
@@ -2464,14 +2527,18 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     // Marca follow_logs como respondido (fire-and-forget)
     ;(async () => {
       try {
-        const { data: lead } = await createServiceClient()
+        const svc = createServiceClient()
+        const phoneVarsResp = phoneVariants(phone)
+        const { data: leadRows } = await svc
           .from('leads')
           .select('id')
           .eq('company_id', companyId)
-          .eq('whatsapp', phone)
-          .maybeSingle()
+          .in('whatsapp', phoneVarsResp)
+          .order('id', { ascending: true })
+          .limit(1)
+        const lead = leadRows?.[0] ?? null
         if (!lead?.id) return
-        await createServiceClient()
+        await svc
           .from('follow_logs')
           .update({ respondeu: true })
           .eq('company_id', companyId)

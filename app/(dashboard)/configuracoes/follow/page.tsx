@@ -101,6 +101,43 @@ const EMPTY_STEP = (): FollowStep => ({
   tipo_mensagem: 'text', media_config: {},
 })
 
+// Variáveis disponíveis nos templates de mensagem
+const TEMPLATE_VARS = [
+  { token: '{nome}', label: 'nome' },
+]
+
+// ─── VarPicker — insere variável na posição do cursor ────────────────────────
+
+function VarPicker({ textareaRef, value, onChange }: {
+  textareaRef: React.RefObject<HTMLTextAreaElement>
+  value: string
+  onChange: (v: string) => void
+}) {
+  const insert = (token: string) => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? value.length
+    const end = el?.selectionEnd ?? value.length
+    const next = value.slice(0, start) + token + value.slice(end)
+    onChange(next)
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(start + token.length, start + token.length)
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">Variáveis</span>
+      {TEMPLATE_VARS.map((v) => (
+        <button key={v.token} type="button" onClick={() => insert(v.token)} title={`Inserir ${v.token}`}
+          className="text-[11px] font-mono bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded px-1.5 py-0.5 transition-colors cursor-pointer leading-none">
+          {v.token}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Upload Zone ──────────────────────────────────────────────────────────────
 
 function UploadZone({ accept, label, icon: Icon, current, currentName, onUpload }: {
@@ -666,6 +703,7 @@ function StepEditor({ step, tipo, onChange }: {
   step: FollowStep; tipo: SequenceTipo
   onChange: (p: Partial<FollowStep>) => void
 }) {
+  const mensagemRef = useRef<HTMLTextAreaElement>(null)
   const isAntiNoshow = tipo === 'anti_noshow'
   const absHours = Math.abs(step.dia_offset)
   const direction: 'antes' | 'depois' = step.dia_offset <= 0 ? 'antes' : 'depois'
@@ -749,10 +787,14 @@ function StepEditor({ step, tipo, onChange }: {
       {/* Texto */}
       {!step.usar_ia && needsText && (
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {step.tipo_mensagem === 'text' ? 'Mensagem' : 'Texto introdutório'}
-          </Label>
-          <Textarea value={step.mensagem} onChange={(e) => onChange({ mensagem: e.target.value })}
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {step.tipo_mensagem === 'text' ? 'Mensagem' : 'Texto introdutório'}
+            </Label>
+            <VarPicker textareaRef={mensagemRef} value={step.mensagem}
+              onChange={(v) => onChange({ mensagem: v })} />
+          </div>
+          <Textarea ref={mensagemRef} value={step.mensagem} onChange={(e) => onChange({ mensagem: e.target.value })}
             placeholder="Oi, {nome}! Gostaria de retomar nossa conversa…"
             className="min-h-[80px] text-sm resize-none" />
         </div>
