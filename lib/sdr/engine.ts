@@ -77,6 +77,8 @@ interface BufferedMessage {
   mediaUrl?: string
   senderName?: string
   senderPhoto?: string
+  replyToText?: string
+  replyToSender?: string
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -1781,7 +1783,9 @@ async function saveInbound(
   supabase: ReturnType<typeof createServiceClient>,
   tipo = 'text',
   mediaUrl?: string,
-  messageId?: string
+  messageId?: string,
+  replyToText?: string,
+  replyToSender?: string
 ): Promise<void> {
   if (!conversationId) {
     console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
@@ -1829,6 +1833,8 @@ async function saveInbound(
     url_da_midia: mediaUrl ?? null,
     carimbo_de_data_e_hora: new Date().toISOString(),
     whatsapp_message_id: messageId || null,
+    reply_to_text: replyToText ?? null,
+    reply_to_sender: replyToSender ?? null,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
   else console.log(`[SDR:${ctx.companyId}] saveInbound OK — conv=${conversationId}`)
@@ -2287,7 +2293,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
     // SEMPRE salva, mesmo quando pausado — garante histórico no chat e contexto ao reativar
     for (const em of enrichedMessages) {
-      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
+      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId, em.replyToText, em.replyToSender)
     }
 
     // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
@@ -2485,6 +2491,10 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
     }
 
+    const quotedMsg = msg?.quoted as any
+    const replyToText: string | undefined = quotedMsg?.text || quotedMsg?.conversation || quotedMsg?.body || undefined
+    const replyToSender: string | undefined = quotedMsg?.senderName || quotedMsg?.sender || undefined
+
     const bufferedMsg: BufferedMessage = {
       content: text || placeholder,
       type: msgType,
@@ -2493,6 +2503,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       mediaUrl,
       senderName,
       senderPhoto,
+      replyToText,
+      replyToSender,
     }
 
     await bufferMessage(companyId, phone, bufferedMsg)
@@ -2533,6 +2545,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           url_da_midia: mediaUrl ?? null,
           carimbo_de_data_e_hora: new Date().toISOString(),
           whatsapp_message_id: messageId || null,
+          reply_to_text: replyToText ?? null,
+          reply_to_sender: replyToSender ?? null,
         })
         if (presaveErr) {
           console.error(`[SDR:${companyId}] pre-save INSERT error conv=${conv.id}:`, presaveErr.message)
