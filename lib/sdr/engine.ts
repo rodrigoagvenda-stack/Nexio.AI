@@ -2291,6 +2291,24 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     await bufferMessage(companyId, phone, bufferedMsg)
 
+    // Marca follow_logs como respondido (fire-and-forget — não bloqueia o fluxo)
+    createServiceClient()
+      .from('leads')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('whatsapp', phone)
+      .maybeSingle()
+      .then(({ data: lead }) => {
+        if (!lead?.id) return
+        return createServiceClient()
+          .from('follow_logs')
+          .update({ respondeu: true })
+          .eq('company_id', companyId)
+          .eq('lead_id', lead.id)
+          .eq('respondeu', false)
+      })
+      .catch(() => {/* best-effort */})
+
     // Lock Redis (replica "Pausa Fila" do N8N): apenas o primeiro handler aguarda os 30s.
     // Os demais retornam imediatamente — a mensagem já está na fila.
     const redis = getRedis()
