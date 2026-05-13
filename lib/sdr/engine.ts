@@ -2511,17 +2511,21 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           .order('hora_da_ultima_mensagem', { ascending: false })
           .limit(1)
         const conv = convRows?.[0] ?? null
-        if (!conv?.id) return
+        if (!conv?.id) {
+          console.warn(`[SDR:${companyId}] pre-save: conversa não encontrada para phone=${phone} variants=${JSON.stringify(phoneVarsImm)}`)
+          return
+        }
         const dispText = msgType === 'audio' ? '🎵 Áudio'
           : msgType === 'image' ? '📷 Imagem'
           : msgType === 'video' ? '🎥 Vídeo'
           : msgType === 'document' ? '📄 Documento'
           : text || ''
-        await imm.from('mensagens_do_whatsapp').insert({
+        const tipoPreSave = msgType === 'unknown' ? 'text' : msgType
+        const { error: presaveErr } = await imm.from('mensagens_do_whatsapp').insert({
           id_da_conversacao: conv.id,
           company_id: companyId,
           texto_da_mensagem: dispText,
-          tipo_de_mensagem: msgType === 'unknown' ? 'text' : msgType,
+          tipo_de_mensagem: tipoPreSave,
           direcao: 'inbound',
           sender_type: 'human',
           status: 'delivered',
@@ -2529,10 +2533,17 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           carimbo_de_data_e_hora: new Date().toISOString(),
           whatsapp_message_id: messageId || null,
         })
+        if (presaveErr) {
+          console.error(`[SDR:${companyId}] pre-save INSERT error conv=${conv.id}:`, presaveErr.message)
+        } else {
+          console.log(`[SDR:${companyId}] pre-save OK — conv=${conv.id} tipo=${tipoPreSave} texto="${dispText.slice(0, 60)}"`)
+        }
         await imm.from('conversas_do_whatsapp')
           .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: new Date().toISOString() })
           .eq('id', conv.id)
-      } catch { /* best-effort */ }
+      } catch (e: any) {
+        console.error(`[SDR:${companyId}] pre-save exception:`, e?.message ?? e)
+      }
     })()
 
     // Marca follow_logs como respondido (fire-and-forget)
