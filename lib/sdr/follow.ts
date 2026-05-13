@@ -325,7 +325,8 @@ async function gravarMensagemFollow(
     urlMidia = media.file
   }
 
-  const displayText = text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
+  // Para mídia, o caption fica em media.text; usa ele se text (step.mensagem) estiver vazio
+  const displayText = text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
 
   await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: convId,

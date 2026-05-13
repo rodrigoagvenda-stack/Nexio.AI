@@ -1091,7 +1091,7 @@ export default function AtendimentoPage() {
                 className="rounded-lg max-h-80 w-full object-cover"
                 loading="lazy"
               />
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && msg.texto_da_mensagem !== '[Imagem]' && (
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('📷') && !['[Imagem]', '[image]'].includes(msg.texto_da_mensagem) && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}
             </div>
@@ -1107,7 +1107,7 @@ export default function AtendimentoPage() {
               >
                 Seu navegador não suporta vídeo.
               </video>
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎥') && msg.texto_da_mensagem !== '[Vídeo]' && (
+              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('🎥') && !['[Vídeo]', '[video]'].includes(msg.texto_da_mensagem) && (
                 <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
               )}
             </div>
