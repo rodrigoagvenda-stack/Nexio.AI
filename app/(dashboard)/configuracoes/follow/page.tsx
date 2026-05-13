@@ -416,6 +416,88 @@ function ChatPreview({ step }: { step: FollowStep }) {
   )
 }
 
+// ─── Location editor (controlled, com state próprio) ─────────────────────────
+
+function parseGoogleMapsUrl(url: string): { lat: number; lng: number } | null {
+  // !3d<lat>!4d<lng> — coordenadas do pin (mais precisas, têm prioridade)
+  let m = url.match(/!3d(-?\d+\.\d+).*?!4d(-?\d+\.\d+)/)
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+  // @lat,lng — centro do mapa
+  m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+  // ?q=lat,lng
+  m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/)
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+  // ll=lat,lng
+  m = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/)
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+  return null
+}
+
+function LocationEditor({ config, onChange }: { config: MediaConfig; onChange: (p: Partial<MediaConfig>) => void }) {
+  const [mapsUrl, setMapsUrl] = useState('')
+  const hasCoords = config.latitude != null && config.longitude != null
+
+  const handleUrl = (url: string) => {
+    setMapsUrl(url)
+    const coords = parseGoogleMapsUrl(url)
+    if (coords) onChange({ latitude: coords.lat, longitude: coords.lng })
+  }
+
+  const verifyHref = hasCoords
+    ? `https://www.google.com/maps/search/?api=1&query=${config.latitude},${config.longitude}`
+    : '#'
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-muted-foreground">Link do Google Maps</Label>
+          <a
+            href={mapsUrl || 'https://maps.google.com'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-primary hover:underline"
+          >
+            {mapsUrl ? 'Abrir URL colada ↗' : 'Abrir Google Maps ↗'}
+          </a>
+        </div>
+        <Input
+          value={mapsUrl}
+          className="h-9 text-sm"
+          placeholder="Cole aqui o link copiado do Google Maps…"
+          onChange={(e) => handleUrl(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          No Google Maps: clique no local → compartilhar → copiar link → cole aqui
+        </p>
+      </div>
+
+      {hasCoords && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400">
+          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>Coordenadas: {config.latitude?.toFixed(6)}, {config.longitude?.toFixed(6)}</span>
+          <a href={verifyHref} target="_blank" rel="noopener noreferrer"
+            className="ml-auto hover:text-teal-300 underline">verificar ↗</a>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Nome do local</Label>
+          <Input value={config.name ?? ''} onChange={(e) => onChange({ name: e.target.value })}
+            className="h-9 text-sm" placeholder="Ex: Escritório Nexio" />
+        </div>
+        <div className="col-span-2 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Endereço (aparece no WhatsApp)</Label>
+          <Input value={config.address ?? ''} onChange={(e) => onChange({ address: e.target.value })}
+            className="h-9 text-sm" placeholder="Ex: Av. Paulista, 1000 — São Paulo, SP" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Media editor ─────────────────────────────────────────────────────────────
 
 function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: MediaConfig; onChange: (p: Partial<MediaConfig>) => void }) {
@@ -615,86 +697,7 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
   }
 
   if (tipo === 'location') {
-    const parseGoogleMapsUrl = (url: string): { lat: number; lng: number } | null => {
-      // @lat,lng (share/embed links)
-      let m = url.match(/@(-?\d+\.?\d+),(-?\d+\.?\d+)/)
-      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
-      // ?q=lat,lng
-      m = url.match(/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/)
-      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
-      // ll=lat,lng
-      m = url.match(/[?&]ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/)
-      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
-      // !3d<lat>!4d<lng> (embed format)
-      m = url.match(/!3d(-?\d+\.?\d+).*!4d(-?\d+\.?\d+)/)
-      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
-      return null
-    }
-
-    const hasCoords = config.latitude != null && config.longitude != null
-
-    return (
-      <div className="space-y-3">
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">Link do Google Maps</Label>
-            <a
-              href="https://maps.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-primary hover:underline flex items-center gap-1"
-            >
-              Abrir Google Maps ↗
-            </a>
-          </div>
-          <Input
-            className="h-9 text-sm"
-            placeholder="Cole aqui o link copiado do Google Maps…"
-            onPaste={(e) => {
-              const url = e.clipboardData.getData('text')
-              const coords = parseGoogleMapsUrl(url)
-              if (coords) {
-                e.preventDefault()
-                onChange({ latitude: coords.lat, longitude: coords.lng })
-              }
-            }}
-            onChange={(e) => {
-              const coords = parseGoogleMapsUrl(e.target.value)
-              if (coords) onChange({ latitude: coords.lat, longitude: coords.lng })
-            }}
-          />
-          <p className="text-xs text-muted-foreground">
-            No Google Maps: clique no local → compartilhar → copiar link → cole aqui
-          </p>
-        </div>
-
-        {hasCoords && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400">
-            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>Coordenadas extraídas: {config.latitude?.toFixed(6)}, {config.longitude?.toFixed(6)}</span>
-            <a
-              href={`https://maps.google.com/?q=${config.latitude},${config.longitude}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto hover:text-teal-300 underline"
-            >
-              verificar
-            </a>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Nome do local</Label>
-            <Input value={config.name ?? ''} onChange={(e) => onChange({ name: e.target.value })} className="h-9 text-sm" placeholder="Ex: Escritório Nexio" />
-          </div>
-          <div className="col-span-2 space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Endereço (aparece no WhatsApp)</Label>
-            <Input value={config.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} className="h-9 text-sm" placeholder="Ex: Av. Paulista, 1000 — São Paulo, SP" />
-          </div>
-        </div>
-      </div>
-    )
+    return <LocationEditor config={config} onChange={onChange} />
   }
 
   return null
