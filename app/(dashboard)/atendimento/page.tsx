@@ -1100,13 +1100,14 @@ export default function AtendimentoPage() {
       try { menuData = JSON.parse(msg.url_da_midia ?? ''); } catch {}
       const choices = menuData.choices ?? [];
       const introText = msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('[') ? msg.texto_da_mensagem : null;
+      const isOut = msg.direcao === 'outbound';
       return (
-        <div className="space-y-2">
-          {introText && <p className="text-sm whitespace-pre-wrap">{introText}</p>}
+        <div className="w-full">
+          {introText && <p className="text-sm whitespace-pre-wrap pb-2">{introText}</p>}
           {choices.length > 0 ? (
-            <div className="space-y-1 pt-1">
+            <div className={cn('border-t divide-y', isOut ? 'border-white/20 divide-white/20' : 'border-border divide-border')}>
               {choices.map((c: any, i: number) => (
-                <div key={i} className="text-sm text-center py-1.5 px-3 rounded-xl border border-primary/30 text-primary bg-primary/5">
+                <div key={i} className={cn('text-sm text-center py-2 font-medium', isOut ? 'text-white/90' : 'text-primary')}>
                   {typeof c === 'string' ? c : (c.text ?? c.title ?? c.id ?? JSON.stringify(c))}
                 </div>
               ))}
