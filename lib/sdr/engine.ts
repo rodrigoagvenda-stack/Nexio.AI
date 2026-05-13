@@ -1823,7 +1823,7 @@ async function saveInbound(
 
   const tipoFinal = tipo === 'unknown' ? 'text' : tipo
 
-  // Resolve quoted message pelo ID se necessário
+  // Resolve quoted message pelo ID, com fallback para o menu/button outbound mais recente
   let finalReplyText = replyToText ?? null
   let finalReplySender = replyToSender ?? null
   if (!finalReplyText && replyToQuotedId) {
@@ -1836,6 +1836,22 @@ async function saveInbound(
     if (qm?.texto_da_mensagem) {
       finalReplyText = qm.texto_da_mensagem
       finalReplySender = qm.sender_type === 'ai' ? (qm.nome_do_agente ?? 'IA') : 'Lead'
+    } else {
+      // Fallback: último menu/button outbound da conversa
+      const { data: lastMenu } = await supabase
+        .from('mensagens_do_whatsapp')
+        .select('texto_da_mensagem, nome_do_agente')
+        .eq('id_da_conversacao', conversationId)
+        .eq('company_id', ctx.companyId)
+        .eq('direcao', 'outbound')
+        .in('tipo_de_mensagem', ['menu', 'button'])
+        .order('carimbo_de_data_e_hora', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (lastMenu?.texto_da_mensagem) {
+        finalReplyText = lastMenu.texto_da_mensagem
+        finalReplySender = lastMenu.nome_do_agente ?? 'IA'
+      }
     }
   }
 
@@ -2566,7 +2582,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           : text || ''
         const tipoPreSave = msgType === 'unknown' ? 'text' : msgType
 
-        // Resolve quoted message pelo ID se necessário
+        // Resolve quoted message pelo ID, com fallback para o menu/button outbound mais recente
         let resolvedReplyText = replyToTextDirect ?? null
         let resolvedReplySender = replyToSenderDirect ?? null
         if (!resolvedReplyText && replyToQuotedId) {
@@ -2579,6 +2595,22 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           if (qm?.texto_da_mensagem) {
             resolvedReplyText = qm.texto_da_mensagem
             resolvedReplySender = qm.sender_type === 'ai' ? (qm.nome_do_agente ?? 'IA') : 'Lead'
+          } else {
+            // Fallback: último menu/button outbound da conversa
+            const { data: lastMenu } = await imm
+              .from('mensagens_do_whatsapp')
+              .select('texto_da_mensagem, nome_do_agente')
+              .eq('id_da_conversacao', conv.id)
+              .eq('company_id', companyId)
+              .eq('direcao', 'outbound')
+              .in('tipo_de_mensagem', ['menu', 'button'])
+              .order('carimbo_de_data_e_hora', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (lastMenu?.texto_da_mensagem) {
+              resolvedReplyText = lastMenu.texto_da_mensagem
+              resolvedReplySender = lastMenu.nome_do_agente ?? 'IA'
+            }
           }
         }
 
