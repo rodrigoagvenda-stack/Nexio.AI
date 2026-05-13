@@ -2431,6 +2431,9 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     // Log para button responses e tipos especiais
     if (msgType === 'unknown' || msg?.buttonsResponseMessage || msg?.listResponseMessage) {
       console.log(`[SDR:${companyId}] msg especial — msgType="${msgType}" text="${text}" campos:`, Object.keys(msg ?? {}))
+      if (msg?.quoted !== undefined) {
+        console.log(`[SDR:${companyId}] quoted:`, JSON.stringify(msg.quoted).slice(0, 300))
+      }
     }
 
     // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
