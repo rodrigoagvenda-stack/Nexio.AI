@@ -412,19 +412,62 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
   }
 
   if (tipo === 'location') {
+    const parseGoogleMapsUrl = (url: string): { lat: number; lng: number } | null => {
+      let m = url.match(/@(-?\d+\.?\d+),(-?\d+\.?\d+)/)
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+      m = url.match(/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/)
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+      m = url.match(/[?&]ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/)
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+      m = url.match(/!3d(-?\d+\.?\d+).*!4d(-?\d+\.?\d+)/)
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) }
+      return null
+    }
+
+    const hasCoords = config.latitude != null && config.longitude != null
+
     return (
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Nome do local</Label>
-          <Input value={config.name ?? ''} onChange={(e) => onChange({ name: e.target.value })} className="h-9 text-sm" placeholder="Escritório" />
-        </div>
+      <div className="space-y-3">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Latitude</Label>
-          <Input type="number" value={config.latitude ?? ''} onChange={(e) => onChange({ latitude: parseFloat(e.target.value) })} className="h-9 text-sm font-mono" placeholder="-23.56" />
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">Link do Google Maps</Label>
+            <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline">Abrir Google Maps ↗</a>
+          </div>
+          <Input
+            className="h-9 text-sm"
+            placeholder="Cole aqui o link copiado do Google Maps…"
+            onPaste={(e) => {
+              const url = e.clipboardData.getData('text')
+              const coords = parseGoogleMapsUrl(url)
+              if (coords) { e.preventDefault(); onChange({ latitude: coords.lat, longitude: coords.lng }) }
+            }}
+            onChange={(e) => {
+              const coords = parseGoogleMapsUrl(e.target.value)
+              if (coords) onChange({ latitude: coords.lat, longitude: coords.lng })
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            No Google Maps: clique no local → compartilhar → copiar link → cole aqui
+          </p>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Longitude</Label>
-          <Input type="number" value={config.longitude ?? ''} onChange={(e) => onChange({ longitude: parseFloat(e.target.value) })} className="h-9 text-sm font-mono" placeholder="-46.65" />
+        {hasCoords && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400">
+            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Coordenadas: {config.latitude?.toFixed(6)}, {config.longitude?.toFixed(6)}</span>
+            <a href={`https://maps.google.com/?q=${config.latitude},${config.longitude}`}
+              target="_blank" rel="noopener noreferrer" className="ml-auto hover:text-teal-300 underline">verificar</a>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Nome do local</Label>
+            <Input value={config.name ?? ''} onChange={(e) => onChange({ name: e.target.value })} className="h-9 text-sm" placeholder="Ex: Escritório Nexio" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Endereço (aparece no WhatsApp)</Label>
+            <Input value={config.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} className="h-9 text-sm" placeholder="Ex: Av. Paulista, 1000 — São Paulo, SP" />
+          </div>
         </div>
       </div>
     )
