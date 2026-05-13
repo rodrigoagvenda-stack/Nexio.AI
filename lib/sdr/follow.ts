@@ -813,9 +813,13 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
 
 function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   if (!value) return fallback
-  // Só tenta decrypt se tiver formato iv:salt:ciphertext (3 partes com ':')
-  if (!value.includes(':') || value.split(':').length !== 3) return value
-  try { return decrypt(value) } catch { return value }
+  if (value.startsWith('plain:')) return value.slice(6)
+  // Formato cifrado: iv(32hex):authTag(32hex):cipher
+  const parts = value.split(':')
+  if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
+    try { return decrypt(value) } catch { return value }
+  }
+  return value
 }
 
 export async function runRemarketingForCompany(companyId: number, skipDelay = false): Promise<{ sent: number; error?: string }> {

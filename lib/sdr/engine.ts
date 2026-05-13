@@ -1119,9 +1119,11 @@ async function executeButtonActions(
     .order('created_at', { ascending: false })
     .limit(5)
 
+  console.log(`[SDR:${ctx.companyId}] ButtonActions: ${menuMsgs?.length ?? 0} menus outbound encontrados para lead #${ctx.leadId}`)
   if (!menuMsgs?.length) return
 
   const normalizedText = text.trim().toLowerCase()
+  console.log(`[SDR:${ctx.companyId}] ButtonActions: matching texto="${normalizedText}"`)
 
   for (const msg of menuMsgs) {
     if (!msg.url_da_midia) continue
@@ -1793,7 +1795,7 @@ async function saveInbound(
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,
     texto_da_mensagem: displayText,
-    tipo_de_mensagem: tipo,
+    tipo_de_mensagem: tipo === 'unknown' ? 'text' : tipo,
     direcao: 'inbound',
     sender_type: 'human',
     status: 'delivered',
@@ -2001,7 +2003,10 @@ async function loadSdrConfig(
 
   const decryptIfNeeded = (val: string | null | undefined): string => {
     if (!val) return ''
-    if (val.includes(':') && val.split(':').length === 3) {
+    if (val.startsWith('plain:')) return val.slice(6)
+    // Formato cifrado: iv(32hex):authTag(32hex):cipher — checa antes de chamar decrypt
+    const parts = val.split(':')
+    if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
       try { return decrypt(val) } catch { return '' }
     }
     return val
