@@ -79,6 +79,7 @@ interface BufferedMessage {
   senderPhoto?: string
   replyToText?: string
   replyToSender?: string
+  replyToQuotedId?: string
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -1785,7 +1786,8 @@ async function saveInbound(
   mediaUrl?: string,
   messageId?: string,
   replyToText?: string,
-  replyToSender?: string
+  replyToSender?: string,
+  replyToQuotedId?: string
 ): Promise<void> {
   if (!conversationId) {
     console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
@@ -1820,6 +1822,23 @@ async function saveInbound(
   }
 
   const tipoFinal = tipo === 'unknown' ? 'text' : tipo
+
+  // Resolve quoted message pelo ID se necessário
+  let finalReplyText = replyToText ?? null
+  let finalReplySender = replyToSender ?? null
+  if (!finalReplyText && replyToQuotedId) {
+    const { data: qm } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('texto_da_mensagem, sender_type, nome_do_agente')
+      .eq('whatsapp_message_id', replyToQuotedId)
+      .eq('company_id', ctx.companyId)
+      .maybeSingle()
+    if (qm?.texto_da_mensagem) {
+      finalReplyText = qm.texto_da_mensagem
+      finalReplySender = qm.sender_type === 'ai' ? (qm.nome_do_agente ?? 'IA') : 'Lead'
+    }
+  }
+
   console.log(`[SDR:${ctx.companyId}] saveInbound — conv=${conversationId} tipo=${tipoFinal} direcao=inbound texto="${displayText.slice(0, 60)}"`)
   const { error } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
@@ -1833,8 +1852,8 @@ async function saveInbound(
     url_da_midia: mediaUrl ?? null,
     carimbo_de_data_e_hora: new Date().toISOString(),
     whatsapp_message_id: messageId || null,
-    reply_to_text: replyToText ?? null,
-    reply_to_sender: replyToSender ?? null,
+    reply_to_text: finalReplyText,
+    reply_to_sender: finalReplySender,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
   else console.log(`[SDR:${ctx.companyId}] saveInbound OK — conv=${conversationId}`)
@@ -2293,7 +2312,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
     // SEMPRE salva, mesmo quando pausado — garante histórico no chat e contexto ao reativar
     for (const em of enrichedMessages) {
-      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId, em.replyToText, em.replyToSender)
+      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId, em.replyToText, em.replyToSender, em.replyToQuotedId)
     }
 
     // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
@@ -2494,9 +2513,18 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
     }
 
-    const quotedMsg = msg?.quoted as any
-    const replyToText: string | undefined = quotedMsg?.text || quotedMsg?.conversation || quotedMsg?.body || undefined
-    const replyToSender: string | undefined = quotedMsg?.senderName || quotedMsg?.sender || undefined
+    // msg.quoted pode ser string (ID da mensagem citada) ou objeto — guardamos o ID para resolver depois
+    const quotedRaw = msg?.quoted
+    const replyToQuotedId: string | undefined = typeof quotedRaw === 'string' ? quotedRaw
+      : typeof quotedRaw === 'object' && quotedRaw !== null
+        ? (quotedRaw.text || quotedRaw.conversation || quotedRaw.body ? undefined : quotedRaw.id)
+        : undefined
+    const replyToTextDirect: string | undefined = typeof quotedRaw === 'object' && quotedRaw !== null
+      ? (quotedRaw.text || quotedRaw.conversation || quotedRaw.body || undefined)
+      : undefined
+    const replyToSenderDirect: string | undefined = typeof quotedRaw === 'object' && quotedRaw !== null
+      ? (quotedRaw.senderName || quotedRaw.sender || undefined)
+      : undefined
 
     const bufferedMsg: BufferedMessage = {
       content: text || placeholder,
@@ -2506,8 +2534,9 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       mediaUrl,
       senderName,
       senderPhoto,
-      replyToText,
-      replyToSender,
+      replyToText: replyToTextDirect,
+      replyToSender: replyToSenderDirect,
+      replyToQuotedId,
     }
 
     await bufferMessage(companyId, phone, bufferedMsg)
@@ -2536,6 +2565,23 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           : msgType === 'document' ? '📄 Documento'
           : text || ''
         const tipoPreSave = msgType === 'unknown' ? 'text' : msgType
+
+        // Resolve quoted message pelo ID se necessário
+        let resolvedReplyText = replyToTextDirect ?? null
+        let resolvedReplySender = replyToSenderDirect ?? null
+        if (!resolvedReplyText && replyToQuotedId) {
+          const { data: qm } = await imm
+            .from('mensagens_do_whatsapp')
+            .select('texto_da_mensagem, sender_type, nome_do_agente')
+            .eq('whatsapp_message_id', replyToQuotedId)
+            .eq('company_id', companyId)
+            .maybeSingle()
+          if (qm?.texto_da_mensagem) {
+            resolvedReplyText = qm.texto_da_mensagem
+            resolvedReplySender = qm.sender_type === 'ai' ? (qm.nome_do_agente ?? 'IA') : 'Lead'
+          }
+        }
+
         const { error: presaveErr } = await imm.from('mensagens_do_whatsapp').insert({
           id_da_conversacao: conv.id,
           id_do_lead: conv.id_do_lead ?? null,
@@ -2548,8 +2594,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           url_da_midia: mediaUrl ?? null,
           carimbo_de_data_e_hora: new Date().toISOString(),
           whatsapp_message_id: messageId || null,
-          reply_to_text: replyToText ?? null,
-          reply_to_sender: replyToSender ?? null,
+          reply_to_text: resolvedReplyText,
+          reply_to_sender: resolvedReplySender,
         })
         if (presaveErr) {
           console.error(`[SDR:${companyId}] pre-save INSERT error conv=${conv.id}:`, presaveErr.message)
