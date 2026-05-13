@@ -351,9 +351,10 @@ export default function AtendimentoPage() {
       if (error) throw error;
       const incoming = (data || []).reverse();
       setMessages((prev) => {
-        // Evita re-render e flicker se não há mensagens novas
         const lastPrevId = prev[prev.length - 1]?.id;
         const lastNewId = incoming[incoming.length - 1]?.id;
+        // Nunca reduz contagem (evita apagar mensagens otimistas ou em voo)
+        if (incoming.length < prev.length) return prev;
         if (prev.length === incoming.length && lastPrevId === lastNewId) return prev;
         return incoming;
       });

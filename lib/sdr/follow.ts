@@ -100,6 +100,14 @@ function pickMessage(step: FollowStep): string {
   return step.mensagem ?? ''
 }
 
+/** Substitui variáveis de template na mensagem ({nome}, {name}) */
+function substituirVariaveis(texto: string, lead: { contact_name?: string }): string {
+  const nome = lead.contact_name || 'você'
+  return texto
+    .replace(/\{nome\}/gi, nome)
+    .replace(/\{name\}/gi, nome)
+}
+
 type Supabase = ReturnType<typeof createServiceClient>
 
 async function withinRateLimit(companyId: number, supabase: Supabase): Promise<boolean> {
@@ -225,37 +233,54 @@ async function gravarMensagemFollow(
   tipoMensagem: StepTipoMensagem = 'text',
   media?: StepMediaConfig | null
 ): Promise<void> {
-  // Busca ou cria conversa para que apareça no painel de atendimento
+  // Busca a conversa mais recente do lead (por id_do_lead, depois por telefone)
+  // Usa limit(1)+order para nunca falhar com múltiplas linhas (maybeSingle falha nesse caso)
   let convId: number | null = null
-  const { data: conv } = await supabase
+
+  const { data: byLead } = await supabase
     .from('conversas_do_whatsapp')
     .select('id')
     .eq('company_id', companyId)
-    .eq('numero_de_telefone', phone)
-    .maybeSingle()
+    .eq('id_do_lead', leadId)
+    .order('hora_da_ultima_mensagem', { ascending: false })
+    .limit(1)
 
-  if (conv?.id) {
-    convId = conv.id
+  if (byLead?.[0]?.id) {
+    convId = byLead[0].id
   } else {
-    const { data: lead } = await supabase
-      .from('leads')
-      .select('contact_name, whatsapp')
-      .eq('id', leadId)
-      .single()
-
-    const { data: newConv } = await supabase
+    const { data: byPhone } = await supabase
       .from('conversas_do_whatsapp')
-      .insert({
-        company_id: companyId,
-        numero_de_telefone: phone,
-        nome_do_contato: lead?.contact_name ?? phone,
-        ultima_mensagem: text || `[${tipoMensagem}]`,
-        hora_da_ultima_mensagem: new Date().toISOString(),
-        status: 'aberta',
-      })
       .select('id')
-      .single()
-    convId = newConv?.id ?? null
+      .eq('company_id', companyId)
+      .eq('numero_de_telefone', phone)
+      .order('hora_da_ultima_mensagem', { ascending: false })
+      .limit(1)
+
+    if (byPhone?.[0]?.id) {
+      convId = byPhone[0].id
+    } else {
+      const { data: leadData } = await supabase
+        .from('leads')
+        .select('contact_name')
+        .eq('id', leadId)
+        .single()
+
+      const { data: newConv } = await supabase
+        .from('conversas_do_whatsapp')
+        .insert({
+          company_id: companyId,
+          id_do_lead: leadId,
+          numero_de_telefone: phone,
+          nome_do_contato: leadData?.contact_name ?? phone,
+          ultima_mensagem: text || `[${tipoMensagem}]`,
+          hora_da_ultima_mensagem: new Date().toISOString(),
+          status_da_conversa: 'aberto',
+          contagem_nao_lida: 0,
+        })
+        .select('id')
+        .single()
+      convId = newConv?.id ?? null
+    }
   }
 
   // Para carousel/menu, serializa os itens em url_da_midia (JSON)
@@ -364,9 +389,10 @@ async function processFollowGeral(
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
-        const texto = step.usar_ia
+        const textoRaw = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
+        const texto = substituirVariaveis(textoRaw, lead)
 
         const precisaTexto = tipo === 'text' || step.usar_ia
         if (precisaTexto && !texto) {
@@ -432,8 +458,10 @@ async function processAntiNoshow(
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
-        const texto = pickMessage(step)
-          || `Olá ${lead.contact_name}! Lembrete: temos uma call agendada em breve. Te vejo lá! 🎯`
+        const texto = substituirVariaveis(
+          pickMessage(step) || `Olá {nome}! Lembrete: temos uma call agendada em breve. Te vejo lá! 🎯`,
+          lead
+        )
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
@@ -507,9 +535,10 @@ async function processRemarketing(
 
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
-        const texto = step.usar_ia
+        const textoRaw = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
+        const texto = substituirVariaveis(textoRaw, lead)
 
         const precisaTexto = tipo === 'text' || step.usar_ia
         if (precisaTexto && !texto) {
@@ -584,9 +613,10 @@ async function processFollowProposta(
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
-        const texto = step.usar_ia
+        const textoRaw = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
+        const texto = substituirVariaveis(textoRaw, lead)
 
         const precisaTexto = tipo === 'text' || step.usar_ia
         if (precisaTexto && !texto) {
