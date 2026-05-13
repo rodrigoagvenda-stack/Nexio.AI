@@ -28,9 +28,16 @@ import {
 type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing' | 'follow_proposta'
 type StepTipo = 'text' | 'image' | 'video' | 'audio' | 'ptt' | 'document' | 'menu' | 'carousel' | 'location'
 
+interface ButtonAction {
+  status?: string
+  schedule_days?: number
+  stop_sequence?: boolean
+}
+
 interface MediaConfig {
   file?: string; text?: string; docName?: string; viewOnce?: boolean
   menuType?: 'button' | 'list' | 'poll'; choices?: string[]; selectableCount?: number
+  button_actions?: Record<string, ButtonAction>
   carousel?: { text: string; image?: string; buttons?: string[] }[]
   name?: string; address?: string; latitude?: number; longitude?: number
 }
@@ -428,6 +435,45 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
 
   if (tipo === 'menu') {
     const choices = config.choices ?? []
+    const buttonActions = config.button_actions ?? {}
+
+    const getActionValue = (choice: string): string => {
+      const a = buttonActions[choice]
+      if (!a) return 'none'
+      if (a.stop_sequence) return 'stop'
+      if (a.schedule_days === 3) return 'schedule_3'
+      if (a.schedule_days === 7) return 'schedule_7'
+      if (a.schedule_days === 14) return 'schedule_14'
+      if (a.status) return `status_${a.status}`
+      return 'none'
+    }
+
+    const setActionValue = (choice: string, value: string) => {
+      const next = { ...buttonActions }
+      if (value === 'none') {
+        delete next[choice]
+      } else if (value === 'stop') {
+        next[choice] = { stop_sequence: true }
+      } else if (value === 'schedule_3') {
+        next[choice] = { schedule_days: 3 }
+      } else if (value === 'schedule_7') {
+        next[choice] = { schedule_days: 7 }
+      } else if (value === 'schedule_14') {
+        next[choice] = { schedule_days: 14 }
+      } else if (value.startsWith('status_')) {
+        next[choice] = { status: value.replace('status_', '') }
+      }
+      onChange({ button_actions: next })
+    }
+
+    const renameActionKey = (oldChoice: string, newChoice: string) => {
+      if (oldChoice === newChoice || !buttonActions[oldChoice]) return
+      const next = { ...buttonActions }
+      next[newChoice] = next[oldChoice]
+      delete next[oldChoice]
+      onChange({ button_actions: next })
+    }
+
     return (
       <div className="space-y-3">
         <div className="space-y-1.5">
@@ -450,14 +496,43 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
             </Button>
           </div>
           {choices.map((c, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0">{i + 1}</div>
-              <Input value={c} onChange={(e) => { const n = [...choices]; n[i] = e.target.value; onChange({ choices: n }) }}
-                placeholder={`Opção ${i + 1}`} className="h-8 text-sm" />
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
-                onClick={() => onChange({ choices: choices.filter((_, idx) => idx !== i) })}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
+            <div key={i} className="space-y-1.5 rounded-lg border border-border/60 bg-muted/10 p-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded bg-muted flex items-center justify-center text-[10px] text-muted-foreground shrink-0">{i + 1}</div>
+                <Input
+                  value={c}
+                  onChange={(e) => {
+                    const prev = c
+                    const n = [...choices]; n[i] = e.target.value; onChange({ choices: n })
+                    renameActionKey(prev, e.target.value)
+                  }}
+                  placeholder={`Opção ${i + 1}`} className="h-8 text-sm" />
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                  onClick={() => {
+                    const next = { ...buttonActions }; delete next[c]
+                    onChange({ choices: choices.filter((_, idx) => idx !== i), button_actions: next })
+                  }}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              {c && (
+                <Select value={getActionValue(c)} onValueChange={(v) => setActionValue(c, v)}>
+                  <SelectTrigger className="h-7 text-xs text-muted-foreground border-dashed">
+                    <SelectValue placeholder="Ação ao clicar…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma ação</SelectItem>
+                    <SelectItem value="status_Interessado">Mover → Interessado</SelectItem>
+                    <SelectItem value="status_Em contato">Mover → Em contato</SelectItem>
+                    <SelectItem value="status_Negociando">Mover → Negociando</SelectItem>
+                    <SelectItem value="status_Perdido">Mover → Perdido</SelectItem>
+                    <SelectItem value="schedule_3">Reagendar em 3 dias</SelectItem>
+                    <SelectItem value="schedule_7">Reagendar em 7 dias</SelectItem>
+                    <SelectItem value="schedule_14">Reagendar em 14 dias</SelectItem>
+                    <SelectItem value="stop">Parar sequência</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           ))}
         </div>

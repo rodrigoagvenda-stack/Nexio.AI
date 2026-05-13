@@ -1099,6 +1099,79 @@ REGRAS:
 }
 
 
+// ─── Button Actions ────────────────────────────────────────────
+
+async function executeButtonActions(
+  text: string,
+  ctx: SdrContext,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  if (!text.trim() || !ctx.leadId) return
+
+  // Find recent outbound menu messages for this lead (newest first, limit 5)
+  const { data: menuMsgs } = await supabase
+    .from('mensagens_do_whatsapp')
+    .select('url_da_midia')
+    .eq('id_do_lead', ctx.leadId)
+    .eq('company_id', ctx.companyId)
+    .eq('direcao', 'outbound')
+    .in('tipo_de_mensagem', ['menu', 'button'])
+    .order('carimbo_de_data_e_hora', { ascending: false })
+    .limit(5)
+
+  if (!menuMsgs?.length) return
+
+  const normalizedText = text.trim().toLowerCase()
+
+  for (const msg of menuMsgs) {
+    if (!msg.url_da_midia) continue
+    let parsed: { choices?: string[]; button_actions?: Record<string, any> }
+    try { parsed = JSON.parse(msg.url_da_midia) } catch { continue }
+
+    const choices: string[] = parsed.choices ?? []
+    const actions: Record<string, any> = parsed.button_actions ?? {}
+
+    // Match inbound text against choices (case-insensitive)
+    const matchedChoice = choices.find(
+      (c) => c.trim().toLowerCase() === normalizedText
+        || normalizedText.includes(c.trim().toLowerCase())
+    )
+    if (!matchedChoice) continue
+
+    const action = actions[matchedChoice]
+    if (!action) break // matched choice has no action — stop searching older menus
+
+    console.log(`[SDR:${ctx.companyId}] ButtonAction: "${matchedChoice}" → ${JSON.stringify(action)}`)
+
+    if (action.status) {
+      await supabase.from('leads')
+        .update({ status: action.status, updated_at: new Date().toISOString() })
+        .eq('id', ctx.leadId)
+      console.log(`[SDR:${ctx.companyId}] ButtonAction: lead #${ctx.leadId} status → "${action.status}"`)
+    }
+
+    if (action.schedule_days != null) {
+      // Delete executions so sequence can re-fire; set updated_at so steps fire in N days
+      await supabase.from('follow_executions').delete().eq('lead_id', ctx.leadId)
+      const newUpdatedAt = new Date(Date.now() - action.schedule_days * 86_400_000).toISOString()
+      await supabase.from('leads')
+        .update({ updated_at: newUpdatedAt })
+        .eq('id', ctx.leadId)
+      console.log(`[SDR:${ctx.companyId}] ButtonAction: lead #${ctx.leadId} reagendado em ${action.schedule_days} dias`)
+    }
+
+    if (action.stop_sequence) {
+      await supabase.from('follow_sequences')
+        .update({ ativo: false })
+        .eq('company_id', ctx.companyId)
+        .ilike('nome', `%[Lead #${ctx.leadId}]%`)
+      console.log(`[SDR:${ctx.companyId}] ButtonAction: sequência parada para lead #${ctx.leadId}`)
+    }
+
+    break // only apply actions from the most recent matching menu
+  }
+}
+
 // ─── Orquestrador Principal ─────────────────────────────────────
 
 interface AgentPersona {
@@ -2160,6 +2233,22 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
     const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
+
+    // ── Auto-transição de status ──────────────────────────────────────────────
+    // Lead em Remarketing respondeu → move para "Em contato" deterministicamente
+    // (não depende da IA decidir chamar o Agente_de_Pipeline)
+    const { data: currentLead } = await supabase
+      .from('leads').select('status').eq('id', ctx.leadId).single()
+    if (currentLead?.status === 'Remarketing') {
+      await supabase.from('leads')
+        .update({ status: 'Em contato', updated_at: new Date().toISOString() })
+        .eq('id', ctx.leadId)
+      console.log(`[SDR:${companyId}] Auto-transição: lead #${ctx.leadId} Remarketing → Em contato`)
+    }
+
+    // ── Button Actions ────────────────────────────────────────────────────────
+    // Se o lead clicou num botão de menu com ação configurada, executa antes do SDR
+    await executeButtonActions(combinedText.trim(), ctx, supabase)
 
     const history = await getHistory(leadId, companyId, supabase)
 

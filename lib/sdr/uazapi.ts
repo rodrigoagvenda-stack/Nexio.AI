@@ -74,6 +74,12 @@ export type StepTipoMensagem =
   | 'carousel'
   | 'location'
 
+export interface ButtonAction {
+  status?: string         // mover lead para este status
+  schedule_days?: number  // reagendar remarketing em N dias
+  stop_sequence?: boolean // desativar a sequência deste lead
+}
+
 export interface StepMediaConfig {
   file?: string
   text?: string
@@ -82,6 +88,7 @@ export interface StepMediaConfig {
   menuType?: 'button' | 'list' | 'poll'
   choices?: string[]
   selectableCount?: number
+  button_actions?: Record<string, ButtonAction>
   carousel?: UazapiCarouselItem[]
   name?: string
   address?: string
