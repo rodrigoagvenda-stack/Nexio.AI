@@ -1815,12 +1815,14 @@ async function saveInbound(
     }
   }
 
+  const tipoFinal = tipo === 'unknown' ? 'text' : tipo
+  console.log(`[SDR:${ctx.companyId}] saveInbound — conv=${conversationId} tipo=${tipoFinal} direcao=inbound texto="${displayText.slice(0, 60)}"`)
   const { error } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,
     texto_da_mensagem: displayText,
-    tipo_de_mensagem: tipo === 'unknown' ? 'text' : tipo,
+    tipo_de_mensagem: tipoFinal,
     direcao: 'inbound',
     sender_type: 'human',
     status: 'delivered',
@@ -1829,6 +1831,7 @@ async function saveInbound(
     whatsapp_message_id: messageId || null,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
+  else console.log(`[SDR:${ctx.companyId}] saveInbound OK — conv=${conversationId}`)
 
   await supabase
     .from('conversas_do_whatsapp')
@@ -2418,6 +2421,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || voteText                                                                       // enquete/poll
       || body.chat?.wa_lastMessageTextVote
       || ''
+
+    // Log para button responses e tipos especiais
+    if (msgType === 'unknown' || msg?.buttonsResponseMessage || msg?.listResponseMessage) {
+      console.log(`[SDR:${companyId}] msg especial — msgType="${msgType}" text="${text}" campos:`, Object.keys(msg ?? {}))
+    }
 
     // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
     if (!text.trim() && !isMedia) {
