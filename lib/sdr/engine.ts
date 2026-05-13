@@ -2411,8 +2411,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || (typeof msg?.content === 'string' ? msg.content : '')   // botão/lista selecionada
-      || voteText                                                  // enquete/poll
+      || (typeof msg?.content === 'string' ? msg.content : '')                         // botão/lista selecionada (uazapi)
+      || msg?.buttonsResponseMessage?.selectedDisplayText                               // resposta de botão interativo
+      || msg?.listResponseMessage?.title                                                // resposta de lista
+      || msg?.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson        // botão nativo
+      || voteText                                                                       // enquete/poll
       || body.chat?.wa_lastMessageTextVote
       || ''
 
