@@ -17,6 +17,26 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, sendRichStep, StepTipoMensagem, StepMediaConfig } from './uazapi'
+
+/** Mesma lógica de engine.ts — variações de formato do número BR */
+function phoneVariants(phone: string): string[] {
+  const variants: string[] = [phone]
+  const push = (v: string) => { if (!variants.includes(v)) variants.push(v) }
+  if (phone.startsWith('55')) {
+    if (phone.length === 13) {
+      push(phone.slice(0, 4) + phone.slice(5))
+      push('+' + phone)
+      push('+' + phone.slice(0, 4) + phone.slice(5))
+    } else if (phone.length === 12) {
+      push(phone.slice(0, 4) + '9' + phone.slice(4))
+      push('+' + phone)
+      push('+' + phone.slice(0, 4) + '9' + phone.slice(4))
+    } else {
+      push('+' + phone)
+    }
+  }
+  return variants
+}
 import { syslog } from '@/lib/logger'
 import OpenAI from 'openai'
 
@@ -258,11 +278,13 @@ async function gravarMensagemFollow(
   if (byLead?.[0]?.id) {
     convId = byLead[0].id
   } else {
+    // Usa phoneVariants: encontra a conversa mesmo se o número foi armazenado em formato diferente
+    const phoneVars = phoneVariants(phone)
     const { data: byPhone } = await supabase
       .from('conversas_do_whatsapp')
       .select('id')
       .eq('company_id', companyId)
-      .eq('numero_de_telefone', phone)
+      .in('numero_de_telefone', phoneVars)
       .order('hora_da_ultima_mensagem', { ascending: false })
       .limit(1)
 
@@ -316,6 +338,7 @@ async function gravarMensagemFollow(
     sender_type: 'ai',
     status: 'sent',
     nome_do_agente: 'Follow-up SDR',
+    carimbo_de_data_e_hora: new Date().toISOString(),
   })
 
   if (convId) {
@@ -832,7 +855,8 @@ function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   // Formato cifrado: iv(32hex):authTag(32hex):cipher
   const parts = value.split(':')
   if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
-    try { return decrypt(value) } catch { return value }
+    // Retorna fallback (não o token cifrado) para que !token continue funcionando
+    try { return decrypt(value) } catch { return fallback }
   }
   return value
 }
