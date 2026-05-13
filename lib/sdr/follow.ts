@@ -263,9 +263,9 @@ async function gravarMensagemFollow(
   tipoMensagem: StepTipoMensagem = 'text',
   media?: StepMediaConfig | null
 ): Promise<void> {
-  // Busca a conversa mais recente do lead (por id_do_lead, depois por telefone)
-  // Usa limit(1)+order para nunca falhar com múltiplas linhas (maybeSingle falha nesse caso)
   let convId: number | null = null
+
+  console.log(`[follow] gravarMensagem — lead=${leadId} phone=${phone} tipo=${tipoMensagem}`)
 
   const { data: byLead } = await supabase
     .from('conversas_do_whatsapp')
@@ -277,6 +277,7 @@ async function gravarMensagemFollow(
 
   if (byLead?.[0]?.id) {
     convId = byLead[0].id
+    console.log(`[follow] conversa encontrada por id_do_lead — conv=${convId}`)
   } else {
     // Usa phoneVariants: encontra a conversa mesmo se o número foi armazenado em formato diferente
     const phoneVars = phoneVariants(phone)
@@ -290,7 +291,9 @@ async function gravarMensagemFollow(
 
     if (byPhone?.[0]?.id) {
       convId = byPhone[0].id
+      console.log(`[follow] conversa encontrada por telefone — conv=${convId}`)
     } else {
+      console.warn(`[follow] conversa não encontrada para lead=${leadId} phone=${phone} variants=${JSON.stringify(phoneVariants(phone))} — criando nova`)
       const { data: leadData } = await supabase
         .from('leads')
         .select('contact_name')
@@ -328,7 +331,12 @@ async function gravarMensagemFollow(
   // Para mídia, o caption fica em media.text; usa ele se text (step.mensagem) estiver vazio
   const displayText = text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
 
-  await supabase.from('mensagens_do_whatsapp').insert({
+  if (!convId) {
+    console.error(`[follow] ERRO: convId null para lead=${leadId} phone=${phone} — mensagem não salva`)
+    return
+  }
+
+  const { error: insertErr } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: convId,
     id_do_lead: leadId,
     company_id: companyId,
@@ -341,6 +349,13 @@ async function gravarMensagemFollow(
     nome_do_agente: 'Follow-up SDR',
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
+
+  if (insertErr) {
+    console.error(`[follow] ERRO ao inserir mensagem lead=${leadId} conv=${convId}:`, insertErr.message)
+    return
+  }
+
+  console.log(`[follow] mensagem salva — lead=${leadId} conv=${convId} tipo=${tipoMensagem}`)
 
   if (convId) {
     await supabase
