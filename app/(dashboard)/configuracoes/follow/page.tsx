@@ -56,9 +56,12 @@ interface FollowSequence {
 }
 
 interface Stats {
-  total_enviados: number; total_falhas: number; sequencias_ativas: number
+  total_enviados: number; total_falhas: number; total_respondeu: number; sequencias_ativas: number
   por_tipo: { tipo: string; label: string; enviados: number; falhas: number }[]
-  ultimos: { id: number; tipo: string; lead_name: string; mensagem: string; enviado_em: string; respondeu: boolean }[]
+  ultimos: {
+    id: number; tipo: string; lead_id: number; lead_name: string; lead_status: string
+    mensagem: string; enviado_em: string; respondeu: boolean; resposta: string | null
+  }[]
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -842,7 +845,7 @@ function MetricasContent() {
           { label: 'Enviados',          value: stats.total_enviados,    icon: MessageSquare, color: 'text-blue-600'    },
           { label: 'Falhas',            value: stats.total_falhas,      icon: XCircle,       color: 'text-red-500'     },
           { label: 'Sequências ativas', value: stats.sequencias_ativas, icon: CheckCircle2,  color: 'text-emerald-600' },
-          { label: 'Responderam',       value: stats.ultimos.filter(u => u.respondeu).length, icon: BarChart2, color: 'text-purple-600' },
+          { label: 'Responderam',       value: stats.total_respondeu,   icon: BarChart2,     color: 'text-purple-600'  },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-xl border border-border p-4">
             <div className="flex items-center justify-between mb-1">
@@ -860,17 +863,31 @@ function MetricasContent() {
           </div>
           <div className="divide-y divide-border">
             {stats.ultimos.map((log) => (
-              <div key={log.id} className="flex items-start gap-3 px-4 py-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{log.lead_name}</span>
-                    {log.respondeu && <span className="text-xs text-emerald-600 flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Respondeu</span>}
+              <div key={log.id} className="px-4 py-3 space-y-1.5">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium">{log.lead_name}</span>
+                      <span className="text-xs text-muted-foreground/60 border border-border rounded px-1.5 py-0.5">{log.lead_status}</span>
+                      <span className="text-xs text-muted-foreground/50">{TIPO_CONFIG[log.tipo as SequenceTipo]?.label ?? log.tipo}</span>
+                      {log.respondeu
+                        ? <span className="text-xs text-emerald-600 flex items-center gap-0.5 ml-auto"><CheckCircle2 className="w-3 h-3" /> Respondeu</span>
+                        : <span className="text-xs text-muted-foreground/40 ml-auto">Sem resposta</span>
+                      }
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      <span className="text-muted-foreground/50">Enviado: </span>{log.mensagem}
+                    </p>
+                    {log.respondeu && log.resposta && (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5 truncate">
+                        <span className="text-emerald-600/60">Resposta: </span>{log.resposta}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{log.mensagem}</p>
+                  <span className="text-xs text-muted-foreground shrink-0 pt-0.5">
+                    {new Date(log.enviado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {new Date(log.enviado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                </span>
               </div>
             ))}
           </div>
