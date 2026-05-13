@@ -742,8 +742,8 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         const company: CompanyCtx = {
           id: cfg.company_id,
           uazapi_url: cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url,
-          uazapi_token: cfg.uazapi_token ? decrypt(cfg.uazapi_token) : '',
-          openai_key: cfg.openai_key ? decrypt(cfg.openai_key) : platformCfg.openai_api_key,
+          uazapi_token: safeDecrypt(cfg.uazapi_token),
+          openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
           sdr_prompt: cfg.prompt ?? null,
         }
 

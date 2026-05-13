@@ -2341,7 +2341,9 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || body.chat?.wa_lastMessageTextVote  // button/list/poll responses chegam aqui
+      || msg?.content                                                              // botão/lista selecionada
+      || (typeof msg?.vote === 'string' ? msg.vote : (Array.isArray(msg?.vote) ? (msg.vote as string[])[0] : ''))  // enquete
+      || body.chat?.wa_lastMessageTextVote
       || ''
 
     // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
