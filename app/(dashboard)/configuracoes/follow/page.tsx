@@ -103,7 +103,10 @@ const EMPTY_STEP = (): FollowStep => ({
 
 // Variáveis disponíveis nos templates de mensagem
 const TEMPLATE_VARS = [
-  { token: '{nome}', label: 'nome' },
+  { token: '{nome}',         label: 'Nome completo'    },
+  { token: '{primeiro_nome}', label: 'Primeiro nome'   },
+  { token: '{status}',       label: 'Status do lead'   },
+  { token: '{data_call}',    label: 'Data/hora da call'},
 ]
 
 // ─── VarPicker — insere variável na posição do cursor ────────────────────────

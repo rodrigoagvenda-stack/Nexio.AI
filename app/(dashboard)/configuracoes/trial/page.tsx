@@ -67,6 +67,42 @@ const TIPO_MSG: Record<StepTipo, { label: string; icon: React.FC<{ className?: s
 
 const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0 })
 
+const TEMPLATE_VARS = [
+  { token: '{nome}',          label: 'Nome completo'     },
+  { token: '{primeiro_nome}', label: 'Primeiro nome'     },
+  { token: '{status}',        label: 'Status do lead'    },
+  { token: '{data_call}',     label: 'Data/hora da call' },
+]
+
+function VarPicker({ textareaRef, value, onChange }: {
+  textareaRef: React.RefObject<HTMLTextAreaElement>
+  value: string
+  onChange: (v: string) => void
+}) {
+  const insert = (token: string) => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? value.length
+    const end = el?.selectionEnd ?? value.length
+    const next = value.slice(0, start) + token + value.slice(end)
+    onChange(next)
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(start + token.length, start + token.length)
+    })
+  }
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">Variáveis</span>
+      {TEMPLATE_VARS.map((v) => (
+        <button key={v.token} type="button" onClick={() => insert(v.token)} title={v.label}
+          className="text-[11px] font-mono bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded px-1.5 py-0.5 transition-colors cursor-pointer leading-none">
+          {v.token}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Upload Zone ──────────────────────────────────────────────────────────────
 
 function UploadZone({ accept, label, icon: Icon, current, currentName, onUpload }: {
@@ -481,6 +517,7 @@ function TrialStepEditor({ step, index, onChange }: {
   step: TrialStep; index: number
   onChange: (p: Partial<TrialStep>) => void
 }) {
+  const mensagemRef = useRef<HTMLTextAreaElement>(null)
   const needsText = ['text', 'menu', 'carousel'].includes(step.tipo_mensagem)
   return (
     <div className="space-y-4">
@@ -521,10 +558,14 @@ function TrialStepEditor({ step, index, onChange }: {
 
       {needsText && (
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            {step.tipo_mensagem === 'text' ? 'Mensagem' : 'Texto introdutório'}
-          </Label>
-          <Textarea value={step.mensagem} onChange={(e) => onChange({ mensagem: e.target.value })}
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {step.tipo_mensagem === 'text' ? 'Mensagem' : 'Texto introdutório'}
+            </Label>
+            <VarPicker textareaRef={mensagemRef} value={step.mensagem}
+              onChange={(v) => onChange({ mensagem: v })} />
+          </div>
+          <Textarea ref={mensagemRef} value={step.mensagem} onChange={(e) => onChange({ mensagem: e.target.value })}
             placeholder={`Olá, {nome}! ${index === 0 ? 'Bem-vindo ao trial! 🎉' : 'Como está sendo sua experiência?'}`}
             className="min-h-[72px] text-sm resize-none" />
         </div>

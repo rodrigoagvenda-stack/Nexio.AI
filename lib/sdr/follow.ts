@@ -100,12 +100,22 @@ function pickMessage(step: FollowStep): string {
   return step.mensagem ?? ''
 }
 
-/** Substitui variáveis de template na mensagem ({nome}, {name}) */
-function substituirVariaveis(texto: string, lead: { contact_name?: string }): string {
+/** Substitui variáveis de template na mensagem */
+function substituirVariaveis(texto: string, lead: Lead): string {
   const nome = lead.contact_name || 'você'
+  const primeiroNome = nome.split(' ')[0]
+  const status = lead.status || ''
+  const dataCall = lead.call_agendada_para
+    ? new Date(lead.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+    : ''
   return texto
     .replace(/\{nome\}/gi, nome)
     .replace(/\{name\}/gi, nome)
+    .replace(/\{primeiro_nome\}/gi, primeiroNome)
+    .replace(/\{first_name\}/gi, primeiroNome)
+    .replace(/\{status\}/gi, status)
+    .replace(/\{data_call\}/gi, dataCall)
+    .replace(/\{horario_call\}/gi, dataCall)
 }
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -680,7 +690,12 @@ async function processTrialSaas(
 
         const phone = normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
-        const texto = pickMessage(step) || `Oi ${trial.nome}! Seu período de teste está em andamento. Precisa de ajuda? 😊`
+        const textoRaw = pickMessage(step) || `Oi {nome}! Seu período de teste está em andamento. Precisa de ajuda? 😊`
+        const texto = substituirVariaveis(textoRaw, {
+          contact_name: trial.nome, whatsapp: trial.whatsapp, status: trial.status,
+          resumo_ia: null, notes: null, call_de_venda: null, call_agendada_para: null, call_status: null,
+          id: trial.id, company_id: trial.company_id,
+        })
         const media = step.media_config
 
         try {
