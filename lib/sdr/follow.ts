@@ -813,6 +813,8 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
 
 function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   if (!value) return fallback
+  // Só tenta decrypt se tiver formato iv:salt:ciphertext (3 partes com ':')
+  if (!value.includes(':') || value.split(':').length !== 3) return value
   try { return decrypt(value) } catch { return value }
 }
 

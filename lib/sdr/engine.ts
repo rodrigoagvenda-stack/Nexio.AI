@@ -2337,12 +2337,17 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     const msgType = detectMessageType(body.message)
     const isMedia = msgType === 'audio' || msgType === 'image' || msgType === 'document' || msgType === 'video'
 
+    // vote pode ser array de objetos {name, localId} (UAZapi) ou array de strings
+    const voteText: string = Array.isArray(msg?.vote)
+      ? (typeof msg.vote[0] === 'string' ? msg.vote[0] : (msg.vote[0]?.name ?? ''))
+      : (typeof msg?.vote === 'string' ? msg.vote : '')
+
     const text = msg?.text
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || msg?.content                                                              // botão/lista selecionada
-      || (typeof msg?.vote === 'string' ? msg.vote : (Array.isArray(msg?.vote) ? (msg.vote as string[])[0] : ''))  // enquete
+      || (typeof msg?.content === 'string' ? msg.content : '')   // botão/lista selecionada
+      || voteText                                                  // enquete/poll
       || body.chat?.wa_lastMessageTextVote
       || ''
 
