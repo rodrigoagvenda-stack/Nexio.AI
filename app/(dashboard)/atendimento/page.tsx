@@ -1167,32 +1167,33 @@ export default function AtendimentoPage() {
           );
         }
 
-        case 'menu':
-        case 'button': {
-          let menuData: { menuType?: string; choices?: any[] } = {};
-          try { menuData = JSON.parse(msg.url_da_midia); } catch {}
-          const choices = menuData.choices ?? [];
-          return (
-            <div className="space-y-2">
-              {msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('[') && (
-                <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem}</p>
-              )}
-              {choices.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  {choices.map((c: any, i: number) => (
-                    <div key={i} className="text-sm text-center py-1.5 px-3 rounded-xl border border-primary/30 text-primary bg-primary/5">
-                      {typeof c === 'string' ? c : (c.text ?? c.title ?? c.id ?? JSON.stringify(c))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        }
-
         default:
           return renderTextWithLinks(msg.texto_da_mensagem || '');
       }
+    }
+
+    // Menu/button — fora do bloco url_da_midia para funcionar mesmo sem url
+    if (msg.tipo_de_mensagem === 'menu' || msg.tipo_de_mensagem === 'button') {
+      let menuData: { menuType?: string; choices?: any[] } = {};
+      try { menuData = JSON.parse(msg.url_da_midia ?? ''); } catch {}
+      const choices = menuData.choices ?? [];
+      const introText = msg.texto_da_mensagem && !msg.texto_da_mensagem.startsWith('[') ? msg.texto_da_mensagem : null;
+      return (
+        <div className="space-y-2">
+          {introText && <p className="text-sm whitespace-pre-wrap">{introText}</p>}
+          {choices.length > 0 ? (
+            <div className="space-y-1 pt-1">
+              {choices.map((c: any, i: number) => (
+                <div key={i} className="text-sm text-center py-1.5 px-3 rounded-xl border border-primary/30 text-primary bg-primary/5">
+                  {typeof c === 'string' ? c : (c.text ?? c.title ?? c.id ?? JSON.stringify(c))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            !introText && <p className="text-sm whitespace-pre-wrap">{msg.texto_da_mensagem || '[menu]'}</p>
+          )}
+        </div>
+      );
     }
 
     // Location sem url_da_midia
