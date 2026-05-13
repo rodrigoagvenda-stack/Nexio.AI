@@ -314,7 +314,7 @@ async function getHistory(
 ): Promise<ChatMsg[]> {
   const { data } = await supabase
     .from('mensagens_do_whatsapp')
-    .select('texto_da_mensagem, sender_type')
+    .select('texto_da_mensagem, sender_type, tipo_de_mensagem, url_da_midia')
     .eq('id_do_lead', leadId)
     .eq('company_id', companyId)
     .order('carimbo_de_data_e_hora', { ascending: false })
@@ -324,10 +324,21 @@ async function getHistory(
   return data
     .reverse()
     .filter((m) => m.texto_da_mensagem)
-    .map((m) => ({
-      role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-      content: m.texto_da_mensagem ?? '',
-    }))
+    .map((m) => {
+      let content = m.texto_da_mensagem ?? ''
+      // Para menu/button, anexa as opções no histórico para o SDR ter contexto completo
+      if ((m.tipo_de_mensagem === 'menu' || m.tipo_de_mensagem === 'button') && m.url_da_midia) {
+        try {
+          const parsed = JSON.parse(m.url_da_midia)
+          const choices: string[] = parsed.choices ?? []
+          if (choices.length) content += '\n[Opções enviadas: ' + choices.join(' / ') + ']'
+        } catch {}
+      }
+      return {
+        role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content,
+      }
+    })
 }
 
 // ─── Loop genérico de sub-agente (espelha AI Agent node do N8N) ──
@@ -1692,7 +1703,7 @@ async function saveInbound(
       .maybeSingle()
     if (existing?.id) {
       await supabase.from('mensagens_do_whatsapp')
-        .update({ texto_da_mensagem: displayText, url_da_midia: mediaUrl ?? null })
+        .update({ texto_da_mensagem: displayText, url_da_midia: mediaUrl ?? null, id_do_lead: ctx.leadId })
         .eq('id', existing.id)
       await supabase.from('conversas_do_whatsapp')
         .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
