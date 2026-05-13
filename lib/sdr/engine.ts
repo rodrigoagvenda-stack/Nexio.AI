@@ -2505,7 +2505,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         const phoneVarsImm = phoneVariants(phone)
         const { data: convRows } = await imm
           .from('conversas_do_whatsapp')
-          .select('id')
+          .select('id, id_do_lead')
           .eq('company_id', companyId)
           .in('numero_de_telefone', phoneVarsImm)
           .order('hora_da_ultima_mensagem', { ascending: false })
@@ -2523,6 +2523,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         const tipoPreSave = msgType === 'unknown' ? 'text' : msgType
         const { error: presaveErr } = await imm.from('mensagens_do_whatsapp').insert({
           id_da_conversacao: conv.id,
+          id_do_lead: conv.id_do_lead ?? null,
           company_id: companyId,
           texto_da_mensagem: dispText,
           tipo_de_mensagem: tipoPreSave,
