@@ -1116,7 +1116,7 @@ async function executeButtonActions(
     .eq('company_id', ctx.companyId)
     .eq('direcao', 'outbound')
     .in('tipo_de_mensagem', ['menu', 'button'])
-    .order('carimbo_de_data_e_hora', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(5)
 
   if (!menuMsgs?.length) return
@@ -1138,8 +1138,11 @@ async function executeButtonActions(
     )
     if (!matchedChoice) continue
 
+    // Se button_actions nem existe no JSON (menu enviado antes da feature), tenta mensagem anterior
+    if (!parsed.button_actions) continue
+
     const action = actions[matchedChoice]
-    if (!action) break // matched choice has no action — stop searching older menus
+    if (!action) break // choice existe mas sem ação configurada — para de buscar
 
     console.log(`[SDR:${ctx.companyId}] ButtonAction: "${matchedChoice}" → ${JSON.stringify(action)}`)
 
@@ -2338,7 +2341,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
+      || body.chat?.wa_lastMessageTextVote  // button/list/poll responses chegam aqui
       || ''
 
     // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
