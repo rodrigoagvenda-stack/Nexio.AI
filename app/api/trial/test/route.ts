@@ -45,25 +45,35 @@ async function gravarMensagemTeste(
   text: string, tipoMensagem: StepTipoMensagem, media?: StepMediaConfig
 ): Promise<void> {
   const phoneVars = phoneVariants(phone)
-  const { data: byPhone } = await supabase
+  console.log(`[trial:test] gravarMensagem — phone=${phone} tipo=${tipoMensagem} variants=${JSON.stringify(phoneVars)}`)
+
+  const { data: byPhone, error: searchErr } = await supabase
     .from('conversas_do_whatsapp').select('id')
     .eq('company_id', companyId).in('numero_de_telefone', phoneVars)
     .order('hora_da_ultima_mensagem', { ascending: false }).limit(1)
 
+  if (searchErr) console.error(`[trial:test] erro ao buscar conversa:`, searchErr.message)
+  console.log(`[trial:test] busca conversa — resultado:`, byPhone)
+
   let convId: number | null = byPhone?.[0]?.id ?? null
 
   if (!convId) {
-    const { data: newConv } = await supabase
+    console.log(`[trial:test] conversa não encontrada — criando nova para phone=${phone}`)
+    const { data: newConv, error: convErr } = await supabase
       .from('conversas_do_whatsapp').insert({
         company_id: companyId, numero_de_telefone: phone,
         nome_do_contato: 'Lead Teste', ultima_mensagem: text || `[${tipoMensagem}]`,
         hora_da_ultima_mensagem: new Date().toISOString(),
         status_da_conversa: 'aberto', contagem_nao_lida: 0,
       }).select('id').single()
+    if (convErr) console.error(`[trial:test] erro ao criar conversa:`, convErr.message)
     convId = newConv?.id ?? null
+    console.log(`[trial:test] conversa criada — id=${convId}`)
+  } else {
+    console.log(`[trial:test] conversa encontrada — id=${convId}`)
   }
 
-  if (!convId) return
+  if (!convId) { console.error(`[trial:test] convId null — mensagem não salva`); return }
 
   let urlMidia: string | null = null
   if (tipoMensagem === 'menu' && media?.choices?.length)
@@ -75,13 +85,15 @@ async function gravarMensagemTeste(
 
   const displayText = text || media?.text || `[${tipoMensagem}]`
 
-  await supabase.from('mensagens_do_whatsapp').insert({
+  const { error: msgErr } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: convId, company_id: companyId,
     texto_da_mensagem: displayText, tipo_de_mensagem: tipoMensagem,
     url_da_midia: urlMidia, direcao: 'outbound', sender_type: 'ai',
     status: 'sent', nome_do_agente: 'Trial SaaS',
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
+  if (msgErr) console.error(`[trial:test] erro ao inserir mensagem:`, msgErr.message)
+  else console.log(`[trial:test] mensagem salva — conv=${convId} tipo=${tipoMensagem}`)
 
   await supabase.from('conversas_do_whatsapp')
     .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
