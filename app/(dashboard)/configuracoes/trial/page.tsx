@@ -49,6 +49,7 @@ interface TrialRecord {
 
 interface TrialConfig {
   webhook_token: string; trial_days_options: number[]; trial_days_default: number
+  test_mode?: boolean; test_phone?: string
 }
 
 // ─── Tipo msg config ──────────────────────────────────────────────────────────
@@ -768,6 +769,8 @@ function ConfigContent() {
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [daysDefault, setDaysDefault] = useState(7)
+  const [testMode, setTestMode] = useState(false)
+  const [testPhone, setTestPhone] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -776,7 +779,11 @@ function ConfigContent() {
         const data = await res.json()
         setConfig(data.config)
         setWebhookUrl(data.webhookUrl ?? '')
-        if (data.config) setDaysDefault(data.config.trial_days_default ?? 7)
+        if (data.config) {
+          setDaysDefault(data.config.trial_days_default ?? 7)
+          setTestMode(data.config.test_mode ?? false)
+          setTestPhone(data.config.test_phone ?? '')
+        }
       }
     } finally { setLoading(false) }
   }, [])
@@ -794,7 +801,7 @@ function ConfigContent() {
     try {
       const res = await fetch('/api/trial/config', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trial_days_options: [7, 15, 30], trial_days_default: daysDefault }),
+        body: JSON.stringify({ trial_days_options: [7, 15, 30], trial_days_default: daysDefault, test_mode: testMode, test_phone: testPhone || null }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -852,6 +859,42 @@ function ConfigContent() {
           ))}
           <Input type="number" min={1} value={![7, 15, 30].includes(daysDefault) ? daysDefault : ''} onChange={(e) => setDaysDefault(parseInt(e.target.value) || 7)}
             placeholder="Outro" className="w-24 h-9 text-sm text-center font-mono" />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Bot className="w-3.5 h-3.5 text-muted-foreground" />
+          <p className="text-sm font-semibold">Modo Teste</p>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Quando ativo, todos os disparos do trial são redirecionados para o número abaixo — nenhum cliente real é impactado.
+        </p>
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Ativar modo teste</p>
+              <p className="text-xs text-muted-foreground">Redireciona todos os envios para o número de teste</p>
+            </div>
+            <Switch checked={testMode} onCheckedChange={setTestMode} />
+          </div>
+          {testMode && (
+            <div className="space-y-1.5 pt-1 border-t border-border">
+              <Label className="text-xs text-muted-foreground">Número de teste (com DDI, ex: 5577981680532)</Label>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground shrink-0" />
+                <Input
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="5577981680532"
+                  className="h-9 text-sm font-mono"
+                />
+              </div>
+              <p className="text-xs text-amber-500 font-medium">
+                ⚠ Modo teste ativo — disparos reais estão pausados
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

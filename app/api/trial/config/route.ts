@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const { data: config } = await service
     .from('trial_configs')
-    .select('webhook_token, trial_days_options, trial_days_default')
+    .select('webhook_token, trial_days_options, trial_days_default, test_mode, test_phone')
     .eq('company_id', member.company_id)
     .maybeSingle()
 
@@ -33,9 +33,8 @@ export async function POST(req: NextRequest) {
   const service = createServiceClient()
 
   const body = await req.json()
-  const { trial_days_options, trial_days_default } = body
+  const { trial_days_options, trial_days_default, test_mode, test_phone } = body
 
-  // Check if config already exists to preserve webhook_token
   const { data: existing } = await service
     .from('trial_configs')
     .select('webhook_token')
@@ -49,9 +48,11 @@ export async function POST(req: NextRequest) {
       .update({
         trial_days_options: trial_days_options ?? [7, 15, 30],
         trial_days_default: trial_days_default ?? 7,
+        test_mode: test_mode ?? false,
+        test_phone: test_phone ?? null,
       })
       .eq('company_id', context.companyId)
-      .select('webhook_token, trial_days_options, trial_days_default')
+      .select('webhook_token, trial_days_options, trial_days_default, test_mode, test_phone')
       .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     result = data
@@ -63,8 +64,10 @@ export async function POST(req: NextRequest) {
         webhook_token: crypto.randomUUID(),
         trial_days_options: trial_days_options ?? [7, 15, 30],
         trial_days_default: trial_days_default ?? 7,
+        test_mode: test_mode ?? false,
+        test_phone: test_phone ?? null,
       })
-      .select('webhook_token, trial_days_options, trial_days_default')
+      .select('webhook_token, trial_days_options, trial_days_default, test_mode, test_phone')
       .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     result = data

@@ -697,6 +697,16 @@ async function processTrialSaas(
   let sent = 0
   const now = Date.now()
 
+  // Verifica modo teste
+  const { data: trialCfg } = await supabase
+    .from('trial_configs')
+    .select('test_mode, test_phone')
+    .eq('company_id', company.id)
+    .maybeSingle()
+  const testMode = trialCfg?.test_mode === true && !!trialCfg?.test_phone
+  const testPhone = testMode ? normalizePhone(trialCfg!.test_phone!) : null
+  if (testMode) console.log(`[follow:trial] MODO TESTE ativo — redirecionando para ${testPhone}`)
+
   const { data: trials } = await supabase
     .from('saas_trials')
     .select('id, company_id, nome, whatsapp, status, criado_em, trial_days')
@@ -727,7 +737,7 @@ async function processTrialSaas(
         const diff = Math.abs(daysSinceSignup - step.dia_offset)
         if (diff > 0.5) continue
 
-        const phone = normalizePhone(trial.whatsapp)
+        const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const textoRaw = pickMessage(step) || `Oi {nome}! Seu período de teste está em andamento. Precisa de ajuda? 😊`
         const texto = substituirVariaveis(textoRaw, {
