@@ -2476,7 +2476,16 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId, em.replyToText, em.replyToSender, em.replyToQuotedId)
     }
 
-    // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
+    // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
+    const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
+    console.log(`[SDR:${companyId}] combinedText="${combinedText.slice(0, 80)}" leadId=${leadId}`)
+
+    // ── Button Actions — executa ANTES da verificação de pausa ───────────────
+    // Botões devem disparar sequências/estagios mesmo quando SDR está pausado
+    console.log(`[SDR:${companyId}] chamando executeButtonActions texto="${combinedText.trim().slice(0, 60)}"`)
+    await executeButtonActions(combinedText.trim(), ctx, supabase)
+
+    // Verifica se agente está pausado nesta conversa (só APÓS salvar mensagens e executar button_actions)
     const { data: conv } = await supabase
       .from('conversas_do_whatsapp')
       .select('agente_pausado')
@@ -2486,14 +2495,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     console.log(`[SDR:${companyId}] agente_pausado=${conv?.agente_pausado} conv=${conversationId} lead=#${leadId}`)
 
     if (conv?.agente_pausado) {
-      console.log(`[SDR:${companyId}] RETORNO ANTECIPADO — agente pausado, não processa button_actions nem SDR`)
+      console.log(`[SDR:${companyId}] RETORNO ANTECIPADO — agente pausado, não processa SDR`)
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
       return
     }
-
-    // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
-    const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
-    console.log(`[SDR:${companyId}] combinedText="${combinedText.slice(0, 80)}" leadId=${leadId}`)
 
     // ── Auto-transição de status ──────────────────────────────────────────────
     const { data: currentLead } = await supabase
@@ -2504,10 +2509,6 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         .eq('id', ctx.leadId)
       console.log(`[SDR:${companyId}] Auto-transição: lead #${ctx.leadId} Remarketing → Em contato`)
     }
-
-    // ── Button Actions ────────────────────────────────────────────────────────
-    console.log(`[SDR:${companyId}] chamando executeButtonActions texto="${combinedText.trim().slice(0, 60)}"`)
-    await executeButtonActions(combinedText.trim(), ctx, supabase)
 
     const history = await getHistory(leadId, companyId, supabase)
 
