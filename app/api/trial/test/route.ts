@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   // Calcula created_at simulado: agora - N dias
   const simulatedCreatedAt = new Date(Date.now() - day * 86_400_000).toISOString()
 
-  // Upsert trial de teste
+  // Upsert trial de teste (sem criado_em — atualiza separado)
   const { data: trial, error: trialErr } = await supabase
     .from('saas_trials')
     .upsert(
@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
         trial_days: trialDays,
         status: 'ativo',
         estagio: `teste_gratis_${trialDays}_dias`,
-        criado_em: simulatedCreatedAt,
       },
       { onConflict: 'company_id,email', ignoreDuplicates: false }
     )
@@ -66,7 +65,17 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (trialErr || !trial) {
-    return NextResponse.json({ error: trialErr?.message ?? 'Erro ao criar trial de teste.' }, { status: 500 })
+    return NextResponse.json({ error: `saas_trials upsert: ${trialErr?.message ?? 'sem retorno'}` }, { status: 500 })
+  }
+
+  // Avança a data simulada para o dia correto
+  const { error: dateErr } = await supabase
+    .from('saas_trials')
+    .update({ criado_em: simulatedCreatedAt })
+    .eq('id', trial.id)
+
+  if (dateErr) {
+    return NextResponse.json({ error: `update criado_em: ${dateErr.message}` }, { status: 500 })
   }
 
   // Busca sequências trial_saas ativas
@@ -99,7 +108,7 @@ export async function POST(req: NextRequest) {
   await supabase
     .from('follow_executions')
     .delete()
-    .eq('trial_id', trial.id)
+    .eq('trial_id', trial.id as any)
     .in('step_id', stepIds)
 
   // Configura uazapi
@@ -132,7 +141,7 @@ export async function POST(req: NextRequest) {
     try {
       await sendRichStep(uazapi, phone, tipo, texto, media)
       await supabase.from('follow_executions').insert({
-        trial_id: trial.id,
+        trial_id: trial.id as any,
         sequence_id: step.sequence_id,
         step_id: step.id,
         company_id: context.companyId,
@@ -142,7 +151,7 @@ export async function POST(req: NextRequest) {
     } catch (err: any) {
       errors.push(err.message)
       await supabase.from('follow_executions').insert({
-        trial_id: trial.id,
+        trial_id: trial.id as any,
         sequence_id: step.sequence_id,
         step_id: step.id,
         company_id: context.companyId,
