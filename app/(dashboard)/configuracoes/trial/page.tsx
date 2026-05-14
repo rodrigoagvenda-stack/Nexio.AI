@@ -594,10 +594,18 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
 
 // ─── Step editor (flat) ───────────────────────────────────────────────────────
 
-function TrialStepEditor({ step, index, onChange }: {
+function TrialStepEditor({ step, index, onChange, allSteps }: {
   step: TrialStep; index: number
   onChange: (p: Partial<TrialStep>) => void
+  allSteps: TrialStep[]
 }) {
+  const allEstagios = Array.from(new Set(
+    allSteps.flatMap((s) =>
+      Object.values(s.media_config?.button_actions ?? {})
+        .map((a) => a.estagio)
+        .filter((e): e is string => !!e)
+    )
+  ))
   const mensagemRef = useRef<HTMLTextAreaElement>(null)
   const needsText = ['text', 'menu', 'carousel'].includes(step.tipo_mensagem)
   return (
@@ -641,15 +649,26 @@ function TrialStepEditor({ step, index, onChange }: {
       {/* Roteamento por estágio */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enviar apenas se estágio =</Label>
-        <Input
-          value={step.condicao_estagio ?? ''}
-          onChange={(e) => onChange({ condicao_estagio: e.target.value })}
-          placeholder="Ex: usando_bem (deixe vazio para todos)"
-          className="h-9 text-sm"
-        />
-        <p className="text-[11px] text-muted-foreground/60">
-          Filtra pelo tag definido no botão que o lead clicou. Deixe vazio para disparar independente do estágio.
-        </p>
+        {allEstagios.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground/60 px-1">
+            Nenhum estágio criado ainda. Adicione um menu com tag de roteamento em outro passo.
+          </p>
+        ) : (
+          <Select
+            value={step.condicao_estagio || '__todos__'}
+            onValueChange={(v) => onChange({ condicao_estagio: v === '__todos__' ? '' : v })}
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Todos (sem filtro de estágio)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__todos__">Todos (sem filtro)</SelectItem>
+              {allEstagios.map((e) => (
+                <SelectItem key={e} value={e}>{e}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Tipo */}
@@ -1340,6 +1359,7 @@ export default function TrialPage() {
                     step={form.steps[activeStep]}
                     index={activeStep}
                     onChange={updateStep}
+                    allSteps={form.steps}
                   />
                 </div>
               )}
