@@ -11,6 +11,16 @@ import { normalizePhone, createUazapiClient, sendRichStep } from '@/lib/sdr/uaza
 import { getPlatformConfig } from '@/lib/platform-config'
 import { decrypt } from '@/lib/crypto'
 
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return ''
+  if (value.startsWith('plain:')) return value.slice(6)
+  const parts = value.split(':')
+  if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
+    try { return decrypt(value) } catch { return '' }
+  }
+  return value
+}
+
 function substituirVariaveis(texto: string): string {
   return texto
     .replace(/\{nome\}/g, 'Lead Teste')
@@ -78,7 +88,7 @@ export async function POST(req: NextRequest) {
   if (sdrErr) return NextResponse.json({ error: `sdr_configs: ${sdrErr.message}` }, { status: 500 })
 
   const uazapiUrl = sdrCfg?.uazapi_instance_url ?? platformCfg.uazapi_base_url
-  const uazapiToken = sdrCfg?.uazapi_token ? decrypt(sdrCfg.uazapi_token) : ''
+  const uazapiToken = safeDecrypt(sdrCfg?.uazapi_token)
 
   if (!uazapiToken) {
     return NextResponse.json({ error: 'Instância uazapi não configurada em Agente SDR.' }, { status: 400 })
