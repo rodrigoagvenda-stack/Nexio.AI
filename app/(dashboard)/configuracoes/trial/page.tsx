@@ -909,10 +909,13 @@ function ConfigContent() {
             onClick={async () => {
               setFiring(true)
               try {
-                const res = await fetch('/api/trial/test', { method: 'POST' })
+                const res = await fetch(webhookUrl, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: 'Lead Teste', email: `teste+${Date.now()}@trial.com`, whatsapp: testPhone }),
+                })
                 const data = await res.json()
-                if (res.ok) toast({ title: 'Teste disparado!', description: `Mensagem enviada para ${testPhone}` })
-                else toast({ title: data.error ?? 'Erro no teste', variant: 'destructive' })
+                if (res.ok) toast({ title: 'Teste disparado!', description: `Sequência D0 enviada para ${testPhone}` })
+                else toast({ title: data.message ?? 'Erro no teste', variant: 'destructive' })
               } catch { toast({ title: 'Erro ao disparar teste', variant: 'destructive' }) }
               finally { setFiring(false) }
             }}>
