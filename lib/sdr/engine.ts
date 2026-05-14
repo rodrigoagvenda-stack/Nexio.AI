@@ -1121,7 +1121,19 @@ async function dispararSequenciaEstagio(
     .maybeSingle()
 
   console.log(`[trial:dispatch] trial=${trial ? `id=${trial.id} nome=${trial.nome}` : 'NÃO ENCONTRADO'}`)
-  if (!trial) return
+
+  // Modo teste: verifica se phone é o número de teste configurado na empresa
+  let isTestMode = false
+  if (!trial) {
+    const { data: testCfg } = await supabase.from('trial_configs')
+      .select('test_mode, test_phone')
+      .eq('company_id', ctx.companyId)
+      .maybeSingle()
+    const testPhone = testCfg?.test_phone ? normalizePhone(testCfg.test_phone) : null
+    isTestMode = !!(testCfg?.test_mode && testPhone && phoneVars.includes(testPhone))
+    console.log(`[trial:dispatch] test_mode=${isTestMode} testPhone=${testPhone}`)
+    if (!isTestMode) return
+  }
 
   const { data: sequences } = await supabase.from('follow_sequences')
     .select('id')
@@ -1130,6 +1142,16 @@ async function dispararSequenciaEstagio(
     .eq('ativo', true)
 
   console.log(`[trial:dispatch] sequencias ativas=${sequences?.length ?? 0}`)
+
+  // Mock para modo teste (sem trial real)
+  const trialData = trial ?? {
+    id: 0,
+    nome: 'Lead Teste',
+    status: 'trial_ativo',
+    criado_em: new Date().toISOString(),
+    trial_days: 14,
+    estagio,
+  }
 
   const uazapi = createUazapiClient(ctx.uazapiUrl, ctx.uazapiToken)
 
@@ -1144,17 +1166,20 @@ async function dispararSequenciaEstagio(
     console.log(`[trial:dispatch] seq=${seq.id} steps com estagio="${estagio}"=${steps?.length ?? 0}`)
 
     for (const step of steps ?? []) {
-      const { data: jaEnviado } = await supabase.from('follow_executions')
-        .select('id').eq('trial_id', trial.id).eq('step_id', step.id).maybeSingle()
-      if (jaEnviado) continue
+      // Em modo teste não verifica execuções anteriores — sempre re-dispara
+      if (!isTestMode) {
+        const { data: jaEnviado } = await supabase.from('follow_executions')
+          .select('id').eq('trial_id', trial!.id).eq('step_id', step.id).maybeSingle()
+        if (jaEnviado) continue
+      }
 
       const tipo = step.tipo_mensagem ?? 'text'
       const pool: string[] = step.pool_mensagens?.filter(Boolean) ?? []
       const textoRaw = pool.length ? pool[Math.floor(Math.random() * pool.length)] : (step.mensagem ?? '')
       const texto = textoRaw
-        .replace(/\{nome\}/gi, trial.nome)
-        .replace(/\{primeiro_nome\}/gi, trial.nome.split(' ')[0])
-        .replace(/\{status\}/gi, trial.status)
+        .replace(/\{nome\}/gi, trialData.nome)
+        .replace(/\{primeiro_nome\}/gi, trialData.nome.split(' ')[0])
+        .replace(/\{status\}/gi, trialData.status)
         .replace(/\{data_call\}/gi, '')
 
       try {
@@ -1164,13 +1189,15 @@ async function dispararSequenciaEstagio(
         await new Promise((r) => setTimeout(r, typingMs))
         await sendRichStep(uazapi, ctx.leadPhone, tipo, texto, step.media_config ?? undefined)
 
-        await supabase.from('follow_executions').insert({
-          trial_id: trial.id,
-          sequence_id: seq.id,
-          step_id: step.id,
-          company_id: ctx.companyId,
-          status: 'sent',
-        })
+        if (!isTestMode) {
+          await supabase.from('follow_executions').insert({
+            trial_id: trialData.id,
+            sequence_id: seq.id,
+            step_id: step.id,
+            company_id: ctx.companyId,
+            status: 'sent',
+          })
+        }
 
         // Salva na conversa de atendimento
         if (ctx.conversationId) {
@@ -1185,6 +1212,7 @@ async function dispararSequenciaEstagio(
 
           await supabase.from('mensagens_do_whatsapp').insert({
             id_da_conversacao: ctx.conversationId,
+            id_do_lead: ctx.leadId ?? null,
             company_id: ctx.companyId,
             texto_da_mensagem: texto || mc?.text || `[${tipo}]`,
             tipo_de_mensagem: tipo,
@@ -1206,21 +1234,22 @@ async function dispararSequenciaEstagio(
           console.log(`[trial:dispatch] SDR ${step.sdr_ativo ? 'ativado' : 'pausado'} conv=${ctx.conversationId} err=${sdrErr?.message ?? 'ok'}`)
 
           if (step.sdr_ativo === true) {
-            const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
-            const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trial.trial_days}). Estágio: ${estagio}. SDR reativado pela sequência de resposta imediata.`
+            const dias = Math.floor((Date.now() - new Date(trialData.criado_em).getTime()) / 86_400_000)
+            const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trialData.trial_days}). Estágio: ${estagio}. SDR reativado pela sequência de resposta imediata.`
             await supabase.from('leads')
               .update({ notes: contexto, updated_at: new Date().toISOString() })
               .eq('id', ctx.leadId)
           }
         }
 
-        console.log(`[SDR:${ctx.companyId}] dispararSequenciaEstagio: step ${step.id} disparado trial=${trial.id} estagio=${estagio}`)
+        console.log(`[SDR:${ctx.companyId}] dispararSequenciaEstagio: step ${step.id} disparado trial=${trialData.id} estagio=${estagio}${isTestMode ? ' [TEST]' : ''}`)
         // Pausa entre mensagens da sequência
         await new Promise((r) => setTimeout(r, 2000))
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] dispararSequenciaEstagio ERRO step ${step.id}: ${err.message}`)
+        if (isTestMode) continue
         await supabase.from('follow_executions').insert({
-          trial_id: trial.id, sequence_id: seq.id, step_id: step.id,
+          trial_id: trialData.id, sequence_id: seq.id, step_id: step.id,
           company_id: ctx.companyId, status: 'failed',
         })
       }
