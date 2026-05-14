@@ -122,6 +122,14 @@ async function gravarMensagemTeste(
 
   if (!convId) { console.error(`[trial:test] convId null — mensagem não salva`); return }
 
+  // Busca lead pelo telefone para setar id_do_lead (necessário para executeButtonActions encontrar o menu correto)
+  const { data: leadData } = await supabase
+    .from('leads').select('id')
+    .eq('company_id', companyId).in('whatsapp', phoneVars)
+    .order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const leadId: number | null = leadData?.id ?? null
+  console.log(`[trial:test] lead encontrado — id=${leadId}`)
+
   let urlMidia: string | null = null
   if (tipoMensagem === 'menu' && media?.choices?.length)
     urlMidia = JSON.stringify({ menuType: media.menuType ?? 'button', choices: media.choices, button_actions: media.button_actions ?? {} })
@@ -134,13 +142,14 @@ async function gravarMensagemTeste(
 
   const { error: msgErr } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: convId, company_id: companyId,
+    id_do_lead: leadId,
     texto_da_mensagem: displayText, tipo_de_mensagem: tipoMensagem,
     url_da_midia: urlMidia, direcao: 'outbound', sender_type: 'ai',
     status: 'sent', nome_do_agente: 'Trial SaaS',
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
   if (msgErr) console.error(`[trial:test] erro ao inserir mensagem:`, msgErr.message)
-  else console.log(`[trial:test] mensagem salva — conv=${convId} tipo=${tipoMensagem}`)
+  else console.log(`[trial:test] mensagem salva — conv=${convId} lead=${leadId} tipo=${tipoMensagem}`)
 
   await supabase.from('conversas_do_whatsapp')
     .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
