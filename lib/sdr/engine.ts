@@ -1241,31 +1241,35 @@ async function executeButtonActions(
   // Primary: by id_do_lead; fallback: by conversationId (handles lead ID mismatch edge cases)
   let menuMsgs: { url_da_midia: string | null }[] | null = null
 
-  const { data: byLead } = await supabase
+  const { data: byLead, error: byLeadErr } = await supabase
     .from('mensagens_do_whatsapp')
     .select('url_da_midia')
     .eq('id_do_lead', ctx.leadId)
     .eq('company_id', ctx.companyId)
     .eq('direcao', 'outbound')
     .in('tipo_de_mensagem', ['menu', 'button'])
-    .order('created_at', { ascending: false })
+    .order('carimbo_de_data_e_hora', { ascending: false })
     .limit(5)
+
+  if (byLeadErr) console.error(`[trial:btn] byLead ERRO: ${byLeadErr.message}`)
+  console.log(`[trial:btn] byLead lead=#${ctx.leadId}: ${byLead?.length ?? 0} resultados`)
 
   if (byLead?.length) {
     menuMsgs = byLead
   } else if (ctx.conversationId) {
-    const { data: byConv } = await supabase
+    const { data: byConv, error: byConvErr } = await supabase
       .from('mensagens_do_whatsapp')
       .select('url_da_midia')
       .eq('id_da_conversacao', ctx.conversationId)
       .eq('company_id', ctx.companyId)
       .eq('direcao', 'outbound')
       .in('tipo_de_mensagem', ['menu', 'button'])
-      .order('created_at', { ascending: false })
+      .order('carimbo_de_data_e_hora', { ascending: false })
       .limit(5)
+    if (byConvErr) console.error(`[trial:btn] byConv ERRO: ${byConvErr.message}`)
+    console.log(`[trial:btn] byConv conv=${ctx.conversationId}: ${byConv?.length ?? 0} resultados`)
     if (byConv?.length) {
       menuMsgs = byConv
-      console.log(`[SDR:${ctx.companyId}] ButtonActions: encontrado ${byConv.length} menu(s) por conversationId=${ctx.conversationId} (fallback)`)
     }
   }
 
