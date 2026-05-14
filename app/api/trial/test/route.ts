@@ -29,6 +29,14 @@ function substituirVariaveis(texto: string): string {
     .replace(/\{data_call\}/g, '')
 }
 
+function pickMessage(step: any): string {
+  const pool = step.pool_mensagens
+  if (Array.isArray(pool) && pool.length > 0) {
+    return pool[Math.floor(Math.random() * pool.length)]
+  }
+  return step.mensagem || ''
+}
+
 export async function POST(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
@@ -102,7 +110,7 @@ export async function POST(req: NextRequest) {
 
   for (const step of steps) {
     const tipo = step.tipo_mensagem ?? 'text'
-    const textoRaw = step.mensagem || `Oi Lead Teste! Acompanhamento D${day} do trial. 😊`
+    const textoRaw = pickMessage(step) || `Oi Lead Teste! Acompanhamento D${day} do trial. 😊`
     const texto = substituirVariaveis(textoRaw)
     const media = step.media_config ?? undefined
 
