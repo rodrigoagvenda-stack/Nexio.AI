@@ -769,6 +769,7 @@ function ConfigContent() {
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [firing, setFiring] = useState(false)
+  const [testDay, setTestDay] = useState(0)
   const [daysDefault, setDaysDefault] = useState(7)
   const [testMode, setTestMode] = useState(false)
   const [testPhone, setTestPhone] = useState('')
@@ -894,6 +895,21 @@ function ConfigContent() {
               <p className="text-xs text-amber-500 font-medium">
                 ⚠ Modo teste ativo — disparos reais estão pausados
               </p>
+              <div className="pt-2 space-y-2 border-t border-border">
+                <Label className="text-xs text-muted-foreground">Simular dia do trial</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.from({ length: daysDefault + 1 }, (_, i) => i).map((d) => (
+                    <button key={d} type="button" onClick={() => setTestDay(d)}
+                      className={cn('px-3 py-1.5 rounded-lg text-xs border font-mono transition-all',
+                        testDay === d ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40')}>
+                      D{d}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {testDay === 0 ? 'Disparo imediato após cadastro' : `Simula o lead ${testDay} dia${testDay > 1 ? 's' : ''} após o cadastro`}
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -909,18 +925,20 @@ function ConfigContent() {
             onClick={async () => {
               setFiring(true)
               try {
-                const res = await fetch(webhookUrl, {
+                const res = await fetch('/api/trial/test', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: 'Lead Teste', email: `teste+${Date.now()}@trial.com`, whatsapp: testPhone }),
+                  body: JSON.stringify({ day: testDay }),
                 })
                 const data = await res.json()
-                if (res.ok) toast({ title: 'Teste disparado!', description: `Sequência D0 enviada para ${testPhone}` })
-                else toast({ title: data.message ?? 'Erro no teste', variant: 'destructive' })
+                if (res.ok && data.success)
+                  toast({ title: `D${testDay} disparado!`, description: `${data.sent} mensagem(ns) enviada(s) para ${testPhone}` })
+                else
+                  toast({ title: data.error ?? 'Erro no teste', variant: 'destructive' })
               } catch { toast({ title: 'Erro ao disparar teste', variant: 'destructive' }) }
               finally { setFiring(false) }
             }}>
             {firing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            Disparar teste
+            Simular D{testDay}
           </Button>
         )}
       </div>
