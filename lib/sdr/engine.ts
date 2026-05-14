@@ -2479,17 +2479,19 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       .eq('id', conversationId)
       .single()
 
+    console.log(`[SDR:${companyId}] agente_pausado=${conv?.agente_pausado} conv=${conversationId} lead=#${leadId}`)
+
     if (conv?.agente_pausado) {
+      console.log(`[SDR:${companyId}] RETORNO ANTECIPADO — agente pausado, não processa button_actions nem SDR`)
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
       return
     }
 
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
     const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
+    console.log(`[SDR:${companyId}] combinedText="${combinedText.slice(0, 80)}" leadId=${leadId}`)
 
     // ── Auto-transição de status ──────────────────────────────────────────────
-    // Lead em Remarketing respondeu → move para "Em contato" deterministicamente
-    // (não depende da IA decidir chamar o Agente_de_Pipeline)
     const { data: currentLead } = await supabase
       .from('leads').select('status').eq('id', ctx.leadId).single()
     if (currentLead?.status === 'Remarketing') {
@@ -2500,7 +2502,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     }
 
     // ── Button Actions ────────────────────────────────────────────────────────
-    // Se o lead clicou num botão de menu com ação configurada, executa antes do SDR
+    console.log(`[SDR:${companyId}] chamando executeButtonActions texto="${combinedText.trim().slice(0, 60)}"`)
     await executeButtonActions(combinedText.trim(), ctx, supabase)
 
     const history = await getHistory(leadId, companyId, supabase)
