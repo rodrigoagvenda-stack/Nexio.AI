@@ -1111,6 +1111,8 @@ async function dispararSequenciaEstagio(
 ): Promise<void> {
   const phoneVars = phoneVariants(ctx.leadPhone)
 
+  console.log(`[trial:dispatch] iniciando — estagio="${estagio}" phone=${ctx.leadPhone} company=${ctx.companyId}`)
+
   const { data: trial } = await supabase.from('saas_trials')
     .select('id, nome, whatsapp, trial_days, criado_em, status, estagio, respondeu')
     .eq('company_id', ctx.companyId)
@@ -1118,6 +1120,7 @@ async function dispararSequenciaEstagio(
     .eq('status', 'ativo')
     .maybeSingle()
 
+  console.log(`[trial:dispatch] trial=${trial ? `id=${trial.id} nome=${trial.nome}` : 'NÃO ENCONTRADO'}`)
   if (!trial) return
 
   const { data: sequences } = await supabase.from('follow_sequences')
@@ -1125,6 +1128,8 @@ async function dispararSequenciaEstagio(
     .eq('company_id', ctx.companyId)
     .eq('tipo', 'trial_saas')
     .eq('ativo', true)
+
+  console.log(`[trial:dispatch] sequencias ativas=${sequences?.length ?? 0}`)
 
   const uazapi = createUazapiClient(ctx.uazapiUrl, ctx.uazapiToken)
 
@@ -1135,6 +1140,8 @@ async function dispararSequenciaEstagio(
       .eq('condicao_estagio', estagio)
       .order('dia_offset', { ascending: true })
       .order('ordem', { ascending: true })
+
+    console.log(`[trial:dispatch] seq=${seq.id} steps com estagio="${estagio}"=${steps?.length ?? 0}`)
 
     for (const step of steps ?? []) {
       const { data: jaEnviado } = await supabase.from('follow_executions')
@@ -1191,10 +1198,12 @@ async function dispararSequenciaEstagio(
         }
 
         // Controle de SDR por step
+        console.log(`[trial:dispatch] step ${step.id} sdr_ativo=${JSON.stringify(step.sdr_ativo)} conv=${ctx.conversationId}`)
         if (step.sdr_ativo !== null && step.sdr_ativo !== undefined && ctx.conversationId) {
-          await supabase.from('conversas_do_whatsapp')
+          const { error: sdrErr } = await supabase.from('conversas_do_whatsapp')
             .update({ agente_pausado: !step.sdr_ativo })
             .eq('id', ctx.conversationId)
+          console.log(`[trial:dispatch] SDR ${step.sdr_ativo ? 'ativado' : 'pausado'} conv=${ctx.conversationId} err=${sdrErr?.message ?? 'ok'}`)
 
           if (step.sdr_ativo === true) {
             const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
@@ -1260,34 +1269,35 @@ async function executeButtonActions(
     }
   }
 
-  console.log(`[SDR:${ctx.companyId}] ButtonActions: ${menuMsgs?.length ?? 0} menus outbound encontrados para lead #${ctx.leadId}`)
+  console.log(`[trial:btn] menus encontrados=${menuMsgs?.length ?? 0} lead=#${ctx.leadId} conv=${ctx.conversationId}`)
   if (!menuMsgs?.length) return
 
   const normalizedText = text.trim().toLowerCase()
-  console.log(`[SDR:${ctx.companyId}] ButtonActions: matching texto="${normalizedText}"`)
+  console.log(`[trial:btn] texto inbound="${normalizedText}"`)
 
   for (const msg of menuMsgs) {
-    if (!msg.url_da_midia) continue
+    if (!msg.url_da_midia) { console.log(`[trial:btn] msg sem url_da_midia — pulando`); continue }
     let parsed: { choices?: string[]; button_actions?: Record<string, any> }
-    try { parsed = JSON.parse(msg.url_da_midia) } catch { continue }
+    try { parsed = JSON.parse(msg.url_da_midia) } catch { console.log(`[trial:btn] parse error em url_da_midia`); continue }
 
     const choices: string[] = parsed.choices ?? []
     const actions: Record<string, any> = parsed.button_actions ?? {}
+    console.log(`[trial:btn] choices=${JSON.stringify(choices)} button_actions_keys=${JSON.stringify(Object.keys(actions))}`)
 
-    // Match inbound text against choices (case-insensitive)
     const matchedChoice = choices.find(
       (c) => c.trim().toLowerCase() === normalizedText
         || normalizedText.includes(c.trim().toLowerCase())
     )
+    console.log(`[trial:btn] matchedChoice=${matchedChoice ?? 'null'}`)
     if (!matchedChoice) continue
 
-    // Se button_actions nem existe no JSON (menu enviado antes da feature), tenta mensagem anterior
-    if (!parsed.button_actions) continue
+    if (!parsed.button_actions) { console.log(`[trial:btn] button_actions ausente no JSON — menu sem feature`); continue }
 
     const action = actions[matchedChoice]
-    if (!action) break // choice existe mas sem ação configurada — para de buscar
+    console.log(`[trial:btn] action=${JSON.stringify(action ?? null)}`)
+    if (!action) break
 
-    console.log(`[SDR:${ctx.companyId}] ButtonAction: "${matchedChoice}" → ${JSON.stringify(action)}`)
+    console.log(`[trial:btn] executando action "${matchedChoice}" → ${JSON.stringify(action)}`)
 
     if (action.status) {
       await supabase.from('leads')

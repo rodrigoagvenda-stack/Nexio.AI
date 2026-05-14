@@ -77,7 +77,7 @@ async function gravarMensagemTeste(
 
   let urlMidia: string | null = null
   if (tipoMensagem === 'menu' && media?.choices?.length)
-    urlMidia = JSON.stringify({ menuType: media.menuType ?? 'button', choices: media.choices })
+    urlMidia = JSON.stringify({ menuType: media.menuType ?? 'button', choices: media.choices, button_actions: media.button_actions ?? {} })
   else if (tipoMensagem === 'carousel' && media?.carousel?.length)
     urlMidia = JSON.stringify(media.carousel)
   else if (['image', 'video', 'audio', 'ptt', 'document'].includes(tipoMensagem) && media?.file)
