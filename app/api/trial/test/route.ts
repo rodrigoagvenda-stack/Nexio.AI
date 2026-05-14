@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
-import { normalizePhone, createUazapiClient, sendRichStep } from '@/lib/sdr/uazapi'
+import { normalizePhone, createUazapiClient, sendRichStep, StepMediaConfig, StepTipoMensagem } from '@/lib/sdr/uazapi'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { decrypt } from '@/lib/crypto'
 
@@ -27,6 +27,65 @@ function substituirVariaveis(texto: string): string {
     .replace(/\{primeiro_nome\}/g, 'Teste')
     .replace(/\{status\}/g, 'trial_ativo')
     .replace(/\{data_call\}/g, '')
+}
+
+function phoneVariants(phone: string): string[] {
+  const variants: string[] = [phone]
+  const push = (v: string) => { if (!variants.includes(v)) variants.push(v) }
+  if (phone.startsWith('55')) {
+    if (phone.length === 13) { push(phone.slice(0, 4) + phone.slice(5)); push('+' + phone) }
+    else if (phone.length === 12) { push(phone.slice(0, 4) + '9' + phone.slice(4)); push('+' + phone) }
+    else push('+' + phone)
+  }
+  return variants
+}
+
+async function gravarMensagemTeste(
+  supabase: any, companyId: number, phone: string,
+  text: string, tipoMensagem: StepTipoMensagem, media?: StepMediaConfig
+): Promise<void> {
+  const phoneVars = phoneVariants(phone)
+  const { data: byPhone } = await supabase
+    .from('conversas_do_whatsapp').select('id')
+    .eq('company_id', companyId).in('numero_de_telefone', phoneVars)
+    .order('hora_da_ultima_mensagem', { ascending: false }).limit(1)
+
+  let convId: number | null = byPhone?.[0]?.id ?? null
+
+  if (!convId) {
+    const { data: newConv } = await supabase
+      .from('conversas_do_whatsapp').insert({
+        company_id: companyId, numero_de_telefone: phone,
+        nome_do_contato: 'Lead Teste', ultima_mensagem: text || `[${tipoMensagem}]`,
+        hora_da_ultima_mensagem: new Date().toISOString(),
+        status_da_conversa: 'aberto', contagem_nao_lida: 0,
+      }).select('id').single()
+    convId = newConv?.id ?? null
+  }
+
+  if (!convId) return
+
+  let urlMidia: string | null = null
+  if (tipoMensagem === 'menu' && media?.choices?.length)
+    urlMidia = JSON.stringify({ menuType: media.menuType ?? 'button', choices: media.choices })
+  else if (tipoMensagem === 'carousel' && media?.carousel?.length)
+    urlMidia = JSON.stringify(media.carousel)
+  else if (['image', 'video', 'audio', 'ptt', 'document'].includes(tipoMensagem) && media?.file)
+    urlMidia = media.file
+
+  const displayText = text || media?.text || `[${tipoMensagem}]`
+
+  await supabase.from('mensagens_do_whatsapp').insert({
+    id_da_conversacao: convId, company_id: companyId,
+    texto_da_mensagem: displayText, tipo_de_mensagem: tipoMensagem,
+    url_da_midia: urlMidia, direcao: 'outbound', sender_type: 'ai',
+    status: 'sent', nome_do_agente: 'Trial SaaS',
+    carimbo_de_data_e_hora: new Date().toISOString(),
+  })
+
+  await supabase.from('conversas_do_whatsapp')
+    .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
+    .eq('id', convId)
 }
 
 function pickMessage(step: any): string {
@@ -109,13 +168,17 @@ export async function POST(req: NextRequest) {
   const errors: string[] = []
 
   for (const step of steps) {
-    const tipo = step.tipo_mensagem ?? 'text'
+    const tipo: StepTipoMensagem = step.tipo_mensagem ?? 'text'
     const textoRaw = pickMessage(step) || `Oi Lead Teste! Acompanhamento D${day} do trial. 😊`
     const texto = substituirVariaveis(textoRaw)
-    const media = step.media_config ?? undefined
+    const media: StepMediaConfig | undefined = step.media_config ?? undefined
 
     try {
       await sendRichStep(uazapi, phone, tipo, texto, media)
+
+      // Salva na conversa do atendimento
+      await gravarMensagemTeste(supabase, context.companyId, phone, texto, tipo, media)
+
       sent++
     } catch (err: any) {
       errors.push(`Step ${step.ordem}: ${err.message}`)

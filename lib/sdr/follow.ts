@@ -378,8 +378,75 @@ async function gravarMensagemTrial(
   companyId: number,
   text: string,
   tipo: string,
-  supabase: Supabase
+  supabase: Supabase,
+  phone?: string,
+  nomeContato?: string,
+  tipoMensagem: StepTipoMensagem = 'text',
+  media?: StepMediaConfig | null
 ): Promise<void> {
+  let convId: number | null = null
+
+  if (phone) {
+    const phoneVars = phoneVariants(phone)
+    const { data: byPhone } = await supabase
+      .from('conversas_do_whatsapp')
+      .select('id')
+      .eq('company_id', companyId)
+      .in('numero_de_telefone', phoneVars)
+      .order('hora_da_ultima_mensagem', { ascending: false })
+      .limit(1)
+
+    if (byPhone?.[0]?.id) {
+      convId = byPhone[0].id
+    } else {
+      const { data: newConv } = await supabase
+        .from('conversas_do_whatsapp')
+        .insert({
+          company_id: companyId,
+          numero_de_telefone: phone,
+          nome_do_contato: nomeContato ?? phone,
+          ultima_mensagem: text || `[${tipoMensagem}]`,
+          hora_da_ultima_mensagem: new Date().toISOString(),
+          status_da_conversa: 'aberto',
+          contagem_nao_lida: 0,
+        })
+        .select('id')
+        .single()
+      convId = newConv?.id ?? null
+    }
+
+    if (convId) {
+      let urlMidia: string | null = null
+      if (tipoMensagem === 'carousel' && media?.carousel?.length) {
+        urlMidia = JSON.stringify(media.carousel)
+      } else if (tipoMensagem === 'menu' && media?.choices?.length) {
+        urlMidia = JSON.stringify({ menuType: media.menuType ?? 'button', choices: media.choices })
+      } else if (['image', 'video', 'audio', 'ptt', 'document'].includes(tipoMensagem) && media?.file) {
+        urlMidia = media.file
+      }
+
+      const displayText = text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
+
+      await supabase.from('mensagens_do_whatsapp').insert({
+        id_da_conversacao: convId,
+        company_id: companyId,
+        texto_da_mensagem: displayText,
+        tipo_de_mensagem: tipoMensagem,
+        url_da_midia: urlMidia,
+        direcao: 'outbound',
+        sender_type: 'ai',
+        status: 'sent',
+        nome_do_agente: 'Trial SaaS',
+        carimbo_de_data_e_hora: new Date().toISOString(),
+      })
+
+      await supabase
+        .from('conversas_do_whatsapp')
+        .update({ ultima_mensagem: text || `[${tipoMensagem}]`, hora_da_ultima_mensagem: new Date().toISOString() })
+        .eq('id', convId)
+    }
+  }
+
   await supabase.from('follow_logs').insert({
     company_id: companyId,
     trial_id: trialId,
@@ -749,7 +816,7 @@ async function processTrialSaas(
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase)
+          await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase, phone, trial.nome, tipo, media)
           await supabase.from('follow_executions').insert({
             trial_id: trial.id,
             sequence_id: sequence.id,
