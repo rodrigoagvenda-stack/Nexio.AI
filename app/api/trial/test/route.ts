@@ -40,6 +40,53 @@ function phoneVariants(phone: string): string[] {
   return variants
 }
 
+async function aplicarSdrAtivo(
+  supabase: any, companyId: number, phone: string, sdrAtivo: boolean
+): Promise<void> {
+  const phoneVars = phoneVariants(phone)
+  console.log(`[trial:test] aplicarSdrAtivo — phone=${phone} sdr_ativo=${sdrAtivo}`)
+
+  const { data: conv } = await supabase
+    .from('conversas_do_whatsapp')
+    .select('id')
+    .eq('company_id', companyId)
+    .in('numero_de_telefone', phoneVars)
+    .order('hora_da_ultima_mensagem', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!conv?.id) {
+    console.warn(`[trial:test] aplicarSdrAtivo — conversa não encontrada para phone=${phone}`)
+    return
+  }
+
+  const { error: updateErr } = await supabase
+    .from('conversas_do_whatsapp')
+    .update({ agente_pausado: !sdrAtivo })
+    .eq('id', conv.id)
+
+  if (updateErr) console.error(`[trial:test] erro ao atualizar agente_pausado:`, updateErr.message)
+  else console.log(`[trial:test] agente_pausado=${!sdrAtivo} aplicado — conv=${conv.id}`)
+
+  if (sdrAtivo === true) {
+    const contexto = `[Trial SaaS - Teste] SDR reativado via teste. Estágio: não definido. Contexto de teste.`
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('company_id', companyId)
+      .in('whatsapp', phoneVars)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lead?.id) {
+      await supabase.from('leads')
+        .update({ notes: contexto, updated_at: new Date().toISOString() })
+        .eq('id', lead.id)
+      console.log(`[trial:test] contexto SDR injetado — lead=${lead.id}`)
+    }
+  }
+}
+
 async function gravarMensagemTeste(
   supabase: any, companyId: number, phone: string,
   text: string, tipoMensagem: StepTipoMensagem, media?: StepMediaConfig
@@ -190,6 +237,13 @@ export async function POST(req: NextRequest) {
 
       // Salva na conversa do atendimento
       await gravarMensagemTeste(supabase, context.companyId, phone, texto, tipo, media)
+
+      // Aplica controle de SDR se configurado
+      const sdrAtivo: boolean | null = step.sdr_ativo ?? null
+      console.log(`[trial:test] step ${step.ordem} sdr_ativo=${JSON.stringify(sdrAtivo)}`)
+      if (sdrAtivo !== null) {
+        await aplicarSdrAtivo(supabase, context.companyId, phone, sdrAtivo)
+      }
 
       sent++
     } catch (err: any) {
