@@ -31,6 +31,9 @@ interface ButtonAction {
   schedule_days?: number
   stop_sequence?: boolean
   estagio?: string
+  trigger_immediate?: boolean
+  pause_sdr?: boolean
+  resume_sdr?: boolean
 }
 
 interface MediaConfig {
@@ -430,6 +433,8 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
       const a = buttonActions[choice]
       if (!a) return 'none'
       if (a.stop_sequence) return 'stop'
+      if (a.pause_sdr) return 'pause_sdr'
+      if (a.resume_sdr) return 'resume_sdr'
       if (a.schedule_days === 3) return 'schedule_3'
       if (a.schedule_days === 7) return 'schedule_7'
       if (a.schedule_days === 14) return 'schedule_14'
@@ -440,13 +445,15 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
     const setActionValue = (choice: string, value: string) => {
       const prev = buttonActions[choice]
       const next = { ...buttonActions }
-      const existingEstagio = prev?.estagio
-      if (value === 'none') { next[choice] = existingEstagio ? { estagio: existingEstagio } : undefined as any; if (!existingEstagio) delete next[choice] }
-      else if (value === 'stop') { next[choice] = { stop_sequence: true, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
-      else if (value === 'schedule_3') { next[choice] = { schedule_days: 3, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
-      else if (value === 'schedule_7') { next[choice] = { schedule_days: 7, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
-      else if (value === 'schedule_14') { next[choice] = { schedule_days: 14, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
-      else if (value.startsWith('status_')) { next[choice] = { status: value.replace('status_', ''), ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
+      const keep = { ...(prev?.estagio ? { estagio: prev.estagio } : {}), ...(prev?.trigger_immediate ? { trigger_immediate: true } : {}) }
+      if (value === 'none') { next[choice] = Object.keys(keep).length ? keep : undefined as any; if (!Object.keys(keep).length) delete next[choice] }
+      else if (value === 'stop') { next[choice] = { stop_sequence: true, ...keep } }
+      else if (value === 'pause_sdr') { next[choice] = { pause_sdr: true, ...keep } }
+      else if (value === 'resume_sdr') { next[choice] = { resume_sdr: true, ...keep } }
+      else if (value === 'schedule_3') { next[choice] = { schedule_days: 3, ...keep } }
+      else if (value === 'schedule_7') { next[choice] = { schedule_days: 7, ...keep } }
+      else if (value === 'schedule_14') { next[choice] = { schedule_days: 14, ...keep } }
+      else if (value.startsWith('status_')) { next[choice] = { status: value.replace('status_', ''), ...keep } }
       onChange({ button_actions: next })
     }
 
@@ -454,7 +461,15 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
       const prev = buttonActions[choice]
       const next = { ...buttonActions }
       if (estagio) { next[choice] = { ...prev, estagio } }
-      else { const { estagio: _removed, ...rest } = prev ?? {}; if (Object.keys(rest).length) next[choice] = rest; else delete next[choice] }
+      else { const { estagio: _r, trigger_immediate: _t, ...rest } = prev ?? {}; next[choice] = { ...rest, ...(prev?.trigger_immediate ? { trigger_immediate: true } : {}) }; if (!Object.keys(next[choice]).length) delete next[choice] }
+      onChange({ button_actions: next })
+    }
+
+    const setTriggerImmediate = (choice: string, val: boolean) => {
+      const prev = buttonActions[choice]
+      const next = { ...buttonActions }
+      if (val) { next[choice] = { ...prev, trigger_immediate: true } }
+      else { const { trigger_immediate: _r, ...rest } = prev ?? {}; if (Object.keys(rest).length) next[choice] = rest; else delete next[choice] }
       onChange({ button_actions: next })
     }
 
@@ -508,6 +523,8 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
                     <SelectContent>
                       <SelectItem value="none">Nenhuma ação</SelectItem>
                       <SelectItem value="stop">Parar sequência</SelectItem>
+                      <SelectItem value="pause_sdr">Pausar SDR</SelectItem>
+                      <SelectItem value="resume_sdr">Ativar SDR</SelectItem>
                       <SelectItem value="schedule_3">Reagendar em 3 dias</SelectItem>
                       <SelectItem value="schedule_7">Reagendar em 7 dias</SelectItem>
                       <SelectItem value="schedule_14">Reagendar em 14 dias</SelectItem>
@@ -519,6 +536,17 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
                     placeholder="Tag de roteamento (ex: usando_bem)"
                     className="h-7 text-xs border-dashed"
                   />
+                  {buttonActions[c]?.estagio && (
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={buttonActions[c]?.trigger_immediate ?? false}
+                        onChange={(e) => setTriggerImmediate(c, e.target.checked)}
+                        className="rounded"
+                      />
+                      <span className="text-[11px] text-muted-foreground">Disparar próxima mensagem imediatamente</span>
+                    </label>
+                  )}
                 </div>
               )}
             </div>

@@ -13,7 +13,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getRedis } from '@/lib/sdr/redis'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
-import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
+import { createUazapiClient, normalizePhone, detectMessageType, sendRichStep, type UazapiWebhookMessage } from './uazapi'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -1102,6 +1102,102 @@ REGRAS:
 }
 
 
+// ─── Disparo imediato de step por estágio ──────────────────────
+
+async function dispararProximoStepTrial(
+  estagio: string,
+  ctx: SdrContext,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  const phoneVars = phoneVariants(ctx.leadPhone)
+
+  const { data: trial } = await supabase.from('saas_trials')
+    .select('id, nome, whatsapp, trial_days, criado_em, status, estagio, respondeu')
+    .eq('company_id', ctx.companyId)
+    .in('whatsapp', phoneVars)
+    .eq('status', 'ativo')
+    .maybeSingle()
+
+  if (!trial) return
+
+  const { data: sequences } = await supabase.from('follow_sequences')
+    .select('id')
+    .eq('company_id', ctx.companyId)
+    .eq('tipo', 'trial_saas')
+    .eq('ativo', true)
+
+  for (const seq of sequences ?? []) {
+    const { data: steps } = await supabase.from('follow_steps')
+      .select('*')
+      .eq('sequence_id', seq.id)
+      .eq('condicao_estagio', estagio)
+      .order('dia_offset', { ascending: true })
+      .order('ordem', { ascending: true })
+
+    for (const step of steps ?? []) {
+      const { data: jaEnviado } = await supabase.from('follow_executions')
+        .select('id').eq('trial_id', trial.id).eq('step_id', step.id).maybeSingle()
+      if (jaEnviado) continue
+
+      const tipo = step.tipo_mensagem ?? 'text'
+      const pool: string[] = step.pool_mensagens?.filter(Boolean) ?? []
+      const textoRaw = pool.length ? pool[Math.floor(Math.random() * pool.length)] : (step.mensagem ?? '')
+      const texto = textoRaw
+        .replace(/\{nome\}/gi, trial.nome)
+        .replace(/\{primeiro_nome\}/gi, trial.nome.split(' ')[0])
+        .replace(/\{status\}/gi, trial.status)
+        .replace(/\{data_call\}/gi, '')
+
+      try {
+        const uazapi = createUazapiClient(ctx.uazapiUrl, ctx.uazapiToken)
+        await sendRichStep(uazapi, ctx.leadPhone, tipo, texto, step.media_config ?? undefined)
+
+        await supabase.from('follow_executions').insert({
+          trial_id: trial.id,
+          sequence_id: seq.id,
+          step_id: step.id,
+          company_id: ctx.companyId,
+          status: 'sent',
+        })
+
+        // Salva na conversa de atendimento
+        if (ctx.conversationId) {
+          let urlMidia: string | null = null
+          const mc = step.media_config
+          if (tipo === 'menu' && mc?.choices?.length)
+            urlMidia = JSON.stringify({ menuType: mc.menuType ?? 'button', choices: mc.choices, button_actions: mc.button_actions ?? {} })
+          else if (tipo === 'carousel' && mc?.carousel?.length)
+            urlMidia = JSON.stringify(mc.carousel)
+          else if (['image', 'video', 'audio', 'ptt', 'document'].includes(tipo) && mc?.file)
+            urlMidia = mc.file
+
+          await supabase.from('mensagens_do_whatsapp').insert({
+            id_da_conversacao: ctx.conversationId,
+            company_id: ctx.companyId,
+            texto_da_mensagem: texto || mc?.text || `[${tipo}]`,
+            tipo_de_mensagem: tipo,
+            url_da_midia: urlMidia,
+            direcao: 'outbound',
+            sender_type: 'ai',
+            status: 'sent',
+            nome_do_agente: 'Trial SaaS',
+            carimbo_de_data_e_hora: new Date().toISOString(),
+          })
+        }
+
+        console.log(`[SDR:${ctx.companyId}] dispararProximoStepTrial: step ${step.id} disparado para trial ${trial.id} estagio=${estagio}`)
+      } catch (err: any) {
+        console.error(`[SDR:${ctx.companyId}] dispararProximoStepTrial ERRO: ${err.message}`)
+        await supabase.from('follow_executions').insert({
+          trial_id: trial.id, sequence_id: seq.id, step_id: step.id,
+          company_id: ctx.companyId, status: 'failed',
+        })
+      }
+      return // só dispara um step por vez
+    }
+  }
+}
+
 // ─── Button Actions ────────────────────────────────────────────
 
 async function executeButtonActions(
@@ -1205,6 +1301,42 @@ async function executeButtonActions(
         .in('whatsapp', phoneVars)
         .eq('status', 'ativo')
       console.log(`[SDR:${ctx.companyId}] ButtonAction: trial estagio → "${action.estagio}" para ${ctx.leadPhone}`)
+
+      if (action.trigger_immediate) {
+        await dispararProximoStepTrial(action.estagio, ctx, supabase)
+      }
+    }
+
+    if (action.pause_sdr && ctx.conversationId) {
+      await supabase.from('conversas_do_whatsapp')
+        .update({ agente_pausado: true })
+        .eq('id', ctx.conversationId)
+      console.log(`[SDR:${ctx.companyId}] ButtonAction: SDR pausado — conv=${ctx.conversationId}`)
+    }
+
+    if (action.resume_sdr && ctx.conversationId) {
+      await supabase.from('conversas_do_whatsapp')
+        .update({ agente_pausado: false })
+        .eq('id', ctx.conversationId)
+      console.log(`[SDR:${ctx.companyId}] ButtonAction: SDR ativado — conv=${ctx.conversationId}`)
+
+      // Injeta contexto do trial nas notas do lead para o SDR saber o que rolou
+      const phoneVars = phoneVariants(ctx.leadPhone)
+      const { data: trial } = await supabase.from('saas_trials')
+        .select('nome, estagio, criado_em, trial_days')
+        .eq('company_id', ctx.companyId)
+        .in('whatsapp', phoneVars)
+        .eq('status', 'ativo')
+        .maybeSingle()
+
+      if (trial) {
+        const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
+        const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trial.trial_days}). Estágio: ${trial.estagio ?? 'não definido'}. SDR reativado após atendimento humano.`
+        await supabase.from('leads')
+          .update({ notes: contexto, updated_at: new Date().toISOString() })
+          .eq('id', ctx.leadId)
+        console.log(`[SDR:${ctx.companyId}] ButtonAction: contexto trial injetado nas notas do lead #${ctx.leadId}`)
+      }
     }
 
     break // only apply actions from the most recent matching menu
