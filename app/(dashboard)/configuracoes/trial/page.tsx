@@ -43,6 +43,7 @@ interface MediaConfig {
 interface TrialStep {
   id?: string; dia_offset: number; horario: string; mensagem: string
   tipo_mensagem: StepTipo; media_config: MediaConfig; ordem: number
+  condicao: 'sempre' | 'respondeu' | 'sem_resposta'
 }
 
 interface TrialSequence {
@@ -73,7 +74,7 @@ const TIPO_MSG: Record<StepTipo, { label: string; icon: React.FC<{ className?: s
   location: { label: 'Localização', icon: MapPin,        color: 'text-teal-500'    },
 }
 
-const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0 })
+const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0, condicao: 'sempre' })
 
 const TEMPLATE_VARS = [
   { token: '{nome}',          label: 'Nome completo'     },
@@ -598,6 +599,25 @@ function TrialStepEditor({ step, index, onChange }: {
         )}
       </div>
 
+      {/* Condição */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enviar para</Label>
+        <div className="flex gap-2 flex-wrap">
+          {([
+            { value: 'sempre',      label: 'Todos',              desc: 'Independente de resposta' },
+            { value: 'respondeu',   label: 'Engajados',          desc: 'Quem já respondeu alguma mensagem' },
+            { value: 'sem_resposta',label: 'Sem resposta',       desc: 'Quem nunca respondeu' },
+          ] as const).map(({ value, label, desc }) => (
+            <button key={value} type="button" onClick={() => onChange({ condicao: value })}
+              className={cn('flex flex-col items-start px-3 py-2 rounded-lg border text-xs transition-all text-left',
+                step.condicao === value ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40')}>
+              <span className="font-medium">{label}</span>
+              <span className="text-[10px] opacity-70">{desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tipo */}
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tipo de mensagem</Label>
@@ -1055,7 +1075,7 @@ export default function TrialPage() {
     setForm({
       nome: seq.nome, ativo: seq.ativo,
       steps: seq.follow_steps.length > 0
-        ? seq.follow_steps.map((s) => ({ ...s, mensagem: s.mensagem ?? '', tipo_mensagem: s.tipo_mensagem ?? 'text', media_config: s.media_config ?? {} }))
+        ? seq.follow_steps.map((s) => ({ ...s, mensagem: s.mensagem ?? '', tipo_mensagem: s.tipo_mensagem ?? 'text', media_config: s.media_config ?? {}, condicao: s.condicao ?? 'sempre' }))
         : [EMPTY_STEP()],
     })
     setActiveStep(0)
@@ -1085,7 +1105,7 @@ export default function TrialPage() {
     if (!form.nome.trim()) { toast({ title: 'Nome é obrigatório', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const body = { nome: form.nome, tipo: 'trial_saas', ativo: form.ativo, steps: form.steps.map((s, i) => ({ ...s, ordem: i, mensagem: s.mensagem || null, pool_mensagens: [] })) }
+      const body = { nome: form.nome, tipo: 'trial_saas', ativo: form.ativo, steps: form.steps.map((s, i) => ({ ...s, ordem: i, mensagem: s.mensagem || null, pool_mensagens: [], condicao: s.condicao ?? 'sempre' })) }
       const res = editing
         ? await fetch(`/api/follow/sequences/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         : await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

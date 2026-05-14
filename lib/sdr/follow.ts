@@ -56,6 +56,7 @@ interface FollowStep {
   ordem: number
   tipo_mensagem: StepTipoMensagem | null
   media_config: StepMediaConfig | null
+  condicao: 'sempre' | 'respondeu' | 'sem_resposta' | null
 }
 
 interface TrialSaas {
@@ -66,6 +67,7 @@ interface TrialSaas {
   status: string
   criado_em: string
   trial_days: number
+  respondeu: boolean
 }
 
 interface FollowSequence {
@@ -776,7 +778,7 @@ async function processTrialSaas(
 
   const { data: trials } = await supabase
     .from('saas_trials')
-    .select('id, company_id, nome, whatsapp, status, criado_em, trial_days')
+    .select('id, company_id, nome, whatsapp, status, criado_em, trial_days, respondeu')
     .eq('company_id', company.id)
     .eq('status', 'ativo')
     .not('whatsapp', 'is', null)
@@ -803,6 +805,11 @@ async function processTrialSaas(
         // ±12h window around dia_offset
         const diff = Math.abs(daysSinceSignup - step.dia_offset)
         if (diff > 0.5) continue
+
+        // Checa condição do step
+        const condicao = step.condicao ?? 'sempre'
+        if (condicao === 'respondeu' && !trial.respondeu) continue
+        if (condicao === 'sem_resposta' && trial.respondeu) continue
 
         const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'

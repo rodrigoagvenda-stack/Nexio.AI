@@ -2642,11 +2642,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       }
     })()
 
-    // Marca follow_logs como respondido (fire-and-forget)
+    // Marca follow_logs como respondido + saas_trials.respondeu (fire-and-forget)
     ;(async () => {
       try {
         const svc = createServiceClient()
         const phoneVarsResp = phoneVariants(phone)
+
+        // follow_logs para leads normais
         const { data: leadRows } = await svc
           .from('leads')
           .select('id')
@@ -2655,13 +2657,22 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           .order('id', { ascending: true })
           .limit(1)
         const lead = leadRows?.[0] ?? null
-        if (!lead?.id) return
+        if (lead?.id) {
+          await svc
+            .from('follow_logs')
+            .update({ respondeu: true })
+            .eq('company_id', companyId)
+            .eq('lead_id', lead.id)
+            .neq('respondeu', true)
+        }
+
+        // saas_trials.respondeu para leads de trial
         await svc
-          .from('follow_logs')
+          .from('saas_trials')
           .update({ respondeu: true })
           .eq('company_id', companyId)
-          .eq('lead_id', lead.id)
-          .neq('respondeu', true)
+          .in('whatsapp', phoneVarsResp)
+          .eq('respondeu', false)
       } catch { /* best-effort */ }
     })()
 
