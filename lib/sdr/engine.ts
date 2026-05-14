@@ -1104,7 +1104,7 @@ REGRAS:
 
 // ─── Disparo imediato de step por estágio ──────────────────────
 
-async function dispararProximoStepTrial(
+async function dispararSequenciaEstagio(
   estagio: string,
   ctx: SdrContext,
   supabase: ReturnType<typeof createServiceClient>
@@ -1125,6 +1125,8 @@ async function dispararProximoStepTrial(
     .eq('company_id', ctx.companyId)
     .eq('tipo', 'trial_saas')
     .eq('ativo', true)
+
+  const uazapi = createUazapiClient(ctx.uazapiUrl, ctx.uazapiToken)
 
   for (const seq of sequences ?? []) {
     const { data: steps } = await supabase.from('follow_steps')
@@ -1149,7 +1151,10 @@ async function dispararProximoStepTrial(
         .replace(/\{data_call\}/gi, '')
 
       try {
-        const uazapi = createUazapiClient(ctx.uazapiUrl, ctx.uazapiToken)
+        // Simula digitação antes de cada mensagem
+        const typingMs = 1500 + Math.floor(Math.random() * 2000)
+        await uazapi.sendPresence(ctx.leadPhone, 'composing', typingMs)
+        await new Promise((r) => setTimeout(r, typingMs))
         await sendRichStep(uazapi, ctx.leadPhone, tipo, texto, step.media_config ?? undefined)
 
         await supabase.from('follow_executions').insert({
@@ -1162,8 +1167,8 @@ async function dispararProximoStepTrial(
 
         // Salva na conversa de atendimento
         if (ctx.conversationId) {
-          let urlMidia: string | null = null
           const mc = step.media_config
+          let urlMidia: string | null = null
           if (tipo === 'menu' && mc?.choices?.length)
             urlMidia = JSON.stringify({ menuType: mc.menuType ?? 'button', choices: mc.choices, button_actions: mc.button_actions ?? {} })
           else if (tipo === 'carousel' && mc?.carousel?.length)
@@ -1185,15 +1190,31 @@ async function dispararProximoStepTrial(
           })
         }
 
-        console.log(`[SDR:${ctx.companyId}] dispararProximoStepTrial: step ${step.id} disparado para trial ${trial.id} estagio=${estagio}`)
+        // Controle de SDR por step
+        if (step.sdr_ativo !== null && step.sdr_ativo !== undefined && ctx.conversationId) {
+          await supabase.from('conversas_do_whatsapp')
+            .update({ agente_pausado: !step.sdr_ativo })
+            .eq('id', ctx.conversationId)
+
+          if (step.sdr_ativo === true) {
+            const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
+            const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trial.trial_days}). Estágio: ${estagio}. SDR reativado pela sequência de resposta imediata.`
+            await supabase.from('leads')
+              .update({ notes: contexto, updated_at: new Date().toISOString() })
+              .eq('id', ctx.leadId)
+          }
+        }
+
+        console.log(`[SDR:${ctx.companyId}] dispararSequenciaEstagio: step ${step.id} disparado trial=${trial.id} estagio=${estagio}`)
+        // Pausa entre mensagens da sequência
+        await new Promise((r) => setTimeout(r, 2000))
       } catch (err: any) {
-        console.error(`[SDR:${ctx.companyId}] dispararProximoStepTrial ERRO: ${err.message}`)
+        console.error(`[SDR:${ctx.companyId}] dispararSequenciaEstagio ERRO step ${step.id}: ${err.message}`)
         await supabase.from('follow_executions').insert({
           trial_id: trial.id, sequence_id: seq.id, step_id: step.id,
           company_id: ctx.companyId, status: 'failed',
         })
       }
-      return // só dispara um step por vez
     }
   }
 }
@@ -1303,39 +1324,7 @@ async function executeButtonActions(
       console.log(`[SDR:${ctx.companyId}] ButtonAction: trial estagio → "${action.estagio}" para ${ctx.leadPhone}`)
 
       if (action.trigger_immediate) {
-        await dispararProximoStepTrial(action.estagio, ctx, supabase)
-      }
-    }
-
-    if (action.pause_sdr && ctx.conversationId) {
-      await supabase.from('conversas_do_whatsapp')
-        .update({ agente_pausado: true })
-        .eq('id', ctx.conversationId)
-      console.log(`[SDR:${ctx.companyId}] ButtonAction: SDR pausado — conv=${ctx.conversationId}`)
-    }
-
-    if (action.resume_sdr && ctx.conversationId) {
-      await supabase.from('conversas_do_whatsapp')
-        .update({ agente_pausado: false })
-        .eq('id', ctx.conversationId)
-      console.log(`[SDR:${ctx.companyId}] ButtonAction: SDR ativado — conv=${ctx.conversationId}`)
-
-      // Injeta contexto do trial nas notas do lead para o SDR saber o que rolou
-      const phoneVars = phoneVariants(ctx.leadPhone)
-      const { data: trial } = await supabase.from('saas_trials')
-        .select('nome, estagio, criado_em, trial_days')
-        .eq('company_id', ctx.companyId)
-        .in('whatsapp', phoneVars)
-        .eq('status', 'ativo')
-        .maybeSingle()
-
-      if (trial) {
-        const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
-        const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trial.trial_days}). Estágio: ${trial.estagio ?? 'não definido'}. SDR reativado após atendimento humano.`
-        await supabase.from('leads')
-          .update({ notes: contexto, updated_at: new Date().toISOString() })
-          .eq('id', ctx.leadId)
-        console.log(`[SDR:${ctx.companyId}] ButtonAction: contexto trial injetado nas notas do lead #${ctx.leadId}`)
+        await dispararSequenciaEstagio(action.estagio, ctx, supabase)
       }
     }
 

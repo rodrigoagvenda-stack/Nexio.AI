@@ -32,8 +32,6 @@ interface ButtonAction {
   stop_sequence?: boolean
   estagio?: string
   trigger_immediate?: boolean
-  pause_sdr?: boolean
-  resume_sdr?: boolean
 }
 
 interface MediaConfig {
@@ -49,6 +47,7 @@ interface TrialStep {
   tipo_mensagem: StepTipo; media_config: MediaConfig; ordem: number
   condicao: 'sempre' | 'respondeu' | 'sem_resposta'
   condicao_estagio?: string
+  sdr_ativo?: boolean | null
 }
 
 interface TrialSequence {
@@ -79,7 +78,7 @@ const TIPO_MSG: Record<StepTipo, { label: string; icon: React.FC<{ className?: s
   location: { label: 'Localização', icon: MapPin,        color: 'text-teal-500'    },
 }
 
-const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0, condicao: 'sempre', condicao_estagio: '' })
+const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0, condicao: 'sempre', condicao_estagio: '', sdr_ativo: null })
 
 const TEMPLATE_VARS = [
   { token: '{nome}',          label: 'Nome completo'     },
@@ -433,8 +432,6 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
       const a = buttonActions[choice]
       if (!a) return 'none'
       if (a.stop_sequence) return 'stop'
-      if (a.pause_sdr) return 'pause_sdr'
-      if (a.resume_sdr) return 'resume_sdr'
       if (a.schedule_days === 3) return 'schedule_3'
       if (a.schedule_days === 7) return 'schedule_7'
       if (a.schedule_days === 14) return 'schedule_14'
@@ -448,8 +445,6 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
       const keep = { ...(prev?.estagio ? { estagio: prev.estagio } : {}), ...(prev?.trigger_immediate ? { trigger_immediate: true } : {}) }
       if (value === 'none') { next[choice] = Object.keys(keep).length ? keep : undefined as any; if (!Object.keys(keep).length) delete next[choice] }
       else if (value === 'stop') { next[choice] = { stop_sequence: true, ...keep } }
-      else if (value === 'pause_sdr') { next[choice] = { pause_sdr: true, ...keep } }
-      else if (value === 'resume_sdr') { next[choice] = { resume_sdr: true, ...keep } }
       else if (value === 'schedule_3') { next[choice] = { schedule_days: 3, ...keep } }
       else if (value === 'schedule_7') { next[choice] = { schedule_days: 7, ...keep } }
       else if (value === 'schedule_14') { next[choice] = { schedule_days: 14, ...keep } }
@@ -523,8 +518,6 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
                     <SelectContent>
                       <SelectItem value="none">Nenhuma ação</SelectItem>
                       <SelectItem value="stop">Parar sequência</SelectItem>
-                      <SelectItem value="pause_sdr">Pausar SDR</SelectItem>
-                      <SelectItem value="resume_sdr">Ativar SDR</SelectItem>
                       <SelectItem value="schedule_3">Reagendar em 3 dias</SelectItem>
                       <SelectItem value="schedule_7">Reagendar em 7 dias</SelectItem>
                       <SelectItem value="schedule_14">Reagendar em 14 dias</SelectItem>
@@ -697,6 +690,30 @@ function TrialStepEditor({ step, index, onChange, allSteps }: {
             </SelectContent>
           </Select>
         )}
+      </div>
+
+      {/* SDR */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">SDR ao enviar este passo</Label>
+        <div className="flex gap-2">
+          {([
+            { value: null,  label: 'Não alterar', desc: 'Mantém estado atual' },
+            { value: false, label: 'Desativar SDR', desc: 'SDR para de responder' },
+            { value: true,  label: 'Ativar SDR',   desc: 'SDR volta com contexto' },
+          ] as { value: boolean | null; label: string; desc: string }[]).map(({ value, label, desc }) => (
+            <button key={String(value)} type="button"
+              onClick={() => onChange({ sdr_ativo: value })}
+              className={cn('flex flex-col items-start px-3 py-2 rounded-lg border text-xs transition-all text-left',
+                step.sdr_ativo === value
+                  ? value === false ? 'border-rose-500/50 bg-rose-500/10 text-rose-400'
+                    : value === true ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                    : 'border-primary/50 bg-primary/10 text-primary'
+                  : 'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40')}>
+              <span className="font-medium">{label}</span>
+              <span className="text-[10px] opacity-70">{desc}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tipo */}
@@ -1156,7 +1173,7 @@ export default function TrialPage() {
     setForm({
       nome: seq.nome, ativo: seq.ativo,
       steps: seq.follow_steps.length > 0
-        ? seq.follow_steps.map((s) => ({ ...s, mensagem: s.mensagem ?? '', tipo_mensagem: s.tipo_mensagem ?? 'text', media_config: s.media_config ?? {}, condicao: s.condicao ?? 'sempre', condicao_estagio: s.condicao_estagio ?? '' }))
+        ? seq.follow_steps.map((s) => ({ ...s, mensagem: s.mensagem ?? '', tipo_mensagem: s.tipo_mensagem ?? 'text', media_config: s.media_config ?? {}, condicao: s.condicao ?? 'sempre', condicao_estagio: s.condicao_estagio ?? '', sdr_ativo: s.sdr_ativo ?? null }))
         : [EMPTY_STEP()],
     })
     setActiveStep(0)
@@ -1186,7 +1203,7 @@ export default function TrialPage() {
     if (!form.nome.trim()) { toast({ title: 'Nome é obrigatório', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const body = { nome: form.nome, tipo: 'trial_saas', ativo: form.ativo, steps: form.steps.map((s, i) => ({ ...s, ordem: i, mensagem: s.mensagem || null, pool_mensagens: [], condicao: s.condicao ?? 'sempre', condicao_estagio: s.condicao_estagio || null })) }
+      const body = { nome: form.nome, tipo: 'trial_saas', ativo: form.ativo, steps: form.steps.map((s, i) => ({ ...s, ordem: i, mensagem: s.mensagem || null, pool_mensagens: [], condicao: s.condicao ?? 'sempre', condicao_estagio: s.condicao_estagio || null, sdr_ativo: s.sdr_ativo ?? null })) }
       const res = editing
         ? await fetch(`/api/follow/sequences/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         : await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

@@ -58,6 +58,7 @@ interface FollowStep {
   media_config: StepMediaConfig | null
   condicao: 'sempre' | 'respondeu' | 'sem_resposta' | null
   condicao_estagio: string | null
+  sdr_ativo: boolean | null
 }
 
 interface TrialSaas {
@@ -838,6 +839,44 @@ async function processTrialSaas(
             company_id: company.id,
             status: 'sent',
           })
+
+          // Controle de SDR por step
+          if (step.sdr_ativo !== null && step.sdr_ativo !== undefined) {
+            const phoneVars = phoneVariants(phone)
+            const { data: conv } = await supabase
+              .from('conversas_do_whatsapp')
+              .select('id')
+              .eq('company_id', company.id)
+              .in('numero_de_telefone', phoneVars)
+              .order('hora_da_ultima_mensagem', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (conv?.id) {
+              await supabase.from('conversas_do_whatsapp')
+                .update({ agente_pausado: !step.sdr_ativo })
+                .eq('id', conv.id)
+
+              if (step.sdr_ativo === true) {
+                const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
+                const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trial.trial_days}). Estágio: ${trial.estagio ?? 'não definido'}. SDR reativado pela sequência trial.`
+                const phoneVarsLead = phoneVars
+                const { data: lead } = await supabase
+                  .from('leads').select('id')
+                  .eq('company_id', company.id)
+                  .in('whatsapp', phoneVarsLead)
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+                if (lead?.id) {
+                  await supabase.from('leads')
+                    .update({ notes: contexto, updated_at: new Date().toISOString() })
+                    .eq('id', lead.id)
+                }
+              }
+            }
+          }
+
           sent++
           await antiBanDelay()
         } catch (err: any) {

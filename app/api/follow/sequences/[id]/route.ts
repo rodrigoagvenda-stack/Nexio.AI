@@ -39,6 +39,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           media_config: s.media_config ?? null,
           condicao: s.condicao ?? 'sempre',
           condicao_estagio: s.condicao_estagio ?? null,
+          sdr_ativo: s.sdr_ativo ?? null,
           ordem: i,
         })))
       }
