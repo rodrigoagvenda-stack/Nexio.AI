@@ -768,6 +768,7 @@ function ConfigContent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [firing, setFiring] = useState(false)
   const [daysDefault, setDaysDefault] = useState(7)
   const [testMode, setTestMode] = useState(false)
   const [testPhone, setTestPhone] = useState('')
@@ -898,10 +899,31 @@ function ConfigContent() {
         </div>
       </div>
 
-      <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
-        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-        Salvar configuração
-      </Button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
+          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Salvar configuração
+        </Button>
+        {testMode && webhookUrl && (
+          <Button variant="outline" size="sm" disabled={firing || !testPhone} className="gap-1.5"
+            onClick={async () => {
+              setFiring(true)
+              try {
+                const res = await fetch(webhookUrl, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: 'Lead Teste', email: `teste+${Date.now()}@trial.com`, whatsapp: testPhone }),
+                })
+                const data = await res.json()
+                if (res.ok) toast({ title: 'Teste disparado!', description: `Mensagem enviada para ${testPhone}` })
+                else toast({ title: data.message ?? 'Erro no teste', variant: 'destructive' })
+              } catch { toast({ title: 'Erro ao disparar teste', variant: 'destructive' }) }
+              finally { setFiring(false) }
+            }}>
+            {firing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            Disparar teste
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

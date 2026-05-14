@@ -20,7 +20,7 @@ export async function POST(
   // Resolve company by webhook token
   const { data: cfg } = await supabase
     .from('trial_configs')
-    .select('company_id, trial_days_default')
+    .select('company_id, trial_days_default, test_mode, test_phone')
     .eq('webhook_token', params.token)
     .maybeSingle()
 
@@ -33,7 +33,9 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'Campos obrigatórios: name, email, whatsapp.' }, { status: 400 })
   }
 
-  const whatsapp = normalizePhone(body.whatsapp)
+  const testMode = cfg.test_mode === true && !!cfg.test_phone
+  const whatsapp = testMode ? normalizePhone(cfg.test_phone!) : normalizePhone(body.whatsapp)
+  if (testMode) console.log(`[trial:webhook] MODO TESTE — redirecionando para ${whatsapp}`)
   const trialDays = cfg.trial_days_default ?? 7
 
   // Upsert into saas_trials
