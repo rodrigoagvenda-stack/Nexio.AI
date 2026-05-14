@@ -57,6 +57,7 @@ interface FollowStep {
   tipo_mensagem: StepTipoMensagem | null
   media_config: StepMediaConfig | null
   condicao: 'sempre' | 'respondeu' | 'sem_resposta' | null
+  condicao_estagio: string | null
 }
 
 interface TrialSaas {
@@ -68,6 +69,7 @@ interface TrialSaas {
   criado_em: string
   trial_days: number
   respondeu: boolean
+  estagio: string | null
 }
 
 interface FollowSequence {
@@ -778,7 +780,7 @@ async function processTrialSaas(
 
   const { data: trials } = await supabase
     .from('saas_trials')
-    .select('id, company_id, nome, whatsapp, status, criado_em, trial_days, respondeu')
+    .select('id, company_id, nome, whatsapp, status, criado_em, trial_days, respondeu, estagio')
     .eq('company_id', company.id)
     .eq('status', 'ativo')
     .not('whatsapp', 'is', null)
@@ -810,6 +812,11 @@ async function processTrialSaas(
         const condicao = step.condicao ?? 'sempre'
         if (condicao === 'respondeu' && !trial.respondeu) continue
         if (condicao === 'sem_resposta' && trial.respondeu) continue
+
+        // Roteamento por estágio (qual botão o lead clicou)
+        if (step.condicao_estagio) {
+          if (trial.estagio !== step.condicao_estagio) continue
+        }
 
         const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'

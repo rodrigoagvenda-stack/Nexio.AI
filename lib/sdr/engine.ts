@@ -1197,6 +1197,16 @@ async function executeButtonActions(
       console.log(`[SDR:${ctx.companyId}] ButtonAction: sequência parada para lead #${ctx.leadId}`)
     }
 
+    if (action.estagio) {
+      const phoneVars = phoneVariants(ctx.leadPhone)
+      await supabase.from('saas_trials')
+        .update({ estagio: action.estagio })
+        .eq('company_id', ctx.companyId)
+        .in('whatsapp', phoneVars)
+        .eq('status', 'ativo')
+      console.log(`[SDR:${ctx.companyId}] ButtonAction: trial estagio → "${action.estagio}" para ${ctx.leadPhone}`)
+    }
+
     break // only apply actions from the most recent matching menu
   }
 }

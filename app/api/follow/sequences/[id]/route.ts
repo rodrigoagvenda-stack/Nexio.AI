@@ -37,6 +37,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           usar_contexto_sdr: s.usar_contexto_sdr ?? false,
           tipo_mensagem: s.tipo_mensagem ?? 'text',
           media_config: s.media_config ?? null,
+          condicao: s.condicao ?? 'sempre',
+          condicao_estagio: s.condicao_estagio ?? null,
           ordem: i,
         })))
       }

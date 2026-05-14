@@ -30,6 +30,7 @@ interface ButtonAction {
   status?: string
   schedule_days?: number
   stop_sequence?: boolean
+  estagio?: string
 }
 
 interface MediaConfig {
@@ -44,6 +45,7 @@ interface TrialStep {
   id?: string; dia_offset: number; horario: string; mensagem: string
   tipo_mensagem: StepTipo; media_config: MediaConfig; ordem: number
   condicao: 'sempre' | 'respondeu' | 'sem_resposta'
+  condicao_estagio?: string
 }
 
 interface TrialSequence {
@@ -74,7 +76,7 @@ const TIPO_MSG: Record<StepTipo, { label: string; icon: React.FC<{ className?: s
   location: { label: 'Localização', icon: MapPin,        color: 'text-teal-500'    },
 }
 
-const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0, condicao: 'sempre' })
+const EMPTY_STEP = (): TrialStep => ({ dia_offset: 0, horario: '09:00', mensagem: '', tipo_mensagem: 'text', media_config: {}, ordem: 0, condicao: 'sempre', condicao_estagio: '' })
 
 const TEMPLATE_VARS = [
   { token: '{nome}',          label: 'Nome completo'     },
@@ -436,13 +438,23 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
     }
 
     const setActionValue = (choice: string, value: string) => {
+      const prev = buttonActions[choice]
       const next = { ...buttonActions }
-      if (value === 'none') { delete next[choice] }
-      else if (value === 'stop') { next[choice] = { stop_sequence: true } }
-      else if (value === 'schedule_3') { next[choice] = { schedule_days: 3 } }
-      else if (value === 'schedule_7') { next[choice] = { schedule_days: 7 } }
-      else if (value === 'schedule_14') { next[choice] = { schedule_days: 14 } }
-      else if (value.startsWith('status_')) { next[choice] = { status: value.replace('status_', '') } }
+      const existingEstagio = prev?.estagio
+      if (value === 'none') { next[choice] = existingEstagio ? { estagio: existingEstagio } : undefined as any; if (!existingEstagio) delete next[choice] }
+      else if (value === 'stop') { next[choice] = { stop_sequence: true, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
+      else if (value === 'schedule_3') { next[choice] = { schedule_days: 3, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
+      else if (value === 'schedule_7') { next[choice] = { schedule_days: 7, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
+      else if (value === 'schedule_14') { next[choice] = { schedule_days: 14, ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
+      else if (value.startsWith('status_')) { next[choice] = { status: value.replace('status_', ''), ...(existingEstagio ? { estagio: existingEstagio } : {}) } }
+      onChange({ button_actions: next })
+    }
+
+    const setEstagioValue = (choice: string, estagio: string) => {
+      const prev = buttonActions[choice]
+      const next = { ...buttonActions }
+      if (estagio) { next[choice] = { ...prev, estagio } }
+      else { const { estagio: _removed, ...rest } = prev ?? {}; if (Object.keys(rest).length) next[choice] = rest; else delete next[choice] }
       onChange({ button_actions: next })
     }
 
@@ -488,18 +500,26 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
                 </Button>
               </div>
               {c && (
-                <Select value={getActionValue(c)} onValueChange={(v) => setActionValue(c, v)}>
-                  <SelectTrigger className="h-7 text-xs text-muted-foreground border-dashed">
-                    <SelectValue placeholder="Ação ao clicar…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma ação</SelectItem>
-                    <SelectItem value="stop">Parar sequência</SelectItem>
-                    <SelectItem value="schedule_3">Reagendar em 3 dias</SelectItem>
-                    <SelectItem value="schedule_7">Reagendar em 7 dias</SelectItem>
-                    <SelectItem value="schedule_14">Reagendar em 14 dias</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-1.5">
+                  <Select value={getActionValue(c)} onValueChange={(v) => setActionValue(c, v)}>
+                    <SelectTrigger className="h-7 text-xs text-muted-foreground border-dashed">
+                      <SelectValue placeholder="Ação ao clicar…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma ação</SelectItem>
+                      <SelectItem value="stop">Parar sequência</SelectItem>
+                      <SelectItem value="schedule_3">Reagendar em 3 dias</SelectItem>
+                      <SelectItem value="schedule_7">Reagendar em 7 dias</SelectItem>
+                      <SelectItem value="schedule_14">Reagendar em 14 dias</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={buttonActions[c]?.estagio ?? ''}
+                    onChange={(e) => setEstagioValue(c, e.target.value)}
+                    placeholder="Tag de roteamento (ex: usando_bem)"
+                    className="h-7 text-xs border-dashed"
+                  />
+                </div>
               )}
             </div>
           ))}
@@ -616,6 +636,20 @@ function TrialStepEditor({ step, index, onChange }: {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Roteamento por estágio */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enviar apenas se estágio =</Label>
+        <Input
+          value={step.condicao_estagio ?? ''}
+          onChange={(e) => onChange({ condicao_estagio: e.target.value })}
+          placeholder="Ex: usando_bem (deixe vazio para todos)"
+          className="h-9 text-sm"
+        />
+        <p className="text-[11px] text-muted-foreground/60">
+          Filtra pelo tag definido no botão que o lead clicou. Deixe vazio para disparar independente do estágio.
+        </p>
       </div>
 
       {/* Tipo */}
@@ -1075,7 +1109,7 @@ export default function TrialPage() {
     setForm({
       nome: seq.nome, ativo: seq.ativo,
       steps: seq.follow_steps.length > 0
-        ? seq.follow_steps.map((s) => ({ ...s, mensagem: s.mensagem ?? '', tipo_mensagem: s.tipo_mensagem ?? 'text', media_config: s.media_config ?? {}, condicao: s.condicao ?? 'sempre' }))
+        ? seq.follow_steps.map((s) => ({ ...s, mensagem: s.mensagem ?? '', tipo_mensagem: s.tipo_mensagem ?? 'text', media_config: s.media_config ?? {}, condicao: s.condicao ?? 'sempre', condicao_estagio: s.condicao_estagio ?? '' }))
         : [EMPTY_STEP()],
     })
     setActiveStep(0)
@@ -1105,7 +1139,7 @@ export default function TrialPage() {
     if (!form.nome.trim()) { toast({ title: 'Nome é obrigatório', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      const body = { nome: form.nome, tipo: 'trial_saas', ativo: form.ativo, steps: form.steps.map((s, i) => ({ ...s, ordem: i, mensagem: s.mensagem || null, pool_mensagens: [], condicao: s.condicao ?? 'sempre' })) }
+      const body = { nome: form.nome, tipo: 'trial_saas', ativo: form.ativo, steps: form.steps.map((s, i) => ({ ...s, ordem: i, mensagem: s.mensagem || null, pool_mensagens: [], condicao: s.condicao ?? 'sempre', condicao_estagio: s.condicao_estagio || null })) }
       const res = editing
         ? await fetch(`/api/follow/sequences/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         : await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
