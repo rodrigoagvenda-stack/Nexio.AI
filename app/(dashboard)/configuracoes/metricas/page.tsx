@@ -19,6 +19,7 @@ import {
 import {
   Send, XCircle, MessageSquare, TrendingUp, Users, RefreshCw,
   CheckCircle2, AlertCircle, BarChart2, Loader2, Target, Activity,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -72,6 +73,49 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+// ─── Pagination ──────────────────────────────────────────────────────────────
+
+function usePagination<T>(items: T[], perPage: number) {
+  const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(items.length / perPage))
+  const safePage = Math.min(page, totalPages)
+  const slice = items.slice((safePage - 1) * perPage, safePage * perPage)
+  return { page: safePage, setPage, totalPages, slice, total: items.length }
+}
+
+function Pagination({ page, totalPages, setPage, total, perPage }: {
+  page: number; totalPages: number; setPage: (p: number) => void; total: number; perPage: number
+}) {
+  if (totalPages <= 1) return null
+  const from = (page - 1) * perPage + 1
+  const to = Math.min(page * perPage, total)
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-border text-xs text-muted-foreground">
+      <span>{from}–{to} de {total}</span>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === 1} onClick={() => setPage(page - 1)}>
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </Button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPage(p)}
+            className={cn(
+              'h-7 w-7 rounded-md text-xs font-medium transition-colors',
+              p === page ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+            )}
+          >
+            {p}
+          </button>
+        ))}
+        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === totalPages} onClick={() => setPage(page + 1)}>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Chart configs ───────────────────────────────────────────────────────────
 
 const chartConfigDisparos = {
@@ -104,6 +148,10 @@ export default function MetricasPage() {
   const [periodo, setPeriodo] = useState<Periodo>('30d')
   const [data, setData] = useState<MetricasData | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const trialPag = usePagination(data?.trial.lista ?? [], 6)
+  const remarketingPag = usePagination(data?.remarketing.lista ?? [], 6)
+  const execPag = usePagination(data?.ultimas_execucoes ?? [], 10)
 
   const load = useCallback(async (p: Periodo) => {
     setLoading(true)
@@ -382,43 +430,47 @@ export default function MetricasPage() {
                 </CardHeader>
                 <CardContent className="p-0">
                   {data.trial.lista.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>WhatsApp</TableHead>
-                          <TableHead className="text-center">Dia</TableHead>
-                          <TableHead>Estágio</TableHead>
-                          <TableHead>Início</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.trial.lista.map((t) => {
-                          const pct = t.trial_days > 0 ? t.dia_no_trial / t.trial_days : 0
-                          return (
-                            <TableRow key={t.id}>
-                              <TableCell className="font-medium">{t.nome}</TableCell>
-                              <TableCell className="text-muted-foreground font-mono text-xs">{fmtPhone(t.whatsapp)}</TableCell>
-                              <TableCell className="text-center">
-                                <span className={cn(
-                                  'font-bold text-sm',
-                                  pct >= 1 ? 'text-destructive' : pct >= 0.7 ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'
-                                )}>
-                                  D{t.dia_no_trial}
-                                </span>
-                                <span className="text-muted-foreground text-xs">/{t.trial_days}</span>
-                              </TableCell>
-                              <TableCell>
-                                {t.estagio
-                                  ? <Badge variant="secondary" className="font-mono text-xs">{t.estagio}</Badge>
-                                  : <span className="text-muted-foreground">—</span>}
-                              </TableCell>
-                              <TableCell className="text-muted-foreground text-xs">{fmtDate(t.criado_em)}</TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
+                    <>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>WhatsApp</TableHead>
+                            <TableHead className="text-center">Dia</TableHead>
+                            <TableHead>Estágio</TableHead>
+                            <TableHead>Início</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {trialPag.slice.map((t) => {
+                            const pct = t.trial_days > 0 ? t.dia_no_trial / t.trial_days : 0
+                            return (
+                              <TableRow key={t.id}>
+                                <TableCell className="font-medium">{t.nome}</TableCell>
+                                <TableCell className="text-muted-foreground font-mono text-xs">{fmtPhone(t.whatsapp)}</TableCell>
+                                <TableCell className="text-center">
+                                  <span className={cn(
+                                    'font-bold text-sm',
+                                    pct >= 1 ? 'text-destructive' : pct >= 0.7 ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'
+                                  )}>
+                                    D{t.dia_no_trial}
+                                  </span>
+                                  <span className="text-muted-foreground text-xs">/{t.trial_days}</span>
+                                </TableCell>
+                                <TableCell>
+                                  {t.estagio
+                                    ? <Badge variant="secondary" className="font-mono text-xs">{t.estagio}</Badge>
+                                    : <span className="text-muted-foreground">—</span>}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-xs">{fmtDate(t.criado_em)}</TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                      <Pagination page={trialPag.page} totalPages={trialPag.totalPages}
+                        setPage={trialPag.setPage} total={trialPag.total} perPage={6} />
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-10">Nenhum trial ativo</p>
                   )}
@@ -450,26 +502,30 @@ export default function MetricasPage() {
               </CardHeader>
               <CardContent className="p-0">
                 {data.remarketing.lista.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>WhatsApp</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Atualizado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.remarketing.lista.map((l) => (
-                        <TableRow key={l.id}>
-                          <TableCell className="font-medium">{l.nome}</TableCell>
-                          <TableCell className="text-muted-foreground font-mono text-xs">{fmtPhone(l.whatsapp)}</TableCell>
-                          <TableCell><Badge variant="secondary">{l.status}</Badge></TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{fmtDate(l.updated_at)}</TableCell>
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>WhatsApp</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Atualizado</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {remarketingPag.slice.map((l) => (
+                          <TableRow key={l.id}>
+                            <TableCell className="font-medium">{l.nome}</TableCell>
+                            <TableCell className="text-muted-foreground font-mono text-xs">{fmtPhone(l.whatsapp)}</TableCell>
+                            <TableCell><Badge variant="secondary">{l.status}</Badge></TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{fmtDate(l.updated_at)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <Pagination page={remarketingPag.page} totalPages={remarketingPag.totalPages}
+                      setPage={remarketingPag.setPage} total={remarketingPag.total} perPage={6} />
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-10">Nenhum lead em Remarketing</p>
                 )}
@@ -485,45 +541,49 @@ export default function MetricasPage() {
               </CardHeader>
               <CardContent className="p-0">
                 {data.ultimas_execucoes.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Lead</TableHead>
-                        <TableHead>Sequência</TableHead>
-                        <TableHead className="max-w-[200px]">Mensagem</TableHead>
-                        <TableHead className="text-center">Respondeu</TableHead>
-                        <TableHead className="max-w-[180px]">Resposta</TableHead>
-                        <TableHead>Enviado</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.ultimas_execucoes.map((ex) => (
-                        <TableRow key={ex.id}>
-                          <TableCell>
-                            <p className="font-medium text-sm">{ex.lead_name}</p>
-                            <p className="text-muted-foreground font-mono text-xs">{fmtPhone(ex.lead_whatsapp)}</p>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">{ex.label}</Badge>
-                          </TableCell>
-                          <TableCell className="max-w-[200px]">
-                            <p className="truncate text-xs text-muted-foreground">{ex.mensagem}</p>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {ex.respondeu
-                              ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mx-auto" />
-                              : <AlertCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
-                          </TableCell>
-                          <TableCell className="max-w-[180px]">
-                            <p className="truncate text-xs text-muted-foreground">{ex.resposta ?? '—'}</p>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                            {fmtDate(ex.enviado_em)}
-                          </TableCell>
+                  <>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Lead</TableHead>
+                          <TableHead>Sequência</TableHead>
+                          <TableHead className="max-w-[200px]">Mensagem</TableHead>
+                          <TableHead className="text-center">Respondeu</TableHead>
+                          <TableHead className="max-w-[180px]">Resposta</TableHead>
+                          <TableHead>Enviado</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {execPag.slice.map((ex) => (
+                          <TableRow key={ex.id}>
+                            <TableCell>
+                              <p className="font-medium text-sm">{ex.lead_name}</p>
+                              <p className="text-muted-foreground font-mono text-xs">{fmtPhone(ex.lead_whatsapp)}</p>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">{ex.label}</Badge>
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <p className="truncate text-xs text-muted-foreground">{ex.mensagem}</p>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {ex.respondeu
+                                ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mx-auto" />
+                                : <AlertCircle className="h-4 w-4 text-muted-foreground/30 mx-auto" />}
+                            </TableCell>
+                            <TableCell className="max-w-[180px]">
+                              <p className="truncate text-xs text-muted-foreground">{ex.resposta ?? '—'}</p>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                              {fmtDate(ex.enviado_em)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <Pagination page={execPag.page} totalPages={execPag.totalPages}
+                      setPage={execPag.setPage} total={execPag.total} perPage={10} />
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-10">Nenhuma execução no período</p>
                 )}
