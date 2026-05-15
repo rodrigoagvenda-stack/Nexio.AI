@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/utils/cn'
 import {
   Plus, Trash2, Loader2, Clock, CalendarClock, Sparkles, Pencil,
-  Megaphone, FileText, BarChart2, CheckCircle2, XCircle, Bot,
+  Megaphone, FileText, CheckCircle2, XCircle, Bot,
   MessageSquare, RefreshCw, Info, AlarmClock,
   Image, Video, FileAudio, Mic, MapPin, LayoutList, Rows3,
   Phone, X, Check, Square, Send,
@@ -55,14 +55,6 @@ interface FollowSequence {
   follow_steps: FollowStep[]
 }
 
-interface Stats {
-  total_enviados: number; total_falhas: number; total_respondeu: number; sequencias_ativas: number
-  por_tipo: { tipo: string; label: string; enviados: number; falhas: number }[]
-  ultimos: {
-    id: number; tipo: string; lead_id: number; lead_name: string; lead_status: string
-    mensagem: string; enviado_em: string; respondeu: boolean; resposta: string | null
-  }[]
-}
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -862,89 +854,6 @@ function SequenceCard({ seq, onToggle, onEdit, onDelete, deleting }: {
   )
 }
 
-// ─── Métricas ─────────────────────────────────────────────────────────────────
-
-function MetricasContent() {
-  const [stats, setStats] = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/follow/stats')
-      if (res.ok) setStats(await res.json())
-    } finally { setLoading(false) }
-  }, [])
-
-  useEffect(() => { load() }, [load])
-
-  if (loading) return <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-  if (!stats) return <p className="text-sm text-muted-foreground text-center py-12">Erro ao carregar métricas.</p>
-
-  return (
-    <div className="space-y-5">
-      <div className="flex justify-end">
-        <Button variant="ghost" size="sm" onClick={load} className="h-7 text-xs gap-1">
-          <RefreshCw className="w-3 h-3" /> Atualizar
-        </Button>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { label: 'Enviados',          value: stats.total_enviados,    icon: MessageSquare, color: 'text-blue-600'    },
-          { label: 'Falhas',            value: stats.total_falhas,      icon: XCircle,       color: 'text-red-500'     },
-          { label: 'Sequências ativas', value: stats.sequencias_ativas, icon: CheckCircle2,  color: 'text-emerald-600' },
-          { label: 'Responderam',       value: stats.total_respondeu,   icon: BarChart2,     color: 'text-purple-600'  },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border border-border p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-muted-foreground">{label}</p>
-              <Icon className={cn('w-4 h-4', color)} />
-            </div>
-            <p className="text-2xl font-bold">{value}</p>
-          </div>
-        ))}
-      </div>
-      {stats.ultimos.length > 0 && (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <div className="px-4 py-3 bg-muted/20 border-b border-border">
-            <p className="text-sm font-medium">Últimos disparos</p>
-          </div>
-          <div className="divide-y divide-border">
-            {stats.ultimos.map((log) => (
-              <div key={log.id} className="px-4 py-3 space-y-1.5">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">{log.lead_name}</span>
-                      <span className="text-xs text-muted-foreground/60 border border-border rounded px-1.5 py-0.5">{log.lead_status}</span>
-                      <span className="text-xs text-muted-foreground/50">{TIPO_CONFIG[log.tipo as SequenceTipo]?.label ?? log.tipo}</span>
-                      {log.respondeu
-                        ? <span className="text-xs text-emerald-600 flex items-center gap-0.5 ml-auto"><CheckCircle2 className="w-3 h-3" /> Respondeu</span>
-                        : <span className="text-xs text-muted-foreground/40 ml-auto">Sem resposta</span>
-                      }
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      <span className="text-muted-foreground/50">Enviado: </span>{log.mensagem}
-                    </p>
-                    {log.respondeu && log.resposta && (
-                      <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5 truncate">
-                        <span className="text-emerald-600/60">Resposta: </span>{log.resposta}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground shrink-0 pt-0.5">
-                    {new Date(log.enviado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 type ActiveTab = SequenceTipo | 'metricas'
@@ -1081,11 +990,11 @@ export default function FollowPage() {
     finally { setDeleting(null) }
   }
 
-  const currentTipo = activeTab === 'metricas' ? null : activeTab as SequenceTipo
-  const currentSeqs = currentTipo ? sequences.filter((s) => s.tipo === currentTipo) : []
-  const currentCfg = currentTipo ? TIPO_CONFIG[currentTipo] : null
-  const CurrentIcon = currentCfg?.icon ?? BarChart2
-  const dialogTipo = editing?.tipo ?? (activeTab === 'metricas' ? 'follow_geral' : activeTab as SequenceTipo)
+  const currentTipo = activeTab as SequenceTipo
+  const currentSeqs = sequences.filter((s) => s.tipo === currentTipo)
+  const currentCfg = TIPO_CONFIG[currentTipo] ?? null
+  const CurrentIcon = currentCfg?.icon ?? MessageSquare
+  const dialogTipo = editing?.tipo ?? activeTab as SequenceTipo
   const dialogCfg = TIPO_CONFIG[dialogTipo]
   const isHours = dialogCfg?.isHours
 
@@ -1118,14 +1027,6 @@ export default function FollowPage() {
               </button>
             )
           })}
-          <div className="pt-2 border-t border-border mt-2">
-            <button onClick={() => setActiveTab('metricas')}
-              className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
-                activeTab === 'metricas' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
-              <BarChart2 className={cn('w-4 h-4 shrink-0', activeTab === 'metricas' ? 'text-primary' : 'text-muted-foreground')} />
-              Métricas
-            </button>
-          </div>
         </aside>
 
         {/* Content */}
@@ -1136,10 +1037,10 @@ export default function FollowPage() {
                 <CurrentIcon className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm">{activeTab === 'metricas' ? 'Métricas' : currentCfg?.label}</p>
-                <p className="text-xs text-muted-foreground">{activeTab === 'metricas' ? 'Últimos 30 dias de disparos' : currentCfg?.desc}</p>
+                <p className="font-semibold text-sm">{currentCfg?.label}</p>
+                <p className="text-xs text-muted-foreground">{currentCfg?.desc}</p>
               </div>
-              {activeTab !== 'metricas' && (
+              {(
                 <div className="flex items-center gap-2 shrink-0">
                   {currentTipo === 'remarketing' && (
                     <Button onClick={handleFireNow} disabled={firing} variant="outline" size="sm" className="h-8 gap-1.5">
@@ -1155,9 +1056,7 @@ export default function FollowPage() {
             </div>
 
             <div className="p-5">
-              {activeTab === 'metricas' ? (
-                <MetricasContent />
-              ) : loading ? (
+              {loading ? (
                 <div className="flex items-center justify-center h-48"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
               ) : currentSeqs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-14 gap-4">

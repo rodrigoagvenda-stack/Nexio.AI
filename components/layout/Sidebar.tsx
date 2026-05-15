@@ -23,6 +23,7 @@ import {
   FileText,
   Megaphone,
   Clock,
+  BarChart2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -82,6 +83,7 @@ const navSections: NavSection[] = [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
           { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
           { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FileText },
+          { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
         ],
       },
     ],
