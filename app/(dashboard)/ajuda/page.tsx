@@ -5,35 +5,144 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
   LayoutDashboard, Users, MessageSquare, UserPlus,
-  Columns3, ChevronLeft, ChevronRight, BookOpen, HelpCircle,
-  FileText, Bot, Send, X, Loader2, Sparkles,
+  ChevronLeft, ChevronRight, BookOpen, HelpCircle,
+  FileText, Bot, Send, X, Loader2, Sparkles, Search,
+  Clock, BarChart2, Home, CreditCard, ArrowRight,
+  Lightbulb, AlertTriangle, Info, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface HelpItem { question: string; answer: string }
 interface HelpSection { id: string; title: string; icon: LucideIcon; description: string; items: HelpItem[] }
 interface ChatMessage { role: 'user' | 'assistant'; content: string }
 
-// ── Content ────────────────────────────────────────────────────────────────
+// ── Content ───────────────────────────────────────────────────────────────────
 
 const sections: HelpSection[] = [
+  {
+    id: 'visao-geral',
+    title: 'Visão Geral',
+    icon: Home,
+    description: 'Introdução à plataforma e primeiros passos',
+    items: [
+      {
+        question: 'O que é o Zaapli?',
+        answer:
+`O Zaapli é uma plataforma de CRM e automação de vendas com IA nativa integrada ao WhatsApp. Todo o fluxo — desde captar o lead até fechar a venda — acontece em um único ambiente.
+
+## Módulos principais
+• **Dashboard** — KPIs em tempo real com comparativos vs período anterior
+• **CRM** — Funil de vendas com Kanban drag & drop e visualização em planilha
+• **Atendimento** — Chat WhatsApp com Agente IA e inbox multi-atendente
+• **Agente SDR** — Configuração de persona, base de conhecimento e objeções
+• **Follow-up** — Sequências automáticas de mensagens com gatilhos por estágio
+• **Trial SaaS** — Gestão do ciclo de vida de trials com automações
+• **Métricas** — Analytics completo de follow-up, trial e remarketing
+• **Membros** — Gestão de equipe com permissões por função
+• **Briefing** — Formulário público personalizado com sua marca
+[INFO]
+Todas as funcionalidades funcionam dentro da mesma plataforma. Não são necessárias integrações externas complexas além do WhatsApp e, opcionalmente, o Google Calendar.
+[/INFO]`,
+      },
+      {
+        question: 'Guia de primeiros passos',
+        answer:
+`Configure o Zaapli em 5 etapas para começar a operar com IA:
+
+1. **Conecte o WhatsApp** — Acesse Atendimento e escaneie o QR Code com o celular
+2. **Configure o Agente SDR** — Defina persona, base de conhecimento e modo de atendimento em Automações → Agente SDR
+3. **Adicione seus leads** — Importe ou cadastre leads no CRM
+4. **Ative o Agente IA** — Use o toggle global na lista de conversas em Atendimento
+5. **Monitore pelo Dashboard** — Acompanhe conversões, funil e faturamento em tempo real
+[TIP]
+Configure a base de conhecimento com produtos, preços e principais objeções antes de ativar o agente. Quanto mais contexto, melhor a qualidade das respostas geradas.
+[/TIP]`,
+      },
+      {
+        question: 'Automações disponíveis',
+        answer:
+`O Zaapli oferece três tipos de automação de mensagens via WhatsApp:
+
+## Follow-up
+Sequências de mensagens enviadas automaticamente em intervalos programados. Ideal para nurturing, recuperação de leads inativos, anti-noshow e pós-venda.
+
+## Trial SaaS
+Automação dedicada para modelos com período de avaliação. Acompanha cada lead pelo ciclo completo: início do trial → engajamento → conversão ou expiração.
+
+## Remarketing
+Re-engajamento de leads inativos com mensagens personalizadas. Configure sequências específicas com condição de estágio "Remarketing" no CRM.
+[INFO]
+Todas as automações podem pausar ou reativar o Agente SDR automaticamente, dependendo da configuração de cada etapa da sequência.
+[/INFO]`,
+      },
+    ],
+  },
   {
     id: 'dashboard',
     title: 'Dashboard',
     icon: LayoutDashboard,
-    description: 'Visão geral e métricas do seu negócio em tempo real',
+    description: 'Indicadores de performance e filtros de período',
     items: [
       {
-        question: 'O que é o Dashboard?',
+        question: 'KPIs e métricas em tempo real',
         answer:
-          'O Dashboard é sua página inicial com um resumo em tempo real:\n\n• **Total de leads** cadastrados na base\n• **Leads por estágio** do funil\n• **Conversões recentes** — leads que fecharam\n• **Valor total do pipeline** — soma dos valores de projeto\n• **Gráfico do funil** — distribuição por estágio\n• **Atividades recentes** — últimas movimentações',
+`O Dashboard exibe 5 indicadores principais. Os chips coloridos (↑ verde / ↓ vermelho) mostram a variação percentual vs o período anterior equivalente.
+
+• **Novos leads** — Total de leads criados no período selecionado (todos os status)
+• **Em atendimento** — Leads no estágio "Em contato" no estado atual do pipeline
+• **Taxa de conversão** — Leads fechados no período ÷ leads criados no período (máx. 100%)
+• **Em negociação** — Valor total em R$ de todos os leads ativos (estado atual, independe do filtro)
+• **Faturamento** — Soma dos \`project_value\` dos leads fechados no período
+[INFO]
+"Em atendimento" e "Em negociação" refletem o estado real do pipeline agora — não variam com o filtro de período. Isso é intencional: mostram a situação atual independente de quando os leads foram criados.
+[/INFO]`,
       },
       {
-        question: 'Como interpretar as métricas?',
+        question: 'Filtros de período e deltas',
         answer:
-          'Cada card mostra uma métrica importante:\n\n• **Leads Ativos** — Total de leads que não estão em "Fechado" ou "Perdido"\n• **Taxa de Conversão** — Percentual que chegou a "Fechado"\n• **Valor do Pipeline** — Soma de todos os valores ativos\n• **Leads por Origem** — De onde seus leads vêm\n\nUse essas métricas para identificar gargalos e otimizar o funil.',
+`O seletor de período no canto superior direito controla todos os KPIs e gráficos:
+
+• **Hoje** — 00:00 até agora, comparado com ontem
+• **Semana** — Segunda-feira até hoje, comparado com a semana passada
+• **Mês** — Dia 1 até hoje, comparado com o mês anterior
+• **Ano** — 1 de janeiro até hoje, comparado com o ano anterior
+• **Personalizado** — Qualquer intervalo; o delta usa o mesmo número de dias imediatamente anterior
+
+Os chips de delta são calculados como: ((atual − anterior) ÷ anterior) × 100. Um chip verde **+23%** significa crescimento de 23% vs o período anterior.
+[TIP]
+Use o filtro "Ano" para visão de crescimento e "Mês" para acompanhamento operacional semanal.
+[/TIP]`,
+      },
+      {
+        question: 'Gráficos: Performance e Taxa de Conversão',
+        answer:
+`## Performance de Vendas
+Barras duplas por intervalo de tempo. A granularidade muda automaticamente:
+• Hoje → por hora (0h–23h)
+• Semana → por dia da semana
+• Mês → por semana
+• Ano → por mês
+
+As séries exibidas:
+• **Leads gerados** (verde) — leads criados no intervalo por data de criação
+• **Leads fechados** (cinza) — negócios fechados por data de fechamento
+
+## Taxa de Conversão Geral
+Donut interativo mostrando a proporção de leads **Fechados** vs **Em andamento** (total de leads ativos). Passe o mouse sobre cada fatia para ver os valores absolutos.`,
+      },
+      {
+        question: 'Funil de Vendas e Vendas Recentes',
+        answer:
+`## Funil de Vendas
+Barras horizontais mostrando a distribuição atual de leads por estágio do pipeline. Use as pills no topo para alternar entre:
+• **Funil de Vendas** — estágios do CRM com contagem de leads ativos
+• **Anti Noshow** — disparos das sequências de lembrete de reunião
+• **Remarketing** — em breve
+
+## Vendas Recentes
+Lista dos últimos 10 leads fechados com nome da empresa, contato e valor da negociação em ordem cronológica inversa.`,
       },
     ],
   },
@@ -41,32 +150,81 @@ const sections: HelpSection[] = [
     id: 'crm',
     title: 'CRM',
     icon: Users,
-    description: 'Gestão completa de leads e oportunidades de venda',
+    description: 'Funil de vendas, leads e pipeline completo',
     items: [
       {
-        question: 'Como cadastrar um novo lead?',
+        question: 'Os 9 estágios do funil',
         answer:
-          'Cadastro em 3 etapas:\n\n**Etapa 1 — Empresa:**\n1. Clique em **+ Adicionar Lead**\n2. Preencha o **Nome da Empresa** (obrigatório)\n3. Selecione o **Segmento**\n4. Adicione site ou Instagram (opcional)\n\n**Etapa 2 — Contato:**\n5. Nome, WhatsApp e e-mail do contato\n\n**Etapa 3 — Detalhes:**\n6. Prioridade, nível de interesse, fonte, valor do projeto e observações\n\nO lead entra automaticamente no estágio **Lead novo**.',
+`O CRM usa um funil com 9 estágios que representam a jornada completa do lead:
+
+• **Triagem** 🔍 — Leads captados via integração aguardando avaliação de ICP
+• **Outbound** 📣 — Aprovados na triagem, prontos para prospecção ativa
+• **Lead novo** 🔵 — Adicionados manualmente, ainda não contactados
+• **Em contato** 💬 — Primeiro contato realizado pelo SDR ou manualmente
+• **Interessado** ⭐ — Demonstrou interesse genuíno no produto/serviço
+• **Proposta enviada** 📄 — Recebeu orçamento ou proposta formal
+• **Fechado** ✅ — Venda concluída e valor registrado
+• **Perdido** ❌ — Não converteu neste ciclo de vendas
+• **Remarketing** 🔁 — Em campanha de reativação futura
+[TIP]
+Leads em "Perdido" não são deletados. Mova-os para "Remarketing" quando quiser reengajar com uma sequência automática.
+[/TIP]`,
       },
       {
-        question: 'Quais são os estágios do funil?',
+        question: 'Cadastrar um lead',
         answer:
-          'O funil tem 9 estágios:\n\n• **Triagem** 🔍 — Leads captados pelo Orbit chegam aqui para avaliação de ICP\n• **Outbound** 📣 — Leads aprovados na triagem prontos para prospecção\n• **Lead novo** 🔵 — Leads adicionados manualmente ainda não contactados\n• **Em contato** 💬 — Primeiro contato realizado\n• **Interessado** ⭐ — Demonstrou interesse\n• **Proposta enviada** 📄 — Recebeu orçamento ou proposta\n• **Fechado** ✅ — Venda concluída\n• **Perdido** ❌ — Não converteu\n• **Remarketing** 🔁 — Para reativar futuramente\n\nMova leads arrastando no Kanban ou usando o seletor no mobile.',
+`Clique em **+ Adicionar Lead** no canto superior direito do CRM. O formulário tem 3 etapas:
+
+1. **Empresa** — Nome (obrigatório), segmento de atuação, site ou @Instagram
+2. **Contato** — Nome do contato, WhatsApp com DDD e e-mail
+3. **Detalhes** — Prioridade (Alta/Média/Baixa), nível de interesse, fonte do lead, valor estimado do projeto e observações
+
+O lead entra automaticamente no estágio **Lead novo** ao ser salvo.
+[INFO]
+O campo "valor do projeto" alimenta a métrica "Em negociação" no Dashboard. Preencha com o valor estimado para ter uma visão precisa do pipeline financeiro.
+[/INFO]`,
       },
       {
-        question: 'Como alternar entre Planilha e Kanban?',
+        question: 'Planilha vs Kanban',
         answer:
-          'No menu lateral, dentro de **CRM**, você tem dois sub-itens:\n\n• **Planilha** — Tabela com todas as colunas. Ideal para ver muitos leads, selecionar em massa, deletar em lote e exportar para CSV\n• **Kanban** — Quadros por estágio com drag & drop, valor total por coluna e contagem de leads',
+`Alterne no menu lateral em **CRM → Planilha** ou **CRM → Kanban**:
+
+## Planilha (tabela)
+Todas as colunas visíveis em linha. Use para:
+• Buscar e filtrar leads rapidamente
+• Selecionar e deletar vários leads de uma vez
+• Exportar o conjunto filtrado para CSV
+• Editar campos diretamente na tabela
+
+## Kanban (quadros)
+Colunas por estágio com drag & drop. Use para:
+• Visualizar o pipeline graficamente
+• Mover leads entre estágios arrastando o card
+• Ver o valor total e a contagem por coluna
+• Identificar gargalos no funil visualmente
+[INFO]
+No celular, o Kanban não suporta drag & drop. Use o seletor de status dentro de cada card para mover o lead entre estágios.
+[/INFO]`,
       },
       {
-        question: 'Como editar, deletar e exportar leads?',
+        question: 'Filtros, busca e ações em massa',
         answer:
-          '**Editar:** Clique no lápis no card (Kanban) ou na tabela (Planilha).\n\n**Deletar individual:** Ícone de lixeira → confirme na caixa de diálogo.\n\n**Deletar em massa** (só na Planilha):\n1. Marque os checkboxes dos leads\n2. Clique em **Deletar X selecionado(s)**\n3. Confirme — a exclusão é permanente.\n\n**Exportar CSV:** Clique em **Exportar CSV** no topo. Os filtros ativos são respeitados.',
-      },
-      {
-        question: 'Como usar os filtros?',
-        answer:
-          'No topo do CRM você tem 3 filtros combináveis:\n\n• **Busca** — Nome da empresa, contato ou e-mail\n• **Status** — Filtre por estágio do funil\n• **Prioridade** — Alta, Média ou Baixa\n\nClique em **Limpar** para remover todos os filtros de uma vez.',
+`## Filtros disponíveis (cumulativos)
+• **Busca de texto** — Nome da empresa, nome do contato ou e-mail
+• **Status** — Um ou mais estágios do funil
+• **Prioridade** — Alta, Média ou Baixa
+• **Limpar filtros** — Remove todos de uma vez
+
+## Deletar em massa (somente na Planilha)
+1. Marque os checkboxes ao lado dos leads desejados
+2. Clique em **Deletar X selecionado(s)** que aparece no topo
+3. Confirme na caixa de diálogo
+
+## Exportar CSV
+Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados — você exporta apenas o que está visível.
+[AVISO]
+A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção antes de confirmar.
+[/AVISO]`,
       },
     ],
   },
@@ -74,37 +232,341 @@ const sections: HelpSection[] = [
     id: 'atendimento',
     title: 'Atendimento',
     icon: MessageSquare,
-    description: 'Chat WhatsApp com SDR por IA integrado',
+    description: 'Chat WhatsApp com Agente IA e inbox multi-atendente',
     items: [
       {
-        question: 'O que é o módulo de Atendimento?',
+        question: 'Visão geral do chat WhatsApp',
         answer:
-          'O Atendimento é um **chat espelhado do WhatsApp** dentro do CRM com um **SDR virtual por IA** que conversa automaticamente com seus leads.\n\n**O que você vê na tela:**\n• **Painel esquerdo** — Lista de conversas com tabs: Minhas / Livres / Todas\n• **Painel central** — Chat em tempo real\n• **Painel direito** — Informações do lead, resumo IA, notas, tags, mídia e agenda',
+`O Atendimento é um inbox WhatsApp multi-atendente com Agente IA nativo. A tela tem 3 painéis:
+
+• **Esquerdo** — Lista de conversas com tabs: Minhas / Livres / Todas. Busca por nome ou número.
+• **Central** — Chat em tempo real espelhando o WhatsApp do número conectado
+• **Direito** — Ficha do lead: resumo IA, notas, tags, mídia enviada e agenda de mensagens
+
+Cada conversa fica sincronizada automaticamente com o WhatsApp conectado.`,
       },
       {
-        question: 'Como funciona o Agente IA?',
+        question: 'Controlar o Agente IA',
         answer:
-          'O agente IA responde mensagens automaticamente como um vendedor real.\n\n**Dois níveis de controle:**\n• **Toggle global** "Agente IA ativo/inativo" no topo da lista de conversas — desativa para toda a empresa\n• **Toggle por conversa** "Agente ativo/pausado" no header do chat — pausa apenas aquela conversa para atendimento humano\n\n**O que o agente faz:**\n• Responde e qualifica leads em tempo real\n• Coleta informações e identifica dores/objeções\n• Apresenta produtos/serviços\n• Tenta agendar reuniões ou fechar vendas\n• Gera **resumo automático** do lead com tudo coletado',
+`O agente IA tem dois níveis de controle independentes:
+
+## Toggle global (toda a empresa)
+Localizado no topo da lista de conversas. Quando desligado, o agente não responde a nenhuma conversa de nenhum atendente.
+
+## Toggle por conversa
+Localizado no header de cada chat individual. Quando em "Agente pausado", apenas aquela conversa fica sem resposta automática — as demais continuam normais.
+[TIP]
+Use o toggle por conversa quando quiser assumir o controle de uma negociação importante. Após fechar o negócio, reactive para que o agente continue o pós-venda.
+[/TIP]
+
+O Agente IA:
+• Responde e qualifica leads 24 horas por dia
+• Coleta dados, identifica dores e objeções do lead
+• Apresenta o produto com base na base de conhecimento configurada
+• Gera um resumo automático do lead disponível na ficha lateral`,
       },
       {
         question: 'Modos de atendimento: Suporte vs Vendas',
         answer:
-          'Configure em **Configurações → SDR → Geral → Modo de atendimento**:\n\n• **Suporte** — Inbox compartilhado. Conversas novas ficam "Livres" e qualquer atendente pode atribuir para si\n• **Vendas** — Round-robin automático. Cada conversa nova é atribuída automaticamente ao atendente com menos conversas abertas\n\nAs tabs na lista de conversas:\n• **Minhas** — Conversas atribuídas a você\n• **Livres** — Sem atendente atribuído (modo suporte)\n• **Todas** — Todas as conversas da empresa (admin/gerente)',
+`Configure em **Automações → Agente SDR → Geral → Modo de atendimento**:
+
+## Suporte
+Inbox compartilhado. Conversas novas ficam em "Livres" até um atendente se auto-atribuir.
+• Tab **Minhas** → suas conversas atribuídas
+• Tab **Livres** → sem atendente (disponíveis para assumir)
+• Tab **Todas** → todas da empresa (visível para admin/gerente)
+
+## Vendas
+Round-robin automático. O sistema distribui novas conversas para o atendente com menos conversas abertas no momento.
+[INFO]
+No modo Vendas, o atendente recebe a conversa instantaneamente. No modo Suporte, qualquer atendente pode puxar a conversa disponível.
+[/INFO]`,
       },
       {
-        question: 'Que tipos de mídia posso enviar?',
+        question: 'Tipos de mídia suportados',
         answer:
-          '5 tipos de mídia suportados:\n\n• **Texto** — Shift+Enter para quebrar linha\n• **Imagens** — Qualquer formato, com legenda opcional\n• **Áudio** — Grave direto no sistema com player de ondas sonoras\n• **Vídeos** — Player de reprodução no chat\n• **Documentos** — PDF, Word, Excel, TXT\n\nTodos os arquivos ficam na aba **Mídia** do painel lateral.',
+`Clique no ícone de clipe (📎) para acessar os tipos de mídia:
+
+• **Imagens** — JPG, PNG, WebP. Legenda opcional
+• **Áudio** — Grave diretamente com o microfone no sistema, visualização em onda sonora
+• **Vídeos** — MP4 com player de reprodução no chat
+• **Documentos** — PDF, Word (.docx), Excel (.xlsx), TXT
+
+Todos os arquivos enviados e recebidos ficam organizados na aba **Mídia** da ficha do lead no painel direito.`,
       },
       {
-        question: 'Como usar Respostas Rápidas (Templates)?',
+        question: 'Respostas rápidas e variáveis dinâmicas',
         answer:
-          '**Durante uma conversa:**\n• Digite **/** na caixa de texto\n• Selecione o template com ↑↓ e Enter\n\n**Variáveis dinâmicas:**\n• **{{nome}}** — Nome do contato\n• **{{empresa}}** — Nome da empresa\n• **{{telefone}}** — Telefone\n• **{{usuario}}** — Seu nome\n• **{{minha_empresa}}** — Nome da sua empresa',
+`## Usar templates
+1. Digite **/** na caixa de mensagem
+2. Selecione o template na lista (↑↓ para navegar, Enter para selecionar)
+3. O sistema substitui automaticamente as variáveis antes de enviar
+
+## Variáveis disponíveis
+• \`{{nome}}\` — Nome do contato do lead
+• \`{{empresa}}\` — Nome da empresa do lead
+• \`{{telefone}}\` — Telefone do lead
+• \`{{usuario}}\` — Seu nome (atendente logado)
+• \`{{minha_empresa}}\` — Nome da sua empresa
+[TIP]
+Crie templates para respostas frequentes: apresentação, proposta, follow-up manual, confirmação de reunião. Salve em Configuração → Templates.
+[/TIP]`,
       },
       {
-        question: 'Como agendar mensagens e usar Tags?',
+        question: 'Tags e agendamento de mensagens',
         answer:
-          '**Agendar mensagens:**\n1. Clique no ícone de calendário no header do chat\n2. Selecione data, hora e mensagem\n3. Gerencie agendamentos na aba **Agenda** do painel lateral\n\n**Tags:**\n• Acesse a aba **Tags** no painel lateral\n• Adicione, remova ou crie tags com cores customizadas\n• As tags aparecem na lista de conversas para identificação visual rápida',
+`## Tags
+Acesse a aba **Tags** na ficha do lead (painel direito):
+• Crie tags com nome e cor personalizada
+• Aplique múltiplas tags por conversa
+• As tags aparecem como badges coloridos na lista de conversas
+
+## Agendar mensagens
+1. Clique no ícone de calendário (📅) no header do chat
+2. Defina data, hora e conteúdo da mensagem
+3. Confirme — a mensagem é enviada automaticamente no horário definido
+
+Gerencie, edite e cancele agendamentos futuros na aba **Agenda** da ficha do lead.`,
+      },
+    ],
+  },
+  {
+    id: 'sdr',
+    title: 'Agente SDR',
+    icon: Bot,
+    description: 'Persona, base de conhecimento e integração com calendário',
+    items: [
+      {
+        question: 'Visão geral: 4 abas de configuração',
+        answer:
+`Acesse **Automações → Agente SDR** no menu lateral. A configuração tem 4 abas:
+
+• **Geral** — Tipo de agente (SDR/Suporte), modo de atendimento, ativar ou desativar o agente
+• **Identidade** — Nome do agente, tom de voz, empresa representada, produto, restrições e horário de atendimento
+• **Conhecimento** — Base de conhecimento e base de objeções (3 formas de criar cada uma)
+• **Integrações** — Google Calendar para agendamento automático de reuniões diretamente pelo agente`,
+      },
+      {
+        question: 'Configurar identidade e persona',
+        answer:
+`Na aba **Identidade**, configure como o agente se apresenta e se comporta:
+
+• **Nome** — Como o agente se identifica na conversa (ex: "Ana", "Carlos")
+• **Tom de voz** — Formal, informal, consultivo, direto
+• **Empresa** — Nome e descrição resumida da empresa
+• **Produto/Serviço** — O que está sendo vendido ou suportado
+• **Restrições** — O que o agente NÃO deve fazer ou mencionar
+• **Horário de atendimento** — Janela horária para respostas automáticas (fora do horário, o agente não responde)
+[TIP]
+Seja específico nas restrições. Exemplos que funcionam bem: "Não ofereça desconto sem aprovação do gestor", "Não mencione concorrentes", "Nunca prometa prazo de entrega".
+[/TIP]`,
+      },
+      {
+        question: 'Base de conhecimento e objeções',
+        answer:
+`Na aba **Conhecimento**, configure duas bases separadas:
+
+## Base de Conhecimento
+Como o agente aprende sobre seu produto. 3 formas de criar:
+• **Template por nicho** — Escolha o nicho e preencha as variáveis (produto, preço, link de proposta)
+• **Formulário livre** — Adicione pares de pergunta e resposta manualmente
+• **Upload de PDF** — Faça upload de um documento; o sistema processa via OCR e RAG automaticamente
+
+## Base de Objeções
+Respostas treinadas para objeções comuns ("é caro", "preciso pensar", "já tenho outra solução"). Mesma estrutura da base de conhecimento.
+[AVISO]
+Ao trocar o tipo de base, o conteúdo existente é substituído. O sistema exibe uma confirmação antes de prosseguir com a troca.
+[/AVISO]`,
+      },
+      {
+        question: 'Conectar o WhatsApp',
+        answer:
+`Se o WhatsApp não estiver conectado, a tela de Atendimento exibe automaticamente o fluxo de conexão:
+
+1. Abra o **WhatsApp** no celular
+2. Toque em **Mais opções** (⋮) → **Aparelhos conectados**
+3. Toque em **Conectar um aparelho**
+4. Aponte a câmera para o QR Code exibido na tela do sistema
+
+Após escanear, o webhook é configurado automaticamente. Nenhuma configuração manual adicional é necessária.
+[INFO]
+O QR Code expira em 60 segundos. Se expirar antes de escanear, clique em **Atualizar** para gerar um novo. O celular precisa estar com internet ativa.
+[/INFO]`,
+      },
+    ],
+  },
+  {
+    id: 'follow',
+    title: 'Follow-up',
+    icon: Clock,
+    description: 'Sequências automáticas de mensagens com gatilhos por estágio',
+    items: [
+      {
+        question: 'O que é o Follow-up automático',
+        answer:
+`O Follow-up é um sistema de sequências automáticas de mensagens enviadas no WhatsApp em intervalos programados, sem intervenção manual.
+
+## Casos de uso típicos
+• **Nurturing** — Mensagens educativas ao longo de dias ou semanas
+• **Recuperação** — Reengajar leads que não responderam ao SDR
+• **Anti-noshow** — Lembretes automáticos 24h, 2h e 15min antes de reuniões
+• **Remarketing** — Re-engajar leads inativos no estágio "Remarketing"
+• **Pós-venda** — Acompanhamento e onboarding após fechamento
+
+## Como funciona
+1. Você cria uma **sequência** com nome e tipo
+2. Adiciona **etapas** com mensagem, intervalo e condições opcionais
+3. A sequência é disparada quando o lead atinge o estágio configurado
+[INFO]
+As sequências podem pausar ou reativar o Agente SDR automaticamente por etapa — ideal para alternância entre automação e atendimento humano.
+[/INFO]`,
+      },
+      {
+        question: 'Criar e configurar uma sequência',
+        answer:
+`Acesse **Automações → Follow-up** no menu lateral.
+
+1. Clique em **+ Nova Sequência**
+2. Defina o **nome** e o **tipo** (follow, remarketing, anti-noshow, trial_saas)
+3. Salve e clique na sequência para abrir o editor de etapas
+4. Clique em **+ Adicionar Etapa** para cada passo da sequência
+
+## Configuração de cada etapa
+Cada etapa define:
+• **Mensagem** — Texto a ser enviado (suporta quebras de linha)
+• **Intervalo** — Tempo após a etapa anterior (minutos, horas ou dias)
+• **Condição de estágio** — Estágio do lead que ativa esta etapa (opcional)
+• **Gatilho imediato** — Dispara a etapa sem aguardar o intervalo quando a condição é atingida
+• **Agente SDR** — Define se o agente é pausado (false) ou reativado (true) ao enviar esta etapa`,
+      },
+      {
+        question: 'Gatilhos, condições e controle do SDR',
+        answer:
+`## Condição de estágio
+Uma etapa com condição de estágio é disparada quando o lead muda para aquele estágio no CRM ou via SDR. Sem condição, a etapa respeita apenas o intervalo após a anterior.
+[TIP]
+Combine condição de estágio com **Gatilho imediato** para enviar mensagens instantaneamente ao mudar de estágio, sem aguardar o intervalo definido.
+[/TIP]
+
+## Controle do Agente SDR por etapa
+• **Agente SDR = desativado** — Pausa o agente ao enviar esta etapa (para mensagens que não devem gerar resposta automática)
+• **Agente SDR = ativado** — Reativa o agente após enviar, retomando o atendimento automático
+
+## Teste de sequência
+Use o **Modo de Teste** em Configuração → Trial SaaS para simular disparos sem criar registros reais ou impactar leads existentes.`,
+      },
+    ],
+  },
+  {
+    id: 'trial',
+    title: 'Trial SaaS',
+    icon: Sparkles,
+    description: 'Gestão do ciclo de vida de trials com automações e métricas',
+    items: [
+      {
+        question: 'O que é o Trial SaaS',
+        answer:
+`O Trial SaaS é um módulo de gestão automática do ciclo de vida de períodos de avaliação gratuita, integrado ao WhatsApp.
+
+Ideal para produtos SaaS ou qualquer negócio que ofereça trial. O sistema:
+• Registra cada lead que inicia um trial com data e duração
+• Envia mensagens automáticas por sequências vinculadas ao trial
+• Acompanha o status: \`trial_ativo\` → \`convertido\` ou \`expirado\`
+• Exibe alertas de expiração (≤7 dias) no painel de Métricas → Trial SaaS
+
+O painel de Métricas mostra taxa de conversão, tempo médio de conversão e progresso de cada trial.`,
+      },
+      {
+        question: 'Configurar o Trial',
+        answer:
+`Acesse **Automações → Trial SaaS** no menu lateral.
+[ADMIN]
+Apenas administradores podem configurar a duração e a sequência do Trial SaaS.
+[/ADMIN]
+
+## Configurações disponíveis
+• **Duração do trial** — Número de dias do período de avaliação
+• **Sequência ativa** — Selecione a sequência follow-up do tipo \`trial_saas\`
+• **Número de teste** — Telefone para simular o fluxo sem criar registros reais
+
+## Como um trial é iniciado
+O trial começa quando o SDR ou uma etapa de follow-up identifica o lead como trial ativo. O sistema registra automaticamente: nome, telefone, data de início, duração e status inicial \`trial_ativo\`.`,
+      },
+      {
+        question: 'Modo de teste',
+        answer:
+`O modo de teste permite validar todo o fluxo do trial sem afetar leads reais.
+
+1. Em **Trial SaaS → Configurações**, ative o **Modo de teste**
+2. Configure um **Número de teste** (use seu próprio WhatsApp)
+3. Use o botão **Testar** para simular o disparo de cada etapa da sequência configurada
+[TIP]
+No modo de teste, o Agente SDR também é pausado e reativado conforme as etapas — você testa o fluxo completo incluindo o comportamento do agente.
+[/TIP]
+[AVISO]
+Desative o modo de teste antes de liberar para leads reais. Com o modo ativo, nenhuma sequência de trial é disparada para leads normais.
+[/AVISO]`,
+      },
+    ],
+  },
+  {
+    id: 'metricas',
+    title: 'Métricas',
+    icon: BarChart2,
+    description: 'Analytics completo de follow-up, trial, sequências e insights',
+    items: [
+      {
+        question: 'Visão Geral e KPIs',
+        answer:
+`Acesse **Automações → Métricas** para o painel analytics de automações.
+
+## KPIs com delta vs período anterior
+• **Execuções** — Total de mensagens enviadas pelas sequências
+• **Taxa de resposta** — % de leads que responderam a ao menos uma mensagem
+• **Leads impactados** — Leads únicos que receberam mensagens no período
+• **Em trial ativo** — Leads em período de avaliação agora
+
+## Funil de conversão
+Visualização horizontal em 4 etapas:
+1. Total de leads na base
+2. Engajados (responderam ao menos uma mensagem)
+3. Em trial ativo
+4. Convertidos (status \`convertido\`)
+[TIP]
+Use os filtros de período para comparar semanas ou meses. Os chips de delta mostram a variação vs o período anterior equivalente.
+[/TIP]`,
+      },
+      {
+        question: 'As 5 abas de análise',
+        answer:
+`## Visão Geral
+KPIs, funil de conversão, gráfico por dia (execuções × respostas) e gráfico por tipo de sequência.
+
+## Trial SaaS
+Tabela de leads em trial com progresso em dias, status e valor. Alertas vermelhos para trials que expiram em ≤7 dias. Taxa de conversão e tempo médio de conversão do período.
+
+## Sequências
+Ranking de performance por sequência:
+• Total de execuções, leads únicos impactados e taxa de resposta
+• Ordenação por taxa de resposta decrescente
+
+## Insights
+• **Heatmap de respostas** — Mapa de calor hora × dia da semana mostrando quando os leads mais respondem
+• **Leads frios** — Leads com 3+ tentativas e zero respostas (candidatos a revisão manual ou descarte)
+
+## Execuções
+Histórico completo de mensagens enviadas com busca por nome/telefone e paginação de 10 por página.`,
+      },
+      {
+        question: 'Exportar dados e auto-refresh',
+        answer:
+`## Exportar CSV
+Cada aba tem um botão **Exportar CSV** que baixa os dados filtrados no formato compatível com Excel e Google Sheets.
+
+## Auto-refresh
+Ative o botão de **Atualização automática** no canto superior direito. Quando ativo, o painel recarrega os dados a cada 5 minutos automaticamente — ideal para deixar aberto em um monitor de acompanhamento.
+
+O indicador mostra quando a última atualização ocorreu e uma barra de progresso do próximo ciclo.`,
       },
     ],
   },
@@ -112,40 +574,59 @@ const sections: HelpSection[] = [
     id: 'membros',
     title: 'Membros',
     icon: UserPlus,
-    description: 'Gerenciar equipe, funções e permissões',
+    description: 'Equipe, funções, permissões e limites por plano',
     items: [
       {
-        question: 'Como adicionar membros à equipe?',
+        question: 'Funções e permissões',
         answer:
-          'Apenas administradores podem adicionar membros.\n\n1. Acesse **Membros** no menu lateral\n2. Clique em **+ Novo Membro**\n3. Preencha nome e e-mail\n4. Defina a função\n5. Clique em **Enviar Convite**\n\nO membro recebe um e-mail com instruções para criar senha e acessar o sistema.\n\n**Limites por plano:**\n• Starter — até 3 atendentes\n• Pro — até 10 atendentes\n• Scale — ilimitado',
+`O sistema tem 4 níveis de acesso:
+
+## SDR
+Acesso ao Atendimento (chat) e às conversas atribuídas. Sem acesso ao CRM completo ou Automações.
+
+## Closer
+CRM completo e Atendimento. Sem acesso a Automações, Métricas e Membros.
+
+## SDR + Closer
+Atendimento e CRM. Sem Automações, Métricas e Membros.
+
+## Administrador
+Acesso total: CRM, Atendimento, Automações, Métricas, Membros, Configurações e painel Admin.
+[ADMIN]
+Apenas administradores podem adicionar ou remover membros, configurar o WhatsApp, alterar planos e acessar dados de faturamento.
+[/ADMIN]`,
       },
       {
-        question: 'Quais são os níveis de permissão?',
+        question: 'Convidar e gerenciar membros',
         answer:
-          '**Vendedor** — CRM, seus leads, chat de atendimento, movimentação no funil.\n\n**Gerente** — Tudo do Vendedor + vê leads de toda equipe, relatórios completos, atribuição entre vendedores, tabs "Todas" no atendimento.\n\n**Administrador** — Acesso total. Gerencia membros, configura WhatsApp e SDR, acessa painel Admin, configura planos.',
+`Acesse **Membros** no menu lateral.
+
+1. Clique em **+ Novo Membro**
+2. Informe o nome e o e-mail do membro
+3. Selecione a função (SDR, Closer, SDR+Closer ou Administrador)
+4. Clique em **Enviar Convite**
+
+O membro recebe um e-mail com link para criar senha e acessar o sistema. O convite expira em 48 horas.
+
+## Remover um membro
+Clique no ícone de lixeira ao lado do membro e confirme. O acesso é revogado imediatamente.
+[TIP]
+Se o membro não acessar no prazo de 48 horas, reenvie o convite clicando em **Reenviar** na lista de membros.
+[/TIP]`,
       },
       {
-        question: 'Como atribuir conversas para membros?',
+        question: 'Limites por plano',
         answer:
-          'No Atendimento, clique em **Atribuir** no header do chat, selecione o membro (veja quantos chats ativos cada um tem) e confirme.\n\nPara transferir, clique em **Transferir** e selecione o novo responsável.\n\nNo modo vendas, a atribuição é automática via round-robin — o sistema escolhe o atendente com menos conversas abertas.',
-      },
-    ],
-  },
-  {
-    id: 'kanban',
-    title: 'Kanban',
-    icon: Columns3,
-    description: 'Visualização em quadros do funil de vendas',
-    items: [
-      {
-        question: 'Como usar o Kanban?',
-        answer:
-          'O Kanban mostra leads em colunas por estágio.\n\n**Cada coluna mostra:**\n• Nome do estágio, contador de leads e valor total em R$\n\n**Cada card mostra:**\n• Empresa, contato, tags, prioridade, interesse, segmento, telefone e valor\n\n**Mover um lead:**\n• Clique, segure e arraste para a nova coluna — salva automaticamente\n\n**No celular:**\n• Use o seletor de status no card (não tem drag & drop no mobile)',
-      },
-      {
-        question: 'O que é a coluna Triagem e por que ela existe?',
-        answer:
-          'A **Triagem** é a porta de entrada dos leads captados pelo Orbit.\n\nO objetivo é separar os leads antes de iniciar qualquer prospecção — você avalia quais se encaixam no seu ICP e quais não valem o esforço.\n\n**Fluxo:** Triagem → aprovado no ICP → Outbound (prospecção inicia) → Em contato → … → Fechado',
+`Cada plano define a capacidade máxima de atendentes e números WhatsApp:
+
+• **Starter** — Até 3 atendentes, 1 número WhatsApp
+• **Pro** — Até 10 atendentes, 1 número WhatsApp
+• **Scale** — Atendentes ilimitados, até 10 números WhatsApp (R$ 97/número adicional)
+[INFO]
+"Atendentes" são membros com função SDR, Closer ou SDR+Closer. Administradores não entram no limite do plano.
+[/INFO]
+
+Para verificar o número de atendentes ativos e o limite do seu plano, acesse **Configuração → Plano**.`,
       },
     ],
   },
@@ -153,152 +634,451 @@ const sections: HelpSection[] = [
     id: 'briefing',
     title: 'Briefing',
     icon: FileText,
-    description: 'Formulário público personalizado da sua empresa',
+    description: 'Formulário público personalizado com sua marca',
     items: [
       {
-        question: 'O que é o Briefing?',
+        question: 'O que é o Briefing',
         answer:
-          'O Briefing é um **formulário público personalizado** com URL única da sua empresa.\n\n• URL no formato `nexioai.online/briefing/sua-empresa`\n• Branding com sua logo e cor primária\n• Perguntas totalmente customizáveis\n• Download de respostas em PDF\n• Acessível sem login por qualquer pessoa com o link',
+`O Briefing é um formulário público com URL única da sua empresa, completamente personalizado com seu branding.
+
+• **URL pública** no formato: \`nexioai.online/briefing/seu-slug\`
+• Logo, cor primária, título e subtítulo personalizados
+• Perguntas customizáveis: texto livre, seleção única, múltipla escolha ou checkbox
+• Respostas acessíveis no painel com download em PDF
+• Acessível sem login — qualquer pessoa com o link pode responder
+[TIP]
+Use o Briefing como formulário de onboarding de novos clientes, briefing criativo ou pesquisa de satisfação. Compartilhe o link na proposta, bio do Instagram ou assinatura de e-mail.
+[/TIP]`,
       },
       {
-        question: 'Como configurar e compartilhar o Briefing?',
+        question: 'Configurar, personalizar e compartilhar',
         answer:
-          'Acesse **Briefing** no menu lateral.\n\n**3 abas:**\n• **Respostas** — Lista de respostas com opção de ver detalhes ou baixar PDF\n• **Formulário** — Adicione/edite perguntas (texto, seleção, múltipla escolha, checkbox)\n• **Configurações** — Slug, tema, cor primária, logo\n\n**Compartilhar:**\nCopie a URL no topo da página e envie por WhatsApp, e-mail ou proposta comercial.',
-      },
-    ],
-  },
-  {
-    id: 'sdr',
-    title: 'Configuração SDR',
-    icon: Bot,
-    description: 'Configurar o agente, persona e base de conhecimento',
-    items: [
-      {
-        question: 'Como configurar o agente SDR?',
-        answer:
-          'Acesse **Configuração → SDR** no menu lateral. A configuração tem 4 abas:\n\n• **Geral** — Tipo de agente, modo de atendimento (suporte/vendas), ativar/desativar agente\n• **Identidade** — Persona: nome do agente, tom, empresa, produto, restrições, horário\n• **Conhecimento** — Base de conhecimento (template, formulário ou PDF) e base de objeções\n• **Integrações** — Google Calendar para agendamentos automáticos',
-      },
-      {
-        question: 'Como adicionar base de conhecimento?',
-        answer:
-          'Na aba **Conhecimento**, você tem 3 formas de criar a base:\n\n• **Template por nicho** — Escolha seu nicho e preencha as variáveis (produto, preço, link, etc.)\n• **Formulário livre** — Adicione perguntas e respostas manualmente\n• **PDF** — Faça upload de um documento e o sistema processa automaticamente\n\nAo trocar de base, o sistema pede confirmação antes de substituir o conteúdo existente.\n\nA mesma lógica vale para a **Base de Objeções**.',
-      },
-      {
-        question: 'Como conectar o WhatsApp?',
-        answer:
-          'Acesse **Atendimento** no menu lateral. Se o WhatsApp não estiver conectado, a tela de conexão aparece automaticamente.\n\n1. Abra o WhatsApp no celular\n2. Toque em **Mais opções → Aparelhos conectados**\n3. Toque em **Conectar um aparelho**\n4. Aponte o celular para o QR Code na tela\n\nApós conectar, o webhook é configurado automaticamente — nenhuma configuração manual necessária.',
+`Acesse **Briefing** no menu lateral. O painel tem 3 abas:
+
+## Respostas
+Lista de todas as respostas recebidas com data de envio, visualização detalhada e download em PDF.
+
+## Formulário
+Edite as perguntas do formulário:
+1. Clique em **+ Adicionar pergunta**
+2. Escolha o tipo: texto, seleção única, múltipla escolha ou checkbox
+3. Digite a pergunta e as opções (se aplicável)
+4. Reordene arrastando
+
+## Configurações
+• **Slug** — Parte final da URL (ex: "minha-empresa")
+• **Título e subtítulo** — Texto exibido no topo do formulário público
+• **Logo** — Upload da logo da empresa
+• **Cor primária** — Cor do botão e destaques visuais
+
+Copie a URL exibida no topo da página para compartilhar com clientes.`,
       },
     ],
   },
   {
     id: 'planos',
-    title: 'Planos',
-    icon: Sparkles,
-    description: 'Planos disponíveis e limites de cada um',
+    title: 'Planos & Preços',
+    icon: CreditCard,
+    description: 'Planos disponíveis, tokens de IA e como assinar',
     items: [
       {
-        question: 'Quais são os planos disponíveis?',
+        question: 'Comparação de planos',
         answer:
-          '**Starter — R$ 397/mês**\n• 1 número WhatsApp conectado\n• Agente SDR (atendimento + venda)\n• CRM Kanban completo\n• Até 3 atendentes\n• Follow-up automático\n• Base de conhecimento RAG\n• 5M tokens de IA/mês\n\n**Pro — R$ 597/mês**\n• Tudo do Starter\n• Agente SDR + agendamento Google Calendar\n• Até 10 atendentes\n• Relatórios de desempenho\n• 15M tokens de IA/mês\n\n**Scale — R$ 997/mês**\n• Até 10 números WhatsApp\n• Tudo do Pro\n• Atendentes ilimitados\n• 50M tokens de IA/mês\n• Suporte prioritário\n\n**Número adicional:** R$ 97/mês por número extra',
+`## Starter — R$ 397/mês
+• 1 número WhatsApp conectado
+• Agente SDR completo (SDR + atendimento + vendas)
+• CRM Kanban e Planilha
+• Até 3 atendentes
+• Follow-up automático
+• Base de conhecimento RAG (template, formulário, PDF)
+• 5 milhões de tokens de IA por mês
+
+## Pro — R$ 597/mês
+• Tudo do Starter, mais:
+• Agendamento automático via Google Calendar
+• Trial SaaS completo com métricas avançadas
+• Até 10 atendentes
+• 15 milhões de tokens de IA por mês
+
+## Scale — R$ 997/mês
+• Tudo do Pro, mais:
+• Até 10 números WhatsApp (R$ 97 por número adicional)
+• Atendentes ilimitados
+• 50 milhões de tokens de IA por mês
+• Suporte prioritário`,
       },
       {
-        question: 'Como assinar um plano?',
+        question: 'Como assinar',
         answer:
-          'Acesse **Configuração → Plano** no menu lateral.\n\n1. Escolha o plano desejado\n2. Informe o CPF ou CNPJ da empresa (necessário para emissão de cobrança)\n3. Clique em **Escolher plano**\n4. Você será redirecionado para a página de pagamento do Asaas (PIX, boleto ou cartão)\n\nApós o pagamento confirmado, o plano é ativado automaticamente.',
+`Acesse **Configuração → Plano** no menu lateral.
+
+1. Escolha o plano desejado
+2. Informe o CPF ou CNPJ da empresa (obrigatório para emissão da cobrança)
+3. Clique em **Escolher plano**
+4. Você é redirecionado para o Asaas para pagamento via PIX, boleto ou cartão de crédito
+
+O plano é ativado automaticamente após a confirmação do pagamento.
+[TIP]
+PIX é confirmado em minutos. Boleto leva até 3 dias úteis para compensar. Para ativação imediata, prefira PIX.
+[/TIP]
+
+Para cancelar, entre em contato em **contato@nexioai.online**. O acesso permanece ativo até o fim do período já pago.`,
+      },
+      {
+        question: 'Tokens de IA: consumo e recargas',
+        answer:
+`Tokens são a unidade de consumo do Agente IA. Cada resposta gerada consome tokens proporcionais ao tamanho da mensagem e do contexto da conversa.
+
+## Estimativas de consumo
+• Conversa curta (5 mensagens) ≈ 1.000 tokens
+• Conversa média (15 mensagens) ≈ 4.000 tokens
+• Conversa longa (30 mensagens) ≈ 10.000 tokens
+• 5M tokens ≈ 500–1.000 conversas completas
+
+## Recarregar tokens
+Quando o saldo fica abaixo do limite, um aviso aparece no topo do sistema. Clique em **Recarregar tokens** para adicionar crédito sem aguardar a renovação mensal.
+[INFO]
+Tokens não utilizados no mês não acumulam para o mês seguinte. O saldo é renovado automaticamente na data de renovação do plano.
+[/INFO]`,
       },
     ],
   },
   {
     id: 'faq',
-    title: 'Dúvidas Frequentes',
+    title: 'FAQ',
     icon: HelpCircle,
     description: 'Problemas comuns e como resolver',
     items: [
       {
-        question: 'O sistema está lento, o que fazer?',
+        question: 'WhatsApp não conecta ou desconecta',
         answer:
-          '• **Primeiro acesso do dia** — Pode demorar alguns segundos enquanto o servidor inicializa\n• **CRM com muitos leads** — Use os filtros para encontrar leads específicos\n• **Conexão lenta** — O sistema precisa de conexão estável\n• **Limpar cache** — Pressione Ctrl+Shift+R para forçar atualização',
+`## QR Code não funciona
+• Verifique se o celular tem conexão com a internet durante o escaneamento
+• Feche e reabra o WhatsApp antes de escanear
+• O QR expira em 60 segundos — clique em **Atualizar** se expirar
+• Confirme que o número não está conectado a outro serviço ou dispositivo simultaneamente
+
+## WhatsApp desconecta sozinho
+• Acontece quando o celular fica sem internet por tempo prolongado
+• Reconecte pelo mesmo fluxo de QR Code
+• O webhook é reconfigurado automaticamente após reconexão — não é necessário configurar novamente`,
       },
       {
-        question: 'Não estou recebendo mensagens do WhatsApp no chat',
+        question: 'Agente IA não responde',
         answer:
-          'Verifique:\n\n1. WhatsApp está conectado? (tela de Atendimento mostra "Conectado" no topo)\n2. O Agente IA está ativo? (toggle no topo da lista de conversas)\n3. A conversa não está com "Agente pausado"?\n\nSe tudo estiver correto, desconecte e reconecte o WhatsApp. O webhook é reconfigurado automaticamente.',
+`Verifique a sequência de itens abaixo em ordem:
+
+1. O toggle **global** do Agente IA está ativo? (ícone no topo da lista de conversas)
+2. O toggle **da conversa** está em "Agente ativo"? (header do chat individual)
+3. O WhatsApp está **conectado**? (status visível no topo do Atendimento)
+4. A mensagem chegou dentro do **horário de atendimento** configurado em SDR → Identidade?
+5. A base de conhecimento está **preenchida**? (SDR → Conhecimento)
+6. O token de IA está com **saldo disponível**? (indicador no topo do sistema)
+[TIP]
+Se todos os itens estiverem corretos e o agente ainda não responder, acesse Admin → Monitor de Bugs para verificar erros de processamento recentes.
+[/TIP]`,
       },
       {
-        question: 'Como alterar os dados da minha empresa?',
+        question: 'Mensagens não aparecem no chat',
         answer:
-          'Apenas administradores podem alterar dados da empresa.\n\nAcesse **Configuração → Perfil** no menu lateral, edite os campos e salve.',
+`## Mensagens não chegam
+• Verifique se o WhatsApp está conectado (status no topo do Atendimento)
+• Tente **Ctrl+Shift+R** para forçar o recarregamento completo da página
+• Verifique se a conversa está na tab correta: Minhas / Livres / Todas
+
+## Conversa sumiu
+• A conversa pode ter mudado de tab — verifique em "Todas"
+• Busque pelo nome ou número do contato na barra de busca da lista de conversas
+• Se foi atribuída a outro atendente, aparece em "Todas" mas não em "Minhas"`,
       },
       {
-        question: 'Perdi minha senha, como recuperar?',
+        question: 'Performance lenta',
         answer:
-          'Na tela de login:\n\n1. Clique em **Esqueci minha senha**\n2. Digite seu e-mail cadastrado\n3. Verifique a caixa de entrada (e spam)\n4. Clique no link de recuperação — expira em 24 horas',
+`• **Primeiro acesso do dia** — O servidor pode levar alguns segundos para inicializar. Aguarde e recarregue a página
+• **CRM com muitos leads** — Use filtros para reduzir o conjunto exibido; evite carregar todos os leads sem filtro
+• **Conexão instável** — O sistema precisa de conexão estável para atualização em tempo real
+• **Limpar cache** — Ctrl+Shift+R no Windows/Linux ou Cmd+Shift+R no Mac`,
+      },
+      {
+        question: 'Recuperar senha e alterar dados',
+        answer:
+`## Recuperar senha
+1. Na tela de login, clique em **Esqueci minha senha**
+2. Digite o e-mail cadastrado
+3. Verifique a caixa de entrada (e a pasta de spam)
+4. Clique no link de recuperação — ele expira em 24 horas
+
+## Alterar nome ou e-mail
+Acesse **Configuração → Perfil** e edite os dados desejados.
+
+## Alterar dados da empresa (logo, nome, e-mail)
+[ADMIN]
+Alterar dados da empresa requer permissão de Administrador. Acesse Configuração → Perfil da Empresa.
+[/ADMIN]`,
       },
     ],
   },
 ];
 
-// ── FormatText ─────────────────────────────────────────────────────────────
+// ── Content parsing ────────────────────────────────────────────────────────────
 
-function FormatText({ text }: { text: string }) {
-  const elements = useMemo(() => {
-    const lines = text.split('\n');
+type Segment =
+  | { kind: 'lines'; content: string[] }
+  | { kind: 'callout'; type: 'TIP' | 'AVISO' | 'INFO' | 'ADMIN'; content: string[] };
+
+function parseContent(text: string): Segment[] {
+  const lines = text.split('\n');
+  const segments: Segment[] = [];
+  let inCallout: string | null = null;
+  let buffer: string[] = [];
+
+  for (const line of lines) {
+    const open = line.trim().match(/^\[(TIP|AVISO|INFO|ADMIN)\]$/);
+    const close = line.trim().match(/^\[\/(TIP|AVISO|INFO|ADMIN)\]$/);
+
+    if (open && !inCallout) {
+      if (buffer.length) segments.push({ kind: 'lines', content: buffer });
+      buffer = [];
+      inCallout = open[1];
+    } else if (close && inCallout === close[1]) {
+      segments.push({ kind: 'callout', type: inCallout as any, content: buffer });
+      buffer = [];
+      inCallout = null;
+    } else {
+      buffer.push(line);
+    }
+  }
+
+  if (buffer.length) segments.push({ kind: 'lines', content: buffer });
+  return segments;
+}
+
+function renderInline(str: string, highlight?: string): React.ReactNode[] {
+  const parts = str.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+  return parts.map((part, j) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={j} className="inline-flex items-center font-mono text-[12px] bg-muted border border-border/60 rounded px-1.5 py-0.5 text-foreground">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={j} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>;
+    }
+    if (highlight && part.toLowerCase().includes(highlight.toLowerCase())) {
+      const idx = part.toLowerCase().indexOf(highlight.toLowerCase());
+      return (
+        <span key={j}>
+          {part.slice(0, idx)}
+          <mark className="bg-primary/20 text-foreground rounded px-0.5">{part.slice(idx, idx + highlight.length)}</mark>
+          {part.slice(idx + highlight.length)}
+        </span>
+      );
+    }
+    return <span key={j}>{part}</span>;
+  });
+}
+
+// ── Callout component ─────────────────────────────────────────────────────────
+
+const CALLOUT_CONFIG = {
+  TIP:   { icon: Lightbulb,      label: 'Dica',       classes: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' },
+  AVISO: { icon: AlertTriangle,  label: 'Atenção',    classes: 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400' },
+  INFO:  { icon: Info,           label: 'Info',       classes: 'border-blue-500/30 bg-blue-500/5 text-blue-600 dark:text-blue-400' },
+  ADMIN: { icon: ShieldCheck,    label: 'Admin',      classes: 'border-purple-500/30 bg-purple-500/5 text-purple-600 dark:text-purple-400' },
+};
+
+function Callout({ type, lines }: { type: keyof typeof CALLOUT_CONFIG; lines: string[] }) {
+  const { icon: Icon, label, classes } = CALLOUT_CONFIG[type];
+  return (
+    <div className={cn('my-4 flex gap-3 rounded-xl border px-4 py-3', classes)}>
+      <Icon className="h-4 w-4 flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <span className="text-[11px] font-bold uppercase tracking-wider opacity-70">{label}</span>
+        <div className="mt-0.5 text-sm leading-relaxed text-foreground">
+          {lines.filter(l => l.trim()).map((l, i) => (
+            <p key={i} className="mt-0.5">{renderInline(l.trim())}</p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FormatText ─────────────────────────────────────────────────────────────────
+
+function FormatText({ text, highlight }: { text: string; highlight?: string }) {
+  const segments = useMemo(() => parseContent(text), [text]);
+
+  const renderLines = (lines: string[]) => {
     const result: React.ReactNode[] = [];
+    let stepCount = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
-      if (!trimmed) { result.push(<div key={i} className="h-2" />); continue; }
 
-      const renderInline = (str: string) =>
-        str.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
-          part.startsWith('**') && part.endsWith('**')
-            ? <strong key={j} className="text-foreground font-semibold">{part.slice(2, -2)}</strong>
-            : <span key={j}>{part}</span>
+      if (!trimmed) {
+        stepCount = 0;
+        result.push(<div key={`sp-${i}`} className="h-2" />);
+        continue;
+      }
+
+      // H2
+      if (trimmed.startsWith('## ')) {
+        stepCount = 0;
+        result.push(
+          <h2 key={i} className="text-base font-semibold text-foreground mt-6 mb-2 first:mt-0">
+            {renderInline(trimmed.slice(3), highlight)}
+          </h2>
         );
+        continue;
+      }
 
+      // H3
+      if (trimmed.startsWith('### ')) {
+        result.push(
+          <h3 key={i} className="text-sm font-medium text-foreground mt-4 mb-1.5">
+            {renderInline(trimmed.slice(4), highlight)}
+          </h3>
+        );
+        continue;
+      }
+
+      // Numbered step
       const numMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
       if (numMatch) {
+        stepCount++;
         result.push(
-          <div key={i} className="flex gap-3 mt-1.5 ml-1">
-            <span className="text-primary/70 font-mono text-xs mt-0.5 min-w-[16px]">{numMatch[1]}.</span>
-            <span className="text-muted-foreground text-sm">{renderInline(numMatch[2])}</span>
+          <div key={i} className="flex gap-3 mt-3 ml-0.5">
+            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center mt-0.5">
+              <span className="text-[10px] font-bold text-primary">{numMatch[1]}</span>
+            </div>
+            <span className="text-muted-foreground text-sm leading-relaxed">{renderInline(numMatch[2], highlight)}</span>
           </div>
         );
         continue;
       }
-      if (trimmed.startsWith('•')) {
+
+      // Bullet
+      if (trimmed.startsWith('• ')) {
+        stepCount = 0;
         const indent = line.search(/\S/);
         result.push(
-          <div key={i} className={cn('flex gap-2.5 mt-1.5', indent > 2 ? 'ml-7' : 'ml-1')}>
-            <span className="text-primary/50 mt-1.5 text-[6px]">●</span>
-            <span className="text-muted-foreground text-sm">{renderInline(trimmed.slice(1).trim())}</span>
+          <div key={i} className={cn('flex gap-2.5 mt-1.5', indent > 2 ? 'ml-6' : 'ml-0.5')}>
+            <span className="w-1 h-1 rounded-full bg-primary/40 flex-shrink-0 mt-2" />
+            <span className="text-muted-foreground text-sm leading-relaxed">{renderInline(trimmed.slice(2), highlight)}</span>
           </div>
         );
         continue;
       }
+
+      // Sub-bullet (- )
       if (/^\s*-\s/.test(line)) {
         result.push(
-          <div key={i} className="flex gap-2.5 ml-7 mt-0.5">
-            <span className="text-muted-foreground/50">–</span>
-            <span className="text-muted-foreground text-sm">{renderInline(trimmed.slice(1).trim())}</span>
+          <div key={i} className="flex gap-2.5 ml-6 mt-1">
+            <span className="text-muted-foreground/50 text-xs">–</span>
+            <span className="text-muted-foreground text-sm">{renderInline(trimmed.slice(1).trim(), highlight)}</span>
           </div>
         );
         continue;
       }
+
+      // Regular paragraph
+      stepCount = 0;
       result.push(
-        <p key={i} className="text-muted-foreground text-sm mt-1.5 leading-relaxed">
-          {renderInline(trimmed)}
+        <p key={i} className="text-muted-foreground text-sm leading-relaxed mt-1.5">
+          {renderInline(trimmed, highlight)}
         </p>
       );
     }
     return result;
-  }, [text]);
+  };
 
-  return <>{elements}</>;
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.kind === 'callout'
+          ? <Callout key={i} type={seg.type} lines={seg.content} />
+          : <div key={i}>{renderLines(seg.content)}</div>
+      )}
+    </>
+  );
 }
 
-// ── AiChat ─────────────────────────────────────────────────────────────────
+// ── Search ────────────────────────────────────────────────────────────────────
+
+interface SearchResult {
+  sectionId: string;
+  sectionTitle: string;
+  sectionIcon: LucideIcon;
+  question: string;
+  snippet: string;
+}
+
+function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sectionId: string) => void }) {
+  const results = useMemo<SearchResult[]>(() => {
+    if (query.length < 2) return [];
+    const q = query.toLowerCase();
+    const matches: SearchResult[] = [];
+
+    for (const section of sections) {
+      for (const item of section.items) {
+        if (item.question.toLowerCase().includes(q) || item.answer.toLowerCase().includes(q)) {
+          const answerClean = item.answer.replace(/\[(TIP|AVISO|INFO|ADMIN|\/TIP|\/AVISO|\/INFO|\/ADMIN)\]/g, '').replace(/#{1,3}\s/g, '').replace(/\*\*/g, '').replace(/`/g, '');
+          const idx = answerClean.toLowerCase().indexOf(q);
+          const start = Math.max(0, idx - 30);
+          const snippet = (start > 0 ? '…' : '') + answerClean.slice(start, start + 100).trim() + (answerClean.length > start + 100 ? '…' : '');
+          matches.push({ sectionId: section.id, sectionTitle: section.title, sectionIcon: section.icon, question: item.question, snippet });
+        }
+      }
+    }
+    return matches.slice(0, 12);
+  }, [query]);
+
+  if (query.length < 2) return null;
+
+  return (
+    <div className="mt-3">
+      {results.length === 0 ? (
+        <div className="text-center py-10">
+          <Search className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">Nenhum resultado para "{query}"</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Tente palavras diferentes ou consulte o chat de suporte</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground mb-3">{results.length} resultado{results.length !== 1 && 's'} para "{query}"</p>
+          {results.map((r, i) => {
+            const Icon = r.sectionIcon;
+            return (
+              <button
+                key={i}
+                onClick={() => onNavigate(r.sectionId)}
+                className="w-full text-left group flex items-start gap-3 px-4 py-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-primary/3 transition-all duration-100"
+              >
+                <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-semibold text-primary/70 uppercase tracking-wider">{r.sectionTitle}</span>
+                  </div>
+                  <p className="text-sm font-medium text-foreground truncate">{r.question}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{r.snippet}</p>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary flex-shrink-0 mt-1.5 transition-colors" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AiChat ─────────────────────────────────────────────────────────────────────
 
 function AiChat() {
   const [open, setOpen] = useState(false);
@@ -333,7 +1113,6 @@ function AiChat() {
 
   return (
     <>
-      {/* Floating button */}
       <button
         onClick={() => setOpen(true)}
         className={cn(
@@ -346,10 +1125,8 @@ function AiChat() {
         <Bot className="w-5 h-5" />
       </button>
 
-      {/* Chat panel */}
       {open && (
         <div className="fixed bottom-6 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-xl flex flex-col overflow-hidden" style={{ height: 480 }}>
-          {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-primary/5">
             <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
               <Bot className="w-4 h-4 text-primary" />
@@ -363,7 +1140,6 @@ function AiChat() {
             </button>
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.length === 0 && (
               <div className="text-center py-8">
@@ -394,7 +1170,6 @@ function AiChat() {
             <div ref={endRef} />
           </div>
 
-          {/* Input */}
           <div className="border-t border-border p-3 flex gap-2">
             <input
               value={input}
@@ -418,73 +1193,140 @@ function AiChat() {
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AjudaPage() {
   const [activeId, setActiveId] = useState(sections[0].id);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const activeSection = sections.find((s) => s.id === activeId) || sections[0];
-  const activeIdx = sections.findIndex((s) => s.id === activeId);
+  const activeSection = sections.find(s => s.id === activeId) || sections[0];
+  const activeIdx = sections.findIndex(s => s.id === activeId);
   const ActiveIcon = activeSection.icon;
+
+  const isSearching = searchQuery.length >= 2;
+
+  // CMD+K to focus search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === 'Escape' && searchQuery) setSearchQuery('');
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [searchQuery]);
+
+  const handleNavigate = (sectionId: string) => {
+    setActiveId(sectionId);
+    setSearchQuery('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="flex h-[calc(100vh-80px)] overflow-hidden -m-3 md:-m-6">
 
-      {/* ── Conteúdo principal (scroll aqui) ───────────────────────── */}
+      {/* ── Main content ────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-6 md:px-12 py-8 md:py-12">
 
-          {/* Breadcrumb */}
-          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Docs</span>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-foreground">{activeSection.title}</span>
-          </nav>
-
-          {/* Título */}
-          <div className="mb-10">
-            <div className="flex items-center gap-3 mb-2">
-              <ActiveIcon className="h-5 w-5 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">{activeSection.title}</h1>
+          {/* Search bar */}
+          <div className="relative mb-8">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 pointer-events-none" />
+            <input
+              ref={searchRef}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Pesquisar na documentação…"
+              className="w-full h-11 bg-muted/50 border border-border rounded-xl pl-10 pr-20 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 placeholder:text-muted-foreground/50 transition-all"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <kbd className="hidden sm:flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground/60 font-mono">
+                ⌘K
+              </kbd>
             </div>
-            <p className="text-muted-foreground text-sm ml-8">{activeSection.description}</p>
           </div>
 
-          <Separator className="mb-10" />
+          {/* Search results */}
+          {isSearching ? (
+            <SearchResults query={searchQuery} onNavigate={handleNavigate} />
+          ) : (
+            <>
+              {/* Breadcrumb */}
+              <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Docs</span>
+                <ChevronRight className="h-3 w-3" />
+                <span className="text-foreground font-medium">{activeSection.title}</span>
+              </nav>
 
-          {/* Perguntas e respostas */}
-          <div className="space-y-12">
-            {activeSection.items.map((item, index) => (
-              <article key={index}>
-                <h2 className="text-base font-semibold mb-4 text-foreground">{item.question}</h2>
-                <div className="leading-relaxed">
-                  <FormatText text={item.answer} />
+              {/* Section header */}
+              <div className="mb-10">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 border border-primary/15 mb-4">
+                  <ActiveIcon className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary">{activeSection.title}</span>
                 </div>
-                {index < activeSection.items.length - 1 && <Separator className="mt-12" />}
-              </article>
-            ))}
-          </div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-2">
+                  {activeSection.title}
+                </h1>
+                <p className="text-muted-foreground text-base leading-relaxed">{activeSection.description}</p>
+              </div>
 
-          {/* Navegação entre seções */}
-          <div className="mt-16 pt-8 border-t border-border/30 flex justify-between">
-            {activeIdx > 0 ? (
-              <button onClick={() => setActiveId(sections[activeIdx - 1].id)} className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-                {sections[activeIdx - 1].title}
-              </button>
-            ) : <div />}
-            {activeIdx < sections.length - 1 ? (
-              <button onClick={() => setActiveId(sections[activeIdx + 1].id)} className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                {sections[activeIdx + 1].title}
-                <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-              </button>
-            ) : <div />}
-          </div>
+              <Separator className="mb-10" />
+
+              {/* Items */}
+              <div className="space-y-12">
+                {activeSection.items.map((item, index) => (
+                  <article key={index} id={`item-${index}`}>
+                    <h2 className="text-lg font-semibold text-foreground mb-5">{item.question}</h2>
+                    <div className="leading-relaxed">
+                      <FormatText text={item.answer} />
+                    </div>
+                    {index < activeSection.items.length - 1 && <Separator className="mt-12" />}
+                  </article>
+                ))}
+              </div>
+
+              {/* Prev / Next navigation */}
+              <div className="mt-16 pt-8 border-t border-border/30 flex justify-between">
+                {activeIdx > 0 ? (
+                  <button
+                    onClick={() => { setActiveId(sections[activeIdx - 1].id); window.scrollTo({ top: 0 }); }}
+                    className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                    <div className="text-left">
+                      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Anterior</p>
+                      <p>{sections[activeIdx - 1].title}</p>
+                    </div>
+                  </button>
+                ) : <div />}
+                {activeIdx < sections.length - 1 ? (
+                  <button
+                    onClick={() => { setActiveId(sections[activeIdx + 1].id); window.scrollTo({ top: 0 }); }}
+                    className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors text-right"
+                  >
+                    <div>
+                      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Próximo</p>
+                      <p>{sections[activeIdx + 1].title}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                ) : <div />}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* ── Sidebar direita (fixo — não scrolla) ───────────────────── */}
+      {/* ── Right sidebar (unchanged layout) ─────────────────────────── */}
       <aside className="hidden lg:flex flex-col w-56 flex-shrink-0 border-l border-border/40">
         <div className="flex-1 overflow-y-auto py-8 px-4">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2">
@@ -497,7 +1339,7 @@ export default function AjudaPage() {
               return (
                 <button
                   key={section.id}
-                  onClick={() => setActiveId(section.id)}
+                  onClick={() => handleNavigate(section.id)}
                   className={cn(
                     'w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] rounded-lg transition-colors text-left',
                     isActive
@@ -513,7 +1355,6 @@ export default function AjudaPage() {
           </nav>
         </div>
 
-        {/* Footer fixo */}
         <div className="border-t border-border/40 p-4 space-y-3">
           <p className="text-[11px] text-muted-foreground">
             Precisa de ajuda?{' '}
@@ -524,7 +1365,6 @@ export default function AjudaPage() {
         </div>
       </aside>
 
-      {/* Chat IA flutuante */}
       <AiChat />
     </div>
   );
