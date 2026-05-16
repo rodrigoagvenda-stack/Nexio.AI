@@ -9,8 +9,7 @@ import { Building2, Users, TrendingUp, DollarSign, AlertTriangle, MessageCircle 
 import { formatCurrency } from '@/lib/utils/format';
 import {
   Bar, BarChart, CartesianGrid, XAxis, Tooltip,
-  Area, AreaChart, Line, LineChart,
-  ResponsiveContainer,
+  Area, AreaChart,
 } from 'recharts';
 import { ChartConfig, ChartContainer } from '@/components/ui/chart';
 
@@ -25,7 +24,6 @@ interface DashboardProps {
   inadimplentes: number;
   companiesByPlan: { plan: string; count: number; name: string }[];
   leadsOverTime: { date: string; count: number }[];
-  revenueOverTime: { date: string; mrr: number }[];
   period: string;
   customFrom?: string;
   customTo?: string;
@@ -47,16 +45,15 @@ const TOOLTIP_STYLE = {
   color: 'hsl(var(--popover-foreground))',
 };
 
-const leadsChartConfig   = { count: { label: 'Leads', color: '#15803d' } } satisfies ChartConfig;
-const mrrChartConfig     = { mrr:   { label: 'MRR',   color: '#15803d' } } satisfies ChartConfig;
-const planChartConfig    = { count: { label: 'Empresas', color: '#15803d' } } satisfies ChartConfig;
+const leadsChartConfig = { count: { label: 'Leads',    color: '#15803d' } } satisfies ChartConfig;
+const planChartConfig  = { count: { label: 'Empresas', color: '#15803d' } } satisfies ChartConfig;
 
 export function AdminDashboardContent({
   activeCompanies, totalCompanies,
   activeUsers, totalUsers,
   leadsCount, conversasCount,
   mrr, inadimplentes,
-  companiesByPlan, leadsOverTime, revenueOverTime,
+  companiesByPlan, leadsOverTime,
   period, customFrom, customTo,
 }: DashboardProps) {
   const router = useRouter();
@@ -200,22 +197,6 @@ export function AdminDashboardContent({
                 <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Area type="monotone" dataKey="count" stroke="#15803d" strokeWidth={2} fillOpacity={1} fill="url(#colorLeads)" />
               </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Evolução do MRR</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={mrrChartConfig} className="h-[260px] w-full">
-              <LineChart data={revenueOverTime}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => [formatCurrency(v), 'MRR']} />
-                <Line type="monotone" dataKey="mrr" stroke="#15803d" strokeWidth={2} dot={{ fill: '#15803d', r: 3 }} />
-              </LineChart>
             </ChartContainer>
           </CardContent>
         </Card>

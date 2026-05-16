@@ -1,23 +1,45 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDateTime } from '@/lib/utils/format';
+import { toast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import {
   AlertCircle, AlertTriangle, Info, Zap,
-  RefreshCw, Pause, Play, Search, ChevronDown, ChevronUp, Cpu, DollarSign,
-  FlaskConical, Database,
+  RefreshCw, Pause, Play, Search, ChevronDown, ChevronUp,
+  Cpu, DollarSign, FlaskConical, Copy, Check, ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtTokens(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return String(n);
 }
+
+function fmtRelative(iso: string): string {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000)   return 'agora';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m atrás`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h atrás`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d atrás`;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function fmtFull(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+}
+
+// ── Token Stats (compact) ─────────────────────────────────────────────────────
 
 function TokenStats() {
   const [stats, setStats] = useState<{ monthly: { tokens: number; cost_usd: number }; all_time: { tokens: number; cost_usd: number } } | null>(null);
@@ -27,46 +49,23 @@ function TokenStats() {
   if (!stats) return null;
   const brl = (usd: number) => `R$ ${(usd * 5.5).toFixed(2)}`;
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-1">
-      <Card className="border-blue-500/20 bg-blue-500/5">
-        <CardContent className="p-4 flex items-start gap-3">
-          <Cpu className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Tokens este mês</p>
-            <p className="text-xl font-bold text-blue-400 mt-0.5">{fmtTokens(stats.monthly.tokens)}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="border-emerald-500/20 bg-emerald-500/5">
-        <CardContent className="p-4 flex items-start gap-3">
-          <DollarSign className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Custo este mês</p>
-            <p className="text-xl font-bold text-emerald-400 mt-0.5">{brl(stats.monthly.cost_usd)}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 flex items-start gap-3">
-          <Cpu className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Tokens total</p>
-            <p className="text-xl font-bold mt-0.5">{fmtTokens(stats.all_time.tokens)}</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 flex items-start gap-3">
-          <DollarSign className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs text-muted-foreground">Custo total</p>
-            <p className="text-xl font-bold mt-0.5">{brl(stats.all_time.cost_usd)}</p>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex flex-wrap gap-4 text-sm">
+      <span className="flex items-center gap-1.5 text-blue-400">
+        <Cpu className="h-3.5 w-3.5" />
+        <span className="font-semibold">{fmtTokens(stats.monthly.tokens)}</span>
+        <span className="text-muted-foreground">tokens/mês</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="font-semibold">{brl(stats.monthly.cost_usd)}</span>
+      </span>
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <DollarSign className="h-3.5 w-3.5" />
+        <span>Total: {fmtTokens(stats.all_time.tokens)} · {brl(stats.all_time.cost_usd)}</span>
+      </span>
     </div>
   );
 }
+
+// ── Log Entry ─────────────────────────────────────────────────────────────────
 
 type Log = {
   id: string;
@@ -78,12 +77,93 @@ type Log = {
   company_id?: number;
 };
 
+const SEVERITY_CONFIG = {
+  critical: { dot: 'bg-red-500',    text: 'text-red-400',    icon: AlertCircle,   label: 'Crítico'  },
+  error:    { dot: 'bg-red-400',    text: 'text-red-400',    icon: AlertCircle,   label: 'Erro'     },
+  warning:  { dot: 'bg-yellow-400', text: 'text-yellow-400', icon: AlertTriangle, label: 'Aviso'    },
+  info:     { dot: 'bg-blue-400',   text: 'text-blue-400',   icon: Info,          label: 'Info'     },
+};
+
+function LogEntry({ log }: { log: Log }) {
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const cfg = SEVERITY_CONFIG[log.severity] ?? SEVERITY_CONFIG.info;
+  const Icon = cfg.icon;
+
+  function copyEntry() {
+    const text = JSON.stringify({ ...log, payload: log.payload }, null, 2);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div className={cn(
+      'group px-4 py-3 border-b border-border/40 transition-colors hover:bg-accent/30 last:border-0',
+      log.severity === 'critical' && 'bg-red-500/5 border-l-2 border-l-red-500',
+      log.severity === 'error' && 'border-l-2 border-l-red-400/60',
+    )}>
+      <div className="flex items-start gap-3">
+        <div className={cn('w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0', cfg.dot)} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+            <span className={cn('text-[10px] font-semibold uppercase tracking-wide', cfg.text)}>{cfg.label}</span>
+            <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded font-mono">{log.type}</span>
+            {log.company_id && (
+              <Link
+                href={`/admin/empresas/${log.company_id}`}
+                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 transition-colors"
+              >
+                Empresa #{log.company_id}
+                <ExternalLink className="h-2.5 w-2.5" />
+              </Link>
+            )}
+            <span
+              className="text-[10px] text-muted-foreground ml-auto cursor-default"
+              title={fmtFull(log.created_at)}
+            >
+              {fmtRelative(log.created_at)}
+            </span>
+            <button
+              onClick={copyEntry}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground ml-1"
+              title="Copiar entry"
+            >
+              {copied
+                ? <Check className="h-3 w-3 text-emerald-400" />
+                : <Copy className="h-3 w-3" />}
+            </button>
+          </div>
+          <p className="text-sm text-foreground break-words leading-snug">{log.message}</p>
+          {log.payload && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1.5 hover:text-foreground"
+            >
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {expanded ? 'Ocultar payload' : 'Ver payload'}
+            </button>
+          )}
+          {expanded && log.payload && (
+            <pre className="mt-2 text-[11px] bg-muted/50 p-2 rounded overflow-x-auto border border-border font-mono leading-relaxed">
+              {JSON.stringify(log.payload, null, 2)}
+            </pre>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 const PERIOD_OPTIONS = [
-  { label: 'Última hora',   value: '1h'  },
-  { label: 'Hoje',          value: 'today' },
+  { label: 'Última hora',   value: '1h'       },
+  { label: 'Hoje',          value: 'today'     },
   { label: 'Ontem',         value: 'yesterday' },
-  { label: 'Última Semana', value: 'week' },
-  { label: 'Último Mês',    value: 'month' },
+  { label: 'Última semana', value: 'week'      },
+  { label: 'Último mês',    value: 'month'     },
 ];
 
 function periodToDateRange(period: string) {
@@ -110,56 +190,6 @@ function periodToDateRange(period: string) {
       return { from: m.toISOString(), to: now.toISOString() };
     }
   }
-}
-
-const SEVERITY_CONFIG = {
-  critical: { color: 'bg-red-600',    text: 'text-red-400',    icon: AlertCircle,   label: 'Crítico'  },
-  error:    { color: 'bg-red-500',    text: 'text-red-400',    icon: AlertCircle,   label: 'Erro'     },
-  warning:  { color: 'bg-yellow-500', text: 'text-yellow-400', icon: AlertTriangle, label: 'Aviso'    },
-  info:     { color: 'bg-blue-500',   text: 'text-blue-400',   icon: Info,          label: 'Info'     },
-};
-
-function LogEntry({ log }: { log: Log }) {
-  const [expanded, setExpanded] = useState(false);
-  const cfg = SEVERITY_CONFIG[log.severity] || SEVERITY_CONFIG.info;
-  const Icon = cfg.icon;
-
-  return (
-    <div className={`border rounded-lg p-3 transition-colors hover:bg-accent/30 ${
-      log.severity === 'critical' ? 'border-red-500/30 bg-red-500/5' :
-      log.severity === 'error'    ? 'border-red-400/20' :
-      log.severity === 'warning'  ? 'border-yellow-500/20' : 'border-border'
-    }`}>
-      <div className="flex items-start gap-3">
-        <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${cfg.text}`} />
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <Badge className={`${cfg.color} text-white text-[10px] px-1.5 py-0`}>{cfg.label}</Badge>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{log.type}</Badge>
-            {log.company_id && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Empresa #{log.company_id}</Badge>
-            )}
-            <span className="text-[10px] text-muted-foreground ml-auto">{formatDateTime(log.created_at)}</span>
-          </div>
-          <p className="text-sm text-foreground break-words">{log.message}</p>
-          {log.payload && (
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1.5 hover:text-foreground"
-            >
-              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              {expanded ? 'Ocultar payload' : 'Ver payload'}
-            </button>
-          )}
-          {expanded && log.payload && (
-            <pre className="mt-2 text-[11px] bg-muted/50 p-2 rounded overflow-x-auto max-h-48 border border-border">
-              {JSON.stringify(log.payload, null, 2)}
-            </pre>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function LogsDashboardPage() {
@@ -225,26 +255,29 @@ export default function LogsDashboardPage() {
       if (!res.ok || !data.ok) {
         if (data.table_missing) {
           setTableMissing(true);
-          alert('Tabela system_logs não existe!\n\nExecute a migration no Supabase:\nsupabase/migrations/20260504000000_system_logs.sql');
+          toast({
+            title: 'Tabela system_logs não encontrada',
+            description: 'Execute a migration 20260504000000_system_logs.sql no Supabase SQL Editor.',
+            variant: 'destructive',
+          });
         } else {
-          alert('Erro: ' + (data.error || 'desconhecido'));
+          toast({ title: 'Erro ao escrever log de teste', description: data.error || 'Erro desconhecido', variant: 'destructive' });
         }
       } else {
         setTableMissing(false);
         await fetchLogs();
+        toast({ title: 'Log de teste escrito', description: 'Tabela system_logs funcionando corretamente.' });
       }
     } finally {
       setTestingLog(false);
     }
   }
 
-  // Fetch on filter change
   useEffect(() => {
     setNewCount(0);
     fetchLogs();
   }, [fetchLogs]);
 
-  // Auto-refresh polling
   useEffect(() => {
     if (!autoRefresh) return;
     let remaining = 5;
@@ -261,7 +294,6 @@ export default function LogsDashboardPage() {
     return () => clearInterval(tick);
   }, [autoRefresh, fetchLogs]);
 
-  // Client-side text search
   const filtered = search.trim()
     ? logs.filter(l =>
         l.message.toLowerCase().includes(search.toLowerCase()) ||
@@ -270,188 +302,160 @@ export default function LogsDashboardPage() {
       )
     : logs;
 
-  const stats = {
-    total:    filtered.length,
-    errors:   filtered.filter(l => l.severity === 'error' || l.severity === 'critical').length,
-    warnings: filtered.filter(l => l.severity === 'warning').length,
-    sdr:      filtered.filter(l => l.type?.toLowerCase().includes('sdr') || l.message?.toLowerCase().includes('sdr')).length,
-  };
+  const errors   = filtered.filter(l => l.severity === 'error' || l.severity === 'critical').length;
+  const warnings = filtered.filter(l => l.severity === 'warning').length;
+  const sdrCount = filtered.filter(l => l.type?.toLowerCase().includes('sdr') || l.message?.toLowerCase().includes('sdr')).length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Logs do Sistema</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Eventos em tempo real — agentes SDR, requisições e erros</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {newCount > 0 && (
-            <Badge className="bg-primary text-primary-foreground animate-pulse">
-              +{newCount} novos
-            </Badge>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { setAutoRefresh(!autoRefresh); setNewCount(0); }}
-            className="gap-2"
-          >
-            {autoRefresh ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-            {autoRefresh ? `Pausar (${countdown}s)` : 'Retomar'}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setNewCount(0); fetchLogs(); }} className="gap-2">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Atualizar
-          </Button>
-          <Button variant="outline" size="sm" onClick={sendTestLog} disabled={testingLog} className="gap-2" title="Escreve um log de teste para verificar se a tabela existe">
-            {testingLog ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
-            Testar
-          </Button>
-        </div>
-      </div>
-
-      {/* Diagnóstico: tabela ausente */}
-      {tableMissing && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400">
-          <Database className="w-5 h-5 mt-0.5 shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold">Tabela <code className="font-mono">system_logs</code> não encontrada</p>
-            <p className="text-xs mt-1 text-muted-foreground">
-              Execute a migration no painel Supabase → SQL Editor:
-              <code className="ml-1 font-mono bg-muted/40 px-1 rounded">supabase/migrations/20260504000000_system_logs.sql</code>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Diagnóstico: erro de API */}
-      {apiError && !tableMissing && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-700 dark:text-yellow-400">
-          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+    <div className="flex flex-col h-full gap-0">
+      {/* Header */}
+      <div className="flex-shrink-0 px-0 pb-4 space-y-3">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-sm font-semibold">Erro ao carregar logs</p>
-            <p className="text-xs mt-0.5 font-mono">{apiError}</p>
+            <h1 className="text-xl font-semibold tracking-tight">Logs do Sistema</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Eventos em tempo real — agentes SDR, webhooks e erros</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {newCount > 0 && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary animate-pulse">
+                +{newCount} novos
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={() => { setAutoRefresh(!autoRefresh); setNewCount(0); }} className="gap-1.5 h-8">
+              {autoRefresh ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+              {autoRefresh ? `${countdown}s` : 'Play'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setNewCount(0); fetchLogs(); }} className="gap-1.5 h-8">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Atualizar
+            </Button>
+            <Button variant="outline" size="sm" onClick={sendTestLog} disabled={testingLog} className="gap-1.5 h-8" title="Escreve um log de teste para verificar se a tabela existe">
+              {testingLog ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+              Testar
+            </Button>
           </div>
         </div>
-      )}
 
-      {/* Token stats globais */}
-      <TokenStats />
+        {/* Token stats compact */}
+        <TokenStats />
 
-      {/* Stats de logs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total</p>
-            <p className="text-2xl font-bold mt-1">{stats.total}</p>
-          </CardContent>
-        </Card>
-        <Card className={stats.errors > 0 ? 'border-red-500/30 bg-red-500/5' : ''}>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Erros</p>
-            <p className={`text-2xl font-bold mt-1 ${stats.errors > 0 ? 'text-red-400' : ''}`}>{stats.errors}</p>
-          </CardContent>
-        </Card>
-        <Card className={stats.warnings > 0 ? 'border-yellow-500/20' : ''}>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Avisos</p>
-            <p className={`text-2xl font-bold mt-1 ${stats.warnings > 0 ? 'text-yellow-400' : ''}`}>{stats.warnings}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Zap className="h-3 w-3" /> SDR
-            </p>
-            <p className="text-2xl font-bold mt-1">{stats.sdr}</p>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Stats chips */}
+        <div className="flex items-center gap-3 text-sm flex-wrap">
+          <span className="text-muted-foreground">{filtered.length} logs</span>
+          {errors > 0 && (
+            <span className="flex items-center gap-1 text-red-400 font-medium">
+              <AlertCircle className="h-3.5 w-3.5" />{errors} erro{errors !== 1 ? 's' : ''}
+            </span>
+          )}
+          {warnings > 0 && (
+            <span className="flex items-center gap-1 text-yellow-400 font-medium">
+              <AlertTriangle className="h-3.5 w-3.5" />{warnings} aviso{warnings !== 1 ? 's' : ''}
+            </span>
+          )}
+          {sdrCount > 0 && (
+            <span className="flex items-center gap-1 text-blue-400">
+              <Zap className="h-3.5 w-3.5" />{sdrCount} SDR
+            </span>
+          )}
+        </div>
 
-      {/* Filtros */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Select value={period} onValueChange={(v) => { setPeriod(v); setNewCount(0); }}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIOD_OPTIONS.map(p => (
-                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={severity} onValueChange={(v) => { setSeverity(v); setNewCount(0); }}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas severidades</SelectItem>
-                <SelectItem value="info">Info</SelectItem>
-                <SelectItem value="warning">Warning</SelectItem>
-                <SelectItem value="error">Error</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={type} onValueChange={(v) => { setType(v); setNewCount(0); }}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="sdr">SDR</SelectItem>
-                <SelectItem value="follow_up">Follow-up</SelectItem>
-                <SelectItem value="billing">Billing</SelectItem>
-                <SelectItem value="webhook">Webhook</SelectItem>
-                <SelectItem value="error">Error</SelectItem>
-                <SelectItem value="system">Sistema</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Buscar mensagem, tipo, payload..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-9 text-sm"
-              />
+        {/* Diagnóstico: tabela ausente */}
+        {tableMissing && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-semibold">Tabela <code className="font-mono">system_logs</code> não encontrada.</span>
+              {' '}Execute a migration{' '}
+              <code className="font-mono text-[11px] bg-muted/40 px-1 rounded">20260504000000_system_logs.sql</code>
+              {' '}no Supabase SQL Editor.
             </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      {/* Lista de Logs */}
-      <Card>
-        <CardContent className="p-4">
-          {loading ? (
-            <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-              Carregando logs...
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2 text-center">
-              <Info className="h-8 w-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground font-medium">Nenhum log no período selecionado</p>
-              <p className="text-xs text-muted-foreground max-w-sm">
-                Logs aparecem aqui quando o agente SDR processa mensagens, o follow-up roda, ou ocorrem erros.
-                Use o botão <strong>Testar</strong> para verificar se a tabela está configurada.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-              {filtered.map((log) => (
-                <LogEntry key={log.id} log={log} />
+        {apiError && !tableMissing && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-700 dark:text-yellow-400 text-sm">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div><span className="font-semibold">Erro ao carregar logs:</span> <code className="font-mono text-[11px]">{apiError}</code></div>
+          </div>
+        )}
+
+        {/* Filter toolbar */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <Select value={period} onValueChange={(v) => { setPeriod(v); setNewCount(0); }}>
+            <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map(p => (
+                <SelectItem key={p.value} value={p.value} className="text-xs">{p.label}</SelectItem>
               ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </SelectContent>
+          </Select>
+
+          <Select value={severity} onValueChange={(v) => { setSeverity(v); setNewCount(0); }}>
+            <SelectTrigger className="h-8 w-32 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Severidade</SelectItem>
+              <SelectItem value="info" className="text-xs">Info</SelectItem>
+              <SelectItem value="warning" className="text-xs">Aviso</SelectItem>
+              <SelectItem value="error" className="text-xs">Erro</SelectItem>
+              <SelectItem value="critical" className="text-xs">Crítico</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={type} onValueChange={(v) => { setType(v); setNewCount(0); }}>
+            <SelectTrigger className="h-8 w-32 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Tipo</SelectItem>
+              <SelectItem value="sdr" className="text-xs">SDR</SelectItem>
+              <SelectItem value="follow_up" className="text-xs">Follow-up</SelectItem>
+              <SelectItem value="billing" className="text-xs">Billing</SelectItem>
+              <SelectItem value="webhook" className="text-xs">Webhook</SelectItem>
+              <SelectItem value="error" className="text-xs">Error</SelectItem>
+              <SelectItem value="system" className="text-xs">Sistema</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar mensagem, tipo, payload..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Log list — fills remaining height */}
+      <div className="flex-1 min-h-0 border border-border/50 rounded-lg overflow-hidden flex flex-col bg-card">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Carregando logs...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center p-8">
+            <Info className="h-8 w-8 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground font-medium">Nenhum log no período selecionado</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              Logs aparecem quando o agente SDR processa mensagens, follow-up roda, ou ocorrem erros.
+              Use <strong>Testar</strong> para verificar se a tabela está configurada.
+            </p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto scrollbar-minimal">
+            {filtered.map((log) => (
+              <LogEntry key={log.id} log={log} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

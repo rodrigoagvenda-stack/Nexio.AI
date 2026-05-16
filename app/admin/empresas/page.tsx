@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { Eye, Building2, TrendingUp, Zap } from 'lucide-react';
+import { Eye, Search } from 'lucide-react';
 import { Company } from '@/types/database.types';
 import { formatDateTime } from '@/lib/utils/format';
 import {
@@ -20,15 +19,25 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
+const PLAN_INFO: Record<string, { name: string; color: string }> = {
+  basic:   { name: 'Free',   color: 'text-muted-foreground' },
+  starter: { name: 'Start',  color: 'text-blue-400' },
+  pro:     { name: 'Growth', color: 'text-primary' },
+  scale:   { name: 'Pro',    color: 'text-orange-400' },
+};
+
 export default function EmpresasListPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsPerPage = 10;
 
   useEffect(() => {
-    fetchCompanies();
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { fetchCompanies(); }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [search]);
 
   async function fetchCompanies() {
@@ -50,16 +59,6 @@ export default function EmpresasListPage() {
     }
   }
 
-  const getPlanInfo = (planType: string) => {
-    const plans: Record<string, { name: string; price: string; icon: any; color: string }> = {
-      basic:   { name: 'ZAAPLI FREE',   price: 'Gratuito',  icon: Building2,  color: 'from-slate-500/20 to-slate-600/20' },
-      starter: { name: 'ZAAPLI START',  price: 'R$ 1.600',  icon: Building2,  color: 'from-blue-500/20 to-blue-600/20' },
-      pro:     { name: 'ZAAPLI GROWTH', price: 'R$ 2.000',  icon: TrendingUp, color: 'from-green-500/20 to-green-600/20' },
-      scale:   { name: 'ZAAPLI PRO',    price: 'R$ 2.600',  icon: Zap,        color: 'from-orange-500/20 to-orange-600/20' },
-    };
-    return plans[planType] || plans.basic;
-  };
-
   // Calcular paginação
   const totalPages = Math.ceil(companies.length / itemsPerPage);
   const paginatedCompanies = companies.slice(
@@ -72,198 +71,126 @@ export default function EmpresasListPage() {
     setCurrentPage(1);
   }, [search]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-shimmer h-8 w-32 rounded-lg" />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Empresas</h1>
-          <p className="text-muted-foreground mt-1">Gerencie as empresas cadastradas</p>
+          <h1 className="text-xl font-semibold tracking-tight">Empresas</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {loading ? 'Carregando…' : `${companies.length} empresa${companies.length !== 1 ? 's' : ''}`}
+          </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl">
-        <div className="p-6 border-b border-white/[0.08]">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-xl font-semibold">Empresas ({companies.length})</h2>
-            <Input
-              placeholder="Buscar por nome ou email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:max-w-sm bg-white/[0.05] border-white/[0.08]"
-            />
-          </div>
-        </div>
-        <div className="p-6">
-          {companies.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Nenhuma empresa encontrada</p>
-            </div>
-          ) : (
-            <>
-              {/* Cards para Mobile */}
-              <div className="md:hidden space-y-4">
-                {paginatedCompanies.map((company) => {
-                  const planInfo = getPlanInfo(company.plan_type);
-                  const PlanIcon = planInfo.icon;
-
-                  return (
-                    <div key={company.id} className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-4">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${planInfo.color} opacity-50`} />
-                      <div className="relative space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-semibold text-base">{company.name}</h3>
-                            <p className="text-xs text-muted-foreground mt-1">{company.email}</p>
-                          </div>
-                          {company.is_active ? (
-                            <Badge variant="default" className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">Ativa</Badge>
-                          ) : (
-                            <Badge variant="destructive" className="text-xs">Inativa</Badge>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-muted-foreground">Plano</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <PlanIcon className="h-3 w-3" />
-                            <span className="text-xs font-medium">{planInfo.name}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{planInfo.price}/mês</p>
-                        </div>
-
-                        <div>
-                          <p className="text-xs text-muted-foreground">Criado em</p>
-                          <p className="text-xs mt-1">{formatDateTime(company.created_at)}</p>
-                        </div>
-
-                        <div className="flex gap-2 pt-2 border-t border-white/[0.08]">
-                          <Link href={`/admin/empresas/${company.id}`} className="flex-1">
-                            <Button variant="outline" size="sm" className="w-full bg-white/[0.05] border-white/[0.08] hover:bg-white/[0.1]">
-                              <Eye className="h-4 w-4 mr-2" />
-                              Ver
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Tabela para Desktop */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/[0.08]">
-                      <th className="text-left p-3 text-sm font-semibold">Empresa</th>
-                      <th className="text-left p-3 text-sm font-semibold">Email</th>
-                      <th className="text-left p-3 text-sm font-semibold">Plano</th>
-                      <th className="text-left p-3 text-sm font-semibold">Status</th>
-                      <th className="text-left p-3 text-sm font-semibold">Criado</th>
-                      <th className="text-left p-3 text-sm font-semibold">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedCompanies.map((company) => {
-                      const planInfo = getPlanInfo(company.plan_type);
-                      const PlanIcon = planInfo.icon;
-
-                      return (
-                        <tr key={company.id} className="border-b border-white/[0.05] hover:bg-white/[0.02] transition-colors">
-                          <td className="p-3 font-medium text-sm">{company.name}</td>
-                          <td className="p-3 text-sm text-muted-foreground">{company.email}</td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <PlanIcon className="h-4 w-4 text-primary" />
-                              <div>
-                                <p className="text-xs font-medium">{planInfo.name}</p>
-                                <p className="text-xs text-muted-foreground">{planInfo.price}/mês</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            {company.is_active ? (
-                              <Badge variant="default" className="bg-green-500/20 text-green-300 border-green-500/30 text-xs">
-                                Ativa
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="text-xs">Inativa</Badge>
-                            )}
-                          </td>
-                          <td className="p-3 text-xs text-muted-foreground">
-                            {formatDateTime(company.created_at)}
-                          </td>
-                          <td className="p-3">
-                            <Link href={`/admin/empresas/${company.id}`}>
-                              <Button variant="ghost" size="sm" className="hover:bg-white/[0.05]">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Paginação */}
-        {companies.length > 0 && totalPages > 1 && (
-          <div className="p-6 border-t border-white/[0.08]">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer"
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  } else if (page === currentPage - 2 || page === currentPage + 2) {
-                    return <PaginationEllipsis key={page} />;
-                  }
-                  return null;
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
-        )}
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nome ou email..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+          className="pl-9 h-9"
+        />
       </div>
+
+      {/* Table */}
+      <div className="border border-border/50 rounded-lg overflow-hidden bg-card">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border/50 bg-muted/30">
+              <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">Empresa</th>
+              <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Email</th>
+              <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">Plano</th>
+              <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</th>
+              <th className="text-left py-2.5 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">Criado</th>
+              <th className="py-2.5 px-4" />
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="border-b border-border/30">
+                  <td className="py-3 px-4"><div className="h-4 w-32 bg-muted/60 rounded animate-pulse" /></td>
+                  <td className="py-3 px-4 hidden sm:table-cell"><div className="h-4 w-40 bg-muted/60 rounded animate-pulse" /></td>
+                  <td className="py-3 px-4"><div className="h-4 w-16 bg-muted/60 rounded animate-pulse" /></td>
+                  <td className="py-3 px-4"><div className="h-5 w-12 bg-muted/60 rounded animate-pulse" /></td>
+                  <td className="py-3 px-4 hidden md:table-cell"><div className="h-4 w-24 bg-muted/60 rounded animate-pulse" /></td>
+                  <td className="py-3 px-4"><div className="h-7 w-7 bg-muted/60 rounded animate-pulse" /></td>
+                </tr>
+              ))
+            ) : paginatedCompanies.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                  Nenhuma empresa encontrada
+                </td>
+              </tr>
+            ) : (
+              paginatedCompanies.map((company) => {
+                const plan = PLAN_INFO[company.plan_type] ?? PLAN_INFO.basic;
+                return (
+                  <tr key={company.id} className="border-b border-border/30 hover:bg-accent/30 transition-colors">
+                    <td className="py-3 px-4 font-medium text-sm">{company.name}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground hidden sm:table-cell">{company.email}</td>
+                    <td className="py-3 px-4">
+                      <span className={`text-xs font-semibold ${plan.color}`}>{plan.name}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {company.is_active
+                        ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">Ativa</span>
+                        : <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Inativa</span>
+                      }
+                    </td>
+                    <td className="py-3 px-4 text-xs text-muted-foreground hidden md:table-cell">
+                      {formatDateTime(company.created_at)}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <Link href={`/admin/empresas/${company.id}`}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Paginação */}
+      {!loading && totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              />
+            </PaginationItem>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+              if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                return (
+                  <PaginationItem key={page}>
+                    <PaginationLink onClick={() => setCurrentPage(page)} isActive={currentPage === page} className="cursor-pointer">
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              } else if (page === currentPage - 2 || page === currentPage + 2) {
+                return <PaginationEllipsis key={page} />;
+              }
+              return null;
+            })}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 }

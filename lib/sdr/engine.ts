@@ -42,6 +42,7 @@ import {
   checkAndSendQuotaAlerts,
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
+import { writeSystemLog } from '@/lib/system-log'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
@@ -2421,6 +2422,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (!quotaCheck.allowed) {
       await pauseTenant(companyId, supabase)
       await log(companyId, 'quota_exceeded', { usedThisMonth: quotaCheck.usedThisMonth, quota: quotaCheck.quota }, supabase, phone)
+      writeSystemLog('sdr', 'warning', companyId, `Cota excedida — agente pausado`, { usedThisMonth: quotaCheck.usedThisMonth, quota: quotaCheck.quota, phone })
       return
     }
 
@@ -2562,6 +2564,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
+    writeSystemLog('sdr', 'info', companyId, `Resposta enviada para ${phone} (${paragraphs.length} bloco${paragraphs.length !== 1 ? 's' : ''})`, { phone, leadId, flowId: cfg.flowId, preview: paragraphs[0]?.slice(0, 120) })
 
     // ── Salvar usage_logs e enviar alertas (fire-and-forget) ──
     recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
@@ -2569,6 +2572,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
   } catch (err: any) {
     console.error('[SDR Engine] Erro:', err)
     await log(companyId, 'error', {}, supabase, phone, undefined, err?.message ?? 'Erro desconhecido')
+    writeSystemLog('sdr', 'error', companyId, `Erro no agente SDR: ${err?.message ?? 'Erro desconhecido'}`, { phone }, err?.stack?.slice(0, 1000))
   }
 }
 
@@ -2672,6 +2676,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       // Nó "Bloquear contato1" — bloqueia o número na instância
       await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
       await log(companyId, 'injection_blocked', { text }, supabase, body.chat.phone)
+      writeSystemLog('sdr', 'critical', companyId, `Injeção de prompt bloqueada — contato banido`, { phone: body.chat.phone, text: text.slice(0, 200) })
 
       // Nó "Enviar mensagem para o ADM1" — alerta via email (fire-and-forget)
       sendInjectionAlertEmail({

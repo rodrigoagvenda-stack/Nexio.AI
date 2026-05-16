@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleWebhook, resolveCompanyByInstance } from '@/lib/sdr/engine'
+import { writeSystemLog } from '@/lib/system-log'
 import type { UazapiWebhookMessage } from '@/lib/sdr/uazapi'
 
 export const runtime = 'nodejs'
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
 
   handleWebhook(companyId, body).catch((err) => {
     console.error(`[Webhook Nexio] Erro empresa ${companyId}:`, err)
+    writeSystemLog('webhook', 'error', companyId, `Erro no webhook: ${err?.message ?? 'Erro desconhecido'}`, { instanceName }, err?.stack?.slice(0, 1000))
   })
 
   return NextResponse.json({ ok: true })

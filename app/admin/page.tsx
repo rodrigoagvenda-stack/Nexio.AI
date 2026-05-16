@@ -92,15 +92,6 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
     return { date: `${date.getDate()}/${date.getMonth() + 1}`, count };
   });
 
-  const revenueOverTime = Array.from({ length: 6 }, (_, i) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - (5 - i));
-    return {
-      date: `${date.getMonth() + 1}/${date.getFullYear().toString().slice(2)}`,
-      mrr: Math.round(mrr * (0.8 + i * 0.04)),
-    };
-  });
-
   return (
     <AdminDashboardContent
       activeCompanies={activeCompanies}
@@ -113,7 +104,6 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
       inadimplentes={inadimplentes}
       companiesByPlan={companiesByPlan}
       leadsOverTime={leadsOverTime}
-      revenueOverTime={revenueOverTime}
       period={period}
       customFrom={searchParams.from}
       customTo={searchParams.to}
