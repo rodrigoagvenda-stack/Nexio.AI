@@ -36,7 +36,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
@@ -63,6 +64,16 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
+function fmtCompact(v: number): string {
+  if (!v || v <= 0) return '—';
+  if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace('.', ',')}M`;
+  if (v >= 1_000) {
+    const k = v / 1_000;
+    return `R$ ${(k >= 100 ? Math.round(k).toString() : k.toFixed(1).replace('.', ','))}k`;
+  }
+  return `R$ ${Math.round(v)}`;
+}
 
 const photoCache: Record<string, string | null> = {}
 
@@ -118,8 +129,8 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <OrbitCard className="group hover:shadow-md transition-all duration-200 mb-3 dark:bg-[#0A0A0A] bg-card h-[200px]">
-        <OrbitCardContent className="p-4 space-y-3 h-full flex flex-col">
+      <OrbitCard className="group hover:shadow-md transition-all duration-200 mb-3 bg-card">
+        <OrbitCardContent className="p-4 space-y-3 flex flex-col">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
@@ -188,22 +199,10 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
           </div>
 
           {/* Footer com métricas */}
-          <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50 mt-auto">
-            <div className="flex items-center gap-3 text-xs">
-              {lead.whatsapp && (
-                <div className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  <span>1</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                <span>
-                  {lead.project_value && lead.project_value > 0
-                    ? `R$ ${lead.project_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : 'R$ 0,00'}
-                </span>
-              </div>
+          <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50 mt-2">
+            <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
+              <DollarSign className="h-3 w-3 text-primary/60" />
+              <span>{fmtCompact(lead.project_value || 0)}</span>
             </div>
             <div className="text-[10px] text-muted-foreground">
               {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
@@ -256,14 +255,20 @@ const DroppableColumn = memo(function DroppableColumn({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-220px)]">
-      <div className="mb-3 px-2 flex-shrink-0">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col h-[calc(100dvh-300px)]">
+      <div className="mb-3 px-1 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
           {getColumnIcon()}
-          <h3 className="font-medium text-sm text-foreground">{title}</h3>
-          <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full">
+          <span className="font-medium text-sm text-foreground">{title}</span>
+          <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full tabular-nums">
             {count}
           </span>
+          {totalValue && totalValue > 0 ? (
+            <>
+              <span className="text-muted-foreground/30 text-xs select-none">·</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{fmtCompact(totalValue)}</span>
+            </>
+          ) : null}
           {onPromoteAll && count > 0 && (
             <button
               onClick={onPromoteAll}
@@ -271,7 +276,7 @@ const DroppableColumn = memo(function DroppableColumn({
               className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
             >
               <Megaphone className="h-3 w-3" />
-              Promover todos
+              Promover
             </button>
           )}
           {onDemoteAll && count > 0 && (
@@ -281,22 +286,28 @@ const DroppableColumn = memo(function DroppableColumn({
               className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
             >
               <Filter className="h-3 w-3" />
-              Voltar todos
+              Voltar
             </button>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-1 ml-7">
-          R$ {(totalValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 rounded-lg px-2 overflow-y-auto transition-all ${
-          isOver ? 'bg-accent/50' : 'bg-transparent'
-        }`}
+        className={cn(
+          'flex-1 rounded-xl px-1.5 overflow-y-auto transition-all duration-150',
+          isOver ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : 'bg-transparent'
+        )}
       >
-        {children}
-        <div className="min-h-[100px]" />
+        {count === 0 && !isOver ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-10 mx-0.5 mt-0.5 border border-dashed border-border/40 rounded-lg">
+            <p className="text-xs text-muted-foreground/50">Sem leads</p>
+          </div>
+        ) : (
+          <>
+            {children}
+            <div className="min-h-[60px]" />
+          </>
+        )}
       </div>
     </div>
   );
@@ -435,15 +446,7 @@ export default function CRMPage() {
     const { active, over } = event;
     setActiveDragId(null);
 
-    console.group('🎯 DRAG & DROP DEBUG');
-    console.log('Event:', event);
-    console.log('Active ID:', active.id, 'Type:', typeof active.id);
-    console.log('Over ID:', over?.id, 'Type:', typeof over?.id);
-    console.log('Over Data:', over?.data);
-
     if (!over) {
-      console.warn('❌ No drop target!');
-      console.groupEnd();
       return;
     }
 
@@ -456,41 +459,19 @@ export default function CRMPage() {
     // CASO 1: Drop direto na coluna (id = "column-{status}")
     if (String(overId).startsWith('column-')) {
       newStatus = String(overId).replace('column-', '') as Lead['status'];
-      console.log('✅ Drop na COLUNA:', newStatus);
     }
     // CASO 2: Drop em outro card (pegar status do card de destino)
     else {
       const targetLead = leads.find(l => l.id === overId || String(l.id) === String(overId));
       if (targetLead) {
         newStatus = targetLead.status;
-        console.log('✅ Drop no CARD. Usando status da coluna:', newStatus);
-      } else {
-        console.error('❌ Card de destino não encontrado:', overId);
       }
     }
 
-    if (!newStatus) {
-      console.error('❌ Não foi possível determinar o status de destino');
-      console.groupEnd();
-      return;
-    }
+    if (!newStatus) return;
 
-    // Buscar lead sendo arrastado
     const lead = leads.find(l => l.id === activeId || String(l.id) === String(activeId));
-
-    if (!lead) {
-      console.error('❌ Lead arrastado não encontrado:', activeId);
-      console.groupEnd();
-      return;
-    }
-
-    if (lead.status === newStatus) {
-      console.log('ℹ️ Lead já está neste status. Nada a fazer.');
-      console.groupEnd();
-      return;
-    }
-
-    console.log(`🔄 Movendo "${lead.company_name}" de "${lead.status}" → "${newStatus}"`);
+    if (!lead || lead.status === newStatus) return;
 
     const oldStatus = lead.status;
 
@@ -535,15 +516,10 @@ export default function CRMPage() {
         });
       }
 
-      console.log('✅ Status atualizado no banco com sucesso!');
-      toast({ title: 'Lead movido!', description: `Lead movido para "${newStatus}"` });
-      console.groupEnd();
-    } catch (error) {
-      console.error('❌ Erro ao atualizar no banco:', error);
+      toast({ title: 'Lead movido!', description: `Movido para "${newStatus}"` });
+    } catch {
       toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
-      // Reverter mudança otimista
       fetchLeads();
-      console.groupEnd();
     }
   }, [leads, user, company]);
 
@@ -616,7 +592,6 @@ export default function CRMPage() {
       // Verificar se temos os dados necessários
       if (!user?.company_id) {
         toast({ title: 'Erro de autenticação', description: 'company_id não encontrado. Faça login novamente.', variant: 'destructive' });
-        console.error('Missing company_id. User:', user, 'AuthUser:', authUser);
         return;
       }
 
@@ -628,7 +603,6 @@ export default function CRMPage() {
         user_id: authUser?.id,
       };
 
-      console.log('Saving lead with data:', leadData);
 
       if (editingLead) {
         // Update
@@ -899,6 +873,18 @@ export default function CRMPage() {
     return leadsByStatus.statusMap.get(status) || [];
   };
 
+  const totalPipelineValue = useMemo(() =>
+    leads
+      .filter(l => l.status !== 'Fechado' && l.status !== 'Perdido')
+      .reduce((sum, l) => sum + (l.project_value || 0), 0),
+    [leads]
+  );
+
+  const closedCount = useMemo(() =>
+    leads.filter(l => l.status === 'Fechado').length,
+    [leads]
+  );
+
   const getTotalValueByStatus = (status: string) => {
     return leadsByStatus.valueMap.get(status) || 0;
   };
@@ -938,8 +924,19 @@ export default function CRMPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-pulse h-8 w-32 bg-secondary rounded-lg" />
+      <div className="flex flex-col gap-4">
+        <div className="h-14 bg-muted/50 animate-pulse rounded-xl" />
+        <div className="h-10 bg-muted/30 animate-pulse rounded-xl" />
+        <div className="flex gap-4 overflow-hidden">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="w-[320px] flex-shrink-0 space-y-3">
+              <div className="h-7 bg-muted/50 animate-pulse rounded-lg" />
+              {[...Array(3)].map((_, j) => (
+                <div key={j} className="h-[88px] bg-muted/30 animate-pulse rounded-xl" />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -966,81 +963,118 @@ export default function CRMPage() {
   const activeLead = activeDragId ? leads.find(l => l.id === activeDragId) : null;
 
   return (
-    <div className="space-y-6">
-      {/* Filtros e View Toggle */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4 flex-1">
-          <div className="relative flex-1 md:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todos">Todos</SelectItem>
-                {columns.map(col => (
-                  <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-full md:w-40">
-                <SelectValue placeholder="Prioridade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todas">Todas</SelectItem>
-                <SelectItem value="Alta">Alta</SelectItem>
-                <SelectItem value="Média">Média</SelectItem>
-                <SelectItem value="Baixa">Baixa</SelectItem>
-              </SelectContent>
-            </Select>
-            {(searchTerm || statusFilter !== 'Todos' || priorityFilter !== 'Todas') && (
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('Todos');
-                  setPriorityFilter('Todas');
-                }}
-              >
-                Limpar
-              </Button>
+    <div className="flex flex-col gap-4">
+      {/* Page Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">CRM</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {leads.length > 0
+              ? `${leads.length} leads · ${fmtCompact(totalPipelineValue)} em pipeline · ${closedCount} fechado${closedCount !== 1 ? 's' : ''}`
+              : 'Gerencie seus leads e oportunidades'}
+          </p>
+        </div>
+        {/* View switcher — segmented control */}
+        <div className="flex items-center gap-1 bg-muted p-1 rounded-xl flex-shrink-0">
+          <button
+            onClick={() => router.push('?view=table')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150',
+              viewMode === 'table'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
-          </div>
-        </div>
-        <div className="flex gap-2 justify-end">
-          {selectedLeads.size > 0 && viewMode === 'table' && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeletingMultipleLeads(true)}
-              className="gap-2"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Deletar {selectedLeads.size} selecionado(s)</span>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={exportToCSV}
-            disabled={filteredLeads.length === 0}
-            className="gap-2"
           >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </Button>
-          <Button onClick={() => handleOpenModal()} className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Adicionar Lead</span>
-          </Button>
+            <LayoutList className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Planilha</span>
+          </button>
+          <button
+            onClick={() => router.push('?view=kanban')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150',
+              viewMode === 'kanban'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Kanban</span>
+          </button>
         </div>
+      </div>
+
+      {/* Filter bar — zona de descoberta (esquerda) + ações (direita) */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Zona 1: Descoberta */}
+        <div className="relative flex-1 min-w-[160px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Buscar..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 text-sm"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36 h-9 text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todos">Todos</SelectItem>
+            {columns.map(col => (
+              <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-32 h-9 text-sm">
+            <SelectValue placeholder="Prioridade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todas">Todas</SelectItem>
+            <SelectItem value="Alta">Alta</SelectItem>
+            <SelectItem value="Média">Média</SelectItem>
+            <SelectItem value="Baixa">Baixa</SelectItem>
+          </SelectContent>
+        </Select>
+        {(searchTerm || statusFilter !== 'Todos' || priorityFilter !== 'Todas') && (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
+            onClick={() => { setSearchTerm(''); setStatusFilter('Todos'); setPriorityFilter('Todas'); }}
+          >
+            Limpar
+          </button>
+        )}
+
+        {/* Separador */}
+        <div className="flex-1" />
+
+        {/* Zona 2: Ações */}
+        {selectedLeads.size > 0 && viewMode === 'table' && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeletingMultipleLeads(true)}
+            className="gap-1.5 h-9"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Deletar {selectedLeads.size}</span>
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportToCSV}
+          disabled={filteredLeads.length === 0}
+          className="gap-1.5 h-9"
+        >
+          <Download className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Exportar</span>
+        </Button>
+        <Button size="sm" onClick={() => handleOpenModal()} className="gap-1.5 h-9">
+          <Plus className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Novo Lead</span>
+        </Button>
       </div>
 
       {/* Content */}
@@ -1063,7 +1097,8 @@ export default function CRMPage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <ScrollArea className="hidden md:block w-full">
+            <div className="hidden md:block relative">
+            <ScrollArea className="w-full">
               <div
                 className="flex gap-4 pb-4"
                 style={{
@@ -1098,11 +1133,42 @@ export default function CRMPage() {
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
+            {/* Fade edge — indica mais colunas à direita */}
+            <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-background to-transparent pointer-events-none z-10" />
+            </div>
             <DragOverlay>
               {activeLead ? (
-                <OrbitCard className="cursor-grabbing shadow-2xl opacity-90 border-l-4 border-l-primary">
+                <OrbitCard className="cursor-grabbing shadow-2xl rotate-1 w-[308px] border-primary/20">
                   <OrbitCardContent className="p-4">
-                    <h4 className="font-semibold text-sm">{activeLead.company_name}</h4>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-semibold text-primary">
+                          {activeLead.company_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{activeLead.company_name}</p>
+                        {activeLead.contact_name && (
+                          <p className="text-xs text-muted-foreground truncate">{activeLead.contact_name}</p>
+                        )}
+                      </div>
+                    </div>
+                    {(activeLead.priority || (activeLead.project_value && activeLead.project_value > 0)) && (
+                      <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-border/50">
+                        {activeLead.priority && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
+                            activeLead.priority === 'Alta' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                            activeLead.priority === 'Média' ? 'bg-primary/10 text-primary' :
+                            'bg-gray-500/10 text-gray-600 dark:text-gray-400'
+                          }`}>{activeLead.priority}</span>
+                        )}
+                        {activeLead.project_value && activeLead.project_value > 0 && (
+                          <span className="text-xs text-muted-foreground ml-auto tabular-nums">
+                            {fmtCompact(activeLead.project_value)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </OrbitCardContent>
                 </OrbitCard>
               ) : null}
@@ -1187,42 +1253,49 @@ export default function CRMPage() {
       ) : (
         <>
           {/* Desktop Table View */}
-          <OrbitCard className="hidden md:block border-border/50 dark:bg-[#121212]">
+          <OrbitCard className="hidden md:block border-border/50">
             <OrbitCardContent className="p-0">
+              {/* Result counter */}
+              <div className="flex items-center px-4 py-2 border-b border-border/50">
+                <span className="text-xs text-muted-foreground">
+                  {filteredLeads.length === leads.length
+                    ? `${leads.length} lead${leads.length !== 1 ? 's' : ''}`
+                    : `${filteredLeads.length} de ${leads.length} leads`}
+                </span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-card">
                     <tr className="border-b border-border">
-                      <th className="text-left px-3 py-4 w-12">
+                      <th className="text-left px-3 py-2.5 w-10">
                         <Checkbox
                           checked={selectedLeads.size === paginatedLeads.length && paginatedLeads.length > 0}
                           onCheckedChange={handleToggleSelectAll}
                         />
                       </th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Nome da Empresa</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Segmento</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Website</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Telefone</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Prioridade</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Importação</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Observações</th>
-                      <th className="text-left px-6 py-4 font-medium text-xs text-muted-foreground uppercase tracking-wider">Ações</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Empresa</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Segmento</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Website</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Telefone</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Prioridade</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Observações</th>
+                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {paginatedLeads.map((lead, index) => (
+                    {paginatedLeads.map((lead) => (
                       <tr
                         key={lead.id}
                         className="hover:bg-accent/30 transition-colors"
                       >
-                        <td className="px-3 py-4">
+                        <td className="px-3 py-2.5">
                           <Checkbox
                             checked={selectedLeads.has(String(lead.id))}
                             onCheckedChange={() => handleToggleSelectLead(String(lead.id))}
                           />
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-2.5">
                           <div>
                             <p className="font-medium text-sm text-foreground">{lead.company_name}</p>
                             {lead.contact_name && (
@@ -1230,52 +1303,62 @@ export default function CRMPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-foreground">{lead.segment || '-'}</td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${getStatusBadgeColor(lead.status || '')}`}>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground">{lead.segment || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${getStatusBadgeColor(lead.status || '')}`}>
                             {lead.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-2.5">
                           {lead.website_or_instagram ? (
                             <a
                               href={lead.website_or_instagram.startsWith('http') ? lead.website_or_instagram : `https://${lead.website_or_instagram}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary hover:text-primary/80 text-sm transition-colors"
+                              className="text-primary hover:text-primary/70 text-xs transition-colors"
                             >
-                              Link
+                              Link ↗
                             </a>
                           ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
+                            <span className="text-sm text-muted-foreground/40">—</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-foreground">{lead.whatsapp || '-'}</td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 w-fit ${getPriorityBadgeColor(lead.priority || '')}`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {lead.priority}
-                          </span>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground tabular-nums">{lead.whatsapp || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          {lead.priority ? (
+                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium flex items-center gap-1 w-fit ${getPriorityBadgeColor(lead.priority)}`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                              {lead.priority}
+                            </span>
+                          ) : <span className="text-muted-foreground/40">—</span>}
                         </td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground">{lead.import_source || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-muted-foreground max-w-[200px] truncate">{lead.notes || '-'}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-2.5 max-w-[200px]">
+                          {lead.notes ? (
+                            <span
+                              className="text-xs text-muted-foreground truncate block max-w-[180px] cursor-default"
+                              title={lead.notes}
+                            >
+                              {lead.notes}
+                            </span>
+                          ) : <span className="text-muted-foreground/40 text-sm">—</span>}
+                        </td>
+                        <td className="px-4 py-2.5">
                           <div className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleOpenModal(lead)}
-                              className="h-8 w-8 hover:bg-accent"
+                              className="h-7 w-7 hover:bg-accent"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => setDeletingLead(lead)}
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-accent"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-accent"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </td>
