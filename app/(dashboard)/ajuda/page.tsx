@@ -1199,6 +1199,7 @@ export default function AjudaPage() {
   const [activeId, setActiveId] = useState(sections[0].id);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeSection = sections.find(s => s.id === activeId) || sections[0];
   const activeIdx = sections.findIndex(s => s.id === activeId);
@@ -1222,25 +1223,25 @@ export default function AjudaPage() {
   const handleNavigate = (sectionId: string) => {
     setActiveId(sectionId);
     setSearchQuery('');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <div className="flex h-[calc(100vh-80px)] overflow-hidden -m-3 md:-m-6">
 
       {/* ── Main content ────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 md:px-12 py-8 md:py-12">
+      <div className="flex-1 flex flex-col overflow-hidden">
 
-          {/* Search bar */}
-          <div className="relative mb-8">
+        {/* Search bar — fixo, não scrollável */}
+        <div className="flex-shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-sm px-6 md:px-12 py-3">
+          <div className="max-w-3xl mx-auto relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 pointer-events-none" />
             <input
               ref={searchRef}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Pesquisar na documentação…"
-              className="w-full h-11 bg-muted/50 border border-border rounded-xl pl-10 pr-20 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 placeholder:text-muted-foreground/50 transition-all"
+              className="w-full h-10 bg-muted/50 border border-border rounded-xl pl-10 pr-20 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 placeholder:text-muted-foreground/50 transition-all"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {searchQuery && (
@@ -1253,6 +1254,11 @@ export default function AjudaPage() {
               </kbd>
             </div>
           </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto" ref={scrollRef}>
+        <div className="max-w-3xl mx-auto px-6 md:px-12 py-8 md:py-10">
 
           {/* Search results */}
           {isSearching ? (
@@ -1298,7 +1304,7 @@ export default function AjudaPage() {
               <div className="mt-16 pt-8 border-t border-border/30 flex justify-between">
                 {activeIdx > 0 ? (
                   <button
-                    onClick={() => { setActiveId(sections[activeIdx - 1].id); window.scrollTo({ top: 0 }); }}
+                    onClick={() => { setActiveId(sections[activeIdx - 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
                     className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -1310,7 +1316,7 @@ export default function AjudaPage() {
                 ) : <div />}
                 {activeIdx < sections.length - 1 ? (
                   <button
-                    onClick={() => { setActiveId(sections[activeIdx + 1].id); window.scrollTo({ top: 0 }); }}
+                    onClick={() => { setActiveId(sections[activeIdx + 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
                     className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors text-right"
                   >
                     <div>
@@ -1323,6 +1329,7 @@ export default function AjudaPage() {
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
 
