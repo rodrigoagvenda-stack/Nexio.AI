@@ -35,6 +35,28 @@ import type { Lead } from '@/types/database.types';
 
 const atendimentoPhotoCache = new Map<string, string | null>()
 
+function fmtConvTime(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays === 0) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (diffDays === 1) return 'Ontem';
+  if (diffDays < 7) return d.toLocaleDateString('pt-BR', { weekday: 'short' });
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function fmtDateLabel(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (diffDays === 0) return 'Hoje';
+  if (diffDays === 1) return 'Ontem';
+  if (diffDays < 7) return d.toLocaleDateString('pt-BR', { weekday: 'long' });
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 interface Conversation {
   id: number;
   numero_de_telefone: string;
@@ -1008,6 +1030,18 @@ export default function AtendimentoPage() {
     conv.lead?.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  type ConvItem = { type: 'conv'; conv: Conversation } | { type: 'separator'; label: string };
+  const conversationsWithSeparators: ConvItem[] = [];
+  let lastDateLabel = '';
+  for (const conv of filteredConversations) {
+    const label = conv.hora_da_ultima_mensagem ? fmtDateLabel(conv.hora_da_ultima_mensagem) : '';
+    if (label && label !== lastDateLabel) {
+      conversationsWithSeparators.push({ type: 'separator', label });
+      lastDateLabel = label;
+    }
+    conversationsWithSeparators.push({ type: 'conv', conv });
+  }
+
   const getInitials = (name: string) => {
     return name
       ?.split(' ')
@@ -1049,15 +1083,6 @@ export default function AtendimentoPage() {
   };
 
   const renderMessageContent = (msg: Message) => {
-    if (['menu', 'button', 'location', 'audio', 'ptt'].includes(msg.tipo_de_mensagem)) {
-      console.log('[renderMsg]', {
-        id: msg.id,
-        tipo: msg.tipo_de_mensagem,
-        texto: msg.texto_da_mensagem,
-        url_da_midia: msg.url_da_midia,
-      });
-    }
-
     // Mensagem apagada — estilo WhatsApp
     if (msg.is_deleted) {
       return (
@@ -1328,12 +1353,12 @@ export default function AtendimentoPage() {
     <div className="h-full w-full overflow-hidden">
       <div className="h-full grid grid-cols-12 gap-2 overflow-hidden">
         {/* Lista de Conversas */}
-        <Card className={`col-span-12 lg:col-span-3 flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${selectedConversation ? 'hidden lg:flex' : 'flex'}`}>
-          <CardHeader className="flex-shrink-0">
-            <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <div className={cn('col-span-12 lg:col-span-3 flex flex-col overflow-hidden bg-card border-r border-border/50', selectedConversation ? 'hidden lg:flex' : 'flex')}>
+          <div className="flex-shrink-0 px-4 pt-4 pb-3 space-y-3 border-b border-border/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Conversas
+                <span className="font-semibold">Conversas</span>
               </div>
               {/* WhatsApp status dropdown */}
               <DropdownMenu>
@@ -1359,7 +1384,7 @@ export default function AtendimentoPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </CardTitle>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1408,15 +1433,21 @@ export default function AtendimentoPage() {
                 </div>
               );
             })()}
-          </CardHeader>
+          </div>
 
-          <CardContent className="flex-1 overflow-y-auto space-y-2 scrollbar-minimal">
-            {filteredConversations.length === 0 ? (
+          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 scrollbar-minimal">
+            {conversationsWithSeparators.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 Nenhuma conversa encontrada
               </p>
             ) : (
-              filteredConversations.map((conv) => (
+              conversationsWithSeparators.map((item, idx) => item.type === 'separator' ? (
+                <div key={`sep-${idx}`} className="flex items-center gap-2 py-1.5">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{item.label}</span>
+                  <div className="flex-1 h-px bg-border/40" />
+                </div>
+              ) : (
+                (() => { const conv = item.conv; return (
                 <div
                   key={conv.id}
                   className={`group w-full text-left p-3 rounded-lg border transition-colors relative ${
@@ -1448,10 +1479,15 @@ export default function AtendimentoPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center mb-1">
-                        <p className="font-semibold truncate">
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <p className="font-semibold text-sm truncate">
                           {conv.nome_do_contato || conv.numero_de_telefone}
                         </p>
+                        {conv.hora_da_ultima_mensagem && (
+                          <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                            {fmtConvTime(conv.hora_da_ultima_mensagem)}
+                          </span>
+                        )}
                       </div>
                       {conv.lead && (
                         <div className="flex items-center gap-1 mb-1">
@@ -1503,18 +1539,16 @@ export default function AtendimentoPage() {
                             )}
                           </>
                         )}
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-auto">
-                          {new Date(conv.hora_da_ultima_mensagem).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
                       </div>
                     </div>
                   </div>
                   </button>
                 </div>
+                ); })()
               ))
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Área de Chat */}
         <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>

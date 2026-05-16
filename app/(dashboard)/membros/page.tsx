@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -32,19 +30,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  UserPlus,
-  Search,
-  Mail,
-  Shield,
-  Trash2,
-  Edit,
-  Calendar,
-  UserCheck,
-  UserX,
-} from 'lucide-react';
+import { UserPlus, Search, Trash2, Edit } from 'lucide-react';
 import { useUser } from '@/lib/hooks/useUser';
-import { formatDateTime } from '@/lib/utils/format';
 import { toast } from '@/components/ui/use-toast';
 import { SimplePagination } from '@/components/ui/pagination-simple';
 
@@ -57,6 +44,41 @@ interface Member {
   is_active: boolean;
   last_login?: string;
   created_at: string;
+}
+
+const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
+  admin:      { label: 'Admin',      className: 'bg-purple-500/10 text-purple-600 dark:text-purple-400' },
+  manager:    { label: 'Gerente',    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+  sdr:        { label: 'SDR',        className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' },
+  closer:     { label: 'Closer',     className: 'bg-primary/10 text-primary' },
+  sdr_closer: { label: 'SDR+Closer', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
+};
+
+function getRoleChip(role: string) {
+  const c = ROLE_CONFIG[role] || { label: 'Membro', className: 'bg-muted text-muted-foreground' };
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap ${c.className}`}>
+      {c.label}
+    </span>
+  );
+}
+
+function fmtRelative(dateStr?: string): string {
+  if (!dateStr) return 'Nunca';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Agora';
+  if (mins < 60) return `${mins}min atrás`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h atrás`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Ontem';
+  if (days < 7) return `${days} dias atrás`;
+  return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+function getInitials(name: string): string {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 export default function MembrosPage() {
@@ -74,20 +96,10 @@ export default function MembrosPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const itemsPerPage = 10;
 
-  // Verificar se o usuário é admin
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
-  // Form states
-  const [inviteForm, setInviteForm] = useState({
-    name: '',
-    email: '',
-    role: 'member',
-    department: '',
-  });
-  const [editForm, setEditForm] = useState({
-    role: '',
-    department: '',
-  });
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '', role: 'closer', department: '' });
+  const [editForm, setEditForm] = useState({ role: '', department: '' });
 
   useEffect(() => {
     if (!company?.id) return;
@@ -99,11 +111,9 @@ export default function MembrosPage() {
       setLoading(true);
       const response = await fetch(`/api/members?companyId=${company!.id}`);
       const data = await response.json();
-
       if (!data.success) throw new Error(data.message);
       setMembers(data.data || []);
-    } catch (error: any) {
-      console.error('Error fetching members:', error);
+    } catch {
       toast({ title: 'Erro ao carregar membros', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -117,21 +127,15 @@ export default function MembrosPage() {
       const response = await fetch('/api/members', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...inviteForm,
-          companyId: company!.id,
-        }),
+        body: JSON.stringify({ ...inviteForm, companyId: company!.id }),
       });
-
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
-
       toast({ title: 'Convite enviado! Verifique o email (inclusive spam).' });
       setInviteDialogOpen(false);
-      setInviteForm({ name: '', email: '', role: 'member', department: '' });
+      setInviteForm({ name: '', email: '', role: 'closer', department: '' });
       fetchMembers();
     } catch (error: any) {
-      console.error('Error inviting member:', error);
       toast({ title: error.message || 'Erro ao convidar membro', variant: 'destructive' });
     } finally {
       setIsInviting(false);
@@ -141,26 +145,19 @@ export default function MembrosPage() {
   async function handleEditMember(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedMember) return;
-
     try {
       const response = await fetch(`/api/members/${selectedMember.user_id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...editForm,
-          companyId: company!.id,
-        }),
+        body: JSON.stringify({ ...editForm, companyId: company!.id }),
       });
-
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
-
       toast({ title: 'Membro atualizado com sucesso!' });
       setEditDialogOpen(false);
       setSelectedMember(null);
       fetchMembers();
     } catch (error: any) {
-      console.error('Error updating member:', error);
       toast({ title: error.message || 'Erro ao atualizar membro', variant: 'destructive' });
     }
   }
@@ -174,16 +171,13 @@ export default function MembrosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ companyId: company!.id }),
       });
-
       const data = await response.json();
       if (!data.success) throw new Error(data.message);
-
       toast({ title: 'Membro removido com sucesso!' });
       setDeleteDialogOpen(false);
       setSelectedMember(null);
       fetchMembers();
     } catch (error: any) {
-      console.error('Error deleting member:', error);
       toast({ title: error.message || 'Erro ao remover membro', variant: 'destructive' });
     } finally {
       setIsDeleting(false);
@@ -192,10 +186,7 @@ export default function MembrosPage() {
 
   function openEditDialog(member: Member) {
     setSelectedMember(member);
-    setEditForm({
-      role: member.role,
-      department: member.department || '',
-    });
+    setEditForm({ role: member.role, department: member.department || '' });
     setEditDialogOpen(true);
   }
 
@@ -205,229 +196,282 @@ export default function MembrosPage() {
   }
 
   const filteredMembers = members.filter(
-    (member) =>
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.department?.toLowerCase().includes(searchQuery.toLowerCase())
+    (m) =>
+      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.department?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Pagination
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+  const paginatedMembers = filteredMembers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  // Reset page when search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  // Stats
+  const activeCount = members.filter(m => m.is_active).length;
+  const roleCounts = members.reduce<Record<string, number>>((acc, m) => {
+    acc[m.role] = (acc[m.role] || 0) + 1;
+    return acc;
+  }, {});
+  const statsText = members.length === 0
+    ? 'Gerencie os membros da sua empresa'
+    : [
+        `${members.length} membros`,
+        `${activeCount} ativos`,
+        roleCounts.admin     && `${roleCounts.admin} admin${roleCounts.admin > 1 ? 's' : ''}`,
+        roleCounts.manager   && `${roleCounts.manager} gerente${roleCounts.manager > 1 ? 's' : ''}`,
+        roleCounts.closer    && `${roleCounts.closer} closer${roleCounts.closer > 1 ? 's' : ''}`,
+        roleCounts.sdr       && `${roleCounts.sdr} SDR${roleCounts.sdr > 1 ? 's' : ''}`,
+        roleCounts.sdr_closer && `${roleCounts.sdr_closer} SDR+Closer`,
+      ].filter(Boolean).join(' · ');
 
-  const getRoleBadge = (role: string) => {
-    const variants: Record<string, { label: string; variant: any }> = {
-      admin: { label: 'Admin', variant: 'default' },
-      manager: { label: 'Gerente', variant: 'secondary' },
-      sdr: { label: 'SDR', variant: 'outline' },
-      closer: { label: 'Closer', variant: 'outline' },
-      sdr_closer: { label: 'SDR Closer', variant: 'outline' },
-    };
-
-    const config = variants[role] || { label: 'Membro', variant: 'outline' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="h-14 bg-muted/50 animate-pulse rounded-xl" />
+        <div className="h-9 bg-muted/30 animate-pulse rounded-xl max-w-xs" />
+        <div className="rounded-xl border border-border/50 overflow-hidden space-y-px">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-[60px] bg-muted/20 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-4">
+      {/* Page Header */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-            <UserPlus className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            Membros da Equipe
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie os membros da sua empresa
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight">Membros</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{statsText}</p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setInviteDialogOpen(true)} className="w-full md:w-auto">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Convidar Membro
+          <Button size="sm" onClick={() => setInviteDialogOpen(true)} className="gap-1.5 flex-shrink-0">
+            <UserPlus className="h-3.5 w-3.5" />
+            Convidar
           </Button>
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>
-              {filteredMembers.length} {filteredMembers.length === 1 ? 'membro' : 'membros'}
-            </CardTitle>
-            <div className="relative w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar membros..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-center py-8 text-muted-foreground">Carregando...</p>
-          ) : filteredMembers.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">Nenhum membro encontrado</p>
-          ) : (
-            <div className="space-y-4">
-              {paginatedMembers.map((member) => (
-                <div
-                  key={member.user_id}
-                  className="flex flex-col md:flex-row md:items-center md:justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors gap-4"
-                >
-                  <div className="flex items-start md:items-center gap-4 min-w-0 flex-1">
-                    <Avatar className="h-12 w-12 flex-shrink-0">
-                      <AvatarFallback>{getInitials(member.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold truncate">{member.name}</p>
-                        {getRoleBadge(member.role)}
-                        {member.is_active ? (
-                          <UserCheck className="h-4 w-4 text-primary flex-shrink-0" />
-                        ) : (
-                          <UserX className="h-4 w-4 text-red-500 flex-shrink-0" />
-                        )}
-                      </div>
-                      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mt-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <Mail className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{member.email}</span>
-                        </div>
-                        {member.department && (
-                          <div className="flex items-center gap-1">
-                            <Shield className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{member.department}</span>
-                          </div>
-                        )}
-                        {member.last_login && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">Último acesso: {formatDateTime(member.last_login)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 md:flex-shrink-0">
-                    {isAdmin && member.user_id !== user?.user_id && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditDialog(member)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openDeleteDialog(member)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-        {filteredMembers.length > 0 && (
-          <SimplePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            totalItems={filteredMembers.length}
-            itemsPerPage={itemsPerPage}
+      {/* Filter bar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, email ou departamento..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 text-sm"
           />
+        </div>
+        {searchQuery && (
+          <span className="text-xs text-muted-foreground">
+            {filteredMembers.length} de {members.length}
+          </span>
         )}
-      </Card>
+      </div>
+
+      {/* Members table */}
+      <div className="rounded-xl border border-border/50 overflow-hidden">
+        {/* Table header */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/30 border-b border-border/50">
+              <tr>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Membro
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Função
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
+                  Departamento
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">
+                  Último acesso
+                </th>
+                <th className="px-4 py-2.5 w-20" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/40 bg-card">
+              {paginatedMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="flex flex-col items-center justify-center py-16 gap-4">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <UserPlus className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-foreground">
+                          {searchQuery ? 'Nenhum membro encontrado' : 'Nenhum membro ainda'}
+                        </p>
+                        {isAdmin && !searchQuery && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Convide o primeiro membro da equipe
+                          </p>
+                        )}
+                      </div>
+                      {isAdmin && !searchQuery && (
+                        <Button size="sm" onClick={() => setInviteDialogOpen(true)} className="gap-1.5">
+                          <UserPlus className="h-3.5 w-3.5" />
+                          Convidar Membro
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedMembers.map((member) => (
+                  <tr key={member.user_id} className="hover:bg-accent/30 transition-colors">
+                    {/* Member */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-shrink-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                              {getInitials(member.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-background ${
+                              member.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/30'
+                            }`}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Role */}
+                    <td className="px-4 py-3">{getRoleChip(member.role)}</td>
+
+                    {/* Department */}
+                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                      {member.department || '—'}
+                    </td>
+
+                    {/* Last login */}
+                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell tabular-nums">
+                      {fmtRelative(member.last_login)}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3">
+                      {isAdmin && member.user_id !== user?.user_id && (
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:bg-accent"
+                            onClick={() => openEditDialog(member)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-accent"
+                            onClick={() => openDeleteDialog(member)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      {filteredMembers.length > itemsPerPage && (
+        <SimplePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredMembers.length}
+          itemsPerPage={itemsPerPage}
+        />
+      )}
 
       {/* Invite Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent className="mx-[15px] sm:mx-0">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Convidar Novo Membro</DialogTitle>
+            <DialogTitle>Convidar Membro</DialogTitle>
             <DialogDescription>
-              Envie um convite para um novo membro da equipe
+              O convite será enviado por email. Verifique também a caixa de spam.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleInviteMember}>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Nome Completo</Label>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome completo</Label>
                 <Input
                   id="name"
                   value={inviteForm.name}
                   onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                  placeholder="João Silva"
                   required
+                  className="h-9"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                  placeholder="joao@empresa.com"
                   required
+                  className="h-9"
                 />
               </div>
-              <div>
-                <Label htmlFor="role">Função</Label>
-                <Select
-                  value={inviteForm.role}
-                  onValueChange={(value) => setInviteForm({ ...inviteForm, role: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sdr">SDR</SelectItem>
-                    <SelectItem value="closer">Closer</SelectItem>
-                    <SelectItem value="sdr_closer">SDR Closer</SelectItem>
-                    <SelectItem value="manager">Gerente</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="department">Departamento (opcional)</Label>
-                <Input
-                  id="department"
-                  value={inviteForm.department}
-                  onChange={(e) =>
-                    setInviteForm({ ...inviteForm, department: e.target.value })
-                  }
-                  placeholder="Ex: Vendas, Marketing, TI"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Função</Label>
+                  <Select value={inviteForm.role} onValueChange={(v) => setInviteForm({ ...inviteForm, role: v })}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sdr">SDR</SelectItem>
+                      <SelectItem value="closer">Closer</SelectItem>
+                      <SelectItem value="sdr_closer">SDR+Closer</SelectItem>
+                      <SelectItem value="manager">Gerente</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="department">Departamento</Label>
+                  <Input
+                    id="department"
+                    value={inviteForm.department}
+                    onChange={(e) => setInviteForm({ ...inviteForm, department: e.target.value })}
+                    placeholder="Vendas"
+                    className="h-9"
+                  />
+                </div>
               </div>
             </div>
-            <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)} disabled={isInviting}>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setInviteDialogOpen(false)} disabled={isInviting}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isInviting}>
+              <Button type="submit" size="sm" disabled={isInviting}>
                 {isInviting ? 'Enviando…' : 'Enviar Convite'}
               </Button>
             </DialogFooter>
@@ -437,46 +481,42 @@ export default function MembrosPage() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="mx-[15px] sm:mx-0">
+        <DialogContent className="sm:max-w-xs">
           <DialogHeader>
-            <DialogTitle>Editar Membro</DialogTitle>
-            <DialogDescription>Atualize as informações do membro</DialogDescription>
+            <DialogTitle>Editar {selectedMember?.name}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditMember}>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-role">Função</Label>
-                <Select
-                  value={editForm.role}
-                  onValueChange={(value) => setEditForm({ ...editForm, role: value })}
-                >
-                  <SelectTrigger>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Função</Label>
+                <Select value={editForm.role} onValueChange={(v) => setEditForm({ ...editForm, role: v })}>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="sdr">SDR</SelectItem>
                     <SelectItem value="closer">Closer</SelectItem>
-                    <SelectItem value="sdr_closer">SDR Closer</SelectItem>
+                    <SelectItem value="sdr_closer">SDR+Closer</SelectItem>
                     <SelectItem value="manager">Gerente</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="edit-department">Departamento</Label>
+              <div className="space-y-2">
+                <Label>Departamento</Label>
                 <Input
-                  id="edit-department"
                   value={editForm.department}
                   onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                  placeholder="Ex: Vendas, Marketing, TI"
+                  placeholder="Vendas"
+                  className="h-9"
                 />
               </div>
             </div>
-            <DialogFooter className="mt-6">
-              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">Salvar Alterações</Button>
+              <Button type="submit" size="sm">Salvar</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -486,15 +526,19 @@ export default function MembrosPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover Membro</AlertDialogTitle>
+            <AlertDialogTitle>Remover membro</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{selectedMember?.name}</strong>? Esta ação
-              não pode ser desfeita.
+              Tem certeza que deseja remover <strong>{selectedMember?.name}</strong>?
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteMember} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDeleteMember}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               {isDeleting ? 'Removendo…' : 'Remover'}
             </AlertDialogAction>
           </AlertDialogFooter>
