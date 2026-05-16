@@ -1,8 +1,9 @@
 'use client';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface MetricCardProps {
   title: string;
@@ -11,9 +12,10 @@ interface MetricCardProps {
   icon: LucideIcon;
   format?: 'number' | 'currency' | 'percentage';
   highlight?: { bg: string; text?: string };
+  delta?: number | null;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight }: MetricCardProps) {
+export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight, delta }: MetricCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -78,11 +80,22 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
         </div>
       </CardHeader>
       <CardContent className="pt-0 px-3 pb-3 md:px-6 md:pb-6">
-        <div
-          className={highlight ? 'text-lg md:text-2xl font-bold mb-0.5 truncate' : 'text-lg md:text-2xl font-bold text-foreground mb-0.5 truncate'}
-          style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
-        >
-          {formattedValue()}
+        <div className="flex items-end justify-between gap-2 mb-0.5">
+          <div
+            className={highlight ? 'text-lg md:text-2xl font-bold truncate' : 'text-lg md:text-2xl font-bold text-foreground truncate'}
+            style={highlight ? { color: highlight.text || '#ffffff' } : undefined}
+          >
+            {formattedValue()}
+          </div>
+          {delta !== undefined && delta !== null && (
+            <div className={cn(
+              'flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 mb-0.5',
+              delta > 0 ? 'bg-emerald-500/10 text-emerald-500' : delta < 0 ? 'bg-red-500/10 text-red-500' : 'bg-muted text-muted-foreground'
+            )}>
+              {delta > 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+              {Math.abs(delta)}%
+            </div>
+          )}
         </div>
         <p
           className={highlight ? 'text-[10px] md:text-xs' : 'text-[10px] md:text-xs text-muted-foreground'}

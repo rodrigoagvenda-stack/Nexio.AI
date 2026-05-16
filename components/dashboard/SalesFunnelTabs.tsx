@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { motion } from 'framer-motion';
 import { Bell } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface FunnelStage {
   label: string;
@@ -135,16 +135,22 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts }: SalesFunnelTabsPro
       <Card className="h-full flex flex-col overflow-hidden">
         <CardContent className="flex-1 pt-4 md:pt-6 px-3 md:px-6 flex flex-col">
           <div className="mb-3">
-            <Select value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-              <SelectTrigger className="w-[200px] h-9 text-sm">
-                <SelectValue>{TAB_LABELS[activeTab]}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="vendas">Funil de Vendas</SelectItem>
-                <SelectItem value="noshow">Anti Noshow</SelectItem>
-                <SelectItem value="remarketing">Remarketing</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+              {(Object.keys(TAB_LABELS) as TabValue[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  className={cn(
+                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap',
+                    activeTab === t
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {TAB_LABELS[t]}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex-1">

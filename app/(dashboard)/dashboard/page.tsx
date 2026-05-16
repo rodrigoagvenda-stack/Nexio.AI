@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign, Bot } from 'lucide-react';
-import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, isWithinInterval } from 'date-fns';
-
-interface DateRange {
-  from: Date | undefined;
-  to: Date | undefined;
-}
-
+import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign } from 'lucide-react';
+import {
+  startOfDay, startOfWeek, startOfMonth, startOfYear,
+  endOfDay, subDays, subWeeks, subMonths, subYears, format,
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { FilterPeriod } from '@/components/dashboard/FilterButtons';
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
@@ -17,6 +15,11 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
+
+interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
+}
 
 interface Lead {
   id: string;
@@ -29,499 +32,397 @@ interface Lead {
   outbound_followups: number;
 }
 
+// ── Pure helpers ──────────────────────────────────────────────────────────────
+
+function getPeriodRange(period: FilterPeriod, dateRange?: DateRange): { from: Date; to: Date } | null {
+  const now = new Date();
+  if (period === 'custom') {
+    return dateRange?.from && dateRange?.to
+      ? { from: startOfDay(dateRange.from), to: endOfDay(dateRange.to) }
+      : null;
+  }
+  const map: Record<string, { from: Date; to: Date }> = {
+    today: { from: startOfDay(now), to: endOfDay(now) },
+    week:  { from: startOfWeek(now, { weekStartsOn: 0 }), to: endOfDay(now) },
+    month: { from: startOfMonth(now), to: endOfDay(now) },
+    year:  { from: startOfYear(now), to: endOfDay(now) },
+  };
+  return map[period] ?? null;
+}
+
+function getPreviousPeriodRange(period: FilterPeriod, dateRange?: DateRange): { from: Date; to: Date } | null {
+  const now = new Date();
+  switch (period) {
+    case 'today': {
+      const d = subDays(now, 1);
+      return { from: startOfDay(d), to: endOfDay(d) };
+    }
+    case 'week': {
+      const ws = startOfWeek(now, { weekStartsOn: 0 });
+      return { from: subWeeks(ws, 1), to: endOfDay(subDays(ws, 1)) };
+    }
+    case 'month': {
+      const ms = startOfMonth(now);
+      return { from: startOfMonth(subMonths(now, 1)), to: endOfDay(subDays(ms, 1)) };
+    }
+    case 'year': {
+      const ys = startOfYear(now);
+      return { from: startOfYear(subYears(now, 1)), to: endOfDay(subDays(ys, 1)) };
+    }
+    case 'custom': {
+      if (!dateRange?.from || !dateRange?.to) return null;
+      const diff = dateRange.to.getTime() - dateRange.from.getTime();
+      const prevTo = endOfDay(subDays(dateRange.from, 1));
+      const prevFrom = new Date(prevTo.getTime() - diff);
+      return { from: prevFrom, to: prevTo };
+    }
+    default:
+      return null;
+  }
+}
+
+function calcDelta(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? 100 : null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+const PERIOD_LABELS: Record<FilterPeriod, string> = {
+  today: 'Hoje', week: 'Semana', month: 'Mês', year: 'Ano', custom: 'Personalizado',
+};
+
+const PERIODS: FilterPeriod[] = ['today', 'week', 'month', 'year', 'custom'];
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [outboundAbordados, setOutboundAbordados] = useState(0);
   const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
+  const [companyName, setCompanyName] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  useEffect(() => {
-    fetchLeads();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  useEffect(() => {
-    filterLeadsByPeriod();
-  }, [selectedPeriod, dateRange, leads]);
-
-  const fetchLeads = async () => {
+  async function fetchData() {
     try {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: userData } = await supabase
-        .from('users')
-        .select('company_id')
-        .eq('auth_user_id', user.id)
-        .single();
-
+        .from('users').select('company_id').eq('auth_user_id', user.id).single();
       if (!userData?.company_id) return;
+      const companyId = userData.company_id;
 
-      const { data: leadsData } = await supabase
-        .from('leads')
-        .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
-        .eq('company_id', userData.company_id)
-        .order('created_at', { ascending: true });
+      const [leadsRes, followLogsRes, companyRes] = await Promise.all([
+        supabase.from('leads')
+          .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: true }),
+        supabase.from('follow_logs').select('momento').eq('company_id', companyId),
+        supabase.from('companies').select('name').eq('id', companyId).maybeSingle(),
+      ]);
 
-      setLeads(leadsData || []);
-
-      // Abordados: distinct lead_ids em outbound_campaigns com tentativas > 0
-      const { data: abordadosRows } = await supabase
-        .from('outbound_campaigns')
-        .select('lead_id')
-        .eq('company_id', userData.company_id)
-        .gt('tentativas', 0);
-      setOutboundAbordados(new Set(abordadosRows?.map((r: any) => r.lead_id)).size);
-
-      // Anti Noshow: contar disparos por momento
-      const { data: followLogsData } = await supabase
-        .from('follow_logs')
-        .select('momento')
-        .eq('company_id', userData.company_id);
+      setLeads(leadsRes.data || []);
+      setCompanyName(companyRes.data?.name || '');
 
       const counts: Record<string, number> = {};
-      (followLogsData || []).forEach((r: any) => {
+      (followLogsRes.data || []).forEach((r: any) => {
         if (r.momento) counts[r.momento] = (counts[r.momento] || 0) + 1;
       });
       setAntiNoshowCounts(counts);
-    } catch (error) {
-      console.error('Error fetching leads:', error);
+    } catch (e) {
+      console.error('Dashboard fetch error:', e);
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterLeadsByPeriod = () => {
-    if (leads.length === 0) {
-      setFilteredLeads([]);
-      return;
-    }
-
-    const now = new Date();
-    let filtered = leads;
-
-    if (selectedPeriod === 'custom') {
-      if (dateRange?.from && dateRange?.to) {
-        filtered = leads.filter((lead) => {
-          const leadDate = new Date(lead.created_at);
-          return isWithinInterval(leadDate, {
-            start: startOfDay(dateRange.from!),
-            end: endOfDay(dateRange.to!),
-          });
-        });
-      } else {
-        // Se custom mas sem range, mostra todos
-        filtered = leads;
-      }
-    } else {
-      const periodStarts = {
-        today: startOfDay(now),
-        week: startOfWeek(now, { weekStartsOn: 0 }),
-        month: startOfMonth(now),
-        year: startOfYear(now),
-      };
-
-      const periodStart = periodStarts[selectedPeriod as keyof typeof periodStarts];
-
-      if (periodStart) {
-        filtered = leads.filter((lead) => {
-          const leadDate = new Date(lead.created_at);
-          return leadDate >= periodStart && leadDate <= now;
-        });
-      }
-    }
-
-    setFilteredLeads(filtered);
-  };
+  }
 
   const handlePeriodChange = (period: FilterPeriod) => {
     setSelectedPeriod(period);
-    if (period !== 'custom') {
-      setDateRange(undefined);
-      setShowDatePicker(false);
-    } else {
-      setShowDatePicker(true);
-    }
+    if (period !== 'custom') { setDateRange(undefined); setShowDatePicker(false); }
+    else { setShowDatePicker(true); }
   };
 
-  // Métricas base (período filtrado)
-  const novosLeads = filteredLeads.filter((l) => l.status === 'Lead novo').length;
-  const emAtendimento = filteredLeads.filter((l) => l.status === 'Em contato').length;
+  // ── Ranges ────────────────────────────────────────────────────────────────
+  const currentRange = useMemo(() => getPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
+  const previousRange = useMemo(() => getPreviousPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
 
-  // Estado atual do pipeline (independente do período — reflete situação real agora)
-  const triagem = leads.filter((l) => l.status === 'Triagem').length;
-  const outboundAtivos = leads.filter((l) => l.status === 'Outbound').length;
-
-  // Para leads fechados, filtramos TODOS os leads por closed_at dentro do período
-  const now = new Date();
-  let leadsClosedInPeriod = leads.filter((l) => l.status === 'Fechado' && l.closed_at);
-
-  if (selectedPeriod !== 'custom') {
-    const periodStarts = {
-      today: startOfDay(now),
-      week: startOfWeek(now, { weekStartsOn: 0 }),
-      month: startOfMonth(now),
-      year: startOfYear(now),
-    };
-    const periodStart = periodStarts[selectedPeriod as keyof typeof periodStarts];
-
-    if (periodStart) {
-      leadsClosedInPeriod = leadsClosedInPeriod.filter((l) => {
-        const closedDate = new Date(l.closed_at!);
-        return closedDate >= periodStart && closedDate <= now;
-      });
-    }
-  } else if (dateRange?.from && dateRange?.to) {
-    leadsClosedInPeriod = leadsClosedInPeriod.filter((l) => {
-      const closedDate = new Date(l.closed_at!);
-      return isWithinInterval(closedDate, {
-        start: startOfDay(dateRange.from!),
-        end: endOfDay(dateRange.to!),
-      });
+  // ── Derived lead sets ─────────────────────────────────────────────────────
+  const filteredLeads = useMemo(() => {
+    if (!currentRange) return leads;
+    return leads.filter(l => {
+      const d = new Date(l.created_at);
+      return d >= currentRange.from && d <= currentRange.to;
     });
-  }
+  }, [leads, currentRange]);
 
+  const leadsClosedInPeriod = useMemo(() => {
+    if (!currentRange) return leads.filter(l => l.status === 'Fechado' && l.closed_at);
+    return leads.filter(l => {
+      if (l.status !== 'Fechado' || !l.closed_at) return false;
+      const d = new Date(l.closed_at);
+      return d >= currentRange.from && d <= currentRange.to;
+    });
+  }, [leads, currentRange]);
+
+  // Leads not closed/lost — state atual do pipeline (independe do período)
+  const activeLeads = useMemo(() =>
+    leads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido'),
+    [leads]
+  );
+
+  const prevFilteredLeads = useMemo(() => {
+    if (!previousRange) return [];
+    return leads.filter(l => {
+      const d = new Date(l.created_at);
+      return d >= previousRange.from && d <= previousRange.to;
+    });
+  }, [leads, previousRange]);
+
+  const prevLeadsClosedInPeriod = useMemo(() => {
+    if (!previousRange) return [];
+    return leads.filter(l => {
+      if (l.status !== 'Fechado' || !l.closed_at) return false;
+      const d = new Date(l.closed_at);
+      return d >= previousRange.from && d <= previousRange.to;
+    });
+  }, [leads, previousRange]);
+
+  // ── Current metrics ───────────────────────────────────────────────────────
+  // novosLeads: TODOS os leads criados no período (independente do status atual)
+  const novosLeads = filteredLeads.length;
+  // emAtendimento: estado real do pipeline agora
+  const emAtendimento = activeLeads.filter(l => l.status === 'Em contato').length;
   const fechados = leadsClosedInPeriod.length;
-  const faturamento = leadsClosedInPeriod.reduce((sum, l) => sum + (l.project_value || 0), 0);
+  const faturamento = leadsClosedInPeriod.reduce((s, l) => s + (l.project_value || 0), 0);
+  // pipeline: valor total de leads ainda ativos (estado atual, independe do período)
+  const faturamentoEmNegociacao = activeLeads.reduce((s, l) => s + (l.project_value || 0), 0);
+  const taxaConversao = filteredLeads.length > 0
+    ? Math.min(100, (fechados / filteredLeads.length) * 100).toFixed(1)
+    : '0.0';
 
-  // Em negociação: soma de project_value de leads ativos (não fechados nem perdidos)
-  const faturamentoEmNegociacao = filteredLeads
-    .filter((l) => l.status !== 'Fechado' && l.status !== 'Perdido')
-    .reduce((sum, l) => sum + (l.project_value || 0), 0);
+  // ── Previous period metrics ───────────────────────────────────────────────
+  const prevNovosLeads = prevFilteredLeads.length;
+  const prevFechados = prevLeadsClosedInPeriod.length;
+  const prevFaturamento = prevLeadsClosedInPeriod.reduce((s, l) => s + (l.project_value || 0), 0);
+  const prevTaxaConversao = prevFilteredLeads.length > 0
+    ? (prevFechados / prevFilteredLeads.length) * 100 : 0;
 
-  // Taxa de conversão: fechados / total leads no período (inclui Outbound + Lead novo + demais)
-  const totalLeads = filteredLeads.length;
-  const taxaConversao = totalLeads > 0 ? ((fechados / totalLeads) * 100).toFixed(1) : '0.0';
+  // ── Deltas ────────────────────────────────────────────────────────────────
+  const deltaNovosLeads = calcDelta(novosLeads, prevNovosLeads);
+  const deltaFechados = calcDelta(fechados, prevFechados);
+  const deltaFaturamento = calcDelta(faturamento, prevFaturamento);
+  const deltaTaxaConversao = calcDelta(parseFloat(taxaConversao), prevTaxaConversao);
 
-  // Métricas IA Outbound
-  const outboundRetornaram = filteredLeads.filter((l) => l.outbound_responded).length;
-  const outboundReuniao = filteredLeads.filter((l) => l.outbound_meeting).length;
-  const outboundFechados = leadsClosedInPeriod.filter(
-    (l) => l.outbound_responded || l.outbound_meeting
-  ).length;
-  const outboundFollowups = filteredLeads.reduce((sum, l) => sum + (l.outbound_followups || 0), 0);
-
-  // Debug: ver status dos leads
-  const statusCount = filteredLeads.reduce((acc, l) => {
-    acc[l.status] = (acc[l.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  console.log('📊 Status dos leads filtrados:', JSON.stringify(statusCount));
-  console.log('💰 Leads fechados:', fechados, '| Faturamento:', faturamento);
-
-  // Dados do gráfico de performance - ADAPTATIVO por período
-  const generatePerformanceData = () => {
+  // ── Performance chart data ────────────────────────────────────────────────
+  const performanceData = useMemo(() => {
     const now = new Date();
-
     switch (selectedPeriod) {
       case 'today': {
-        // HOJE: Mostrar 24 horas (0h-23h)
-        const today = startOfDay(now);
-        return Array.from({ length: 24 }, (_, i) => {
-          const hourLeads = filteredLeads.filter((lead) => {
-            const leadDate = new Date(lead.created_at);
-            return (
-              leadDate >= today &&
-              leadDate < new Date(today.getTime() + 24 * 60 * 60 * 1000) &&
-              leadDate.getHours() === i
-            );
-          });
-
-          // Para fechados, usar closed_at
-          const hourFechados = leadsClosedInPeriod.filter((lead) => {
-            if (!lead.closed_at) return false;
-            const closedDate = new Date(lead.closed_at);
-            return (
-              closedDate >= today &&
-              closedDate < new Date(today.getTime() + 24 * 60 * 60 * 1000) &&
-              closedDate.getHours() === i
-            );
-          });
-
-          return {
-            name: `${i}h`,
-            leads: hourLeads.length,
-            fechados: hourFechados.length,
-          };
-        });
+        return Array.from({ length: 24 }, (_, i) => ({
+          name: `${i}h`,
+          leads: filteredLeads.filter(l => new Date(l.created_at).getHours() === i).length,
+          fechados: leadsClosedInPeriod.filter(l => l.closed_at && new Date(l.closed_at).getHours() === i).length,
+        }));
       }
-
       case 'week': {
-        // SEMANA: Mostrar 7 dias
-        const weekStart = startOfWeek(now, { weekStartsOn: 0 });
+        const ws = startOfWeek(now, { weekStartsOn: 0 });
         return Array.from({ length: 7 }, (_, i) => {
-          const date = new Date(weekStart);
-          date.setDate(date.getDate() + i);
-          const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' });
-          const dayStart = startOfDay(date);
-          const dayEnd = endOfDay(date);
-
-          const dayLeads = filteredLeads.filter((lead) => {
-            const leadDate = new Date(lead.created_at);
-            return leadDate >= dayStart && leadDate <= dayEnd;
-          });
-
-          // Para fechados, usar closed_at
-          const dayFechados = leadsClosedInPeriod.filter((lead) => {
-            if (!lead.closed_at) return false;
-            const closedDate = new Date(lead.closed_at);
-            return closedDate >= dayStart && closedDate <= dayEnd;
-          });
-
+          const d = new Date(ws); d.setDate(d.getDate() + i);
+          const ds = startOfDay(d), de = endOfDay(d);
           return {
-            name: dayName,
-            leads: dayLeads.length,
-            fechados: dayFechados.length,
+            name: d.toLocaleDateString('pt-BR', { weekday: 'short' }),
+            leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ds && ld <= de; }).length,
+            fechados: leadsClosedInPeriod.filter(l => {
+              if (!l.closed_at) return false;
+              const cd = new Date(l.closed_at); return cd >= ds && cd <= de;
+            }).length,
           };
         });
       }
-
       case 'month': {
-        // MÊS: Mostrar semanas (4-5 semanas)
-        const startOfMonthDate = startOfMonth(now);
+        const ms = startOfMonth(now);
         const weeks: { name: string; leads: number; fechados: number }[] = [];
-        let weekNum = 1;
-
-        for (let d = new Date(startOfMonthDate); d <= now; ) {
-          const weekStart = startOfDay(d);
-          const weekEnd = new Date(d);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          const weekEndDay = endOfDay(weekEnd);
-
-          const weekLeads = filteredLeads.filter((lead) => {
-            const leadDate = new Date(lead.created_at);
-            return leadDate >= weekStart && leadDate <= weekEndDay;
-          });
-
-          // Para fechados, usar closed_at
-          const weekFechados = leadsClosedInPeriod.filter((lead) => {
-            if (!lead.closed_at) return false;
-            const closedDate = new Date(lead.closed_at);
-            return closedDate >= weekStart && closedDate <= weekEndDay;
-          });
-
+        let wn = 1;
+        for (let d = new Date(ms); d <= now; ) {
+          const ws2 = startOfDay(d);
+          const we2 = endOfDay(new Date(d.getTime() + 6 * 86400000));
           weeks.push({
-            name: `Sem ${weekNum}`,
-            leads: weekLeads.length,
-            fechados: weekFechados.length,
+            name: `Sem ${wn}`,
+            leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ws2 && ld <= we2; }).length,
+            fechados: leadsClosedInPeriod.filter(l => {
+              if (!l.closed_at) return false;
+              const cd = new Date(l.closed_at); return cd >= ws2 && cd <= we2;
+            }).length,
           });
-
-          d.setDate(d.getDate() + 7);
-          weekNum++;
+          d.setDate(d.getDate() + 7); wn++;
         }
-
         return weeks.length > 0 ? weeks : [{ name: 'Sem 1', leads: 0, fechados: 0 }];
       }
-
       case 'year': {
-        // ANO: Mostrar 12 meses
         return Array.from({ length: 12 }, (_, i) => {
-          const monthDate = new Date(now.getFullYear(), i, 1);
-          const monthName = monthDate.toLocaleDateString('pt-BR', { month: 'short' });
-
-          const monthLeads = filteredLeads.filter((lead) => {
-            const leadDate = new Date(lead.created_at);
-            return leadDate.getMonth() === i && leadDate.getFullYear() === now.getFullYear();
-          });
-
-          // Para fechados no ano, usar closed_at
-          const monthFechados = leadsClosedInPeriod.filter((l) => {
-            if (!l.closed_at) return false;
-            const closedDate = new Date(l.closed_at);
-            return closedDate.getMonth() === i && closedDate.getFullYear() === now.getFullYear();
-          });
-
+          const mn = new Date(now.getFullYear(), i, 1).toLocaleDateString('pt-BR', { month: 'short' });
           return {
-            name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
-            leads: monthLeads.length,
-            fechados: monthFechados.length,
+            name: mn.charAt(0).toUpperCase() + mn.slice(1),
+            leads: filteredLeads.filter(l => new Date(l.created_at).getMonth() === i).length,
+            fechados: leadsClosedInPeriod.filter(l => l.closed_at && new Date(l.closed_at).getMonth() === i).length,
           };
         });
       }
-
       case 'custom': {
-        // PERSONALIZADO: Baseado no intervalo selecionado
-        if (!dateRange?.from || !dateRange?.to) {
-          return [{ name: 'Selecione um período', leads: 0, fechados: 0 }];
-        }
-
-        const diffTime = Math.abs(dateRange.to.getTime() - dateRange.from.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        // Se intervalo <= 7 dias, mostrar por dia
-        if (diffDays <= 7) {
-          return Array.from({ length: diffDays + 1 }, (_, i) => {
-            const date = new Date(dateRange.from!);
-            date.setDate(date.getDate() + i);
-            const dayName = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-            const dayStart = startOfDay(date);
-            const dayEnd = endOfDay(date);
-
-            const dayLeads = filteredLeads.filter((lead) => {
-              const leadDate = new Date(lead.created_at);
-              return leadDate >= dayStart && leadDate <= dayEnd;
-            });
-
-            // Para fechados, usar closed_at
-            const dayFechados = leadsClosedInPeriod.filter((l) => {
-              if (!l.closed_at) return false;
-              const closedDate = new Date(l.closed_at);
-              return closedDate >= dayStart && closedDate <= dayEnd;
-            });
-
+        if (!dateRange?.from || !dateRange?.to) return [{ name: 'Selecione um período', leads: 0, fechados: 0 }];
+        const diff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
+        if (diff <= 7) {
+          return Array.from({ length: diff + 1 }, (_, i) => {
+            const d = new Date(dateRange.from!); d.setDate(d.getDate() + i);
+            const ds = startOfDay(d), de = endOfDay(d);
             return {
-              name: dayName,
-              leads: dayLeads.length,
-              fechados: dayFechados.length,
+              name: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+              leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ds && ld <= de; }).length,
+              fechados: leadsClosedInPeriod.filter(l => {
+                if (!l.closed_at) return false;
+                const cd = new Date(l.closed_at); return cd >= ds && cd <= de;
+              }).length,
             };
           });
         }
-
-        // Se intervalo > 7 dias, mostrar por semana
-        const weeks: { name: string; leads: number; fechados: number }[] = [];
-        let weekNum = 1;
-
+        const weeks2: { name: string; leads: number; fechados: number }[] = [];
+        let wn2 = 1;
         for (let d = new Date(dateRange.from); d <= dateRange.to; ) {
-          const weekStart = startOfDay(d);
-          const weekEnd = new Date(d);
-          weekEnd.setDate(weekEnd.getDate() + 6);
-          const weekEndDay = weekEnd > dateRange.to ? endOfDay(dateRange.to) : endOfDay(weekEnd);
-
-          const weekLeads = filteredLeads.filter((lead) => {
-            const leadDate = new Date(lead.created_at);
-            return leadDate >= weekStart && leadDate <= weekEndDay;
+          const ws3 = startOfDay(d);
+          const we3 = endOfDay(new Date(Math.min(d.getTime() + 6 * 86400000, dateRange.to.getTime())));
+          weeks2.push({
+            name: `Sem ${wn2}`,
+            leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ws3 && ld <= we3; }).length,
+            fechados: leadsClosedInPeriod.filter(l => {
+              if (!l.closed_at) return false;
+              const cd = new Date(l.closed_at); return cd >= ws3 && cd <= we3;
+            }).length,
           });
-
-          // Para fechados, usar closed_at
-          const weekFechados = leadsClosedInPeriod.filter((l) => {
-            if (!l.closed_at) return false;
-            const closedDate = new Date(l.closed_at);
-            return closedDate >= weekStart && closedDate <= weekEndDay;
-          });
-
-          weeks.push({
-            name: `Sem ${weekNum}`,
-            leads: weekLeads.length,
-            fechados: weekFechados.length,
-          });
-
-          d.setDate(d.getDate() + 7);
-          weekNum++;
+          d.setDate(d.getDate() + 7); wn2++;
         }
-
-        return weeks;
+        return weeks2;
       }
-
       default:
         return [];
     }
-  };
+  }, [selectedPeriod, dateRange, filteredLeads, leadsClosedInPeriod]);
 
-  const performanceData = generatePerformanceData();
-
-  // Dados do donut de conversão
-  // Em andamento = leads criados no período que NÃO foram fechados no período
-  const emAndamento = Math.max(0, totalLeads - fechados);
+  // ── Donut (all-time state) ────────────────────────────────────────────────
+  const allFechados = leads.filter(l => l.status === 'Fechado').length;
   const conversionData = [
-    { name: 'Fechados', value: fechados, color: 'hsl(var(--chart-2))' },
-    { name: 'Em andamento', value: emAndamento, color: 'hsl(var(--chart-1))' },
+    { name: 'Fechados', value: allFechados, color: 'hsl(var(--chart-2))' },
+    { name: 'Em andamento', value: activeLeads.length, color: 'hsl(var(--chart-1))' },
   ];
 
-  // Dados do funil principal
+  // ── Funnel (current pipeline state) ──────────────────────────────────────
   const funnelStages = [
-    {
-      label: 'Lead novo',
-      count: filteredLeads.filter((l) => l.status === 'Lead novo').length,
-      color: 'bg-blue-500',
-    },
-    {
-      label: 'Em contato',
-      count: filteredLeads.filter((l) => l.status === 'Em contato').length,
-      color: 'bg-green-400',
-    },
-    {
-      label: 'Interessado',
-      count: filteredLeads.filter((l) => l.status === 'Interessado').length,
-      color: 'bg-green-500',
-    },
-    {
-      label: 'Proposta enviada',
-      count: filteredLeads.filter((l) => l.status === 'Proposta enviada').length,
-      color: 'bg-green-600',
-    },
-    {
-      label: 'Fechado',
-      count: fechados,
-      color: 'bg-zinc-700',
-    },
+    { label: 'Lead novo',        count: activeLeads.filter(l => l.status === 'Lead novo').length,        color: 'bg-blue-500' },
+    { label: 'Em contato',       count: activeLeads.filter(l => l.status === 'Em contato').length,       color: 'bg-green-400' },
+    { label: 'Interessado',      count: activeLeads.filter(l => l.status === 'Interessado').length,      color: 'bg-green-500' },
+    { label: 'Proposta enviada', count: activeLeads.filter(l => l.status === 'Proposta enviada').length, color: 'bg-green-600' },
+    { label: 'Fechado',          count: allFechados,                                                      color: 'bg-zinc-700' },
   ];
 
+  // ── Header date ───────────────────────────────────────────────────────────
+  const formattedDate = (() => {
+    const s = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
+  // ── Skeleton ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-        <div className="animate-shimmer h-8 w-48 rounded"></div>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-56 animate-pulse bg-muted rounded-lg" />
+            <div className="h-4 w-64 animate-pulse bg-muted rounded-lg" />
+          </div>
+          <div className="h-10 w-80 animate-pulse bg-muted rounded-xl" />
+        </div>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          {[...Array(5)].map((_, i) => <div key={i} className="h-28 animate-pulse bg-muted rounded-xl" />)}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 h-72 animate-pulse bg-muted rounded-xl" />
+          <div className="h-72 animate-pulse bg-muted rounded-xl" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 h-64 animate-pulse bg-muted rounded-xl" />
+          <div className="h-64 animate-pulse bg-muted rounded-xl" />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header com Filtros */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-xl md:text-3xl font-bold text-foreground">Overview</h1>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="flex gap-1.5 overflow-x-auto flex-nowrap" style={{scrollbarWidth: 'none'}}>
-            {(['today','week','month','year','custom'] as const).map((period) => (
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            {getGreeting()}{companyName ? `, ${companyName}` : ''} 👋
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{formattedDate}</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <div className="flex gap-1 bg-muted p-1 rounded-xl">
+            {PERIODS.map(period => (
               <button
                 key={period}
                 onClick={() => handlePeriodChange(period)}
-                className={`flex-shrink-0 px-3 py-1.5 text-xs md:text-sm md:px-4 md:py-2 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${
                   selectedPeriod === period
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted/80'
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {period === 'today' ? 'Hoje' : period === 'week' ? 'Semana' : period === 'month' ? 'Mês' : period === 'year' ? 'Ano' : 'Personalizado'}
+                {PERIOD_LABELS[period]}
               </button>
             ))}
           </div>
           {showDatePicker && (
-            <div className="w-full sm:w-auto">
-              <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-            </div>
+            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           )}
         </div>
       </div>
 
-      {/* Cards de Métricas */}
+      {/* KPI Cards */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           title="Novos leads"
           value={novosLeads}
-          subtitle={`${novosLeads} novos leads`}
+          subtitle={`${novosLeads === 1 ? '1 lead' : `${novosLeads} leads`} no período`}
           icon={UserRoundPlus}
           format="number"
+          delta={deltaNovosLeads}
         />
         <MetricCard
           title="Em atendimento"
           value={emAtendimento}
-          subtitle="Leads em atendimento"
+          subtitle="Pipeline ativo agora"
           icon={MessageCircleMore}
           format="number"
         />
         <MetricCard
           title="Taxa de conversão"
           value={taxaConversao}
-          subtitle="Leads convertidos"
+          subtitle="Fechados / entrados"
           icon={TrendingUp}
           format="percentage"
+          delta={deltaTaxaConversao}
         />
         <MetricCard
           title="Em negociação"
@@ -533,13 +434,14 @@ export default function DashboardPage() {
         <MetricCard
           title="Faturamento"
           value={faturamento}
-          subtitle="Faturamento em negócios"
+          subtitle="Fechados no período"
           icon={CircleDollarSign}
           format="currency"
+          delta={deltaFaturamento}
         />
       </div>
 
-      {/* Performance e Taxa de Conversão - alinhados */}
+      {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-3 items-stretch">
         <div className="lg:col-span-2 h-full">
           <PerformanceChart data={performanceData} />
@@ -549,13 +451,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Funil de Vendas (com abas) e Vendas Recentes */}
+      {/* Funnel + Recent Sales */}
       <div className="grid gap-6 lg:grid-cols-3 items-start">
         <div className="lg:col-span-2 h-auto md:h-[500px]">
-          <SalesFunnelTabs
-            stages={funnelStages}
-            antiNoshowCounts={antiNoshowCounts}
-          />
+          <SalesFunnelTabs stages={funnelStages} antiNoshowCounts={antiNoshowCounts} />
         </div>
         <div className="h-auto md:h-[500px]">
           <RecentSales />
