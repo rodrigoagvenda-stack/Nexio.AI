@@ -405,34 +405,59 @@ export const Sidebar = memo(function Sidebar({
             const pct = Math.min(100, Math.round((tokensUsed / tokensLimit) * 100));
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
-            const barColor = isCritical ? 'bg-red-500' : isWarning ? 'bg-amber-500' : 'bg-primary';
+            const gradientBar = isCritical
+              ? 'from-red-500 to-red-400'
+              : isWarning
+              ? 'from-amber-500 to-yellow-400'
+              : 'from-primary to-emerald-400';
             return (
-              <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-primary/40 flex items-center justify-center flex-shrink-0">
-                    <TrendingUp className="h-3.5 w-3.5 text-primary-foreground" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground leading-tight">Limite de tokens</p>
-                    <p className="text-[10px] text-muted-foreground">{pct}% utilizado</p>
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                    <span>{tokensUsed.toLocaleString('pt-BR')}</span>
-                    <span>{tokensLimit.toLocaleString('pt-BR')}</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
+              <div className="relative rounded-2xl border border-border/60 bg-card overflow-hidden p-4 pb-3 space-y-3">
+                {/* subtle bg glow */}
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+
+                {/* icon centered */}
+                <div className="flex justify-center">
+                  <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shadow-lg shadow-primary/30">
+                    <TrendingUp className="h-5 w-5 text-white" />
+                    <div className="absolute inset-0 rounded-xl ring-1 ring-white/20" />
                   </div>
                 </div>
-                <Link
-                  href="/configuracoes"
-                  className="flex items-center justify-center w-full h-7 rounded-lg bg-foreground text-background text-[11px] font-semibold gap-1 hover:opacity-90 transition-opacity"
-                >
-                  Upgrade de plano
-                  <ChevronRight className="h-3 w-3" />
-                </Link>
+
+                {/* title + usage */}
+                <div className="text-center space-y-0.5">
+                  <p className="text-xs font-bold text-foreground tracking-tight">Limite de Tokens</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">
+                    {tokensUsed.toLocaleString('pt-BR')} / {tokensLimit.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+
+                {/* progress bar */}
+                <div className="space-y-1">
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${gradientBar} transition-all duration-700`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-right">{pct}% utilizado</p>
+                </div>
+
+                {/* actions */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Link
+                    href="/configuracoes"
+                    className="flex items-center justify-center h-7 rounded-lg bg-muted hover:bg-accent text-foreground text-[11px] font-medium transition-colors"
+                  >
+                    Ver planos
+                  </Link>
+                  <Link
+                    href="/configuracoes"
+                    className="flex items-center justify-center gap-1 h-7 rounded-lg bg-foreground text-background text-[11px] font-semibold hover:opacity-90 transition-opacity"
+                  >
+                    Upgrade
+                    <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
             );
           })()}
