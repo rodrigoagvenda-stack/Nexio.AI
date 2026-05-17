@@ -418,56 +418,37 @@ export const Sidebar = memo(function Sidebar({
             const isWarning = pct >= 80;
             const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#15803d';
             return (
-              <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
-                {/* icon + label */}
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-                    <TrendingUp className="h-4 w-4 text-primary" />
+              <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+                {/* icon + label row */}
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
+                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
                   </div>
-                  <div>
-                    <p className="text-[11px] font-semibold text-foreground leading-none mb-0.5">Limite mensal</p>
-                    <p className="text-[10px] text-muted-foreground">{planName || 'Plano atual'}</p>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-foreground leading-none">Limite mensal</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{planName || 'Plano atual'}</p>
                   </div>
                 </div>
 
-                {/* numbers */}
-                <div>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="text-lg font-bold text-foreground tabular-nums">
-                      {tokensUsed.toLocaleString('pt-BR')}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground tabular-nums">
-                      / {tokensLimit.toLocaleString('pt-BR')}
-                    </span>
-                  </div>
-                  {/* bar */}
+                {/* bar + numbers */}
+                <div className="space-y-1">
                   <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, backgroundColor: barColor }}
-                    />
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {pct}% do limite mensal utilizado
-                  </p>
+                  <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+                    <span>{pct}% utilizado</span>
+                    <span>{tokensUsed.toLocaleString('pt-BR')} / {tokensLimit.toLocaleString('pt-BR')}</span>
+                  </div>
                 </div>
 
-                {/* buttons */}
-                <div className="flex flex-col gap-1.5">
-                  <Link
-                    href="/configuracoes"
-                    className="flex items-center justify-center gap-1.5 h-8 rounded-xl bg-foreground text-background text-[11px] font-semibold hover:opacity-85 transition-opacity"
-                  >
-                    Upgrade de plano
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Link>
-                  <Link
-                    href="/ajuda"
-                    className="flex items-center justify-center h-7 rounded-xl text-muted-foreground text-[11px] font-medium hover:text-foreground hover:bg-accent/50 transition-colors"
-                  >
-                    Saiba mais
-                  </Link>
-                </div>
+                {/* upgrade button */}
+                <Link
+                  href="/configuracoes"
+                  className="flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-foreground text-background text-[11px] font-semibold hover:opacity-85 transition-opacity"
+                >
+                  Upgrade de plano
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
               </div>
             );
           })()}
