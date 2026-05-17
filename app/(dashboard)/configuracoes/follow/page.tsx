@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -858,8 +859,14 @@ function SequenceCard({ seq, onToggle, onEdit, onDelete, deleting }: {
 
 type ActiveTab = SequenceTipo | 'metricas'
 
+const VALID_TABS: ActiveTab[] = ['follow_geral', 'anti_noshow', 'remarketing', 'follow_proposta', 'metricas']
+
 export default function FollowPage() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('follow_geral')
+  const searchParams = useSearchParams()
+  const initialTab = (searchParams.get('tab') as ActiveTab | null)
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    initialTab && VALID_TABS.includes(initialTab) ? initialTab : 'follow_geral'
+  )
   const [sequences, setSequences] = useState<FollowSequence[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)

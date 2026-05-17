@@ -83,13 +83,8 @@ export function AppSidebar({
   const planNameUpper = planName?.toUpperCase() || '';
   const hasOrbitAccess = planNameUpper.includes('GROWTH') || planNameUpper.includes('ADS');
 
-  console.log('🔍 [AppSidebar] Plan Name:', planName, '| Has Orbit:', hasOrbitAccess);
-
   const filteredNavItems = navItems.filter(item => {
-    if (item.href === '/prospect' && !hasOrbitAccess) {
-      console.log('❌ [AppSidebar] Removendo Orbit - sem acesso');
-      return false;
-    }
+    if (item.href === '/prospect' && !hasOrbitAccess) return false;
     return true;
   });
 
@@ -229,7 +224,7 @@ export function AppSidebar({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{companyName || 'Empresa'}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {companyEmail || 'empresa@zaapli.com.br'}
+                  {companyEmail || 'empresa@zaapply.com.br'}
                 </span>
               </div>
             </SidebarMenuButton>

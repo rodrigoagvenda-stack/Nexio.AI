@@ -31,6 +31,7 @@ export interface Company {
   is_active: boolean;
   subscription_expires_at?: string | null;
   agente_ativo?: boolean;
+  trial_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }

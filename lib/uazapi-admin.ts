@@ -48,7 +48,7 @@ export async function createInstance(params: {
     method: 'POST',
     body: JSON.stringify({
       name: params.name,
-      systemName: 'zaapli',
+      systemName: 'zaapply',
       adminField01: String(params.companyId),
     }),
   });

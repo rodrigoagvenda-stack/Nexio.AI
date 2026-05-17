@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { KeepAlive } from "@/components/KeepAlive";
 
 export const metadata: Metadata = {
-  title: "Zaapli — CRM Inteligente com IA",
+  title: "Zaapply — CRM Inteligente com IA",
   description: "Sistema completo de CRM com automação e inteligência artificial",
   icons: {
     icon: "/favicon.svg",

@@ -66,7 +66,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
         <div className="flex items-center h-16 px-6">
           {!isCollapsed && (
             <h1 className="text-xl">
-              <span className="font-bold text-foreground">Zaapli</span>
+              <span className="font-bold text-foreground">Zaapply</span>
               <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
                 ADMIN
               </span>
@@ -123,7 +123,7 @@ export function AdminSidebar({ adminName, adminEmail }: AdminSidebarProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{adminName || 'Admin'}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {adminEmail || 'admin@zaapli.com.br'}
+                  {adminEmail || 'admin@zaapply.com.br'}
                 </p>
               </div>
             )}

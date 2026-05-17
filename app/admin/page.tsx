@@ -76,10 +76,10 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   const conversasCount = conversas?.length || 0;
 
   const companiesByPlan = [
-    { plan: 'basic',   name: 'ZAAPLI FREE',   count: companies?.filter(c => c.plan_type === 'basic').length   || 0 },
-    { plan: 'starter', name: 'ZAAPLI START',  count: companies?.filter(c => c.plan_type === 'starter').length || 0 },
-    { plan: 'pro',     name: 'ZAAPLI GROWTH', count: companies?.filter(c => c.plan_type === 'pro').length     || 0 },
-    { plan: 'scale',   name: 'ZAAPLI PRO',    count: companies?.filter(c => c.plan_type === 'scale').length   || 0 },
+    { plan: 'basic',   name: 'ZAAPPLY FREE',   count: companies?.filter(c => c.plan_type === 'basic').length   || 0 },
+    { plan: 'starter', name: 'ZAAPPLY START',  count: companies?.filter(c => c.plan_type === 'starter').length || 0 },
+    { plan: 'pro',     name: 'ZAAPPLY GROWTH', count: companies?.filter(c => c.plan_type === 'pro').length     || 0 },
+    { plan: 'scale',   name: 'ZAAPPLY PRO',    count: companies?.filter(c => c.plan_type === 'scale').length   || 0 },
   ];
 
   const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));

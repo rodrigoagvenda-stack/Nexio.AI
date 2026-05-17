@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Zaapli — Termos de Serviço',
-  description: 'Leia os termos e condições para uso da plataforma Zaapli.',
+  title: 'Zaapply — Termos de Serviço',
+  description: 'Leia os termos e condições para uso da plataforma Zaapply.',
 }
 
 export default function TermosPage() {
@@ -13,10 +13,10 @@ export default function TermosPage() {
         <p className="text-sm text-muted-foreground mb-2">Última atualização: 01 de maio de 2025</p>
         <h1 className="text-3xl font-extrabold tracking-tight mb-3">Termos de Serviço</h1>
         <p className="text-muted-foreground text-base">
-          Estes Termos de Serviço ("Termos") regulam o uso da plataforma <strong>Zaapli</strong>, um CRM com
+          Estes Termos de Serviço ("Termos") regulam o uso da plataforma <strong>Zaapply</strong>, um CRM com
           automação e inteligência artificial disponível em{' '}
-          <a href="https://zaapli.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br
+          <a href="https://zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br
           </a>{' '}
           e{' '}
           <a href="https://crm.nexioai.online" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
@@ -30,7 +30,7 @@ export default function TermosPage() {
 
       <Section id="servico" title="1. Descrição do Serviço">
         <p>
-          A Zaapli oferece uma plataforma SaaS (Software as a Service) de CRM com as seguintes funcionalidades:
+          A Zaapply oferece uma plataforma SaaS (Software as a Service) de CRM com as seguintes funcionalidades:
         </p>
         <ul>
           <li>Gestão de leads e pipeline de vendas</li>
@@ -43,7 +43,7 @@ export default function TermosPage() {
         </ul>
         <p>
           O serviço é prestado no modelo de assinatura mensal ou anual, conforme o plano contratado.
-          A Zaapli reserva-se o direito de adicionar, modificar ou descontinuar funcionalidades com aviso prévio.
+          A Zaapply reserva-se o direito de adicionar, modificar ou descontinuar funcionalidades com aviso prévio.
         </p>
       </Section>
 
@@ -60,8 +60,8 @@ export default function TermosPage() {
             Você é responsável por manter a confidencialidade das suas credenciais de acesso (e-mail e senha)
             e por todas as atividades realizadas sob sua conta. Em caso de acesso não autorizado, notifique-nos
             imediatamente em{' '}
-            <a href="mailto:suporte@zaapli.com.br" className="text-primary underline underline-offset-4">
-              suporte@zaapli.com.br
+            <a href="mailto:suporte@zaapply.com.br" className="text-primary underline underline-offset-4">
+              suporte@zaapply.com.br
             </a>.
           </p>
         </SubSection>
@@ -73,7 +73,7 @@ export default function TermosPage() {
             <a href="https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
               Lei nº 13.709/2018 (LGPD)
             </a>{' '}
-            e demais legislações aplicáveis. A Zaapli atua como operadora de dados em relação aos dados de seus leads.
+            e demais legislações aplicáveis. A Zaapply atua como operadora de dados em relação aos dados de seus leads.
           </p>
         </SubSection>
       </Section>
@@ -100,10 +100,10 @@ export default function TermosPage() {
         <SubSection title="4.1 Planos de assinatura">
           <p>
             Os planos disponíveis, com seus respectivos recursos e preços, estão descritos na página de{' '}
-            <a href="https://zaapli.com.br/planos" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            <a href="https://zaapply.com.br/planos" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
               Planos e Preços
             </a>.
-            A Zaapli reserva-se o direito de ajustar os preços, comunicando com antecedência mínima de{' '}
+            A Zaapply reserva-se o direito de ajustar os preços, comunicando com antecedência mínima de{' '}
             <strong>30 dias</strong> via e-mail.
           </p>
         </SubSection>
@@ -141,17 +141,17 @@ export default function TermosPage() {
               Configurações
             </Link>{' '}
             ou enviando e-mail para{' '}
-            <a href="mailto:suporte@zaapli.com.br" className="text-primary underline underline-offset-4">
-              suporte@zaapli.com.br
+            <a href="mailto:suporte@zaapply.com.br" className="text-primary underline underline-offset-4">
+              suporte@zaapply.com.br
             </a>.
             O acesso permanece ativo até o fim do período já pago. Seus dados ficam disponíveis por
             <strong> 90 dias</strong> após o cancelamento para exportação, sendo então excluídos.
           </p>
         </SubSection>
 
-        <SubSection title="5.2 Encerramento pela Zaapli">
+        <SubSection title="5.2 Encerramento pela Zaapply">
           <p>
-            A Zaapli pode encerrar ou suspender sua conta, com ou sem aviso prévio, em caso de:
+            A Zaapply pode encerrar ou suspender sua conta, com ou sem aviso prévio, em caso de:
           </p>
           <ul>
             <li>Violação destes Termos</li>
@@ -163,7 +163,7 @@ export default function TermosPage() {
 
         <SubSection title="5.3 Encerramento do serviço">
           <p>
-            Caso a Zaapli decida encerrar o serviço como um todo, notificaremos todos os usuários com pelo
+            Caso a Zaapply decida encerrar o serviço como um todo, notificaremos todos os usuários com pelo
             menos <strong>60 dias de antecedência</strong> e proporcionaremos meios para exportação dos dados.
           </p>
         </SubSection>
@@ -172,7 +172,7 @@ export default function TermosPage() {
       <Section id="propriedade-intelectual" title="6. Propriedade Intelectual">
         <p>
           Todo o código-fonte, design, marca, logotipos, interfaces, algoritmos de IA e demais elementos da
-          plataforma Zaapli são de propriedade exclusiva da Zaapli ou de seus licenciantes e estão protegidos
+          plataforma Zaapply são de propriedade exclusiva da Zaapply ou de seus licenciantes e estão protegidos
           pelas leis de propriedade intelectual aplicáveis.
         </p>
         <p>
@@ -191,7 +191,7 @@ export default function TermosPage() {
           <p>
             O SDR automatizado e os recursos de IA da plataforma utilizam modelos de linguagem de terceiros
             (OpenAI GPT). As respostas geradas pela IA são baseadas nas configurações e dados fornecidos por
-            você. A Zaapli não garante que as respostas da IA serão sempre precisas ou adequadas para
+            você. A Zaapply não garante que as respostas da IA serão sempre precisas ou adequadas para
             todos os contextos.
           </p>
           <p>
@@ -207,7 +207,7 @@ export default function TermosPage() {
               Termos de Serviço do WhatsApp Business
             </a>{' '}
             e às políticas da Meta. O uso indevido (spam, mensagens proibidas) pode resultar no bloqueio do
-            seu número pela Meta, situação pela qual a Zaapli não se responsabiliza.
+            seu número pela Meta, situação pela qual a Zaapply não se responsabiliza.
           </p>
         </SubSection>
       </Section>
@@ -225,7 +225,7 @@ export default function TermosPage() {
 
       <Section id="disponibilidade" title="9. Disponibilidade e SLA">
         <p>
-          A Zaapli se compromete a garantir disponibilidade de <strong>99,5%</strong> ao mês (uptime),
+          A Zaapply se compromete a garantir disponibilidade de <strong>99,5%</strong> ao mês (uptime),
           excluindo janelas de manutenção programadas e eventos fora do nosso controle (força maior, falhas
           de provedores de infraestrutura).
         </p>
@@ -233,15 +233,15 @@ export default function TermosPage() {
           Manutenções programadas serão comunicadas com <strong>24 horas de antecedência</strong> e realizadas
           preferencialmente em horários de menor uso. Incidentes de indisponibilidade não programada serão
           comunicados em nosso canal de status em{' '}
-          <a href="https://status.zaapli.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            status.zaapli.com.br
+          <a href="https://status.zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            status.zaapply.com.br
           </a>.
         </p>
       </Section>
 
       <Section id="responsabilidade" title="10. Limitação de Responsabilidade">
         <p>
-          Na máxima extensão permitida pela lei aplicável, a Zaapli não será responsável por:
+          Na máxima extensão permitida pela lei aplicável, a Zaapply não será responsável por:
         </p>
         <ul>
           <li>Perdas de receita, lucros cessantes ou danos indiretos decorrentes do uso da plataforma</li>
@@ -252,7 +252,7 @@ export default function TermosPage() {
           <li>Indisponibilidade decorrente de força maior</li>
         </ul>
         <p>
-          Em nenhuma hipótese a responsabilidade total da Zaapli perante você excederá o valor pago
+          Em nenhuma hipótese a responsabilidade total da Zaapply perante você excederá o valor pago
           nos últimos <strong>3 meses</strong> de assinatura.
         </p>
       </Section>
@@ -283,33 +283,33 @@ export default function TermosPage() {
         </p>
         <p>
           O histórico de versões está disponível em{' '}
-          <a href="https://zaapli.com.br/termos" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br/termos
+          <a href="https://zaapply.com.br/termos" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br/termos
           </a>.
         </p>
       </Section>
 
       <Section id="contato" title="13. Contato e Suporte">
         <InfoBox>
-          <strong>Zaapli — Suporte e Atendimento</strong><br />
+          <strong>Zaapply — Suporte e Atendimento</strong><br />
           E-mail:{' '}
-          <a href="mailto:suporte@zaapli.com.br" className="text-primary underline underline-offset-4">
-            suporte@zaapli.com.br
+          <a href="mailto:suporte@zaapply.com.br" className="text-primary underline underline-offset-4">
+            suporte@zaapply.com.br
           </a>
           <br />
           Assuntos jurídicos:{' '}
-          <a href="mailto:juridico@zaapli.com.br" className="text-primary underline underline-offset-4">
-            juridico@zaapli.com.br
+          <a href="mailto:juridico@zaapply.com.br" className="text-primary underline underline-offset-4">
+            juridico@zaapply.com.br
           </a>
           <br />
           Proteção de dados:{' '}
-          <a href="mailto:privacidade@zaapli.com.br" className="text-primary underline underline-offset-4">
-            privacidade@zaapli.com.br
+          <a href="mailto:privacidade@zaapply.com.br" className="text-primary underline underline-offset-4">
+            privacidade@zaapply.com.br
           </a>
           <br />
           Site:{' '}
-          <a href="https://zaapli.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br
+          <a href="https://zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br
           </a>
           <br /><br />
           Veja também nossa{' '}

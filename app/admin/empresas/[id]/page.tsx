@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -537,6 +538,21 @@ export default function EmpresaDetailPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Feature Flags */}
+          <div className="border border-border/50 rounded-xl bg-card p-5 space-y-3">
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Features</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Trial SaaS</p>
+                <p className="text-[11px] text-muted-foreground">Habilita módulo de trial para esta empresa</p>
+              </div>
+              <Switch
+                checked={company.trial_enabled ?? false}
+                onCheckedChange={(v) => setCompany({ ...company, trial_enabled: v })}
+              />
+            </div>
           </div>
 
           {/* Subscription */}

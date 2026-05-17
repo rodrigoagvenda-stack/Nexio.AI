@@ -428,7 +428,7 @@ function StepPrimeiros() {
       <div>
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Primeiros passos</h2>
         <p className="text-gray-500 mt-1 text-sm">
-          Veja como tirar o máximo do zaapli desde o início.
+          Veja como tirar o máximo do zaapply desde o início.
         </p>
       </div>
 

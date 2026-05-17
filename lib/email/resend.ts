@@ -94,7 +94,7 @@ export async function sendTokenAlertEmail({
     : `ℹ️ ${companyName} — 80% da franquia de tokens consumida`;
 
   const { data, error } = await client.emails.send({
-    from: 'Zaapli <noreply@vendai.com.br>',
+    from: 'Zaapply <noreply@zaapply.com.br>',
     to: [to],
     subject,
     html: `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f5f5f5;">

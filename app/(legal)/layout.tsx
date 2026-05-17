@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo'
 
 export const metadata: Metadata = {
-  title: 'Zaapli — Legal',
+  title: 'Zaapply — Legal',
 }
 
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
@@ -34,7 +34,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
 
       <footer className="border-t border-border/50 mt-16">
         <div className="max-w-4xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} Zaapli. Todos os direitos reservados.</span>
+          <span>&copy; {new Date().getFullYear()} Zaapply. Todos os direitos reservados.</span>
           <div className="flex gap-6">
             <Link href="/privacidade" className="hover:text-foreground transition-colors">
               Política de Privacidade

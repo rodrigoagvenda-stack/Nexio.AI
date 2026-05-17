@@ -1,4 +1,4 @@
-/**
+﻿/**
  * POST /api/billing/subscribe
  *
  * Cria ou atualiza assinatura recorrente via cartão de crédito.
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     const subscription = await createSubscription({
       customerId: customer.id,
       value: PLAN_PRICES[plan],
-      description: `Zaapli ${plan.charAt(0).toUpperCase() + plan.slice(1)} — mensal`,
+      description: `Zaapply ${plan.charAt(0).toUpperCase() + plan.slice(1)} — mensal`,
       nextDueDate: todayISO(),
       creditCard,
       creditCardHolderInfo: holderInfo,

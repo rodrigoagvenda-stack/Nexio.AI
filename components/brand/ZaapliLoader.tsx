@@ -39,7 +39,7 @@ export function ZaapliLoader({ minDuration = 1200, onDone }: ZaapliLoaderProps) 
             <span
               key={i}
               className="w-1.5 h-1.5 rounded-full bg-primary"
-              style={{ animation: `zaapli-dot 1.2s ease-in-out ${i * 0.2}s infinite` }}
+              style={{ animation: `zaapply-dot 1.2s ease-in-out ${i * 0.2}s infinite` }}
             />
           ))}
         </div>

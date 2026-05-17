@@ -1,9 +1,9 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Zaapli — Política de Privacidade',
-  description: 'Saiba como a Zaapli coleta, usa e protege seus dados pessoais.',
+  title: 'Zaapply — Política de Privacidade',
+  description: 'Saiba como a Zaapply coleta, usa e protege seus dados pessoais.',
 }
 
 export default function PrivacidadePage() {
@@ -13,10 +13,10 @@ export default function PrivacidadePage() {
         <p className="text-sm text-muted-foreground mb-2">Última atualização: 01 de maio de 2025</p>
         <h1 className="text-3xl font-extrabold tracking-tight mb-3">Política de Privacidade</h1>
         <p className="text-muted-foreground text-base">
-          Esta Política de Privacidade descreve como a <strong>Zaapli</strong> coleta, utiliza, armazena e protege
+          Esta Política de Privacidade descreve como a <strong>Zaapply</strong> coleta, utiliza, armazena e protege
           seus dados pessoais ao usar nosso CRM com inteligência artificial disponível em{' '}
-          <a href="https://zaapli.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br
+          <a href="https://zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br
           </a>{' '}
           e{' '}
           <a href="https://crm.nexioai.online" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
@@ -29,19 +29,19 @@ export default function PrivacidadePage() {
 
       <Section id="controlador" title="1. Controlador dos Dados">
         <p>
-          O controlador responsável pelo tratamento dos seus dados pessoais é a <strong>Zaapli</strong>,
+          O controlador responsável pelo tratamento dos seus dados pessoais é a <strong>Zaapply</strong>,
           empresa de tecnologia especializada em CRM com automação e inteligência artificial.
         </p>
         <InfoBox>
           <strong>Contato do Encarregado de Dados (DPO):</strong><br />
           E-mail:{' '}
-          <a href="mailto:privacidade@zaapli.com.br" className="text-primary underline underline-offset-4">
-            privacidade@zaapli.com.br
+          <a href="mailto:privacidade@zaapply.com.br" className="text-primary underline underline-offset-4">
+            privacidade@zaapply.com.br
           </a>
           <br />
           Site:{' '}
-          <a href="https://zaapli.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br
+          <a href="https://zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br
           </a>
         </InfoBox>
       </Section>
@@ -81,7 +81,7 @@ export default function PrivacidadePage() {
         <SubSection title="2.4 Dados de pagamento">
           <p>
             Dados de pagamento são processados diretamente pela plataforma <strong>Asaas</strong>.
-            A Zaapli não armazena números de cartão de crédito ou dados bancários completos. Apenas confirmações
+            A Zaapply não armazena números de cartão de crédito ou dados bancários completos. Apenas confirmações
             de pagamento e status de assinatura são registrados em nosso sistema.
           </p>
         </SubSection>
@@ -106,7 +106,7 @@ export default function PrivacidadePage() {
 
       <Section id="compartilhamento" title="4. Compartilhamento com Terceiros">
         <p>
-          A Zaapli não vende seus dados pessoais. Compartilhamos dados apenas com os seguintes parceiros técnicos,
+          A Zaapply não vende seus dados pessoais. Compartilhamos dados apenas com os seguintes parceiros técnicos,
           na medida necessária para operar o serviço:
         </p>
         <Table
@@ -163,8 +163,8 @@ export default function PrivacidadePage() {
         </ul>
         <p>
           Para exercer qualquer direito, entre em contato pelo e-mail{' '}
-          <a href="mailto:privacidade@zaapli.com.br" className="text-primary underline underline-offset-4">
-            privacidade@zaapli.com.br
+          <a href="mailto:privacidade@zaapply.com.br" className="text-primary underline underline-offset-4">
+            privacidade@zaapply.com.br
           </a>.
           Responderemos em até <strong>15 dias úteis</strong>.
         </p>
@@ -205,7 +205,7 @@ export default function PrivacidadePage() {
 
       <Section id="menores" title="9. Menores de Idade">
         <p>
-          A plataforma Zaapli é destinada exclusivamente a empresas e profissionais. Não coletamos dados de
+          A plataforma Zaapply é destinada exclusivamente a empresas e profissionais. Não coletamos dados de
           crianças ou adolescentes menores de 18 anos. Caso identifiquemos dados de menores cadastrados
           sem autorização, procederemos com a exclusão imediata.
         </p>
@@ -220,23 +220,23 @@ export default function PrivacidadePage() {
         </p>
         <p>
           O histórico de versões desta política está disponível em{' '}
-          <a href="https://zaapli.com.br/privacidade" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br/privacidade
+          <a href="https://zaapply.com.br/privacidade" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br/privacidade
           </a>.
         </p>
       </Section>
 
       <Section id="contato" title="11. Contato">
         <InfoBox>
-          <strong>Zaapli — Encarregado de Proteção de Dados</strong><br />
+          <strong>Zaapply — Encarregado de Proteção de Dados</strong><br />
           E-mail:{' '}
-          <a href="mailto:privacidade@zaapli.com.br" className="text-primary underline underline-offset-4">
-            privacidade@zaapli.com.br
+          <a href="mailto:privacidade@zaapply.com.br" className="text-primary underline underline-offset-4">
+            privacidade@zaapply.com.br
           </a>
           <br />
           Site:{' '}
-          <a href="https://zaapli.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            zaapli.com.br
+          <a href="https://zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            zaapply.com.br
           </a>
           <br /><br />
           Veja também nossos{' '}

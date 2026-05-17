@@ -71,7 +71,7 @@ export function AdminDashboardContent({
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Painel Administrativo</h1>
-        <p className="text-muted-foreground mt-1">Controle operacional da Zaapli</p>
+        <p className="text-muted-foreground mt-1">Controle operacional da Zaapply</p>
       </div>
 
       {/* Filtros de Período */}

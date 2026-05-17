@@ -24,7 +24,7 @@ async function asaasRequest<T = any>(
     headers: {
       'access_token': apiKey,
       'Content-Type': 'application/json',
-      'User-Agent': 'zaapli/1.0',
+      'User-Agent': 'zaapply/1.0',
     },
     body: body ? JSON.stringify(body) : undefined,
     cache: 'no-store',

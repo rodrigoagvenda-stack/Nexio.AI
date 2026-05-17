@@ -159,9 +159,9 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts }: SalesFunnelTabsPro
             {activeTab === 'remarketing' && (
               <div className="flex flex-col items-center justify-center h-[200px] md:h-[290px] gap-3">
                 <Bell className="h-10 w-10 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">Remarketing em breve</p>
+                <p className="text-sm font-medium text-muted-foreground">Nenhum lead de remarketing no período</p>
                 <p className="text-xs text-muted-foreground/60 max-w-xs text-center">
-                  As métricas de Remarketing serão configuradas em breve.
+                  Configure sequências de remarketing em Automações → Remarketing.
                 </p>
               </div>
             )}

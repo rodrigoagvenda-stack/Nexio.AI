@@ -32,7 +32,7 @@ export function ZaapliLogo({
           className={`font-extrabold tracking-tight leading-none select-none ${textColor}`}
           style={{ fontSize: iconSize * 0.72, fontFamily: "'Nunito', 'Poppins', sans-serif", letterSpacing: '-0.01em' }}
         >
-          zaapli
+          zaapply
         </span>
       )}
     </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
@@ -28,9 +28,9 @@ const sections: HelpSection[] = [
     description: 'Introdução à plataforma e primeiros passos',
     items: [
       {
-        question: 'O que é o Zaapli?',
+        question: 'O que é o Zaapply?',
         answer:
-`O Zaapli é uma plataforma de CRM e automação de vendas com IA nativa integrada ao WhatsApp. Todo o fluxo — desde captar o lead até fechar a venda — acontece em um único ambiente.
+`O Zaapply é uma plataforma de CRM e automação de vendas com IA nativa integrada ao WhatsApp. Todo o fluxo — desde captar o lead até fechar a venda — acontece em um único ambiente.
 
 ## Módulos principais
 • **Dashboard** — KPIs em tempo real com comparativos vs período anterior
@@ -49,7 +49,7 @@ Todas as funcionalidades funcionam dentro da mesma plataforma. Não são necess�
       {
         question: 'Guia de primeiros passos',
         answer:
-`Configure o Zaapli em 5 etapas para começar a operar com IA:
+`Configure o Zaapply em 5 etapas para começar a operar com IA:
 
 1. **Conecte o WhatsApp** — Acesse Atendimento e escaneie o QR Code com o celular
 2. **Configure o Agente SDR** — Defina persona, base de conhecimento e modo de atendimento em Automações → Agente SDR
@@ -63,7 +63,7 @@ Configure a base de conhecimento com produtos, preços e principais objeções a
       {
         question: 'Automações disponíveis',
         answer:
-`O Zaapli oferece três tipos de automação de mensagens via WhatsApp:
+`O Zaapply oferece três tipos de automação de mensagens via WhatsApp:
 
 ## Follow-up
 Sequências de mensagens enviadas automaticamente em intervalos programados. Ideal para nurturing, recuperação de leads inativos, anti-noshow e pós-venda.
@@ -1132,7 +1132,7 @@ function AiChat() {
               <Bot className="w-4 h-4 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold leading-none">Assistente Zaapli</p>
+              <p className="text-sm font-semibold leading-none">Assistente Zaapply</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Tire dúvidas sobre o sistema</p>
             </div>
             <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -1145,7 +1145,7 @@ function AiChat() {
               <div className="text-center py-8">
                 <Bot className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">Olá! Como posso ajudar?</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Pergunte sobre qualquer funcionalidade do Zaapli</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Pergunte sobre qualquer funcionalidade do Zaapply</p>
               </div>
             )}
             {messages.map((msg, i) => (

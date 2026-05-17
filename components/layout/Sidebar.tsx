@@ -23,6 +23,7 @@ import {
   FileText,
   Megaphone,
   Clock,
+  CalendarClock,
   BarChart2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ interface SidebarProps {
   hasBriefing?: boolean;
   brandLogoUrl?: string | null;
   userRole?: string;
+  trialEnabled?: boolean;
 }
 
 interface NavLink {
@@ -81,7 +83,9 @@ const navSections: NavSection[] = [
         icon: Megaphone,
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
-          { href: '/configuracoes/follow', label: 'Follow-up', icon: Clock },
+          { href: '/configuracoes/follow?tab=follow_geral', label: 'Follow-up', icon: Clock },
+          { href: '/configuracoes/follow?tab=anti_noshow', label: 'Anti-Noshow', icon: CalendarClock },
+          { href: '/configuracoes/follow?tab=remarketing', label: 'Remarketing', icon: Megaphone },
           { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FileText },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
         ],
@@ -112,6 +116,7 @@ export const Sidebar = memo(function Sidebar({
   hasBriefing = false,
   brandLogoUrl,
   userRole,
+  trialEnabled = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -173,7 +178,18 @@ export const Sidebar = memo(function Sidebar({
 
     const sections = navSections.map(section => ({
       ...section,
-      links: section.links.filter(link => {
+      links: section.links.map(link => {
+        if (link.children) {
+          return {
+            ...link,
+            children: link.children.filter(child => {
+              if (child.href.includes('/configuracoes/trial') && !trialEnabled) return false;
+              return true;
+            }),
+          };
+        }
+        return link;
+      }).filter(link => {
         // Closer puro: sem Automações, Membros
         if (isCloser && (link.href === '/automacoes' || link.href === '/membros')) return false;
         // SDR e SDR Closer: sem Membros
@@ -395,7 +411,7 @@ export const Sidebar = memo(function Sidebar({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{companyName || 'Empresa'}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {companyEmail || 'empresa@zaapli.com.br'}
+                  {companyEmail || 'empresa@zaapply.com.br'}
                 </p>
               </div>
             )}

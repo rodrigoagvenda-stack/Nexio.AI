@@ -1,4 +1,4 @@
-/**
+﻿/**
  * POST /api/billing/extra-package
  *
  * Cria cobrança PIX para pacote extra de tokens.
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const charge = await createPixCharge({
       customerId: customer.id,
       value: amount,
-      description: `Zaapli — ${(tokens as number).toLocaleString('pt-BR')} tokens extras`,
+      description: `Zaapply — ${(tokens as number).toLocaleString('pt-BR')} tokens extras`,
       dueDate: todayISO(),
     })
 
