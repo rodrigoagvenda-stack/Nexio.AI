@@ -330,6 +330,9 @@ export const Sidebar = memo(function Sidebar({
                               if (isCrmChild) {
                                 const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
                                 isChildActive = pathname === '/crm' && currentView === childView;
+                              } else if (child.href.includes('?')) {
+                                const childTab = new URLSearchParams(child.href.split('?')[1]).get('tab');
+                                isChildActive = (pathname === childBase || pathname.startsWith(childBase + '/')) && searchParams.get('tab') === childTab;
                               } else {
                                 isChildActive = pathname === childBase || pathname.startsWith(childBase + '/');
                               }
