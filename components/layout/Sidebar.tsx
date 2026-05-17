@@ -254,17 +254,28 @@ export const Sidebar = memo(function Sidebar({
           isCollapsed ? 'md:w-20' : 'md:w-56'
         )}
       >
-        {/* Logo */}
-        <div className={cn('flex items-center h-16', isCollapsed ? 'justify-center px-0' : 'px-4')}>
+        {/* Logo + collapse toggle */}
+        <div className={cn('flex items-center h-14 border-b border-border/50', isCollapsed ? 'justify-center px-3' : 'px-4 gap-2')}>
           {isCollapsed ? (
-            <ZaapliLogo variant="icon" iconSize={30} />
+            <button onClick={() => setIsCollapsed(false)} className="p-1 rounded-md hover:bg-accent/50 transition-colors" title="Expandir">
+              <ZaapliLogo variant="icon" iconSize={26} />
+            </button>
           ) : (
-            <ZaapliLogo variant="full" iconSize={30} />
+            <>
+              <ZaapliLogo variant="full" iconSize={26} className="flex-1 min-w-0" />
+              <button
+                onClick={() => setIsCollapsed(true)}
+                className="flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                title="Recolher"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 pt-4 overflow-y-auto space-y-4">
+        <nav className="flex-1 px-3 pt-3 space-y-3 overflow-hidden">
           {allSections.map((section) => (
             <div key={section.label}>
               {/* Section label */}
@@ -405,57 +416,56 @@ export const Sidebar = memo(function Sidebar({
             const pct = Math.min(100, Math.round((tokensUsed / tokensLimit) * 100));
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
-            const gradientBar = isCritical
-              ? 'from-red-500 to-red-400'
-              : isWarning
-              ? 'from-amber-500 to-yellow-400'
-              : 'from-primary to-emerald-400';
+            const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#15803d';
             return (
-              <div className="relative rounded-2xl border border-border/60 bg-card overflow-hidden p-4 pb-3 space-y-3">
-                {/* subtle bg glow */}
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
-
-                {/* icon centered */}
-                <div className="flex justify-center">
-                  <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shadow-lg shadow-primary/30">
-                    <TrendingUp className="h-5 w-5 text-white" />
-                    <div className="absolute inset-0 rounded-xl ring-1 ring-white/20" />
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+                {/* icon + label */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-foreground leading-none mb-0.5">Limite mensal</p>
+                    <p className="text-[10px] text-muted-foreground">{planName || 'Plano atual'}</p>
                   </div>
                 </div>
 
-                {/* title + usage */}
-                <div className="text-center space-y-0.5">
-                  <p className="text-xs font-bold text-foreground tracking-tight">Limite de Tokens</p>
-                  <p className="text-[10px] text-muted-foreground font-medium">
-                    {tokensUsed.toLocaleString('pt-BR')} / {tokensLimit.toLocaleString('pt-BR')}
+                {/* numbers */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-lg font-bold text-foreground tabular-nums">
+                      {tokensUsed.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                      / {tokensLimit.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  {/* bar */}
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, backgroundColor: barColor }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {pct}% do limite mensal utilizado
                   </p>
                 </div>
 
-                {/* progress bar */}
-                <div className="space-y-1">
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full bg-gradient-to-r ${gradientBar} transition-all duration-700`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground text-right">{pct}% utilizado</p>
-                </div>
-
-                {/* actions */}
-                <div className="grid grid-cols-2 gap-1.5">
+                {/* buttons */}
+                <div className="flex flex-col gap-1.5">
                   <Link
                     href="/configuracoes"
-                    className="flex items-center justify-center h-7 rounded-lg bg-muted hover:bg-accent text-foreground text-[11px] font-medium transition-colors"
+                    className="flex items-center justify-center gap-1.5 h-8 rounded-xl bg-foreground text-background text-[11px] font-semibold hover:opacity-85 transition-opacity"
                   >
-                    Ver planos
+                    Upgrade de plano
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
                   <Link
-                    href="/configuracoes"
-                    className="flex items-center justify-center gap-1 h-7 rounded-lg bg-foreground text-background text-[11px] font-semibold hover:opacity-90 transition-opacity"
+                    href="/ajuda"
+                    className="flex items-center justify-center h-7 rounded-xl text-muted-foreground text-[11px] font-medium hover:text-foreground hover:bg-accent/50 transition-colors"
                   >
-                    Upgrade
-                    <ChevronRight className="h-3 w-3" />
+                    Saiba mais
                   </Link>
                 </div>
               </div>
@@ -507,19 +517,6 @@ export const Sidebar = memo(function Sidebar({
             </Button>
           </div>
 
-          {/* Toggle Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full mt-2 text-muted-foreground hover:text-foreground hover:bg-accent/50"
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
         </div>
       </aside>
 
