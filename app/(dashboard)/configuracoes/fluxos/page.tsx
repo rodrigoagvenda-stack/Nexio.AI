@@ -23,7 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Pencil, Trash2, Loader2, Zap, BookOpen, AlertCircle, Upload, CheckCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Zap, BookOpen, AlertCircle, Upload, CheckCircle, GitFork } from 'lucide-react'
+import Link from 'next/link'
 
 interface SdrFlow {
   id: string
@@ -226,10 +227,19 @@ export default function FluxosPage() {
             Configure até 3 fluxos de atendimento independentes por número WhatsApp
           </p>
         </div>
-        <Button onClick={openNew} disabled={flows.length >= 3}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo fluxo
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/configuracoes/fluxos/mapa"
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border text-sm hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <GitFork className="w-4 h-4" />
+            Ver mapa
+          </Link>
+          <Button onClick={openNew} disabled={flows.length >= 3}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo fluxo
+          </Button>
+        </div>
       </div>
 
       {flows.length >= 3 && (

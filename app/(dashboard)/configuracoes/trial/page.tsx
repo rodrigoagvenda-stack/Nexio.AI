@@ -21,6 +21,7 @@ import {
   FileText, MapPin, LayoutList, Rows3, Mic, ChevronLeft, ChevronRight,
   Phone, MessageSquare, X, Square, Bot, Send,
 } from 'lucide-react'
+import Link from 'next/link'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1252,6 +1253,13 @@ export default function TrialPage() {
           <h1 className="text-2xl font-bold tracking-tight">Trial SaaS</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Automação de onboarding e acompanhamento do período de teste</p>
         </div>
+        <Link
+          href="/configuracoes/trial/calendario"
+          className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-border text-sm hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+        >
+          <CalendarDays className="w-4 h-4" />
+          Calendário
+        </Link>
       </div>
 
       <div className="flex gap-6">
