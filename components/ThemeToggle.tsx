@@ -2,54 +2,38 @@
 
 import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   useEffect(() => {
-    // Check localStorage and system preference
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
-
-    const initialTheme = savedTheme || systemTheme;
-    setTheme(initialTheme);
-
-    // Apply theme to document
-    if (initialTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const initial = saved || system;
+    setTheme(initial);
+    document.documentElement.classList.toggle('dark', initial === 'dark');
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+  const toggle = () => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    setTheme(next);
+    localStorage.setItem('theme', next);
+    document.documentElement.classList.toggle('dark', next === 'dark');
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={toggleTheme}
+    <button
+      onClick={toggle}
       title={theme === 'light' ? 'Modo Escuro' : 'Modo Claro'}
-      className="text-gray-400 hover:text-white hover:bg-white/5"
+      className="relative flex items-center w-14 h-7 rounded-full bg-muted border border-border p-0.5 transition-colors duration-200 flex-shrink-0"
     >
-      {theme === 'light' ? (
-        <Moon className="h-4 w-4" />
-      ) : (
-        <Sun className="h-4 w-4" />
-      )}
-    </Button>
+      {/* track fill */}
+      <span className={`absolute inset-0 rounded-full transition-colors duration-200 ${theme === 'dark' ? 'bg-primary/20' : 'bg-amber-400/20'}`} />
+      {/* icons */}
+      <Sun className={`relative z-10 h-3.5 w-3.5 ml-0.5 transition-colors duration-200 ${theme === 'light' ? 'text-amber-500' : 'text-muted-foreground/40'}`} />
+      <Moon className={`relative z-10 h-3.5 w-3.5 ml-auto mr-0.5 transition-colors duration-200 ${theme === 'dark' ? 'text-primary' : 'text-muted-foreground/40'}`} />
+      {/* thumb */}
+      <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-card border border-border shadow-sm transition-all duration-200 ${theme === 'dark' ? 'left-[calc(100%-26px)]' : 'left-0.5'}`} />
+    </button>
   );
 }

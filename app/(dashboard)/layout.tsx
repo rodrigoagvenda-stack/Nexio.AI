@@ -43,7 +43,7 @@ export default async function DashboardLayout({
   const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
     supabase
       .from('companies')
-      .select('name, email, image_url, plan_name, trial_enabled')
+      .select('name, email, image_url, plan_name, trial_enabled, tokens_used, plan_monthly_limit')
       .eq('id', userData?.company_id || 0)
       .single(),
     supabase
@@ -64,6 +64,8 @@ export default async function DashboardLayout({
   const companyImage = companyData?.image_url;
   const planName = companyData?.plan_name;
   const trialEnabled = companyData?.trial_enabled ?? false;
+  const tokensUsed = companyData?.tokens_used ?? 0;
+  const tokensLimit = companyData?.plan_monthly_limit ?? 0;
   const isAdmin = !!adminUser;
   const hasBriefing = !!briefingConfig;
   const userRole = userData?.role || 'closer';
@@ -82,6 +84,8 @@ export default async function DashboardLayout({
         brandLogoUrl={brandLogoUrl}
         userRole={userRole}
         trialEnabled={trialEnabled}
+        tokensUsed={tokensUsed}
+        tokensLimit={tokensLimit}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
