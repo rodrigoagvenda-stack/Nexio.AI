@@ -236,6 +236,18 @@
   }
 }
 
+/* Aurora borealis card animation */
+@keyframes aurora {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animate-aurora {
+  background: linear-gradient(135deg, #15803d, #059669, #0d9488, #0369a1, #15803d);
+  background-size: 300% 300%;
+  animation: aurora 6s ease infinite;
+}
+
 /* Zaapply logo entrance animation */
 @keyframes zaapply-in {
   0%   { opacity: 0; transform: scale(0.7); }

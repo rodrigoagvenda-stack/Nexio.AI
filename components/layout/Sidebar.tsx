@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   LogOut,
   Bot,
   Settings,
@@ -127,16 +126,7 @@ export const Sidebar = memo(function Sidebar({
   const searchParams = useSearchParams();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-
-  const toggleSection = useCallback((href: string) => {
-    setExpandedSections(prev => {
-      const next = new Set<string>(prev);
-      if (next.has(href)) next.delete(href); else next.add(href);
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -162,17 +152,6 @@ export const Sidebar = memo(function Sidebar({
     const view = searchParams.get('view');
     return view === 'kanban' ? 'kanban' : 'table';
   }, [isCrmRoute, searchParams]);
-
-  // 🚀 Auto-expandir seção quando estiver na rota
-  useEffect(() => {
-    if (isCrmRoute) setExpandedSections(prev => { const n = new Set(prev); n.add('/crm'); return n; });
-  }, [isCrmRoute]);
-
-  useEffect(() => {
-    if (pathname.startsWith('/configuracoes/sdr') || pathname.startsWith('/configuracoes/follow') || pathname.startsWith('/configuracoes/trial')) {
-      setExpandedSections(prev => { const n = new Set(prev); n.add('/automacoes'); return n; });
-    }
-  }, [pathname]);
 
   // 🚀 Performance: Memoizar seções de navegação
   const allSections = useMemo<NavSection[]>(() => {
@@ -224,7 +203,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, userRole, hasBriefing]);
+  }, [isAdmin, userRole, hasBriefing, trialEnabled]);
 
   // 🚀 Performance: Memoizar função de logout
   const handleLogout = useCallback(async () => {
@@ -275,7 +254,7 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 pt-3 space-y-3 overflow-hidden">
+        <nav className="flex-1 px-3 pt-3 space-y-3 overflow-y-auto overflow-x-visible">
           {allSections.map((section) => (
             <div key={section.label}>
               {/* Section label */}
@@ -299,21 +278,13 @@ export const Sidebar = memo(function Sidebar({
                       const base = c.href.split('?')[0];
                       return pathname === base || pathname.startsWith(base + '/');
                     }) || pathname === link.href || pathname.startsWith(link.href + '/');
-                    const isExpanded = expandedSections.has(link.href);
 
                     return (
-                      <div key={link.href}>
-                        <button
-                          onClick={() => {
-                            if (isCollapsed) {
-                              setIsCollapsed(false);
-                              setExpandedSections(prev => { const n = new Set(prev); n.add(link.href); return n; });
-                            } else {
-                              toggleSection(link.href);
-                            }
-                          }}
+                      <div key={link.href} className="relative group/flyout">
+                        {/* parent row */}
+                        <div
                           className={cn(
-                            'w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
+                            'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-100 select-none',
                             isParentActive
                               ? 'bg-accent text-accent-foreground'
                               : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
@@ -325,18 +296,17 @@ export const Sidebar = memo(function Sidebar({
                           {!isCollapsed && (
                             <>
                               <span className="text-sm flex-1 text-left">{link.label}</span>
-                              <ChevronDown
-                                className={cn(
-                                  'h-3.5 w-3.5 transition-transform duration-200',
-                                  isExpanded && 'rotate-180'
-                                )}
-                              />
+                              <ChevronRight className="h-3 w-3 opacity-40 group-hover/flyout:opacity-100 transition-opacity" />
                             </>
                           )}
-                        </button>
+                        </div>
 
-                        {!isCollapsed && isExpanded && (
-                          <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border pl-3">
+                        {/* flyout panel */}
+                        <div className="absolute left-full top-0 ml-2 z-[70] pointer-events-none opacity-0 -translate-x-1 group-hover/flyout:opacity-100 group-hover/flyout:translate-x-0 group-hover/flyout:pointer-events-auto transition-all duration-150">
+                          <div className="bg-card border border-border rounded-xl shadow-xl p-1.5 min-w-[180px]">
+                            <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest select-none">
+                              {link.label}
+                            </p>
                             {link.children!.map((child) => {
                               const ChildIcon = child.icon;
                               const childBase = child.href.split('?')[0];
@@ -357,9 +327,9 @@ export const Sidebar = memo(function Sidebar({
                                   href={child.href}
                                   prefetch={true}
                                   className={cn(
-                                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
+                                    'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
                                     isChildActive
-                                      ? 'bg-accent text-accent-foreground'
+                                      ? 'bg-accent text-accent-foreground font-medium'
                                       : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                                   )}
                                 >
@@ -369,7 +339,7 @@ export const Sidebar = memo(function Sidebar({
                               );
                             })}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   }
@@ -411,44 +381,49 @@ export const Sidebar = memo(function Sidebar({
         {/* Company Profile */}
         <div className="p-4 border-t border-border space-y-3">
 
-          {/* Token usage card */}
+          {/* Token usage card — aurora gradient border */}
           {!isCollapsed && tokensLimit > 0 && (() => {
             const pct = Math.min(100, Math.round((tokensUsed / tokensLimit) * 100));
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
             const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#15803d';
             return (
-              <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-                {/* icon + label row */}
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
+              <div className="p-[1px] rounded-xl animate-aurora shadow-md shadow-primary/20">
+                <div className="rounded-[11px] bg-card p-3 space-y-2.5">
+                  {/* plan badge + label */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-foreground leading-none tracking-tight">Tokens mensais</p>
+                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">{planName || 'Plano atual'}</p>
+                    </div>
+                    <span className="flex-shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-primary/30 text-primary bg-primary/10 uppercase tracking-wider">
+                      {isCritical ? 'Crítico' : isWarning ? 'Atenção' : 'OK'}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-foreground leading-none">Limite mensal</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{planName || 'Plano atual'}</p>
-                  </div>
-                </div>
 
-                {/* bar + numbers */}
-                <div className="space-y-1">
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                  {/* numbers */}
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-[13px] font-bold text-foreground tabular-nums">{tokensUsed.toLocaleString('pt-BR')}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">/ {tokensLimit.toLocaleString('pt-BR')}</span>
                   </div>
-                  <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
-                    <span>{pct}% utilizado</span>
-                    <span>{tokensUsed.toLocaleString('pt-BR')} / {tokensLimit.toLocaleString('pt-BR')}</span>
-                  </div>
-                </div>
 
-                {/* upgrade button */}
-                <Link
-                  href="/configuracoes"
-                  className="flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-foreground text-background text-[11px] font-semibold hover:opacity-85 transition-opacity"
-                >
-                  Upgrade de plano
-                  <ChevronRight className="h-3 w-3" />
-                </Link>
+                  {/* progress bar */}
+                  <div className="space-y-1">
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{pct}% utilizado</p>
+                  </div>
+
+                  {/* upgrade button */}
+                  <Link
+                    href="/planos"
+                    className="flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-colors"
+                  >
+                    Fazer upgrade
+                    <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
             );
           })()}
