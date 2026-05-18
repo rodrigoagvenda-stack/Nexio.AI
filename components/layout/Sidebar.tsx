@@ -128,12 +128,14 @@ function FlyoutPanel({
   searchParams,
   currentView,
   onClose,
+  onKeepOpen,
 }: {
   state: FlyoutState;
   pathname: string;
   searchParams: ReturnType<typeof useSearchParams>;
   currentView: string;
   onClose: () => void;
+  onKeepOpen: () => void;
 }) {
   const { link, top, left } = state;
   const panelRef = useRef<HTMLDivElement>(null);
@@ -142,6 +144,7 @@ function FlyoutPanel({
     <div
       ref={panelRef}
       style={{ position: 'fixed', top, left, zIndex: 9999 }}
+      onMouseEnter={onKeepOpen}
       onMouseLeave={onClose}
       className="bg-card border border-border rounded-xl shadow-2xl p-1.5 min-w-[190px] animate-in fade-in slide-in-from-left-1 duration-150"
     >
@@ -212,11 +215,13 @@ export const Sidebar = memo(function Sidebar({
   const openFlyout = useCallback((link: NavLink, el: HTMLElement) => {
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
     const rect = el.getBoundingClientRect();
-    setFlyout({ link, top: rect.top, left: rect.right + 8 });
+    // sem gap: painel cola no item para o mouse não "cair no vazio"
+    setFlyout({ link, top: rect.top, left: rect.right + 2 });
   }, []);
 
   const closeFlyout = useCallback(() => {
-    flyoutTimeoutRef.current = setTimeout(() => setFlyout(null), 80);
+    // delay generoso para o mouse cruzar os 2px de gap
+    flyoutTimeoutRef.current = setTimeout(() => setFlyout(null), 200);
   }, []);
 
   const keepFlyout = useCallback(() => {
@@ -510,7 +515,8 @@ export const Sidebar = memo(function Sidebar({
           pathname={pathname}
           searchParams={searchParams}
           currentView={currentView}
-          onClose={() => setFlyout(null)}
+          onClose={closeFlyout}
+          onKeepOpen={keepFlyout}
         />
       )}
 
