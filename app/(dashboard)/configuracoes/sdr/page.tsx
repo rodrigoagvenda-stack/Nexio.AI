@@ -19,6 +19,7 @@ import {
   Mic, FileImage, FileText,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
+import Link from 'next/link'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -2468,6 +2469,13 @@ export default function SdrConfigPage() {
             {isConnected ? <Wifi className="w-3 h-3" /> : isConnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
             {isConnected ? config.instance_phone || 'Conectado' : isConnecting ? 'Conectando' : 'Desconectado'}
           </div>
+          <Link
+            href="/configuracoes/sdr/simulador"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Simulador
+          </Link>
           <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5 h-8">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             {saving ? 'Salvando…' : 'Salvar'}
