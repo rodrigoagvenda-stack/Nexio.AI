@@ -61,11 +61,24 @@ export default async function DashboardLayout({
 
   const PLAN_LABELS: Record<string, string> = {
     basic: 'Zaapply Free', starter: 'Zaapply Start', pro: 'Zaapply Growth', scale: 'Zaapply Pro',
+    free: 'Zaapply Free', start: 'Zaapply Start', growth: 'Zaapply Growth',
+  };
+  // Normalize plan_name legados (ex: "NEXIO GROWTH" → "Zaapply Growth")
+  const LEGACY_NAME_MAP: Record<string, string> = {
+    'nexio free': 'Zaapply Free', 'nexio start': 'Zaapply Start',
+    'nexio growth': 'Zaapply Growth', 'nexio pro': 'Zaapply Pro',
+    'zaapli free': 'Zaapply Free', 'zaapli start': 'Zaapply Start',
+    'zaapli growth': 'Zaapply Growth', 'zaapli pro': 'Zaapply Pro',
   };
   const companyName = companyData?.name;
   const companyEmail = companyData?.email;
   const companyImage = companyData?.image_url;
-  const planName = PLAN_LABELS[companyData?.plan_type ?? ''] ?? companyData?.plan_name ?? 'Zaapply';
+  const rawPlanName = companyData?.plan_name ?? '';
+  const planName =
+    PLAN_LABELS[companyData?.plan_type ?? ''] ??
+    LEGACY_NAME_MAP[rawPlanName.toLowerCase()] ??
+    rawPlanName ||
+    'Zaapply';
   const trialEnabled = companyData?.trial_enabled ?? false;
   const tokensUsed = companyData?.tokens_used ?? 0;
   const tokensLimit = companyData?.plan_monthly_limit ?? 0;
