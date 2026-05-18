@@ -330,7 +330,7 @@ function ConfigSheet({
               {allVars.map(key => {
                 const isRequired = selectedNiche.requiredVars.includes(key);
                 const label = VAR_LABELS[key] ?? key;
-                const isLong = key === 'descricao_produto' || key === 'restricoes';
+                const isLong = key === 'descricao_produto' || (key as string) === 'restricoes';
                 return (
                   <div key={key} className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">

@@ -249,9 +249,10 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
 
   return stepNodes.map((node, idx) => {
     const d = node.data;
+    const stepId = String(d.stepId ?? '');
     if (d.kind === 'message') {
       return {
-        id: d.stepId,
+        id: stepId,
         dia_offset: d.dia_offset,
         horario: d.horario,
         mensagem: d.mensagem,
@@ -261,7 +262,7 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       };
     } else if (d.kind === 'wait') {
       return {
-        id: d.stepId,
+        id: stepId,
         dia_offset: d.dia_offset,
         horario: '00:00',
         mensagem: null,
@@ -271,7 +272,7 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       };
     } else if (d.kind === 'condition') {
       return {
-        id: d.stepId,
+        id: stepId,
         dia_offset: 0,
         horario: '00:00',
         mensagem: null,
@@ -282,7 +283,7 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     } else {
       // end
       return {
-        id: d.stepId,
+        id: stepId,
         dia_offset: 0,
         horario: '00:00',
         mensagem: null,
@@ -685,7 +686,7 @@ function CanvasInner() {
   const currentSeq = sequences.find((s) => s.tipo === activeTipo) ?? null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AutoNodeData>>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
