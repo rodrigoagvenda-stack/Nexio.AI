@@ -1240,7 +1240,7 @@ interface TestRunModalProps {
 
 function TestRunModal({ onStart, onClose }: TestRunModalProps) {
   const [phone, setPhone] = useState('');
-  const [dryRun, setDryRun] = useState(true);
+  const [dryRun, setDryRun] = useState(false);
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -1253,16 +1253,34 @@ function TestRunModal({ onStart, onClose }: TestRunModalProps) {
           <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
             placeholder="5511999999999" className="field-input" />
         </Field>
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)}
-            className="w-4 h-4 rounded border-border accent-primary" />
-          <span className="text-sm text-foreground">Apenas simular (sem enviar)</span>
-        </label>
+        <div className="rounded-xl border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setDryRun(false)}
+            className={cn('w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors', !dryRun ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50')}>
+            <Play className="w-3.5 h-3.5 shrink-0" />
+            <div className="text-left">
+              <div className="font-medium leading-tight">Enviar de verdade</div>
+              <div className={cn('text-xs leading-tight', !dryRun ? 'text-primary-foreground/70' : 'text-muted-foreground/70')}>Dispara a mensagem pro número informado</div>
+            </div>
+          </button>
+          <div className="border-t border-border" />
+          <button
+            type="button"
+            onClick={() => setDryRun(true)}
+            className={cn('w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors', dryRun ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50')}>
+            <FlaskConical className="w-3.5 h-3.5 shrink-0" />
+            <div className="text-left">
+              <div className="font-medium leading-tight">Só simular</div>
+              <div className={cn('text-xs leading-tight', dryRun ? 'text-primary-foreground/70' : 'text-muted-foreground/70')}>Visualiza o fluxo sem enviar nada</div>
+            </div>
+          </button>
+        </div>
         <button
           onClick={() => { if (phone.trim()) { onStart(phone.trim(), dryRun); onClose(); } }}
           disabled={!phone.trim()}
           className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
-          Iniciar execução
+          {dryRun ? 'Simular fluxo' : 'Disparar teste'}
         </button>
       </div>
     </ModalOverlay>
