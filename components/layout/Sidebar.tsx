@@ -91,9 +91,7 @@ const navSections: NavSection[] = [
         icon: Megaphone,
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
-          { href: '/configuracoes/follow?tab=follow_geral', label: 'Follow-up', icon: Clock },
-          { href: '/configuracoes/follow?tab=anti_noshow', label: 'Anti-Noshow', icon: CalendarClock },
-          { href: '/configuracoes/follow?tab=remarketing', label: 'Remarketing', icon: Megaphone },
+          { href: '/configuracoes/follow', label: 'Canvas', icon: Megaphone },
           { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FileText },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
         ],
@@ -232,6 +230,13 @@ export const Sidebar = memo(function Sidebar({
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
   }, []);
 
+  // Auto-collapse when entering the canvas
+  useEffect(() => {
+    if (pathname === '/configuracoes/follow' || pathname.startsWith('/configuracoes/follow/')) {
+      setIsCollapsed(true);
+    }
+  }, [pathname]);
+
   const isCrmRoute = useMemo(() =>
     pathname === '/crm' || pathname.startsWith('/crm/'),
     [pathname]
@@ -254,10 +259,7 @@ export const Sidebar = memo(function Sidebar({
         if (link.children) {
           return {
             ...link,
-            children: link.children.filter(child => {
-              if (child.href.includes('/configuracoes/trial') && !trialEnabled) return false;
-              return true;
-            }),
+            children: link.children,
           };
         }
         return link;
