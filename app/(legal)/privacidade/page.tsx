@@ -165,7 +165,11 @@ export default function PrivacidadePage() {
           Para exercer qualquer direito, entre em contato pelo e-mail{' '}
           <a href="mailto:privacidade@zaapply.com.br" className="text-primary underline underline-offset-4">
             privacidade@zaapply.com.br
-          </a>.
+          </a>{' '}
+          ou utilize o nosso{' '}
+          <Link href="/privacidade/solicitacao" className="text-primary underline underline-offset-4">
+            formulário de solicitação de direitos
+          </Link>.
           Responderemos em até <strong>15 dias úteis</strong>.
         </p>
       </Section>

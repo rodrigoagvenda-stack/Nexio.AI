@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { KeepAlive } from "@/components/KeepAlive";
+import { CookieBanner } from "@/components/lgpd/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Zaapply — CRM Inteligente com IA",
@@ -27,6 +28,7 @@ export default function RootLayout({
         {children}
         <Toaster />
 <KeepAlive />
+        <CookieBanner />
       </body>
     </html>
   );

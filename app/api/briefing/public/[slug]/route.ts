@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 // GET: Buscar config + perguntas da empresa pelo slug (para renderizar o formulário público)
 export async function GET(
   _request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const ip = _request.headers.get('x-forwarded-for') ?? 'unknown'
+  const rl = rateLimit({ key: `briefing-public:${ip}`, limit: 20, windowMs: 60_000 })
+  if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 })
+
   try {
     const service = createServiceClient();
 
@@ -49,6 +54,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
+  const rl = rateLimit({ key: `briefing-public:${ip}`, limit: 20, windowMs: 60_000 })
+  if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 })
+
   try {
     const supabase = createServiceClient();
     const body = await request.json();

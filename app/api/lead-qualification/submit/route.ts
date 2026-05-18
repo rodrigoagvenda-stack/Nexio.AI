@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
+  const rl = rateLimit({ key: `lead-qualification:${ip}`, limit: 10, windowMs: 60_000 })
+  if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 })
+
   try {
     const formData = await request.json();
 

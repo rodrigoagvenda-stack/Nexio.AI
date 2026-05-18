@@ -515,6 +515,25 @@ export const Sidebar = memo(function Sidebar({
               {!isCollapsed && (isLoggingOut ? 'Saindo...' : 'Sair')}
             </Button>
           </div>
+
+          {/* Links LGPD */}
+          {!isCollapsed && (
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <Link
+                href="/privacidade"
+                className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              >
+                Privacidade
+              </Link>
+              <span className="text-muted-foreground/30 text-[10px]">·</span>
+              <Link
+                href="/privacidade/solicitacao"
+                className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              >
+                Seus dados
+              </Link>
+            </div>
+          )}
         </div>
       </aside>
 

@@ -27,17 +27,20 @@ export async function POST(
     // Pega o payload
     const payload = await request.json();
 
-    // Valida assinatura (opcional - Asaas envia header asaas-access-token)
+    // Valida assinatura — secret obrigatório (Asaas envia header asaas-access-token)
     const asaasToken = request.headers.get('asaas-access-token');
 
-    // Se tiver secret configurado, valida
-    if (agente.webhook_secret && asaasToken) {
-      if (asaasToken !== agente.webhook_secret) {
-        return NextResponse.json(
-          { error: 'Token inválido' },
-          { status: 403 }
-        );
-      }
+    if (!agente.webhook_secret) {
+      return NextResponse.json(
+        { error: 'Webhook sem secret configurado' },
+        { status: 500 }
+      );
+    }
+    if (asaasToken !== agente.webhook_secret) {
+      return NextResponse.json(
+        { error: 'Token inválido' },
+        { status: 403 }
+      );
     }
 
     // Processa evento

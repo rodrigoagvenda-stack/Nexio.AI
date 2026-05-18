@@ -5,11 +5,11 @@ import { decrypt } from '@/lib/crypto';
 // POST /api/cron/monitor-n8n
 export async function POST(request: Request) {
   try {
-    // Verifica se é uma chamada do cron (pode usar um secret)
+    // Verifica se é uma chamada do cron — CRON_SECRET obrigatório
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 

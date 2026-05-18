@@ -10,6 +10,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { companyId: string } }
 ) {
+  const webhookToken = request.headers.get('x-webhook-token')
+  const expectedToken = process.env.SDR_WEBHOOK_SECRET
+  if (!expectedToken || webhookToken !== expectedToken) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
   const companyId = parseInt(params.companyId, 10)
 
   if (isNaN(companyId) || companyId <= 0) {

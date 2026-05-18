@@ -39,6 +39,9 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
             <Link href="/privacidade" className="hover:text-foreground transition-colors">
               Política de Privacidade
             </Link>
+            <Link href="/privacidade/solicitacao" className="hover:text-foreground transition-colors">
+              Seus dados
+            </Link>
             <Link href="/termos" className="hover:text-foreground transition-colors">
               Termos de Serviço
             </Link>
