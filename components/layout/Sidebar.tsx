@@ -230,10 +230,16 @@ export const Sidebar = memo(function Sidebar({
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
   }, []);
 
-  // Auto-collapse when entering the canvas
+  // Auto-collapse on canvas, auto-expand when leaving
+  const autoCollapsedRef = useRef(false);
   useEffect(() => {
-    if (pathname === '/configuracoes/follow' || pathname.startsWith('/configuracoes/follow/')) {
+    const isCanvas = pathname === '/configuracoes/follow' || pathname.startsWith('/configuracoes/follow/');
+    if (isCanvas) {
+      autoCollapsedRef.current = true;
       setIsCollapsed(true);
+    } else if (autoCollapsedRef.current) {
+      autoCollapsedRef.current = false;
+      setIsCollapsed(false);
     }
   }, [pathname]);
 

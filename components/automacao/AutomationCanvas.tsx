@@ -44,6 +44,12 @@ import {
   Clock3,
   CheckCheck,
   AlertCircle,
+  Mic,
+  Image as ImageIcon,
+  Video,
+  FileText,
+  Upload,
+  Square,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +91,8 @@ interface MessageNodeData extends Record<string, unknown> {
   mensagem: string | null;
   tipo_mensagem: string;
   stepId: string;
+  media_url?: string;
+  uploading?: boolean;
 }
 
 interface WaitNodeData extends Record<string, unknown> {
@@ -114,7 +122,7 @@ type AutoNodeData =
   | ConditionNodeData
   | EndNodeData;
 
-// ─── Mock execution log ─────────────────────────────────────────────────────────
+// ─── Execution Log ──────────────────────────────────────────────────────────────
 
 interface ExecLog {
   id: string;
@@ -129,12 +137,7 @@ interface ExecLog {
 
 const EDGE_BASE = {
   type: 'smoothstep',
-  markerEnd: {
-    type: MarkerType.ArrowClosed,
-    width: 14,
-    height: 14,
-    color: 'hsl(215 16% 47%)',
-  },
+  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'hsl(215 16% 47%)' },
   style: { stroke: 'hsl(215 16% 47%)', strokeWidth: 1.5 },
 } as const;
 
@@ -145,154 +148,69 @@ function truncate(str: string | null, n: number): string {
 
 function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeData>[] {
   const nodes: Node<AutoNodeData>[] = [];
-
   nodes.push({
-    id: 'trigger',
-    type: 'triggerNode',
-    position: { x: 0, y: 150 },
-    data: {
-      kind: 'trigger',
-      label: sequenceName,
-      condicao: 'Início da sequência',
-    } satisfies TriggerNodeData,
+    id: 'trigger', type: 'triggerNode', position: { x: 0, y: 150 },
+    data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência' } satisfies TriggerNodeData,
   });
-
   const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
     const x = (idx + 1) * 280;
-    const y = 150;
-
     const condicaoLower = step.condicao?.toLowerCase() ?? '';
-    const isFim =
-      condicaoLower.includes('fim') ||
-      condicaoLower.includes('encerr') ||
-      step.tipo_mensagem === 'fim';
-    const isCondition =
-      condicaoLower.includes('respondeu') ||
-      condicaoLower.includes('condicao') ||
-      step.tipo_mensagem === 'condicao';
-    const isWait =
-      step.tipo_mensagem === 'aguardar' ||
-      (step.mensagem === null && !isFim && !isCondition);
+    const isFim = condicaoLower.includes('fim') || condicaoLower.includes('encerr') || step.tipo_mensagem === 'fim';
+    const isCondition = condicaoLower.includes('respondeu') || condicaoLower.includes('condicao') || step.tipo_mensagem === 'condicao';
+    const isWait = step.tipo_mensagem === 'aguardar' || (step.mensagem === null && !isFim && !isCondition);
 
-    if (isFim) {
-      nodes.push({
-        id: step.id,
-        type: 'endNode',
-        position: { x, y },
-        data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData,
-      });
-    } else if (isCondition) {
-      nodes.push({
-        id: step.id,
-        type: 'conditionNode',
-        position: { x, y },
-        data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', stepId: step.id } satisfies ConditionNodeData,
-      });
-    } else if (isWait) {
-      nodes.push({
-        id: step.id,
-        type: 'waitNode',
-        position: { x, y },
-        data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData,
-      });
-    } else {
-      nodes.push({
-        id: step.id,
-        type: 'messageNode',
-        position: { x, y },
-        data: {
-          kind: 'message',
-          label: 'Mensagem',
-          dia_offset: step.dia_offset,
-          horario: step.horario,
-          mensagem: step.mensagem,
-          tipo_mensagem: step.tipo_mensagem,
-          stepId: step.id,
-        } satisfies MessageNodeData,
-      });
-    }
+    if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
+    else if (isCondition) nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', stepId: step.id } satisfies ConditionNodeData });
+    else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: step.mensagem, tipo_mensagem: step.tipo_mensagem, stepId: step.id } satisfies MessageNodeData });
   });
-
   return nodes;
 }
 
 function stepsToEdges(steps: FollowStep[]): Edge[] {
   const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
   const edges: Edge[] = [];
-
-  if (sorted.length > 0) {
-    edges.push({ id: `trigger-${sorted[0].id}`, source: 'trigger', target: sorted[0].id, ...EDGE_BASE });
-  }
-
+  if (sorted.length > 0) edges.push({ id: `trigger-${sorted[0].id}`, source: 'trigger', target: sorted[0].id, ...EDGE_BASE });
   for (let i = 0; i < sorted.length - 1; i++) {
-    edges.push({
-      id: `e-${sorted[i].id}-${sorted[i + 1].id}`,
-      source: sorted[i].id,
-      target: sorted[i + 1].id,
-      ...EDGE_BASE,
-    });
+    edges.push({ id: `e-${sorted[i].id}-${sorted[i + 1].id}`, source: sorted[i].id, target: sorted[i + 1].id, ...EDGE_BASE });
   }
-
   return edges;
 }
 
 function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
-  const stepNodes = nodes
-    .filter((n) => n.id !== 'trigger')
-    .sort((a, b) => a.position.x - b.position.x);
-
-  return stepNodes.map((node, idx) => {
+  return nodes.filter((n) => n.id !== 'trigger').sort((a, b) => a.position.x - b.position.x).map((node, idx) => {
     const d = node.data;
     const stepId = String(d.stepId ?? '');
-    if (d.kind === 'message') {
-      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem, tipo_mensagem: d.tipo_mensagem || 'texto', ordem: idx + 1, condicao: '' };
-    } else if (d.kind === 'wait') {
-      return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
-    } else if (d.kind === 'condition') {
-      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: d.condicao };
-    } else {
-      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: 'fim' };
-    }
+    if (d.kind === 'message') return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem, tipo_mensagem: d.tipo_mensagem || 'texto', ordem: idx + 1, condicao: '' };
+    if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
+    if (d.kind === 'condition') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: d.condicao };
+    return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: 'fim' };
   });
 }
 
 let nodeCounter = 1000;
 function newId() { return `new-${++nodeCounter}`; }
 
-// ─── Node Components ────────────────────────────────────────────────────────────
+// ─── Node building blocks ───────────────────────────────────────────────────────
 
 function Chip({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
-    <span className={cn(
-      'inline-flex items-center px-3 py-1.5 rounded-xl text-sm transition-colors',
-      active ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted text-muted-foreground'
-    )}>
+    <span className={cn('inline-flex items-center px-3 py-1.5 rounded-xl text-sm transition-colors', active ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted text-muted-foreground')}>
       {children}
     </span>
   );
 }
 
-function NodeShell({
-  children, selected, primaryAccent, redAccent, header,
-}: {
-  children: React.ReactNode;
-  selected?: boolean;
-  primaryAccent?: boolean;
-  redAccent?: boolean;
-  header: React.ReactNode;
+function NodeShell({ children, selected, primaryAccent, redAccent, header }: {
+  children: React.ReactNode; selected?: boolean; primaryAccent?: boolean; redAccent?: boolean; header: React.ReactNode;
 }) {
   return (
-    <div className={cn(
-      'bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
-      primaryAccent
-        ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
-        : redAccent
-        ? 'border-destructive/40 shadow-[0_0_16px_hsl(var(--destructive)/0.08)]'
-        : selected
-        ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
-        : 'border-border'
-    )}>
+    <div className={cn('bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
+      primaryAccent ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
+        : redAccent ? 'border-destructive/40 shadow-[0_0_16px_hsl(var(--destructive)/0.08)]'
+        : selected ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
+        : 'border-border')}>
       {header}
       <div className="flex flex-col gap-1.5">{children}</div>
     </div>
@@ -310,6 +228,8 @@ function NodeHeader({ icon: Icon, label }: { icon: React.ElementType; label: str
 
 const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted !border !border-border !rounded-full';
 
+// ─── Node Components ────────────────────────────────────────────────────────────
+
 function TriggerNode({ data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   return (
@@ -323,13 +243,43 @@ function TriggerNode({ data, selected }: NodeProps) {
 
 function MessageNode({ data, selected }: NodeProps) {
   const d = data as MessageNodeData;
+  const tipoIcon: Record<string, React.ElementType> = {
+    imagem: ImageIcon, video: Video, audio: Mic, ptt: Mic, documento: FileText,
+  };
+  const TipoIcon = tipoIcon[d.tipo_mensagem];
+
   return (
     <NodeShell selected={selected} header={<NodeHeader icon={MessageSquare} label="Mensagem" />}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <Chip active={selected}>Dia {d.dia_offset}</Chip>
       <Chip>{d.horario}</Chip>
-      {d.mensagem && <Chip>{truncate(d.mensagem, 40)}</Chip>}
+      {d.mensagem && d.tipo_mensagem === 'texto' && <Chip>{truncate(d.mensagem, 40)}</Chip>}
+      {/* Media type indicator */}
+      {TipoIcon && !d.uploading && !d.media_url && (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm bg-muted text-muted-foreground">
+          <TipoIcon className="w-3.5 h-3.5" />{d.tipo_mensagem}
+        </span>
+      )}
+      {/* Upload preloader */}
+      {d.uploading && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/60">
+          <div className="flex gap-0.5 items-end">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="w-1 rounded-full bg-primary/60 animate-bounce"
+                style={{ height: `${6 + i * 3}px`, animationDelay: `${i * 0.1}s` }} />
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">Enviando…</span>
+        </div>
+      )}
+      {/* Media uploaded */}
+      {d.media_url && !d.uploading && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10">
+          <CheckCircle2 className="w-3 h-3 text-primary" />
+          <span className="text-xs text-primary font-medium">Arquivo anexado</span>
+        </div>
+      )}
     </NodeShell>
   );
 }
@@ -350,10 +300,8 @@ function ConditionNode({ data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} header={<NodeHeader icon={GitBranch} label="Condição" />}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }}
-        className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
-      <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }}
-        className="!w-2.5 !h-2.5 !bg-destructive/60 !border !border-destructive/40 !rounded-full" />
+      <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
+      <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/60 !border !border-destructive/40 !rounded-full" />
       <Chip active={selected}>{d.condicao || 'Respondeu?'}</Chip>
       <div className="flex gap-1.5">
         <span className="text-[10px] text-primary/70 px-2 py-0.5 rounded bg-primary/10">↑ Sim</span>
@@ -372,15 +320,149 @@ function EndNode({ data: _data, selected }: NodeProps) {
   );
 }
 
-const nodeTypes = {
-  triggerNode: TriggerNode,
-  messageNode: MessageNode,
-  waitNode: WaitNode,
-  conditionNode: ConditionNode,
-  endNode: EndNode,
-};
+const nodeTypes = { triggerNode: TriggerNode, messageNode: MessageNode, waitNode: WaitNode, conditionNode: ConditionNode, endNode: EndNode };
 
-// ─── Config Panel ────────────────────────────────────────────────────────────────
+// ─── Upload components ──────────────────────────────────────────────────────────
+
+function UploadZone({ accept, label, current, onUploadStart, onUpload }: {
+  accept: string; label: string; current?: string;
+  onUploadStart?: () => void;
+  onUpload: (url: string, name?: string) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    onUploadStart?.();
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/follow/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok) onUpload(data.url, data.name ?? file.name);
+    } finally { setUploading(false); }
+  }
+
+  function openPicker() {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = accept;
+    input.onchange = (e) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) handleFile(f); };
+    input.click();
+  }
+
+  return (
+    <div
+      onClick={!uploading ? openPicker : undefined}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f && !uploading) handleFile(f); }}
+      className={cn('border-2 border-dashed rounded-xl p-4 text-center transition-all select-none',
+        !uploading && 'cursor-pointer',
+        dragOver ? 'border-primary bg-primary/5 scale-[1.01]' : 'border-border hover:border-primary/40 hover:bg-muted/30',
+        uploading && 'opacity-60 pointer-events-none')}
+    >
+      {uploading ? (
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Enviando…</span>
+        </div>
+      ) : current ? (
+        <div className="flex items-center gap-2 justify-center py-1">
+          <CheckCircle2 className="w-4 h-4 text-primary" />
+          <span className="text-xs text-primary font-medium">Arquivo enviado · clique para trocar</span>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-1.5 py-1">
+          <Upload className="w-5 h-5 text-muted-foreground/40" />
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+          <span className="text-[10px] text-muted-foreground/60">Clique ou arraste aqui</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AudioRecorder({ current, onUploadStart, onUpload }: {
+  current?: string; onUploadStart?: () => void; onUpload: (url: string) => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const mrRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function start() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        setUploading(true); onUploadStart?.();
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const file = new File([blob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+        const fd = new FormData(); fd.append('file', file);
+        try {
+          const res = await fetch('/api/follow/upload', { method: 'POST', body: fd });
+          const data = await res.json();
+          if (res.ok) onUpload(data.url);
+        } finally { setUploading(false); stream.getTracks().forEach((t) => t.stop()); }
+      };
+      mr.start(); mrRef.current = mr; setRecording(true); setSeconds(0);
+      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+    } catch { /* permission denied */ }
+  }
+
+  function stop() { mrRef.current?.stop(); if (timerRef.current) clearInterval(timerRef.current); setRecording(false); }
+
+  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  return (
+    <div className="space-y-2">
+      {recording ? (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-destructive/30 bg-destructive/5">
+          <div className="w-2 h-2 rounded-full bg-destructive animate-pulse shrink-0" />
+          <span className="font-mono text-sm text-destructive flex-1">{fmt(seconds)}</span>
+          <button onClick={stop} className="flex items-center gap-1.5 text-xs text-destructive border border-destructive/30 px-2.5 py-1 rounded-lg hover:bg-destructive/10 transition-colors">
+            <Square className="w-3 h-3" /> Parar
+          </button>
+        </div>
+      ) : uploading ? (
+        <div className="flex items-center gap-2 p-3 rounded-xl border border-border bg-muted/20">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Enviando áudio…</span>
+        </div>
+      ) : (
+        <button onClick={start} className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border border-border bg-muted hover:bg-accent transition-colors text-sm text-muted-foreground hover:text-foreground">
+          <Mic className="w-4 h-4 text-rose-500" />
+          {current ? 'Regravar áudio' : 'Gravar áudio'}
+        </button>
+      )}
+      {current && !recording && !uploading && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+          <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="text-xs text-primary font-medium">Áudio gravado com sucesso</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Config Panel ───────────────────────────────────────────────────────────────
+
+const TIPO_OPTIONS = [
+  { value: 'texto',     label: 'Texto',    icon: MessageSquare },
+  { value: 'imagem',    label: 'Imagem',   icon: ImageIcon },
+  { value: 'video',     label: 'Vídeo',    icon: Video },
+  { value: 'audio',     label: 'Áudio',    icon: Mic },
+  { value: 'ptt',       label: 'PTT',      icon: Mic },
+  { value: 'documento', label: 'Doc',      icon: FileText },
+] as const;
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
 interface ConfigPanelProps {
   node: Node<AutoNodeData> | null;
@@ -393,8 +475,10 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
 
+  const [hh, mm] = d.kind === 'message' ? (d.horario || '09:00').split(':') : ['09', '00'];
+
   return (
-    <div className="w-64 bg-card border-l border-border h-full flex flex-col overflow-y-auto">
+    <div className="w-72 bg-card border-l border-border h-full flex flex-col overflow-y-auto">
       <div className="flex items-center justify-between px-4 h-12 border-b border-border flex-shrink-0">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Configurar</span>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -402,38 +486,130 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
         </button>
       </div>
 
-      <div className="p-4 flex flex-col gap-4">
+      <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-1">
+
+        {/* ── Message node ── */}
         {d.kind === 'message' && (
           <>
+            {/* Dia offset */}
             <Field label="Dia offset">
               <input type="number" min={0} value={d.dia_offset}
                 onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
                 className="field-input" />
             </Field>
+
+            {/* Horário — two styled selects */}
             <Field label="Horário">
-              <input type="time" value={d.horario}
-                onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
-                className="field-input" />
+              <div className="flex items-center gap-2">
+                <select
+                  value={hh}
+                  onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${mm}` })}
+                  className="field-input flex-1 text-center font-mono"
+                >
+                  {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+                </select>
+                <span className="text-muted-foreground font-bold text-lg">:</span>
+                <select
+                  value={MINUTES.includes(mm) ? mm : '00'}
+                  onChange={(e) => onUpdate(node.id, { horario: `${hh}:${e.target.value}` })}
+                  className="field-input flex-1 text-center font-mono"
+                >
+                  {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
             </Field>
+
+            {/* Tipo de mensagem — pills */}
             <Field label="Tipo de mensagem">
-              <select value={d.tipo_mensagem}
-                onChange={(e) => onUpdate(node.id, { tipo_mensagem: e.target.value })}
-                className="field-input">
-                <option value="texto">Texto</option>
-                <option value="imagem">Imagem</option>
-                <option value="audio">Áudio</option>
-                <option value="template">Template</option>
-              </select>
+              <div className="grid grid-cols-3 gap-1.5">
+                {TIPO_OPTIONS.map(({ value, label, icon: Icon }) => (
+                  <button key={value}
+                    onClick={() => onUpdate(node.id, { tipo_mensagem: value, media_url: undefined, uploading: false })}
+                    className={cn('flex flex-col items-center gap-1 px-2 py-2 rounded-xl border text-xs transition-all',
+                      d.tipo_mensagem === value ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </Field>
-            <Field label="Mensagem">
-              <textarea rows={4} value={d.mensagem ?? ''}
-                onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
-                placeholder="Digite a mensagem..."
-                className="field-input resize-none" />
-            </Field>
+
+            {/* Texto */}
+            {d.tipo_mensagem === 'texto' && (
+              <Field label="Mensagem">
+                <textarea rows={4} value={d.mensagem ?? ''}
+                  onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                  placeholder="Digite a mensagem aqui..."
+                  className="field-input resize-none" />
+              </Field>
+            )}
+
+            {/* Imagem */}
+            {d.tipo_mensagem === 'imagem' && (
+              <>
+                <Field label="Arquivo">
+                  <UploadZone accept="image/*" label="Enviar imagem" current={d.media_url}
+                    onUploadStart={() => onUpdate(node.id, { uploading: true })}
+                    onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+                </Field>
+                {d.media_url && (
+                  <div className="rounded-xl overflow-hidden border border-border">
+                    <img src={d.media_url} alt="preview" className="w-full h-32 object-cover" />
+                  </div>
+                )}
+                <Field label="Legenda (opcional)">
+                  <input type="text" value={d.mensagem ?? ''}
+                    onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                    placeholder="Legenda da imagem…" className="field-input" />
+                </Field>
+              </>
+            )}
+
+            {/* Vídeo */}
+            {d.tipo_mensagem === 'video' && (
+              <>
+                <Field label="Arquivo">
+                  <UploadZone accept="video/*" label="Enviar vídeo" current={d.media_url}
+                    onUploadStart={() => onUpdate(node.id, { uploading: true })}
+                    onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+                </Field>
+                <Field label="Legenda (opcional)">
+                  <input type="text" value={d.mensagem ?? ''}
+                    onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                    placeholder="Legenda do vídeo…" className="field-input" />
+                </Field>
+              </>
+            )}
+
+            {/* Áudio / PTT */}
+            {(d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
+              <Field label="Áudio">
+                <AudioRecorder current={d.media_url}
+                  onUploadStart={() => onUpdate(node.id, { uploading: true })}
+                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+                <div className="relative my-1">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+                  <div className="relative flex justify-center"><span className="bg-card px-2 text-[10px] text-muted-foreground">ou enviar arquivo</span></div>
+                </div>
+                <UploadZone accept="audio/*" label="Enviar arquivo de áudio" current={undefined}
+                  onUploadStart={() => onUpdate(node.id, { uploading: true })}
+                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+              </Field>
+            )}
+
+            {/* Documento */}
+            {d.tipo_mensagem === 'documento' && (
+              <Field label="Documento">
+                <UploadZone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" label="Enviar documento" current={d.media_url}
+                  onUploadStart={() => onUpdate(node.id, { uploading: true })}
+                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+              </Field>
+            )}
           </>
         )}
 
+        {/* ── Wait node ── */}
         {d.kind === 'wait' && (
           <Field label="Aguardar (dias)">
             <input type="number" min={1} value={d.dia_offset}
@@ -442,15 +618,16 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
           </Field>
         )}
 
+        {/* ── Condition node ── */}
         {d.kind === 'condition' && (
           <Field label="Condição">
             <input type="text" value={d.condicao}
               onChange={(e) => onUpdate(node.id, { condicao: e.target.value })}
-              placeholder="ex: Respondeu?"
-              className="field-input" />
+              placeholder="ex: Respondeu?" className="field-input" />
           </Field>
         )}
 
+        {/* ── Trigger node ── */}
         {d.kind === 'trigger' && (
           <>
             <Field label="Nome da sequência">
@@ -467,10 +644,8 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
         )}
 
         {d.kind !== 'trigger' && (
-          <button
-            onClick={() => { onDelete(node.id); onClose(); }}
-            className="mt-2 w-full py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors border border-destructive/20"
-          >
+          <button onClick={() => { onDelete(node.id); onClose(); }}
+            className="mt-auto w-full py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors border border-destructive/20">
             Remover nó
           </button>
         )}
@@ -488,70 +663,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ─── Palette Items ───────────────────────────────────────────────────────────────
+// ─── Palette ────────────────────────────────────────────────────────────────────
 
 interface PaletteItem {
-  label: string;
-  desc: string;
-  kind: 'message' | 'wait' | 'condition' | 'end';
-  icon: React.ElementType;
-  bgClass: string;
-  iconClass: string;
+  label: string; desc: string; kind: 'message' | 'wait' | 'condition' | 'end';
+  icon: React.ElementType; bgClass: string; iconClass: string;
 }
 
 const PALETTE_ITEMS: PaletteItem[] = [
-  {
-    label: 'Mensagem',
-    desc: 'Enviar texto, áudio ou mídia',
-    kind: 'message',
-    icon: MessageSquare,
-    bgClass: 'bg-primary/10',
-    iconClass: 'text-primary',
-  },
-  {
-    label: 'Aguardar',
-    desc: 'Pausa entre mensagens',
-    kind: 'wait',
-    icon: Clock,
-    bgClass: 'bg-amber-500/10',
-    iconClass: 'text-amber-500',
-  },
-  {
-    label: 'Condição',
-    desc: 'Ramificar por resposta do lead',
-    kind: 'condition',
-    icon: GitBranch,
-    bgClass: 'bg-violet-500/10',
-    iconClass: 'text-violet-500',
-  },
-  {
-    label: 'Encerrar',
-    desc: 'Finalizar a sequência',
-    kind: 'end',
-    icon: XCircle,
-    bgClass: 'bg-destructive/10',
-    iconClass: 'text-destructive',
-  },
+  { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-primary/10', iconClass: 'text-primary' },
+  { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Condição', desc: 'Ramificar por resposta', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
 ];
 
-// ─── Floating palette panel (n8n style) ─────────────────────────────────────────
-
-function PalettePanel({
-  onAdd,
-  onClose,
-}: {
-  onAdd: (kind: PaletteItem['kind']) => void;
-  onClose: () => void;
-}) {
+function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteItem['kind']) => void; onClose: () => void }) {
   const [search, setSearch] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       const target = e.target;
-      if (panelRef.current && target instanceof Element && !panelRef.current.contains(target)) {
-        onClose();
-      }
+      if (panelRef.current && target instanceof Element && !panelRef.current.contains(target)) onClose();
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -562,77 +695,52 @@ function PalettePanel({
   );
 
   return (
-    <div
-      ref={panelRef}
-      className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-64 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-right-2 duration-150"
-    >
-      {/* Header */}
+    <div ref={panelRef} className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-64 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-right-2 duration-150">
       <div className="px-4 py-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            O que acontece a seguir?
-          </p>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">O que acontece a seguir?</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X className="w-3.5 h-3.5" /></button>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <input
-            autoFocus
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar nó..."
-            className="w-full h-8 pl-8 pr-3 text-sm bg-muted rounded-lg outline-none text-foreground placeholder:text-muted-foreground"
-          />
+          <input autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nó…"
+            className="w-full h-8 pl-8 pr-3 text-sm bg-muted rounded-lg outline-none text-foreground placeholder:text-muted-foreground" />
         </div>
       </div>
-
-      {/* Items */}
       <div className="p-2 space-y-0.5">
         {filtered.length === 0 ? (
           <p className="text-center text-xs text-muted-foreground py-4">Nenhum resultado</p>
-        ) : (
-          filtered.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.kind}
-                onClick={() => { onAdd(item.kind); onClose(); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm hover:bg-muted transition-colors text-left"
-              >
-                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', item.bgClass)}>
-                  <Icon className={cn('w-4 h-4', item.iconClass)} />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">{item.label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
-                </div>
-              </button>
-            );
-          })
-        )}
+        ) : filtered.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button key={item.kind} onClick={() => { onAdd(item.kind); onClose(); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm hover:bg-muted transition-colors text-left">
+              <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', item.bgClass)}>
+                <Icon className={cn('w-4 h-4', item.iconClass)} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{item.label}</p>
+                <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ─── Executions view ─────────────────────────────────────────────────────────────
+// ─── Executions view ────────────────────────────────────────────────────────────
 
 const MOCK_EXECUTIONS: ExecLog[] = [
-  { id: '1', lead: 'João Silva', sequence: 'Follow-up Geral', step: 'Mensagem — Dia 1', status: 'sent', ts: '18 mai, 14:32' },
-  { id: '2', lead: 'Maria Costa', sequence: 'Anti-Noshow', step: 'Mensagem — Dia 0', status: 'sent', ts: '18 mai, 13:10' },
-  { id: '3', lead: 'Carlos Mendes', sequence: 'Remarketing', step: 'Mensagem — Dia 3', status: 'failed', ts: '18 mai, 11:55' },
-  { id: '4', lead: 'Ana Ferreira', sequence: 'Follow-up Geral', step: 'Aguardar — Dia 2', status: 'pending', ts: '18 mai, 09:00' },
+  { id: '1', lead: 'João Silva', sequence: 'Follow-up Geral', step: 'Mensagem — Dia 1', status: 'sent', ts: 'hoje, 14:32' },
+  { id: '2', lead: 'Maria Costa', sequence: 'Anti-Noshow', step: 'Mensagem — Dia 0', status: 'sent', ts: 'hoje, 13:10' },
+  { id: '3', lead: 'Carlos Mendes', sequence: 'Remarketing', step: 'Mensagem — Dia 3', status: 'failed', ts: 'hoje, 11:55' },
+  { id: '4', lead: 'Ana Ferreira', sequence: 'Follow-up Geral', step: 'Aguardar — Dia 2', status: 'pending', ts: 'hoje, 09:00' },
 ];
 
 function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
-  const label: Record<SequenceTipo, string> = {
-    follow_geral: 'Follow-up',
-    anti_noshow: 'Anti-Noshow',
-    remarketing: 'Remarketing',
-  };
-
+  const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing' };
   const executions = MOCK_EXECUTIONS.filter((e) => e.sequence.toLowerCase().includes(label[tipo].toLowerCase()));
 
   return (
@@ -642,11 +750,10 @@ function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
           <p className="text-sm font-semibold text-foreground">Execuções recentes</p>
           <span className="text-xs text-muted-foreground">{label[tipo]}</span>
         </div>
-
         {executions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Clock3 className="w-10 h-10 text-muted-foreground/30" />
-            <div className="text-center space-y-1">
+            <div className="text-center">
               <p className="text-sm font-medium text-muted-foreground">Nenhuma execução registrada</p>
               <p className="text-xs text-muted-foreground/70">As execuções aparecerão aqui em tempo real</p>
             </div>
@@ -655,12 +762,8 @@ function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
           <div className="space-y-2">
             {executions.map((exec) => (
               <div key={exec.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card">
-                <div className={cn(
-                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                  exec.status === 'sent' ? 'bg-primary/10'
-                  : exec.status === 'failed' ? 'bg-destructive/10'
-                  : 'bg-muted'
-                )}>
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                  exec.status === 'sent' ? 'bg-primary/10' : exec.status === 'failed' ? 'bg-destructive/10' : 'bg-muted')}>
                   {exec.status === 'sent' ? <CheckCheck className="w-4 h-4 text-primary" />
                     : exec.status === 'failed' ? <AlertCircle className="w-4 h-4 text-destructive" />
                     : <Clock3 className="w-4 h-4 text-muted-foreground" />}
@@ -670,12 +773,10 @@ function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
                   <p className="text-xs text-muted-foreground truncate">{exec.step}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className={cn(
-                    'text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide',
+                  <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide',
                     exec.status === 'sent' ? 'bg-primary/10 text-primary border-primary/20'
-                    : exec.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20'
-                    : 'bg-muted text-muted-foreground border-border'
-                  )}>
+                      : exec.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20'
+                      : 'bg-muted text-muted-foreground border-border')}>
                     {exec.status === 'sent' ? 'Enviado' : exec.status === 'failed' ? 'Falhou' : 'Pendente'}
                   </span>
                   <p className="text-[10px] text-muted-foreground mt-1">{exec.ts}</p>
@@ -697,7 +798,7 @@ const SEQ_TABS: { label: string; tipo: SequenceTipo }[] = [
   { label: 'Remarketing', tipo: 'remarketing' },
 ];
 
-// ─── Inner canvas ────────────────────────────────────────────────────────────────
+// ─── Canvas inner ────────────────────────────────────────────────────────────────
 
 function CanvasInner() {
   const { screenToFlowPosition } = useReactFlow();
@@ -715,7 +816,6 @@ function CanvasInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AutoNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
 
   useEffect(() => {
@@ -725,11 +825,8 @@ function CanvasInner() {
         if (!res.ok) throw new Error('fetch failed');
         const json = (await res.json()) as { sequences: FollowSequence[] };
         setSequences(json.sequences ?? []);
-      } catch (err) {
-        console.error('[AutomationCanvas] fetch error', err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error('[AutomationCanvas]', err); }
+      finally { setLoading(false); }
     }
     load();
   }, []);
@@ -749,17 +846,11 @@ function CanvasInner() {
   function addPaletteNode(kind: PaletteItem['kind']) {
     const id = newId();
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-
     let data: AutoNodeData;
-    if (kind === 'message') {
-      data = { kind: 'message', label: 'Mensagem', dia_offset: 1, horario: '09:00', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies MessageNodeData;
-    } else if (kind === 'wait') {
-      data = { kind: 'wait', label: 'Aguardar', dia_offset: 1, stepId: id } satisfies WaitNodeData;
-    } else if (kind === 'condition') {
-      data = { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', stepId: id } satisfies ConditionNodeData;
-    } else {
-      data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
-    }
+    if (kind === 'message') data = { kind: 'message', label: 'Mensagem', dia_offset: 1, horario: '09:00', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies MessageNodeData;
+    else if (kind === 'wait') data = { kind: 'wait', label: 'Aguardar', dia_offset: 1, stepId: id } satisfies WaitNodeData;
+    else if (kind === 'condition') data = { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', stepId: id } satisfies ConditionNodeData;
+    else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const newNode: Node<AutoNodeData> = {
       id,
@@ -767,7 +858,6 @@ function CanvasInner() {
       position: { x: center.x - 105, y: center.y - 60 },
       data,
     };
-
     setNodes((nds) => [...nds, newNode]);
   }
 
@@ -784,36 +874,23 @@ function CanvasInner() {
     if (!currentSeq) return;
     const nextAtivo = !currentSeq.ativo;
     try {
-      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ativo: nextAtivo }),
-      });
+      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ativo: nextAtivo }) });
       if (!res.ok) throw new Error('patch failed');
       setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? { ...s, ativo: nextAtivo } : s));
-    } catch (err) {
-      console.error('[AutomationCanvas] toggle ativo error', err);
-    }
+    } catch (err) { console.error('[AutomationCanvas] toggle', err); }
   }
 
   async function createSequence() {
     const labels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up Geral', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing' };
     try {
       setLoading(true);
-      const res = await fetch('/api/follow/sequences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: labels[activeTipo], tipo: activeTipo, ativo: false, steps: [] }),
-      });
+      const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: labels[activeTipo], tipo: activeTipo, ativo: false, steps: [] }) });
       if (!res.ok) throw new Error('post failed');
       const json = (await res.json()) as { sequence?: FollowSequence; sequences?: FollowSequence[] };
       if (json.sequence) setSequences((seqs) => [...seqs, json.sequence!]);
       else if (json.sequences) setSequences(json.sequences);
-    } catch (err) {
-      console.error('[AutomationCanvas] create sequence error', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error('[AutomationCanvas] create', err); }
+    finally { setLoading(false); }
   }
 
   async function handleSave() {
@@ -823,67 +900,39 @@ function CanvasInner() {
       const steps = nodesToSteps(nodes);
       const triggerNode = nodes.find((n) => n.id === 'trigger');
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
-
-      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, tipo: currentSeq.tipo, ativo: currentSeq.ativo, steps }),
-      });
+      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo: currentSeq.tipo, ativo: currentSeq.ativo, steps }) });
       if (!res.ok) throw new Error('save failed');
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2000);
-    } catch (err) {
-      console.error('[AutomationCanvas] save error', err);
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { console.error('[AutomationCanvas] save', err); }
+    finally { setSaving(false); }
   }
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
-
   return (
-    <div className="flex flex-col h-full bg-background">
-
+    <div className="flex flex-col bg-background" style={{ height: '100%' }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 h-12 bg-card border-b border-border flex-shrink-0 gap-4">
-        {/* Left: mode switcher + sequence tabs */}
+      <div className="flex items-center justify-between px-4 bg-card border-b border-border flex-shrink-0 gap-4" style={{ height: 48 }}>
         <div className="flex items-center gap-3">
-          {/* Editor / Execuções pills */}
+          {/* Editor / Execuções */}
           <div className="flex items-center bg-muted rounded-lg p-0.5">
-            <button
-              onClick={() => setMode('editor')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                mode === 'editor' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <PenLine className="w-3 h-3" />
-              Editor
+            <button onClick={() => setMode('editor')}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                mode === 'editor' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+              <PenLine className="w-3 h-3" />Editor
             </button>
-            <button
-              onClick={() => setMode('execucoes')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
-                mode === 'execucoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Play className="w-3 h-3" />
-              Execuções
+            <button onClick={() => setMode('execucoes')}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+                mode === 'execucoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+              <Play className="w-3 h-3" />Execuções
             </button>
           </div>
-
-          {/* Sequence tabs */}
           <div className="w-px h-5 bg-border" />
+          {/* Sequence tabs */}
           <div className="flex items-center gap-1">
             {SEQ_TABS.map((tab) => (
-              <button
-                key={tab.tipo}
-                onClick={() => setActiveTipo(tab.tipo)}
-                className={cn(
-                  'px-3 py-1 rounded-lg text-sm font-medium transition-colors',
-                  activeTipo === tab.tipo ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
+              <button key={tab.tipo} onClick={() => setActiveTipo(tab.tipo)}
+                className={cn('px-3 py-1 rounded-lg text-sm font-medium transition-colors',
+                  activeTipo === tab.tipo ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}>
                 {tab.label}
               </button>
             ))}
@@ -893,32 +942,16 @@ function CanvasInner() {
         {/* Right controls */}
         {mode === 'editor' && currentSeq && (
           <div className="flex items-center gap-3">
-            <button
-              onClick={toggleAtivo}
-              className={cn(
-                'flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
-                currentSeq.ativo
-                  ? 'bg-primary/10 border-primary/30 text-primary'
-                  : 'bg-muted border-border text-muted-foreground'
-              )}
-            >
+            <button onClick={toggleAtivo}
+              className={cn('flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
+                currentSeq.ativo ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground')}>
               <span className={cn('w-2 h-2 rounded-full', currentSeq.ativo ? 'bg-primary' : 'bg-muted-foreground/40')} />
               {currentSeq.ativo ? 'Ativo' : 'Inativo'}
             </button>
-
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border',
-                saveOk
-                  ? 'bg-primary/10 border-primary/30 text-primary'
-                  : 'bg-muted border-border text-foreground hover:bg-accent'
-              )}
-            >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : saveOk ? <CheckCircle2 className="w-3.5 h-3.5" />
-                : <Save className="w-3.5 h-3.5" />}
+            <button onClick={handleSave} disabled={saving}
+              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border',
+                saveOk ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-foreground hover:bg-accent')}>
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saveOk ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
               {saveOk ? 'Salvo!' : 'Salvar'}
             </button>
           </div>
@@ -926,98 +959,69 @@ function CanvasInner() {
       </div>
 
       {/* Body */}
-      {mode === 'execucoes' ? (
-        <ExecutionsView tipo={activeTipo} />
-      ) : (
-        <div className="flex flex-1 min-h-0">
-          {/* Canvas area */}
-          <div className="flex-1 relative min-w-0">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-              </div>
-            ) : !currentSeq ? (
-              <div className="flex flex-col items-center justify-center h-full gap-4">
-                <p className="text-muted-foreground text-sm">Nenhuma sequência encontrada para esta aba.</p>
-                <button
-                  onClick={createSequence}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Criar sequência
-                </button>
-              </div>
-            ) : (
-              <>
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  nodeTypes={nodeTypes}
-                  onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-                  onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
-                  fitView
-                  fitViewOptions={{ padding: 0.2 }}
-                  minZoom={0.3}
-                  maxZoom={1.5}
-                  className="!bg-background dark:!bg-[#0e0e0e]"
-                >
-                  <Background
-                    variant={BackgroundVariant.Dots}
-                    gap={20}
-                    size={1}
-                    className="!opacity-[0.4] dark:!opacity-100"
-                    color="hsl(var(--muted-foreground) / 0.2)"
-                  />
-                  <Controls className="[&>button]:bg-card [&>button]:border-border [&>button]:text-muted-foreground [&>button:hover]:bg-muted [&>button:hover]:text-foreground" />
-                  <MiniMap
-                    nodeColor="hsl(var(--card))"
-                    maskColor="hsl(var(--background) / 0.6)"
-                    style={{
-                      background: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                    }}
-                  />
-                </ReactFlow>
-
-                {/* Right-edge button strip */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
-                  <button
-                    onClick={() => setPaletteOpen((v) => !v)}
-                    title="Adicionar nó"
-                    className={cn(
-                      'w-10 h-10 rounded-xl bg-card border flex items-center justify-center shadow-md transition-all',
-                      paletteOpen ? 'border-primary/50 text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-primary'
-                    )}
-                  >
-                    <Plus className="w-5 h-5" />
+      <div className="flex min-h-0" style={{ flex: 1 }}>
+        {mode === 'execucoes' ? (
+          <ExecutionsView tipo={activeTipo} />
+        ) : (
+          <>
+            {/* Canvas */}
+            <div className="relative overflow-hidden" style={{ flex: 1 }}>
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                </div>
+              ) : !currentSeq ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <p className="text-muted-foreground text-sm">Nenhuma sequência encontrada para esta aba.</p>
+                  <button onClick={createSequence}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
+                    <Plus className="w-4 h-4" />Criar sequência
                   </button>
                 </div>
+              ) : (
+                <>
+                  <ReactFlow
+                    nodes={nodes} edges={edges}
+                    onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
+                    nodeTypes={nodeTypes}
+                    onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                    onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
+                    fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.3} maxZoom={1.5}
+                    style={{ width: '100%', height: '100%' }}
+                    className="!bg-background dark:!bg-[#0e0e0e]"
+                  >
+                    <Background variant={BackgroundVariant.Dots} gap={20} size={1}
+                      color="hsl(var(--muted-foreground) / 0.2)"
+                      className="!opacity-40 dark:!opacity-100" />
+                    <Controls className="[&>button]:bg-card [&>button]:border-border [&>button]:text-muted-foreground [&>button:hover]:bg-muted [&>button:hover]:text-foreground" />
+                    <MiniMap nodeColor="hsl(var(--card))" maskColor="hsl(var(--background) / 0.6)"
+                      style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                  </ReactFlow>
 
-                {/* Floating palette panel */}
-                {paletteOpen && (
-                  <PalettePanel
-                    onAdd={(kind) => { addPaletteNode(kind); setPaletteOpen(false); }}
-                    onClose={() => setPaletteOpen(false)}
-                  />
-                )}
-              </>
+                  {/* Right-edge strip */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
+                    <button onClick={() => setPaletteOpen((v) => !v)} title="Adicionar nó"
+                      className={cn('w-10 h-10 rounded-xl bg-card border flex items-center justify-center shadow-md transition-all',
+                        paletteOpen ? 'border-primary/50 text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-primary')}>
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {paletteOpen && (
+                    <PalettePanel onAdd={(kind) => { addPaletteNode(kind); setPaletteOpen(false); }} onClose={() => setPaletteOpen(false)} />
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Config panel */}
+            {selectedNode && (
+              <ConfigPanel node={selectedNode} onClose={() => setSelectedNodeId(null)}
+                onUpdate={handleUpdateNode} onDelete={handleDeleteNode} />
             )}
-          </div>
-
-          {/* Config panel */}
-          {selectedNode && (
-            <ConfigPanel
-              node={selectedNode}
-              onClose={() => setSelectedNodeId(null)}
-              onUpdate={handleUpdateNode}
-              onDelete={handleDeleteNode}
-            />
-          )}
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       {/* Field input styles */}
       <style>{`
@@ -1031,20 +1035,24 @@ function CanvasInner() {
           padding: 0.5rem 0.75rem;
           outline: none;
           transition: border-color 0.15s;
+          appearance: none;
+          -webkit-appearance: none;
         }
-        .field-input:focus {
-          border-color: hsl(var(--primary) / 0.5);
-        }
-        .field-input option {
-          background: hsl(var(--card));
-          color: hsl(var(--foreground));
+        .field-input:focus { border-color: hsl(var(--primary) / 0.5); }
+        .field-input option { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+        select.field-input {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.6rem center;
+          padding-right: 2rem;
+          cursor: pointer;
         }
       `}</style>
     </div>
   );
 }
 
-// ─── Public export ───────────────────────────────────────────────────────────────
+// ─── Export ─────────────────────────────────────────────────────────────────────
 
 export default function AutomationCanvas() {
   return (
