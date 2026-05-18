@@ -50,12 +50,21 @@ import {
   FileText,
   Upload,
   Square,
+  Globe,
+  Star,
+  GitMerge,
+  History,
+  LayoutTemplate,
+  CalendarX,
+  Megaphone,
+  FlaskConical,
+  StopCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── API Types ──────────────────────────────────────────────────────────────────
 
-type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing';
+type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing' | 'trial_saas';
 
 interface FollowStep {
   id: string;
@@ -75,12 +84,18 @@ interface FollowSequence {
   follow_steps: FollowStep[];
 }
 
+// ─── Node Exec State ────────────────────────────────────────────────────────────
+
+type ExecState = 'idle' | 'running' | 'success' | 'error' | 'skipped';
+
 // ─── Node Data Types ────────────────────────────────────────────────────────────
 
 interface TriggerNodeData extends Record<string, unknown> {
   kind: 'trigger';
   label: string;
   condicao: string;
+  _execState?: ExecState;
+  _execError?: string;
 }
 
 interface MessageNodeData extends Record<string, unknown> {
@@ -94,6 +109,8 @@ interface MessageNodeData extends Record<string, unknown> {
   media_url?: string;
   media_name?: string;
   uploading?: boolean;
+  _execState?: ExecState;
+  _execError?: string;
 }
 
 interface WaitNodeData extends Record<string, unknown> {
@@ -101,6 +118,8 @@ interface WaitNodeData extends Record<string, unknown> {
   label: string;
   dia_offset: number;
   stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
 }
 
 interface ConditionNodeData extends Record<string, unknown> {
@@ -108,12 +127,46 @@ interface ConditionNodeData extends Record<string, unknown> {
   label: string;
   condicao: string;
   stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
 }
 
 interface EndNodeData extends Record<string, unknown> {
   kind: 'end';
   label: string;
   stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
+interface WebhookNodeData extends Record<string, unknown> {
+  kind: 'webhook';
+  label: string;
+  url: string;
+  method: 'POST' | 'GET';
+  stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
+interface LeadScoreNodeData extends Record<string, unknown> {
+  kind: 'lead_score';
+  label: string;
+  scoreMin: number;
+  scoreMax: number;
+  stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
+interface ABTestNodeData extends Record<string, unknown> {
+  kind: 'ab_test';
+  label: string;
+  variantA: string;
+  variantB: string;
+  stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
 }
 
 type AutoNodeData =
@@ -121,7 +174,10 @@ type AutoNodeData =
   | MessageNodeData
   | WaitNodeData
   | ConditionNodeData
-  | EndNodeData;
+  | EndNodeData
+  | WebhookNodeData
+  | LeadScoreNodeData
+  | ABTestNodeData;
 
 // ─── Execution Log ──────────────────────────────────────────────────────────────
 
@@ -132,6 +188,116 @@ interface ExecLog {
   step: string;
   status: 'sent' | 'failed' | 'pending';
   ts: string;
+}
+
+// ─── Versioning ─────────────────────────────────────────────────────────────────
+
+interface CanvasVersion {
+  ts: number;
+  nodes: Node<AutoNodeData>[];
+  edges: Edge[];
+}
+
+function saveVersion(sequenceId: string, nodes: Node<AutoNodeData>[], edges: Edge[]) {
+  const key = `canvas-versions-${sequenceId}`;
+  let versions: CanvasVersion[] = [];
+  try {
+    versions = JSON.parse(localStorage.getItem(key) ?? '[]') as CanvasVersion[];
+  } catch { /* ignore */ }
+  versions.push({ ts: Date.now(), nodes, edges });
+  if (versions.length > 5) versions = versions.slice(versions.length - 5);
+  localStorage.setItem(key, JSON.stringify(versions));
+}
+
+function loadVersions(sequenceId: string): CanvasVersion[] {
+  try {
+    return JSON.parse(localStorage.getItem(`canvas-versions-${sequenceId}`) ?? '[]') as CanvasVersion[];
+  } catch { return []; }
+}
+
+function formatVersionLabel(v: CanvasVersion, idx: number, total: number): string {
+  const d = new Date(v.ts);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = isToday ? `hoje ${time}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
+  const nodeCount = v.nodes.length;
+  return `Versão ${idx + 1 + (5 - total)} — ${dateStr} · ${nodeCount} nós`;
+}
+
+// ─── Templates ──────────────────────────────────────────────────────────────────
+
+interface CanvasTemplate {
+  id: string;
+  name: string;
+  desc: string;
+  icon: React.ElementType;
+  nodes: Node<AutoNodeData>[];
+  edges: Edge[];
+}
+
+function buildTemplates(): CanvasTemplate[] {
+  const edge = (id: string, source: string, target: string): Edge => ({
+    id, source, target, ...EDGE_BASE,
+  });
+
+  const boasVindas: CanvasTemplate = {
+    id: 'boas-vindas',
+    name: 'Boas-vindas 7 dias',
+    desc: 'Onboarding clássico para novos leads',
+    icon: MessageSquare,
+    nodes: [
+      { id: 'trigger', type: 'triggerNode', position: { x: 0, y: 150 }, data: { kind: 'trigger', label: 'Boas-vindas 7 dias', condicao: 'Início da sequência' } satisfies TriggerNodeData },
+      { id: 't-msg1', type: 'messageNode', position: { x: 280, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: 0, horario: '09:00', mensagem: 'Boas-vindas! Seja bem-vindo(a).', tipo_mensagem: 'texto', stepId: 't-msg1' } satisfies MessageNodeData },
+      { id: 't-msg2', type: 'messageNode', position: { x: 560, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: 2, horario: '09:00', mensagem: 'Oi, tudo bem? Só passando para ver se precisa de ajuda.', tipo_mensagem: 'texto', stepId: 't-msg2' } satisfies MessageNodeData },
+      { id: 't-cond', type: 'conditionNode', position: { x: 840, y: 150 }, data: { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', stepId: 't-cond' } satisfies ConditionNodeData },
+      { id: 't-end', type: 'endNode', position: { x: 1120, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: 't-end' } satisfies EndNodeData },
+    ],
+    edges: [
+      edge('e1', 'trigger', 't-msg1'),
+      edge('e2', 't-msg1', 't-msg2'),
+      edge('e3', 't-msg2', 't-cond'),
+      edge('e4', 't-cond', 't-end'),
+    ],
+  };
+
+  const remarketing: CanvasTemplate = {
+    id: 'remarketing',
+    name: 'Remarketing 3 passos',
+    desc: 'Reengajamento de leads frios',
+    icon: Megaphone,
+    nodes: [
+      { id: 'trigger', type: 'triggerNode', position: { x: 0, y: 150 }, data: { kind: 'trigger', label: 'Remarketing 3 passos', condicao: 'Início da sequência' } satisfies TriggerNodeData },
+      { id: 'r-msg1', type: 'messageNode', position: { x: 280, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: 0, horario: '09:00', mensagem: 'Temos uma oferta especial para você!', tipo_mensagem: 'texto', stepId: 'r-msg1' } satisfies MessageNodeData },
+      { id: 'r-msg2', type: 'messageNode', position: { x: 560, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: 3, horario: '09:00', mensagem: 'Últimas horas! Não perca essa oportunidade.', tipo_mensagem: 'texto', stepId: 'r-msg2' } satisfies MessageNodeData },
+      { id: 'r-end', type: 'endNode', position: { x: 840, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: 'r-end' } satisfies EndNodeData },
+    ],
+    edges: [
+      edge('e1', 'trigger', 'r-msg1'),
+      edge('e2', 'r-msg1', 'r-msg2'),
+      edge('e3', 'r-msg2', 'r-end'),
+    ],
+  };
+
+  const noshow: CanvasTemplate = {
+    id: 'noshow',
+    name: 'Anti-Noshow simples',
+    desc: 'Redução de no-shows em reuniões',
+    icon: CalendarX,
+    nodes: [
+      { id: 'trigger', type: 'triggerNode', position: { x: 0, y: 150 }, data: { kind: 'trigger', label: 'Anti-Noshow simples', condicao: 'Início da sequência' } satisfies TriggerNodeData },
+      { id: 'ns-msg1', type: 'messageNode', position: { x: 280, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: 0, horario: '09:00', mensagem: 'Lembrete: você tem uma reunião agendada amanhã.', tipo_mensagem: 'texto', stepId: 'ns-msg1' } satisfies MessageNodeData },
+      { id: 'ns-msg2', type: 'messageNode', position: { x: 560, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: 1, horario: '08:00', mensagem: 'Confirmando sua presença para hoje?', tipo_mensagem: 'texto', stepId: 'ns-msg2' } satisfies MessageNodeData },
+      { id: 'ns-end', type: 'endNode', position: { x: 840, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: 'ns-end' } satisfies EndNodeData },
+    ],
+    edges: [
+      edge('e1', 'trigger', 'ns-msg1'),
+      edge('e2', 'ns-msg1', 'ns-msg2'),
+      edge('e3', 'ns-msg2', 'ns-end'),
+    ],
+  };
+
+  return [boasVindas, remarketing, noshow];
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -145,6 +311,14 @@ const EDGE_BASE = {
 function truncate(str: string | null, n: number): string {
   if (!str) return '';
   return str.length > n ? str.slice(0, n) + '…' : str;
+}
+
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url.slice(0, 20);
+  }
 }
 
 function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeData>[] {
@@ -186,6 +360,9 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'message') return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem, tipo_mensagem: d.tipo_mensagem || 'texto', ordem: idx + 1, condicao: '' };
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
     if (d.kind === 'condition') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: d.condicao };
+    if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: d.url };
+    if (d.kind === 'lead_score') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'lead_score', ordem: idx + 1, condicao: `${d.scoreMin}-${d.scoreMax}` };
+    if (d.kind === 'ab_test') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'ab_test', ordem: idx + 1, condicao: `${d.variantA}|${d.variantB}` };
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: 'fim' };
   });
 }
@@ -203,15 +380,61 @@ function Chip({ children, active }: { children: React.ReactNode; active?: boolea
   );
 }
 
-function NodeShell({ children, selected, primaryAccent, redAccent, header }: {
+// Exec state overlay badge
+function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
+  if (!state || state === 'idle') return null;
+  if (state === 'running') {
+    return (
+      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center z-10">
+        <Loader2 className="w-3 h-3 text-primary-foreground animate-spin" />
+      </div>
+    );
+  }
+  if (state === 'success') {
+    return (
+      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10">
+        <CheckCircle2 className="w-3 h-3 text-white" />
+      </div>
+    );
+  }
+  if (state === 'error') {
+    return (
+      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive flex items-center justify-center z-10" title={error}>
+        <X className="w-3 h-3 text-white" />
+      </div>
+    );
+  }
+  if (state === 'skipped') {
+    return (
+      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-muted-foreground/40 flex items-center justify-center z-10">
+        <span className="text-[8px] text-white font-bold leading-none">–</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+function NodeShell({ children, selected, primaryAccent, redAccent, header, execState, execError }: {
   children: React.ReactNode; selected?: boolean; primaryAccent?: boolean; redAccent?: boolean; header: React.ReactNode;
+  execState?: ExecState; execError?: string;
 }) {
+  const isRunning = execState === 'running';
+  const isSuccess = execState === 'success';
+  const isError = execState === 'error';
+  const isSkipped = execState === 'skipped';
   return (
-    <div className={cn('bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
-      primaryAccent ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
+    <div className={cn(
+      'relative bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
+      isSkipped && 'opacity-50',
+      isRunning ? 'ring-2 ring-primary border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.20)]'
+        : isSuccess ? 'ring-2 ring-emerald-500 border-emerald-500/40'
+        : isError ? 'ring-2 ring-destructive border-destructive/40'
+        : primaryAccent ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
         : redAccent ? 'border-destructive/40 shadow-[0_0_16px_hsl(var(--destructive)/0.08)]'
         : selected ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
-        : 'border-border')}>
+        : 'border-border'
+    )}>
+      <ExecBadge state={execState} error={execError} />
       {header}
       <div className="flex flex-col gap-1.5">{children}</div>
     </div>
@@ -234,7 +457,7 @@ const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted !border !border-border !rounded-full
 function TriggerNode({ data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   return (
-    <NodeShell selected={selected} primaryAccent header={<NodeHeader icon={Zap} label="Gatilho" />}>
+    <NodeShell selected={selected} primaryAccent header={<NodeHeader icon={Zap} label="Gatilho" />} execState={d._execState} execError={d._execError}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <Chip active>{d.label}</Chip>
       <Chip>{d.condicao}</Chip>
@@ -245,10 +468,8 @@ function TriggerNode({ data, selected }: NodeProps) {
 function MessageNode({ data, selected }: NodeProps) {
   const d = data as MessageNodeData;
 
-  // Waveform bars (static visual for audio)
   const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
 
-  // Doc extension badge
   const docExt = d.media_name
     ? d.media_name.split('.').pop()?.toUpperCase() ?? 'DOC'
     : d.media_url
@@ -256,17 +477,15 @@ function MessageNode({ data, selected }: NodeProps) {
     : 'DOC';
 
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={MessageSquare} label="Mensagem" />}>
+    <NodeShell selected={selected} header={<NodeHeader icon={MessageSquare} label="Mensagem" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
-      {/* Timing chips */}
       <div className="flex gap-1.5 flex-wrap">
         <Chip active={selected}>Dia {d.dia_offset}</Chip>
         <Chip>{d.horario}</Chip>
       </div>
 
-      {/* Upload preloader */}
       {d.uploading && (
         <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/60 border border-border/40">
           <div className="flex gap-0.5 items-end shrink-0">
@@ -279,7 +498,6 @@ function MessageNode({ data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* ── Texto ── */}
       {!d.uploading && d.tipo_mensagem === 'texto' && d.mensagem && (
         <div className="px-3 py-2 rounded-xl bg-muted border border-border/40">
           <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3">{d.mensagem}</p>
@@ -291,7 +509,6 @@ function MessageNode({ data, selected }: NodeProps) {
         </span>
       )}
 
-      {/* ── Imagem ── */}
       {!d.uploading && d.tipo_mensagem === 'imagem' && (
         d.media_url ? (
           <div className="rounded-xl overflow-hidden border border-border/50 relative">
@@ -313,7 +530,6 @@ function MessageNode({ data, selected }: NodeProps) {
         )
       )}
 
-      {/* ── Vídeo ── */}
       {!d.uploading && d.tipo_mensagem === 'video' && (
         d.media_url ? (
           <div className="rounded-xl overflow-hidden border border-border/50 bg-black/80 relative flex items-center justify-center" style={{ height: 88 }}>
@@ -331,7 +547,6 @@ function MessageNode({ data, selected }: NodeProps) {
         )
       )}
 
-      {/* ── Áudio / PTT ── */}
       {!d.uploading && (d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
         d.media_url ? (
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted border border-border/50">
@@ -352,7 +567,6 @@ function MessageNode({ data, selected }: NodeProps) {
         )
       )}
 
-      {/* ── Documento ── */}
       {!d.uploading && d.tipo_mensagem === 'documento' && (
         d.media_url ? (
           <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted border border-border/50">
@@ -380,7 +594,7 @@ function MessageNode({ data, selected }: NodeProps) {
 function WaitNode({ data, selected }: NodeProps) {
   const d = data as WaitNodeData;
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={Clock} label="Aguardar" />}>
+    <NodeShell selected={selected} header={<NodeHeader icon={Clock} label="Aguardar" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <Chip active={selected}>Aguardar {d.dia_offset} dia{d.dia_offset !== 1 ? 's' : ''}</Chip>
@@ -391,7 +605,7 @@ function WaitNode({ data, selected }: NodeProps) {
 function ConditionNode({ data, selected }: NodeProps) {
   const d = data as ConditionNodeData;
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={GitBranch} label="Condição" />}>
+    <NodeShell selected={selected} header={<NodeHeader icon={GitBranch} label="Condição" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
       <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/60 !border !border-destructive/40 !rounded-full" />
@@ -404,16 +618,76 @@ function ConditionNode({ data, selected }: NodeProps) {
   );
 }
 
-function EndNode({ data: _data, selected }: NodeProps) {
+function EndNode({ data, selected }: NodeProps) {
+  const d = data as EndNodeData;
   return (
-    <NodeShell selected={selected} redAccent header={<NodeHeader icon={XCircle} label="Fim" />}>
+    <NodeShell selected={selected} redAccent header={<NodeHeader icon={XCircle} label="Fim" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Chip>Encerrar sequência</Chip>
     </NodeShell>
   );
 }
 
-const nodeTypes = { triggerNode: TriggerNode, messageNode: MessageNode, waitNode: WaitNode, conditionNode: ConditionNode, endNode: EndNode };
+function WebhookNode({ data, selected }: NodeProps) {
+  const d = data as WebhookNodeData;
+  const domain = d.url ? getDomain(d.url) : 'URL não configurada';
+  return (
+    <NodeShell selected={selected} header={<NodeHeader icon={Globe} label="Webhook" />} execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide',
+          d.method === 'POST' ? 'bg-primary/10 text-primary' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400')}>
+          {d.method}
+        </span>
+        <span className="text-xs text-muted-foreground truncate max-w-[130px]">{truncate(domain, 20)}</span>
+      </div>
+    </NodeShell>
+  );
+}
+
+function LeadScoreNode({ data, selected }: NodeProps) {
+  const d = data as LeadScoreNodeData;
+  return (
+    <NodeShell selected={selected} header={<NodeHeader icon={Star} label="Lead Score" />} execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-amber-500/60 !border !border-amber-500/40 !rounded-full" />
+      <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-muted !border !border-border !rounded-full" />
+      <Chip active={selected}>Score {d.scoreMin}–{d.scoreMax}</Chip>
+      <div className="flex gap-1.5">
+        <span className="text-[10px] text-amber-500/80 px-2 py-0.5 rounded bg-amber-500/10">↑ Acima</span>
+        <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded bg-muted">↓ Abaixo</span>
+      </div>
+    </NodeShell>
+  );
+}
+
+function ABTestNode({ data, selected }: NodeProps) {
+  const d = data as ABTestNodeData;
+  return (
+    <NodeShell selected={selected} header={<NodeHeader icon={GitMerge} label="Teste A/B" />} execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-violet-500/60 !border !border-violet-500/40 !rounded-full" />
+      <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-cyan-500/60 !border !border-cyan-500/40 !rounded-full" />
+      <Chip active={selected}>A/B 50% / 50%</Chip>
+      <div className="flex gap-1.5">
+        <span className="text-[10px] text-violet-500/80 px-2 py-0.5 rounded bg-violet-500/10">↑ A: {truncate(d.variantA, 8) || 'Variante A'}</span>
+        <span className="text-[10px] text-cyan-600/80 dark:text-cyan-400/80 px-2 py-0.5 rounded bg-cyan-500/10">↓ B: {truncate(d.variantB, 8) || 'Variante B'}</span>
+      </div>
+    </NodeShell>
+  );
+}
+
+const nodeTypes = {
+  triggerNode: TriggerNode,
+  messageNode: MessageNode,
+  waitNode: WaitNode,
+  conditionNode: ConditionNode,
+  endNode: EndNode,
+  webhookNode: WebhookNode,
+  leadScoreNode: LeadScoreNode,
+  abTestNode: ABTestNode,
+};
 
 // ─── Upload components ──────────────────────────────────────────────────────────
 
@@ -584,14 +858,12 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
         {/* ── Message node ── */}
         {d.kind === 'message' && (
           <>
-            {/* Dia offset */}
             <Field label="Dia offset">
               <input type="number" min={0} value={d.dia_offset}
                 onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
                 className="field-input" />
             </Field>
 
-            {/* Horário — two styled selects */}
             <Field label="Horário">
               <div className="flex items-center gap-2">
                 <select
@@ -612,7 +884,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </div>
             </Field>
 
-            {/* Tipo de mensagem — pills */}
             <Field label="Tipo de mensagem">
               <div className="grid grid-cols-3 gap-1.5">
                 {TIPO_OPTIONS.map(({ value, label, icon: Icon }) => (
@@ -628,7 +899,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </div>
             </Field>
 
-            {/* Texto */}
             {d.tipo_mensagem === 'texto' && (
               <Field label="Mensagem">
                 <textarea rows={4} value={d.mensagem ?? ''}
@@ -638,7 +908,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </Field>
             )}
 
-            {/* Imagem */}
             {d.tipo_mensagem === 'imagem' && (
               <>
                 <Field label="Arquivo">
@@ -659,7 +928,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </>
             )}
 
-            {/* Vídeo */}
             {d.tipo_mensagem === 'video' && (
               <>
                 <Field label="Arquivo">
@@ -675,7 +943,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </>
             )}
 
-            {/* Áudio / PTT */}
             {(d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
               <Field label="Áudio">
                 <AudioRecorder current={d.media_url}
@@ -691,7 +958,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </Field>
             )}
 
-            {/* Documento */}
             {d.tipo_mensagem === 'documento' && (
               <Field label="Documento">
                 <UploadZone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" label="Enviar documento" current={d.media_url}
@@ -736,6 +1002,57 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
           </>
         )}
 
+        {/* ── Webhook node ── */}
+        {d.kind === 'webhook' && (
+          <>
+            <Field label="URL">
+              <input type="url" value={d.url}
+                onChange={(e) => onUpdate(node.id, { url: e.target.value })}
+                placeholder="https://hooks.exemplo.com/..." className="field-input" />
+            </Field>
+            <Field label="Método">
+              <select value={d.method}
+                onChange={(e) => onUpdate(node.id, { method: e.target.value as 'POST' | 'GET' })}
+                className="field-input">
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+              </select>
+            </Field>
+          </>
+        )}
+
+        {/* ── Lead Score node ── */}
+        {d.kind === 'lead_score' && (
+          <>
+            <Field label="Score mínimo">
+              <input type="number" min={0} max={100} value={d.scoreMin}
+                onChange={(e) => onUpdate(node.id, { scoreMin: Number(e.target.value) })}
+                className="field-input" />
+            </Field>
+            <Field label="Score máximo">
+              <input type="number" min={0} max={100} value={d.scoreMax}
+                onChange={(e) => onUpdate(node.id, { scoreMax: Number(e.target.value) })}
+                className="field-input" />
+            </Field>
+          </>
+        )}
+
+        {/* ── A/B Test node ── */}
+        {d.kind === 'ab_test' && (
+          <>
+            <Field label="Variante A">
+              <input type="text" value={d.variantA}
+                onChange={(e) => onUpdate(node.id, { variantA: e.target.value })}
+                placeholder="Nome da variante A" className="field-input" />
+            </Field>
+            <Field label="Variante B">
+              <input type="text" value={d.variantB}
+                onChange={(e) => onUpdate(node.id, { variantB: e.target.value })}
+                placeholder="Nome da variante B" className="field-input" />
+            </Field>
+          </>
+        )}
+
         {d.kind !== 'trigger' && (
           <button onClick={() => { onDelete(node.id); onClose(); }}
             className="mt-auto w-full py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors border border-destructive/20">
@@ -758,8 +1075,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
+type PaletteKind = 'message' | 'wait' | 'condition' | 'end' | 'webhook' | 'lead_score' | 'ab_test';
+
 interface PaletteItem {
-  label: string; desc: string; kind: 'message' | 'wait' | 'condition' | 'end';
+  label: string; desc: string; kind: PaletteKind;
   icon: React.ElementType; bgClass: string; iconClass: string;
 }
 
@@ -768,9 +1087,12 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
   { label: 'Condição', desc: 'Ramificar por resposta', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
+  { label: 'Webhook', desc: 'Chamar URL externa', kind: 'webhook', icon: Globe, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
+  { label: 'Lead Score', desc: 'Filtrar por pontuação do lead', kind: 'lead_score', icon: Star, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Teste A/B', desc: 'Dividir tráfego entre variantes', kind: 'ab_test', icon: GitMerge, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
 ];
 
-function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteItem['kind']) => void; onClose: () => void }) {
+function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; onClose: () => void }) {
   const [search, setSearch] = useState('');
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -833,7 +1155,7 @@ const MOCK_EXECUTIONS: ExecLog[] = [
 ];
 
 function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
-  const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing' };
+  const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS' };
   const executions = MOCK_EXECUTIONS.filter((e) => e.sequence.toLowerCase().includes(label[tipo].toLowerCase()));
 
   return (
@@ -889,7 +1211,184 @@ const SEQ_TABS: { label: string; tipo: SequenceTipo }[] = [
   { label: 'Follow-up', tipo: 'follow_geral' },
   { label: 'Anti-Noshow', tipo: 'anti_noshow' },
   { label: 'Remarketing', tipo: 'remarketing' },
+  { label: 'Trial SaaS', tipo: 'trial_saas' },
 ];
+
+// ─── Modals ──────────────────────────────────────────────────────────────────────
+
+interface ModalOverlayProps {
+  onClose?: () => void;
+  children: React.ReactNode;
+}
+
+function ModalOverlay({ children, onClose }: ModalOverlayProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── Test Run Modal ──────────────────────────────────────────────────────────────
+
+interface TestRunModalProps {
+  onStart: (phone: string, dryRun: boolean) => void;
+  onClose: () => void;
+}
+
+function TestRunModal({ onStart, onClose }: TestRunModalProps) {
+  const [phone, setPhone] = useState('');
+  const [dryRun, setDryRun] = useState(true);
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">Executar teste</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <Field label="Número de teste">
+          <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
+            placeholder="5511999999999" className="field-input" />
+        </Field>
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)}
+            className="w-4 h-4 rounded border-border accent-primary" />
+          <span className="text-sm text-foreground">Apenas simular (sem enviar)</span>
+        </label>
+        <button
+          onClick={() => { if (phone.trim()) { onStart(phone.trim(), dryRun); onClose(); } }}
+          disabled={!phone.trim()}
+          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
+          Iniciar execução
+        </button>
+      </div>
+    </ModalOverlay>
+  );
+}
+
+// ─── Condition Choice Modal ──────────────────────────────────────────────────────
+
+interface ConditionChoiceModalProps {
+  nodeId: string;
+  condicao: string;
+  onChoose: (nodeId: string, choice: 'sim' | 'nao') => void;
+}
+
+function ConditionChoiceModal({ nodeId, condicao, onChoose }: ConditionChoiceModalProps) {
+  return (
+    <ModalOverlay>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-foreground">Qual caminho?</p>
+          <p className="text-xs text-muted-foreground">Condição: {condicao}</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => onChoose(nodeId, 'sim')}
+            className="flex-1 py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
+            ↑ Sim
+          </button>
+          <button
+            onClick={() => onChoose(nodeId, 'nao')}
+            className="flex-1 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors">
+            ↓ Não
+          </button>
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
+
+// ─── Templates Modal ─────────────────────────────────────────────────────────────
+
+interface TemplatesModalProps {
+  onUse: (template: CanvasTemplate) => void;
+  onClose: () => void;
+}
+
+function TemplatesModal({ onUse, onClose }: TemplatesModalProps) {
+  const templates = buildTemplates();
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+          <p className="text-sm font-semibold text-foreground">Templates</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-4 grid gap-3 overflow-y-auto">
+          {templates.map((tpl) => {
+            const Icon = tpl.icon;
+            return (
+              <div key={tpl.id} className="flex items-start gap-4 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Icon className="w-6 h-6 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-foreground">{tpl.name}</p>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                      {tpl.nodes.length} nós
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</p>
+                </div>
+                <button
+                  onClick={() => onUse(tpl)}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors">
+                  Usar template
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
+
+// ─── Versions Dropdown ───────────────────────────────────────────────────────────
+
+interface VersionsDropdownProps {
+  versions: CanvasVersion[];
+  onRestore: (v: CanvasVersion) => void;
+  onClose: () => void;
+}
+
+function VersionsDropdown({ versions, onRestore, onClose }: VersionsDropdownProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && e.target instanceof Element && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 z-30 w-72 bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+      <div className="px-3 py-2 border-b border-border">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Versões salvas</p>
+      </div>
+      {versions.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-6">Nenhuma versão salva ainda</p>
+      ) : (
+        <div className="p-1 space-y-0.5">
+          {[...versions].reverse().map((v, i) => (
+            <button key={v.ts}
+              onClick={() => { onRestore(v); onClose(); }}
+              className="w-full text-left px-3 py-2 rounded-lg text-xs text-foreground hover:bg-muted transition-colors">
+              {formatVersionLabel(v, versions.length - 1 - i, versions.length)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Canvas inner ────────────────────────────────────────────────────────────────
 
@@ -903,6 +1402,22 @@ function CanvasInner() {
   const [saving, setSaving] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Versioning
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [versions, setVersions] = useState<CanvasVersion[]>([]);
+
+  // Templates
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+
+  // Test run
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testRunning, setTestRunning] = useState(false);
+  const [conditionChoiceState, setConditionChoiceState] = useState<{ nodeId: string; condicao: string; resolve: (choice: 'sim' | 'nao') => void } | null>(null);
+  const abortTestRef = useRef(false);
+
+  // Conflict
+  const conflictCount = sequences.filter((s) => s.ativo).length;
 
   const currentSeq = sequences.find((s) => s.tipo === activeTipo) ?? null;
 
@@ -929,6 +1444,7 @@ function CanvasInner() {
     setNodes(stepsToNodes(currentSeq.follow_steps, currentSeq.nome));
     setEdges(stepsToEdges(currentSeq.follow_steps));
     setSelectedNodeId(null);
+    setVersions(loadVersions(currentSeq.id));
   }, [currentSeq?.id, activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onConnect = useCallback(
@@ -936,18 +1452,26 @@ function CanvasInner() {
     [setEdges]
   );
 
-  function addPaletteNode(kind: PaletteItem['kind']) {
+  function addPaletteNode(kind: PaletteKind) {
     const id = newId();
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     let data: AutoNodeData;
     if (kind === 'message') data = { kind: 'message', label: 'Mensagem', dia_offset: 1, horario: '09:00', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies MessageNodeData;
     else if (kind === 'wait') data = { kind: 'wait', label: 'Aguardar', dia_offset: 1, stepId: id } satisfies WaitNodeData;
     else if (kind === 'condition') data = { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', stepId: id } satisfies ConditionNodeData;
+    else if (kind === 'webhook') data = { kind: 'webhook', label: 'Webhook', url: '', method: 'POST', stepId: id } satisfies WebhookNodeData;
+    else if (kind === 'lead_score') data = { kind: 'lead_score', label: 'Lead Score', scoreMin: 60, scoreMax: 100, stepId: id } satisfies LeadScoreNodeData;
+    else if (kind === 'ab_test') data = { kind: 'ab_test', label: 'Teste A/B', variantA: 'Variante A', variantB: 'Variante B', stepId: id } satisfies ABTestNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
+
+    const typeMap: Record<PaletteKind, string> = {
+      message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', end: 'endNode',
+      webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode',
+    };
 
     const newNode: Node<AutoNodeData> = {
       id,
-      type: kind === 'message' ? 'messageNode' : kind === 'wait' ? 'waitNode' : kind === 'condition' ? 'conditionNode' : 'endNode',
+      type: typeMap[kind],
       position: { x: center.x - 105, y: center.y - 60 },
       data,
     };
@@ -974,7 +1498,7 @@ function CanvasInner() {
   }
 
   async function createSequence() {
-    const labels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up Geral', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing' };
+    const labels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up Geral', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS' };
     try {
       setLoading(true);
       const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: labels[activeTipo], tipo: activeTipo, ativo: false, steps: [] }) });
@@ -990,6 +1514,10 @@ function CanvasInner() {
     if (!currentSeq) return;
     setSaving(true);
     try {
+      // Save version before persisting
+      saveVersion(currentSeq.id, nodes, edges);
+      setVersions(loadVersions(currentSeq.id));
+
       const steps = nodesToSteps(nodes);
       const triggerNode = nodes.find((n) => n.id === 'trigger');
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
@@ -999,6 +1527,107 @@ function CanvasInner() {
       setTimeout(() => setSaveOk(false), 2000);
     } catch (err) { console.error('[AutomationCanvas] save', err); }
     finally { setSaving(false); }
+  }
+
+  // ─── Test execution ────────────────────────────────────────────────────────────
+
+  function setNodeExecState(nodeId: string, state: ExecState, error?: string) {
+    setNodes((nds) => nds.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, _execState: state, _execError: error } as AutoNodeData } : n));
+  }
+
+  function clearAllExecStates() {
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execState: undefined, _execError: undefined } as AutoNodeData })));
+  }
+
+  async function waitForConditionChoice(nodeId: string, condicao: string): Promise<'sim' | 'nao'> {
+    return new Promise((resolve) => {
+      setConditionChoiceState({ nodeId, condicao, resolve });
+    });
+  }
+
+  async function runTest(phone: string, dryRun: boolean) {
+    if (!currentSeq) return;
+    abortTestRef.current = false;
+    setTestRunning(true);
+
+    // Order nodes: trigger first, then by x position
+    const ordered = [
+      ...nodes.filter((n) => n.id === 'trigger'),
+      ...nodes.filter((n) => n.id !== 'trigger').sort((a, b) => a.position.x - b.position.x),
+    ];
+
+    for (const node of ordered) {
+      if (abortTestRef.current) break;
+
+      const d = node.data;
+      setNodeExecState(node.id, 'running');
+      await new Promise((r) => setTimeout(r, 600));
+
+      if (abortTestRef.current) { setNodeExecState(node.id, 'idle'); break; }
+
+      try {
+        if (d.kind === 'trigger') {
+          setNodeExecState(node.id, 'success');
+        } else if (d.kind === 'wait') {
+          setNodeExecState(node.id, 'skipped');
+        } else if (d.kind === 'end') {
+          setNodeExecState(node.id, 'success');
+        } else if (d.kind === 'message') {
+          if (!dryRun) {
+            const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stepId: d.stepId, phone }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          }
+          setNodeExecState(node.id, 'success');
+        } else if (d.kind === 'condition') {
+          // Pause and ask user
+          setNodeExecState(node.id, 'running');
+          const choice = await waitForConditionChoice(node.id, d.condicao);
+          setConditionChoiceState(null);
+          setNodeExecState(node.id, choice === 'sim' ? 'success' : 'skipped');
+        } else if (d.kind === 'webhook') {
+          if (!dryRun) {
+            await fetch(d.url, { method: d.method });
+          }
+          setNodeExecState(node.id, 'success');
+        } else if (d.kind === 'ab_test') {
+          const variant = Math.random() < 0.5 ? 'A' : 'B';
+          setNodeExecState(node.id, 'success', `Variante ${variant} selecionada`);
+        } else if (d.kind === 'lead_score') {
+          // Always passes in simulation
+          setNodeExecState(node.id, 'success');
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+        setNodeExecState(node.id, 'error', msg);
+        break;
+      }
+    }
+
+    setTestRunning(false);
+  }
+
+  function stopTest() {
+    abortTestRef.current = true;
+    setConditionChoiceState(null);
+    setTestRunning(false);
+  }
+
+  function useTemplate(template: CanvasTemplate) {
+    if (!window.confirm('Isso vai substituir o canvas atual. Continuar?')) return;
+    setNodes(template.nodes);
+    setEdges(template.edges);
+    setSelectedNodeId(null);
+    setTemplatesOpen(false);
+  }
+
+  function restoreVersion(v: CanvasVersion) {
+    setNodes(v.nodes);
+    setEdges(v.edges);
+    setSelectedNodeId(null);
   }
 
   return (
@@ -1030,11 +1659,59 @@ function CanvasInner() {
               </button>
             ))}
           </div>
+
+          {/* Conflict badge */}
+          {conflictCount >= 2 && (
+            <div className="relative group">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold cursor-default">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {conflictCount} sequências ativas
+              </div>
+              <div className="absolute left-0 top-full mt-1.5 z-30 w-64 bg-card border border-border rounded-xl shadow-xl p-3 text-xs text-muted-foreground leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
+                Leads podem receber mensagens de múltiplas sequências simultaneamente. Considere ativar apenas uma por vez ou configurar regras de exclusão.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right controls */}
         {mode === 'editor' && currentSeq && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Templates */}
+            <button onClick={() => setTemplatesOpen(true)}
+              title="Templates"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
+              <LayoutTemplate className="w-3.5 h-3.5" />Templates
+            </button>
+
+            {/* Versions */}
+            <div className="relative">
+              <button onClick={() => setVersionsOpen((v) => !v)}
+                title="Versões"
+                className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
+                  versionsOpen ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}>
+                <History className="w-3.5 h-3.5" />Versões
+              </button>
+              {versionsOpen && (
+                <VersionsDropdown versions={versions} onRestore={restoreVersion} onClose={() => setVersionsOpen(false)} />
+              )}
+            </div>
+
+            {/* Test run */}
+            {testRunning ? (
+              <button onClick={stopTest}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20">
+                <StopCircle className="w-3.5 h-3.5" />Parar
+              </button>
+            ) : (
+              <button onClick={() => setTestModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
+                <FlaskConical className="w-3.5 h-3.5" />Executar teste
+              </button>
+            )}
+
+            <div className="w-px h-5 bg-border" />
+
             <button onClick={toggleAtivo}
               className={cn('flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
                 currentSeq.ativo ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground')}>
@@ -1115,6 +1792,32 @@ function CanvasInner() {
           </>
         )}
       </div>
+
+      {/* Modals */}
+      {testModalOpen && (
+        <TestRunModal
+          onStart={(phone, dryRun) => { setTestModalOpen(false); runTest(phone, dryRun); }}
+          onClose={() => setTestModalOpen(false)}
+        />
+      )}
+
+      {conditionChoiceState && (
+        <ConditionChoiceModal
+          nodeId={conditionChoiceState.nodeId}
+          condicao={conditionChoiceState.condicao}
+          onChoose={(nodeId, choice) => {
+            conditionChoiceState.resolve(choice);
+            void nodeId;
+          }}
+        />
+      )}
+
+      {templatesOpen && (
+        <TemplatesModal
+          onUse={useTemplate}
+          onClose={() => setTemplatesOpen(false)}
+        />
+      )}
 
       {/* Field input styles */}
       <style>{`

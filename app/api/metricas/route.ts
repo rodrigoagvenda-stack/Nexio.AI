@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       .gte('disparado_em', sinceIso)
       .order('disparado_em', { ascending: false }).limit(100)
 
-    const trialIds = [...new Set((trialExecs ?? []).map((e: any) => e.trial_id).filter(Boolean))]
+    const trialIds = Array.from(new Set((trialExecs ?? []).map((e: any) => e.trial_id).filter(Boolean)))
     const { data: trialNames } = trialIds.length > 0
       ? await svc.from('saas_trials').select('id, nome, whatsapp').in('id', trialIds)
       : { data: [] }

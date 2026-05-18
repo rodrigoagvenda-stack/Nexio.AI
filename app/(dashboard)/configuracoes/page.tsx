@@ -10,11 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import {
   User, Camera, CreditCard, Calendar,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
-  AlertCircle, Sparkles, X, Shield, Check, Plus,
+  AlertCircle, Sparkles, X, Shield, Check, Plus, Bot, UserMinus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -76,8 +77,96 @@ function resolvePlan(raw: string) {
   return 'basic' as keyof typeof PLANS;
 }
 
-const TABS = ['perfil', 'plano', 'integracoes'] as const;
+const TABS = ['perfil', 'plano', 'integracoes', 'automacao'] as const;
 type Tab = typeof TABS[number];
+
+// ─── Automação Inteligente ────────────────────────────────────────────────────
+
+const LS_KEY_OPTOUT = 'nexio_optout_automatico';
+const LS_KEY_PAUSA = 'nexio_pausa_humana';
+
+function AutomacaoContent() {
+  const [optout, setOptout] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(LS_KEY_OPTOUT) === 'true';
+  });
+  const [pausaHumana, setPausaHumana] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(LS_KEY_PAUSA) === 'true';
+  });
+
+  function handleOptout(v: boolean) {
+    setOptout(v);
+    localStorage.setItem(LS_KEY_OPTOUT, String(v));
+    toast({ title: v ? 'Opt-out automático ativado' : 'Opt-out automático desativado' });
+  }
+
+  function handlePausaHumana(v: boolean) {
+    setPausaHumana(v);
+    localStorage.setItem(LS_KEY_PAUSA, String(v));
+    toast({ title: v ? 'Pausa por conversa humana ativada' : 'Pausa por conversa humana desativada' });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="p-6 rounded-2xl border border-border bg-card space-y-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Bot className="h-4 w-4 text-primary" />
+          <h2 className="font-semibold text-sm">Automação Inteligente</h2>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-3">
+          Comportamentos automáticos do sistema de sequências
+        </p>
+
+        {/* Opt-out automático */}
+        <div className="flex items-start justify-between gap-4 py-4 border-t border-border">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <UserMinus className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm">Opt-out automático</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Quando lead enviar &quot;pare&quot;, &quot;sair&quot; ou &quot;não quero&quot;, remove automaticamente de todas as sequências
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={optout}
+            onCheckedChange={handleOptout}
+            className="mt-0.5 shrink-0"
+          />
+        </div>
+
+        {/* Pausa por conversa humana */}
+        <div className="flex items-start justify-between gap-4 py-4 border-t border-border">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+              <Bot className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-medium text-sm">Pausa por conversa humana</p>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                Quando um agente assumir o chat, as automações pausam automaticamente para evitar mensagens duplicadas
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={pausaHumana}
+            onCheckedChange={handlePausaHumana}
+            className="mt-0.5 shrink-0"
+          />
+        </div>
+      </div>
+
+      <div className="p-4 rounded-xl border border-dashed border-border/60 bg-muted/20 flex items-center gap-3">
+        <span className="text-[11px] text-muted-foreground">
+          Configurações salvas localmente. Em breve serão sincronizadas via API para todos os membros da equipe.
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function ConfiguracoesContent() {
   const { user, authUser } = useUser();
@@ -264,7 +353,7 @@ function ConfiguracoesContent() {
     }
   };
 
-  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações' };
+  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', automacao: 'Automação' };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -685,6 +774,9 @@ function ConfiguracoesContent() {
           </div>
         </div>
       )}
+
+      {/* ── AUTOMAÇÃO ──────────────────────────────────────────── */}
+      {tab === 'automacao' && <AutomacaoContent />}
     </div>
   );
 }
