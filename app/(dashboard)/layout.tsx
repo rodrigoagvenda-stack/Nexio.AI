@@ -77,8 +77,7 @@ export default async function DashboardLayout({
   const planName =
     PLAN_LABELS[companyData?.plan_type ?? ''] ??
     LEGACY_NAME_MAP[rawPlanName.toLowerCase()] ??
-    rawPlanName ||
-    'Zaapply';
+    (rawPlanName || 'Zaapply');
   const trialEnabled = companyData?.trial_enabled ?? false;
   const tokensUsed = companyData?.tokens_used ?? 0;
   const tokensLimit = companyData?.plan_monthly_limit ?? 0;
