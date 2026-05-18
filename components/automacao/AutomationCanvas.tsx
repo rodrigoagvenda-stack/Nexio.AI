@@ -92,6 +92,7 @@ interface MessageNodeData extends Record<string, unknown> {
   tipo_mensagem: string;
   stepId: string;
   media_url?: string;
+  media_name?: string;
   uploading?: boolean;
 }
 
@@ -243,42 +244,134 @@ function TriggerNode({ data, selected }: NodeProps) {
 
 function MessageNode({ data, selected }: NodeProps) {
   const d = data as MessageNodeData;
-  const tipoIcon: Record<string, React.ElementType> = {
-    imagem: ImageIcon, video: Video, audio: Mic, ptt: Mic, documento: FileText,
-  };
-  const TipoIcon = tipoIcon[d.tipo_mensagem];
+
+  // Waveform bars (static visual for audio)
+  const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
+
+  // Doc extension badge
+  const docExt = d.media_name
+    ? d.media_name.split('.').pop()?.toUpperCase() ?? 'DOC'
+    : d.media_url
+    ? (d.media_url.split('.').pop()?.split('?')[0]?.toUpperCase() ?? 'DOC')
+    : 'DOC';
 
   return (
     <NodeShell selected={selected} header={<NodeHeader icon={MessageSquare} label="Mensagem" />}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
-      <Chip active={selected}>Dia {d.dia_offset}</Chip>
-      <Chip>{d.horario}</Chip>
-      {d.mensagem && d.tipo_mensagem === 'texto' && <Chip>{truncate(d.mensagem, 40)}</Chip>}
-      {/* Media type indicator */}
-      {TipoIcon && !d.uploading && !d.media_url && (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm bg-muted text-muted-foreground">
-          <TipoIcon className="w-3.5 h-3.5" />{d.tipo_mensagem}
-        </span>
-      )}
+
+      {/* Timing chips */}
+      <div className="flex gap-1.5 flex-wrap">
+        <Chip active={selected}>Dia {d.dia_offset}</Chip>
+        <Chip>{d.horario}</Chip>
+      </div>
+
       {/* Upload preloader */}
       {d.uploading && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/60">
-          <div className="flex gap-0.5 items-end">
+        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/60 border border-border/40">
+          <div className="flex gap-0.5 items-end shrink-0">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="w-1 rounded-full bg-primary/60 animate-bounce"
-                style={{ height: `${6 + i * 3}px`, animationDelay: `${i * 0.1}s` }} />
+              <div key={i} className="w-1 rounded-full bg-primary animate-bounce"
+                style={{ height: `${6 + i * 4}px`, animationDelay: `${i * 0.12}s` }} />
             ))}
           </div>
-          <span className="text-xs text-muted-foreground">Enviando…</span>
+          <span className="text-xs text-muted-foreground">Enviando arquivo…</span>
         </div>
       )}
-      {/* Media uploaded */}
-      {d.media_url && !d.uploading && (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10">
-          <CheckCircle2 className="w-3 h-3 text-primary" />
-          <span className="text-xs text-primary font-medium">Arquivo anexado</span>
+
+      {/* ── Texto ── */}
+      {!d.uploading && d.tipo_mensagem === 'texto' && d.mensagem && (
+        <div className="px-3 py-2 rounded-xl bg-muted border border-border/40">
+          <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3">{d.mensagem}</p>
         </div>
+      )}
+      {!d.uploading && d.tipo_mensagem === 'texto' && !d.mensagem && (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs bg-muted/60 text-muted-foreground border border-dashed border-border">
+          <MessageSquare className="w-3 h-3" />Sem mensagem
+        </span>
+      )}
+
+      {/* ── Imagem ── */}
+      {!d.uploading && d.tipo_mensagem === 'imagem' && (
+        d.media_url ? (
+          <div className="rounded-xl overflow-hidden border border-border/50 relative">
+            <img src={d.media_url} alt="" className="w-full object-cover" style={{ height: 88 }} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+            <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded font-medium backdrop-blur-sm">
+              Imagem
+            </span>
+            {d.mensagem && (
+              <span className="absolute bottom-1.5 right-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded backdrop-blur-sm max-w-[100px] truncate">
+                {d.mensagem}
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
+            <ImageIcon className="w-3.5 h-3.5 text-emerald-500" />Adicionar imagem
+          </div>
+        )
+      )}
+
+      {/* ── Vídeo ── */}
+      {!d.uploading && d.tipo_mensagem === 'video' && (
+        d.media_url ? (
+          <div className="rounded-xl overflow-hidden border border-border/50 bg-black/80 relative flex items-center justify-center" style={{ height: 88 }}>
+            <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+            </div>
+            <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded font-medium backdrop-blur-sm">
+              Vídeo
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
+            <Video className="w-3.5 h-3.5 text-purple-500" />Adicionar vídeo
+          </div>
+        )
+      )}
+
+      {/* ── Áudio / PTT ── */}
+      {!d.uploading && (d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
+        d.media_url ? (
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted border border-border/50">
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Mic className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <div className="flex items-end gap-px flex-1 h-5">
+              {BARS.map((h, i) => (
+                <div key={i} className="rounded-full bg-primary/50 flex-1" style={{ height: `${h}px` }} />
+              ))}
+            </div>
+            <span className="text-[10px] text-muted-foreground shrink-0 font-mono">0:08</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
+            <Mic className="w-3.5 h-3.5 text-rose-500" />Gravar áudio
+          </div>
+        )
+      )}
+
+      {/* ── Documento ── */}
+      {!d.uploading && d.tipo_mensagem === 'documento' && (
+        d.media_url ? (
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted border border-border/50">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 flex-col gap-0">
+              <FileText className="w-4 h-4 text-primary" />
+              <span className="text-[8px] font-bold text-primary/70 leading-none">{docExt}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">
+                {d.media_name || 'documento.' + docExt.toLowerCase()}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{docExt} · Documento</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
+            <FileText className="w-3.5 h-3.5 text-amber-500" />Adicionar documento
+          </div>
+        )
       )}
     </NodeShell>
   );
@@ -603,7 +696,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               <Field label="Documento">
                 <UploadZone accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip" label="Enviar documento" current={d.media_url}
                   onUploadStart={() => onUpdate(node.id, { uploading: true })}
-                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+                  onUpload={(url, name) => onUpdate(node.id, { media_url: url, media_name: name, uploading: false })} />
               </Field>
             )}
           </>
