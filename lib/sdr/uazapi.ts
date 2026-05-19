@@ -73,6 +73,7 @@ export type StepTipoMensagem =
   | 'menu'
   | 'carousel'
   | 'location'
+  | 'sticker'
 
 export interface ButtonAction {
   status?: string         // mover lead para este status
@@ -378,12 +379,13 @@ export async function sendRichStep(
     case 'document':
     case 'audio':
     case 'ptt':
+    case 'sticker':
       if (!media?.file) throw new Error(`sendRichStep: tipo ${tipo} requer media.file`)
       await client.sendMedia({
         number,
         type: tipo,
         file: media.file,
-        text: media.text,
+        text: tipo !== 'sticker' ? media.text : undefined,
         docName: media.docName,
         viewOnce: media.viewOnce,
       })

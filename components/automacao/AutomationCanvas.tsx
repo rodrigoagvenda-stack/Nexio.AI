@@ -94,7 +94,7 @@ const CANVAS_TO_UAZAPI: Record<string, string> = {
 const UAZAPI_TO_CANVAS: Record<string, string> = {
   text: 'texto', image: 'imagem', video: 'video',
   audio: 'audio', ptt: 'ptt', document: 'documento',
-  location: 'localizacao', menu: 'lista', carousel: 'carrossel',
+  location: 'localizacao', menu: 'lista', carousel: 'carrossel', sticker: 'sticker',
 };
 
 interface FollowSequence {
@@ -130,6 +130,15 @@ interface MessageNodeData extends Record<string, unknown> {
   media_url?: string;
   media_name?: string;
   uploading?: boolean;
+  // Localização
+  location_name?: string;
+  location_address?: string;
+  location_lat?: string;
+  location_lng?: string;
+  // Lista / Botões
+  menu_choices?: string;
+  // Carrossel
+  carousel_json?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -342,22 +351,32 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     const x = (idx + 1) * 280;
     const condicaoLower = step.condicao?.toLowerCase() ?? '';
     // Normalize tipo: DB may store EN ('text') or legacy PT ('texto') — map both to canvas PT
-    const tipoCanvas = UAZAPI_TO_CANVAS[step.tipo_mensagem] ?? step.tipo_mensagem;
+    let tipoCanvas = UAZAPI_TO_CANVAS[step.tipo_mensagem] ?? step.tipo_mensagem;
+    // Distinguish lista vs botoes by menuType stored in media_config
+    if (tipoCanvas === 'lista' && step.media_config?.menuType === 'button') tipoCanvas = 'botoes';
     const isFim = tipoCanvas === 'fim' || step.condicao?.toLowerCase().includes('fim') || step.condicao?.toLowerCase().includes('encerr');
     const isCondition = tipoCanvas === 'condicao' || step.condicao?.toLowerCase().includes('respondeu') || step.condicao?.toLowerCase().includes('condicao');
-    const hasMedia = !!step.media_config?.file;
+    const hasMedia = !!step.media_config?.file || !!step.media_config?.latitude || !!step.media_config?.choices || !!step.media_config?.carousel;
     const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition);
 
     // Extract media from media_config (stored by nodesToSteps)
     const media_url = step.media_config?.file ?? undefined;
     const media_name = step.media_config?.docName ?? undefined;
-    // mensagem shown in canvas: explicit text or caption from media_config
     const mensagemDisplay = step.mensagem ?? step.media_config?.text ?? null;
+    // Location fields
+    const location_name = step.media_config?.name as string | undefined;
+    const location_address = step.media_config?.address as string | undefined;
+    const location_lat = step.media_config?.latitude != null ? String(step.media_config.latitude) : undefined;
+    const location_lng = step.media_config?.longitude != null ? String(step.media_config.longitude) : undefined;
+    // Menu fields
+    const menu_choices = Array.isArray(step.media_config?.choices) ? (step.media_config!.choices as string[]).join('\n') : undefined;
+    // Carousel
+    const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
 
     if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
     else if (isCondition) nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', stepId: step.id } satisfies ConditionNodeData });
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name } satisfies MessageNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_name, location_address, location_lat, location_lng, menu_choices, carousel_json } satisfies MessageNodeData });
   });
   return nodes;
 }
@@ -377,12 +396,27 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     const d = node.data;
     const stepId = String(d.stepId ?? '');
     if (d.kind === 'message') {
-      // Map canvas PT tipo → uazapi EN tipo for DB storage
       const tipoDb = CANVAS_TO_UAZAPI[d.tipo_mensagem] ?? d.tipo_mensagem ?? 'text';
-      // Build media_config when a file is attached
-      const media_config = d.media_url
-        ? { file: d.media_url, text: d.mensagem || undefined, docName: d.media_name || undefined }
-        : null;
+      let media_config: FollowStep['media_config'] = null;
+
+      if (d.tipo_mensagem === 'localizacao') {
+        media_config = {
+          name: d.location_name ?? '',
+          address: d.location_address ?? '',
+          latitude: parseFloat(String(d.location_lat ?? '0')) || 0,
+          longitude: parseFloat(String(d.location_lng ?? '0')) || 0,
+        };
+      } else if (d.tipo_mensagem === 'lista' || d.tipo_mensagem === 'botoes') {
+        const choices = String(d.menu_choices ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
+        media_config = { menuType: d.tipo_mensagem === 'lista' ? 'list' : 'button', choices, text: d.mensagem || undefined };
+      } else if (d.tipo_mensagem === 'carrossel') {
+        let carousel: unknown[] = [];
+        try { carousel = JSON.parse(String(d.carousel_json ?? '[]')); } catch { /* invalid json */ }
+        media_config = { carousel, text: d.mensagem || undefined };
+      } else if (d.media_url) {
+        media_config = { file: d.media_url, text: d.mensagem || undefined, docName: d.media_name || undefined };
+      }
+
       return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem || null, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config };
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
@@ -400,31 +434,18 @@ function newId() { return `new-${++nodeCounter}`; }
 // ─── Node Accent System ─────────────────────────────────────────────────────────
 
 const ACCENTS = {
-  primary:     { strip: 'bg-[hsl(var(--primary))]',  icon: 'bg-primary/10 text-primary',        border: 'border-primary/45',     shadow: 'shadow-[0_0_24px_hsl(var(--primary)/0.22)]'    },
-  emerald:     { strip: 'bg-emerald-500',             icon: 'bg-emerald-500/10 text-emerald-500', border: 'border-emerald-500/40', shadow: 'shadow-[0_0_24px_rgba(16,185,129,0.2)]'        },
-  amber:       { strip: 'bg-amber-500',               icon: 'bg-amber-500/10 text-amber-500',    border: 'border-amber-500/40',   shadow: 'shadow-[0_0_24px_rgba(245,158,11,0.2)]'        },
-  violet:      { strip: 'bg-violet-500',              icon: 'bg-violet-500/10 text-violet-500',  border: 'border-violet-500/40',  shadow: 'shadow-[0_0_24px_rgba(139,92,246,0.2)]'        },
-  destructive: { strip: 'bg-destructive',             icon: 'bg-destructive/10 text-destructive', border: 'border-destructive/40', shadow: 'shadow-[0_0_24px_hsl(var(--destructive)/0.2)]' },
-  blue:        { strip: 'bg-blue-500',                icon: 'bg-blue-500/10 text-blue-500',      border: 'border-blue-500/40',    shadow: 'shadow-[0_0_24px_rgba(59,130,246,0.2)]'        },
-  cyan:        { strip: 'bg-cyan-500',                icon: 'bg-cyan-500/10 text-cyan-500',      border: 'border-cyan-500/40',    shadow: 'shadow-[0_0_24px_rgba(6,182,212,0.2)]'         },
-  rose:        { strip: 'bg-rose-500',                icon: 'bg-rose-500/10 text-rose-500',      border: 'border-rose-500/40',    shadow: 'shadow-[0_0_24px_rgba(244,63,94,0.2)]'         },
+  primary:     { icon: 'text-[hsl(var(--primary))]', dot: 'bg-[hsl(var(--primary))]',  sel: 'ring-[hsl(var(--primary)/0.4)] border-[hsl(var(--primary)/0.25)]'  },
+  emerald:     { icon: 'text-emerald-500',            dot: 'bg-emerald-500',             sel: 'ring-emerald-500/35 border-emerald-500/20'                         },
+  amber:       { icon: 'text-amber-500',              dot: 'bg-amber-500',               sel: 'ring-amber-500/35 border-amber-500/20'                             },
+  violet:      { icon: 'text-violet-500',             dot: 'bg-violet-500',              sel: 'ring-violet-500/35 border-violet-500/20'                           },
+  destructive: { icon: 'text-destructive',            dot: 'bg-destructive',             sel: 'ring-destructive/35 border-destructive/20'                         },
+  blue:        { icon: 'text-blue-500',               dot: 'bg-blue-500',                sel: 'ring-blue-500/35 border-blue-500/20'                               },
+  cyan:        { icon: 'text-cyan-500',               dot: 'bg-cyan-500',                sel: 'ring-cyan-500/35 border-cyan-500/20'                               },
+  rose:        { icon: 'text-rose-500',               dot: 'bg-rose-500',                sel: 'ring-rose-500/35 border-rose-500/20'                               },
 } as const;
 type AccentKey = keyof typeof ACCENTS;
 
 // ─── Node building blocks ───────────────────────────────────────────────────────
-
-function Chip({ children, active }: { children: React.ReactNode; active?: boolean }) {
-  return (
-    <span className={cn(
-      'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
-      active
-        ? 'bg-primary/15 text-primary border border-primary/25'
-        : 'bg-muted/50 text-muted-foreground border border-border/30',
-    )}>
-      {children}
-    </span>
-  );
-}
 
 // Exec state overlay badge
 function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
@@ -450,7 +471,7 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
           <X className="w-3 h-3 text-white" />
         </div>
         {error && (
-          <div className="absolute right-0 top-6 z-20 w-52 bg-destructive/95 text-white text-[10px] leading-snug px-2.5 py-2 rounded-lg shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <div className="absolute right-0 top-6 z-20 w-52 bg-popover text-destructive text-[10px] leading-snug px-2.5 py-2 rounded-lg shadow-xl border border-border pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             {error}
           </div>
         )}
@@ -459,7 +480,7 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   }
   if (state === 'skipped') {
     return (
-      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-muted-foreground/40 flex items-center justify-center z-10">
+      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-muted-foreground/50 flex items-center justify-center z-10">
         <span className="text-[8px] text-white font-bold leading-none">–</span>
       </div>
     );
@@ -482,56 +503,66 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   const acc = ACCENTS[accent];
   return (
     <div className={cn(
-      'relative bg-card border rounded-xl min-w-[220px] overflow-hidden flex flex-col transition-all duration-150',
-      'shadow-[0_2px_10px_rgba(0,0,0,0.14),0_1px_3px_rgba(0,0,0,0.08)]',
-      isSkipped && 'opacity-50',
-      isRunning ? 'node-running'
-        : isSuccess ? 'node-success'
-        : isError ? 'node-error'
-        : selected ? cn(acc.border, acc.shadow)
-        : 'border-border/50 hover:border-border/80 hover:shadow-[0_4px_18px_rgba(0,0,0,0.18)]',
+      'relative bg-card rounded-xl min-w-[230px] border transition-all duration-100',
+      'shadow-[0_1px_3px_rgba(0,0,0,0.07),0_4px_14px_rgba(0,0,0,0.05)]',
+      isSkipped && 'opacity-40',
+      isRunning ? 'node-running border-border/30'
+        : isSuccess ? 'node-success border-border/30'
+        : isError ? 'node-error border-border/30'
+        : selected
+          ? cn('ring-2', acc.sel, 'shadow-[0_4px_24px_rgba(0,0,0,0.1)]')
+          : 'border-border/25 hover:border-border/40 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)]',
     )}>
-      <div className={cn('h-[3px] w-full shrink-0', acc.strip)} />
-      <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-2.5 relative">
+      <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-0 relative">
         <ExecBadge state={execState} error={execError} />
         {header}
-        <div className="flex flex-col gap-1.5">{children}</div>
+        <div className="mt-2 flex flex-col gap-1.5">{children}</div>
       </div>
     </div>
   );
 }
 
-function NodeHeader({ icon: Icon, label, accent = 'primary' }: { icon: React.ElementType; label: string; accent?: AccentKey }) {
+function NodeHeader({ icon: Icon, label, accent = 'primary', meta }: {
+  icon: React.ElementType; label: string; accent?: AccentKey; meta?: string;
+}) {
   const acc = ACCENTS[accent];
   return (
-    <div className="flex items-center gap-2">
-      <div className={cn('w-6 h-6 rounded-md flex items-center justify-center shrink-0', acc.icon)}>
-        <Icon className="w-3.5 h-3.5" />
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className={cn('w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-muted/60')}>
+          <Icon className={cn('w-3 h-3', acc.icon)} />
+        </div>
+        <span className="text-[11px] font-semibold text-foreground/60 tracking-wide uppercase leading-none truncate">{label}</span>
       </div>
-      <span className="text-[11px] font-semibold text-foreground/65 tracking-tight leading-none">{label}</span>
+      {meta && (
+        <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0 bg-muted/40 px-1.5 py-0.5 rounded">{meta}</span>
+      )}
     </div>
   );
 }
 
-const HANDLE_CLS = '!w-3 !h-3 !bg-card !border-2 !border-border !rounded-full !transition-colors hover:!border-primary/60';
+const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-background !border !border-border/60 !rounded-full !transition-colors hover:!border-primary/50 hover:!bg-primary/10';
 
 // ─── Node Components ────────────────────────────────────────────────────────────
+
+const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
 
 function TriggerNode({ data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   return (
-    <NodeShell selected={selected} accent="primary" header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="primary"
+      header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
-      <Chip active>{d.label}</Chip>
-      <Chip>{d.condicao}</Chip>
+      <p className="text-sm font-semibold text-foreground/90 leading-snug">{d.label}</p>
+      {d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>}
     </NodeShell>
   );
 }
 
 function MessageNode({ data, selected }: NodeProps) {
   const d = data as MessageNodeData;
-
-  const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
+  const meta = `D${d.dia_offset} · ${d.horario}`;
 
   const docExt = d.media_name
     ? d.media_name.split('.').pop()?.toUpperCase() ?? 'DOC'
@@ -540,113 +571,190 @@ function MessageNode({ data, selected }: NodeProps) {
     : 'DOC';
 
   return (
-    <NodeShell selected={selected} accent="emerald" header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="emerald"
+      header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
-      <div className="flex gap-1.5 flex-wrap">
-        <Chip active={selected}>Dia {d.dia_offset}</Chip>
-        <Chip>{d.horario}</Chip>
-      </div>
-
       {d.uploading && (
-        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted/60 border border-border/40">
-          <div className="flex gap-0.5 items-end shrink-0">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="w-1 rounded-full bg-primary animate-bounce"
-                style={{ height: `${6 + i * 4}px`, animationDelay: `${i * 0.12}s` }} />
-            ))}
-          </div>
-          <span className="text-xs text-muted-foreground">Enviando arquivo…</span>
+        <div className="flex items-center gap-2 py-1">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="w-1 rounded-full bg-primary animate-bounce"
+              style={{ height: `${6 + i * 4}px`, animationDelay: `${i * 0.12}s` }} />
+          ))}
+          <span className="text-xs text-muted-foreground">Enviando…</span>
         </div>
       )}
 
-      {!d.uploading && d.tipo_mensagem === 'texto' && d.mensagem && (
-        <div className="px-3 py-2 rounded-xl bg-muted border border-border/40">
-          <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3">{d.mensagem}</p>
-        </div>
-      )}
-      {!d.uploading && d.tipo_mensagem === 'texto' && !d.mensagem && (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs bg-muted/60 text-muted-foreground border border-dashed border-border">
-          <MessageSquare className="w-3 h-3" />Sem mensagem
-        </span>
+      {!d.uploading && d.tipo_mensagem === 'texto' && (
+        d.mensagem
+          ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>
+          : <p className="text-xs text-muted-foreground/50 italic">Sem mensagem</p>
       )}
 
       {!d.uploading && d.tipo_mensagem === 'imagem' && (
         d.media_url ? (
-          <div className="flex flex-col gap-1">
-            <div className="rounded-xl overflow-hidden border border-border/50">
-              <img src={d.media_url} alt="" className="w-full object-cover" style={{ height: 88 }} />
+          <div className="flex items-start gap-2.5">
+            <img src={d.media_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 border border-border/30" />
+            <div className="min-w-0 flex-1 py-0.5">
+              {d.mensagem
+                ? <p className="text-xs text-foreground/80 leading-snug line-clamp-2">{d.mensagem}</p>
+                : <p className="text-xs text-muted-foreground/50 italic">Sem legenda</p>}
+              <p className="text-[10px] text-muted-foreground/40 mt-1">Imagem</p>
             </div>
-            {d.mensagem && (
-              <p className="text-[10px] text-muted-foreground px-1 leading-tight">{d.mensagem}</p>
-            )}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
-            <ImageIcon className="w-3.5 h-3.5 text-emerald-500" />Adicionar imagem
+          <div className="flex items-center gap-2 py-1">
+            <ImageIcon className="w-3.5 h-3.5 text-emerald-500/60" />
+            <span className="text-xs text-muted-foreground/60">Adicionar imagem</span>
           </div>
         )
       )}
 
       {!d.uploading && d.tipo_mensagem === 'video' && (
         d.media_url ? (
-          <div className="flex flex-col gap-1">
-            <div className="rounded-xl overflow-hidden border border-border/50 bg-black/80 relative flex items-center justify-center" style={{ height: 88 }}>
-              <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
-              </div>
+          <div className="flex items-start gap-2.5">
+            <div className="w-12 h-12 rounded-lg bg-zinc-800 border border-border/30 flex items-center justify-center shrink-0">
+              <Play className="w-4 h-4 text-white/60 ml-0.5" fill="currentColor" />
             </div>
-            {d.mensagem && (
-              <p className="text-[10px] text-muted-foreground px-1 leading-tight">{d.mensagem}</p>
-            )}
+            <div className="min-w-0 flex-1 py-0.5">
+              {d.mensagem
+                ? <p className="text-xs text-foreground/80 leading-snug line-clamp-2">{d.mensagem}</p>
+                : <p className="text-xs text-muted-foreground/50 italic">Sem legenda</p>}
+              <p className="text-[10px] text-muted-foreground/40 mt-1">Vídeo</p>
+            </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
-            <Video className="w-3.5 h-3.5 text-purple-500" />Adicionar vídeo
+          <div className="flex items-center gap-2 py-1">
+            <Video className="w-3.5 h-3.5 text-violet-500/60" />
+            <span className="text-xs text-muted-foreground/60">Adicionar vídeo</span>
           </div>
         )
       )}
 
       {!d.uploading && (d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
         d.media_url ? (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted border border-border/50">
-            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Mic className="w-3.5 h-3.5 text-primary" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-rose-500/10 flex items-center justify-center shrink-0">
+              <Mic className="w-3.5 h-3.5 text-rose-500" />
             </div>
-            <div className="flex items-end gap-px flex-1 h-5">
+            <div className="flex items-end gap-px flex-1" style={{ height: 16 }}>
               {BARS.map((h, i) => (
-                <div key={i} className="rounded-full bg-primary/50 flex-1" style={{ height: `${h}px` }} />
+                <div key={i} className="rounded-full bg-rose-500/40 flex-1" style={{ height: `${Math.round(h * 14 / 14)}px` }} />
               ))}
             </div>
-            <span className="text-[10px] text-muted-foreground shrink-0 font-mono">0:08</span>
+            <span className="text-[10px] text-muted-foreground/50 font-mono">PTT</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
-            <Mic className="w-3.5 h-3.5 text-rose-500" />Gravar áudio
+          <div className="flex items-center gap-2 py-1">
+            <Mic className="w-3.5 h-3.5 text-rose-500/60" />
+            <span className="text-xs text-muted-foreground/60">Gravar áudio</span>
           </div>
         )
       )}
 
       {!d.uploading && d.tipo_mensagem === 'documento' && (
         d.media_url ? (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-muted border border-border/50">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 flex-col gap-0">
-              <FileText className="w-4 h-4 text-primary" />
-              <span className="text-[8px] font-bold text-primary/70 leading-none">{docExt}</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4 text-amber-500" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-foreground/80 truncate font-medium">
                 {d.media_name || 'documento.' + docExt.toLowerCase()}
               </p>
-              <p className="text-[10px] text-muted-foreground">{docExt} · Documento</p>
+              <p className="text-[10px] text-muted-foreground/50">{docExt}</p>
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
-            <FileText className="w-3.5 h-3.5 text-amber-500" />Adicionar documento
+          <div className="flex items-center gap-2 py-1">
+            <FileText className="w-3.5 h-3.5 text-amber-500/60" />
+            <span className="text-xs text-muted-foreground/60">Adicionar documento</span>
           </div>
         )
+      )}
+
+      {!d.uploading && d.tipo_mensagem === 'localizacao' && (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <MapPin className="w-4 h-4 text-emerald-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            {d.location_name
+              ? <p className="text-xs text-foreground/80 truncate font-medium">{d.location_name}</p>
+              : <p className="text-xs text-muted-foreground/50 italic">Local não configurado</p>}
+            {d.location_address && <p className="text-[10px] text-muted-foreground/50 truncate">{d.location_address}</p>}
+          </div>
+        </div>
+      )}
+
+      {!d.uploading && d.tipo_mensagem === 'lista' && (
+        <div className="space-y-1">
+          {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <List className="w-3 h-3 text-violet-500/60 shrink-0" />
+            <span className="text-[10px] text-muted-foreground/60">
+              {d.menu_choices
+                ? `${(d.menu_choices as string).split('\n').filter(Boolean).length} itens`
+                : 'Lista não configurada'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!d.uploading && d.tipo_mensagem === 'botoes' && (
+        <div className="space-y-1">
+          {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {d.menu_choices
+              ? (d.menu_choices as string).split('\n').filter(Boolean).slice(0, 3).map((btn, i) => (
+                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
+                    {String(btn).split('|')[0].trim()}
+                  </span>
+                ))
+              : <span className="text-[10px] text-muted-foreground/50 italic">Botões não configurados</span>}
+          </div>
+        </div>
+      )}
+
+      {!d.uploading && d.tipo_mensagem === 'carrossel' && (
+        <div className="space-y-1">
+          {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-1 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <GalleryHorizontal className="w-3 h-3 text-cyan-500/60 shrink-0" />
+            <span className="text-[10px] text-muted-foreground/60">
+              {d.carousel_json
+                ? (() => { try { return `${(JSON.parse(d.carousel_json as string) as unknown[]).length} cards`; } catch { return 'Carrossel'; } })()
+                : 'Carrossel não configurado'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!d.uploading && d.tipo_mensagem === 'sticker' && (
+        d.media_url ? (
+          <div className="flex items-center gap-2.5">
+            <img src={d.media_url as string} alt="sticker" className="w-12 h-12 rounded-lg object-contain shrink-0 border border-border/30 bg-muted/30" />
+            <span className="text-[10px] text-muted-foreground/50">Sticker</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 py-1">
+            <Smile className="w-3.5 h-3.5 text-primary/60" />
+            <span className="text-xs text-muted-foreground/60">Adicionar sticker</span>
+          </div>
+        )
+      )}
+
+      {!d.uploading && (d.tipo_mensagem === 'contato' || d.tipo_mensagem === 'reacao') && (
+        <div className="flex items-center gap-2 py-1">
+          {d.tipo_mensagem === 'contato'
+            ? <User className="w-3.5 h-3.5 text-muted-foreground/40" />
+            : <Heart className="w-3.5 h-3.5 text-rose-500/40" />}
+          <span className="text-xs text-muted-foreground/50 italic">
+            {d.tipo_mensagem === 'contato' ? 'Não suportado pelo uazapi' : 'Reação não aplicável em sequências'}
+          </span>
+        </div>
       )}
     </NodeShell>
   );
@@ -655,10 +763,13 @@ function MessageNode({ data, selected }: NodeProps) {
 function WaitNode({ data, selected }: NodeProps) {
   const d = data as WaitNodeData;
   return (
-    <NodeShell selected={selected} accent="amber" header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="amber"
+      header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
-      <Chip active={selected}>Aguardar {d.dia_offset} dia{d.dia_offset !== 1 ? 's' : ''}</Chip>
+      <p className="text-sm font-semibold text-foreground/90">{d.dia_offset} dia{d.dia_offset !== 1 ? 's' : ''}</p>
+      <p className="text-xs text-muted-foreground/60">antes da próxima mensagem</p>
     </NodeShell>
   );
 }
@@ -666,14 +777,16 @@ function WaitNode({ data, selected }: NodeProps) {
 function ConditionNode({ data, selected }: NodeProps) {
   const d = data as ConditionNodeData;
   return (
-    <NodeShell selected={selected} accent="violet" header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="violet"
+      header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
-      <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/60 !border !border-destructive/40 !rounded-full" />
-      <Chip active={selected}>{d.condicao || 'Respondeu?'}</Chip>
-      <div className="flex gap-1.5">
-        <span className="text-[10px] text-primary/70 px-2 py-0.5 rounded bg-primary/10">↑ Sim</span>
-        <span className="text-[10px] text-destructive/70 px-2 py-0.5 rounded bg-destructive/10">↓ Não</span>
+      <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/50 !border !border-destructive/30 !rounded-full" />
+      <p className="text-sm font-semibold text-foreground/90">{d.condicao || 'Respondeu?'}</p>
+      <div className="flex gap-2 mt-0.5">
+        <span className="text-[10px] text-emerald-500 font-medium">↑ Sim</span>
+        <span className="text-[10px] text-destructive/70 font-medium">↓ Não</span>
       </div>
     </NodeShell>
   );
@@ -682,27 +795,27 @@ function ConditionNode({ data, selected }: NodeProps) {
 function EndNode({ data, selected }: NodeProps) {
   const d = data as EndNodeData;
   return (
-    <NodeShell selected={selected} accent="destructive" header={<NodeHeader icon={XCircle} label="Fim" accent="destructive" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="destructive"
+      header={<NodeHeader icon={XCircle} label="Fim" accent="destructive" />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
-      <Chip>Encerrar sequência</Chip>
+      <p className="text-xs text-muted-foreground/60">Encerrar sequência</p>
     </NodeShell>
   );
 }
 
 function WebhookNode({ data, selected }: NodeProps) {
   const d = data as WebhookNodeData;
-  const domain = d.url ? getDomain(d.url) : 'URL não configurada';
+  const domain = d.url ? getDomain(d.url) : null;
   return (
-    <NodeShell selected={selected} accent="blue" header={<NodeHeader icon={Globe} label="Webhook" accent="blue" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="blue"
+      header={<NodeHeader icon={Globe} label="Webhook" accent="blue" meta={d.method} />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide',
-          d.method === 'POST' ? 'bg-primary/10 text-primary' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400')}>
-          {d.method}
-        </span>
-        <span className="text-xs text-muted-foreground truncate max-w-[130px]">{truncate(domain, 20)}</span>
-      </div>
+      {domain
+        ? <p className="text-xs text-foreground/80 font-mono truncate">{truncate(domain, 24)}</p>
+        : <p className="text-xs text-muted-foreground/50 italic">URL não configurada</p>}
     </NodeShell>
   );
 }
@@ -710,14 +823,16 @@ function WebhookNode({ data, selected }: NodeProps) {
 function LeadScoreNode({ data, selected }: NodeProps) {
   const d = data as LeadScoreNodeData;
   return (
-    <NodeShell selected={selected} accent="amber" header={<NodeHeader icon={Star} label="Lead Score" accent="amber" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="amber"
+      header={<NodeHeader icon={Star} label="Lead Score" accent="amber" />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-amber-500/60 !border !border-amber-500/40 !rounded-full" />
-      <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-muted !border !border-border !rounded-full" />
-      <Chip active={selected}>Score {d.scoreMin}–{d.scoreMax}</Chip>
-      <div className="flex gap-1.5">
-        <span className="text-[10px] text-amber-500/80 px-2 py-0.5 rounded bg-amber-500/10">↑ Acima</span>
-        <span className="text-[10px] text-muted-foreground px-2 py-0.5 rounded bg-muted">↓ Abaixo</span>
+      <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-border !border !border-border/60 !rounded-full" />
+      <p className="text-sm font-semibold text-foreground/90">{d.scoreMin}–{d.scoreMax} pontos</p>
+      <div className="flex gap-3 mt-0.5">
+        <span className="text-[10px] text-amber-500 font-medium">↑ Acima</span>
+        <span className="text-[10px] text-muted-foreground/60 font-medium">↓ Abaixo</span>
       </div>
     </NodeShell>
   );
@@ -726,14 +841,15 @@ function LeadScoreNode({ data, selected }: NodeProps) {
 function ABTestNode({ data, selected }: NodeProps) {
   const d = data as ABTestNodeData;
   return (
-    <NodeShell selected={selected} accent="cyan" header={<NodeHeader icon={GitMerge} label="Teste A/B" accent="cyan" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="cyan"
+      header={<NodeHeader icon={GitMerge} label="Teste A/B" accent="cyan" meta="50/50" />}
+      execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-violet-500/60 !border !border-violet-500/40 !rounded-full" />
       <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-cyan-500/60 !border !border-cyan-500/40 !rounded-full" />
-      <Chip active={selected}>A/B 50% / 50%</Chip>
-      <div className="flex gap-1.5">
-        <span className="text-[10px] text-violet-500/80 px-2 py-0.5 rounded bg-violet-500/10">↑ A: {truncate(d.variantA, 8) || 'Variante A'}</span>
-        <span className="text-[10px] text-cyan-600/80 dark:text-cyan-400/80 px-2 py-0.5 rounded bg-cyan-500/10">↓ B: {truncate(d.variantB, 8) || 'Variante B'}</span>
+      <div className="flex flex-col gap-1">
+        <p className="text-xs text-foreground/80"><span className="text-violet-500 font-medium">A</span> · {truncate(d.variantA, 18) || 'Variante A'}</p>
+        <p className="text-xs text-foreground/80"><span className="text-cyan-500 font-medium">B</span> · {truncate(d.variantB, 18) || 'Variante B'}</p>
       </div>
     </NodeShell>
   );
@@ -1037,9 +1153,101 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               </Field>
             )}
 
-            {['localizacao', 'lista', 'botoes', 'carrossel', 'sticker', 'contato', 'reacao'].includes(d.tipo_mensagem) && (
-              <div className="p-3 rounded-xl bg-muted text-xs text-muted-foreground">
-                Configuração de <strong>{d.tipo_mensagem}</strong> disponível em breve — suporte via uazapi
+            {d.tipo_mensagem === 'localizacao' && (
+              <>
+                <Field label="Nome do local">
+                  <input type="text" value={d.location_name ?? ''}
+                    onChange={(e) => onUpdate(node.id, { location_name: e.target.value })}
+                    placeholder="Ex: MASP" className="field-input" />
+                </Field>
+                <Field label="Endereço">
+                  <input type="text" value={d.location_address ?? ''}
+                    onChange={(e) => onUpdate(node.id, { location_address: e.target.value })}
+                    placeholder="Av. Paulista, 1578" className="field-input" />
+                </Field>
+                <Field label="Latitude">
+                  <input type="number" step="any" value={d.location_lat ?? ''}
+                    onChange={(e) => onUpdate(node.id, { location_lat: e.target.value })}
+                    placeholder="-23.561684" className="field-input" />
+                </Field>
+                <Field label="Longitude">
+                  <input type="number" step="any" value={d.location_lng ?? ''}
+                    onChange={(e) => onUpdate(node.id, { location_lng: e.target.value })}
+                    placeholder="-46.655981" className="field-input" />
+                </Field>
+              </>
+            )}
+
+            {d.tipo_mensagem === 'lista' && (
+              <>
+                <Field label="Texto principal">
+                  <textarea rows={2} value={d.mensagem ?? ''}
+                    onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                    placeholder="Escolha uma opção:" className="field-input resize-none" />
+                </Field>
+                <Field label="Itens da lista">
+                  <p className="text-[10px] text-muted-foreground/60 -mt-1 mb-1">[Seção] para título · Item|id|descrição para cada item</p>
+                  <textarea rows={6} value={d.menu_choices ?? ''}
+                    onChange={(e) => onUpdate(node.id, { menu_choices: e.target.value })}
+                    placeholder={`[Planos]\nBásico|basico|R$ 49/mês\nPro|pro|R$ 99/mês`}
+                    className="field-input resize-none font-mono text-xs" />
+                </Field>
+              </>
+            )}
+
+            {d.tipo_mensagem === 'botoes' && (
+              <>
+                <Field label="Texto principal">
+                  <textarea rows={2} value={d.mensagem ?? ''}
+                    onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                    placeholder="Como posso ajudar?" className="field-input resize-none" />
+                </Field>
+                <Field label="Botões">
+                  <p className="text-[10px] text-muted-foreground/60 -mt-1 mb-1">Texto|id · Texto|https://url · Texto|call:+55...</p>
+                  <textarea rows={4} value={d.menu_choices ?? ''}
+                    onChange={(e) => onUpdate(node.id, { menu_choices: e.target.value })}
+                    placeholder={`Agendar|agendar\nSaber mais|https://site.com\nFalar agora|call:+5511999999999`}
+                    className="field-input resize-none font-mono text-xs" />
+                </Field>
+              </>
+            )}
+
+            {d.tipo_mensagem === 'carrossel' && (
+              <>
+                <Field label="Texto principal">
+                  <textarea rows={2} value={d.mensagem ?? ''}
+                    onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                    placeholder="Veja nossos produtos:" className="field-input resize-none" />
+                </Field>
+                <Field label="Cards (JSON)">
+                  <p className="text-[10px] text-muted-foreground/60 -mt-1 mb-1">Array com text, image (URL), buttons (array de strings)</p>
+                  <textarea rows={9} value={d.carousel_json ?? ''}
+                    onChange={(e) => onUpdate(node.id, { carousel_json: e.target.value })}
+                    placeholder={JSON.stringify([{ text: 'Card 1', image: 'https://url.jpg', buttons: ['Ver mais|REPLY|ver'] }], null, 2)}
+                    className="field-input resize-none font-mono text-[10px]" />
+                </Field>
+              </>
+            )}
+
+            {d.tipo_mensagem === 'sticker' && (
+              <Field label="Arquivo do sticker">
+                <UploadZone accept="image/*,image/webp" label="Enviar sticker" current={d.media_url as string | undefined}
+                  onUploadStart={() => onUpdate(node.id, { uploading: true })}
+                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+              </Field>
+            )}
+
+            {d.tipo_mensagem === 'contato' && (
+              <div className="p-3 rounded-xl bg-muted/60 border border-border space-y-1">
+                <p className="text-xs font-semibold text-foreground/60">Cartão de contato</p>
+                <p className="text-xs text-muted-foreground">Envio de vCard não suportado pela API uazapi na versão atual.</p>
+              </div>
+            )}
+
+            {d.tipo_mensagem === 'reacao' && (
+              <div className="p-3 rounded-xl bg-muted/60 border border-border space-y-1">
+                <p className="text-xs font-semibold text-foreground/60">Reação</p>
+                <p className="text-xs text-muted-foreground">Reações requerem o ID de uma mensagem específica e não são aplicáveis em sequências automatizadas.</p>
               </div>
             )}
           </>

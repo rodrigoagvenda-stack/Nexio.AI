@@ -111,7 +111,7 @@ export async function POST(
     const TIPO_MAP: Record<string, StepTipoMensagem> = {
       texto: 'text', imagem: 'image', video: 'video', audio: 'audio',
       ptt: 'ptt', documento: 'document', localizacao: 'location',
-      lista: 'menu', botoes: 'menu', carrossel: 'carousel',
+      lista: 'menu', botoes: 'menu', carrossel: 'carousel', sticker: 'sticker',
     }
     const rawTipo = step.tipo_mensagem ?? 'text'
     const tipo: StepTipoMensagem = (TIPO_MAP[rawTipo] ?? rawTipo) as StepTipoMensagem
