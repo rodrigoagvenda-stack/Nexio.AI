@@ -25,23 +25,25 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     if (Array.isArray(steps)) {
-      await service.from('follow_steps').delete().eq('sequence_id', params.id)
+      const { error: delErr } = await service.from('follow_steps').delete().eq('sequence_id', params.id)
+      if (delErr) throw delErr
       if (steps.length > 0) {
-        await service.from('follow_steps').insert(steps.map((s: any, i: number) => ({
+        const { error: insErr } = await service.from('follow_steps').insert(steps.map((s: any, i: number) => ({
           sequence_id: params.id,
           dia_offset: s.dia_offset ?? i + 1,
           horario: s.horario ?? '09:00',
-          mensagem: s.mensagem ?? null,
+          mensagem: s.mensagem || null,
           pool_mensagens: s.pool_mensagens?.length ? s.pool_mensagens : null,
           usar_ia: s.usar_ia ?? false,
           usar_contexto_sdr: s.usar_contexto_sdr ?? false,
-          tipo_mensagem: s.tipo_mensagem ?? 'text',
+          tipo_mensagem: s.tipo_mensagem || 'texto',
           media_config: s.media_config ?? null,
-          condicao: s.condicao ?? 'sempre',
+          condicao: s.condicao || null,
           condicao_estagio: s.condicao_estagio ?? null,
           sdr_ativo: s.sdr_ativo ?? null,
           ordem: i,
         })))
+        if (insErr) throw insErr
       }
     }
 

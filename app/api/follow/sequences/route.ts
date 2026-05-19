@@ -8,17 +8,32 @@ export async function GET(request: NextRequest) {
 
   try {
     const service = createServiceClient()
-    const { data: sequences, error } = await service
+
+    // Fetch sequences first, then steps — embedding follow_steps(*) only works with FK declared
+    const { data: seqList, error } = await service
       .from('follow_sequences')
-      .select('*, follow_steps (*)')
+      .select('*')
       .eq('company_id', context.companyId)
       .order('created_at', { ascending: true })
 
     if (error) throw error
 
-    const sorted = (sequences ?? []).map((s: any) => ({
+    const sequences = seqList ?? []
+    const seqIds = sequences.map((s: any) => s.id)
+
+    const { data: steps } = seqIds.length > 0
+      ? await service.from('follow_steps').select('*').in('sequence_id', seqIds).order('ordem')
+      : { data: [] as any[] }
+
+    const stepsBySeq: Record<string, any[]> = {}
+    for (const step of steps ?? []) {
+      if (!stepsBySeq[step.sequence_id]) stepsBySeq[step.sequence_id] = []
+      stepsBySeq[step.sequence_id].push(step)
+    }
+
+    const sorted = sequences.map((s: any) => ({
       ...s,
-      follow_steps: (s.follow_steps ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
+      follow_steps: stepsBySeq[s.id] ?? [],
     }))
 
     return NextResponse.json({ sequences: sorted })
