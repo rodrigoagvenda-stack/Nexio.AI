@@ -107,22 +107,64 @@ export async function POST(
 
     const uazapi = createUazapiClient(uazapiUrl, uazapiToken)
 
-    const tipo: StepTipoMensagem = step.tipo_mensagem ?? 'text'
-    const mensagem: string = step.mensagem || `[Teste] Passo D${step.dia_offset} — ${sequence.nome}`
+    // Map canvas PT tipo to uazapi EN tipo (in case step was saved before the mapping fix)
+    const TIPO_MAP: Record<string, StepTipoMensagem> = {
+      texto: 'text', imagem: 'image', video: 'video', audio: 'audio',
+      ptt: 'ptt', documento: 'document', localizacao: 'location',
+      lista: 'menu', botoes: 'menu', carrossel: 'carousel',
+    }
+    const rawTipo = step.tipo_mensagem ?? 'text'
+    const tipo: StepTipoMensagem = (TIPO_MAP[rawTipo] ?? rawTipo) as StepTipoMensagem
+
     const media: StepMediaConfig | undefined = step.media_config ?? undefined
+    // For media types, caption is in media_config.text; for text, use mensagem directly
+    const mensagem: string = step.mensagem
+      || media?.text
+      || `[Teste] Passo D${step.dia_offset} — ${sequence.nome}`
 
     await sendRichStep(uazapi, normalizedPhone, tipo, mensagem, media)
+
+    // Save message to atendimento chat if a conversa exists for this phone
+    try {
+      const variants = [normalizedPhone, `+${normalizedPhone}`, normalizedPhone.replace(/^55/, '')]
+      const { data: conversa } = await service
+        .from('conversas_do_whatsapp')
+        .select('id, id_do_lead')
+        .eq('company_id', sequence.company_id)
+        .in('numero_de_telefone', variants)
+        .maybeSingle()
+
+      if (conversa) {
+        const mediaUrl = media?.file ?? null
+        const textoSalvo = mensagem
+        await Promise.all([
+          service.from('mensagens_do_whatsapp').insert({
+            id_da_conversacao: conversa.id,
+            id_do_lead: conversa.id_do_lead,
+            company_id: sequence.company_id,
+            texto_da_mensagem: textoSalvo,
+            tipo_de_mensagem: tipo,
+            direcao: 'outbound',
+            sender_type: 'ai',
+            status: 'sent',
+            url_da_midia: mediaUrl,
+            carimbo_de_data_e_hora: new Date().toISOString(),
+          }),
+          service.from('conversas_do_whatsapp').update({
+            ultima_mensagem: mediaUrl ? `[${tipo}]` : textoSalvo,
+            hora_da_ultima_mensagem: new Date().toISOString(),
+          }).eq('id', conversa.id),
+        ])
+      }
+    } catch {
+      // Non-fatal: message was sent, just couldn't save to atendimento
+    }
 
     return NextResponse.json({
       success: true,
       simulated: false,
       phone: normalizedPhone,
-      step: {
-        id: step.id,
-        dia_offset: step.dia_offset,
-        horario: step.horario,
-        tipo_mensagem: tipo,
-      },
+      step: { id: step.id, dia_offset: step.dia_offset, horario: step.horario, tipo_mensagem: tipo },
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro desconhecido'

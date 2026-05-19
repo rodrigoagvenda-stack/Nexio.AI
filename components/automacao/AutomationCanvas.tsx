@@ -81,7 +81,21 @@ interface FollowStep {
   tipo_mensagem: string;
   ordem: number;
   condicao: string;
+  media_config?: { file?: string; text?: string; docName?: string; [k: string]: any } | null;
 }
+
+// Canvas (PT) ↔ uazapi (EN) tipo mapping
+const CANVAS_TO_UAZAPI: Record<string, string> = {
+  texto: 'text', imagem: 'image', video: 'video',
+  audio: 'audio', ptt: 'ptt', documento: 'document',
+  localizacao: 'location', lista: 'menu', botoes: 'menu',
+  carrossel: 'carousel', sticker: 'sticker', contato: 'contact', reacao: 'reaction',
+};
+const UAZAPI_TO_CANVAS: Record<string, string> = {
+  text: 'texto', image: 'imagem', video: 'video',
+  audio: 'audio', ptt: 'ptt', document: 'documento',
+  location: 'localizacao', menu: 'lista', carousel: 'carrossel',
+};
 
 interface FollowSequence {
   id: string;
@@ -327,14 +341,23 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
   sorted.forEach((step, idx) => {
     const x = (idx + 1) * 280;
     const condicaoLower = step.condicao?.toLowerCase() ?? '';
-    const isFim = condicaoLower.includes('fim') || condicaoLower.includes('encerr') || step.tipo_mensagem === 'fim';
-    const isCondition = condicaoLower.includes('respondeu') || condicaoLower.includes('condicao') || step.tipo_mensagem === 'condicao';
-    const isWait = step.tipo_mensagem === 'aguardar' || (step.mensagem === null && !isFim && !isCondition);
+    // Normalize tipo: DB may store EN ('text') or legacy PT ('texto') — map both to canvas PT
+    const tipoCanvas = UAZAPI_TO_CANVAS[step.tipo_mensagem] ?? step.tipo_mensagem;
+    const isFim = tipoCanvas === 'fim' || step.condicao?.toLowerCase().includes('fim') || step.condicao?.toLowerCase().includes('encerr');
+    const isCondition = tipoCanvas === 'condicao' || step.condicao?.toLowerCase().includes('respondeu') || step.condicao?.toLowerCase().includes('condicao');
+    const hasMedia = !!step.media_config?.file;
+    const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition);
+
+    // Extract media from media_config (stored by nodesToSteps)
+    const media_url = step.media_config?.file ?? undefined;
+    const media_name = step.media_config?.docName ?? undefined;
+    // mensagem shown in canvas: explicit text or caption from media_config
+    const mensagemDisplay = step.mensagem ?? step.media_config?.text ?? null;
 
     if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
     else if (isCondition) nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', stepId: step.id } satisfies ConditionNodeData });
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: step.mensagem, tipo_mensagem: step.tipo_mensagem, stepId: step.id } satisfies MessageNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name } satisfies MessageNodeData });
   });
   return nodes;
 }
@@ -353,7 +376,15 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
   return nodes.filter((n) => n.id !== 'trigger').sort((a, b) => a.position.x - b.position.x).map((node, idx) => {
     const d = node.data;
     const stepId = String(d.stepId ?? '');
-    if (d.kind === 'message') return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem, tipo_mensagem: d.tipo_mensagem || 'texto', ordem: idx + 1, condicao: '' };
+    if (d.kind === 'message') {
+      // Map canvas PT tipo → uazapi EN tipo for DB storage
+      const tipoDb = CANVAS_TO_UAZAPI[d.tipo_mensagem] ?? d.tipo_mensagem ?? 'text';
+      // Build media_config when a file is attached
+      const media_config = d.media_url
+        ? { file: d.media_url, text: d.mensagem || undefined, docName: d.media_name || undefined }
+        : null;
+      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem || null, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config };
+    }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
     if (d.kind === 'condition') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: d.condicao };
     if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: d.url };
