@@ -429,9 +429,9 @@ function NodeShell({ children, selected, primaryAccent, redAccent, header, execS
     <div className={cn(
       'relative bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
       isSkipped && 'opacity-50',
-      isRunning ? 'node-running ring-0 border-transparent shadow-[0_0_20px_hsl(var(--primary)/0.30)]'
-        : isSuccess ? 'ring-2 ring-emerald-500 border-emerald-500/40 animate-pulse [animation-duration:2s]'
-        : isError ? 'ring-2 ring-destructive border-destructive/40 animate-pulse [animation-duration:2s]'
+      isRunning ? 'node-running'
+        : isSuccess ? 'node-success'
+        : isError ? 'node-error'
         : primaryAccent ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
         : redAccent ? 'border-destructive/40 shadow-[0_0_16px_hsl(var(--destructive)/0.08)]'
         : selected ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
@@ -1682,12 +1682,18 @@ function CanvasInner() {
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'message') {
           if (!dryRun) {
+            if (String(d.stepId ?? '').startsWith('new-')) {
+              throw new Error('Salve a sequência antes de executar o teste');
+            }
             const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ stepId: d.stepId, phone }),
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+              const errJson = await res.json().catch(() => ({}));
+              throw new Error((errJson as any).error ?? `HTTP ${res.status}`);
+            }
           }
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'condition') {
