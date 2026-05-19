@@ -136,23 +136,40 @@ export async function POST(
 
       if (conversa) {
         const mediaUrl = media?.file ?? null
-        const textoSalvo = mensagem
+        // Real caption: what was typed in the node (not the test fallback label)
+        const caption = media?.text ?? step.mensagem ?? null
+        const now = new Date().toISOString()
+
         await Promise.all([
+          // 1. The actual message (image/text/etc) with real caption
           service.from('mensagens_do_whatsapp').insert({
             id_da_conversacao: conversa.id,
             id_do_lead: conversa.id_do_lead,
             company_id: sequence.company_id,
-            texto_da_mensagem: textoSalvo,
+            texto_da_mensagem: caption ?? '',
             tipo_de_mensagem: tipo,
             direcao: 'outbound',
             sender_type: 'ai',
             status: 'sent',
             url_da_midia: mediaUrl,
-            carimbo_de_data_e_hora: new Date().toISOString(),
+            carimbo_de_data_e_hora: now,
+          }),
+          // 2. System chip — renders as bigtech centered label in atendimento UI
+          service.from('mensagens_do_whatsapp').insert({
+            id_da_conversacao: conversa.id,
+            id_do_lead: conversa.id_do_lead,
+            company_id: sequence.company_id,
+            texto_da_mensagem: `Teste · ${sequence.nome} · Dia ${step.dia_offset}`,
+            tipo_de_mensagem: 'system',
+            direcao: 'outbound',
+            sender_type: 'ai',
+            status: 'sent',
+            url_da_midia: null,
+            carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(), // 1ms after so it renders after
           }),
           service.from('conversas_do_whatsapp').update({
-            ultima_mensagem: mediaUrl ? `[${tipo}]` : textoSalvo,
-            hora_da_ultima_mensagem: new Date().toISOString(),
+            ultima_mensagem: mediaUrl ? `[${tipo}]` : (caption ?? ''),
+            hora_da_ultima_mensagem: now,
           }).eq('id', conversa.id),
         ])
       }

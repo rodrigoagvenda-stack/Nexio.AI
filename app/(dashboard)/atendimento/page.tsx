@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical } from 'lucide-react';
 import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -1083,6 +1083,16 @@ export default function AtendimentoPage() {
   };
 
   const renderMessageContent = (msg: Message) => {
+    // Evento de sistema — chip centralizado (ex: disparo de teste de sequência)
+    if (msg.tipo_de_mensagem === 'system') {
+      return (
+        <div className="flex items-center gap-2 py-0.5">
+          <FlaskConical className="w-3 h-3 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground">{msg.texto_da_mensagem}</span>
+        </div>
+      );
+    }
+
     // Mensagem apagada — estilo WhatsApp
     if (msg.is_deleted) {
       return (
@@ -1663,7 +1673,17 @@ export default function AtendimentoPage() {
 
               {/* Mensagens */}
               <CardContent className="flex-1 overflow-y-auto p-[20px] space-y-4 scrollbar-minimal chat-background">
-                {messages.map((msg) => (
+                {messages.map((msg) => msg.tipo_de_mensagem === 'system' ? (
+                  // ── Evento de sistema: chip centralizado bigtech ──
+                  <div key={msg.id} className="flex items-center gap-3 py-0.5 select-none">
+                    <div className="flex-1 h-px bg-border/30" />
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/50 border border-border/40 text-[11px] text-muted-foreground font-medium whitespace-nowrap">
+                      <FlaskConical className="w-3 h-3 shrink-0" />
+                      {msg.texto_da_mensagem}
+                    </div>
+                    <div className="flex-1 h-px bg-border/30" />
+                  </div>
+                ) : (
                   <div
                     key={msg.id}
                     className={`flex gap-2 ${
