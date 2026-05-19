@@ -314,8 +314,8 @@ function buildTemplates(): CanvasTemplate[] {
 
 const EDGE_BASE = {
   type: 'smoothstep',
-  markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: 'hsl(215 16% 47%)' },
-  style: { stroke: 'hsl(215 16% 47%)', strokeWidth: 1.5 },
+  markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: 'hsl(var(--border))' },
+  style: { stroke: 'hsl(var(--border))', strokeWidth: 1.5 },
 } as const;
 
 function truncate(str: string | null, n: number): string {
@@ -397,11 +397,30 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
 let nodeCounter = 1000;
 function newId() { return `new-${++nodeCounter}`; }
 
+// ─── Node Accent System ─────────────────────────────────────────────────────────
+
+const ACCENTS = {
+  primary:     { strip: 'bg-[hsl(var(--primary))]',  icon: 'bg-primary/10 text-primary',        border: 'border-primary/45',     shadow: 'shadow-[0_0_24px_hsl(var(--primary)/0.22)]'    },
+  emerald:     { strip: 'bg-emerald-500',             icon: 'bg-emerald-500/10 text-emerald-500', border: 'border-emerald-500/40', shadow: 'shadow-[0_0_24px_rgba(16,185,129,0.2)]'        },
+  amber:       { strip: 'bg-amber-500',               icon: 'bg-amber-500/10 text-amber-500',    border: 'border-amber-500/40',   shadow: 'shadow-[0_0_24px_rgba(245,158,11,0.2)]'        },
+  violet:      { strip: 'bg-violet-500',              icon: 'bg-violet-500/10 text-violet-500',  border: 'border-violet-500/40',  shadow: 'shadow-[0_0_24px_rgba(139,92,246,0.2)]'        },
+  destructive: { strip: 'bg-destructive',             icon: 'bg-destructive/10 text-destructive', border: 'border-destructive/40', shadow: 'shadow-[0_0_24px_hsl(var(--destructive)/0.2)]' },
+  blue:        { strip: 'bg-blue-500',                icon: 'bg-blue-500/10 text-blue-500',      border: 'border-blue-500/40',    shadow: 'shadow-[0_0_24px_rgba(59,130,246,0.2)]'        },
+  cyan:        { strip: 'bg-cyan-500',                icon: 'bg-cyan-500/10 text-cyan-500',      border: 'border-cyan-500/40',    shadow: 'shadow-[0_0_24px_rgba(6,182,212,0.2)]'         },
+  rose:        { strip: 'bg-rose-500',                icon: 'bg-rose-500/10 text-rose-500',      border: 'border-rose-500/40',    shadow: 'shadow-[0_0_24px_rgba(244,63,94,0.2)]'         },
+} as const;
+type AccentKey = keyof typeof ACCENTS;
+
 // ─── Node building blocks ───────────────────────────────────────────────────────
 
 function Chip({ children, active }: { children: React.ReactNode; active?: boolean }) {
   return (
-    <span className={cn('inline-flex items-center px-3 py-1.5 rounded-xl text-sm transition-colors', active ? 'bg-primary text-primary-foreground font-semibold' : 'bg-muted text-muted-foreground')}>
+    <span className={cn(
+      'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors',
+      active
+        ? 'bg-primary/15 text-primary border border-primary/25'
+        : 'bg-muted/50 text-muted-foreground border border-border/30',
+    )}>
       {children}
     </span>
   );
@@ -448,50 +467,60 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   return null;
 }
 
-function NodeShell({ children, selected, primaryAccent, redAccent, header, execState, execError }: {
-  children: React.ReactNode; selected?: boolean; primaryAccent?: boolean; redAccent?: boolean; header: React.ReactNode;
-  execState?: ExecState; execError?: string;
+function NodeShell({ children, selected, accent = 'primary', header, execState, execError }: {
+  children: React.ReactNode;
+  selected?: boolean;
+  accent?: AccentKey;
+  header: React.ReactNode;
+  execState?: ExecState;
+  execError?: string;
 }) {
   const isRunning = execState === 'running';
   const isSuccess = execState === 'success';
   const isError = execState === 'error';
   const isSkipped = execState === 'skipped';
+  const acc = ACCENTS[accent];
   return (
     <div className={cn(
-      'relative bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
+      'relative bg-card border rounded-xl min-w-[220px] overflow-hidden flex flex-col transition-all duration-150',
+      'shadow-[0_2px_10px_rgba(0,0,0,0.14),0_1px_3px_rgba(0,0,0,0.08)]',
       isSkipped && 'opacity-50',
       isRunning ? 'node-running'
         : isSuccess ? 'node-success'
         : isError ? 'node-error'
-        : primaryAccent ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
-        : redAccent ? 'border-destructive/40 shadow-[0_0_16px_hsl(var(--destructive)/0.08)]'
-        : selected ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
-        : 'border-border'
+        : selected ? cn(acc.border, acc.shadow)
+        : 'border-border/50 hover:border-border/80 hover:shadow-[0_4px_18px_rgba(0,0,0,0.18)]',
     )}>
-      <ExecBadge state={execState} error={execError} />
-      {header}
-      <div className="flex flex-col gap-1.5">{children}</div>
+      <div className={cn('h-[3px] w-full shrink-0', acc.strip)} />
+      <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-2.5 relative">
+        <ExecBadge state={execState} error={execError} />
+        {header}
+        <div className="flex flex-col gap-1.5">{children}</div>
+      </div>
     </div>
   );
 }
 
-function NodeHeader({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+function NodeHeader({ icon: Icon, label, accent = 'primary' }: { icon: React.ElementType; label: string; accent?: AccentKey }) {
+  const acc = ACCENTS[accent];
   return (
-    <div className="flex items-center gap-1.5">
-      <Icon className="w-3 h-3 text-muted-foreground/50" />
-      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{label}</span>
+    <div className="flex items-center gap-2">
+      <div className={cn('w-6 h-6 rounded-md flex items-center justify-center shrink-0', acc.icon)}>
+        <Icon className="w-3.5 h-3.5" />
+      </div>
+      <span className="text-[11px] font-semibold text-foreground/65 tracking-tight leading-none">{label}</span>
     </div>
   );
 }
 
-const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-muted !border !border-border !rounded-full';
+const HANDLE_CLS = '!w-3 !h-3 !bg-card !border-2 !border-border !rounded-full !transition-colors hover:!border-primary/60';
 
 // ─── Node Components ────────────────────────────────────────────────────────────
 
 function TriggerNode({ data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   return (
-    <NodeShell selected={selected} primaryAccent header={<NodeHeader icon={Zap} label="Gatilho" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="primary" header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" />} execState={d._execState} execError={d._execError}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <Chip active>{d.label}</Chip>
       <Chip>{d.condicao}</Chip>
@@ -511,7 +540,7 @@ function MessageNode({ data, selected }: NodeProps) {
     : 'DOC';
 
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={MessageSquare} label="Mensagem" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="emerald" header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
@@ -626,7 +655,7 @@ function MessageNode({ data, selected }: NodeProps) {
 function WaitNode({ data, selected }: NodeProps) {
   const d = data as WaitNodeData;
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={Clock} label="Aguardar" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="amber" header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <Chip active={selected}>Aguardar {d.dia_offset} dia{d.dia_offset !== 1 ? 's' : ''}</Chip>
@@ -637,7 +666,7 @@ function WaitNode({ data, selected }: NodeProps) {
 function ConditionNode({ data, selected }: NodeProps) {
   const d = data as ConditionNodeData;
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={GitBranch} label="Condição" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="violet" header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
       <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/60 !border !border-destructive/40 !rounded-full" />
@@ -653,7 +682,7 @@ function ConditionNode({ data, selected }: NodeProps) {
 function EndNode({ data, selected }: NodeProps) {
   const d = data as EndNodeData;
   return (
-    <NodeShell selected={selected} redAccent header={<NodeHeader icon={XCircle} label="Fim" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="destructive" header={<NodeHeader icon={XCircle} label="Fim" accent="destructive" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Chip>Encerrar sequência</Chip>
     </NodeShell>
@@ -664,7 +693,7 @@ function WebhookNode({ data, selected }: NodeProps) {
   const d = data as WebhookNodeData;
   const domain = d.url ? getDomain(d.url) : 'URL não configurada';
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={Globe} label="Webhook" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="blue" header={<NodeHeader icon={Globe} label="Webhook" accent="blue" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <div className="flex items-center gap-1.5 flex-wrap">
@@ -681,7 +710,7 @@ function WebhookNode({ data, selected }: NodeProps) {
 function LeadScoreNode({ data, selected }: NodeProps) {
   const d = data as LeadScoreNodeData;
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={Star} label="Lead Score" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="amber" header={<NodeHeader icon={Star} label="Lead Score" accent="amber" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-amber-500/60 !border !border-amber-500/40 !rounded-full" />
       <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-muted !border !border-border !rounded-full" />
@@ -697,7 +726,7 @@ function LeadScoreNode({ data, selected }: NodeProps) {
 function ABTestNode({ data, selected }: NodeProps) {
   const d = data as ABTestNodeData;
   return (
-    <NodeShell selected={selected} header={<NodeHeader icon={GitMerge} label="Teste A/B" />} execState={d._execState} execError={d._execError}>
+    <NodeShell selected={selected} accent="cyan" header={<NodeHeader icon={GitMerge} label="Teste A/B" accent="cyan" />} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-violet-500/60 !border !border-violet-500/40 !rounded-full" />
       <Handle id="source-bottom" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-cyan-500/60 !border !border-cyan-500/40 !rounded-full" />
@@ -1131,7 +1160,7 @@ interface PaletteItem {
 }
 
 const PALETTE_ITEMS: PaletteItem[] = [
-  { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-primary/10', iconClass: 'text-primary' },
+  { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
   { label: 'Condição', desc: 'Ramificar por resposta', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
