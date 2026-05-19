@@ -473,8 +473,12 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     const location_url = (_lat != null && _lng != null && (_lat !== 0 || _lng !== 0))
       ? `https://www.google.com/maps/@${_lat},${_lng},17z`
       : undefined;
-    // Menu fields
-    const menu_choices = Array.isArray(step.media_config?.choices) ? (step.media_config!.choices as string[]).join('\n') : undefined;
+    // Menu fields — prefer raw ButtonDef array for roundtrip fidelity, fall back to labels
+    const menu_choices = Array.isArray((step.media_config as any)?.buttons)
+      ? serializeButtons((step.media_config as any).buttons as ButtonDef[])
+      : Array.isArray(step.media_config?.choices)
+        ? (step.media_config!.choices as string[]).join('\n')
+        : undefined;
     // Carousel
     const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
 
@@ -516,9 +520,18 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
           latitude: coords?.lat ?? 0,
           longitude: coords?.lng ?? 0,
         };
-      } else if (d.tipo_mensagem === 'lista' || d.tipo_mensagem === 'botoes') {
-        const choices = String(d.menu_choices ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
-        media_config = { menuType: d.tipo_mensagem === 'lista' ? 'list' : 'button', choices, text: d.mensagem || undefined };
+      } else if (d.tipo_mensagem === 'botoes') {
+        const buttons = parseButtons(d.menu_choices ?? '');
+        media_config = {
+          menuType: 'button',
+          choices: buttons.map(b => b.label),   // only labels sent to uazapi
+          buttons,                               // full metadata for roundtrip
+          text: d.mensagem || undefined,
+        };
+      } else if (d.tipo_mensagem === 'lista') {
+        const sections = parseLista(d.menu_choices ?? '');
+        const choices = sections.flatMap(s => s.items.map(i => i.label)).filter(Boolean);
+        media_config = { menuType: 'list', choices, sections, text: d.mensagem || undefined };
       } else if (d.tipo_mensagem === 'carrossel') {
         let carousel: unknown[] = [];
         try { carousel = JSON.parse(String(d.carousel_json ?? '[]')); } catch { /* invalid json */ }

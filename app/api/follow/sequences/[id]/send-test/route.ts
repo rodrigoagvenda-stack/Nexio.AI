@@ -117,10 +117,8 @@ export async function POST(
     const tipo: StepTipoMensagem = (TIPO_MAP[rawTipo] ?? rawTipo) as StepTipoMensagem
 
     const media: StepMediaConfig | undefined = step.media_config ?? undefined
-    // For media types, caption is in media_config.text; for text, use mensagem directly
-    const mensagem: string = step.mensagem
-      || media?.text
-      || `[Teste] Passo D${step.dia_offset} — ${sequence.nome}`
+    const menuFallback = tipo === 'menu' ? 'Selecione uma opção:' : null
+    const mensagem: string = step.mensagem || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
 
     await sendRichStep(uazapi, normalizedPhone, tipo, mensagem, media)
 
