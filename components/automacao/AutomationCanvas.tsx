@@ -207,11 +207,23 @@ interface ABTestNodeData extends Record<string, unknown> {
   _execError?: string;
 }
 
+interface SwitchCase { value: string; label: string }
+interface SwitchNodeData extends Record<string, unknown> {
+  kind: 'switch';
+  label: string;
+  variavel: string;
+  cases: SwitchCase[];
+  stepId: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
 type AutoNodeData =
   | TriggerNodeData
   | MessageNodeData
   | WaitNodeData
   | ConditionNodeData
+  | SwitchNodeData
   | EndNodeData
   | WebhookNodeData
   | LeadScoreNodeData
@@ -483,10 +495,22 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
 
     if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
+    else if (step.tipo_mensagem === 'switch') {
+      const mc = step.media_config as any ?? {};
+      nodes.push({ id: step.id, type: 'switchNode', position: { x, y: 150 },
+        data: { kind: 'switch', label: 'Switch', variavel: mc.variavel ?? 'resposta_botao', cases: mc.cases ?? [], stepId: step.id } satisfies SwitchNodeData });
+    }
     else if (isCondition) {
-      let cond = { condicao: step.condicao || 'Respondeu?', variavel: 'resposta_botao' as string, operador: 'eq' as ConditionNodeData['operador'], valor: '' };
-      try { const p = JSON.parse(step.condicao); if (p?.variavel) cond = p; } catch {}
-      nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', ...cond, stepId: step.id } satisfies ConditionNodeData });
+      // Read variavel/operador/valor from media_config (new format); fallback: try old JSON in condicao
+      const mc = step.media_config as any ?? {};
+      let variavel = mc.variavel ?? 'resposta_botao';
+      let operador: ConditionNodeData['operador'] = mc.operador ?? 'eq';
+      let valor = mc.valor ?? '';
+      if (!mc.variavel) {
+        try { const p = JSON.parse(step.condicao); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
+      }
+      nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 },
+        data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', variavel, operador, valor, stepId: step.id } satisfies ConditionNodeData });
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
     else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
@@ -544,8 +568,15 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
     if (d.kind === 'condition') {
-      const condJson = JSON.stringify({ condicao: d.condicao || 'Respondeu?', variavel: d.variavel ?? 'resposta_botao', operador: d.operador ?? 'eq', valor: d.valor ?? '' });
-      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: condJson };
+      // condicao = human-readable label (passes DB constraint); variavel/operador/valor in media_config (JSONB)
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1,
+        condicao: d.condicao || 'Respondeu?',
+        media_config: { variavel: d.variavel ?? 'resposta_botao', operador: d.operador ?? 'eq', valor: d.valor ?? '' } };
+    }
+    if (d.kind === 'switch') {
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'switch', ordem: idx + 1,
+        condicao: 'switch',
+        media_config: { variavel: d.variavel ?? 'resposta_botao', cases: d.cases ?? [] } };
     }
     if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: d.url };
     if (d.kind === 'lead_score') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'lead_score', ordem: idx + 1, condicao: `${d.scoreMin}-${d.scoreMax}` };
@@ -977,11 +1008,51 @@ function ABTestNode({ data, selected }: NodeProps) {
   );
 }
 
+// Each case row is ~26px tall; header ~40px + 8px padding top = 48px offset
+const SWITCH_ROW_H = 26;
+const SWITCH_HEADER_OFFSET = 50;
+
+function SwitchNode({ data, selected }: NodeProps) {
+  const d = data as SwitchNodeData;
+  const cases = d.cases ?? [];
+  const COLORS = ['!bg-emerald-500/60 !border-emerald-500/40', '!bg-sky-500/60 !border-sky-500/40', '!bg-violet-500/60 !border-violet-500/40', '!bg-amber-500/60 !border-amber-500/40', '!bg-rose-500/60 !border-rose-500/40'];
+  return (
+    <NodeShell selected={selected} accent="sky"
+      header={<NodeHeader icon={GitMerge} label="Switch" accent="sky" meta={`${cases.length} saídas`} />}
+      execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <p className="text-[10px] text-muted-foreground/60 font-mono mb-1">{d.variavel || 'resposta_botao'}</p>
+      <div className="flex flex-col gap-0.5">
+        {cases.map((c, i) => (
+          <div key={i} className="relative flex items-center gap-2">
+            <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', i === 0 ? 'bg-emerald-500' : i === 1 ? 'bg-sky-500' : i === 2 ? 'bg-violet-500' : i === 3 ? 'bg-amber-500' : 'bg-rose-500')} />
+            <span className="text-xs text-foreground/80 truncate max-w-[140px]">{c.label || c.value}</span>
+            <Handle
+              id={`case-${i}`}
+              type="source"
+              position={Position.Right}
+              style={{ top: `${SWITCH_HEADER_OFFSET + i * SWITCH_ROW_H + SWITCH_ROW_H / 2}px` }}
+              className={cn('!w-2.5 !h-2.5 !rounded-full !border !absolute', COLORS[i % COLORS.length])}
+            />
+          </div>
+        ))}
+        <div className="relative flex items-center gap-2 mt-0.5 opacity-50">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-muted-foreground/60" />
+          <span className="text-[10px] text-muted-foreground italic">else</span>
+          <Handle id="else" type="source" position={Position.Bottom}
+            className="!w-2.5 !h-2.5 !rounded-full !border !bg-muted-foreground/40 !border-border" />
+        </div>
+      </div>
+    </NodeShell>
+  );
+}
+
 const nodeTypes = {
   triggerNode: TriggerNode,
   messageNode: MessageNode,
   waitNode: WaitNode,
   conditionNode: ConditionNode,
+  switchNode: SwitchNode,
   endNode: EndNode,
   webhookNode: WebhookNode,
   leadScoreNode: LeadScoreNode,
@@ -1682,6 +1753,70 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           );
         })()}
 
+        {/* ── Switch node ── */}
+        {d.kind === 'switch' && (() => {
+          const sd = d as SwitchNodeData;
+          const upstreamIds = allEdges.filter((e) => e.target === node.id).map((e) => e.source);
+          const upstreamChoices: string[] = [];
+          upstreamIds.forEach((uid) => {
+            const un = allNodes.find((n) => n.id === uid);
+            if (!un) return;
+            const ud = un.data as MessageNodeData;
+            if (ud.kind !== 'message') return;
+            if (ud.menu_choices) ud.menu_choices.split('\n').map(s => s.trim()).filter(Boolean).forEach(c => upstreamChoices.push(c));
+          });
+          const CASE_COLORS = ['text-emerald-500', 'text-sky-500', 'text-violet-500', 'text-amber-500', 'text-rose-500'];
+          return (
+            <>
+              <Field label="Variável">
+                <select value={sd.variavel ?? 'resposta_botao'}
+                  onChange={(e) => onUpdate(node.id, { variavel: e.target.value })}
+                  className="field-input">
+                  <option value="resposta_botao">ID do botão clicado</option>
+                  <option value="ultima_resposta">Última resposta do lead</option>
+                </select>
+              </Field>
+              <Field label="Casos">
+                <div className="space-y-2">
+                  {sd.cases.map((c, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className={cn('text-xs font-bold w-4 text-center shrink-0', CASE_COLORS[i % CASE_COLORS.length])}>{i + 1}</span>
+                      {upstreamChoices.length > 0 ? (
+                        <select value={c.value}
+                          onChange={(e) => { const next = [...sd.cases]; next[i] = { ...next[i], value: e.target.value, label: e.target.value || next[i].label }; onUpdate(node.id, { cases: next }); }}
+                          className="field-input flex-1 text-xs py-1.5">
+                          <option value="">Selecionar…</option>
+                          {upstreamChoices.map(uc => <option key={uc} value={uc}>{uc}</option>)}
+                        </select>
+                      ) : (
+                        <input type="text" value={c.value} placeholder="valor (ex: agendar)"
+                          onChange={(e) => { const next = [...sd.cases]; next[i] = { ...next[i], value: e.target.value }; onUpdate(node.id, { cases: next }); }}
+                          className="field-input flex-1 text-xs py-1.5" />
+                      )}
+                      <input type="text" value={c.label} placeholder="rótulo"
+                        onChange={(e) => { const next = [...sd.cases]; next[i] = { ...next[i], label: e.target.value }; onUpdate(node.id, { cases: next }); }}
+                        className="field-input w-24 text-xs py-1.5" />
+                      <button onClick={() => { const next = sd.cases.filter((_, j) => j !== i); onUpdate(node.id, { cases: next }); }}
+                        className="text-muted-foreground/50 hover:text-destructive transition-colors shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {sd.cases.length < 5 && (
+                    <button onClick={() => onUpdate(node.id, { cases: [...sd.cases, { value: '', label: `Caso ${sd.cases.length + 1}` }] })}
+                      className="flex items-center gap-1.5 text-xs text-primary/70 hover:text-primary transition-colors">
+                      <Plus className="w-3.5 h-3.5" />Adicionar caso
+                    </button>
+                  )}
+                </div>
+              </Field>
+              <p className="text-xs text-muted-foreground/60 leading-relaxed">
+                Cada caso vira uma saída. A saída <span className="text-muted-foreground font-medium">else</span> pega qualquer valor não listado.
+              </p>
+            </>
+          );
+        })()}
+
         {/* ── Trigger node ── */}
         {d.kind === 'trigger' && (
           <>
@@ -1771,7 +1906,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'condition' | 'end' | 'webhook' | 'lead_score' | 'ab_test';
+type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'webhook' | 'lead_score' | 'ab_test';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -1781,7 +1916,8 @@ interface PaletteItem {
 const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Condição', desc: 'Ramificar por resposta', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Condição', desc: 'Se/senão por variável', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Switch', desc: 'N saídas por valor (botões)', kind: 'switch', icon: GitMerge, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
   { label: 'Webhook', desc: 'Chamar URL externa', kind: 'webhook', icon: Globe, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Lead Score', desc: 'Filtrar por pontuação do lead', kind: 'lead_score', icon: Star, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
@@ -2274,14 +2410,15 @@ function CanvasInner() {
     let data: AutoNodeData;
     if (kind === 'message') data = { kind: 'message', label: 'Mensagem', dia_offset: 1, horario: '09:00', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies MessageNodeData;
     else if (kind === 'wait') data = { kind: 'wait', label: 'Aguardar', dia_offset: 1, stepId: id } satisfies WaitNodeData;
-    else if (kind === 'condition') data = { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', stepId: id } satisfies ConditionNodeData;
+    else if (kind === 'condition') data = { kind: 'condition', label: 'Condição', condicao: 'Respondeu?', variavel: 'resposta_botao', operador: 'eq', valor: '', stepId: id } satisfies ConditionNodeData;
+    else if (kind === 'switch') data = { kind: 'switch', label: 'Switch', variavel: 'resposta_botao', cases: [{ value: '', label: 'Caso 1' }], stepId: id } satisfies SwitchNodeData;
     else if (kind === 'webhook') data = { kind: 'webhook', label: 'Webhook', url: '', method: 'POST', stepId: id } satisfies WebhookNodeData;
     else if (kind === 'lead_score') data = { kind: 'lead_score', label: 'Lead Score', scoreMin: 60, scoreMax: 100, stepId: id } satisfies LeadScoreNodeData;
     else if (kind === 'ab_test') data = { kind: 'ab_test', label: 'Teste A/B', variantA: 'Variante A', variantB: 'Variante B', stepId: id } satisfies ABTestNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
-      message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', end: 'endNode',
+      message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
       webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode',
     };
 
@@ -2466,6 +2603,17 @@ function CanvasInner() {
           setConditionChoiceState(null);
           setNodeExecState(node.id, choice === 'sim' ? 'success' : 'skipped');
           chosenHandle = choice; // 'sim' or 'nao'
+        } else if (d.kind === 'switch') {
+          setNodeExecState(node.id, 'running');
+          const sd = d as SwitchNodeData;
+          // Show choice modal with all cases + else
+          const switchDisplay = `${sd.variavel}: ${sd.cases.map((c, i) => `${i + 1}) ${c.label || c.value}`).join(' · ')} · else`;
+          const raw = await waitForConditionChoice(node.id, switchDisplay);
+          setConditionChoiceState(null);
+          // raw is 'sim'/'nao' from the modal — map to case-N or else
+          // For test: just follow first case on 'sim', else on 'nao'
+          chosenHandle = raw === 'sim' ? 'case-0' : 'else';
+          setNodeExecState(node.id, 'success');
         } else if (d.kind === 'webhook') {
           if (!dryRun) {
             await fetch(d.url, { method: d.method });
