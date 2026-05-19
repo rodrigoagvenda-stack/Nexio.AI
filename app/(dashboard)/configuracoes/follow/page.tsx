@@ -16,7 +16,7 @@ const AutomationCanvas = dynamic(
 
 export default function FollowPage() {
   return (
-    <div className="-mx-3 md:-mx-6 -mt-3 md:-mt-6 -mb-[120px] lg:-mb-6 overflow-hidden" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="-mx-3 md:-mx-6 -mt-3 md:-mt-6 -mb-[120px] lg:-mb-6 overflow-hidden" style={{ height: 'calc(100vh - 80px)' }}>
       <AutomationCanvas />
     </div>
   );

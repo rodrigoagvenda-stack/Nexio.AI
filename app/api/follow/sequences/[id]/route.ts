@@ -45,8 +45,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
     }
 
-    const { data: updated } = await service.from('follow_sequences').select('*, follow_steps(*)').eq('id', params.id).single()
-    return NextResponse.json({ sequence: updated })
+    // Fetch separately to avoid depending on FK embedding (follow_steps(*))
+    const [{ data: seqData }, { data: stepsData }] = await Promise.all([
+      service.from('follow_sequences').select('*').eq('id', params.id).single(),
+      service.from('follow_steps').select('*').eq('sequence_id', params.id).order('ordem'),
+    ])
+    return NextResponse.json({ sequence: { ...seqData, follow_steps: stepsData ?? [] } })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
