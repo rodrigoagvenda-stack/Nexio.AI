@@ -8,6 +8,7 @@ import {
   Controls,
   MiniMap,
   addEdge,
+  reconnectEdge,
   useNodesState,
   useEdgesState,
   Handle,
@@ -64,8 +65,11 @@ import {
   LayoutList,
   GalleryHorizontal,
   Smile,
-  User,
-  Heart,
+  ChevronDown,
+  Trash2,
+  Link,
+  Phone,
+  MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -87,13 +91,15 @@ interface FollowStep {
 // Canvas (PT) ↔ uazapi (EN) tipo mapping
 const CANVAS_TO_UAZAPI: Record<string, string> = {
   texto: 'text', imagem: 'image', video: 'video',
-  audio: 'audio', ptt: 'ptt', documento: 'document',
+  audio: 'ptt',  // canvas "áudio" always sends as PTT (voice message)
+  documento: 'document',
   localizacao: 'location', lista: 'menu', botoes: 'menu',
-  carrossel: 'carousel', sticker: 'sticker', contato: 'contact', reacao: 'reaction',
+  carrossel: 'carousel', sticker: 'sticker',
 };
 const UAZAPI_TO_CANVAS: Record<string, string> = {
   text: 'texto', image: 'imagem', video: 'video',
-  audio: 'audio', ptt: 'ptt', document: 'documento',
+  audio: 'audio', ptt: 'audio',  // both map to single canvas "audio" type
+  document: 'documento',
   location: 'localizacao', menu: 'lista', carousel: 'carrossel', sticker: 'sticker',
 };
 
@@ -130,14 +136,13 @@ interface MessageNodeData extends Record<string, unknown> {
   media_url?: string;
   media_name?: string;
   uploading?: boolean;
-  // Localização
+  // Localização (Google Maps URL + labels)
+  location_url?: string;
   location_name?: string;
   location_address?: string;
-  location_lat?: string;
-  location_lng?: string;
-  // Lista / Botões
+  // Lista / Botões (newline-separated serialized)
   menu_choices?: string;
-  // Carrossel
+  // Carrossel (JSON string)
   carousel_json?: string;
   _execState?: ExecState;
   _execError?: string;
@@ -208,6 +213,100 @@ type AutoNodeData =
   | WebhookNodeData
   | LeadScoreNodeData
   | ABTestNodeData;
+
+// ─── Google Maps URL parser ──────────────────────────────────────────────────────
+
+function parseGoogleMapsUrl(url: string): { lat: number; lng: number } | null {
+  if (!url) return null;
+  const atMatch = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+  const qMatch = url.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+  const llMatch = url.match(/[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (llMatch) return { lat: parseFloat(llMatch[1]), lng: parseFloat(llMatch[2]) };
+  return null;
+}
+
+// ─── Button / Lista serialization ────────────────────────────────────────────────
+
+type ButtonType = 'reply' | 'url' | 'call';
+interface ButtonDef { label: string; type: ButtonType; value: string }
+
+function parseButtons(raw: string): ButtonDef[] {
+  return (raw || '').split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+    const idx = line.indexOf('|');
+    if (idx === -1) return { label: line, type: 'reply' as ButtonType, value: '' };
+    const label = line.slice(0, idx);
+    const val = line.slice(idx + 1);
+    if (val.startsWith('https://') || val.startsWith('http://')) return { label, type: 'url' as ButtonType, value: val };
+    if (val.startsWith('call:')) return { label, type: 'call' as ButtonType, value: val.slice(5) };
+    return { label, type: 'reply' as ButtonType, value: val };
+  });
+}
+
+function serializeButtons(buttons: ButtonDef[]): string {
+  return buttons.map(b => {
+    if (b.type === 'url') return `${b.label}|${b.value}`;
+    if (b.type === 'call') return `${b.label}|call:${b.value}`;
+    return `${b.label}|${b.value || b.label.toLowerCase().replace(/\s+/g, '_')}`;
+  }).join('\n');
+}
+
+interface ListItem { label: string; id: string; desc: string }
+interface ListSection { title: string; items: ListItem[] }
+
+function parseLista(raw: string): ListSection[] {
+  const lines = (raw || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const sections: ListSection[] = [];
+  let current: ListSection | null = null;
+  for (const line of lines) {
+    if (line.startsWith('[') && line.endsWith(']')) {
+      current = { title: line.slice(1, -1), items: [] };
+      sections.push(current);
+    } else {
+      const parts = line.split('|');
+      if (!current) { current = { title: '', items: [] }; sections.push(current); }
+      current.items.push({ label: parts[0] ?? '', id: parts[1] ?? '', desc: parts[2] ?? '' });
+    }
+  }
+  return sections;
+}
+
+function serializeLista(sections: ListSection[]): string {
+  return sections.flatMap(s => [
+    s.title ? `[${s.title}]` : null,
+    ...s.items.map(i => [i.label, i.id, i.desc].join('|').replace(/\|+$/, '')),
+  ]).filter((l): l is string => l !== null).join('\n');
+}
+
+interface CarouselCard { text: string; image: string; buttons: ButtonDef[] }
+
+function parseCarousel(raw: string): CarouselCard[] {
+  try {
+    const arr = JSON.parse(raw || '[]');
+    if (!Array.isArray(arr)) return [];
+    return arr.map((c: any) => ({
+      text: c.text ?? '',
+      image: c.image ?? '',
+      buttons: Array.isArray(c.buttons) ? c.buttons.map((b: any) => {
+        if (typeof b === 'string') return parseButtons(b)[0] ?? { label: b, type: 'reply' as ButtonType, value: '' };
+        return { label: b.label ?? '', type: (b.type ?? 'reply') as ButtonType, value: b.value ?? '' };
+      }) : [],
+    }));
+  } catch { return []; }
+}
+
+function serializeCarousel(cards: CarouselCard[]): string {
+  return JSON.stringify(cards.map(c => ({
+    text: c.text,
+    image: c.image,
+    buttons: c.buttons.map(b => {
+      if (b.type === 'url') return b.label + '|' + b.value;
+      if (b.type === 'call') return b.label + '|call:' + b.value;
+      return b.label + '|' + (b.value || b.label.toLowerCase().replace(/\s+/g, '_'));
+    }),
+  })), null, 2);
+}
 
 // ─── Versioning ─────────────────────────────────────────────────────────────────
 
@@ -322,7 +421,7 @@ function buildTemplates(): CanvasTemplate[] {
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 const EDGE_BASE = {
-  type: 'smoothstep',
+  type: 'bezier',
   markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: 'hsl(var(--border))' },
   style: { stroke: 'hsl(var(--border))', strokeWidth: 1.5 },
 } as const;
@@ -363,11 +462,14 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     const media_url = step.media_config?.file ?? undefined;
     const media_name = step.media_config?.docName ?? undefined;
     const mensagemDisplay = step.mensagem ?? step.media_config?.text ?? null;
-    // Location fields
+    // Location fields — reconstruct Google Maps URL from stored coordinates
     const location_name = step.media_config?.name as string | undefined;
     const location_address = step.media_config?.address as string | undefined;
-    const location_lat = step.media_config?.latitude != null ? String(step.media_config.latitude) : undefined;
-    const location_lng = step.media_config?.longitude != null ? String(step.media_config.longitude) : undefined;
+    const _lat = step.media_config?.latitude as number | undefined;
+    const _lng = step.media_config?.longitude as number | undefined;
+    const location_url = (_lat != null && _lng != null && (_lat !== 0 || _lng !== 0))
+      ? `https://www.google.com/maps/@${_lat},${_lng},17z`
+      : undefined;
     // Menu fields
     const menu_choices = Array.isArray(step.media_config?.choices) ? (step.media_config!.choices as string[]).join('\n') : undefined;
     // Carousel
@@ -376,7 +478,7 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
     else if (isCondition) nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', stepId: step.id } satisfies ConditionNodeData });
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_name, location_address, location_lat, location_lng, menu_choices, carousel_json } satisfies MessageNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
   });
   return nodes;
 }
@@ -400,11 +502,12 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       let media_config: FollowStep['media_config'] = null;
 
       if (d.tipo_mensagem === 'localizacao') {
+        const coords = parseGoogleMapsUrl(String(d.location_url ?? ''));
         media_config = {
           name: d.location_name ?? '',
           address: d.location_address ?? '',
-          latitude: parseFloat(String(d.location_lat ?? '0')) || 0,
-          longitude: parseFloat(String(d.location_lng ?? '0')) || 0,
+          latitude: coords?.lat ?? 0,
+          longitude: coords?.lng ?? 0,
         };
       } else if (d.tipo_mensagem === 'lista' || d.tipo_mensagem === 'botoes') {
         const choices = String(d.menu_choices ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -644,7 +747,7 @@ function MessageNode({ data, selected }: NodeProps) {
                 <div key={i} className="rounded-full bg-rose-500/40 flex-1" style={{ height: `${Math.round(h * 14 / 14)}px` }} />
               ))}
             </div>
-            <span className="text-[10px] text-muted-foreground/50 font-mono">PTT</span>
+            <span className="text-[10px] text-muted-foreground/50 font-mono">Voz</span>
           </div>
         ) : (
           <div className="flex items-center gap-2 py-1">
@@ -682,9 +785,11 @@ function MessageNode({ data, selected }: NodeProps) {
           </div>
           <div className="min-w-0 flex-1">
             {d.location_name
-              ? <p className="text-xs text-foreground/80 truncate font-medium">{d.location_name}</p>
-              : <p className="text-xs text-muted-foreground/50 italic">Local não configurado</p>}
-            {d.location_address && <p className="text-[10px] text-muted-foreground/50 truncate">{d.location_address}</p>}
+              ? <p className="text-xs text-foreground/80 truncate font-medium">{d.location_name as string}</p>
+              : <p className="text-xs text-muted-foreground/50 italic">
+                  {d.location_url ? 'Local configurado' : 'Local não configurado'}
+                </p>}
+            {d.location_address && <p className="text-[10px] text-muted-foreground/50 truncate">{d.location_address as string}</p>}
           </div>
         </div>
       )}
@@ -746,16 +851,6 @@ function MessageNode({ data, selected }: NodeProps) {
         )
       )}
 
-      {!d.uploading && (d.tipo_mensagem === 'contato' || d.tipo_mensagem === 'reacao') && (
-        <div className="flex items-center gap-2 py-1">
-          {d.tipo_mensagem === 'contato'
-            ? <User className="w-3.5 h-3.5 text-muted-foreground/40" />
-            : <Heart className="w-3.5 h-3.5 text-rose-500/40" />}
-          <span className="text-xs text-muted-foreground/50 italic">
-            {d.tipo_mensagem === 'contato' ? 'Não suportado pelo uazapi' : 'Reação não aplicável em sequências'}
-          </span>
-        </div>
-      )}
     </NodeShell>
   );
 }
@@ -997,20 +1092,275 @@ function AudioRecorder({ current, onUploadStart, onUpload }: {
 // ─── Config Panel ───────────────────────────────────────────────────────────────
 
 const TIPO_OPTIONS = [
-  { value: 'texto',      label: 'Texto',      icon: MessageSquare },
-  { value: 'imagem',     label: 'Imagem',     icon: ImageIcon },
-  { value: 'video',      label: 'Vídeo',      icon: Video },
-  { value: 'audio',      label: 'Áudio',      icon: Mic },
-  { value: 'ptt',        label: 'PTT',        icon: Mic },
-  { value: 'documento',  label: 'Doc',        icon: FileText },
-  { value: 'localizacao', label: 'Local',     icon: MapPin },
-  { value: 'lista',      label: 'Lista',      icon: List },
-  { value: 'botoes',     label: 'Botões',     icon: LayoutList },
-  { value: 'carrossel',  label: 'Carrossel',  icon: GalleryHorizontal },
-  { value: 'sticker',    label: 'Sticker',    icon: Smile },
-  { value: 'contato',    label: 'Contato',    icon: User },
-  { value: 'reacao',     label: 'Reação',     icon: Heart },
+  { value: 'texto',       label: 'Texto',        desc: 'Mensagem de texto',          icon: MessageSquare },
+  { value: 'imagem',      label: 'Imagem',       desc: 'Foto com legenda',           icon: ImageIcon },
+  { value: 'video',       label: 'Vídeo',        desc: 'Vídeo com legenda',          icon: Video },
+  { value: 'audio',       label: 'Áudio',        desc: 'Mensagem de voz (PTT)',      icon: Mic },
+  { value: 'documento',   label: 'Documento',    desc: 'PDF, Word, planilha…',       icon: FileText },
+  { value: 'localizacao', label: 'Localização',  desc: 'Ponto no mapa',             icon: MapPin },
+  { value: 'lista',       label: 'Lista',        desc: 'Menu com seções e itens',    icon: List },
+  { value: 'botoes',      label: 'Botões',       desc: 'Botões de resposta rápida',  icon: LayoutList },
+  { value: 'carrossel',   label: 'Carrossel',    desc: 'Cards com imagem e botões',  icon: GalleryHorizontal },
+  { value: 'sticker',     label: 'Sticker',      desc: 'Figurinha para WhatsApp',    icon: Smile },
 ] as const;
+
+// ─── Tipo selector dropdown ─────────────────────────────────────────────────────
+
+function TipoSelector({ value, onChange, onClear }: { value: string; onChange: (v: string) => void; onClear: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = TIPO_OPTIONS.find(o => o.value === value);
+  const Icon = current?.icon ?? MessageSquare;
+
+  useEffect(() => {
+    function close(e: MouseEvent) {
+      if (ref.current && e.target instanceof Element && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="field-input flex items-center gap-2 text-left cursor-pointer"
+      >
+        <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <span className="flex-1 text-foreground text-sm">{current?.label ?? value}</span>
+        <ChevronDown className={cn('w-3.5 h-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+          {TIPO_OPTIONS.map(opt => {
+            const Ic = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); onClear(); setOpen(false); }}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted',
+                  opt.value === value && 'bg-primary/10'
+                )}
+              >
+                <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
+                  opt.value === value ? 'bg-primary/20' : 'bg-muted/60')}>
+                  <Ic className={cn('w-3.5 h-3.5', opt.value === value ? 'text-primary' : 'text-muted-foreground')} />
+                </div>
+                <div className="min-w-0">
+                  <p className={cn('text-sm font-medium leading-tight', opt.value === value ? 'text-primary' : 'text-foreground')}>{opt.label}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Botões builder ─────────────────────────────────────────────────────────────
+
+function BotoesBuilder({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [buttons, setButtons] = useState<ButtonDef[]>(() => parseButtons(value));
+
+  useEffect(() => { onChange(serializeButtons(buttons)); }, [buttons]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function add() { setButtons(b => [...b, { label: '', type: 'reply', value: '' }]); }
+  function remove(i: number) { setButtons(b => b.filter((_, idx) => idx !== i)); }
+  function update(i: number, patch: Partial<ButtonDef>) {
+    setButtons(b => b.map((btn, idx) => idx === i ? { ...btn, ...patch } : btn));
+  }
+
+  const TYPE_LABELS: Record<ButtonType, string> = { reply: 'Resposta', url: 'Link', call: 'Ligação' };
+  const TYPE_ICONS: Record<ButtonType, React.ElementType> = { reply: MessageCircle, url: Link, call: Phone };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {buttons.length === 0 && (
+        <p className="text-xs text-muted-foreground/60 italic text-center py-2">Nenhum botão. Clique em + para adicionar.</p>
+      )}
+      {buttons.map((btn, i) => {
+        const TypeIcon = TYPE_ICONS[btn.type];
+        return (
+          <div key={i} className="bg-muted/40 border border-border rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={btn.label}
+                onChange={e => update(i, { label: e.target.value })}
+                placeholder="Rótulo do botão"
+                className="field-input flex-1 text-sm"
+              />
+              <button type="button" onClick={() => remove(i)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex gap-1.5">
+              {(['reply', 'url', 'call'] as ButtonType[]).map(t => {
+                const TIc = TYPE_ICONS[t];
+                return (
+                  <button key={t} type="button"
+                    onClick={() => update(i, { type: t, value: '' })}
+                    className={cn('flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium border transition-colors',
+                      btn.type === t ? 'bg-primary/10 border-primary/30 text-primary' : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted')}>
+                    <TIc className="w-3 h-3" /> {TYPE_LABELS[t]}
+                  </button>
+                );
+              })}
+            </div>
+            {btn.type !== 'reply' && (
+              <input
+                type="text"
+                value={btn.value}
+                onChange={e => update(i, { value: e.target.value })}
+                placeholder={btn.type === 'url' ? 'https://exemplo.com' : '+5511999999999'}
+                className="field-input text-sm font-mono"
+              />
+            )}
+            {btn.type === 'reply' && (
+              <input
+                type="text"
+                value={btn.value}
+                onChange={e => update(i, { value: e.target.value })}
+                placeholder="ID da resposta (ex: agendar)"
+                className="field-input text-sm font-mono"
+              />
+            )}
+          </div>
+        );
+      })}
+      {buttons.length < 3 && (
+        <button type="button" onClick={add}
+          className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
+          <Plus className="w-3.5 h-3.5" /> Adicionar botão
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Lista builder ──────────────────────────────────────────────────────────────
+
+function ListaBuilder({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [sections, setSections] = useState<ListSection[]>(() => {
+    const parsed = parseLista(value);
+    return parsed.length > 0 ? parsed : [{ title: '', items: [{ label: '', id: '', desc: '' }] }];
+  });
+
+  useEffect(() => { onChange(serializeLista(sections)); }, [sections]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function addSection() { setSections(s => [...s, { title: '', items: [] }]); }
+  function removeSection(si: number) { setSections(s => s.filter((_, i) => i !== si)); }
+  function updateSection(si: number, title: string) { setSections(s => s.map((sec, i) => i === si ? { ...sec, title } : sec)); }
+  function addItem(si: number) { setSections(s => s.map((sec, i) => i === si ? { ...sec, items: [...sec.items, { label: '', id: '', desc: '' }] } : sec)); }
+  function removeItem(si: number, ii: number) { setSections(s => s.map((sec, i) => i === si ? { ...sec, items: sec.items.filter((_, j) => j !== ii) } : sec)); }
+  function updateItem(si: number, ii: number, patch: Partial<ListItem>) {
+    setSections(s => s.map((sec, i) => i === si ? { ...sec, items: sec.items.map((it, j) => j === ii ? { ...it, ...patch } : it) } : sec));
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {sections.map((sec, si) => (
+        <div key={si} className="border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b border-border">
+            <input type="text" value={sec.title} onChange={e => updateSection(si, e.target.value)}
+              placeholder="Nome da seção (opcional)"
+              className="flex-1 bg-transparent text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground/50" />
+            {sections.length > 1 && (
+              <button type="button" onClick={() => removeSection(si)}
+                className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="p-2 flex flex-col gap-1.5">
+            {sec.items.map((item, ii) => (
+              <div key={ii} className="flex items-start gap-1.5">
+                <div className="flex-1 flex flex-col gap-1">
+                  <input type="text" value={item.label} onChange={e => updateItem(si, ii, { label: e.target.value })}
+                    placeholder="Nome do item" className="field-input text-xs py-1.5" />
+                  <div className="flex gap-1">
+                    <input type="text" value={item.id} onChange={e => updateItem(si, ii, { id: e.target.value })}
+                      placeholder="ID" className="field-input text-xs py-1.5 flex-1 font-mono" />
+                    <input type="text" value={item.desc} onChange={e => updateItem(si, ii, { desc: e.target.value })}
+                      placeholder="Descrição" className="field-input text-xs py-1.5 flex-1" />
+                  </div>
+                </div>
+                <button type="button" onClick={() => removeItem(si, ii)}
+                  className="w-6 h-6 mt-1 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={() => addItem(si)}
+              className="flex items-center gap-1 py-1 text-[11px] text-muted-foreground hover:text-primary transition-colors">
+              <Plus className="w-3 h-3" /> Adicionar item
+            </button>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={addSection}
+        className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
+        <Plus className="w-3.5 h-3.5" /> Adicionar seção
+      </button>
+    </div>
+  );
+}
+
+// ─── Carrossel builder ──────────────────────────────────────────────────────────
+
+function CarrosselBuilder({ value, onChange, sequenceId }: { value: string; onChange: (v: string) => void; sequenceId?: string }) {
+  const [cards, setCards] = useState<CarouselCard[]>(() => {
+    const parsed = parseCarousel(value);
+    return parsed.length > 0 ? parsed : [{ text: '', image: '', buttons: [] }];
+  });
+
+  useEffect(() => { onChange(serializeCarousel(cards)); }, [cards]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function addCard() { setCards(c => [...c, { text: '', image: '', buttons: [] }]); }
+  function removeCard(i: number) { setCards(c => c.filter((_, idx) => idx !== i)); }
+  function updateCard(i: number, patch: Partial<CarouselCard>) { setCards(c => c.map((card, idx) => idx === i ? { ...card, ...patch } : card)); }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {cards.map((card, i) => (
+        <div key={i} className="border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/40 border-b border-border">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Card {i + 1}</span>
+            {cards.length > 1 && (
+              <button type="button" onClick={() => removeCard(i)}
+                className="text-muted-foreground hover:text-destructive transition-colors">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="p-3 flex flex-col gap-2.5">
+            <UploadZone accept="image/*" label="Imagem do card" current={card.image || undefined}
+              onUpload={url => updateCard(i, { image: url })} />
+            {card.image && (
+              <img src={card.image} alt="" className="w-full h-24 object-cover rounded-lg border border-border" />
+            )}
+            <textarea rows={2} value={card.text} onChange={e => updateCard(i, { text: e.target.value })}
+              placeholder="Texto do card…" className="field-input resize-none text-sm" />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1.5">Botões do card</p>
+              <BotoesBuilder value={serializeButtons(card.buttons)} onChange={v => updateCard(i, { buttons: parseButtons(v) })} />
+            </div>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={addCard}
+        className="flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
+        <Plus className="w-3.5 h-3.5" /> Adicionar card
+      </button>
+    </div>
+  );
+}
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 
@@ -1072,18 +1422,11 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
             </Field>
 
             <Field label="Tipo de mensagem">
-              <div className="grid grid-cols-4 gap-1.5">
-                {TIPO_OPTIONS.map(({ value, label, icon: Icon }) => (
-                  <button key={value}
-                    onClick={() => onUpdate(node.id, { tipo_mensagem: value, media_url: undefined, uploading: false })}
-                    className={cn('flex flex-col items-center gap-1 px-2 py-2 rounded-xl border text-xs transition-all',
-                      d.tipo_mensagem === value ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <TipoSelector
+                value={d.tipo_mensagem}
+                onChange={(v) => onUpdate(node.id, { tipo_mensagem: v })}
+                onClear={() => onUpdate(node.id, { media_url: undefined, media_name: undefined, mensagem: null, menu_choices: undefined, carousel_json: undefined, location_url: undefined, location_name: undefined, location_address: undefined, uploading: false })}
+              />
             </Field>
 
             {d.tipo_mensagem === 'texto' && (
@@ -1155,25 +1498,28 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
 
             {d.tipo_mensagem === 'localizacao' && (
               <>
+                <Field label="URL do Google Maps">
+                  <input type="url" value={d.location_url ?? ''}
+                    onChange={(e) => onUpdate(node.id, { location_url: e.target.value })}
+                    placeholder="https://maps.app.goo.gl/..." className="field-input" />
+                  {d.location_url && !parseGoogleMapsUrl(String(d.location_url)) && (
+                    <p className="text-[10px] text-amber-500 mt-1">URL sem coordenadas detectáveis. Use um link completo como maps.google.com/@lat,lng</p>
+                  )}
+                  {d.location_url && parseGoogleMapsUrl(String(d.location_url)) && (
+                    <p className="text-[10px] text-emerald-500 mt-1">
+                      ✓ Coordenadas detectadas: {parseGoogleMapsUrl(String(d.location_url))!.lat.toFixed(4)}, {parseGoogleMapsUrl(String(d.location_url))!.lng.toFixed(4)}
+                    </p>
+                  )}
+                </Field>
                 <Field label="Nome do local">
                   <input type="text" value={d.location_name ?? ''}
                     onChange={(e) => onUpdate(node.id, { location_name: e.target.value })}
                     placeholder="Ex: MASP" className="field-input" />
                 </Field>
-                <Field label="Endereço">
+                <Field label="Endereço (opcional)">
                   <input type="text" value={d.location_address ?? ''}
                     onChange={(e) => onUpdate(node.id, { location_address: e.target.value })}
                     placeholder="Av. Paulista, 1578" className="field-input" />
-                </Field>
-                <Field label="Latitude">
-                  <input type="number" step="any" value={d.location_lat ?? ''}
-                    onChange={(e) => onUpdate(node.id, { location_lat: e.target.value })}
-                    placeholder="-23.561684" className="field-input" />
-                </Field>
-                <Field label="Longitude">
-                  <input type="number" step="any" value={d.location_lng ?? ''}
-                    onChange={(e) => onUpdate(node.id, { location_lng: e.target.value })}
-                    placeholder="-46.655981" className="field-input" />
                 </Field>
               </>
             )}
@@ -1186,11 +1532,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
                     placeholder="Escolha uma opção:" className="field-input resize-none" />
                 </Field>
                 <Field label="Itens da lista">
-                  <p className="text-[10px] text-muted-foreground/60 -mt-1 mb-1">[Seção] para título · Item|id|descrição para cada item</p>
-                  <textarea rows={6} value={d.menu_choices ?? ''}
-                    onChange={(e) => onUpdate(node.id, { menu_choices: e.target.value })}
-                    placeholder={`[Planos]\nBásico|basico|R$ 49/mês\nPro|pro|R$ 99/mês`}
-                    className="field-input resize-none font-mono text-xs" />
+                  <ListaBuilder value={d.menu_choices ?? ''} onChange={(v) => onUpdate(node.id, { menu_choices: v })} />
                 </Field>
               </>
             )}
@@ -1203,11 +1545,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
                     placeholder="Como posso ajudar?" className="field-input resize-none" />
                 </Field>
                 <Field label="Botões">
-                  <p className="text-[10px] text-muted-foreground/60 -mt-1 mb-1">Texto|id · Texto|https://url · Texto|call:+55...</p>
-                  <textarea rows={4} value={d.menu_choices ?? ''}
-                    onChange={(e) => onUpdate(node.id, { menu_choices: e.target.value })}
-                    placeholder={`Agendar|agendar\nSaber mais|https://site.com\nFalar agora|call:+5511999999999`}
-                    className="field-input resize-none font-mono text-xs" />
+                  <BotoesBuilder value={d.menu_choices ?? ''} onChange={(v) => onUpdate(node.id, { menu_choices: v })} />
                 </Field>
               </>
             )}
@@ -1219,12 +1557,8 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
                     onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
                     placeholder="Veja nossos produtos:" className="field-input resize-none" />
                 </Field>
-                <Field label="Cards (JSON)">
-                  <p className="text-[10px] text-muted-foreground/60 -mt-1 mb-1">Array com text, image (URL), buttons (array de strings)</p>
-                  <textarea rows={9} value={d.carousel_json ?? ''}
-                    onChange={(e) => onUpdate(node.id, { carousel_json: e.target.value })}
-                    placeholder={JSON.stringify([{ text: 'Card 1', image: 'https://url.jpg', buttons: ['Ver mais|REPLY|ver'] }], null, 2)}
-                    className="field-input resize-none font-mono text-[10px]" />
+                <Field label="Cards">
+                  <CarrosselBuilder value={d.carousel_json ?? ''} onChange={(v) => onUpdate(node.id, { carousel_json: v })} />
                 </Field>
               </>
             )}
@@ -1235,20 +1569,6 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
                   onUploadStart={() => onUpdate(node.id, { uploading: true })}
                   onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
               </Field>
-            )}
-
-            {d.tipo_mensagem === 'contato' && (
-              <div className="p-3 rounded-xl bg-muted/60 border border-border space-y-1">
-                <p className="text-xs font-semibold text-foreground/60">Cartão de contato</p>
-                <p className="text-xs text-muted-foreground">Envio de vCard não suportado pela API uazapi na versão atual.</p>
-              </div>
-            )}
-
-            {d.tipo_mensagem === 'reacao' && (
-              <div className="p-3 rounded-xl bg-muted/60 border border-border space-y-1">
-                <p className="text-xs font-semibold text-foreground/60">Reação</p>
-                <p className="text-xs text-muted-foreground">Reações requerem o ID de uma mensagem específica e não são aplicáveis em sequências automatizadas.</p>
-              </div>
             )}
           </>
         )}
@@ -1805,6 +2125,24 @@ function CanvasInner() {
     [setEdges]
   );
 
+  const edgeReconnectSuccessful = useRef(false);
+  const onReconnectStart = useCallback(() => { edgeReconnectSuccessful.current = false; }, []);
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      edgeReconnectSuccessful.current = true;
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+    },
+    [setEdges]
+  );
+  const onReconnectEnd = useCallback(
+    (_: MouseEvent | TouchEvent, edge: Edge) => {
+      if (!edgeReconnectSuccessful.current) {
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      }
+    },
+    [setEdges]
+  );
+
   function addPaletteNode(kind: PaletteKind) {
     const id = newId();
     const center = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -1882,9 +2220,15 @@ function CanvasInner() {
       }
       const saved = (await res.json()) as { sequence?: FollowSequence };
 
-      // Update only the nome in sequences state — don't touch follow_steps to avoid
-      // triggering the useEffect that would overwrite the canvas nodes with DB positions
-      setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? { ...s, nome } : s));
+      // Update nome + follow_steps in sequences state.
+      // useEffect depends on currentSeq?.id (not the object reference), so updating
+      // follow_steps here does NOT re-render the canvas — it just keeps state fresh
+      // so switching tabs and back shows saved data.
+      const savedSteps2 = saved.sequence?.follow_steps ?? null;
+      setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id
+        ? { ...s, nome, ...(savedSteps2 ? { follow_steps: savedSteps2 } : {}) }
+        : s
+      ));
 
       // Patch stepIds in existing nodes with the real DB UUIDs (by x-position order).
       // This preserves all custom positions and connections — only updates data.stepId
@@ -1934,20 +2278,34 @@ function CanvasInner() {
     setTestRunning(true);
     setNodeExecError(null);
 
-    // Order nodes: trigger first, then by x position
-    const ordered = [
-      ...nodes.filter((n) => n.id === 'trigger'),
-      ...nodes.filter((n) => n.id !== 'trigger').sort((a, b) => a.position.x - b.position.x),
-    ];
+    // Build adjacency map from current edges (sourceHandle distinguishes condition branches)
+    const edgeMap: Record<string, { targetId: string; sourceHandle?: string }[]> = {};
+    edges.forEach((e) => {
+      if (!edgeMap[e.source]) edgeMap[e.source] = [];
+      edgeMap[e.source].push({ targetId: e.target, sourceHandle: e.sourceHandle ?? undefined });
+    });
 
-    for (const node of ordered) {
-      if (abortTestRef.current) break;
+    const nodeMap: Record<string, Node<AutoNodeData>> = {};
+    nodes.forEach((n) => { nodeMap[n.id] = n; });
+
+    // Traverse graph following edges, starting from trigger
+    let currentId: string | null = 'trigger';
+    const visited = new Set<string>();
+
+    while (currentId && !abortTestRef.current) {
+      if (visited.has(currentId)) break; // cycle guard
+      visited.add(currentId);
+
+      const node = nodeMap[currentId];
+      if (!node) break;
 
       const d = node.data;
       setNodeExecState(node.id, 'running');
       await new Promise((r) => setTimeout(r, 600));
 
       if (abortTestRef.current) { setNodeExecState(node.id, 'idle'); break; }
+
+      let chosenHandle: string | undefined;
 
       try {
         if (d.kind === 'trigger') {
@@ -1956,6 +2314,7 @@ function CanvasInner() {
           setNodeExecState(node.id, 'skipped');
         } else if (d.kind === 'end') {
           setNodeExecState(node.id, 'success');
+          break; // no outgoing edges expected
         } else if (d.kind === 'message') {
           if (!dryRun) {
             if (String(d.stepId ?? '').startsWith('new-')) {
@@ -1973,11 +2332,11 @@ function CanvasInner() {
           }
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'condition') {
-          // Pause and ask user
           setNodeExecState(node.id, 'running');
           const choice = await waitForConditionChoice(node.id, d.condicao);
           setConditionChoiceState(null);
           setNodeExecState(node.id, choice === 'sim' ? 'success' : 'skipped');
+          chosenHandle = choice; // 'sim' or 'nao'
         } else if (d.kind === 'webhook') {
           if (!dryRun) {
             await fetch(d.url, { method: d.method });
@@ -1986,8 +2345,8 @@ function CanvasInner() {
         } else if (d.kind === 'ab_test') {
           const variant = Math.random() < 0.5 ? 'A' : 'B';
           setNodeExecState(node.id, 'success', `Variante ${variant} selecionada`);
+          chosenHandle = variant.toLowerCase(); // 'a' or 'b'
         } else if (d.kind === 'lead_score') {
-          // Always passes in simulation
           setNodeExecState(node.id, 'success');
         }
       } catch (err) {
@@ -1997,6 +2356,13 @@ function CanvasInner() {
         setNodeExecError({ name: String(nodeName), msg });
         break;
       }
+
+      // Follow the correct edge based on chosen handle (or first available)
+      const outgoing = edgeMap[node.id] ?? [];
+      const next = chosenHandle
+        ? outgoing.find((e) => e.sourceHandle === chosenHandle) ?? outgoing[0]
+        : outgoing[0];
+      currentId = next?.targetId ?? null;
     }
 
     setTestRunning(false);
@@ -2169,6 +2535,11 @@ function CanvasInner() {
                     onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                     onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
                     fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.3} maxZoom={1.5}
+                    edgesUpdatable
+                    reconnectRadius={12}
+                    onReconnect={onReconnect}
+                    onReconnectStart={onReconnectStart}
+                    onReconnectEnd={onReconnectEnd}
                     style={{ width: '100%', height: '100%' }}
                     className="!bg-background dark:!bg-[#0e0e0e]"
                   >
