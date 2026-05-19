@@ -161,6 +161,9 @@ interface ConditionNodeData extends Record<string, unknown> {
   kind: 'condition';
   label: string;
   condicao: string;
+  variavel?: string;
+  operador?: 'eq' | 'contains' | 'starts_with' | 'not_empty';
+  valor?: string;
   stepId: string;
   _execState?: ExecState;
   _execError?: string;
@@ -476,7 +479,11 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
 
     if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
-    else if (isCondition) nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', stepId: step.id } satisfies ConditionNodeData });
+    else if (isCondition) {
+      let cond = { condicao: step.condicao || 'Respondeu?', variavel: 'resposta_botao' as string, operador: 'eq' as ConditionNodeData['operador'], valor: '' };
+      try { const p = JSON.parse(step.condicao); if (p?.variavel) cond = p; } catch {}
+      nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 }, data: { kind: 'condition', label: 'Condição', ...cond, stepId: step.id } satisfies ConditionNodeData });
+    }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
     else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
   });
@@ -523,7 +530,10 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem || null, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config };
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
-    if (d.kind === 'condition') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: d.condicao };
+    if (d.kind === 'condition') {
+      const condJson = JSON.stringify({ condicao: d.condicao || 'Respondeu?', variavel: d.variavel ?? 'resposta_botao', operador: d.operador ?? 'eq', valor: d.valor ?? '' });
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1, condicao: condJson };
+    }
     if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: d.url };
     if (d.kind === 'lead_score') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'lead_score', ordem: idx + 1, condicao: `${d.scoreMin}-${d.scoreMax}` };
     if (d.kind === 'ab_test') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'ab_test', ordem: idx + 1, condicao: `${d.variantA}|${d.variantB}` };
@@ -871,6 +881,10 @@ function WaitNode({ data, selected }: NodeProps) {
 
 function ConditionNode({ data, selected }: NodeProps) {
   const d = data as ConditionNodeData;
+  const opLabel: Record<string, string> = { eq: '==', contains: 'contém', starts_with: 'começa', not_empty: '≠ vazio' };
+  const condExpr = d.variavel && d.valor != null
+    ? `${d.variavel} ${opLabel[d.operador ?? 'eq'] ?? '=='} "${d.valor}"`
+    : (d.condicao || 'Respondeu?');
   return (
     <NodeShell selected={selected} accent="violet"
       header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" />}
@@ -878,7 +892,7 @@ function ConditionNode({ data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
       <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/50 !border !border-destructive/30 !rounded-full" />
-      <p className="text-sm font-semibold text-foreground/90">{d.condicao || 'Respondeu?'}</p>
+      <p className="text-xs font-mono text-foreground/80 bg-muted/60 rounded px-1.5 py-0.5 truncate">{condExpr}</p>
       <div className="flex gap-2 mt-0.5">
         <span className="text-[10px] text-emerald-500 font-medium">↑ Sim</span>
         <span className="text-[10px] text-destructive/70 font-medium">↓ Não</span>
@@ -1369,9 +1383,11 @@ interface ConfigPanelProps {
   onClose: () => void;
   onUpdate: (id: string, patch: Partial<AutoNodeData>) => void;
   onDelete: (id: string) => void;
+  nodes?: Node<AutoNodeData>[];
+  edges?: Edge[];
 }
 
-function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
+function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [] }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
 
@@ -1583,13 +1599,75 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
         )}
 
         {/* ── Condition node ── */}
-        {d.kind === 'condition' && (
-          <Field label="Condição">
-            <input type="text" value={d.condicao}
-              onChange={(e) => onUpdate(node.id, { condicao: e.target.value })}
-              placeholder="ex: Respondeu?" className="field-input" />
-          </Field>
-        )}
+        {d.kind === 'condition' && (() => {
+          // Collect button/list choices from upstream nodes (nodes that have an edge pointing to this node)
+          const upstreamIds = allEdges.filter((e) => e.target === node.id).map((e) => e.source);
+          const upstreamChoices: string[] = [];
+          upstreamIds.forEach((uid) => {
+            const un = allNodes.find((n) => n.id === uid);
+            if (!un) return;
+            const ud = un.data as MessageNodeData;
+            if (ud.kind !== 'message') return;
+            if (ud.menu_choices) {
+              ud.menu_choices.split('\n').map((s) => s.trim()).filter(Boolean).forEach((c) => upstreamChoices.push(c));
+            }
+          });
+          const OPERADORES = [
+            { value: 'eq', label: 'Igual a' },
+            { value: 'contains', label: 'Contém' },
+            { value: 'starts_with', label: 'Começa com' },
+            { value: 'not_empty', label: 'Não está vazio' },
+          ] as const;
+          return (
+            <>
+              <Field label="Variável">
+                <select value={d.variavel ?? 'resposta_botao'}
+                  onChange={(e) => onUpdate(node.id, { variavel: e.target.value })}
+                  className="field-input">
+                  <option value="resposta_botao">ID do botão clicado</option>
+                  <option value="ultima_resposta">Última resposta do lead</option>
+                  <option value="custom">Personalizado…</option>
+                </select>
+                {d.variavel === 'custom' && (
+                  <input type="text" className="field-input mt-1.5" placeholder="{{minha_variavel}}"
+                    value={d.condicao ?? ''}
+                    onChange={(e) => onUpdate(node.id, { condicao: e.target.value })} />
+                )}
+              </Field>
+              <Field label="Operador">
+                <select value={d.operador ?? 'eq'}
+                  onChange={(e) => onUpdate(node.id, { operador: e.target.value as ConditionNodeData['operador'] })}
+                  className="field-input">
+                  {OPERADORES.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
+                </select>
+              </Field>
+              {(d.operador ?? 'eq') !== 'not_empty' && (
+                <Field label="Valor">
+                  {upstreamChoices.length > 0 ? (
+                    <select value={d.valor ?? ''}
+                      onChange={(e) => onUpdate(node.id, { valor: e.target.value })}
+                      className="field-input">
+                      <option value="">Selecionar valor…</option>
+                      {upstreamChoices.map((c) => <option key={c} value={c}>{c}</option>)}
+                      <option value="__custom">Outro…</option>
+                    </select>
+                  ) : (
+                    <input type="text" value={d.valor ?? ''}
+                      onChange={(e) => onUpdate(node.id, { valor: e.target.value })}
+                      placeholder="ex: agendar" className="field-input" />
+                  )}
+                  {d.valor === '__custom' && (
+                    <input type="text" className="field-input mt-1.5" placeholder="valor personalizado"
+                      onChange={(e) => onUpdate(node.id, { valor: e.target.value })} />
+                  )}
+                </Field>
+              )}
+              <p className="text-xs text-muted-foreground/60 leading-relaxed">
+                Saída <span className="text-emerald-500 font-medium">Sim</span> quando a condição for verdadeira; <span className="text-destructive/70 font-medium">Não</span> caso contrário.
+              </p>
+            </>
+          );
+        })()}
 
         {/* ── Trigger node ── */}
         {d.kind === 'trigger' && (
@@ -1891,9 +1969,32 @@ interface TestRunModalProps {
   onClose: () => void;
 }
 
+const PHONE_LS_KEY = 'nexio_canvas_test_phone';
+
 function TestRunModal({ onStart, onClose }: TestRunModalProps) {
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(() => {
+    try { return localStorage.getItem(PHONE_LS_KEY) ?? ''; } catch { return ''; }
+  });
   const [dryRun, setDryRun] = useState(false);
+
+  function handlePhoneChange(raw: string) {
+    // Strip non-digits; keep up to 13 digits (55 + DDD 2 + 9 digits)
+    const digits = raw.replace(/\D/g, '').slice(0, 13);
+    setPhone(digits);
+    try { localStorage.setItem(PHONE_LS_KEY, digits); } catch {}
+  }
+
+  // Format for display: +55 (11) 99999-9999
+  function formatDisplay(digits: string) {
+    if (!digits) return '';
+    const d = digits.startsWith('55') ? digits.slice(2) : digits;
+    if (d.length <= 2) return d;
+    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
+  }
+
+  const canSend = phone.replace(/\D/g, '').length >= 10;
 
   return (
     <ModalOverlay onClose={onClose}>
@@ -1903,8 +2004,19 @@ function TestRunModal({ onStart, onClose }: TestRunModalProps) {
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <Field label="Número de teste">
-          <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)}
-            placeholder="5511999999999" className="field-input" />
+          <div className="flex items-center gap-0 rounded-xl border border-border overflow-hidden bg-muted focus-within:ring-2 focus-within:ring-primary/40">
+            <div className="flex items-center gap-1.5 px-3 py-2.5 border-r border-border bg-muted/60 shrink-0">
+              <span className="text-base leading-none">🇧🇷</span>
+              <span className="text-xs font-medium text-muted-foreground">+55</span>
+            </div>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={formatDisplay(phone.startsWith('55') ? phone.slice(2) : phone)}
+              onChange={(e) => handlePhoneChange('55' + e.target.value.replace(/\D/g, ''))}
+              placeholder="(11) 99999-9999"
+              className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none" />
+          </div>
         </Field>
         <div className="rounded-xl border border-border overflow-hidden">
           <button
@@ -1930,8 +2042,8 @@ function TestRunModal({ onStart, onClose }: TestRunModalProps) {
           </button>
         </div>
         <button
-          onClick={() => { if (phone.trim()) { onStart(phone.trim(), dryRun); onClose(); } }}
-          disabled={!phone.trim()}
+          onClick={() => { if (canSend) { onStart(phone, dryRun); onClose(); } }}
+          disabled={!canSend}
           className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
           {dryRun ? 'Simular fluxo' : 'Disparar teste'}
         </button>
@@ -2333,7 +2445,11 @@ function CanvasInner() {
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'condition') {
           setNodeExecState(node.id, 'running');
-          const choice = await waitForConditionChoice(node.id, d.condicao);
+          const opLabel: Record<string, string> = { eq: '==', contains: 'contém', starts_with: 'começa com', not_empty: '≠ vazio' };
+          const condDisplay = d.variavel && d.valor != null
+            ? `${d.variavel} ${opLabel[d.operador ?? 'eq'] ?? '=='} "${d.valor}"`
+            : (d.condicao || 'Respondeu?');
+          const choice = await waitForConditionChoice(node.id, condDisplay);
           setConditionChoiceState(null);
           setNodeExecState(node.id, choice === 'sim' ? 'success' : 'skipped');
           chosenHandle = choice; // 'sim' or 'nao'
@@ -2570,7 +2686,8 @@ function CanvasInner() {
             {/* Config panel */}
             {selectedNode && (
               <ConfigPanel node={selectedNode} onClose={() => setSelectedNodeId(null)}
-                onUpdate={handleUpdateNode} onDelete={handleDeleteNode} />
+                onUpdate={handleUpdateNode} onDelete={handleDeleteNode}
+                nodes={nodes} edges={edges} />
             )}
           </>
         )}

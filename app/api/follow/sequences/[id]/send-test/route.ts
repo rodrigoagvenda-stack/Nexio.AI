@@ -135,23 +135,27 @@ export async function POST(
         .maybeSingle()
 
       if (conversa) {
-        const mediaUrl = media?.file ?? null
-        // Real caption: what was typed in the node (not the test fallback label)
-        const caption = media?.text ?? step.mensagem ?? null
+        // Build url_da_midia exactly like the trial does so atendimento renders correctly
+        let urlMidia: string | null = null
+        if (tipo === 'menu') urlMidia = JSON.stringify({ menuType: media?.menuType ?? 'button', choices: media?.choices ?? [], button_actions: media?.button_actions ?? {} })
+        else if (tipo === 'carousel') urlMidia = JSON.stringify(media?.carousel ?? [])
+        else if (['image', 'video', 'audio', 'ptt', 'document', 'sticker'].includes(tipo)) urlMidia = media?.file ?? null
+
+        const displayText = step.mensagem || media?.text || `[${tipo}]`
         const now = new Date().toISOString()
 
         await Promise.all([
-          // 1. The actual message (image/text/etc) with real caption
+          // 1. The actual message with proper url_da_midia for atendimento rendering
           service.from('mensagens_do_whatsapp').insert({
             id_da_conversacao: conversa.id,
             id_do_lead: conversa.id_do_lead,
             company_id: sequence.company_id,
-            texto_da_mensagem: caption ?? '',
+            texto_da_mensagem: displayText,
             tipo_de_mensagem: tipo,
             direcao: 'outbound',
             sender_type: 'ai',
             status: 'sent',
-            url_da_midia: mediaUrl,
+            url_da_midia: urlMidia,
             carimbo_de_data_e_hora: now,
           }),
           // 2. System chip — renders as bigtech centered label in atendimento UI
@@ -165,10 +169,10 @@ export async function POST(
             sender_type: 'ai',
             status: 'sent',
             url_da_midia: null,
-            carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(), // 1ms after so it renders after
+            carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(),
           }),
           service.from('conversas_do_whatsapp').update({
-            ultima_mensagem: mediaUrl ? `[${tipo}]` : (caption ?? ''),
+            ultima_mensagem: displayText,
             hora_da_ultima_mensagem: now,
           }).eq('id', conversa.id),
         ])
