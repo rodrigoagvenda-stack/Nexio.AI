@@ -59,6 +59,13 @@ import {
   Megaphone,
   FlaskConical,
   StopCircle,
+  MapPin,
+  List,
+  LayoutList,
+  GalleryHorizontal,
+  Smile,
+  User,
+  Heart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -178,17 +185,6 @@ type AutoNodeData =
   | WebhookNodeData
   | LeadScoreNodeData
   | ABTestNodeData;
-
-// ─── Execution Log ──────────────────────────────────────────────────────────────
-
-interface ExecLog {
-  id: string;
-  lead: string;
-  sequence: string;
-  step: string;
-  status: 'sent' | 'failed' | 'pending';
-  ts: string;
-}
 
 // ─── Versioning ─────────────────────────────────────────────────────────────────
 
@@ -399,8 +395,15 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   }
   if (state === 'error') {
     return (
-      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive flex items-center justify-center z-10" title={error}>
-        <X className="w-3 h-3 text-white" />
+      <div className="absolute -top-2 -right-2 z-10 group">
+        <div className="w-5 h-5 rounded-full bg-destructive flex items-center justify-center cursor-default">
+          <X className="w-3 h-3 text-white" />
+        </div>
+        {error && (
+          <div className="absolute right-0 top-6 z-20 w-52 bg-destructive/95 text-white text-[10px] leading-snug px-2.5 py-2 rounded-lg shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+            {error}
+          </div>
+        )}
       </div>
     );
   }
@@ -426,9 +429,9 @@ function NodeShell({ children, selected, primaryAccent, redAccent, header, execS
     <div className={cn(
       'relative bg-card border rounded-2xl min-w-[210px] px-3 pt-2.5 pb-3 flex flex-col gap-2 transition-all duration-150 shadow-sm',
       isSkipped && 'opacity-50',
-      isRunning ? 'ring-2 ring-primary border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.20)]'
-        : isSuccess ? 'ring-2 ring-emerald-500 border-emerald-500/40'
-        : isError ? 'ring-2 ring-destructive border-destructive/40'
+      isRunning ? 'node-running ring-0 border-transparent shadow-[0_0_20px_hsl(var(--primary)/0.30)]'
+        : isSuccess ? 'ring-2 ring-emerald-500 border-emerald-500/40 animate-pulse [animation-duration:2s]'
+        : isError ? 'ring-2 ring-destructive border-destructive/40 animate-pulse [animation-duration:2s]'
         : primaryAccent ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
         : redAccent ? 'border-destructive/40 shadow-[0_0_16px_hsl(var(--destructive)/0.08)]'
         : selected ? 'border-primary/50 shadow-[0_0_20px_hsl(var(--primary)/0.12)]'
@@ -511,16 +514,12 @@ function MessageNode({ data, selected }: NodeProps) {
 
       {!d.uploading && d.tipo_mensagem === 'imagem' && (
         d.media_url ? (
-          <div className="rounded-xl overflow-hidden border border-border/50 relative">
-            <img src={d.media_url} alt="" className="w-full object-cover" style={{ height: 88 }} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-            <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded font-medium backdrop-blur-sm">
-              Imagem
-            </span>
+          <div className="flex flex-col gap-1">
+            <div className="rounded-xl overflow-hidden border border-border/50">
+              <img src={d.media_url} alt="" className="w-full object-cover" style={{ height: 88 }} />
+            </div>
             {d.mensagem && (
-              <span className="absolute bottom-1.5 right-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded backdrop-blur-sm max-w-[100px] truncate">
-                {d.mensagem}
-              </span>
+              <p className="text-[10px] text-muted-foreground px-1 leading-tight">{d.mensagem}</p>
             )}
           </div>
         ) : (
@@ -532,13 +531,15 @@ function MessageNode({ data, selected }: NodeProps) {
 
       {!d.uploading && d.tipo_mensagem === 'video' && (
         d.media_url ? (
-          <div className="rounded-xl overflow-hidden border border-border/50 bg-black/80 relative flex items-center justify-center" style={{ height: 88 }}>
-            <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+          <div className="flex flex-col gap-1">
+            <div className="rounded-xl overflow-hidden border border-border/50 bg-black/80 relative flex items-center justify-center" style={{ height: 88 }}>
+              <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+              </div>
             </div>
-            <span className="absolute bottom-1.5 left-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded font-medium backdrop-blur-sm">
-              Vídeo
-            </span>
+            {d.mensagem && (
+              <p className="text-[10px] text-muted-foreground px-1 leading-tight">{d.mensagem}</p>
+            )}
           </div>
         ) : (
           <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted/60 border border-dashed border-border text-xs text-muted-foreground">
@@ -820,16 +821,22 @@ function AudioRecorder({ current, onUploadStart, onUpload }: {
 // ─── Config Panel ───────────────────────────────────────────────────────────────
 
 const TIPO_OPTIONS = [
-  { value: 'texto',     label: 'Texto',    icon: MessageSquare },
-  { value: 'imagem',    label: 'Imagem',   icon: ImageIcon },
-  { value: 'video',     label: 'Vídeo',    icon: Video },
-  { value: 'audio',     label: 'Áudio',    icon: Mic },
-  { value: 'ptt',       label: 'PTT',      icon: Mic },
-  { value: 'documento', label: 'Doc',      icon: FileText },
+  { value: 'texto',      label: 'Texto',      icon: MessageSquare },
+  { value: 'imagem',     label: 'Imagem',     icon: ImageIcon },
+  { value: 'video',      label: 'Vídeo',      icon: Video },
+  { value: 'audio',      label: 'Áudio',      icon: Mic },
+  { value: 'ptt',        label: 'PTT',        icon: Mic },
+  { value: 'documento',  label: 'Doc',        icon: FileText },
+  { value: 'localizacao', label: 'Local',     icon: MapPin },
+  { value: 'lista',      label: 'Lista',      icon: List },
+  { value: 'botoes',     label: 'Botões',     icon: LayoutList },
+  { value: 'carrossel',  label: 'Carrossel',  icon: GalleryHorizontal },
+  { value: 'sticker',    label: 'Sticker',    icon: Smile },
+  { value: 'contato',    label: 'Contato',    icon: User },
+  { value: 'reacao',     label: 'Reação',     icon: Heart },
 ] as const;
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 
 interface ConfigPanelProps {
   node: Node<AutoNodeData> | null;
@@ -868,24 +875,28 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
               <div className="flex items-center gap-2">
                 <select
                   value={hh}
-                  onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${mm}` })}
+                  onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${mm.padStart(2, '0')}` })}
                   className="field-input flex-1 text-center font-mono"
                 >
                   {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
                 </select>
                 <span className="text-muted-foreground font-bold text-lg">:</span>
-                <select
-                  value={MINUTES.includes(mm) ? mm : '00'}
-                  onChange={(e) => onUpdate(node.id, { horario: `${hh}:${e.target.value}` })}
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={Number(mm)}
+                  onChange={(e) => {
+                    const val = Math.max(0, Math.min(59, Number(e.target.value)));
+                    onUpdate(node.id, { horario: `${hh}:${String(val).padStart(2, '0')}` });
+                  }}
                   className="field-input flex-1 text-center font-mono"
-                >
-                  {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
+                />
               </div>
             </Field>
 
             <Field label="Tipo de mensagem">
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-4 gap-1.5">
                 {TIPO_OPTIONS.map(({ value, label, icon: Icon }) => (
                   <button key={value}
                     onClick={() => onUpdate(node.id, { tipo_mensagem: value, media_url: undefined, uploading: false })}
@@ -964,6 +975,12 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete }: ConfigPanelProps) {
                   onUploadStart={() => onUpdate(node.id, { uploading: true })}
                   onUpload={(url, name) => onUpdate(node.id, { media_url: url, media_name: name, uploading: false })} />
               </Field>
+            )}
+
+            {['localizacao', 'lista', 'botoes', 'carrossel', 'sticker', 'contato', 'reacao'].includes(d.tipo_mensagem) && (
+              <div className="p-3 rounded-xl bg-muted text-xs text-muted-foreground">
+                Configuração de <strong>{d.tipo_mensagem}</strong> disponível em breve — suporte via uazapi
+              </div>
             )}
           </>
         )}
@@ -1147,16 +1164,45 @@ function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; 
 
 // ─── Executions view ────────────────────────────────────────────────────────────
 
-const MOCK_EXECUTIONS: ExecLog[] = [
-  { id: '1', lead: 'João Silva', sequence: 'Follow-up Geral', step: 'Mensagem — Dia 1', status: 'sent', ts: 'hoje, 14:32' },
-  { id: '2', lead: 'Maria Costa', sequence: 'Anti-Noshow', step: 'Mensagem — Dia 0', status: 'sent', ts: 'hoje, 13:10' },
-  { id: '3', lead: 'Carlos Mendes', sequence: 'Remarketing', step: 'Mensagem — Dia 3', status: 'failed', ts: 'hoje, 11:55' },
-  { id: '4', lead: 'Ana Ferreira', sequence: 'Follow-up Geral', step: 'Aguardar — Dia 2', status: 'pending', ts: 'hoje, 09:00' },
-];
+interface ExecLogReal {
+  id: string;
+  lead: string;
+  telefone: string | null;
+  step: string;
+  status: 'sent' | 'failed' | 'skipped';
+  ts: string | null;
+}
 
-function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
+function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo: SequenceTipo }) {
   const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS' };
-  const executions = MOCK_EXECUTIONS.filter((e) => e.sequence.toLowerCase().includes(label[tipo].toLowerCase()));
+  const [executions, setExecutions] = useState<ExecLogReal[]>([]);
+  const [loadingExec, setLoadingExec] = useState(false);
+  const [execError, setExecError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sequenceId) { setExecutions([]); return; }
+    setLoadingExec(true);
+    setExecError(null);
+    fetch(`/api/follow/sequences/${sequenceId}/logs`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json() as { logs: ExecLogReal[] };
+        setExecutions(json.logs ?? []);
+      })
+      .catch((err) => { setExecError(err instanceof Error ? err.message : 'Erro ao carregar'); })
+      .finally(() => setLoadingExec(false));
+  }, [sequenceId]);
+
+  function formatTs(ts: string | null): string {
+    if (!ts) return '—';
+    try {
+      const d = new Date(ts);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return isToday ? `hoje, ${time}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
+    } catch { return ts; }
+  }
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -1165,12 +1211,28 @@ function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
           <p className="text-sm font-semibold text-foreground">Execuções recentes</p>
           <span className="text-xs text-muted-foreground">{label[tipo]}</span>
         </div>
-        {executions.length === 0 ? (
+
+        {loadingExec ? (
+          <div className="flex items-center justify-center py-20 gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Carregando execuções…</span>
+          </div>
+        ) : execError ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <AlertCircle className="w-8 h-8 text-destructive/50" />
+            <p className="text-sm text-destructive">{execError}</p>
+          </div>
+        ) : !sequenceId ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Clock3 className="w-10 h-10 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">Selecione uma sequência para ver execuções</p>
+          </div>
+        ) : executions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Clock3 className="w-10 h-10 text-muted-foreground/30" />
             <div className="text-center">
               <p className="text-sm font-medium text-muted-foreground">Nenhuma execução registrada</p>
-              <p className="text-xs text-muted-foreground/70">As execuções aparecerão aqui em tempo real</p>
+              <p className="text-xs text-muted-foreground/70">As execuções aparecerão aqui após os primeiros disparos</p>
             </div>
           </div>
         ) : (
@@ -1186,15 +1248,18 @@ function ExecutionsView({ tipo }: { tipo: SequenceTipo }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{exec.lead}</p>
                   <p className="text-xs text-muted-foreground truncate">{exec.step}</p>
+                  {exec.telefone && (
+                    <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{exec.telefone}</p>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide',
                     exec.status === 'sent' ? 'bg-primary/10 text-primary border-primary/20'
                       : exec.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20'
                       : 'bg-muted text-muted-foreground border-border')}>
-                    {exec.status === 'sent' ? 'Enviado' : exec.status === 'failed' ? 'Falhou' : 'Pendente'}
+                    {exec.status === 'sent' ? 'Enviado' : exec.status === 'failed' ? 'Falhou' : 'Pulado'}
                   </span>
-                  <p className="text-[10px] text-muted-foreground mt-1">{exec.ts}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{formatTs(exec.ts)}</p>
                 </div>
               </div>
             ))}
@@ -1419,6 +1484,8 @@ function CanvasInner() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [nodeExecError, setNodeExecError] = useState<{ name: string; msg: string } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Versioning
@@ -1531,8 +1598,9 @@ function CanvasInner() {
   async function handleSave() {
     if (!currentSeq) return;
     setSaving(true);
+    setSaveError(null);
     try {
-      // Save version before persisting
+      // Save local version before persisting
       saveVersion(currentSeq.id, nodes, edges);
       setVersions(loadVersions(currentSeq.id));
 
@@ -1540,11 +1608,32 @@ function CanvasInner() {
       const triggerNode = nodes.find((n) => n.id === 'trigger');
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo: currentSeq.tipo, ativo: currentSeq.ativo, steps }) });
-      if (!res.ok) throw new Error('save failed');
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error((errJson as any).error ?? `HTTP ${res.status}`);
+      }
+      const saved = (await res.json()) as { sequence?: FollowSequence };
+
+      // Reload sequence from DB to replace temp IDs with real DB IDs
+      if (saved.sequence) {
+        setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? {
+          ...s,
+          nome: saved.sequence!.nome,
+          follow_steps: (saved.sequence!.follow_steps ?? []).sort((a, b) => a.ordem - b.ordem),
+        } : s));
+        // Rebuild nodes/edges with real IDs from DB
+        const newSteps = (saved.sequence.follow_steps ?? []).sort((a: FollowStep, b: FollowStep) => a.ordem - b.ordem);
+        setNodes(stepsToNodes(newSteps, saved.sequence.nome));
+        setEdges(stepsToEdges(newSteps));
+      }
+
       setSaveOk(true);
-      setTimeout(() => setSaveOk(false), 2000);
-    } catch (err) { console.error('[AutomationCanvas] save', err); }
-    finally { setSaving(false); }
+      setTimeout(() => setSaveOk(false), 2500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido ao salvar';
+      console.error('[AutomationCanvas] save', err);
+      setSaveError(msg);
+    } finally { setSaving(false); }
   }
 
   // ─── Test execution ────────────────────────────────────────────────────────────
@@ -1567,6 +1656,7 @@ function CanvasInner() {
     if (!currentSeq) return;
     abortTestRef.current = false;
     setTestRunning(true);
+    setNodeExecError(null);
 
     // Order nodes: trigger first, then by x position
     const ordered = [
@@ -1620,7 +1710,9 @@ function CanvasInner() {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+        const nodeName = (node.data.label as string | undefined) ?? node.id;
         setNodeExecState(node.id, 'error', msg);
+        setNodeExecError({ name: String(nodeName), msg });
         break;
       }
     }
@@ -1632,6 +1724,8 @@ function CanvasInner() {
     abortTestRef.current = true;
     setConditionChoiceState(null);
     setTestRunning(false);
+    setNodeExecError(null);
+    clearAllExecStates();
   }
 
   function useTemplate(template: CanvasTemplate) {
@@ -1746,10 +1840,28 @@ function CanvasInner() {
         )}
       </div>
 
+      {/* Save error banner */}
+      {saveError && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex-shrink-0">
+          <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+          <span className="text-xs text-destructive flex-1">Erro ao salvar: {saveError}</span>
+          <button onClick={() => setSaveError(null)} className="text-destructive/60 hover:text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+
+      {/* Node exec error banner */}
+      {nodeExecError && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex-shrink-0">
+          <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+          <span className="text-xs text-destructive flex-1">Erro no nó <strong>{nodeExecError.name}</strong>: {nodeExecError.msg}</span>
+          <button onClick={() => setNodeExecError(null)} className="text-destructive/60 hover:text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+
       {/* Body */}
       <div className="flex min-h-0" style={{ flex: 1 }}>
         {mode === 'execucoes' ? (
-          <ExecutionsView tipo={activeTipo} />
+          <ExecutionsView sequenceId={currentSeq?.id ?? null} tipo={activeTipo} />
         ) : (
           <>
             {/* Canvas */}
