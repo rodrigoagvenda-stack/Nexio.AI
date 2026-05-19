@@ -23,7 +23,9 @@ const nextConfig = {
     // Reduce memory during build trace collection
     outputFileTracingExcludes: {
       '**': [
-        'node_modules/@swc/**',
+        'node_modules/@swc/core/**',
+        'node_modules/@swc/core-linux-x64-gnu/**',
+        'node_modules/@swc/core-linux-x64-musl/**',
         'node_modules/@esbuild/**',
         'node_modules/sharp/**',
         'node_modules/rollup/**',
