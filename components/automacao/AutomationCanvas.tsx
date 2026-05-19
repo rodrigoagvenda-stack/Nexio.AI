@@ -1614,17 +1614,25 @@ function CanvasInner() {
       }
       const saved = (await res.json()) as { sequence?: FollowSequence };
 
-      // Reload sequence from DB to replace temp IDs with real DB IDs
-      if (saved.sequence) {
-        setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? {
-          ...s,
-          nome: saved.sequence!.nome,
-          follow_steps: (saved.sequence!.follow_steps ?? []).sort((a, b) => a.ordem - b.ordem),
-        } : s));
-        // Rebuild nodes/edges with real IDs from DB
-        const newSteps = (saved.sequence.follow_steps ?? []).sort((a: FollowStep, b: FollowStep) => a.ordem - b.ordem);
-        setNodes(stepsToNodes(newSteps, saved.sequence.nome));
-        setEdges(stepsToEdges(newSteps));
+      // Update only the nome in sequences state — don't touch follow_steps to avoid
+      // triggering the useEffect that would overwrite the canvas nodes with DB positions
+      setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? { ...s, nome } : s));
+
+      // Patch stepIds in existing nodes with the real DB UUIDs (by x-position order).
+      // This preserves all custom positions and connections — only updates data.stepId
+      // so that test-run can look up the step in DB.
+      const savedSteps = [...(saved.sequence?.follow_steps ?? [])].sort((a, b) => a.ordem - b.ordem);
+      if (savedSteps.length > 0) {
+        setNodes((nds) => {
+          const nonTrigger = [...nds.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
+          return nds.map((n) => {
+            if (n.id === 'trigger') return n;
+            const idx = nonTrigger.findIndex((nn) => nn.id === n.id);
+            const realStep = savedSteps[idx];
+            if (!realStep) return n;
+            return { ...n, data: { ...n.data, stepId: realStep.id } as AutoNodeData };
+          });
+        });
       }
 
       setSaveOk(true);
