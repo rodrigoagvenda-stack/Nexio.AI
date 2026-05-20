@@ -25,6 +25,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -1515,7 +1516,7 @@ interface ConditionConfigProps {
 }
 
 function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionConfigProps) {
-  const upstreamChoices = React.useMemo(() => {
+  const upstreamChoices = useMemo(() => {
     const incomingIds = allEdges.filter(e => e.target === nodeId).map(e => e.source);
     const choices: string[] = [];
     for (const id of incomingIds) {
@@ -1600,7 +1601,7 @@ interface SwitchConfigProps {
 }
 
 function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigProps) {
-  const upstreamChoices = React.useMemo(() => {
+  const upstreamChoices = useMemo(() => {
     const incomingIds = allEdges.filter(e => e.target === nodeId).map(e => e.source);
     const choices: string[] = [];
     for (const id of incomingIds) {
