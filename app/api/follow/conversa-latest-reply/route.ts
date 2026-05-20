@@ -7,11 +7,12 @@ export async function GET(request: NextRequest) {
   if (authError) return authError
 
   const conversaId = request.nextUrl.searchParams.get('conversaId') ?? ''
-  // baselineCount: number of inbound messages known before polling started.
-  // We return a message only when count exceeds this baseline (timezone-agnostic).
-  const baselineCount = parseInt(request.nextUrl.searchParams.get('baselineCount') ?? '-1', 10)
+  // baselineMaxId: max inbound message id known before polling started.
+  // We return a message only when a new message with id > baseline arrives.
+  // Using max ID instead of count avoids the .limit(N) saturation bug.
+  const baselineMaxId = parseInt(request.nextUrl.searchParams.get('baselineMaxId') ?? '-1', 10)
 
-  if (!conversaId) return NextResponse.json({ text: null, count: 0 })
+  if (!conversaId) return NextResponse.json({ text: null, maxId: 0 })
 
   const service = createServiceClient()
 
@@ -23,24 +24,34 @@ export async function GET(request: NextRequest) {
     .eq('company_id', context.companyId)
     .maybeSingle()
 
-  if (!conversa) return NextResponse.json({ text: null, count: 0 })
+  if (!conversa) return NextResponse.json({ text: null, maxId: 0 })
 
-  // Fetch all inbound messages (ordered by id desc to get latest first)
-  const { data: rows } = await service
+  if (baselineMaxId >= 0) {
+    // Poll mode: look for messages newer than baseline
+    const { data: newRows } = await service
+      .from('mensagens_do_whatsapp')
+      .select('id, texto_da_mensagem')
+      .eq('id_da_conversacao', conversaId)
+      .eq('direcao', 'inbound')
+      .gt('id', baselineMaxId)
+      .order('id', { ascending: false })
+      .limit(1)
+
+    if (newRows && newRows.length > 0) {
+      return NextResponse.json({ text: newRows[0].texto_da_mensagem ?? null, maxId: newRows[0].id })
+    }
+    return NextResponse.json({ text: null, maxId: baselineMaxId })
+  }
+
+  // Init mode: return current max id (no baselineMaxId provided)
+  const { data: latest } = await service
     .from('mensagens_do_whatsapp')
-    .select('id, texto_da_mensagem')
+    .select('id')
     .eq('id_da_conversacao', conversaId)
     .eq('direcao', 'inbound')
     .order('id', { ascending: false })
-    .limit(50)
+    .limit(1)
+    .maybeSingle()
 
-  const count = rows?.length ?? 0
-
-  // Return the latest message only if count grew beyond baseline
-  if (baselineCount >= 0 && count > baselineCount) {
-    return NextResponse.json({ text: rows?.[0]?.texto_da_mensagem ?? null, count })
-  }
-
-  // Called without baselineCount → just return current count (for initialization)
-  return NextResponse.json({ text: null, count })
+  return NextResponse.json({ text: null, maxId: latest?.id ?? 0 })
 }

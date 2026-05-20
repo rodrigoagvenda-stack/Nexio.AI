@@ -2744,15 +2744,15 @@ function CanvasInner() {
   }
 
   async function waitForLeadReply(conversaId: string, timeoutMs = 120_000): Promise<string> {
-    // Get baseline count before waiting (timezone-agnostic approach)
-    let baselineCount = 0;
+    // Use max inbound message ID as baseline — immune to .limit() saturation and timezone issues
+    let baselineMaxId = 0;
     try {
       const initRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
       const initJ = await initRes.json();
-      baselineCount = initJ.count ?? 0;
-      console.log('[TestRun] waitForLeadReply → baseline count:', baselineCount, 'conversaId:', conversaId);
+      baselineMaxId = initJ.maxId ?? 0;
+      console.log('[TestRun] waitForLeadReply → baselineMaxId:', baselineMaxId, 'conversaId:', conversaId);
     } catch (e) {
-      console.error('[TestRun] waitForLeadReply → failed to get baseline count:', e);
+      console.error('[TestRun] waitForLeadReply → failed to get baseline:', e);
     }
 
     const deadline = Date.now() + timeoutMs;
@@ -2770,9 +2770,9 @@ function CanvasInner() {
           return;
         }
         try {
-          const res = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}&baselineCount=${baselineCount}`);
+          const res = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}&baselineMaxId=${baselineMaxId}`);
           const j = await res.json();
-          console.log('[TestRun] poll → count:', j.count, 'baseline:', baselineCount, 'text:', j.text);
+          console.log('[TestRun] poll → maxId:', j.maxId, 'baseline:', baselineMaxId, 'text:', j.text);
           if (j.text != null) {
             clearInterval(interval);
             console.log('[TestRun] reply received:', j.text);
