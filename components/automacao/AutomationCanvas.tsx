@@ -550,18 +550,30 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', variavel, operador, valor, stepId: step.id } satisfies ConditionNodeData });
     }
     else if (step.tipo_mensagem === 'webhook') {
+      const wmc = step.media_config as any ?? {};
+      // Backwards compat: url was previously stored in condicao
+      const url = wmc.url ?? step.condicao ?? '';
+      const method = wmc.method ?? 'POST';
       nodes.push({ id: step.id, type: 'webhookNode', position: { x, y },
-        data: { kind: 'webhook', label: 'Webhook', url: step.condicao ?? '', method: 'POST', stepId: step.id } satisfies WebhookNodeData });
+        data: { kind: 'webhook', label: 'Webhook', url, method, stepId: step.id } satisfies WebhookNodeData });
     }
     else if (step.tipo_mensagem === 'lead_score') {
-      const parts = (step.condicao ?? '').split('-');
+      const lmc = step.media_config as any ?? {};
+      // Backwards compat: scores were previously stored in condicao as 'min-max'
+      const legacyParts = (step.condicao ?? '').split('-');
+      const scoreMin = lmc.scoreMin ?? parseInt(legacyParts[0] ?? '0') || 0;
+      const scoreMax = lmc.scoreMax ?? parseInt(legacyParts[1] ?? '100') || 100;
       nodes.push({ id: step.id, type: 'leadScoreNode', position: { x, y },
-        data: { kind: 'lead_score', label: 'Lead Score', scoreMin: parseInt(parts[0] ?? '0') || 0, scoreMax: parseInt(parts[1] ?? '100') || 100, stepId: step.id } satisfies LeadScoreNodeData });
+        data: { kind: 'lead_score', label: 'Lead Score', scoreMin, scoreMax, stepId: step.id } satisfies LeadScoreNodeData });
     }
     else if (step.tipo_mensagem === 'ab_test') {
-      const parts = (step.condicao ?? '').split('|');
+      const amc = step.media_config as any ?? {};
+      // Backwards compat: variants were previously stored in condicao as 'A|B'
+      const legacyParts = (step.condicao ?? '').split('|');
+      const variantA = amc.variantA ?? legacyParts[0] ?? 'Variante A';
+      const variantB = amc.variantB ?? legacyParts[1] ?? 'Variante B';
       nodes.push({ id: step.id, type: 'abTestNode', position: { x, y },
-        data: { kind: 'ab_test', label: 'Teste A/B', variantA: parts[0] ?? 'Variante A', variantB: parts[1] ?? 'Variante B', stepId: step.id } satisfies ABTestNodeData });
+        data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id } satisfies ABTestNodeData });
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
     else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
@@ -643,9 +655,9 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
         condicao: '',
         media_config: { variavel: d.variavel ?? 'resposta_botao', cases: d.cases ?? [] } };
     }
-    if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: d.url };
-    if (d.kind === 'lead_score') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'lead_score', ordem: idx + 1, condicao: `${d.scoreMin}-${d.scoreMax}` };
-    if (d.kind === 'ab_test') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'ab_test', ordem: idx + 1, condicao: `${d.variantA}|${d.variantB}` };
+    if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: '', media_config: { url: d.url, method: d.method ?? 'POST' } };
+    if (d.kind === 'lead_score') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'lead_score', ordem: idx + 1, condicao: '', media_config: { scoreMin: d.scoreMin, scoreMax: d.scoreMax } };
+    if (d.kind === 'ab_test') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'ab_test', ordem: idx + 1, condicao: '', media_config: { variantA: d.variantA, variantB: d.variantB } };
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
 }
