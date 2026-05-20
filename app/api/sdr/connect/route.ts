@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     if (needsCreate) {
       const instanceName = `zaapli-${companyId}-${Date.now()}`
       const instance = await createInstance({ name: instanceName, companyId })
-      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
+      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio`
 
       if (config) {
         await service.from('sdr_configs').update({
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     let client = createUazapiClient(config.uazapi_instance_url, token)
 
     // Garante que o webhook esteja configurado nessa instância
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/sdr/webhook/${companyId}`
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio`
     console.log(`[SDR connect] configurando webhook: ${webhookUrl}`)
     await client.setWebhook(webhookUrl).catch((err: any) => {
       console.error(`[SDR connect] ERRO ao configurar webhook:`, err.message)
@@ -139,7 +139,8 @@ export async function POST(request: NextRequest) {
         }).eq('id', companyId)
 
         client = createUazapiClient(BASE_URL, instance.token)
-        await client.setWebhook(webhookUrl).catch((err: any) => {
+        const webhookUrl2 = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio`
+        await client.setWebhook(webhookUrl2).catch((err: any) => {
           console.error(`[SDR connect] ERRO ao configurar webhook (nova instância):`, err.message)
         })
         await client.connect(body.phone)
