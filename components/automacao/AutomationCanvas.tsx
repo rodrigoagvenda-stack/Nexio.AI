@@ -561,8 +561,8 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
       const lmc = step.media_config as any ?? {};
       // Backwards compat: scores were previously stored in condicao as 'min-max'
       const legacyParts = (step.condicao ?? '').split('-');
-      const scoreMin = lmc.scoreMin ?? parseInt(legacyParts[0] ?? '0') || 0;
-      const scoreMax = lmc.scoreMax ?? parseInt(legacyParts[1] ?? '100') || 100;
+      const scoreMin = lmc.scoreMin ?? (parseInt(legacyParts[0] ?? '0') || 0);
+      const scoreMax = lmc.scoreMax ?? (parseInt(legacyParts[1] ?? '100') || 100);
       nodes.push({ id: step.id, type: 'leadScoreNode', position: { x, y },
         data: { kind: 'lead_score', label: 'Lead Score', scoreMin, scoreMax, stepId: step.id } satisfies LeadScoreNodeData });
     }
