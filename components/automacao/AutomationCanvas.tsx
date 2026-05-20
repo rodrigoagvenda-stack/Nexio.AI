@@ -2744,28 +2744,44 @@ function CanvasInner() {
   }
 
   async function waitForLeadReply(conversaId: string, timeoutMs = 120_000): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const supabase = createClient();
-      const channel = supabase
-        .channel(`test-reply-${conversaId}-${Date.now()}`)
-        .on('postgres_changes' as any, {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mensagens_do_whatsapp',
-          filter: `id_da_conversacao=eq.${conversaId}`,
-        }, (payload: any) => {
-          if (payload.new?.direcao === 'inbound') {
-            clearTimeout(timer);
-            channel.unsubscribe();
-            resolve(payload.new.texto_da_mensagem ?? '');
-          }
-        })
-        .subscribe();
+    // Get baseline count before waiting (timezone-agnostic approach)
+    let baselineCount = 0;
+    try {
+      const initRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
+      const initJ = await initRes.json();
+      baselineCount = initJ.count ?? 0;
+      console.log('[TestRun] waitForLeadReply → baseline count:', baselineCount, 'conversaId:', conversaId);
+    } catch (e) {
+      console.error('[TestRun] waitForLeadReply → failed to get baseline count:', e);
+    }
 
-      const timer = setTimeout(() => {
-        channel.unsubscribe();
-        reject(new Error('Timeout: lead não respondeu em 2 minutos'));
-      }, timeoutMs);
+    const deadline = Date.now() + timeoutMs;
+
+    return new Promise((resolve, reject) => {
+      const interval = setInterval(async () => {
+        if (abortTestRef.current) {
+          clearInterval(interval);
+          reject(new Error('Teste cancelado'));
+          return;
+        }
+        if (Date.now() > deadline) {
+          clearInterval(interval);
+          reject(new Error('Timeout: lead não respondeu em 2 minutos'));
+          return;
+        }
+        try {
+          const res = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}&baselineCount=${baselineCount}`);
+          const j = await res.json();
+          console.log('[TestRun] poll → count:', j.count, 'baseline:', baselineCount, 'text:', j.text);
+          if (j.text != null) {
+            clearInterval(interval);
+            console.log('[TestRun] reply received:', j.text);
+            resolve(String(j.text));
+          }
+        } catch (e) {
+          console.error('[TestRun] poll error:', e);
+        }
+      }, 2000);
     });
   }
 
@@ -2776,13 +2792,16 @@ function CanvasInner() {
     setTestWaitingReply(false);
     setNodeExecError(null);
 
-    // Find conversation for this phone (needed for Supabase Realtime)
+    // Find conversation for this phone (needed for reply polling)
     let conversaId: string | null = null;
     try {
       const r = await fetch(`/api/follow/conversa-for-phone?phone=${encodeURIComponent(phone)}`);
       const j = await r.json();
       conversaId = j.conversaId ?? null;
-    } catch {}
+      console.log('[TestRun] phone:', phone, '→ conversaId:', conversaId);
+    } catch (e) {
+      console.error('[TestRun] conversa-for-phone error:', e);
+    }
 
     // Build adjacency map
     const edgeMap: Record<string, { targetId: string; sourceHandle?: string }[]> = {};
@@ -2834,20 +2853,24 @@ function CanvasInner() {
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'condition') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
+          console.log('[TestRun] node condition → aguardando reply, conversaId:', conversaId);
           setTestWaitingReply(true);
           const reply = await waitForLeadReply(conversaId);
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           const result = evaluateCondition(d as ConditionNodeData, reply);
+          console.log('[TestRun] condition reply:', reply, '→ resultado:', result);
           setNodeExecState(node.id, result === 'sim' ? 'success' : 'skipped');
           chosenHandle = result;
         } else if (d.kind === 'switch') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
+          console.log('[TestRun] node switch → aguardando reply, conversaId:', conversaId);
           setTestWaitingReply(true);
           const reply = await waitForLeadReply(conversaId);
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           chosenHandle = evaluateSwitch(d as SwitchNodeData, reply);
+          console.log('[TestRun] switch reply:', reply, '→ handle:', chosenHandle);
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'webhook') {
           await fetch(d.url, { method: d.method }).catch(() => {});

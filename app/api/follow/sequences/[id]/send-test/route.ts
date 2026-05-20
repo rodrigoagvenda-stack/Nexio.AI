@@ -9,9 +9,15 @@ function safeDecrypt(value: string | null | undefined): string {
   if (!value) return ''
   if (value.startsWith('plain:')) return value.slice(6)
   const parts = value.split(':')
+  console.log('[send-test] safeDecrypt → parts.length:', parts.length, 'part0.len:', parts[0]?.length, 'part1.len:', parts[1]?.length)
   if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
-    try { return decrypt(value) } catch { return '' }
+    try { return decrypt(value) } catch (e) {
+      console.error('[send-test] decrypt failed:', e)
+      return ''
+    }
   }
+  // Token not in encrypted format — return as-is (plain token)
+  console.log('[send-test] safeDecrypt → returning as plain (no encrypt format match)')
   return value
 }
 
@@ -97,8 +103,10 @@ export async function POST(
 
     const uazapiUrl = sdrCfg?.uazapi_instance_url ?? platformCfg.uazapi_base_url
     const uazapiToken = safeDecrypt(sdrCfg?.uazapi_token)
+    console.log('[send-test] uazapiUrl:', uazapiUrl, '| tokenLen:', uazapiToken.length, '| phone:', normalizedPhone, '| stepId:', stepId)
 
     if (!uazapiToken) {
+      console.error('[send-test] token vazio — abortando. sdrCfg?.uazapi_token raw:', sdrCfg?.uazapi_token?.slice(0, 20))
       return NextResponse.json(
         { error: 'Instância uazapi não configurada. Configure em Agente SDR.' },
         { status: 400 }
