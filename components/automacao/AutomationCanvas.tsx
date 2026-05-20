@@ -2750,10 +2750,7 @@ function CanvasInner() {
       const initRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
       const initJ = await initRes.json();
       baselineMaxId = initJ.maxId ?? 0;
-      console.log('[TestRun] waitForLeadReply → baselineMaxId:', baselineMaxId, 'conversaId:', conversaId);
-    } catch (e) {
-      console.error('[TestRun] waitForLeadReply → failed to get baseline:', e);
-    }
+    } catch {}
 
     const deadline = Date.now() + timeoutMs;
 
@@ -2772,15 +2769,11 @@ function CanvasInner() {
         try {
           const res = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}&baselineMaxId=${baselineMaxId}`);
           const j = await res.json();
-          console.log('[TestRun] poll → maxId:', j.maxId, 'baseline:', baselineMaxId, 'text:', j.text);
           if (j.text != null) {
             clearInterval(interval);
-            console.log('[TestRun] reply received:', j.text);
             resolve(String(j.text));
           }
-        } catch (e) {
-          console.error('[TestRun] poll error:', e);
-        }
+        } catch {}
       }, 2000);
     });
   }
@@ -2798,10 +2791,7 @@ function CanvasInner() {
       const r = await fetch(`/api/follow/conversa-for-phone?phone=${encodeURIComponent(phone)}`);
       const j = await r.json();
       conversaId = j.conversaId ?? null;
-      console.log('[TestRun] phone:', phone, '→ conversaId:', conversaId);
-    } catch (e) {
-      console.error('[TestRun] conversa-for-phone error:', e);
-    }
+    } catch {}
 
     // Build adjacency map
     const edgeMap: Record<string, { targetId: string; sourceHandle?: string }[]> = {};
@@ -2853,24 +2843,20 @@ function CanvasInner() {
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'condition') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
-          console.log('[TestRun] node condition → aguardando reply, conversaId:', conversaId);
           setTestWaitingReply(true);
           const reply = await waitForLeadReply(conversaId);
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           const result = evaluateCondition(d as ConditionNodeData, reply);
-          console.log('[TestRun] condition reply:', reply, '→ resultado:', result);
           setNodeExecState(node.id, result === 'sim' ? 'success' : 'skipped');
           chosenHandle = result;
         } else if (d.kind === 'switch') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
-          console.log('[TestRun] node switch → aguardando reply, conversaId:', conversaId);
           setTestWaitingReply(true);
           const reply = await waitForLeadReply(conversaId);
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           chosenHandle = evaluateSwitch(d as SwitchNodeData, reply);
-          console.log('[TestRun] switch reply:', reply, '→ handle:', chosenHandle);
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'webhook') {
           await fetch(d.url, { method: d.method }).catch(() => {});
