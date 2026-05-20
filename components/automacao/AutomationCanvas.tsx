@@ -15,10 +15,14 @@ import {
   Position,
   MarkerType,
   BackgroundVariant,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getBezierPath,
   type Connection,
   type Node,
   type Edge,
   type NodeProps,
+  type EdgeProps,
   useReactFlow,
   ReactFlowProvider,
 } from '@xyflow/react';
@@ -73,6 +77,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 
 // ─── API Types ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +143,7 @@ interface TriggerNodeData extends Record<string, unknown> {
   condicao: string;
   _execState?: ExecState;
   _execError?: string;
+  _leadCount?: number;
 }
 
 interface MessageNodeData extends Record<string, unknown> {
@@ -146,6 +152,7 @@ interface MessageNodeData extends Record<string, unknown> {
   dia_offset: number;
   horario: string;
   mensagem: string | null;
+  _leadCount?: number;
   tipo_mensagem: string;
   stepId: string;
   media_url?: string;
@@ -451,10 +458,23 @@ function buildTemplates(): CanvasTemplate[] {
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 const EDGE_BASE = {
-  type: 'bezier',
+  type: 'deletable',
   markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: 'hsl(var(--border))' },
   style: { stroke: 'hsl(var(--border))', strokeWidth: 1.5 },
 } as const;
+
+function handleLabel(handle?: string, step?: FollowStep | null): string | undefined {
+  if (!handle) return undefined;
+  if (handle === 'sim') return 'Sim';
+  if (handle === 'nao') return 'Não';
+  if (handle === 'else') return 'else';
+  if (handle.startsWith('case-')) {
+    const idx = parseInt(handle.replace('case-', ''), 10);
+    const mc = step?.media_config as any;
+    return mc?.cases?.[idx]?.label || mc?.cases?.[idx]?.value || handle;
+  }
+  return undefined;
+}
 
 function truncate(str: string | null, n: number): string {
   if (!str) return '';
@@ -557,8 +577,10 @@ function stepsToEdges(steps: FollowStep[], canvasConfig?: CanvasConfig | null): 
       .map((e, i) => {
         const src = e.sourceIdx === -1 ? 'trigger' : sorted[e.sourceIdx]?.id;
         const tgt = e.targetIdx === -1 ? 'trigger' : sorted[e.targetIdx]?.id;
+        const sourceStep = e.sourceIdx === -1 ? null : sorted[e.sourceIdx] ?? null;
         if (!src || !tgt) return null;
-        return { id: `ec-${i}-${src}-${tgt}`, source: src, target: tgt, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, ...EDGE_BASE };
+        const label = handleLabel(e.sourceHandle, sourceStep);
+        return { id: `ec-${i}-${src}-${tgt}`, source: src, target: tgt, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, label, ...EDGE_BASE };
       })
       .filter(Boolean) as Edge[];
   }
@@ -688,13 +710,14 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   return null;
 }
 
-function NodeShell({ children, selected, accent = 'primary', header, execState, execError }: {
+function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount }: {
   children: React.ReactNode;
   selected?: boolean;
   accent?: AccentKey;
   header: React.ReactNode;
   execState?: ExecState;
   execError?: string;
+  leadCount?: number;
 }) {
   const isRunning = execState === 'running';
   const isSuccess = execState === 'success';
@@ -713,6 +736,11 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
           ? cn('ring-2', acc.sel, 'shadow-[0_4px_24px_rgba(0,0,0,0.1)]')
           : 'border-border/25 hover:border-border/40 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)]',
     )}>
+      {leadCount != null && leadCount > 0 && (
+        <div className="absolute -top-2 -left-2 z-10 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none shadow-sm">
+          <Phone className="w-2 h-2" />{leadCount}
+        </div>
+      )}
       <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-0 relative">
         <ExecBadge state={execState} error={execError} />
         {header}
@@ -752,7 +780,7 @@ function TriggerNode({ data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="primary"
       header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" />}
-      execState={d._execState} execError={d._execError}>
+      execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <p className="text-sm font-semibold text-foreground/90 leading-snug">{d.label}</p>
       {d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>}
@@ -773,7 +801,7 @@ function MessageNode({ data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="emerald"
       header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} />}
-      execState={d._execState} execError={d._execError}>
+      execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
@@ -1067,26 +1095,59 @@ function SwitchNode({ data, selected }: NodeProps) {
       <p className="text-[10px] text-muted-foreground/60 font-mono mb-1">{d.variavel || 'resposta_botao'}</p>
       <div className="flex flex-col gap-0.5">
         {cases.map((c, i) => (
-          <div key={i} className="relative flex items-center gap-2">
+          <div key={i} className="relative flex items-center gap-2 pr-3">
             <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', i === 0 ? 'bg-emerald-500' : i === 1 ? 'bg-sky-500' : i === 2 ? 'bg-violet-500' : i === 3 ? 'bg-amber-500' : 'bg-rose-500')} />
-            <span className="text-xs text-foreground/80 truncate max-w-[140px]">{c.label || c.value}</span>
+            <span className="text-xs text-foreground/80 truncate max-w-[130px]">{c.label || c.value}</span>
             <Handle
               id={`case-${i}`}
               type="source"
               position={Position.Right}
-              style={{ top: `${SWITCH_HEADER_OFFSET + i * SWITCH_ROW_H + SWITCH_ROW_H / 2}px` }}
-              className={cn('!w-2.5 !h-2.5 !rounded-full !border !absolute', COLORS[i % COLORS.length])}
+              style={{ right: -12, top: '50%', transform: 'translateY(-50%)', position: 'absolute' }}
+              className={cn('!w-2.5 !h-2.5 !rounded-full !border', COLORS[i % COLORS.length])}
             />
           </div>
         ))}
-        <div className="relative flex items-center gap-2 mt-0.5 opacity-50">
+        <div className="relative flex items-center gap-2 mt-0.5 opacity-50 pr-3">
           <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-muted-foreground/60" />
           <span className="text-[10px] text-muted-foreground italic">else</span>
-          <Handle id="else" type="source" position={Position.Bottom}
+          <Handle id="else" type="source" position={Position.Right}
+            style={{ right: -12, top: '50%', transform: 'translateY(-50%)', position: 'absolute' }}
             className="!w-2.5 !h-2.5 !rounded-full !border !bg-muted-foreground/40 !border-border" />
         </div>
       </div>
     </NodeShell>
+  );
+}
+
+// ─── Deletable Edge ─────────────────────────────────────────────────────────────
+
+function DeletableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, label }: EdgeProps) {
+  const { setEdges } = useReactFlow();
+  const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
+      <EdgeLabelRenderer>
+        <div
+          style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, position: 'absolute', pointerEvents: 'all' }}
+          className="nodrag nopan flex items-center gap-1 group"
+        >
+          {label && (
+            <span className="text-[10px] text-muted-foreground bg-card border border-border rounded-md px-1.5 py-0.5 leading-none shadow-sm">
+              {String(label)}
+            </span>
+          )}
+          <button
+            onClick={() => setEdges((eds) => eds.filter((e) => e.id !== id))}
+            title="Remover conexão"
+            className="w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors opacity-0 group-hover:opacity-100 shadow-sm"
+          >
+            <X className="w-2.5 h-2.5" />
+          </button>
+        </div>
+      </EdgeLabelRenderer>
+    </>
   );
 }
 
@@ -1100,6 +1161,10 @@ const nodeTypes = {
   webhookNode: WebhookNode,
   leadScoreNode: LeadScoreNode,
   abTestNode: ABTestNode,
+};
+
+const edgeTypes = {
+  deletable: DeletableEdge,
 };
 
 // ─── Upload components ──────────────────────────────────────────────────────────
@@ -2211,7 +2276,7 @@ function ModalOverlay({ children, onClose }: ModalOverlayProps) {
 // ─── Test Run Modal ──────────────────────────────────────────────────────────────
 
 interface TestRunModalProps {
-  onStart: (phone: string, dryRun: boolean) => void;
+  onStart: (phone: string) => void;
   onClose: () => void;
 }
 
@@ -2221,16 +2286,13 @@ function TestRunModal({ onStart, onClose }: TestRunModalProps) {
   const [phone, setPhone] = useState(() => {
     try { return localStorage.getItem(PHONE_LS_KEY) ?? ''; } catch { return ''; }
   });
-  const [dryRun, setDryRun] = useState(false);
 
   function handlePhoneChange(raw: string) {
-    // Strip non-digits; keep up to 13 digits (55 + DDD 2 + 9 digits)
     const digits = raw.replace(/\D/g, '').slice(0, 13);
     setPhone(digits);
     try { localStorage.setItem(PHONE_LS_KEY, digits); } catch {}
   }
 
-  // Format for display: +55 (11) 99999-9999
   function formatDisplay(digits: string) {
     if (!digits) return '';
     const d = digits.startsWith('55') ? digits.slice(2) : digits;
@@ -2246,10 +2308,14 @@ function TestRunModal({ onStart, onClose }: TestRunModalProps) {
     <ModalOverlay onClose={onClose}>
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">Executar teste</p>
+          <p className="text-sm font-semibold text-foreground">Executar teste real</p>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
-        <Field label="Número de teste">
+        <p className="text-xs text-muted-foreground -mt-2 leading-relaxed">
+          Envia as mensagens de verdade via WhatsApp. Em nós de condição/switch, aguarda a resposta real do lead para seguir o caminho correto.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Número de teste</label>
           <div className="flex items-center gap-0 rounded-xl border border-border overflow-hidden bg-muted focus-within:ring-2 focus-within:ring-primary/40">
             <div className="flex items-center gap-1.5 px-3 py-2.5 border-r border-border bg-muted/60 shrink-0">
               <span className="text-base leading-none">🇧🇷</span>
@@ -2261,71 +2327,16 @@ function TestRunModal({ onStart, onClose }: TestRunModalProps) {
               value={formatDisplay(phone.startsWith('55') ? phone.slice(2) : phone)}
               onChange={(e) => handlePhoneChange('55' + e.target.value.replace(/\D/g, ''))}
               placeholder="(11) 99999-9999"
+              autoFocus
               className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none" />
           </div>
-        </Field>
-        <div className="rounded-xl border border-border overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setDryRun(false)}
-            className={cn('w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors', !dryRun ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50')}>
-            <Play className="w-3.5 h-3.5 shrink-0" />
-            <div className="text-left">
-              <div className="font-medium leading-tight">Enviar de verdade</div>
-              <div className={cn('text-xs leading-tight', !dryRun ? 'text-primary-foreground/70' : 'text-muted-foreground/70')}>Dispara a mensagem pro número informado</div>
-            </div>
-          </button>
-          <div className="border-t border-border" />
-          <button
-            type="button"
-            onClick={() => setDryRun(true)}
-            className={cn('w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors', dryRun ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground hover:bg-muted/50')}>
-            <FlaskConical className="w-3.5 h-3.5 shrink-0" />
-            <div className="text-left">
-              <div className="font-medium leading-tight">Só simular</div>
-              <div className={cn('text-xs leading-tight', dryRun ? 'text-primary-foreground/70' : 'text-muted-foreground/70')}>Visualiza o fluxo sem enviar nada</div>
-            </div>
-          </button>
         </div>
         <button
-          onClick={() => { if (canSend) { onStart(phone, dryRun); onClose(); } }}
+          onClick={() => { if (canSend) { onStart(phone); onClose(); } }}
           disabled={!canSend}
-          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed">
-          {dryRun ? 'Simular fluxo' : 'Disparar teste'}
+          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <Play className="w-3.5 h-3.5" />Disparar teste
         </button>
-      </div>
-    </ModalOverlay>
-  );
-}
-
-// ─── Condition Choice Modal ──────────────────────────────────────────────────────
-
-interface ConditionChoiceModalProps {
-  nodeId: string;
-  condicao: string;
-  onChoose: (nodeId: string, choice: 'sim' | 'nao') => void;
-}
-
-function ConditionChoiceModal({ nodeId, condicao, onChoose }: ConditionChoiceModalProps) {
-  return (
-    <ModalOverlay>
-      <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-semibold text-foreground">Qual caminho?</p>
-          <p className="text-xs text-muted-foreground">Condição: {condicao}</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => onChoose(nodeId, 'sim')}
-            className="flex-1 py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
-            ↑ Sim
-          </button>
-          <button
-            onClick={() => onChoose(nodeId, 'nao')}
-            className="flex-1 py-2.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors">
-            ↓ Não
-          </button>
-        </div>
       </div>
     </ModalOverlay>
   );
@@ -2444,7 +2455,7 @@ function CanvasInner() {
   // Test run
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [testRunning, setTestRunning] = useState(false);
-  const [conditionChoiceState, setConditionChoiceState] = useState<{ nodeId: string; condicao: string; resolve: (choice: 'sim' | 'nao') => void } | null>(null);
+  const [testWaitingReply, setTestWaitingReply] = useState(false);
   const abortTestRef = useRef(false);
 
   // Conflict
@@ -2479,8 +2490,23 @@ function CanvasInner() {
   }, [currentSeq?.id, activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, ...EDGE_BASE }, eds)),
-    [setEdges]
+    (params: Connection) => {
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      let label: string | undefined;
+      if (sourceNode?.data.kind === 'condition') {
+        label = params.sourceHandle === 'sim' ? 'Sim' : params.sourceHandle === 'nao' ? 'Não' : undefined;
+      } else if (sourceNode?.data.kind === 'switch') {
+        const sd = sourceNode.data as SwitchNodeData;
+        if (params.sourceHandle?.startsWith('case-')) {
+          const idx = parseInt(params.sourceHandle.replace('case-', ''), 10);
+          label = sd.cases[idx]?.label || sd.cases[idx]?.value;
+        } else if (params.sourceHandle === 'else') {
+          label = 'else';
+        }
+      }
+      setEdges((eds) => addEdge({ ...params, ...EDGE_BASE, label }, eds));
+    },
+    [setEdges, nodes]
   );
 
   const edgeReconnectSuccessful = useRef(false);
@@ -2632,6 +2658,63 @@ function CanvasInner() {
     } finally { setSaving(false); }
   }
 
+  // ─── Lead count badges ────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!currentSeq) return;
+    let cancelled = false;
+    async function fetchCounts() {
+      try {
+        const res = await fetch(`/api/follow/sequences/${currentSeq!.id}/node-counts`);
+        if (!res.ok || cancelled) return;
+        const { counts } = await res.json() as { counts: Record<string, number> };
+        setNodes((nds) => nds.map((n) => {
+          const count = counts[String((n.data as any).stepId)] ?? 0;
+          return count === (n.data as any)._leadCount ? n : { ...n, data: { ...n.data, _leadCount: count } as AutoNodeData };
+        }));
+      } catch {}
+    }
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 30_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [currentSeq?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName.toLowerCase();
+      if (['input', 'textarea', 'select'].includes(tag)) return;
+
+      // Delete / Backspace → remove selected node
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId && selectedNodeId !== 'trigger') {
+        e.preventDefault();
+        handleDeleteNode(selectedNodeId);
+        setSelectedNodeId(null);
+        return;
+      }
+
+      // Ctrl+D / Cmd+D → duplicate selected node
+      if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && selectedNodeId) {
+        e.preventDefault();
+        const node = nodes.find((n) => n.id === selectedNodeId);
+        if (!node) return;
+        const newNodeId = newId();
+        const duplicated: Node<AutoNodeData> = {
+          ...node,
+          id: newNodeId,
+          position: { x: node.position.x + 40, y: node.position.y + 40 },
+          data: { ...node.data, stepId: newNodeId } as AutoNodeData,
+          selected: false,
+        };
+        setNodes((nds) => [...nds, duplicated]);
+        setSelectedNodeId(newNodeId);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedNodeId, nodes]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Test execution ────────────────────────────────────────────────────────────
 
   function setNodeExecState(nodeId: string, state: ExecState, error?: string) {
@@ -2642,34 +2725,79 @@ function CanvasInner() {
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execState: undefined, _execError: undefined } as AutoNodeData })));
   }
 
-  async function waitForConditionChoice(nodeId: string, condicao: string): Promise<'sim' | 'nao'> {
-    return new Promise((resolve) => {
-      setConditionChoiceState({ nodeId, condicao, resolve });
+  function evaluateCondition(d: ConditionNodeData, reply: string): 'sim' | 'nao' {
+    const val = (d.valor ?? '').toLowerCase().trim();
+    const r = reply.toLowerCase().trim();
+    if (d.operador === 'not_empty') return r ? 'sim' : 'nao';
+    if (d.operador === 'eq') return r === val ? 'sim' : 'nao';
+    if (d.operador === 'contains') return r.includes(val) ? 'sim' : 'nao';
+    if (d.operador === 'starts_with') return r.startsWith(val) ? 'sim' : 'nao';
+    return 'nao';
+  }
+
+  function evaluateSwitch(d: SwitchNodeData, reply: string): string {
+    const r = reply.toLowerCase().trim();
+    const idx = d.cases.findIndex((c) =>
+      c.value.toLowerCase().trim() === r || c.label.toLowerCase().trim() === r
+    );
+    return idx >= 0 ? `case-${idx}` : 'else';
+  }
+
+  async function waitForLeadReply(conversaId: string, timeoutMs = 120_000): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`test-reply-${conversaId}-${Date.now()}`)
+        .on('postgres_changes' as any, {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens_do_whatsapp',
+          filter: `id_da_conversacao=eq.${conversaId}`,
+        }, (payload: any) => {
+          if (payload.new?.direcao === 'inbound') {
+            clearTimeout(timer);
+            channel.unsubscribe();
+            resolve(payload.new.texto_da_mensagem ?? '');
+          }
+        })
+        .subscribe();
+
+      const timer = setTimeout(() => {
+        channel.unsubscribe();
+        reject(new Error('Timeout: lead não respondeu em 2 minutos'));
+      }, timeoutMs);
     });
   }
 
-  async function runTest(phone: string, dryRun: boolean) {
+  async function runTest(phone: string) {
     if (!currentSeq) return;
     abortTestRef.current = false;
     setTestRunning(true);
+    setTestWaitingReply(false);
     setNodeExecError(null);
 
-    // Build adjacency map from current edges (sourceHandle distinguishes condition branches)
+    // Find conversation for this phone (needed for Supabase Realtime)
+    let conversaId: string | null = null;
+    try {
+      const r = await fetch(`/api/follow/conversa-for-phone?phone=${encodeURIComponent(phone)}`);
+      const j = await r.json();
+      conversaId = j.conversaId ?? null;
+    } catch {}
+
+    // Build adjacency map
     const edgeMap: Record<string, { targetId: string; sourceHandle?: string }[]> = {};
     edges.forEach((e) => {
       if (!edgeMap[e.source]) edgeMap[e.source] = [];
       edgeMap[e.source].push({ targetId: e.target, sourceHandle: e.sourceHandle ?? undefined });
     });
-
     const nodeMap: Record<string, Node<AutoNodeData>> = {};
     nodes.forEach((n) => { nodeMap[n.id] = n; });
 
-    // Traverse graph following edges, starting from trigger
     let currentId: string | null = 'trigger';
     const visited = new Set<string>();
 
     while (currentId && !abortTestRef.current) {
-      if (visited.has(currentId)) break; // cycle guard
+      if (visited.has(currentId)) break;
       visited.add(currentId);
 
       const node = nodeMap[currentId];
@@ -2677,8 +2805,7 @@ function CanvasInner() {
 
       const d = node.data;
       setNodeExecState(node.id, 'running');
-      await new Promise((r) => setTimeout(r, 600));
-
+      await new Promise((r) => setTimeout(r, 400));
       if (abortTestRef.current) { setNodeExecState(node.id, 'idle'); break; }
 
       let chosenHandle: string | undefined;
@@ -2690,53 +2817,45 @@ function CanvasInner() {
           setNodeExecState(node.id, 'skipped');
         } else if (d.kind === 'end') {
           setNodeExecState(node.id, 'success');
-          break; // no outgoing edges expected
+          break;
         } else if (d.kind === 'message') {
-          if (!dryRun) {
-            if (String(d.stepId ?? '').startsWith('new-')) {
-              throw new Error('Salve a sequência antes de executar o teste');
-            }
-            const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ stepId: d.stepId, phone }),
-            });
-            if (!res.ok) {
-              const errJson = await res.json().catch(() => ({}));
-              throw new Error((errJson as any).error ?? `HTTP ${res.status}`);
-            }
+          if (String(d.stepId ?? '').startsWith('new-')) {
+            throw new Error('Salve a sequência antes de executar o teste');
+          }
+          const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stepId: d.stepId, phone }),
+          });
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error((errJson as any).error ?? `HTTP ${res.status}`);
           }
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'condition') {
-          setNodeExecState(node.id, 'running');
-          const opLabel: Record<string, string> = { eq: '==', contains: 'contém', starts_with: 'começa com', not_empty: '≠ vazio' };
-          const condDisplay = d.variavel && d.valor != null
-            ? `${d.variavel} ${opLabel[d.operador ?? 'eq'] ?? '=='} "${d.valor}"`
-            : (d.condicao || 'Respondeu?');
-          const choice = await waitForConditionChoice(node.id, condDisplay);
-          setConditionChoiceState(null);
-          setNodeExecState(node.id, choice === 'sim' ? 'success' : 'skipped');
-          chosenHandle = choice; // 'sim' or 'nao'
+          if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
+          setTestWaitingReply(true);
+          const reply = await waitForLeadReply(conversaId);
+          setTestWaitingReply(false);
+          if (abortTestRef.current) break;
+          const result = evaluateCondition(d as ConditionNodeData, reply);
+          setNodeExecState(node.id, result === 'sim' ? 'success' : 'skipped');
+          chosenHandle = result;
         } else if (d.kind === 'switch') {
-          setNodeExecState(node.id, 'running');
-          const sd = d as SwitchNodeData;
-          // Show choice modal with all cases + else
-          const switchDisplay = `${sd.variavel}: ${sd.cases.map((c, i) => `${i + 1}) ${c.label || c.value}`).join(' · ')} · else`;
-          const raw = await waitForConditionChoice(node.id, switchDisplay);
-          setConditionChoiceState(null);
-          // raw is 'sim'/'nao' from the modal — map to case-N or else
-          // For test: just follow first case on 'sim', else on 'nao'
-          chosenHandle = raw === 'sim' ? 'case-0' : 'else';
+          if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
+          setTestWaitingReply(true);
+          const reply = await waitForLeadReply(conversaId);
+          setTestWaitingReply(false);
+          if (abortTestRef.current) break;
+          chosenHandle = evaluateSwitch(d as SwitchNodeData, reply);
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'webhook') {
-          if (!dryRun) {
-            await fetch(d.url, { method: d.method });
-          }
+          await fetch(d.url, { method: d.method }).catch(() => {});
           setNodeExecState(node.id, 'success');
         } else if (d.kind === 'ab_test') {
           const variant = Math.random() < 0.5 ? 'A' : 'B';
           setNodeExecState(node.id, 'success', `Variante ${variant} selecionada`);
-          chosenHandle = variant.toLowerCase(); // 'a' or 'b'
+          chosenHandle = variant.toLowerCase();
         } else if (d.kind === 'lead_score') {
           setNodeExecState(node.id, 'success');
         }
@@ -2745,10 +2864,10 @@ function CanvasInner() {
         const nodeName = (node.data.label as string | undefined) ?? node.id;
         setNodeExecState(node.id, 'error', msg);
         setNodeExecError({ name: String(nodeName), msg });
+        setTestWaitingReply(false);
         break;
       }
 
-      // Follow the correct edge based on chosen handle (or first available)
       const outgoing = edgeMap[node.id] ?? [];
       const next = chosenHandle
         ? outgoing.find((e) => e.sourceHandle === chosenHandle) ?? outgoing[0]
@@ -2757,12 +2876,13 @@ function CanvasInner() {
     }
 
     setTestRunning(false);
+    setTestWaitingReply(false);
   }
 
   function stopTest() {
     abortTestRef.current = true;
-    setConditionChoiceState(null);
     setTestRunning(false);
+    setTestWaitingReply(false);
     setNodeExecError(null);
     clearAllExecStates();
   }
@@ -2888,6 +3008,15 @@ function CanvasInner() {
         </div>
       )}
 
+      {/* Waiting for lead reply banner */}
+      {testWaitingReply && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-primary/10 border-b border-primary/20 flex-shrink-0">
+          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+          <span className="text-xs text-primary flex-1 font-medium">Aguardando resposta do lead… (timeout: 2 min)</span>
+          <button onClick={stopTest} className="text-primary/60 hover:text-primary transition-colors text-xs">Cancelar</button>
+        </div>
+      )}
+
       {/* Node exec error banner */}
       {nodeExecError && (
         <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex-shrink-0">
@@ -2922,7 +3051,7 @@ function CanvasInner() {
                   <ReactFlow
                     nodes={nodes} edges={edges}
                     onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
-                    nodeTypes={nodeTypes}
+                    nodeTypes={nodeTypes} edgeTypes={edgeTypes}
                     onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                     onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
                     fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.3} maxZoom={1.5}
@@ -2971,19 +3100,8 @@ function CanvasInner() {
       {/* Modals */}
       {testModalOpen && (
         <TestRunModal
-          onStart={(phone, dryRun) => { setTestModalOpen(false); runTest(phone, dryRun); }}
+          onStart={(phone) => { setTestModalOpen(false); runTest(phone); }}
           onClose={() => setTestModalOpen(false)}
-        />
-      )}
-
-      {conditionChoiceState && (
-        <ConditionChoiceModal
-          nodeId={conditionChoiceState.nodeId}
-          condicao={conditionChoiceState.condicao}
-          onChoose={(nodeId, choice) => {
-            conditionChoiceState.resolve(choice);
-            void nodeId;
-          }}
         />
       )}
 
