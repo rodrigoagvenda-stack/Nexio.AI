@@ -103,12 +103,26 @@ const UAZAPI_TO_CANVAS: Record<string, string> = {
   location: 'localizacao', menu: 'lista', carousel: 'carrossel', sticker: 'sticker',
 };
 
+interface CanvasConfigEdge {
+  sourceIdx: number;   // -1 = trigger, 0..N = index in x-sorted non-trigger nodes
+  targetIdx: number;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+interface CanvasConfig {
+  positions: { x: number; y: number }[];  // indexed by x-sorted step order
+  triggerPos: { x: number; y: number };
+  edges: CanvasConfigEdge[];
+}
+
 interface FollowSequence {
   id: string;
   nome: string;
   tipo: SequenceTipo;
   ativo: boolean;
   follow_steps: FollowStep[];
+  canvas_config?: CanvasConfig | null;
 }
 
 // ─── Node Exec State ────────────────────────────────────────────────────────────
@@ -454,15 +468,18 @@ function getDomain(url: string): string {
   }
 }
 
-function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeData>[] {
+function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: CanvasConfig | null): Node<AutoNodeData>[] {
   const nodes: Node<AutoNodeData>[] = [];
+  const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
   nodes.push({
-    id: 'trigger', type: 'triggerNode', position: { x: 0, y: 150 },
+    id: 'trigger', type: 'triggerNode', position: triggerPos,
     data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência' } satisfies TriggerNodeData,
   });
   const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
-    const x = (idx + 1) * 280;
+    const stored = canvasConfig?.positions?.[idx];
+    const x = stored?.x ?? (idx + 1) * 280;
+    const y = stored?.y ?? 150;
     const condicaoLower = step.condicao?.toLowerCase() ?? '';
     // Normalize tipo: DB may store EN ('text') or legacy PT ('texto') — map both to canvas PT
     let tipoCanvas = UAZAPI_TO_CANVAS[step.tipo_mensagem] ?? step.tipo_mensagem;
@@ -494,14 +511,13 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
     // Carousel
     const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
 
-    if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y: 150 }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
+    if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
     else if (step.tipo_mensagem === 'switch') {
       const mc = step.media_config as any ?? {};
-      nodes.push({ id: step.id, type: 'switchNode', position: { x, y: 150 },
+      nodes.push({ id: step.id, type: 'switchNode', position: { x, y },
         data: { kind: 'switch', label: 'Switch', variavel: mc.variavel ?? 'resposta_botao', cases: mc.cases ?? [], stepId: step.id } satisfies SwitchNodeData });
     }
     else if (isCondition) {
-      // Read variavel/operador/valor from media_config (new format); fallback: try old JSON in condicao
       const mc = step.media_config as any ?? {};
       let variavel = mc.variavel ?? 'resposta_botao';
       let operador: ConditionNodeData['operador'] = mc.operador ?? 'eq';
@@ -509,17 +525,43 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string): Node<AutoNodeD
       if (!mc.variavel) {
         try { const p = JSON.parse(step.condicao); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
       }
-      nodes.push({ id: step.id, type: 'conditionNode', position: { x, y: 150 },
+      nodes.push({ id: step.id, type: 'conditionNode', position: { x, y },
         data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', variavel, operador, valor, stepId: step.id } satisfies ConditionNodeData });
     }
-    else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y: 150 }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y: 150 }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
+    else if (step.tipo_mensagem === 'webhook') {
+      nodes.push({ id: step.id, type: 'webhookNode', position: { x, y },
+        data: { kind: 'webhook', label: 'Webhook', url: step.condicao ?? '', method: 'POST', stepId: step.id } satisfies WebhookNodeData });
+    }
+    else if (step.tipo_mensagem === 'lead_score') {
+      const parts = (step.condicao ?? '').split('-');
+      nodes.push({ id: step.id, type: 'leadScoreNode', position: { x, y },
+        data: { kind: 'lead_score', label: 'Lead Score', scoreMin: parseInt(parts[0] ?? '0') || 0, scoreMax: parseInt(parts[1] ?? '100') || 100, stepId: step.id } satisfies LeadScoreNodeData });
+    }
+    else if (step.tipo_mensagem === 'ab_test') {
+      const parts = (step.condicao ?? '').split('|');
+      nodes.push({ id: step.id, type: 'abTestNode', position: { x, y },
+        data: { kind: 'ab_test', label: 'Teste A/B', variantA: parts[0] ?? 'Variante A', variantB: parts[1] ?? 'Variante B', stepId: step.id } satisfies ABTestNodeData });
+    }
+    else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
   });
   return nodes;
 }
 
-function stepsToEdges(steps: FollowStep[]): Edge[] {
+function stepsToEdges(steps: FollowStep[], canvasConfig?: CanvasConfig | null): Edge[] {
   const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
+
+  if (canvasConfig?.edges?.length) {
+    return canvasConfig.edges
+      .map((e, i) => {
+        const src = e.sourceIdx === -1 ? 'trigger' : sorted[e.sourceIdx]?.id;
+        const tgt = e.targetIdx === -1 ? 'trigger' : sorted[e.targetIdx]?.id;
+        if (!src || !tgt) return null;
+        return { id: `ec-${i}-${src}-${tgt}`, source: src, target: tgt, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, ...EDGE_BASE };
+      })
+      .filter(Boolean) as Edge[];
+  }
+
   const edges: Edge[] = [];
   if (sorted.length > 0) edges.push({ id: `trigger-${sorted[0].id}`, source: 'trigger', target: sorted[0].id, ...EDGE_BASE });
   for (let i = 0; i < sorted.length - 1; i++) {
@@ -1462,6 +1504,173 @@ function CarrosselBuilder({ value, onChange, sequenceId }: { value: string; onCh
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 
+// ─── ConditionConfig / SwitchConfig ─────────────────────────────────────────
+
+interface ConditionConfigProps {
+  d: ConditionNodeData;
+  nodeId: string;
+  allNodes: Node<AutoNodeData>[];
+  allEdges: Edge[];
+  onUpdate: (id: string, patch: Partial<AutoNodeData>) => void;
+}
+
+function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionConfigProps) {
+  const upstreamChoices = React.useMemo(() => {
+    const incomingIds = allEdges.filter(e => e.target === nodeId).map(e => e.source);
+    const choices: string[] = [];
+    for (const id of incomingIds) {
+      const n = allNodes.find(n => n.id === id);
+      if (n?.data.kind === 'message') {
+        const mc = (n.data as MessageNodeData).menu_choices ?? '';
+        mc.split('\n').filter(Boolean).forEach(line => {
+          const label = line.split('|')[0].trim();
+          if (label) choices.push(label);
+        });
+      }
+    }
+    return choices;
+  }, [allNodes, allEdges, nodeId]);
+
+  const variavel = d.variavel ?? 'resposta_botao';
+  const operador = d.operador ?? 'eq';
+  const valor = d.valor ?? '';
+  const inUpstream = upstreamChoices.includes(valor);
+
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Variável</label>
+        <select value={variavel} onChange={(e) => onUpdate(nodeId, { variavel: e.target.value })} className="field-input">
+          <option value="resposta_botao">Resposta do botão</option>
+          <option value="ultima_resposta">Última resposta</option>
+          <option value="custom">Personalizada</option>
+        </select>
+      </div>
+      {variavel === 'custom' && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Nome da variável</label>
+          <input type="text" value={d.condicao ?? ''} onChange={(e) => onUpdate(nodeId, { condicao: e.target.value })}
+            placeholder="ex: lead.stage" className="field-input" />
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Operador</label>
+        <select value={operador} onChange={(e) => onUpdate(nodeId, { operador: e.target.value as ConditionNodeData['operador'] })} className="field-input">
+          <option value="eq">igual a (=)</option>
+          <option value="contains">contém</option>
+          <option value="starts_with">começa com</option>
+          <option value="not_empty">não está vazio</option>
+        </select>
+      </div>
+      {operador !== 'not_empty' && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Valor</label>
+          {upstreamChoices.length > 0 ? (
+            <>
+              <select value={inUpstream ? valor : '__custom'}
+                onChange={(e) => onUpdate(nodeId, { valor: e.target.value === '__custom' ? '' : e.target.value })}
+                className="field-input">
+                {upstreamChoices.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__custom">Personalizado…</option>
+              </select>
+              {!inUpstream && (
+                <input type="text" value={valor} onChange={(e) => onUpdate(nodeId, { valor: e.target.value })}
+                  placeholder="Valor personalizado" className="field-input" />
+              )}
+            </>
+          ) : (
+            <input type="text" value={valor} onChange={(e) => onUpdate(nodeId, { valor: e.target.value })}
+              placeholder="Valor esperado" className="field-input" />
+          )}
+        </div>
+      )}
+      <p className="text-[10px] text-muted-foreground/60 leading-snug">
+        Saída <strong>Sim</strong> se a condição for verdadeira, <strong>Não</strong> caso contrário.
+      </p>
+    </>
+  );
+}
+
+interface SwitchConfigProps {
+  d: SwitchNodeData;
+  nodeId: string;
+  allNodes: Node<AutoNodeData>[];
+  allEdges: Edge[];
+  onUpdate: (id: string, patch: Partial<AutoNodeData>) => void;
+}
+
+function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigProps) {
+  const upstreamChoices = React.useMemo(() => {
+    const incomingIds = allEdges.filter(e => e.target === nodeId).map(e => e.source);
+    const choices: string[] = [];
+    for (const id of incomingIds) {
+      const n = allNodes.find(n => n.id === id);
+      if (n?.data.kind === 'message') {
+        const mc = (n.data as MessageNodeData).menu_choices ?? '';
+        mc.split('\n').filter(Boolean).forEach(line => {
+          const label = line.split('|')[0].trim();
+          if (label) choices.push(label);
+        });
+      }
+    }
+    return choices;
+  }, [allNodes, allEdges, nodeId]);
+
+  const cases = d.cases ?? [];
+  const CASE_COLORS = ['text-emerald-500', 'text-sky-500', 'text-violet-500', 'text-amber-500', 'text-rose-500'];
+
+  function updateCase(i: number, patch: Partial<SwitchCase>) {
+    onUpdate(nodeId, { cases: cases.map((c, idx) => idx === i ? { ...c, ...patch } : c) });
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Variável</label>
+        <select value={d.variavel ?? 'resposta_botao'} onChange={(e) => onUpdate(nodeId, { variavel: e.target.value })} className="field-input">
+          <option value="resposta_botao">Resposta do botão</option>
+          <option value="ultima_resposta">Última resposta</option>
+        </select>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Casos</label>
+        {cases.map((c, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-bold w-4 shrink-0 ${CASE_COLORS[i % CASE_COLORS.length]}`}>{i + 1}</span>
+            {upstreamChoices.length > 0 ? (
+              <select value={upstreamChoices.includes(c.value) ? c.value : '__custom'}
+                onChange={(e) => updateCase(i, { value: e.target.value === '__custom' ? '' : e.target.value })}
+                className="field-input flex-1 text-xs">
+                {upstreamChoices.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                <option value="__custom">Personalizado…</option>
+              </select>
+            ) : (
+              <input type="text" value={c.value} onChange={(e) => updateCase(i, { value: e.target.value })}
+                placeholder="valor" className="field-input flex-1 text-xs" />
+            )}
+            <input type="text" value={c.label} onChange={(e) => updateCase(i, { label: e.target.value })}
+              placeholder="rótulo" className="field-input flex-1 text-xs" />
+            <button type="button" onClick={() => onUpdate(nodeId, { cases: cases.filter((_, idx) => idx !== i) })}
+              className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+        {cases.length < 5 && (
+          <button type="button"
+            onClick={() => onUpdate(nodeId, { cases: [...cases, { value: '', label: `Caso ${cases.length + 1}` }] })}
+            className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
+            <Plus className="w-3 h-3" /> Adicionar caso
+          </button>
+        )}
+      </div>
+      <p className="text-[10px] text-muted-foreground/60 leading-snug">
+        Caso nenhum valor corresponda, o fluxo segue pela saída <strong>else</strong>.
+      </p>
+    </>
+  );
+}
+
 interface ConfigPanelProps {
   node: Node<AutoNodeData> | null;
   onClose: () => void;
@@ -1683,139 +1892,26 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
         )}
 
         {/* ── Condition node ── */}
-        {d.kind === 'condition' && (() => {
-          // Collect button/list choices from upstream nodes (nodes that have an edge pointing to this node)
-          const upstreamIds = allEdges.filter((e) => e.target === node.id).map((e) => e.source);
-          const upstreamChoices: string[] = [];
-          upstreamIds.forEach((uid) => {
-            const un = allNodes.find((n) => n.id === uid);
-            if (!un) return;
-            const ud = un.data as MessageNodeData;
-            if (ud.kind !== 'message') return;
-            if (ud.menu_choices) {
-              ud.menu_choices.split('\n').map((s) => s.trim()).filter(Boolean).forEach((c) => upstreamChoices.push(c));
-            }
-          });
-          const OPERADORES = [
-            { value: 'eq', label: 'Igual a' },
-            { value: 'contains', label: 'Contém' },
-            { value: 'starts_with', label: 'Começa com' },
-            { value: 'not_empty', label: 'Não está vazio' },
-          ] as const;
-          return (
-            <>
-              <Field label="Variável">
-                <select value={d.variavel ?? 'resposta_botao'}
-                  onChange={(e) => onUpdate(node.id, { variavel: e.target.value })}
-                  className="field-input">
-                  <option value="resposta_botao">ID do botão clicado</option>
-                  <option value="ultima_resposta">Última resposta do lead</option>
-                  <option value="custom">Personalizado…</option>
-                </select>
-                {d.variavel === 'custom' && (
-                  <input type="text" className="field-input mt-1.5" placeholder="{{minha_variavel}}"
-                    value={d.condicao ?? ''}
-                    onChange={(e) => onUpdate(node.id, { condicao: e.target.value })} />
-                )}
-              </Field>
-              <Field label="Operador">
-                <select value={d.operador ?? 'eq'}
-                  onChange={(e) => onUpdate(node.id, { operador: e.target.value as ConditionNodeData['operador'] })}
-                  className="field-input">
-                  {OPERADORES.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
-                </select>
-              </Field>
-              {(d.operador ?? 'eq') !== 'not_empty' && (
-                <Field label="Valor">
-                  {upstreamChoices.length > 0 ? (
-                    <select value={d.valor ?? ''}
-                      onChange={(e) => onUpdate(node.id, { valor: e.target.value })}
-                      className="field-input">
-                      <option value="">Selecionar valor…</option>
-                      {upstreamChoices.map((c) => <option key={c} value={c}>{c}</option>)}
-                      <option value="__custom">Outro…</option>
-                    </select>
-                  ) : (
-                    <input type="text" value={d.valor ?? ''}
-                      onChange={(e) => onUpdate(node.id, { valor: e.target.value })}
-                      placeholder="ex: agendar" className="field-input" />
-                  )}
-                  {d.valor === '__custom' && (
-                    <input type="text" className="field-input mt-1.5" placeholder="valor personalizado"
-                      onChange={(e) => onUpdate(node.id, { valor: e.target.value })} />
-                  )}
-                </Field>
-              )}
-              <p className="text-xs text-muted-foreground/60 leading-relaxed">
-                Saída <span className="text-emerald-500 font-medium">Sim</span> quando a condição for verdadeira; <span className="text-destructive/70 font-medium">Não</span> caso contrário.
-              </p>
-            </>
-          );
-        })()}
+        {d.kind === 'condition' && (
+          <ConditionConfig
+            d={d as ConditionNodeData}
+            nodeId={node.id}
+            allNodes={allNodes}
+            allEdges={allEdges}
+            onUpdate={onUpdate}
+          />
+        )}
 
         {/* ── Switch node ── */}
-        {d.kind === 'switch' && (() => {
-          const sd = d as SwitchNodeData;
-          const upstreamIds = allEdges.filter((e) => e.target === node.id).map((e) => e.source);
-          const upstreamChoices: string[] = [];
-          upstreamIds.forEach((uid) => {
-            const un = allNodes.find((n) => n.id === uid);
-            if (!un) return;
-            const ud = un.data as MessageNodeData;
-            if (ud.kind !== 'message') return;
-            if (ud.menu_choices) ud.menu_choices.split('\n').map(s => s.trim()).filter(Boolean).forEach(c => upstreamChoices.push(c));
-          });
-          const CASE_COLORS = ['text-emerald-500', 'text-sky-500', 'text-violet-500', 'text-amber-500', 'text-rose-500'];
-          return (
-            <>
-              <Field label="Variável">
-                <select value={sd.variavel ?? 'resposta_botao'}
-                  onChange={(e) => onUpdate(node.id, { variavel: e.target.value })}
-                  className="field-input">
-                  <option value="resposta_botao">ID do botão clicado</option>
-                  <option value="ultima_resposta">Última resposta do lead</option>
-                </select>
-              </Field>
-              <Field label="Casos">
-                <div className="space-y-2">
-                  {sd.cases.map((c, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                      <span className={cn('text-xs font-bold w-4 text-center shrink-0', CASE_COLORS[i % CASE_COLORS.length])}>{i + 1}</span>
-                      {upstreamChoices.length > 0 ? (
-                        <select value={c.value}
-                          onChange={(e) => { const next = [...sd.cases]; next[i] = { ...next[i], value: e.target.value, label: e.target.value || next[i].label }; onUpdate(node.id, { cases: next }); }}
-                          className="field-input flex-1 text-xs py-1.5">
-                          <option value="">Selecionar…</option>
-                          {upstreamChoices.map(uc => <option key={uc} value={uc}>{uc}</option>)}
-                        </select>
-                      ) : (
-                        <input type="text" value={c.value} placeholder="valor (ex: agendar)"
-                          onChange={(e) => { const next = [...sd.cases]; next[i] = { ...next[i], value: e.target.value }; onUpdate(node.id, { cases: next }); }}
-                          className="field-input flex-1 text-xs py-1.5" />
-                      )}
-                      <input type="text" value={c.label} placeholder="rótulo"
-                        onChange={(e) => { const next = [...sd.cases]; next[i] = { ...next[i], label: e.target.value }; onUpdate(node.id, { cases: next }); }}
-                        className="field-input w-24 text-xs py-1.5" />
-                      <button onClick={() => { const next = sd.cases.filter((_, j) => j !== i); onUpdate(node.id, { cases: next }); }}
-                        className="text-muted-foreground/50 hover:text-destructive transition-colors shrink-0">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  {sd.cases.length < 5 && (
-                    <button onClick={() => onUpdate(node.id, { cases: [...sd.cases, { value: '', label: `Caso ${sd.cases.length + 1}` }] })}
-                      className="flex items-center gap-1.5 text-xs text-primary/70 hover:text-primary transition-colors">
-                      <Plus className="w-3.5 h-3.5" />Adicionar caso
-                    </button>
-                  )}
-                </div>
-              </Field>
-              <p className="text-xs text-muted-foreground/60 leading-relaxed">
-                Cada caso vira uma saída. A saída <span className="text-muted-foreground font-medium">else</span> pega qualquer valor não listado.
-              </p>
-            </>
-          );
-        })()}
+        {d.kind === 'switch' && (
+          <SwitchConfig
+            d={d as SwitchNodeData}
+            nodeId={node.id}
+            allNodes={allNodes}
+            allEdges={allEdges}
+            onUpdate={onUpdate}
+          />
+        )}
 
         {/* ── Trigger node ── */}
         {d.kind === 'trigger' && (
@@ -2375,8 +2471,8 @@ function CanvasInner() {
 
   useEffect(() => {
     if (!currentSeq) { setNodes([]); setEdges([]); return; }
-    setNodes(stepsToNodes(currentSeq.follow_steps, currentSeq.nome));
-    setEdges(stepsToEdges(currentSeq.follow_steps));
+    setNodes(stepsToNodes(currentSeq.follow_steps, currentSeq.nome, currentSeq.canvas_config));
+    setEdges(stepsToEdges(currentSeq.follow_steps, currentSeq.canvas_config));
     setSelectedNodeId(null);
     setVersions(loadVersions(currentSeq.id));
   }, [currentSeq?.id, activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2468,40 +2564,57 @@ function CanvasInner() {
     setSaving(true);
     setSaveError(null);
     try {
-      // Save local version before persisting
       saveVersion(currentSeq.id, nodes, edges);
       setVersions(loadVersions(currentSeq.id));
 
       const steps = nodesToSteps(nodes);
       const triggerNode = nodes.find((n) => n.id === 'trigger');
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
-      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo: currentSeq.tipo, ativo: currentSeq.ativo, steps }) });
+
+      // Build canvas_config: positions + edges indexed by x-sorted order so they survive UUID rotation
+      const nonTrigger = [...nodes.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
+      const idToIdx: Record<string, number> = {};
+      nonTrigger.forEach((n, i) => { idToIdx[n.id] = i; });
+      const canvas_config: CanvasConfig = {
+        triggerPos: triggerNode?.position ?? { x: 0, y: 150 },
+        positions: nonTrigger.map((n) => ({ x: n.position.x, y: n.position.y })),
+        edges: edges
+          .map((e) => ({
+            sourceIdx: e.source === 'trigger' ? -1 : idToIdx[e.source],
+            targetIdx: e.target === 'trigger' ? -1 : idToIdx[e.target],
+            sourceHandle: (e.sourceHandle ?? undefined) as string | undefined,
+            targetHandle: (e.targetHandle ?? undefined) as string | undefined,
+          }))
+          .filter((e) => e.sourceIdx !== undefined && e.targetIdx !== undefined) as CanvasConfigEdge[],
+      };
+
+      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, tipo: currentSeq.tipo, ativo: currentSeq.ativo, steps, canvas_config }),
+      });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         throw new Error((errJson as any).error ?? `HTTP ${res.status}`);
       }
       const saved = (await res.json()) as { sequence?: FollowSequence };
 
-      // Update nome + follow_steps in sequences state.
-      // useEffect depends on currentSeq?.id (not the object reference), so updating
-      // follow_steps here does NOT re-render the canvas — it just keeps state fresh
-      // so switching tabs and back shows saved data.
+      // Update sequences state with new nome, follow_steps, and canvas_config.
+      // useEffect depends on currentSeq?.id (not reference), so this does NOT re-render canvas.
       const savedSteps2 = saved.sequence?.follow_steps ?? null;
       setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id
-        ? { ...s, nome, ...(savedSteps2 ? { follow_steps: savedSteps2 } : {}) }
+        ? { ...s, nome, canvas_config, ...(savedSteps2 ? { follow_steps: savedSteps2 } : {}) }
         : s
       ));
 
-      // Patch stepIds in existing nodes with the real DB UUIDs (by x-position order).
-      // This preserves all custom positions and connections — only updates data.stepId
-      // so that test-run can look up the step in DB.
+      // Patch data.stepId in nodes with real DB UUIDs (matching by x-position order = ordem order).
       const savedSteps = [...(saved.sequence?.follow_steps ?? [])].sort((a, b) => a.ordem - b.ordem);
       if (savedSteps.length > 0) {
         setNodes((nds) => {
-          const nonTrigger = [...nds.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
+          const nt = [...nds.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
           return nds.map((n) => {
             if (n.id === 'trigger') return n;
-            const idx = nonTrigger.findIndex((nn) => nn.id === n.id);
+            const idx = nt.findIndex((nn) => nn.id === n.id);
             const realStep = savedSteps[idx];
             if (!realStep) return n;
             return { ...n, data: { ...n.data, stepId: realStep.id } as AutoNodeData };
