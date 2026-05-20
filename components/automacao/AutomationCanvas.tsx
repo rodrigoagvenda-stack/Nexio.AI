@@ -1059,8 +1059,8 @@ function SwitchNode({ data, selected }: NodeProps) {
   const cases = d.cases ?? [];
   const COLORS = ['!bg-emerald-500/60 !border-emerald-500/40', '!bg-sky-500/60 !border-sky-500/40', '!bg-violet-500/60 !border-violet-500/40', '!bg-amber-500/60 !border-amber-500/40', '!bg-rose-500/60 !border-rose-500/40'];
   return (
-    <NodeShell selected={selected} accent="sky"
-      header={<NodeHeader icon={GitMerge} label="Switch" accent="sky" meta={`${cases.length} saídas`} />}
+    <NodeShell selected={selected} accent="violet"
+      header={<NodeHeader icon={GitMerge} label="Switch" accent="violet" meta={`${cases.length} saídas`} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <p className="text-[10px] text-muted-foreground/60 font-mono mb-1">{d.variavel || 'resposta_botao'}</p>
