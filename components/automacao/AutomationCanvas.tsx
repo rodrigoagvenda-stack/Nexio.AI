@@ -618,7 +618,7 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     }
     if (d.kind === 'switch') {
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'switch', ordem: idx + 1,
-        condicao: 'switch',
+        condicao: '',
         media_config: { variavel: d.variavel ?? 'resposta_botao', cases: d.cases ?? [] } };
     }
     if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: d.url };
