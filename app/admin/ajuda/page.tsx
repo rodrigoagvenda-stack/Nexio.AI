@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { OrbitCard, OrbitCardContent, OrbitCardDescription, OrbitCardHeader, OrbitCardTitle } from '@/components/ui/orbit-card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   LayoutDashboard,
   Building2,
@@ -24,7 +25,7 @@ function SupportTicketForm() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
@@ -76,16 +77,20 @@ function SupportTicketForm() {
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-medium">Categoria <span className="text-red-500">*</span></label>
-        <select name="assunto" required value={form.assunto} onChange={handleChange} className={`${inputClass} cursor-pointer`}>
-          <option value="" disabled>Selecione...</option>
-          <option value="Problema técnico">Problema técnico</option>
-          <option value="WhatsApp / Conexão">WhatsApp / Conexão</option>
-          <option value="Agente IA não responde">Agente IA não responde</option>
-          <option value="Cobrança / Pagamento">Cobrança / Pagamento</option>
-          <option value="Dúvida sobre funcionalidade">Dúvida sobre funcionalidade</option>
-          <option value="Acesso / Permissões">Acesso / Permissões</option>
-          <option value="Outro">Outro</option>
-        </select>
+        <Select value={form.assunto} onValueChange={v => setForm(p => ({ ...p, assunto: v }))}>
+          <SelectTrigger className="w-full h-9 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground focus:ring-1 focus:ring-primary/30 focus:outline-none transition-colors">
+            <SelectValue placeholder="Selecione..." />
+          </SelectTrigger>
+          <SelectContent className="rounded-xl border-border">
+            <SelectItem value="Problema técnico">Problema técnico</SelectItem>
+            <SelectItem value="WhatsApp / Conexão">WhatsApp / Conexão</SelectItem>
+            <SelectItem value="Agente IA não responde">Agente IA não responde</SelectItem>
+            <SelectItem value="Cobrança / Pagamento">Cobrança / Pagamento</SelectItem>
+            <SelectItem value="Dúvida sobre funcionalidade">Dúvida sobre funcionalidade</SelectItem>
+            <SelectItem value="Acesso / Permissões">Acesso / Permissões</SelectItem>
+            <SelectItem value="Outro">Outro</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-1.5">
         <label className="text-xs font-medium">Descrição <span className="text-red-500">*</span></label>

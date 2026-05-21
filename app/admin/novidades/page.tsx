@@ -6,6 +6,9 @@ import {
   Sparkles, Zap, Wrench, Megaphone, Plus, Pencil,
   Trash2, Loader2, Eye, EyeOff, Check, X,
 } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -109,15 +112,16 @@ function EntryForm({
       <div className="flex gap-4 items-end">
         <div className="space-y-1.5 flex-1">
           <label className="text-xs font-medium text-muted-foreground">Tipo</label>
-          <select
-            value={form.type}
-            onChange={e => setForm(p => ({ ...p, type: e.target.value as ChangelogType }))}
-            className={cn(field, 'cursor-pointer')}
-          >
-            {(Object.keys(TYPE_CONFIG) as ChangelogType[]).map(t => (
-              <option key={t} value={t}>{TYPE_CONFIG[t].label}</option>
-            ))}
-          </select>
+          <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v as ChangelogType }))}>
+            <SelectTrigger className="w-full rounded-xl border border-border bg-muted/30 px-3.5 h-auto py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-border">
+              {(Object.keys(TYPE_CONFIG) as ChangelogType[]).map(t => (
+                <SelectItem key={t} value={t}>{TYPE_CONFIG[t].label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <label className="flex items-center gap-2.5 cursor-pointer pb-2.5">

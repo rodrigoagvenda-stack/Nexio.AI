@@ -6,6 +6,9 @@ import {
   Send, CheckCircle2, AlertCircle, Loader2,
   Clock, MessageSquare, ChevronRight, LifeBuoy, ArrowUpRight,
 } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -106,6 +109,9 @@ export default function SuportePage() {
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  function setField(name: string, value: string) {
+    setForm(prev => ({ ...prev, [name]: value }));
+  }
   const [protocolo, setProtocolo] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -204,13 +210,14 @@ export default function SuportePage() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Categoria</label>
-                <select
-                  name="assunto" required value={form.assunto} onChange={handleChange}
-                  className={cn(field, 'cursor-pointer')}
-                >
-                  <option value="" disabled>Selecione uma categoria...</option>
-                  {ASSUNTOS.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
+                <Select value={form.assunto} onValueChange={v => setField('assunto', v)}>
+                  <SelectTrigger className="w-full rounded-xl border border-border bg-muted/30 px-3.5 h-auto py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all">
+                    <SelectValue placeholder="Selecione uma categoria..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-border">
+                    {ASSUNTOS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">

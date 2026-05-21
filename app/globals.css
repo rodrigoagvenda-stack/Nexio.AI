@@ -300,3 +300,8 @@
   0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
   40%            { transform: scale(1.2); opacity: 1; }
 }
+
+/* ── Select dark mode: force browser native rendering to dark ─────────────────── */
+.dark select {
+  color-scheme: dark;
+}

@@ -1,10 +1,12 @@
 'use client';
 
-import type { Metadata } from 'next';
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 // Nota: Metadata só pode ser exportada em Server Components.
 // Para manter 'use client' e ter título, use o arquivo metadata separado ou
@@ -38,7 +40,7 @@ export default function SolicitacaoPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
@@ -155,23 +157,18 @@ export default function SolicitacaoPage() {
           <label htmlFor="tipo" className="text-sm font-medium text-foreground">
             Tipo de solicitação <span className="text-red-500">*</span>
           </label>
-          <select
-            id="tipo"
-            name="tipo"
-            required
-            value={form.tipo}
-            onChange={handleChange}
-            className={cn(inputClass, 'cursor-pointer')}
-          >
-            <option value="" disabled>
-              Selecione o tipo...
-            </option>
-            <option value="acesso">Acesso aos dados</option>
-            <option value="correcao">Correção de dados</option>
-            <option value="exclusao">Exclusão dos dados</option>
-            <option value="portabilidade">Portabilidade dos dados</option>
-            <option value="revogacao">Revogação de consentimento</option>
-          </select>
+          <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v as typeof p.tipo }))}>
+            <SelectTrigger className="w-full h-10 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground focus:ring-2 focus:ring-ring focus:outline-none transition-colors">
+              <SelectValue placeholder="Selecione o tipo..." />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-border">
+              <SelectItem value="acesso">Acesso aos dados</SelectItem>
+              <SelectItem value="correcao">Correção de dados</SelectItem>
+              <SelectItem value="exclusao">Exclusão dos dados</SelectItem>
+              <SelectItem value="portabilidade">Portabilidade dos dados</SelectItem>
+              <SelectItem value="revogacao">Revogação de consentimento</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Mensagem */}
