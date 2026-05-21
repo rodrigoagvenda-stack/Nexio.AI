@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
 import { sendSuporteNotificacaoEmail, sendSuporteConfirmacaoEmail } from '@/lib/email/resend'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 function getIp(req: NextRequest): string {
   return (
@@ -29,39 +31,46 @@ export async function POST(req: NextRequest) {
 
   const { nome, email, assunto, mensagem } = body as Record<string, string>
 
-  if (!nome || typeof nome !== 'string' || nome.trim().length < 2) {
+  if (!nome || typeof nome !== 'string' || nome.trim().length < 2)
     return NextResponse.json({ success: false, error: 'Nome inválido.' }, { status: 422 })
-  }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!email || !emailRegex.test(email)) {
+  if (!email || !emailRegex.test(email))
     return NextResponse.json({ success: false, error: 'E-mail inválido.' }, { status: 422 })
-  }
 
-  if (!assunto || assunto.trim().length < 3) {
+  if (!assunto || assunto.trim().length < 3)
     return NextResponse.json({ success: false, error: 'Assunto inválido.' }, { status: 422 })
-  }
 
-  if (!mensagem || mensagem.trim().length < 10) {
+  if (!mensagem || mensagem.trim().length < 10)
     return NextResponse.json({ success: false, error: 'Mensagem muito curta.' }, { status: 422 })
-  }
 
   const protocolo = `SUP-${Date.now().toString(36).toUpperCase()}`
 
+  // Try to get auth context to link ticket to company
+  let companyId: string | null = null
+  let userId: string | null = null
+  try {
+    const auth = await requireAuth(req)
+    if (!auth.error) {
+      companyId = auth.context.companyId as unknown as string
+      userId = auth.context.userId
+    }
+  } catch { /* anonymous submission fallback */ }
+
+  const service = createServiceClient()
+  await service.from('support_tickets').insert({
+    company_id: companyId,
+    user_id: userId,
+    protocolo,
+    nome: nome.trim(),
+    email: email.trim().toLowerCase(),
+    assunto: assunto.trim(),
+    mensagem: mensagem.trim(),
+  })
+
   void Promise.all([
-    sendSuporteNotificacaoEmail({
-      nome: nome.trim(),
-      email: email.trim().toLowerCase(),
-      assunto: assunto.trim(),
-      mensagem: mensagem.trim(),
-      protocolo,
-    }),
-    sendSuporteConfirmacaoEmail({
-      nome: nome.trim(),
-      email: email.trim().toLowerCase(),
-      assunto: assunto.trim(),
-      protocolo,
-    }),
+    sendSuporteNotificacaoEmail({ nome: nome.trim(), email: email.trim().toLowerCase(), assunto: assunto.trim(), mensagem: mensagem.trim(), protocolo }),
+    sendSuporteConfirmacaoEmail({ nome: nome.trim(), email: email.trim().toLowerCase(), assunto: assunto.trim(), protocolo }),
   ]).catch((err) => console.error('[Suporte] Erro ao enviar emails:', err))
 
   return NextResponse.json({ success: true, protocolo }, { status: 201 })

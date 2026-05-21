@@ -26,6 +26,9 @@ import {
   CalendarClock,
   BarChart2,
   CalendarDays,
+  Sparkles,
+  LifeBuoy,
+  Ticket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -109,6 +112,8 @@ const navSections: NavSection[] = [
   {
     label: 'Sistema',
     links: [
+      { href: '/novidades', label: 'Novidades', icon: Sparkles, badge: 'Novo' },
+      { href: '/suporte', label: 'Suporte', icon: LifeBuoy },
       { href: '/ajuda', label: 'Ajuda', icon: Info },
       { href: '/configuracoes', label: 'Configuração', icon: Settings, exact: true },
     ],

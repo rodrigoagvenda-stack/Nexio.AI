@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useMemo, useRef, useEffect, FormEvent } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -9,7 +9,6 @@ import {
   Bot, Send, X, Loader2, Sparkles, Search,
   Clock, BarChart2, Home, CreditCard, ArrowRight,
   Lightbulb, AlertTriangle, Info, ShieldCheck, Ticket,
-  CheckCircle2, AlertCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -1042,122 +1041,14 @@ function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sect
 // ── SupportTicket ──────────────────────────────────────────────────────────────
 
 function SupportTicketButton() {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = useState('');
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setStatus('loading');
-    setErrorMsg('');
-    try {
-      const res = await fetch('/api/support/ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro ao enviar.');
-      setStatus('success');
-    } catch (err: unknown) {
-      setStatus('error');
-      setErrorMsg(err instanceof Error ? err.message : 'Erro desconhecido.');
-    }
-  }
-
-  const inputClass = 'w-full h-9 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors';
-
   return (
-    <>
-      <button
-        onClick={() => { setOpen(true); setStatus('idle'); setForm({ nome: '', email: '', assunto: '', mensagem: '' }); }}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-primary hover:bg-primary/12 transition-colors text-[12px] font-medium"
-      >
-        <Ticket className="h-3.5 w-3.5 flex-shrink-0" />
-        Abrir ticket de suporte
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Ticket className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold">Abrir ticket de suporte</h2>
-              </div>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {status === 'success' ? (
-              <div className="flex flex-col items-center justify-center py-12 px-5 text-center gap-3">
-                <CheckCircle2 className="h-10 w-10 text-green-500" />
-                <p className="text-sm font-semibold text-foreground">Ticket enviado!</p>
-                <p className="text-xs text-muted-foreground">Você receberá uma confirmação por e-mail com o número do protocolo. Retornamos em até 24 horas úteis.</p>
-                <button onClick={() => setOpen(false)} className="mt-2 text-xs text-primary hover:underline">Fechar</button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">Nome <span className="text-red-500">*</span></label>
-                    <input name="nome" required value={form.nome} onChange={handleChange} placeholder="Seu nome" className={inputClass} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-foreground">E-mail <span className="text-red-500">*</span></label>
-                    <input name="email" type="email" required value={form.email} onChange={handleChange} placeholder="seu@email.com" className={inputClass} />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">Assunto <span className="text-red-500">*</span></label>
-                  <select name="assunto" required value={form.assunto} onChange={handleChange} className={cn(inputClass, 'cursor-pointer')}>
-                    <option value="" disabled>Selecione...</option>
-                    <option value="Problema técnico">Problema técnico</option>
-                    <option value="WhatsApp / Conexão">WhatsApp / Conexão</option>
-                    <option value="Agente IA não responde">Agente IA não responde</option>
-                    <option value="Cobrança / Pagamento">Cobrança / Pagamento</option>
-                    <option value="Dúvida sobre funcionalidade">Dúvida sobre funcionalidade</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">Descreva o problema <span className="text-red-500">*</span></label>
-                  <textarea name="mensagem" required rows={4} value={form.mensagem} onChange={handleChange} placeholder="Descreva com o máximo de detalhes possível..." className={cn(inputClass, 'h-auto resize-none py-2')} />
-                </div>
-
-                {status === 'error' && (
-                  <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/8 px-3 py-2 text-xs text-red-500">
-                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                    <p>{errorMsg}</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={status === 'loading' || !form.nome || !form.email || !form.assunto || !form.mensagem}
-                  className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {status === 'loading' ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Enviando...</> : <><Send className="h-3.5 w-3.5" />Enviar ticket</>}
-                </button>
-
-                <p className="text-[11px] text-muted-foreground text-center">
-                  Urgente? Fale direto em{' '}
-                  <a href="mailto:suporte@zaapply.com.br" className="text-primary hover:underline">suporte@zaapply.com.br</a>
-                </p>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </>
+    <a
+      href="/suporte"
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-primary hover:bg-primary/12 transition-colors text-[12px] font-medium"
+    >
+      <Ticket className="h-3.5 w-3.5 flex-shrink-0" />
+      Abrir ticket de suporte
+    </a>
   );
 }
 
