@@ -110,7 +110,12 @@ export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const onVisible = () => { if (!document.hidden) fetchData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   async function fetchData() {
     try {
@@ -326,12 +331,14 @@ export default function DashboardPage() {
   ];
 
   // ── Funnel (current pipeline state) ──────────────────────────────────────
+  const remarketingCount = leads.filter(l => l.status === 'Remarketing').length;
   const funnelStages = [
     { label: 'Lead novo',        count: activeLeads.filter(l => l.status === 'Lead novo').length,        color: 'bg-blue-500' },
     { label: 'Em contato',       count: activeLeads.filter(l => l.status === 'Em contato').length,       color: 'bg-green-400' },
     { label: 'Interessado',      count: activeLeads.filter(l => l.status === 'Interessado').length,      color: 'bg-green-500' },
     { label: 'Proposta enviada', count: activeLeads.filter(l => l.status === 'Proposta enviada').length, color: 'bg-green-600' },
-    { label: 'Fechado',          count: allFechados,                                                      color: 'bg-zinc-700' },
+    { label: 'Remarketing',      count: remarketingCount,                                                  color: 'bg-amber-500' },
+    { label: 'Fechado',          count: allFechados,                                                       color: 'bg-zinc-700' },
   ];
 
   // ── Header date ───────────────────────────────────────────────────────────

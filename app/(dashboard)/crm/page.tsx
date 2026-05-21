@@ -517,11 +517,12 @@ export default function CRMPage() {
       }
 
       toast({ title: 'Lead movido!', description: `Movido para "${newStatus}"` });
+      router.refresh(); // invalida cache do Next.js → dashboard refetch ao voltar
     } catch {
       toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
       fetchLeads();
     }
-  }, [leads, user, company]);
+  }, [leads, user, company, router]);
 
   const handleOpenModal = useCallback((lead?: Lead) => {
     if (lead) {
