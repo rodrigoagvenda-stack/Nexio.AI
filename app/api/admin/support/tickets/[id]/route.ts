@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth/require-auth'
+import { requireAdmin } from '@/lib/auth/require-auth'
 import { sendSuporteConfirmacaoEmail } from '@/lib/email/resend'
+
+export const dynamic = 'force-dynamic'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { context, error } = await requireAuth(req)
+  const { error } = await requireAdmin(req)
   if (error) return error
-  if (context.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
   const { status, resposta } = body as { status?: string; resposta?: string }

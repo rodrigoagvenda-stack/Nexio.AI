@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'JSON inválido.' }, { status: 400 })
   }
 
-  const { nome, email, assunto, mensagem } = body as Record<string, string>
+  const { nome, email, assunto, mensagem, images } = body as Record<string, string> & { images?: string[] }
 
   if (!nome || typeof nome !== 'string' || nome.trim().length < 2)
     return NextResponse.json({ success: false, error: 'Nome inválido.' }, { status: 422 })
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     email: email.trim().toLowerCase(),
     assunto: assunto.trim(),
     mensagem: mensagem.trim(),
+    images: Array.isArray(images) ? images.slice(0, 5) : [],
   })
 
   void Promise.all([

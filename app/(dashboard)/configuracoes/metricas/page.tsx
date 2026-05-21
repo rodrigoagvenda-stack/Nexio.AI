@@ -725,115 +725,14 @@ export default function MetricasPage() {
         </>
       )}
 
-      {/* ── Saúde do Número ──────────────────────────────────────────────────── */}
-      <SaudeDoNumero />
-
-      {/* ── Conflitos Detectados ──────────────────────────────────────────────── */}
-      <ConflitosDetectados />
-
-      {/* ── Trial Ativos (calendário) ─────────────────────────────────────────── */}
-      <TrialAtivosCalendario />
+      {/* ── Agenda de Automações (Trial + Anti-noshow) ─────────────────────── */}
+      <AgendaCalendario />
 
     </div>
   );
 }
 
-// ─── Saúde do Número ──────────────────────────────────────────────────────────
-
-interface SaudeCard {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  trend: string;
-  status: 'SAUDÁVEL' | 'ATENÇÃO';
-}
-
-const SAUDE_CARDS: SaudeCard[] = [
-  { icon: CheckCircle2, label: 'Taxa de Entrega', value: '94%', trend: '+2% vs mês anterior', status: 'SAUDÁVEL' },
-  { icon: Eye, label: 'Taxa de Leitura', value: '61%', trend: '-3% vs mês anterior', status: 'ATENÇÃO' },
-  { icon: UserX, label: 'Opt-outs', value: '3', trend: '0 vs mês anterior', status: 'SAUDÁVEL' },
-  { icon: ShieldOff, label: 'Bloqueios', value: '1', trend: '+1 vs mês anterior', status: 'ATENÇÃO' },
-];
-
-function SaudeDoNumero() {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold text-foreground">Saúde do Número</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Indicadores de entregabilidade e reputação</p>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {SAUDE_CARDS.map((card) => {
-          const Icon = card.icon;
-          const isSaudavel = card.status === 'SAUDÁVEL';
-          const statusClasses = isSaudavel
-            ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10 dark:text-emerald-400'
-            : 'text-amber-600 border-amber-500/30 bg-amber-500/10 dark:text-amber-400';
-          return (
-            <div key={card.label} className="bg-card rounded-2xl border border-border p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-primary" />
-                </div>
-                <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide', statusClasses)}>
-                  {card.status}
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-foreground tabular-nums">{card.value}</div>
-              <p className="text-xs text-muted-foreground">{card.label}</p>
-              <p className="text-[10px] text-muted-foreground/70">{card.trend}</p>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Conflitos Detectados ─────────────────────────────────────────────────────
-
-interface Conflito {
-  id: string;
-  leadName: string;
-  sequences: string;
-}
-
-const MOCK_CONFLITOS: Conflito[] = [
-  { id: '1', leadName: 'João Silva', sequences: 'Follow-up Geral + Remarketing simultaneamente' },
-  { id: '2', leadName: 'Ana Costa', sequences: 'Follow-up Geral + Trial SaaS simultaneamente' },
-];
-
-function ConflitosDetectados() {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Conflitos Detectados</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Leads em múltiplas sequências simultaneamente</p>
-        </div>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide text-amber-600 border-amber-500/30 bg-amber-500/10 dark:text-amber-400">
-          {MOCK_CONFLITOS.length} conflitos
-        </span>
-      </div>
-      <div className="space-y-2">
-        {MOCK_CONFLITOS.map((conflito) => (
-          <div key={conflito.id} className="flex items-center gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
-            <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">{conflito.leadName}</p>
-              <p className="text-xs text-muted-foreground">{conflito.sequences}</p>
-            </div>
-            <button className="text-xs text-primary hover:underline shrink-0">Resolver</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Trial Ativos Calendário ──────────────────────────────────────────────────
+// ─── Agenda Calendário (Trial + Anti-noshow) ──────────────────────────────────
 
 interface TrialListRecord {
   id: number;
@@ -979,33 +878,167 @@ function MetricasTrialCalendar({ trials }: { trials: TrialListRecord[] }) {
   );
 }
 
-function TrialAtivosCalendario() {
+interface CallRecord {
+  id: number;
+  contact_name: string;
+  whatsapp: string;
+  status: string;
+  call_agendada_para: string;
+  call_status: string | null;
+}
+
+function AntiNoshowCalendar({ calls }: { calls: CallRecord[] }) {
+  const [current, setCurrent] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+  const [selected, setSelected] = useState<CallRecord | null>(null);
+
+  const year = current.getFullYear();
+  const month = current.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+
+  const byDay = new Map<string, CallRecord[]>();
+  for (const c of calls) {
+    const d = new Date(c.call_agendada_para);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key)!.push(c);
+  }
+
+  const cells: (null | number)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  function callColor(c: CallRecord) {
+    const diff = Math.ceil((new Date(c.call_agendada_para).getTime() - Date.now()) / 86_400_000);
+    if (diff < 0) return 'bg-muted text-muted-foreground';
+    if (diff === 0) return 'bg-red-500/20 text-red-600 border-red-500/30 dark:text-red-400';
+    if (diff <= 1) return 'bg-amber-500/20 text-amber-600 border-amber-500/30 dark:text-amber-400';
+    return 'bg-blue-500/20 text-blue-600 border-blue-500/30 dark:text-blue-400';
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm">{MONTH_NAMES_M[month]} {year}</h3>
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrent(new Date(year, month - 1, 1))}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrent(new Date(year, month + 1, 1))}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
+        {DAY_NAMES_M.map((d) => (
+          <div key={d} className="bg-muted/40 text-center py-2 text-[11px] font-medium text-muted-foreground">{d}</div>
+        ))}
+        {cells.map((day, i) => {
+          if (!day) return <div key={`empty-${i}`} className="bg-background min-h-[72px]" />;
+          const key = `${year}-${month}-${day}`;
+          const dayCalls = byDay.get(key) ?? [];
+          const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+          return (
+            <div key={day} className={cn('bg-background min-h-[72px] p-1.5 space-y-1', isToday && 'bg-primary/5')}>
+              <div className={cn('text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full', isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
+                {day}
+              </div>
+              {dayCalls.slice(0, 3).map((c) => (
+                <button key={c.id} onClick={() => setSelected(c)}
+                  className={cn('w-full text-left text-[10px] px-1.5 py-0.5 rounded border truncate hover:opacity-80', callColor(c))}>
+                  {c.contact_name.split(' ')[0]}
+                </button>
+              ))}
+              {dayCalls.length > 3 && <p className="text-[10px] text-muted-foreground text-center">+{dayCalls.length - 3}</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500/20 border border-blue-500/30" /> Agendado</div>
+        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/30" /> Amanhã</div>
+        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-red-500/20 border border-red-500/30" /> Hoje</div>
+        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-muted border border-border" /> Passado</div>
+      </div>
+
+      <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+        <DialogContent className="max-w-sm">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base">{selected.contact_name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div><span className="font-medium text-foreground">WhatsApp: </span>{selected.whatsapp}</div>
+                  <div><span className="font-medium text-foreground">Status CRM: </span>{selected.status}</div>
+                  <div><span className="font-medium text-foreground">Call: </span>{new Date(selected.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                  <div><span className="font-medium text-foreground">Status call: </span>{selected.call_status ?? 'pendente'}</div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelected(null)}>Fechar</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+type AgendaTab = 'trial' | 'noshow';
+
+function AgendaCalendario() {
+  const [tab, setTab] = useState<AgendaTab>('trial');
   const [trials, setTrials] = useState<TrialListRecord[]>([]);
+  const [calls, setCalls] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/trial/list')
-      .then((r) => r.ok ? r.json() : { trials: [] })
-      .then((d) => setTrials(d.trials ?? []))
+    Promise.all([
+      fetch('/api/trial/list').then((r) => r.ok ? r.json() : { trials: [] }),
+      fetch('/api/follow/calls').then((r) => r.ok ? r.json() : { calls: [] }),
+    ])
+      .then(([t, c]) => { setTrials(t.trials ?? []); setCalls(c.calls ?? []); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+    <div className="rounded-2xl border border-border bg-card p-6 space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Trials Ativos</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Calendário de expiração por data</p>
+          <h2 className="text-sm font-semibold text-foreground">Agenda de Automações</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Calendário de trials e reuniões agendadas</p>
         </div>
-        {!loading && <Badge variant="secondary">{trials.length} ativos</Badge>}
+        <div className="flex items-center rounded-lg border border-border overflow-hidden text-xs bg-muted/30">
+          {([
+            { id: 'trial' as AgendaTab, label: `Trial${!loading ? ` · ${trials.length}` : ''}` },
+            { id: 'noshow' as AgendaTab, label: `Anti-noshow${!loading ? ` · ${calls.length}` : ''}` },
+          ]).map(({ id, label }) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={cn('px-3 py-1.5 font-medium transition-colors',
+                tab === id ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted/50')}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
+
       {loading ? (
-        <div className="h-48 animate-pulse rounded-xl bg-muted" />
-      ) : trials.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-10">Nenhum trial ativo no momento</p>
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      ) : tab === 'trial' ? (
+        trials.length === 0
+          ? <p className="text-sm text-muted-foreground text-center py-10">Nenhum trial ativo no momento</p>
+          : <MetricasTrialCalendar trials={trials} />
       ) : (
-        <MetricasTrialCalendar trials={trials} />
+        calls.length === 0
+          ? <p className="text-sm text-muted-foreground text-center py-10">Nenhuma reunião agendada</p>
+          : <AntiNoshowCalendar calls={calls} />
       )}
     </div>
   );

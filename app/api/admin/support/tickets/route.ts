@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { requireAuth } from '@/lib/auth/require-auth'
+import { requireAdmin } from '@/lib/auth/require-auth'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const { context, error } = await requireAuth(req)
+  const { error } = await requireAdmin(req)
   if (error) return error
-  if (context.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const service = createServiceClient()
   const { searchParams } = new URL(req.url)

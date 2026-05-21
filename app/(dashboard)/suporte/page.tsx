@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import { cn } from '@/lib/utils/cn';
 import {
   Send, CheckCircle2, AlertCircle, Loader2,
   Clock, MessageSquare, ChevronRight, LifeBuoy, ArrowUpRight,
+  Paperclip, X, ImageIcon,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -20,15 +21,16 @@ interface SupportTicket {
   resposta: string | null;
   respondido_em: string | null;
   created_at: string;
+  images?: string[];
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  aberto:         { label: 'Aberto',        dot: 'bg-amber-400' },
-  em_atendimento: { label: 'Em andamento',  dot: 'bg-blue-500' },
-  respondido:     { label: 'Respondido',    dot: 'bg-green-500' },
-  fechado:        { label: 'Fechado',       dot: 'bg-muted-foreground/30' },
+  aberto:         { label: 'Aberto',       dot: 'bg-amber-400' },
+  em_atendimento: { label: 'Em andamento', dot: 'bg-blue-500' },
+  respondido:     { label: 'Respondido',   dot: 'bg-green-500' },
+  fechado:        { label: 'Fechado',      dot: 'bg-muted-foreground/30' },
 } as const;
 
 const ASSUNTOS = [
@@ -40,6 +42,9 @@ const ASSUNTOS = [
   'Outro',
 ];
 
+const MAX_IMAGES = 3;
+const MAX_SIZE_MB = 5;
+
 function formatDate(iso: string) {
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
@@ -49,56 +54,129 @@ function formatDate(iso: string) {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// ── ImagePreview ──────────────────────────────────────────────────────────────
+
+interface PendingImage { file: File; preview: string; uploading: boolean; url?: string; error?: string }
+
+function ImagePreview({ img, onRemove }: { img: PendingImage; onRemove: () => void }) {
+  return (
+    <div className="relative group">
+      <img
+        src={img.preview}
+        alt=""
+        className="w-20 h-20 rounded-xl object-cover border border-border"
+      />
+      {img.uploading && (
+        <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
+          <Loader2 className="h-4 w-4 animate-spin text-white" />
+        </div>
+      )}
+      {img.error && (
+        <div className="absolute inset-0 rounded-xl bg-red-500/80 flex items-center justify-center">
+          <AlertCircle className="h-4 w-4 text-white" />
+        </div>
+      )}
+      {!img.uploading && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-foreground text-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── TicketItem ─────────────────────────────────────────────────────────────────
 
 function TicketItem({ ticket }: { ticket: SupportTicket }) {
   const [open, setOpen] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const cfg = STATUS_CONFIG[ticket.status];
 
   return (
-    <div className={cn('border-b border-border/60 last:border-0', open && 'bg-muted/20')}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/10 transition-colors"
-      >
-        <div className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', cfg.dot)} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{ticket.assunto}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {cfg.label} · {formatDate(ticket.created_at)}
-          </p>
-        </div>
-        <ChevronRight className={cn(
-          'h-4 w-4 text-muted-foreground/40 flex-shrink-0 transition-transform duration-150',
-          open && 'rotate-90'
-        )} />
-      </button>
-
-      {open && (
-        <div className="px-5 pb-5 ml-5 space-y-3">
-          <p className="text-[11px] font-mono text-muted-foreground/50">{ticket.protocolo}</p>
-          {ticket.resposta ? (
-            <div className="rounded-xl bg-green-500/6 border border-green-500/15 p-4">
-              <div className="flex items-center gap-2 mb-2.5">
-                <MessageSquare className="h-3.5 w-3.5 text-green-500" />
-                <span className="text-xs font-semibold text-green-500">Resposta do suporte</span>
-                {ticket.respondido_em && (
-                  <span className="text-[11px] text-muted-foreground ml-auto">
-                    {formatDate(ticket.respondido_em)}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{ticket.resposta}</p>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
-              <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-              Aguardando resposta — retornamos em até 24 horas úteis.
-            </div>
+    <>
+      <div className={cn('border-b border-border/60 last:border-0', open && 'bg-muted/20')}>
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/10 transition-colors"
+        >
+          <div className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', cfg.dot)} />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">{ticket.assunto}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {cfg.label} · {formatDate(ticket.created_at)}
+            </p>
+          </div>
+          {ticket.images && ticket.images.length > 0 && (
+            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
           )}
+          <ChevronRight className={cn(
+            'h-4 w-4 text-muted-foreground/40 flex-shrink-0 transition-transform duration-150',
+            open && 'rotate-90'
+          )} />
+        </button>
+
+        {open && (
+          <div className="px-5 pb-5 ml-5 space-y-3">
+            <p className="text-[11px] font-mono text-muted-foreground/50">{ticket.protocolo}</p>
+
+            {/* Images sent by user */}
+            {ticket.images && ticket.images.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {ticket.images.map((url, i) => (
+                  <button key={i} type="button" onClick={() => setLightbox(url)}>
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-16 h-16 rounded-lg object-cover border border-border hover:opacity-90 transition-opacity"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {ticket.resposta ? (
+              <div className="rounded-xl bg-green-500/6 border border-green-500/15 p-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <MessageSquare className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-xs font-semibold text-green-500">Resposta do suporte</span>
+                  {ticket.respondido_em && (
+                    <span className="text-[11px] text-muted-foreground ml-auto">
+                      {formatDate(ticket.respondido_em)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{ticket.resposta}</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                Aguardando resposta — retornamos em até 24 horas úteis.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <img src={lightbox} alt="" className="max-w-full max-h-[90vh] rounded-xl object-contain" />
+          <button
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            onClick={() => setLightbox(null)}
+          >
+            <X className="h-5 w-5 text-white" />
+          </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -108,12 +186,11 @@ export default function SuportePage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  function setField(name: string, value: string) {
-    setForm(prev => ({ ...prev, [name]: value }));
-  }
   const [protocolo, setProtocolo] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function reload() {
     fetch('/api/support/tickets')
@@ -125,25 +202,76 @@ export default function SuportePage() {
 
   useEffect(() => { reload(); }, []);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!files.length) return;
+
+    const remaining = MAX_IMAGES - pendingImages.length;
+    const toAdd = files.slice(0, remaining);
+
+    const newImages: PendingImage[] = toAdd.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      uploading: true,
+    }));
+    setPendingImages(prev => [...prev, ...newImages]);
+
+    // Upload each image
+    for (const img of newImages) {
+      const idx = newImages.indexOf(img);
+      try {
+        if (img.file.size > MAX_SIZE_MB * 1024 * 1024) throw new Error(`Máximo ${MAX_SIZE_MB}MB`);
+        const fd = new FormData();
+        fd.append('file', img.file);
+        const res = await fetch('/api/support/ticket/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok || !data.url) throw new Error(data.error || 'Erro no upload');
+        setPendingImages(prev => {
+          const copy = [...prev];
+          const i = prev.findIndex(p => p.preview === img.preview);
+          if (i !== -1) copy[i] = { ...copy[i], uploading: false, url: data.url };
+          return copy;
+        });
+      } catch (err) {
+        setPendingImages(prev => {
+          const copy = [...prev];
+          const i = prev.findIndex(p => p.preview === img.preview);
+          if (i !== -1) copy[i] = { ...copy[i], uploading: false, error: (err as Error).message };
+          return copy;
+        });
+      }
+    }
+  }
+
+  function removeImage(preview: string) {
+    setPendingImages(prev => prev.filter(p => p.preview !== preview));
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const stillUploading = pendingImages.some(p => p.uploading);
+    if (stillUploading) return;
+
     setSubmitStatus('loading');
     setErrorMsg('');
     try {
+      const images = pendingImages.filter(p => p.url).map(p => p.url!);
       const res = await fetch('/api/support/ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, images }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao enviar.');
       setProtocolo(data.protocolo);
       setSubmitStatus('success');
       setForm({ nome: '', email: '', assunto: '', mensagem: '' });
+      setPendingImages([]);
       reload();
     } catch (err: unknown) {
       setSubmitStatus('error');
@@ -152,6 +280,7 @@ export default function SuportePage() {
   }
 
   const field = 'w-full rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all';
+  const stillUploading = pendingImages.some(p => p.uploading);
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -210,7 +339,7 @@ export default function SuportePage() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Categoria</label>
-                <Select value={form.assunto} onValueChange={v => setField('assunto', v)}>
+                <Select value={form.assunto} onValueChange={v => setForm(p => ({ ...p, assunto: v }))}>
                   <SelectTrigger className="w-full rounded-xl border border-border bg-muted/30 px-3.5 h-auto py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all">
                     <SelectValue placeholder="Selecione uma categoria..." />
                   </SelectTrigger>
@@ -223,11 +352,45 @@ export default function SuportePage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Descrição</label>
                 <textarea
-                  name="mensagem" required rows={6}
+                  name="mensagem" required rows={5}
                   value={form.mensagem} onChange={handleChange}
                   placeholder="Descreva o problema com o máximo de detalhes possível..."
                   className={cn(field, 'resize-none leading-relaxed')}
                 />
+              </div>
+
+              {/* Image upload */}
+              <div className="space-y-2">
+                {pendingImages.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {pendingImages.map(img => (
+                      <ImagePreview key={img.preview} img={img} onRemove={() => removeImage(img.preview)} />
+                    ))}
+                  </div>
+                )}
+                {pendingImages.length < MAX_IMAGES && (
+                  <>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-border/80 rounded-xl px-3.5 py-2.5 transition-colors w-full"
+                    >
+                      <Paperclip className="h-3.5 w-3.5" />
+                      Adicionar imagem
+                      <span className="ml-auto text-muted-foreground/50">
+                        {pendingImages.length}/{MAX_IMAGES} · max {MAX_SIZE_MB}MB cada
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {submitStatus === 'error' && (
@@ -247,11 +410,11 @@ export default function SuportePage() {
                 </a>
                 <button
                   type="submit"
-                  disabled={submitStatus === 'loading' || !form.nome || !form.email || !form.assunto || !form.mensagem}
+                  disabled={submitStatus === 'loading' || stillUploading || !form.nome || !form.email || !form.assunto || !form.mensagem}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40"
                 >
-                  {submitStatus === 'loading'
-                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Enviando...</>
+                  {submitStatus === 'loading' || stillUploading
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{stillUploading ? 'Enviando imagens...' : 'Enviando...'}</>
                     : <><Send className="h-3.5 w-3.5" />Enviar ticket</>}
                 </button>
               </div>

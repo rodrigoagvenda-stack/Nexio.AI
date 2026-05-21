@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 
 interface AdminSidebarContentProps {
   adminName?: string;
@@ -58,13 +59,13 @@ export function AdminSidebarContent({ adminName, adminEmail }: AdminSidebarConte
   return (
     <div className="flex flex-col h-full bg-card">
       {/* Logo */}
-      <div className="flex items-center h-16 px-6">
-        <h1 className="text-xl">
-          <span className="font-bold text-foreground">Zaapply</span>
-          <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
+      <div className="flex items-center h-16 px-5">
+        <div className="flex items-center gap-2.5">
+          <ZaapliLogo variant="full" iconSize={24} />
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/20 tracking-wider">
             ADMIN
           </span>
-        </h1>
+        </div>
       </div>
 
       {/* Navigation */}
