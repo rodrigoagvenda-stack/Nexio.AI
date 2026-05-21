@@ -1,14 +1,15 @@
 ﻿'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
   LayoutDashboard, Users, MessageSquare, UserPlus,
   ChevronLeft, ChevronRight, BookOpen, HelpCircle,
-  Bot, Send, X, Loader2, Sparkles, Search,
+  Bot, Send, X, Sparkles, Search,
   Clock, BarChart2, Home, CreditCard, ArrowRight,
   Lightbulb, AlertTriangle, Info, ShieldCheck, Ticket,
+  Volume2, VolumeX, PhoneOff, RotateCcw, Copy, Check,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -21,6 +22,8 @@ interface ChatMessage {
   content: string;
   buttons?: string[];
   askFeedback?: boolean;
+  timestamp: number;
+  isError?: boolean;
 }
 
 // ── Content ───────────────────────────────────────────────────────────────────
@@ -1064,6 +1067,55 @@ const RATING_OPTIONS = [
   { emoji: '🤩', label: 'Ótimo', value: 5 },
 ];
 
+const CHAT_STORAGE_KEY = 'zaapply_zaia_chat';
+const INACTIVITY_MS = 2 * 60 * 1000;
+const CLOSE_DELAY_MS = 30 * 1000;
+
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.01);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.15);
+  } catch { /* noop */ }
+}
+
+function formatRelativeTime(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return 'agora';
+  if (diff < 3600) return `${Math.floor(diff / 60)}min`;
+  return `${Math.floor(diff / 3600)}h`;
+}
+
+function ChatText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split('\n').map((line, i, arr) => {
+        const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+        return (
+          <span key={i}>
+            {parts.map((p, j) => {
+              if (p.startsWith('**') && p.endsWith('**'))
+                return <strong key={j} className="font-semibold">{p.slice(2, -2)}</strong>;
+              if (p.startsWith('`') && p.endsWith('`'))
+                return <code key={j} className="font-mono text-[11px] bg-black/10 dark:bg-white/10 rounded px-1">{p.slice(1, -1)}</code>;
+              return <span key={j}>{p}</span>;
+            })}
+            {i < arr.length - 1 && <br />}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function TypingIndicator() {
   return (
     <div className="flex justify-start">
@@ -1086,18 +1138,74 @@ function AiChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [rated, setRated] = useState(false);
+  const [failedMsg, setFailedMsg] = useState<string | null>(null);
+  const [inactiveWarning, setInactiveWarning] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
   const endRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inactiveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+    try {
+      const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMessages(parsed.messages ?? []);
+        setRated(parsed.rated ?? false);
+      }
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: messages.slice(-30), rated }));
+    }
+  }, [messages, rated]);
+
+  const isAtBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  }, []);
+
+  useEffect(() => {
+    if (isAtBottom()) endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading, isAtBottom]);
+
+  const clearInactivityTimers = useCallback(() => {
+    if (inactiveTimer.current) clearTimeout(inactiveTimer.current);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    clearInactivityTimers();
+    setInactiveWarning(false);
+    inactiveTimer.current = setTimeout(() => {
+      setInactiveWarning(true);
+      closeTimer.current = setTimeout(() => {
+        setIsEnding(true);
+        setInactiveWarning(false);
+      }, CLOSE_DELAY_MS);
+    }, INACTIVITY_MS);
+  }, [clearInactivityTimers]);
+
+  useEffect(() => {
+    if (open && messages.length > 0) resetInactivityTimer();
+    return clearInactivityTimers;
+  }, [open, messages.length, resetInactivityTimer, clearInactivityTimers]);
 
   async function send(text?: string) {
     const msg = (text ?? input).trim();
-    if (!msg || loading) return;
+    if (!msg || loading || isEnding) return;
     if (!text) setInput('');
+    setFailedMsg(null);
+    setInactiveWarning(false);
     const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
-    setMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setMessages(prev => [...prev, { role: 'user', content: msg, timestamp: Date.now() }]);
     setLoading(true);
     try {
       const res = await fetch('/api/help/chat', {
@@ -1111,9 +1219,18 @@ function AiChat() {
         content: data.reply || data.error || 'Não consegui responder. Tente novamente.',
         buttons: data.buttons,
         askFeedback: data.askFeedback,
+        timestamp: Date.now(),
       }]);
+      if (soundEnabled) playNotifSound();
+      resetInactivityTimer();
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Erro ao conectar. Tente novamente.' }]);
+      setFailedMsg(msg);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Erro ao conectar. Tente novamente.',
+        timestamp: Date.now(),
+        isError: true,
+      }]);
     } finally {
       setLoading(false);
     }
@@ -1121,11 +1238,38 @@ function AiChat() {
 
   function handleRate(r: typeof RATING_OPTIONS[number]) {
     setRated(true);
+    setIsEnding(false);
+    clearInactivityTimers();
     setMessages(prev => [...prev, {
       role: 'assistant',
       content: `Obrigada pelo feedback ${r.emoji} Fico feliz em ajudar! Se surgir mais alguma dúvida, é só chamar.`,
+      timestamp: Date.now(),
     }]);
   }
+
+  function handleEndChat() {
+    clearInactivityTimers();
+    setInactiveWarning(false);
+    setIsEnding(true);
+  }
+
+  function handleClearChat() {
+    setMessages([]);
+    setRated(false);
+    setIsEnding(false);
+    setFailedMsg(null);
+    setInactiveWarning(false);
+    clearInactivityTimers();
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+  }
+
+  async function copyMessage(content: string, idx: number) {
+    await navigator.clipboard.writeText(content);
+    setCopiedId(idx);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  const hasMessages = messages.length > 0;
 
   return (
     <>
@@ -1146,7 +1290,7 @@ function AiChat() {
       {open && (
         <div
           className="fixed bottom-6 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: 520 }}
+          style={{ height: 540 }}
         >
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
@@ -1160,18 +1304,44 @@ function AiChat() {
               <p className="text-sm font-semibold leading-none">Zaia</p>
               <p className="text-[11px] text-green-500 mt-0.5">Online agora</p>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted/50 flex-shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setSoundEnabled(v => !v)}
+                title={soundEnabled ? 'Silenciar' : 'Ativar som'}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+              >
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+              </button>
+              {hasMessages && !isEnding && (
+                <button
+                  onClick={handleEndChat}
+                  title="Encerrar atendimento"
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+                >
+                  <PhoneOff className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {hasMessages && (
+                <button
+                  onClick={handleClearChat}
+                  title="Nova conversa"
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() => setOpen(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {/* Welcome state */}
-            {messages.length === 0 && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={scrollRef}>
+            {!hasMessages && (
               <div className="space-y-3">
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm leading-relaxed max-w-[85%]">
@@ -1193,22 +1363,35 @@ function AiChat() {
               </div>
             )}
 
-            {/* Message list */}
             {messages.map((msg, i) => (
-              <div key={i} className="space-y-2">
+              <div key={i} className="space-y-1">
                 <div className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div className={cn(
-                    'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
+                    'group relative max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground rounded-br-sm'
-                      : 'bg-muted text-foreground rounded-bl-sm'
+                      : msg.isError
+                        ? 'bg-red-500/10 text-red-500 border border-red-500/20 rounded-bl-sm'
+                        : 'bg-muted text-foreground rounded-bl-sm'
                   )}>
-                    {msg.content}
+                    <ChatText text={msg.content} />
+                    {msg.role === 'assistant' && !msg.isError && (
+                      <button
+                        onClick={() => copyMessage(msg.content, i)}
+                        className="absolute -top-2 -right-2 hidden group-hover:flex w-6 h-6 rounded-full bg-card border border-border items-center justify-center text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+                      >
+                        {copiedId === i
+                          ? <Check className="w-3 h-3 text-green-500" />
+                          : <Copy className="w-3 h-3" />}
+                      </button>
+                    )}
                   </div>
                 </div>
+                <p className={cn('text-[10px] text-muted-foreground/40 px-1', msg.role === 'user' ? 'text-right' : 'text-left')}>
+                  {formatRelativeTime(msg.timestamp)}
+                </p>
 
-                {/* Quick reply buttons */}
-                {msg.role === 'assistant' && msg.buttons && msg.buttons.length > 0 && (
+                {msg.role === 'assistant' && msg.buttons && msg.buttons.length > 0 && !isEnding && (
                   <div className="flex flex-wrap gap-1.5 pl-1">
                     {msg.buttons.map(btn => (
                       <button
@@ -1223,18 +1406,23 @@ function AiChat() {
                   </div>
                 )}
 
-                {/* Rating */}
+                {msg.isError && failedMsg && i === messages.length - 1 && (
+                  <button
+                    onClick={() => { setMessages(prev => prev.slice(0, -1)); send(failedMsg); setFailedMsg(null); }}
+                    className="flex items-center gap-1.5 ml-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Tentar novamente
+                  </button>
+                )}
+
                 {msg.role === 'assistant' && msg.askFeedback && !rated && i === messages.length - 1 && (
                   <div className="space-y-2 pl-1">
                     <p className="text-xs text-muted-foreground">Como foi esse atendimento?</p>
                     <div className="flex gap-3">
                       {RATING_OPTIONS.map(r => (
-                        <button
-                          key={r.value}
-                          onClick={() => handleRate(r)}
-                          title={r.label}
-                          className="text-xl hover:scale-125 transition-transform leading-none"
-                        >
+                        <button key={r.value} onClick={() => handleRate(r)} title={r.label}
+                          className="text-xl hover:scale-125 transition-transform leading-none">
                           {r.emoji}
                         </button>
                       ))}
@@ -1244,8 +1432,57 @@ function AiChat() {
               </div>
             ))}
 
+            {inactiveWarning && (
+              <div className="flex justify-start">
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm max-w-[85%]">
+                  Ei, você ainda tá aí? Vou encerrar em 30 segundos… 👋
+                </div>
+              </div>
+            )}
+
+            {isEnding && !rated && (
+              <div className="space-y-2">
+                <div className="flex justify-start">
+                  <div className="bg-muted rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm max-w-[85%]">
+                    Tudo bem! Encerrando por aqui 😊 Como foi esse atendimento?
+                  </div>
+                </div>
+                <div className="flex gap-3 pl-1">
+                  {RATING_OPTIONS.map(r => (
+                    <button key={r.value} onClick={() => handleRate(r)} title={r.label}
+                      className="text-xl hover:scale-125 transition-transform leading-none">
+                      {r.emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {loading && <TypingIndicator />}
             <div ref={endRef} />
+          </div>
+
+          {/* External links footer */}
+          <div className="border-t border-border/40 px-3 py-1.5 flex">
+            <a
+              href="https://wa.me/5577988650528?text=Ol%C3%A1!%20Gostaria%20de%20saber%20mais%20sobre%20o%20Zaapply"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-green-600 dark:text-green-400 hover:bg-green-500/8 transition-colors py-1.5 rounded-lg"
+            >
+              <MessageSquare className="w-3 h-3" />
+              Falar com especialista
+            </a>
+            <div className="w-px bg-border/60 my-1" />
+            <a
+              href="https://zaapply.com.br/planos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-primary hover:bg-primary/8 transition-colors py-1.5 rounded-lg"
+            >
+              <CreditCard className="w-3 h-3" />
+              Ver planos
+            </a>
           </div>
 
           {/* Input */}
@@ -1254,13 +1491,13 @@ function AiChat() {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-              placeholder="Digite sua dúvida…"
-              disabled={loading}
+              placeholder={isEnding ? 'Atendimento encerrado' : 'Digite sua dúvida…'}
+              disabled={loading || isEnding}
               className="flex-1 text-sm bg-muted/50 border border-border rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 disabled:opacity-50"
             />
             <button
               onClick={() => send()}
-              disabled={!input.trim() || loading}
+              disabled={!input.trim() || loading || isEnding}
               className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
