@@ -116,10 +116,16 @@ interface CanvasConfigEdge {
   targetHandle?: string;
 }
 
+interface RemarketingConfig {
+  statusFiltros: string[];   // CRM statuses that enter this remarketing flow
+  diasInativo: number;       // min days with no reply before including lead
+}
+
 interface CanvasConfig {
   positions: { x: number; y: number }[];  // indexed by x-sorted step order
   triggerPos: { x: number; y: number };
   edges: CanvasConfigEdge[];
+  remarketing?: RemarketingConfig;
 }
 
 interface FollowSequence {
@@ -1749,6 +1755,11 @@ function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigP
   );
 }
 
+const REMARKETING_STATUS_OPTIONS = [
+  'Lead novo', 'Triagem', 'Proposta enviada', 'Aguardando retorno',
+  'Sem resposta', 'Remarketing', 'Perdido', 'Cliente',
+];
+
 interface ConfigPanelProps {
   node: Node<AutoNodeData> | null;
   onClose: () => void;
@@ -1756,9 +1767,12 @@ interface ConfigPanelProps {
   onDelete: (id: string) => void;
   nodes?: Node<AutoNodeData>[];
   edges?: Edge[];
+  sequenceTipo?: SequenceTipo;
+  remarketingCfg?: RemarketingConfig;
+  onRemarketingChange?: (cfg: RemarketingConfig) => void;
 }
 
-function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [] }: ConfigPanelProps) {
+function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
 
@@ -2004,6 +2018,53 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 onChange={(e) => onUpdate(node.id, { condicao: e.target.value })}
                 className="field-input" />
             </Field>
+
+            {/* Remarketing-specific entry criteria */}
+            {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (
+              <>
+                <div className="h-px bg-border/60 -mx-4" />
+                <div className="space-y-3">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Critérios de entrada</p>
+
+                  <Field label="Status do lead">
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {REMARKETING_STATUS_OPTIONS.map((s) => {
+                        const active = remarketingCfg.statusFiltros.includes(s);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => {
+                              const next = active
+                                ? remarketingCfg.statusFiltros.filter((x) => x !== s)
+                                : [...remarketingCfg.statusFiltros, s];
+                              if (next.length > 0) onRemarketingChange({ ...remarketingCfg, statusFiltros: next });
+                            }}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
+                              active
+                                ? 'bg-primary/15 border-primary/40 text-primary'
+                                : 'bg-muted/50 border-border text-muted-foreground hover:border-primary/30'
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+
+                  <Field label="Mín. dias inativo">
+                    <input
+                      type="number"
+                      min={0}
+                      value={remarketingCfg.diasInativo}
+                      onChange={(e) => onRemarketingChange({ ...remarketingCfg, diasInativo: Math.max(0, Number(e.target.value)) })}
+                      className="field-input"
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -2475,6 +2536,19 @@ function CanvasInner() {
 
   const currentSeq = sequences.find((s) => s.tipo === activeTipo) ?? null;
 
+  // Remarketing entry config (persisted in canvas_config.remarketing)
+  const [remarketingCfg, setRemarketingCfg] = useState<RemarketingConfig>({
+    statusFiltros: ['Remarketing'],
+    diasInativo: 3,
+  });
+
+  useEffect(() => {
+    if (activeTipo === 'remarketing') {
+      const saved = currentSeq?.canvas_config?.remarketing;
+      setRemarketingCfg(saved ?? { statusFiltros: ['Remarketing'], diasInativo: 3 });
+    }
+  }, [currentSeq?.id, activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<AutoNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -2625,6 +2699,7 @@ function CanvasInner() {
             targetHandle: (e.targetHandle ?? undefined) as string | undefined,
           }))
           .filter((e) => e.sourceIdx !== undefined && e.targetIdx !== undefined) as CanvasConfigEdge[],
+        ...(currentSeq.tipo === 'remarketing' ? { remarketing: remarketingCfg } : {}),
       };
 
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
@@ -3112,7 +3187,10 @@ function CanvasInner() {
             {selectedNode && (
               <ConfigPanel node={selectedNode} onClose={() => setSelectedNodeId(null)}
                 onUpdate={handleUpdateNode} onDelete={handleDeleteNode}
-                nodes={nodes} edges={edges} />
+                nodes={nodes} edges={edges}
+                sequenceTipo={activeTipo}
+                remarketingCfg={remarketingCfg}
+                onRemarketingChange={setRemarketingCfg} />
             )}
           </>
         )}

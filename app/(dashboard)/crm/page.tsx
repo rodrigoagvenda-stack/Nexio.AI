@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid, GitBranch, Clock, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
@@ -1709,6 +1709,9 @@ export default function CRMPage() {
             )}
           </div>
 
+          {/* Mini-timeline de sequências — só ao editar lead existente */}
+          {editingLead && <LeadSequenceTimeline leadId={editingLead.id} />}
+
           {/* Footer minimalista */}
           <div className="px-6 py-4 border-t border-border/50 flex items-center justify-between">
             <Button
@@ -1796,4 +1799,121 @@ export default function CRMPage() {
 
     </div>
   );
+}
+
+// ─── LeadSequenceTimeline ────────────────────────────────────────────────────
+
+interface TimelineStep {
+  stepId: string
+  diaOffset: number
+  horario: string
+  tipoMensagem: string
+  ordem: number
+  disparado: boolean
+  disparadoEm: string | null
+  status: string | null
+}
+
+interface TimelineSequence {
+  sequenceId: string
+  sequenceName: string
+  sequenceTipo: string
+  sequenceAtivo: boolean
+  steps: TimelineStep[]
+}
+
+const TIPO_LABEL: Record<string, string> = {
+  follow_geral: 'Follow-up',
+  anti_noshow: 'Anti-noshow',
+  remarketing: 'Remarketing',
+  trial_saas: 'Trial',
+}
+
+const TIPO_COLOR: Record<string, string> = {
+  follow_geral: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  anti_noshow: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  remarketing: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  trial_saas: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+}
+
+function LeadSequenceTimeline({ leadId }: { leadId: number }) {
+  const [data, setData] = useState<TimelineSequence[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/follow/lead-timeline?lead_id=${leadId}`)
+      .then((r) => r.json())
+      .then((j) => setData(j.timeline ?? []))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false))
+  }, [leadId])
+
+  if (loading) {
+    return (
+      <div className="px-6 py-3 border-t border-border/40">
+        <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+      </div>
+    )
+  }
+
+  if (data.length === 0) return null
+
+  return (
+    <div className="px-6 py-4 border-t border-border/40 space-y-3">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <GitBranch className="h-3 w-3" />
+        Sequências ativas
+      </div>
+
+      <div className="space-y-3">
+        {data.map((seq) => {
+          const sent = seq.steps.filter((s) => s.disparado).length
+          const total = seq.steps.length
+          return (
+            <div key={seq.sequenceId} className="space-y-1.5">
+              {/* Sequence header */}
+              <div className="flex items-center gap-2">
+                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded', TIPO_COLOR[seq.sequenceTipo] ?? 'bg-muted text-muted-foreground')}>
+                  {TIPO_LABEL[seq.sequenceTipo] ?? seq.sequenceTipo}
+                </span>
+                <span className="text-xs font-medium text-foreground truncate flex-1">{seq.sequenceName}</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">{sent}/{total} enviados</span>
+              </div>
+
+              {/* Steps rail */}
+              <div className="flex items-center gap-1 pl-1">
+                {seq.steps.map((step, idx) => (
+                  <div key={step.stepId} className="flex items-center gap-1">
+                    <div
+                      title={step.disparado
+                        ? `Dia ${step.diaOffset} · ${step.horario} · ${step.disparadoEm ? new Date(step.disparadoEm).toLocaleDateString('pt-BR') : 'enviado'}`
+                        : `Dia ${step.diaOffset} · ${step.horario} · pendente`}
+                      className={cn(
+                        'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                        step.disparado
+                          ? step.status === 'failed'
+                            ? 'bg-red-500/20 text-red-500'
+                            : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {step.disparado
+                        ? step.status === 'failed'
+                          ? <XCircle className="h-2.5 w-2.5" />
+                          : <CheckCheck className="h-2.5 w-2.5" />
+                        : <Clock className="h-2.5 w-2.5" />}
+                    </div>
+                    {idx < seq.steps.length - 1 && (
+                      <div className={cn('h-px w-3 shrink-0', step.disparado ? 'bg-emerald-500/40' : 'bg-border')} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }

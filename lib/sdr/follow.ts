@@ -73,12 +73,18 @@ interface TrialSaas {
   estagio: string | null
 }
 
+interface RemarketingCanvasConfig {
+  statusFiltros?: string[]
+  diasInativo?: number
+}
+
 interface FollowSequence {
   id: string
   company_id: number
   nome: string
   tipo: SequenceTipo
   ativo: boolean
+  canvas_config?: { remarketing?: RemarketingCanvasConfig } | null
 }
 
 interface Lead {
@@ -618,17 +624,23 @@ async function processRemarketing(
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, updated_at')
     .eq('company_id', company.id)
-    .eq('status', 'Remarketing')
     .not('whatsapp', 'is', null)
 
   for (const sequence of sequences) {
+    // Per-sequence remarketing criteria (configured in canvas trigger node)
+    const rmCfg = sequence.canvas_config?.remarketing
+    const statusFiltros: string[] = rmCfg?.statusFiltros?.length ? rmCfg.statusFiltros : ['Remarketing']
+    const diasInativo = rmCfg?.diasInativo ?? 0
+
     // Extrai lead_id específico do nome (ex: "Remarketing — João [Lead #62]")
     const leadIdMatch = sequence.nome?.match(/\[Lead #(\d+)\]/)
     const targetLeadId = leadIdMatch ? parseInt(leadIdMatch[1]) : null
 
+    const candidatos = (allLeads ?? []).filter((l: any) => statusFiltros.includes(l.status))
+
     const leads = targetLeadId
-      ? (allLeads ?? []).filter((l: any) => l.id === targetLeadId)
-      : (allLeads ?? [])
+      ? candidatos.filter((l: any) => l.id === targetLeadId)
+      : candidatos
 
     if (!leads.length) continue
 
@@ -649,10 +661,10 @@ async function processRemarketing(
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
-        // Verifica se já passaram dia_offset dias desde que o lead foi movido para Remarketing
+        // Verifica inatividade mínima configurada no canvas (diasInativo)
         const movedAt = new Date((lead as any).updated_at ?? now).getTime()
         const diasDesdeMovimento = (now - movedAt) / 86_400_000
-        if (diasDesdeMovimento < step.dia_offset) continue
+        if (diasDesdeMovimento < Math.max(step.dia_offset, diasInativo)) continue
 
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
