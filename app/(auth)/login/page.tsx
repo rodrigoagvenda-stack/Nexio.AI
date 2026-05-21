@@ -136,9 +136,18 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right — background */}
-      <div className="relative hidden bg-muted lg:block">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-primary/40" />
+      {/* Right — hero */}
+      <div className="relative hidden lg:flex items-center justify-center bg-muted">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-primary/50" />
+        <div className="relative z-10 text-center px-12 select-none">
+          <p className="text-white/40 text-xs font-semibold tracking-widest uppercase mb-6">Zaapply</p>
+          <h2 className="text-white text-4xl xl:text-5xl font-black leading-[1.05] tracking-tight">
+            Venda enquanto<br />dorme.
+          </h2>
+          <p className="text-white/55 text-base mt-5 leading-relaxed max-w-xs mx-auto">
+            CRM + WhatsApp + IA.<br />Do lead ao fechamento, em uma tela.
+          </p>
+        </div>
       </div>
     </div>
   );

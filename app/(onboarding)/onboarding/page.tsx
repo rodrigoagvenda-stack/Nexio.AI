@@ -135,7 +135,7 @@ function HeroSlide({ onStart }: { onStart: () => void }) {
               'você dorme.',
               'a IA trabalha.',
               'os leads chegam.',
-              'o Nexio fecha.',
+              'o Zaapply fecha.',
               'o time descansa.',
             ]}
             typingSpeed={65}
@@ -612,7 +612,7 @@ function StepPronto({ companyName }: { companyName: string }) {
     },
     {
       icon: <Bot className="h-4 sm:h-5 w-4 sm:w-5 text-[#369E47]" />,
-      title: 'Nexio — atendimento com IA',
+      title: 'Agente SDR com IA',
       desc: 'Responde, qualifica e atende seus leads automaticamente 24h por dia.',
     },
     {
@@ -636,6 +636,7 @@ function StepPronto({ companyName }: { companyName: string }) {
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
           {companyName ? `Bem-vindo, ${companyName}!` : 'Tudo pronto!'}
         </h2>
+        <p className="text-[#369E47] font-semibold text-sm mt-0.5">Venda enquanto dorme.</p>
         <p className="text-gray-500 mt-1 text-sm">
           Seu workspace está configurado. Veja o que você pode fazer agora:
         </p>
