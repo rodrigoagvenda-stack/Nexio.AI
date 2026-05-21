@@ -119,7 +119,7 @@ export default function BriefingConfigPage() {
             <Input
               id="webhook_url"
               type="url"
-              placeholder="https://n8n.vendai.com/webhook/briefing"
+              placeholder="https://seudominio.com/webhook/briefing"
               value={config.webhook_url || ''}
               onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
             />

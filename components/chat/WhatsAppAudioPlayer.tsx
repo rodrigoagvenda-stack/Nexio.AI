@@ -15,7 +15,7 @@ export function WhatsAppAudioPlayer({ src, isOutbound = false }: WhatsAppAudioPl
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Sanitiza a URL removendo prefixo '=' do n8n e espaços
+  // Sanitiza a URL removendo prefixo '=' e espaços
   const audioSrc = useMemo(() => {
     let cleanUrl = (src || '').trim();
     if (cleanUrl.startsWith('=')) {

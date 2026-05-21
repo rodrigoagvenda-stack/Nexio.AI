@@ -19,8 +19,8 @@ export default function TermosPage() {
             zaapply.com.br
           </a>{' '}
           e{' '}
-          <a href="https://crm.nexioai.online" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            crm.nexioai.online
+          <a href="https://app.zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            app.zaapply.com.br
           </a>.
           Ao criar uma conta ou usar qualquer parte dos nossos serviços, você ("Usuário") concorda integralmente
           com estes Termos. Se você estiver aceitando em nome de uma empresa, declara ter autoridade legal para

@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { rateLimit } from '@/lib/rate-limit'
 import type OpenAI from 'openai'
+
+const simulateSchema = z.object({
+  nicheId: z.string().min(1),
+  variables: z.record(z.string()),
+  history: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string() })),
+  userMessage: z.string().min(1).max(2000),
+  mode: z.enum(['inbound', 'outbound']).optional().default('inbound'),
+  correctionHint: z.string().max(500).nullable().optional(),
+  flowId: z.string().nullable().optional(),
+})
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
-
-interface SimMessage { role: 'user' | 'assistant'; content: string }
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,16 +25,12 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-    const body = await request.json()
-    const { nicheId, variables, history, userMessage, mode = 'inbound', correctionHint, flowId } = body as {
-      nicheId: string
-      variables: SdrVariables
-      history: SimMessage[]
-      userMessage: string
-      mode?: 'inbound' | 'outbound'
-      correctionHint?: string | null
-      flowId?: string | null
-    }
+    const rl = rateLimit({ key: `sdr:simulate:${user.id}`, limit: 30, windowMs: 60 * 60_000 })
+    if (!rl.success) return NextResponse.json({ error: 'Limite de simulações atingido. Tente novamente em 1 hora.' }, { status: 429 })
+
+    const parsed = simulateSchema.safeParse(await request.json())
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 })
+    const { nicheId, variables, history, userMessage, mode, correctionHint, flowId } = parsed.data
 
     const niche = NICHE_MAP[nicheId]
     if (!niche) return NextResponse.json({ error: 'Nicho inválido' }, { status: 400 })

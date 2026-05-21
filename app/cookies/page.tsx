@@ -186,7 +186,7 @@ export default function CookiesPage() {
               Para dúvidas sobre nossa Política de Cookies ou sobre o uso de dados pessoais, entre em contato:
             </p>
             <ul className="mt-3 space-y-1 ml-4">
-              <li>E-mail: <strong className="text-white/90">contato@nexioai.online</strong></li>
+              <li>E-mail: <strong className="text-white/90">contato@zaapply.com.br</strong></li>
               <li>WhatsApp: <strong className="text-white/90">(77) 98865-0528</strong></li>
             </ul>
           </section>

@@ -19,8 +19,8 @@ export default function PrivacidadePage() {
             zaapply.com.br
           </a>{' '}
           e{' '}
-          <a href="https://crm.nexioai.online" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
-            crm.nexioai.online
+          <a href="https://app.zaapply.com.br" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+            app.zaapply.com.br
           </a>.
           Ao utilizar nossos serviços, você concorda com os termos desta política. Caso não concorde, pedimos que não
           utilize a plataforma.

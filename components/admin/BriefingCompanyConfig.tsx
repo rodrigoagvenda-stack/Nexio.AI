@@ -387,7 +387,7 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
               <Input
                 value={config.webhook_url || ''}
                 onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
-                placeholder="https://n8n.empresa.com/webhook/briefing"
+                placeholder="https://seudominio.com/webhook/briefing"
               />
             </div>
 

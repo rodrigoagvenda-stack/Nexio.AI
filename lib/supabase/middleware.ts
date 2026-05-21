@@ -54,9 +54,9 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Apenas refresh o session sem fetch pesado
-  // O getUser() real é feito nos layouts quando necessário
-  const { data: { session } } = await supabase.auth.getSession()
+  // getUser() valida o JWT contra o servidor Supabase (server-side),
+  // garantindo que sessões expiradas/revogadas sejam rejeitadas corretamente.
+  await supabase.auth.getUser()
 
   return response
 }

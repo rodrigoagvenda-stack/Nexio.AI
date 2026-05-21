@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     .eq('company_id', member.company_id)
     .maybeSingle()
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://crm.nexioai.online'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://zaapply.com.br'
   const webhookUrl = config?.webhook_token
     ? `${baseUrl}/api/trial/webhook/${config.webhook_token}`
     : null
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     result = data
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://crm.nexioai.online'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://zaapply.com.br'
   const webhookUrl = `${baseUrl}/api/trial/webhook/${result?.webhook_token}`
 
   return NextResponse.json({ config: result, webhookUrl })

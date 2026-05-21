@@ -236,3 +236,223 @@ export async function sendMemberInviteEmail({
     return { success: false, message: error.message };
   }
 }
+
+// ─── Shared brand template ───────────────────────────────────────────────────
+
+const _SVG_P1 = 'M207.65 103.853C207.65 104.953 207.65 106.063 207.59 107.143V107.213C207.562 120.28 205.556 133.267 201.64 145.733C194.543 167.855 181.706 187.699 164.44 203.243C146.982 218.999 125.668 229.859 102.66 234.723V207.653C82.1745 207.423 62.2151 201.137 45.2943 189.587C28.3736 178.037 15.2477 161.74 7.56905 142.747C-0.109597 123.753 -1.99782 102.913 2.14207 82.8485C6.28195 62.7843 16.2649 44.3933 30.8343 29.9904C45.4037 15.5875 63.9083 5.81663 84.0187 1.90763C104.129 -2.00137 124.946 0.126266 143.85 8.02272C162.754 15.9192 178.9 29.2315 190.254 46.2839C201.609 63.3363 207.665 83.3666 207.66 103.853H207.65Z'
+const _SVG_P2 = 'M82.5917 152.783C77.2584 152.783 73.3551 151.533 70.8817 149.033C69.6593 147.837 68.6957 146.402 68.0506 144.818C67.4056 143.233 67.0928 141.534 67.1317 139.823C67.2062 136.582 67.9519 133.392 69.3217 130.453C70.8962 126.943 73.1222 123.764 75.8817 121.083L110.712 84.6934H76.5917C75.2672 84.6934 73.9556 84.4324 72.732 83.9252C71.5084 83.418 70.3967 82.6746 69.4605 81.7375C68.5244 80.8005 67.7821 79.6881 67.2761 78.464C66.7702 77.2398 66.5104 75.928 66.5117 74.6034C66.5117 71.7285 67.6538 68.9713 69.6867 66.9384C71.7196 64.9055 74.4768 63.7634 77.3517 63.7634H125.082C130.915 63.7634 135.132 65.0101 137.732 67.5034C138.968 68.6341 139.953 70.011 140.625 71.5456C141.297 73.0801 141.64 74.7383 141.632 76.4134C141.632 81.7468 139.395 86.9001 134.922 91.8734L97.9217 131.873H129.922C132.799 131.873 135.559 133.017 137.594 135.051C139.629 137.086 140.772 139.846 140.772 142.723C140.769 144.054 140.503 145.371 139.989 146.598C139.475 147.825 138.723 148.938 137.777 149.874C136.831 150.809 135.708 151.548 134.475 152.047C133.242 152.546 131.922 152.797 130.592 152.783H82.5917Z'
+
+function _logoSvg(onGreenBg: boolean) {
+  const [c1, c2] = onGreenBg ? ['#ffffff', '#15803d'] : ['#369E47', '#ffffff']
+  return `<svg width="26" height="29" viewBox="0 0 208 235" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="${_SVG_P1}" fill="${c1}"/><path d="${_SVG_P2}" fill="${c2}"/></svg>`
+}
+
+function zaapplyHtml(opts: {
+  heading: string
+  body: string
+  button?: { text: string; url: string }
+  footer?: string
+}) {
+  const btn = opts.button
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;"><tr><td align="center"><a href="${opts.button.url}" style="display:inline-block;padding:14px 40px;background:#16a34a;color:#ffffff;text-decoration:none;border-radius:50px;font-weight:700;font-size:15px;letter-spacing:0.2px;">${opts.button.text}</a></td></tr></table>`
+    : ''
+  const footer = opts.footer ?? 'Zaapply · zaapply.com.br · Email automático, não responda.'
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background:#15803d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 20px;"><table cellpadding="0" cellspacing="0" style="width:100%;max-width:460px;"><tr><td align="center" style="padding-bottom:22px;"><table cellpadding="0" cellspacing="0"><tr><td valign="middle" style="padding-right:9px;">${_logoSvg(true)}</td><td valign="middle"><span style="font-family:Nunito,Poppins,'Helvetica Neue',Arial,sans-serif;font-weight:800;font-size:22px;color:#ffffff;letter-spacing:-0.01em;line-height:1;">zaapply</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border-radius:20px;padding:40px 36px;"><h2 style="margin:0 0 16px;color:#111111;font-size:20px;font-weight:700;line-height:1.3;">${opts.heading}</h2>${opts.body}${btn}</td></tr><tr><td align="center" style="padding-top:20px;"><p style="margin:0;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.7;">${footer}</p></td></tr></table></td></tr></table></body></html>`
+}
+
+function _tr(label: string, value: string, alt = false, highlight = false) {
+  return `<tr style="${alt ? 'background:#f0fdf4;' : ''}"><td style="padding:11px 16px;font-size:13px;color:#6b7280;border:1px solid #e5e7eb;width:42%;">${label}</td><td style="padding:11px 16px;font-size:13px;${highlight ? 'color:#15803d;font-weight:700;' : 'color:#111111;font-weight:600;'}border:1px solid #e5e7eb;">${value}</td></tr>`
+}
+
+const TIPO_LGPD_LABELS: Record<string, string> = {
+  acesso: 'Acesso aos meus dados',
+  correcao: 'Correção de dados',
+  exclusao: 'Exclusão de dados',
+  portabilidade: 'Portabilidade de dados',
+  revogacao: 'Revogação de consentimento',
+}
+
+export async function sendLgpdConfirmacaoEmail({
+  to,
+  nome,
+  tipo,
+  protocolo,
+}: {
+  to: string
+  nome: string
+  tipo: string
+  protocolo: string
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const tipoLabel = TIPO_LGPD_LABELS[tipo] ?? tipo
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply Privacidade <privacidade@zaapply.com.br>',
+    to: [to],
+    subject: `[Protocolo ${protocolo}] Solicitação LGPD recebida`,
+    html: zaapplyHtml({
+      heading: 'Solicitação LGPD recebida',
+      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Olá, <strong style="color:#111111;">${nome}</strong>. Recebemos sua solicitação com base na LGPD e a processaremos dentro do prazo legal previsto.</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Protocolo', protocolo, true, true)}${_tr('Tipo de solicitação', tipoLabel, false)}${_tr('Prazo de resposta', 'Até 15 dias úteis (Art. 19, LGPD)', true)}</table><p style="margin:0;color:#6b7280;font-size:13px;line-height:1.7;">Dúvidas? Escreva para <a href="mailto:privacidade@zaapply.com.br" style="color:#15803d;font-weight:600;">privacidade@zaapply.com.br</a> informando o protocolo <strong>${protocolo}</strong>.</p>`,
+      footer: 'Zaapply · Encarregado de Dados (DPO): privacidade@zaapply.com.br',
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
+export async function sendLgpdAlertaDpoEmail({
+  nome,
+  email,
+  tipo,
+  mensagem,
+  protocolo,
+}: {
+  nome: string
+  email: string
+  tipo: string
+  mensagem?: string | null
+  protocolo: string
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const tipoLabel = TIPO_LGPD_LABELS[tipo] ?? tipo
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply Sistema <noreply@zaapply.com.br>',
+    to: ['privacidade@zaapply.com.br'],
+    subject: `[LGPD] Nova solicitação: ${tipoLabel} — ${protocolo}`,
+    html: zaapplyHtml({
+      heading: `Nova solicitação LGPD — ${tipoLabel}`,
+      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Uma nova solicitação LGPD foi registrada. Prazo legal: <strong style="color:#15803d;">15 dias úteis</strong> (Art. 19, LGPD).</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Protocolo', protocolo, true, true)}${_tr('Solicitante', nome, false)}${_tr('E-mail', `<a href="mailto:${email}" style="color:#15803d;">${email}</a>`, true)}${_tr('Tipo', tipoLabel, false)}${mensagem ? _tr('Mensagem adicional', mensagem, true) : ''}</table>`,
+      footer: 'Zaapply · Sistema interno · LGPD',
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
+// ─── Suporte ────────────────────────────────────────────────────────────────
+
+export async function sendSuporteNotificacaoEmail({
+  nome,
+  email,
+  assunto,
+  mensagem,
+  protocolo,
+}: {
+  nome: string
+  email: string
+  assunto: string
+  mensagem: string
+  protocolo: string
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply Sistema <noreply@zaapply.com.br>',
+    to: ['suporte@zaapply.com.br'],
+    reply_to: email,
+    subject: `[${protocolo}] ${assunto}`,
+    html: zaapplyHtml({
+      heading: `Novo ticket: ${assunto}`,
+      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Um novo chamado de suporte foi aberto. Responda este email para contatar o cliente diretamente (reply-to configurado).</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Protocolo', protocolo, true, true)}${_tr('Nome', nome, false)}${_tr('E-mail', `<a href="mailto:${email}" style="color:#15803d;">${email}</a>`, true)}${_tr('Assunto', assunto, false)}${_tr('Mensagem', `<span style="line-height:1.6;white-space:pre-wrap;">${mensagem}</span>`, true)}</table>`,
+      footer: 'Zaapply · Sistema de Suporte',
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
+export async function sendSuporteConfirmacaoEmail({
+  nome,
+  email,
+  assunto,
+  protocolo,
+}: {
+  nome: string
+  email: string
+  assunto: string
+  protocolo: string
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply Suporte <suporte@zaapply.com.br>',
+    to: [email],
+    subject: `[${protocolo}] Recebemos seu chamado`,
+    html: zaapplyHtml({
+      heading: 'Recebemos seu chamado!',
+      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Olá, <strong style="color:#111111;">${nome}</strong>! Nossa equipe foi notificada e retornará em breve. Guarde o número do protocolo para acompanhar.</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Protocolo', protocolo, true, true)}${_tr('Assunto', assunto, false)}${_tr('Prazo de resposta', 'Até 24 horas úteis', true)}</table><p style="margin:0;color:#6b7280;font-size:13px;line-height:1.7;">Para acompanhar, responda este email informando o protocolo <strong>${protocolo}</strong>.</p>`,
+      footer: 'Zaapply · suporte@zaapply.com.br',
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
+// ─── Contato Comercial ───────────────────────────────────────────────────────
+
+export async function sendContatoNotificacaoEmail({
+  nome,
+  email,
+  empresa,
+  mensagem,
+}: {
+  nome: string
+  email: string
+  empresa?: string | null
+  mensagem: string
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply Site <noreply@zaapply.com.br>',
+    to: ['rodrigo@zaapply.com.br', 'contato@zaapply.com.br'],
+    reply_to: email,
+    subject: `Novo lead — ${nome}${empresa ? ` (${empresa})` : ''}`,
+    html: zaapplyHtml({
+      heading: 'Novo lead comercial',
+      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Um novo contato chegou pelo formulário do site. Responda este email para falar diretamente com o lead.</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Nome', nome, true)}${_tr('E-mail', `<a href="mailto:${email}" style="color:#15803d;">${email}</a>`, false)}${empresa ? _tr('Empresa', empresa, true) : ''}${_tr('Mensagem', `<span style="line-height:1.6;white-space:pre-wrap;">${mensagem}</span>`, !empresa)}</table>`,
+      footer: 'Zaapply · Contato Comercial',
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
+export async function sendContatoConfirmacaoEmail({
+  nome,
+  email,
+}: {
+  nome: string
+  email: string
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply <contato@zaapply.com.br>',
+    to: [email],
+    subject: 'Recebemos seu contato — Zaapply',
+    html: zaapplyHtml({
+      heading: 'Boa, recebemos sua mensagem!',
+      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Olá, <strong style="color:#111111;">${nome}</strong>! Ficamos felizes com seu interesse no Zaapply. Nossa equipe entrará em contato em breve pelo email informado.</p><p style="margin:0;color:#6b7280;font-size:14px;line-height:1.7;">Enquanto isso, conheça mais sobre a plataforma em <a href="https://zaapply.com.br" style="color:#15803d;font-weight:600;">zaapply.com.br</a>.</p>`,
+      button: { text: 'Conhecer o Zaapply', url: 'https://zaapply.com.br' },
+      footer: 'Zaapply · contato@zaapply.com.br',
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { rateLimit } from '@/lib/rate-limit'
 import type OpenAI from 'openai'
 
 export const runtime = 'nodejs'
@@ -142,6 +143,11 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return new Response(JSON.stringify({ error: 'Não autenticado' }), { status: 401 })
+  }
+
+  const rl = rateLimit({ key: `sdr:auto-simulate:${user.id}`, limit: 10, windowMs: 60 * 60_000 })
+  if (!rl.success) {
+    return new Response(JSON.stringify({ error: 'Limite de auto-simulações atingido. Tente novamente em 1 hora.' }), { status: 429 })
   }
 
   const body = await request.json()

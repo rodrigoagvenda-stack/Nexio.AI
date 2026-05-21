@@ -1,14 +1,15 @@
 ﻿'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, FormEvent } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
   LayoutDashboard, Users, MessageSquare, UserPlus,
   ChevronLeft, ChevronRight, BookOpen, HelpCircle,
-  FileText, Bot, Send, X, Loader2, Sparkles, Search,
+  Bot, Send, X, Loader2, Sparkles, Search,
   Clock, BarChart2, Home, CreditCard, ArrowRight,
-  Lightbulb, AlertTriangle, Info, ShieldCheck,
+  Lightbulb, AlertTriangle, Info, ShieldCheck, Ticket,
+  CheckCircle2, AlertCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -16,7 +17,12 @@ import {
 
 interface HelpItem { question: string; answer: string }
 interface HelpSection { id: string; title: string; icon: LucideIcon; description: string; items: HelpItem[] }
-interface ChatMessage { role: 'user' | 'assistant'; content: string }
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  buttons?: string[];
+  askFeedback?: boolean;
+}
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
@@ -631,51 +637,6 @@ Para verificar o número de atendentes ativos e o limite do seu plano, acesse **
     ],
   },
   {
-    id: 'briefing',
-    title: 'Briefing',
-    icon: FileText,
-    description: 'Formulário público personalizado com sua marca',
-    items: [
-      {
-        question: 'O que é o Briefing',
-        answer:
-`O Briefing é um formulário público com URL única da sua empresa, completamente personalizado com seu branding.
-
-• **URL pública** no formato: \`nexioai.online/briefing/seu-slug\`
-• Logo, cor primária, título e subtítulo personalizados
-• Perguntas customizáveis: texto livre, seleção única, múltipla escolha ou checkbox
-• Respostas acessíveis no painel com download em PDF
-• Acessível sem login — qualquer pessoa com o link pode responder
-[TIP]
-Use o Briefing como formulário de onboarding de novos clientes, briefing criativo ou pesquisa de satisfação. Compartilhe o link na proposta, bio do Instagram ou assinatura de e-mail.
-[/TIP]`,
-      },
-      {
-        question: 'Configurar, personalizar e compartilhar',
-        answer:
-`Acesse **Briefing** no menu lateral. O painel tem 3 abas:
-
-## Respostas
-Lista de todas as respostas recebidas com data de envio, visualização detalhada e download em PDF.
-
-## Formulário
-Edite as perguntas do formulário:
-1. Clique em **+ Adicionar pergunta**
-2. Escolha o tipo: texto, seleção única, múltipla escolha ou checkbox
-3. Digite a pergunta e as opções (se aplicável)
-4. Reordene arrastando
-
-## Configurações
-• **Slug** — Parte final da URL (ex: "minha-empresa")
-• **Título e subtítulo** — Texto exibido no topo do formulário público
-• **Logo** — Upload da logo da empresa
-• **Cor primária** — Cor do botão e destaques visuais
-
-Copie a URL exibida no topo da página para compartilhar com clientes.`,
-      },
-    ],
-  },
-  {
     id: 'planos',
     title: 'Planos & Preços',
     icon: CreditCard,
@@ -722,7 +683,7 @@ O plano é ativado automaticamente após a confirmação do pagamento.
 PIX é confirmado em minutos. Boleto leva até 3 dias úteis para compensar. Para ativação imediata, prefira PIX.
 [/TIP]
 
-Para cancelar, entre em contato em **contato@nexioai.online**. O acesso permanece ativo até o fim do período já pago.`,
+Para cancelar, entre em contato em **contato@zaapply.com.br**. O acesso permanece ativo até o fim do período já pago.`,
       },
       {
         question: 'Tokens de IA: consumo e recargas',
@@ -1078,32 +1039,188 @@ function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sect
   );
 }
 
+// ── SupportTicket ──────────────────────────────────────────────────────────────
+
+function SupportTicketButton() {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/support/ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao enviar.');
+      setStatus('success');
+    } catch (err: unknown) {
+      setStatus('error');
+      setErrorMsg(err instanceof Error ? err.message : 'Erro desconhecido.');
+    }
+  }
+
+  const inputClass = 'w-full h-9 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors';
+
+  return (
+    <>
+      <button
+        onClick={() => { setOpen(true); setStatus('idle'); setForm({ nome: '', email: '', assunto: '', mensagem: '' }); }}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-primary hover:bg-primary/12 transition-colors text-[12px] font-medium"
+      >
+        <Ticket className="h-3.5 w-3.5 flex-shrink-0" />
+        Abrir ticket de suporte
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Ticket className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Abrir ticket de suporte</h2>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {status === 'success' ? (
+              <div className="flex flex-col items-center justify-center py-12 px-5 text-center gap-3">
+                <CheckCircle2 className="h-10 w-10 text-green-500" />
+                <p className="text-sm font-semibold text-foreground">Ticket enviado!</p>
+                <p className="text-xs text-muted-foreground">Você receberá uma confirmação por e-mail com o número do protocolo. Retornamos em até 24 horas úteis.</p>
+                <button onClick={() => setOpen(false)} className="mt-2 text-xs text-primary hover:underline">Fechar</button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">Nome <span className="text-red-500">*</span></label>
+                    <input name="nome" required value={form.nome} onChange={handleChange} placeholder="Seu nome" className={inputClass} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">E-mail <span className="text-red-500">*</span></label>
+                    <input name="email" type="email" required value={form.email} onChange={handleChange} placeholder="seu@email.com" className={inputClass} />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Assunto <span className="text-red-500">*</span></label>
+                  <select name="assunto" required value={form.assunto} onChange={handleChange} className={cn(inputClass, 'cursor-pointer')}>
+                    <option value="" disabled>Selecione...</option>
+                    <option value="Problema técnico">Problema técnico</option>
+                    <option value="WhatsApp / Conexão">WhatsApp / Conexão</option>
+                    <option value="Agente IA não responde">Agente IA não responde</option>
+                    <option value="Cobrança / Pagamento">Cobrança / Pagamento</option>
+                    <option value="Dúvida sobre funcionalidade">Dúvida sobre funcionalidade</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Descreva o problema <span className="text-red-500">*</span></label>
+                  <textarea name="mensagem" required rows={4} value={form.mensagem} onChange={handleChange} placeholder="Descreva com o máximo de detalhes possível..." className={cn(inputClass, 'h-auto resize-none py-2')} />
+                </div>
+
+                {status === 'error' && (
+                  <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/8 px-3 py-2 text-xs text-red-500">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <p>{errorMsg}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={status === 'loading' || !form.nome || !form.email || !form.assunto || !form.mensagem}
+                  className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {status === 'loading' ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Enviando...</> : <><Send className="h-3.5 w-3.5" />Enviar ticket</>}
+                </button>
+
+                <p className="text-[11px] text-muted-foreground text-center">
+                  Urgente? Fale direto em{' '}
+                  <a href="mailto:suporte@zaapply.com.br" className="text-primary hover:underline">suporte@zaapply.com.br</a>
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── AiChat ─────────────────────────────────────────────────────────────────────
+
+const WELCOME_BUTTONS = ['CRM e funil', 'Agente IA', 'WhatsApp', 'Planos e preços'];
+
+const RATING_OPTIONS = [
+  { emoji: '😞', label: 'Péssimo', value: 1 },
+  { emoji: '😕', label: 'Ruim', value: 2 },
+  { emoji: '😐', label: 'Ok', value: 3 },
+  { emoji: '😊', label: 'Bom', value: 4 },
+  { emoji: '🤩', label: 'Ótimo', value: 5 },
+];
+
+function TypingIndicator() {
+  return (
+    <div className="flex justify-start">
+      <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1">
+        {[0, 1, 2].map(i => (
+          <span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce"
+            style={{ animationDelay: `${i * 150}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function AiChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rated, setRated] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
-  async function send() {
-    const text = input.trim();
-    if (!text || loading) return;
-    setInput('');
-    const history = messages.slice(-6);
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+  async function send(text?: string) {
+    const msg = (text ?? input).trim();
+    if (!msg || loading) return;
+    if (!text) setInput('');
+    const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
+    setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setLoading(true);
     try {
       const res = await fetch('/api/help/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history }),
+        body: JSON.stringify({ message: msg, history }),
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || data.error || 'Erro ao responder.' }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.reply || data.error || 'Não consegui responder. Tente novamente.',
+        buttons: data.buttons,
+        askFeedback: data.askFeedback,
+      }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Erro ao conectar. Tente novamente.' }]);
     } finally {
@@ -1111,76 +1228,147 @@ function AiChat() {
     }
   }
 
+  function handleRate(r: typeof RATING_OPTIONS[number]) {
+    setRated(true);
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: `Obrigada pelo feedback ${r.emoji} Fico feliz em ajudar! Se surgir mais alguma dúvida, é só chamar.`,
+    }]);
+  }
+
   return (
     <>
+      {/* FAB */}
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'fixed bottom-6 right-6 z-50 w-13 h-13 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:scale-105 active:scale-95',
+          'fixed bottom-6 right-6 z-50 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:scale-105 active:scale-95',
           open && 'hidden'
         )}
         style={{ width: 52, height: 52 }}
-        title="Chat com IA"
+        title="Falar com Zaia"
       >
-        <Bot className="w-5 h-5" />
+        <Sparkles className="w-5 h-5" />
       </button>
 
+      {/* Chat window */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-xl flex flex-col overflow-hidden" style={{ height: 480 }}>
-          <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-primary/5">
-            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-primary" />
+        <div
+          className="fixed bottom-6 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
+          style={{ height: 520 }}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+            <div className="relative flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-green-500 ring-1 ring-card" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold leading-none">Assistente Zaapply</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Tire dúvidas sobre o sistema</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-none">Zaia</p>
+              <p className="text-[11px] text-green-500 mt-0.5">Online agora</p>
             </div>
-            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+            <button
+              onClick={() => setOpen(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted/50 flex-shrink-0"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>
 
+          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Welcome state */}
             {messages.length === 0 && (
-              <div className="text-center py-8">
-                <Bot className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Olá! Como posso ajudar?</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Pergunte sobre qualquer funcionalidade do Zaapply</p>
+              <div className="space-y-3">
+                <div className="flex justify-start">
+                  <div className="bg-muted rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm leading-relaxed max-w-[85%]">
+                    Olá! Sou a <strong>Zaia</strong>, assistente do Zaapply. Sobre o que você quer saber?
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pl-1">
+                  {WELCOME_BUTTONS.map(btn => (
+                    <button
+                      key={btn}
+                      onClick={() => send(btn)}
+                      disabled={loading}
+                      className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                    >
+                      {btn}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* Message list */}
             {messages.map((msg, i) => (
-              <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-                <div className={cn(
-                  'max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap',
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground rounded-br-sm'
-                    : 'bg-muted text-foreground rounded-bl-sm'
-                )}>
-                  {msg.content}
+              <div key={i} className="space-y-2">
+                <div className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  <div className={cn(
+                    'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground rounded-br-sm'
+                      : 'bg-muted text-foreground rounded-bl-sm'
+                  )}>
+                    {msg.content}
+                  </div>
                 </div>
+
+                {/* Quick reply buttons */}
+                {msg.role === 'assistant' && msg.buttons && msg.buttons.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pl-1">
+                    {msg.buttons.map(btn => (
+                      <button
+                        key={btn}
+                        onClick={() => send(btn)}
+                        disabled={loading}
+                        className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                      >
+                        {btn}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Rating */}
+                {msg.role === 'assistant' && msg.askFeedback && !rated && i === messages.length - 1 && (
+                  <div className="space-y-2 pl-1">
+                    <p className="text-xs text-muted-foreground">Como foi esse atendimento?</p>
+                    <div className="flex gap-3">
+                      {RATING_OPTIONS.map(r => (
+                        <button
+                          key={r.value}
+                          onClick={() => handleRate(r)}
+                          title={r.label}
+                          className="text-xl hover:scale-125 transition-transform leading-none"
+                        >
+                          {r.emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-2xl rounded-bl-sm px-3 py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                </div>
-              </div>
-            )}
+
+            {loading && <TypingIndicator />}
             <div ref={endRef} />
           </div>
 
+          {/* Input */}
           <div className="border-t border-border p-3 flex gap-2">
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-              placeholder="Digite sua pergunta…"
+              placeholder="Digite sua dúvida…"
               disabled={loading}
               className="flex-1 text-sm bg-muted/50 border border-border rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 disabled:opacity-50"
             />
             <button
-              onClick={send}
+              onClick={() => send()}
               disabled={!input.trim() || loading}
               className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
             >
@@ -1364,11 +1552,9 @@ export default function AjudaPage() {
 
         <div className="border-t border-border/40 p-4 space-y-3">
           <p className="text-[11px] text-muted-foreground">
-            Precisa de ajuda?{' '}
-            <a href="mailto:contato@nexioai.online" className="text-primary font-medium hover:underline">
-              contato@nexioai.online
-            </a>
+            Não encontrou o que precisava?
           </p>
+          <SupportTicketButton />
         </div>
       </aside>
 

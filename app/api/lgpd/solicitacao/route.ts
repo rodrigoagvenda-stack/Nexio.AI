@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { sendLgpdConfirmacaoEmail, sendLgpdAlertaDpoEmail } from '@/lib/email/resend';
 
 const TIPOS_VALIDOS = ['acesso', 'correcao', 'exclusao', 'portabilidade', 'revogacao'] as const;
 type TipoSolicitacao = (typeof TIPOS_VALIDOS)[number];
@@ -58,12 +59,18 @@ export async function POST(req: NextRequest) {
   // ── Inserir no Supabase ───────────────────────────────────────────────────
   const supabase = createServiceClient();
 
+  const nomeTrimmed = nome.trim()
+  const emailNorm = email.trim().toLowerCase()
+  const mensagemTrimmed = mensagem?.trim() || null
+  const protocolo = `LGPD-${Date.now().toString(36).toUpperCase()}`
+
   const { error } = await supabase.from('lgpd_solicitacoes').insert({
-    nome: nome.trim(),
-    email: email.trim().toLowerCase(),
+    nome: nomeTrimmed,
+    email: emailNorm,
     tipo,
-    mensagem: mensagem?.trim() || null,
+    mensagem: mensagemTrimmed,
     status: 'pendente',
+    protocolo,
   });
 
   if (error) {
@@ -74,5 +81,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ success: true }, { status: 201 });
+  // Dispara emails em paralelo — não bloqueia a resposta se falhar
+  void Promise.all([
+    sendLgpdConfirmacaoEmail({ to: emailNorm, nome: nomeTrimmed, tipo, protocolo }),
+    sendLgpdAlertaDpoEmail({ nome: nomeTrimmed, email: emailNorm, tipo, mensagem: mensagemTrimmed, protocolo }),
+  ]).catch((err) => console.error('[LGPD] Erro ao enviar emails:', err))
+
+  return NextResponse.json({ success: true, protocolo }, { status: 201 });
 }

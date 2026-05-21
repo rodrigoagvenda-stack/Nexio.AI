@@ -195,7 +195,7 @@ function calcEntropy(text: string): number {
 function isPromptInjection(text: string): boolean {
   if (!text) return false
 
-  // LAYER 1: critical patterns — bloqueio imediato (espelha CRITICAL_PATTERNS do n8n)
+  // LAYER 1: critical patterns — bloqueio imediato
   for (const p of CRITICAL_PATTERNS) {
     if (p.test(text)) return true
   }
@@ -1485,7 +1485,7 @@ Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela respo
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
 }
 
-// Mapa de nome-display (n8n) → nome-função (OpenAI: ^[a-zA-Z0-9_-]+$)
+// Mapa de nome-display → nome-função (OpenAI: ^[a-zA-Z0-9_-]+$)
 const TOOL_NAME_MAP: Record<string, string> = {
   'Think1':                          'Think1',
   'Play_conhecimento':               'Play_conhecimento',

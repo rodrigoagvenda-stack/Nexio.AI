@@ -1,18 +1,117 @@
 'use client';
 
+import { useState, type FormEvent } from 'react';
 import { OrbitCard, OrbitCardContent, OrbitCardDescription, OrbitCardHeader, OrbitCardTitle } from '@/components/ui/orbit-card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   LayoutDashboard,
   Building2,
   Users,
-  FileText,
   Activity,
   Shield,
   HelpCircle,
   Webhook,
   DollarSign,
+  Ticket,
+  Send,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
+
+function SupportTicketForm() {
+  const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/support/ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao enviar.');
+      setStatus('success');
+    } catch (err: unknown) {
+      setStatus('error');
+      setErrorMsg(err instanceof Error ? err.message : 'Erro desconhecido.');
+    }
+  }
+
+  const inputClass = 'w-full h-9 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors';
+
+  if (status === 'success') {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+        <CheckCircle2 className="h-10 w-10 text-green-500" />
+        <p className="text-sm font-semibold">Ticket enviado!</p>
+        <p className="text-xs text-muted-foreground">Você receberá uma confirmação por e-mail com o número do protocolo. Retornamos em até 24 horas úteis.</p>
+        <button onClick={() => { setStatus('idle'); setForm({ nome: '', email: '', assunto: '', mensagem: '' }); }} className="mt-2 text-xs text-primary hover:underline">
+          Abrir novo ticket
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium">Nome <span className="text-red-500">*</span></label>
+          <input name="nome" required value={form.nome} onChange={handleChange} placeholder="Seu nome" className={inputClass} />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium">E-mail <span className="text-red-500">*</span></label>
+          <input name="email" type="email" required value={form.email} onChange={handleChange} placeholder="seu@email.com" className={inputClass} />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium">Categoria <span className="text-red-500">*</span></label>
+        <select name="assunto" required value={form.assunto} onChange={handleChange} className={`${inputClass} cursor-pointer`}>
+          <option value="" disabled>Selecione...</option>
+          <option value="Problema técnico">Problema técnico</option>
+          <option value="WhatsApp / Conexão">WhatsApp / Conexão</option>
+          <option value="Agente IA não responde">Agente IA não responde</option>
+          <option value="Cobrança / Pagamento">Cobrança / Pagamento</option>
+          <option value="Dúvida sobre funcionalidade">Dúvida sobre funcionalidade</option>
+          <option value="Acesso / Permissões">Acesso / Permissões</option>
+          <option value="Outro">Outro</option>
+        </select>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium">Descrição <span className="text-red-500">*</span></label>
+        <textarea name="mensagem" required rows={4} value={form.mensagem} onChange={handleChange} placeholder="Descreva o problema com o máximo de detalhes..." className={`${inputClass} h-auto resize-none py-2`} />
+      </div>
+      {status === 'error' && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/8 px-3 py-2 text-xs text-red-500">
+          <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+          <p>{errorMsg}</p>
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={status === 'loading' || !form.nome || !form.email || !form.assunto || !form.mensagem}
+        className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {status === 'loading'
+          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Enviando...</>
+          : <><Send className="h-3.5 w-3.5" />Enviar ticket</>}
+      </button>
+      <p className="text-[11px] text-muted-foreground text-center">
+        Urgente? <a href="mailto:suporte@zaapply.com.br" className="text-primary hover:underline">suporte@zaapply.com.br</a>
+      </p>
+    </form>
+  );
+}
 
 export default function AdminAjudaPage() {
   const sections = [
@@ -88,7 +187,7 @@ export default function AdminAjudaPage() {
         {
           question: 'Qual a diferença entre usuário comum e admin?',
           answer:
-            'Existem diferentes níveis de permissão:\n\n**Usuário Comum (Vendedor/Visualizador):**\n• Acessa apenas o CRM da sua empresa\n• Vê e gerencia seus próprios leads\n• Registra interações e move leads no funil\n• Acessa relatórios básicos\n• Não tem acesso ao painel admin\n• Não pode alterar configurações da empresa\n\n**Admin da Empresa:**\n• Acesso total ao CRM da empresa\n• Gerencia todos os leads (de todos os vendedores)\n• Adiciona e remove membros da equipe\n• Configura integrações (WhatsApp, IA, etc.)\n• Define ICP e regras de qualificação\n• Acessa relatórios avançados e dashboard executivo\n• Ainda NÃO tem acesso ao painel super admin\n\n**Super Admin (Administrador do Sistema):**\n• Acesso ao painel administrativo global\n• Gerencia TODAS as empresas do sistema\n• Cria e edita empresas\n• Gerencia todos os usuários\n• Acessa webhooks e configurações globais\n• Monitor N8N e logs do sistema\n• Define planos e preços\n• Controle total sobre a plataforma',
+            'Existem diferentes níveis de permissão:\n\n**Usuário Comum (Vendedor/Visualizador):**\n• Acessa apenas o CRM da sua empresa\n• Vê e gerencia seus próprios leads\n• Registra interações e move leads no funil\n• Acessa relatórios básicos\n• Não tem acesso ao painel admin\n• Não pode alterar configurações da empresa\n\n**Admin da Empresa:**\n• Acesso total ao CRM da empresa\n• Gerencia todos os leads (de todos os vendedores)\n• Adiciona e remove membros da equipe\n• Configura integrações (WhatsApp, IA, etc.)\n• Define ICP e regras de qualificação\n• Acessa relatórios avançados e dashboard executivo\n• Ainda NÃO tem acesso ao painel super admin\n\n**Super Admin (Administrador do Sistema):**\n• Acesso ao painel administrativo global\n• Gerencia TODAS as empresas do sistema\n• Cria e edita empresas\n• Gerencia todos os usuários\n• Acessa webhooks e configurações globais\n• Monitor de bugs e logs do sistema\n• Define planos e preços\n• Controle total sobre a plataforma',
         },
         {
           question: 'Como resetar a senha de um usuário?',
@@ -110,7 +209,7 @@ export default function AdminAjudaPage() {
         {
           question: 'Como configurar a IA do sistema?',
           answer:
-            '1. Acesse Admin > Webhooks & APIs\n2. Seção "Configuração de IA"\n\n**Escolher Provedor:**\n• **OpenAI**: GPT-3.5, GPT-4, GPT-4 Turbo\n• **Anthropic**: Claude 3 Opus, Claude 3.5 Sonnet\n\n**Configurar API:**\n1. Selecione o provedor\n2. Escolha o modelo:\n   • GPT-4: Mais inteligente, mais caro\n   • GPT-3.5-turbo: Mais rápido, mais barato\n   • Claude Opus: Excelente para análises complexas\n3. Cole sua API Key (mantida segura e criptografada)\n4. Teste a conexão\n5. Salve as configurações\n\n**Onde a IA é Usada:**\n• Chat IA para qualificação de leads\n• Análise de sentimento em conversas\n• Sugestões de respostas automáticas\n• Score de conversão (Lead PRO)\n• Análise de erros N8N\n• Recomendações de ações',
+            '1. Acesse Admin > Webhooks & APIs\n2. Seção "Configuração de IA"\n\n**Escolher Provedor:**\n• **OpenAI**: GPT-3.5, GPT-4, GPT-4 Turbo\n• **Anthropic**: Claude 3 Opus, Claude 3.5 Sonnet\n\n**Configurar API:**\n1. Selecione o provedor\n2. Escolha o modelo:\n   • GPT-4: Mais inteligente, mais caro\n   • GPT-3.5-turbo: Mais rápido, mais barato\n   • Claude Opus: Excelente para análises complexas\n3. Cole sua API Key (mantida segura e criptografada)\n4. Teste a conexão\n5. Salve as configurações\n\n**Onde a IA é Usada:**\n• Chat IA para qualificação de leads\n• Análise de sentimento em conversas\n• Sugestões de respostas automáticas\n• Score de conversão (Lead PRO)\n• Recomendações de ações',
         },
         {
           question: 'Como integrar o WhatsApp via Uazapi?',
@@ -121,60 +220,6 @@ export default function AdminAjudaPage() {
           question: 'Como criar webhooks personalizados?',
           answer:
             'Webhooks permitem enviar dados para sistemas externos:\n\n**Casos de Uso:**\n• Notificar sistema externo sobre novo lead\n• Integrar com ferramentas de marketing\n• Enviar dados para BI/Analytics\n• Sincronizar com ERP\n\n**Criar Webhook:**\n1. Acesse Admin > Webhooks & APIs\n2. Seção "Webhooks" > "+ Adicionar Webhook"\n3. Preencha:\n   • **Nome**: Identificação do webhook\n   • **Tipo**: Evento que dispara (lead_created, deal_won, etc.)\n   • **URL**: Endpoint que receberá os dados\n   • **Secret**: Chave secreta para validação\n4. Teste o webhook\n5. Salve\n\n**Eventos Disponíveis:**\n• `lead.created` - Novo lead cadastrado\n• `lead.updated` - Lead atualizado\n• `deal.won` - Venda ganha\n• `deal.lost` - Venda perdida\n• `briefing.submitted` - Formulário enviado\n• `message.received` - Mensagem recebida\n\n**Payload Enviado:**\n```json\n{\n  "event": "lead.created",\n  "timestamp": "2026-01-17T10:30:00Z",\n  "data": {\n    "id": "123",\n    "name": "João Silva",\n    "email": "joao@empresa.com",\n    ...\n  }\n}\n```',
-        },
-      ],
-    },
-    {
-      title: 'Monitor N8N',
-      icon: Activity,
-      description: 'Monitoramento de workflows e automações',
-      items: [
-        {
-          question: 'O que é o Monitor N8N?',
-          answer:
-            'O Monitor N8N rastreia e gerencia instâncias de automação N8N:\n\n**Funcionalidades:**\n• Dashboard com estatísticas em tempo real\n• Listagem de todas as instâncias N8N\n• Histórico completo de erros\n• Análise de erros por IA\n• Alertas e notificações\n• Gestão de uptime e disponibilidade\n\n**Métricas Monitoradas:**\n• Total de instâncias ativas\n• Erros nas últimas 24 horas\n• Uptime médio das instâncias\n• Workflows com problemas\n• Performance e latência',
-        },
-        {
-          question: 'Como adicionar uma instância N8N?',
-          answer:
-            '1. Acesse Admin > Monitor N8N\n2. Clique em "+ Nova Instância"\n3. Preencha os dados:\n\n**Informações Básicas:**\n• **Nome da Instância**: Ex: "N8N Produção"\n• **URL**: https://n8n.seudominio.com\n• **API Key**: Chave de acesso do N8N\n\n**Configurações:**\n• **Intervalo de Verificação**: De quantos em quantos minutos verificar (padrão: 5 min)\n• **Status Inicial**: Ativa ou Inativa\n\n4. Teste a conexão\n5. Salve a instância\n\n**Sistema Monitora:**\n• Disponibilidade da instância\n• Erros em execuções de workflows\n• Performance e tempo de resposta\n• Webhooks que falharam',
-        },
-        {
-          question: 'Como visualizar e resolver erros?',
-          answer:
-            '**Visualizar Erros:**\n1. Acesse Monitor N8N\n2. Veja a seção "Histórico de Erros"\n3. Use filtros:\n   • Por instância\n   • Por severidade (Baixa, Média, Alta, Crítica)\n   • Por status (Resolvido, Pendente)\n   • Por período\n\n**Detalhes do Erro:**\nClique em um erro para ver:\n• Nome do workflow que falhou\n• Node específico com problema\n• Mensagem de erro completa\n• Stack trace técnico\n• Timestamp da ocorrência\n• Análise IA (se disponível)\n\n**Análise por IA:**\n• Clique em "Analisar com IA"\n• Sistema usa GPT-4 ou Claude para:\n  - Identificar causa raiz\n  - Sugerir correções\n  - Explicar erro em linguagem simples\n  - Recomendar próximos passos\n\n**Resolver Erro:**\n1. Após corrigir no N8N, clique em "Resolver"\n2. Ou clique em "Ignorar" se não é relevante\n3. Ou "Reprocessar" para tentar executar novamente',
-        },
-        {
-          question: 'Como interpretar níveis de severidade?',
-          answer:
-            'Erros são classificados automaticamente:\n\n**🔵 Baixa (Low):**\n• Erros esporádicos não críticos\n• Workflows que falharam mas têm retry\n• Avisos e warnings\n• Não requer ação imediata\n\n**🟡 Média (Medium):**\n• Erros que afetam funcionalidades secundárias\n• Problemas intermitentes\n• Requer investigação em até 24h\n\n**🟠 Alta (High):**\n• Erros em workflows importantes\n• Afeta funcionalidades principais\n• Múltiplas falhas consecutivas\n• Requer ação em até 4h\n\n**🔴 Crítica (Critical):**\n• Sistema completamente indisponível\n• Perda de dados possível\n• Afeta produção e clientes\n• AÇÃO IMEDIATA NECESSÁRIA\n\n**Configurar Alertas:**\n• Defina quais severidades geram notificação\n• Configure canais (e-mail, Slack, WhatsApp)\n• Estabeleça escalação automática',
-        },
-      ],
-    },
-    {
-      title: 'Briefing',
-      icon: FileText,
-      description: 'Formulários de qualificação de leads',
-      items: [
-        {
-          question: 'O que é o sistema de Briefing?',
-          answer:
-            'O Briefing é um formulário de qualificação que potenciais clientes preenchem:\n\n**Informações Coletadas:**\n\n**Dados de Contato:**\n• Nome completo\n• E-mail\n• Telefone/WhatsApp\n• Cargo na empresa\n\n**Informações da Empresa:**\n• Nome da empresa\n• CNPJ\n• Segmento de atuação\n• Número de funcionários\n• Faturamento anual\n• Site e redes sociais\n\n**Qualificação:**\n• Objetivos e metas\n• Desafios atuais\n• Budget disponível para investimento\n• Ferramentas que já utiliza\n• Prazo para implementação\n• Como conheceu a solução\n\n**Uso do Briefing:**\n• Qualificar leads antes do contato comercial\n• Segmentar leads por perfil e necessidade\n• Personalizar abordagem de vendas\n• Calcular fit score automaticamente',
-        },
-        {
-          question: 'Como acessar as respostas do Briefing?',
-          answer:
-            '1. Acesse Admin > Briefing no menu\n2. Visualize a lista de todas as respostas\n\n**Informações Visíveis:**\n• Nome e empresa do lead\n• Data de preenchimento\n• Segmento e porte\n• Budget informado\n• Status (Novo, Em análise, Convertido)\n\n**Ações Disponíveis:**\n• **Ver Detalhes**: Abre resposta completa\n• **Baixar PDF**: Gera PDF formatado\n• **Enviar para CRM**: Cria lead automaticamente\n• **Marcar como Lido**: Organização\n• **Arquivar**: Remove da lista principal\n\n**Busca e Filtros:**\n• Buscar por nome, empresa ou e-mail\n• Filtrar por:\n  - Data (últimos 7 dias, 30 dias, etc.)\n  - Segmento\n  - Faixa de budget\n  - Status de análise\n• Ordenar por data, nome ou empresa',
-        },
-        {
-          question: 'Como baixar uma resposta em PDF?',
-          answer:
-            '1. Na lista de Briefings, clique em "Ver Detalhes"\n2. No topo da página, clique em "Baixar PDF"\n3. Sistema gera PDF formatado incluindo:\n   • Logo do Nexio.AI\n   • Data de preenchimento\n   • Dados de contato completos\n   • Informações da empresa\n   • Todas as respostas do formulário\n   • Análise de fit score\n   • Recomendações de abordagem\n\n**PDF Profissional:**\n• Design limpo e organizado\n• Seções bem delimitadas\n• Fácil de compartilhar com equipe comercial\n• Pode ser anexado em propostas\n\n**Uso Recomendado:**\n• Envie PDF para vendedor responsável\n• Anexe em reunião de qualificação\n• Arquive em pasta do cliente\n• Use para preparação pré-reunião',
-        },
-        {
-          question: 'Como compartilhar o link do formulário?',
-          answer:
-            'O formulário tem um link público que pode ser compartilhado:\n\n**Obter o Link:**\n1. Acesse Admin > Briefing\n2. No topo, veja o link do formulário em destaque\n3. Clique no ícone de "Copiar" ao lado\n\nFormato: `https://nexio.ai/briefing`\n\n**Onde Compartilhar:**\n\n**Website:**\n• Botão de CTA no header\n• Pop-up de saída\n• Landing pages específicas\n• Footer com link\n\n**Redes Sociais:**\n• Link na bio do Instagram\n• Posts no LinkedIn\n• Stories com swipe up\n• Tweet fixado\n\n**E-mail Marketing:**\n• Campanhas de nutrição\n• Assinatura de e-mail\n• Automações de follow-up\n\n**WhatsApp:**\n• Mensagens de primeiro contato\n• Status/Stories\n• Grupos relevantes\n\n**QR Code:**\n• Gere QR Code do link\n• Use em materiais impressos\n• Eventos e feiras\n• Cartões de visita',
         },
       ],
     },
@@ -269,16 +314,15 @@ export default function AdminAjudaPage() {
       <OrbitCard className="border-primary/20">
         <OrbitCardHeader>
           <OrbitCardTitle className="flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-primary" />
-            Precisa de mais ajuda?
+            <Ticket className="h-5 w-5 text-primary" />
+            Abrir ticket de suporte
           </OrbitCardTitle>
+          <OrbitCardDescription>
+            Não encontrou a resposta? Abra um ticket e retornamos em até 24 horas úteis.
+          </OrbitCardDescription>
         </OrbitCardHeader>
         <OrbitCardContent>
-          <p className="text-sm text-muted-foreground">
-            Se você não encontrou a resposta para sua dúvida, entre em contato com o suporte técnico através do e-mail{' '}
-            <strong className="text-primary">suporte@nexio.ai</strong> ou pelo WhatsApp{' '}
-            <strong className="text-primary">(11) 99999-9999</strong>
-          </p>
+          <SupportTicketForm />
         </OrbitCardContent>
       </OrbitCard>
     </div>

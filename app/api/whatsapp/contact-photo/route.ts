@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
-// Chamado pelo n8n ao receber mensagem inbound com imagePreview
+// Chamado ao receber mensagem inbound com imagePreview
 // Body: { sender_pn, owner, image_preview_url }
 // sender_pn = "557781680532@s.whatsapp.net" (telefone do contato)
 // owner     = "559992225748" (telefone da instância/empresa)

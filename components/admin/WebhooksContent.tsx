@@ -67,25 +67,14 @@ interface UazapiConfig {
   phone: string
 }
 
-interface N8NWebhookConfig {
-  id?: number
-  webhook_type: string
-  webhook_url: string
-  auth_type: string
-  auth_username?: string
-  auth_password?: string
-  auth_token?: string
-  is_active: boolean
-}
 
 interface WebhooksContentProps {
   webhooks: Webhook[]
   aiConfig: AIConfig | null
   uazapiConfig: UazapiConfig | null
-  n8nWebhooks?: N8NWebhookConfig[]
 }
 
-export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAIConfig, uazapiConfig: initialUazapiConfig, n8nWebhooks: initialN8NWebhooks }: WebhooksContentProps) {
+export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAIConfig, uazapiConfig: initialUazapiConfig }: WebhooksContentProps) {
   const router = useRouter()
   const [webhooks, setWebhooks] = useState<Webhook[]>(initialWebhooks)
   const [aiConfig, setAIConfig] = useState<AIConfig>(initialAIConfig || {
@@ -97,20 +86,6 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
     api_token: '',
     instance: '',
     phone: '',
-  })
-
-  // N8N Webhooks (Orbit)
-  const [n8nMaps, setN8nMaps] = useState<N8NWebhookConfig>(() => {
-    const existing = initialN8NWebhooks?.find(w => w.webhook_type === 'maps')
-    return existing || { webhook_type: 'maps', webhook_url: '', auth_type: 'basic', auth_username: '', auth_password: '', is_active: true }
-  })
-  const [n8nIcp, setN8nIcp] = useState<N8NWebhookConfig>(() => {
-    const existing = initialN8NWebhooks?.find(w => w.webhook_type === 'icp')
-    return existing || { webhook_type: 'icp', webhook_url: '', auth_type: 'basic', auth_username: '', auth_password: '', is_active: true }
-  })
-  const [n8nWhatsapp, setN8nWhatsapp] = useState<N8NWebhookConfig>(() => {
-    const existing = initialN8NWebhooks?.find(w => w.webhook_type === 'whatsapp')
-    return existing || { webhook_type: 'whatsapp', webhook_url: '', auth_type: 'basic', auth_username: '', auth_password: '', is_active: true }
   })
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -129,50 +104,6 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
   const itemsPerPage = 10
 
   const supabase = createClient()
-
-  const handleSaveN8NWebhook = async (config: N8NWebhookConfig) => {
-    setLoading(true)
-    try {
-      // Verificar se já existe
-      const { data: existing } = await supabase
-        .from('n8n_webhook_config')
-        .select('id')
-        .eq('webhook_type', config.webhook_type)
-        .single()
-
-      if (existing) {
-        // Atualizar
-        const { error } = await supabase
-          .from('n8n_webhook_config')
-          .update({
-            webhook_url: config.webhook_url,
-            auth_type: config.auth_type,
-            auth_username: config.auth_username,
-            auth_password: config.auth_password,
-            auth_token: config.auth_token,
-            is_active: config.is_active,
-          })
-          .eq('webhook_type', config.webhook_type)
-
-        if (error) throw error
-      } else {
-        // Inserir
-        const { error } = await supabase
-          .from('n8n_webhook_config')
-          .insert([config])
-
-        if (error) throw error
-      }
-
-      toast({ title: `Webhook ${config.webhook_type} salvo com sucesso` })
-      router.refresh()
-    } catch (error) {
-      console.error('Error saving N8N webhook:', error)
-      toast({ title: 'Erro ao salvar webhook N8N', variant: 'destructive' })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleSaveAIConfig = async () => {
     setLoading(true)
@@ -292,99 +223,6 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
   const paginatedWebhooks = webhooks.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
-  )
-
-  // Componente interno para renderizar webhook N8N
-  const N8NWebhookCard = ({ title, description, config, setConfig, onSave }: {
-    title: string
-    description: string
-    config: N8NWebhookConfig
-    setConfig: (c: N8NWebhookConfig) => void
-    onSave: () => void
-  }) => (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
-            <CardDescription className="text-xs mt-0.5">{description}</CardDescription>
-          </div>
-          <Badge variant={config.is_active ? 'default' : 'secondary'}>
-            {config.is_active ? 'Ativo' : 'Inativo'}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">URL</Label>
-          <Input
-            value={config.webhook_url}
-            onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
-            placeholder="https://seu-n8n.com/webhook/..."
-            className="h-9 text-sm"
-          />
-        </div>
-        <div className="grid gap-3 grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Autenticação</Label>
-            <Select
-              value={config.auth_type}
-              onValueChange={(value) => setConfig({ ...config, auth_type: value })}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhuma</SelectItem>
-                <SelectItem value="basic">Basic Auth</SelectItem>
-                <SelectItem value="bearer">Bearer Token</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {config.auth_type === 'basic' && (
-            <>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Usuário</Label>
-                <Input
-                  value={config.auth_username || ''}
-                  onChange={(e) => setConfig({ ...config, auth_username: e.target.value })}
-                  placeholder="Username"
-                  className="h-9 text-sm"
-                />
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">Senha</Label>
-                <Input
-                  type="password"
-                  value={config.auth_password || ''}
-                  onChange={(e) => setConfig({ ...config, auth_password: e.target.value })}
-                  placeholder="Password"
-                  className="h-9 text-sm"
-                />
-              </div>
-            </>
-          )}
-          {config.auth_type === 'bearer' && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Token</Label>
-              <Input
-                type="password"
-                value={config.auth_token || ''}
-                onChange={(e) => setConfig({ ...config, auth_token: e.target.value })}
-                placeholder="Bearer token"
-                className="h-9 text-sm"
-              />
-            </div>
-          )}
-        </div>
-        <div className="flex justify-end pt-1">
-          <Button onClick={onSave} disabled={loading} size="sm">
-            <Save className="mr-2 h-3.5 w-3.5" />
-            Salvar
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   )
 
   return (
@@ -513,34 +351,6 @@ export function WebhooksContent({ webhooks: initialWebhooks, aiConfig: initialAI
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Webhooks N8N */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Webhooks N8N</h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          <N8NWebhookCard
-            title="Maps"
-            description="Extração de leads"
-            config={n8nMaps}
-            setConfig={setN8nMaps}
-            onSave={() => handleSaveN8NWebhook(n8nMaps)}
-          />
-          <N8NWebhookCard
-            title="ICP"
-            description="Perfil de cliente ideal"
-            config={n8nIcp}
-            setConfig={setN8nIcp}
-            onSave={() => handleSaveN8NWebhook(n8nIcp)}
-          />
-          <N8NWebhookCard
-            title="WhatsApp"
-            description="Envio de mensagens"
-            config={n8nWhatsapp}
-            setConfig={setN8nWhatsapp}
-            onSave={() => handleSaveN8NWebhook(n8nWhatsapp)}
-          />
-        </div>
       </div>
 
       {/* Webhooks Genéricos */}

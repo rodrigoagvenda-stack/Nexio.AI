@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Atualizar whatsapp_instance_name na companies para identificação no n8n
+    // Atualizar whatsapp_instance_name na companies
     await service.from('companies').update({
       whatsapp_instance_name: instanceName,
       whatsapp_instance: baseUrl,
