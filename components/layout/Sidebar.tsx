@@ -97,7 +97,6 @@ const navSections: NavSection[] = [
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
           { href: '/configuracoes/follow', label: 'Canvas', icon: Megaphone },
-          { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FileText },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDays },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
         ],

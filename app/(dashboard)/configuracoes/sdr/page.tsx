@@ -16,7 +16,7 @@ import {
   ChevronRight, ChevronLeft, ArrowRight, Plus, Trash2, X,
   ShoppingBag, Pencil, Send, RefreshCw,
   ThumbsUp, AlertTriangle, Star, ChevronUp, Trash,
-  Mic, FileImage, FileText,
+  Mic, FileImage, FileText, LayoutDashboard, Globe, Clock, MapPin,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
@@ -70,14 +70,20 @@ const AGENT_TYPES = [
   { value: 'atendimento_venda_agendamento', label: '+ Agendamento', desc: 'Inclui agendamento via Google Calendar', icon: Calendar },
 ]
 
-const TABS = [
-  { id: 'geral', label: 'Geral', icon: Settings, desc: 'Ative o agente, tipo e modo de atendimento' },
-  { id: 'identidade', label: 'Identidade', icon: Bot, desc: 'Persona, tom de voz e restrições do agente' },
-  { id: 'conhecimento', label: 'Conhecimento', icon: Brain, desc: 'Base de conhecimento e simulador de conversas' },
-  { id: 'integracoes', label: 'Integrações', icon: Link2, desc: 'Google Calendar e demais integrações' },
-  { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag, desc: 'Produtos e itens para pedidos via WhatsApp' },
-] as const
-type TabId = typeof TABS[number]['id']
+type SectionId = 'visao-geral' | 'persona' | 'negocio' | 'conhecimento' | 'integracoes' | 'testar'
+
+const WORKSPACE_NAV: Array<
+  | { id: SectionId; label: string; icon: React.ElementType; sep?: false }
+  | { sep: true; id: string }
+> = [
+  { id: 'visao-geral',  label: 'Visão geral',  icon: LayoutDashboard },
+  { id: 'persona',      label: 'Persona',       icon: Bot },
+  { id: 'negocio',      label: 'Negócio',       icon: ShoppingBag },
+  { id: 'conhecimento', label: 'Conhecimento',  icon: Brain },
+  { id: 'integracoes',  label: 'Integrações',   icon: Link2 },
+  { sep: true, id: 'sep1' },
+  { id: 'testar',       label: 'Testar agente', icon: MessageSquare },
+]
 
 const TOM_OPTIONS = [
   { value: 'amigável e próximo', label: 'Amigável', desc: 'Próximo, descontraído, usa emojis com moderação' },
@@ -2248,7 +2254,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function SdrConfigPage() {
-  const [activeTab, setActiveTab] = useState<TabId>('geral')
+  const [activeSection, setActiveSection] = useState<SectionId>('visao-geral')
   const [setupMode, setSetupMode] = useState<'choosing' | 'quick' | 'advanced'>('advanced')
   const [config, setConfig] = useState<SdrConfig>({
     agent_type: 'atendimento_venda',
@@ -2416,7 +2422,7 @@ export default function SdrConfigPage() {
             if (data.config?.flow_id) setConfig((p) => ({ ...p, flow_id: data.config.flow_id }))
             toast({ title: 'Agente criado! Agora gere a base de conhecimento.' })
             setSetupMode('advanced')
-            setActiveTab('conhecimento')
+            setActiveSection('conhecimento')
           } catch (err: any) {
             toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' })
           } finally { setSaving(false) }
@@ -2425,7 +2431,7 @@ export default function SdrConfigPage() {
     )
   }
 
-  const simVariables = {
+  const simVariables: Record<string, string> = {
     nome_agente: config.persona.nome_agente,
     nome_empresa: config.persona.empresa,
     descricao_produto: config.persona.produto,
@@ -2448,318 +2454,492 @@ export default function SdrConfigPage() {
     pedido_tipo: config.persona.pedido_tipo,
   }
 
-  const identSelectedNiche = NICHES.find((n) => n.id === sharedNicheId)
-  const identVendas = NICHES.filter((n) => n.category === 'vendas' && n.id !== 'monte-o-seu')
-  const identAtendimento = NICHES.filter((n) => n.category === 'atendimento')
+  const nicheSelectedIdent = NICHES.find((n) => n.id === sharedNicheId)
+  const nicheVendas = NICHES.filter((n) => n.category === 'vendas' && n.id !== 'monte-o-seu')
+  const nicheAtendimento = NICHES.filter((n) => n.category === 'atendimento')
+
+  // Completion state for each section
+  const completion: Record<SectionId, boolean> = {
+    'visao-geral': true,
+    'persona': !!(config.persona.nome_agente?.trim() && config.persona.empresa?.trim() && config.persona.tom?.trim()),
+    'negocio': !!(config.persona.produto?.trim()),
+    'conhecimento': !!(config.flow_id),
+    'integracoes': true,
+    'testar': true,
+  }
+
+  const hasIncomplete = !completion.persona || !completion.negocio || !completion.conhecimento
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8">
+    <div className="flex h-[calc(100vh-56px)] overflow-hidden">
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agente SDR</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Atendimento automático via WhatsApp</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
-            isConnected ? 'bg-green-500/10 text-green-700 border-green-500/30 dark:text-green-400'
-              : isConnecting ? 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30 dark:text-yellow-400'
-              : 'bg-muted text-muted-foreground border-border')}>
-            {isConnected ? <Wifi className="w-3 h-3" /> : isConnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
-            {isConnected ? config.instance_phone || 'Conectado' : isConnecting ? 'Conectando' : 'Desconectado'}
+      {/* ── Left nav ─────────────────────────────────────────────────────── */}
+      <aside className="w-52 shrink-0 border-r border-border flex flex-col bg-card/50">
+
+        {/* Agent identity header */}
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="relative shrink-0">
+              <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center transition-colors',
+                config.agente_ativo ? 'bg-emerald-500/15' : 'bg-muted')}>
+                <Bot className={cn('w-4.5 h-4.5', config.agente_ativo ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')} />
+              </div>
+              {config.agente_ativo && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-card animate-pulse" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate leading-none">
+                {config.persona.nome_agente || 'Agente SDR'}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {config.agente_ativo ? 'Ativo' : 'Inativo'}
+              </p>
+            </div>
           </div>
-          <Link
-            href="/configuracoes/sdr/simulador"
-            className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            Simulador
-          </Link>
-          <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5 h-8">
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            {saving ? 'Salvando…' : 'Salvar'}
-          </Button>
         </div>
-      </div>
 
-      {/* Body */}
-      <div className="flex gap-6">
-
-        {/* ── Sidebar ── */}
-        <aside className="w-44 shrink-0 space-y-1">
+        {/* Nav items */}
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+          {/* Quick setup shortcut */}
           <button onClick={() => setSetupMode('quick')}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors text-left text-primary bg-primary/5 hover:bg-primary/10 mb-2 border border-primary/20">
-            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] text-primary/80 hover:bg-primary/5 transition-colors mb-1 text-left">
+            <Sparkles className="w-3 h-3 shrink-0" />
             Config. Rápida
           </button>
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={cn(
-                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
-                activeTab === id
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              <Icon className={cn('w-4 h-4 shrink-0', activeTab === id ? 'text-primary' : 'text-muted-foreground')} />
-              {label}
-            </button>
-          ))}
-        </aside>
 
-        {/* ── Content ── */}
-        <div className="flex-1 min-w-0">
+          {WORKSPACE_NAV.map((item) => {
+            if ('sep' in item && item.sep) {
+              return <div key={item.id} className="my-2 border-t border-border/50" />
+            }
+            const navItem = item as { id: SectionId; label: string; icon: React.ElementType }
+            const Icon = navItem.icon
+            const isActive = activeSection === navItem.id
+            const isDone = completion[navItem.id]
+            const isTestar = navItem.id === 'testar'
 
-          {/* Non-conhecimento tabs: card layout */}
-          {activeTab !== 'conhecimento' && (() => {
-            const tab = TABS.find((t) => t.id === activeTab)!
-            const TabIcon = tab.icon
             return (
-              <div className="rounded-xl border border-border overflow-hidden">
-                {/* Card header */}
-                <div className="flex items-center gap-3 px-5 py-4 bg-muted/20 border-b border-border">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <TabIcon className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{tab.label}</p>
-                    <p className="text-xs text-muted-foreground">{tab.desc}</p>
-                  </div>
-                  {activeTab === 'geral' && (
-                    <div className={cn(
-                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border shrink-0',
-                      config.agente_ativo
-                        ? 'bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400'
-                        : 'bg-muted text-muted-foreground border-border'
-                    )}>
-                      <Zap className="w-3 h-3" />
-                      {config.agente_ativo ? 'Ativo' : 'Inativo'}
-                    </div>
-                  )}
-                </div>
-
-                {/* Card body */}
-                <div className="p-5">
-
-                  {/* ── Geral ── */}
-                  {activeTab === 'geral' && (
-                    <div className="space-y-5">
-                      <div className={cn('flex items-center justify-between gap-4 p-4 rounded-xl border transition-colors',
-                        config.agente_ativo ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border')}>
-                        <div className="flex items-center gap-3">
-                          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', config.agente_ativo ? 'bg-primary/15' : 'bg-muted')}>
-                            <Zap className={cn('w-4 h-4', config.agente_ativo ? 'text-primary' : 'text-muted-foreground')} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Agente ativo</p>
-                            <p className="text-xs text-muted-foreground">{config.agente_ativo ? 'Respondendo automaticamente' : 'Ative para responder automaticamente'}</p>
-                          </div>
-                        </div>
-                        <Switch checked={config.agente_ativo} onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de agente</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {AGENT_TYPES.map((opt) => {
-                            const Icon = opt.icon; const selected = config.agent_type === opt.value
-                            return (
-                              <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, agent_type: opt.value as any }))}
-                                className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-                                <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center mb-2', selected ? 'bg-primary/15' : 'bg-muted')}>
-                                  <Icon className={cn('w-3.5 h-3.5', selected ? 'text-primary' : 'text-muted-foreground')} />
-                                </div>
-                                <p className="text-xs font-semibold leading-tight">{opt.label}</p>
-                                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Modo de atendimento</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {([
-                            { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar' },
-                            { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)' },
-                          ] as const).map((opt) => {
-                            const selected = config.inbox_mode === opt.value
-                            return (
-                              <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
-                                className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-                                <p className="text-xs font-semibold leading-tight">{opt.label}</p>
-                                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── Identidade ── */}
-                  {activeTab === 'identidade' && (
-                    <div className="space-y-4">
-                      <Field label="Nicho" hint="Segmento de atuação da empresa. Define o comportamento base do agente.">
-                        <div className="relative">
-                          <button
-                            onClick={() => setIdentNicheOpen((o) => !o)}
-                            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors"
-                          >
-                            <span className={identSelectedNiche ? 'text-foreground' : 'text-muted-foreground'}>
-                              {identSelectedNiche ? `${identSelectedNiche.emoji} ${identSelectedNiche.label}` : 'Selecione o nicho…'}
-                            </span>
-                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                          </button>
-                          {identNicheOpen && (
-                            <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-72 overflow-y-auto">
-                              {[{ label: '🎯 Vendas', items: identVendas }, { label: '🛎️ Atendimento', items: identAtendimento }].map((group) => (
-                                <div key={group.label}>
-                                  <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
-                                  {group.items.map((n) => (
-                                    <button
-                                      key={n.id}
-                                      onClick={() => { handleNicheChange(n.id); setIdentNicheOpen(false) }}
-                                      className={cn(
-                                        'w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left',
-                                        sharedNicheId === n.id && 'bg-primary/5'
-                                      )}
-                                    >
-                                      <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-medium">{n.label}</p>
-                                        <p className="text-xs text-muted-foreground">{n.description}</p>
-                                      </div>
-                                      {sharedNicheId === n.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
-                                    </button>
-                                  ))}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </Field>
-                      <Field label="Nome do agente">
-                        <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana, João, Sofia" className="h-9 text-sm" />
-                      </Field>
-                      <Field label="Nome da empresa">
-                        <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva, Tocli, Studio Bella" className="h-9 text-sm" />
-                      </Field>
-                      <Field label="Produto / Serviço" hint="O que a empresa vende ou oferece. Usado diretamente no comportamento do agente.">
-                        <Input value={config.persona.produto} onChange={(e) => setPersona('produto', e.target.value)} placeholder="Ex: roupas masculinas, consultoria de marketing, planos de saúde" className="h-9 text-sm" />
-                      </Field>
-                      <Field label="Tom de voz" hint="Como o agente deve se comunicar com os leads.">
-                        <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Ex: informal e consultivo, direto e descontraído" className="h-9 text-sm" />
-                      </Field>
-                      <Field label="Horário de atendimento" hint="Informado ao lead quando perguntar sobre disponibilidade." optional>
-                        <Input value={config.persona.horario} onChange={(e) => setPersona('horario', e.target.value)} placeholder="Ex: Seg a Sex das 9h às 18h" className="h-9 text-sm" />
-                      </Field>
-                      <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar." optional>
-                        <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)} placeholder="Ex: não mencione preços sem entender a necessidade do cliente" className="min-h-[72px] text-sm resize-none" />
-                      </Field>
-                    </div>
-                  )}
-
-                  {/* ── Integrações ── */}
-                  {activeTab === 'integracoes' && (
-                    <div className="space-y-5">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                          <p className="text-sm font-semibold">Google Calendar</p>
-                          {!needsAgendamento && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium ml-auto">
-                              Ative o tipo "Agendamento" na aba Geral
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-3">Calendário usado pelo agente para agendar reuniões automaticamente</p>
-                        <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
-                          <CalendarSection calendarId={config.google_calendar_id} onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))} />
-                        </div>
-                      </div>
-                      <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                          <p className="text-sm font-semibold">Título da reunião</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">Nome do evento criado no Google Calendar. Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para incluir o nome do lead.</p>
-                        <Input
-                          placeholder="Ex: Call de vendas — {nome}"
-                          value={config.event_title_template}
-                          onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── Cardápio ── */}
-                  {activeTab === 'cardapio' && (
-                    <div className="space-y-4">
-                      <CatalogManager />
-                    </div>
-                  )}
-
-                </div>
-              </div>
+              <button
+                key={navItem.id}
+                onClick={() => setActiveSection(navItem.id)}
+                className={cn(
+                  'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left group',
+                  isActive
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                  isTestar && !isActive && 'border border-border/60 hover:border-primary/30',
+                  isTestar && isActive && 'border border-primary/30',
+                )}
+              >
+                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-primary' : '')} />
+                <span className="flex-1 truncate">{navItem.label}</span>
+                {/* Completion dot — only for configurable sections */}
+                {!isTestar && navItem.id !== 'visao-geral' && navItem.id !== 'integracoes' && (
+                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0',
+                    isDone ? 'bg-emerald-500' : 'bg-amber-400')} />
+                )}
+              </button>
             )
-          })()}
+          })}
+        </nav>
 
-          {/* ── Conhecimento — split panel ── */}
-          {activeTab === 'conhecimento' && (
-            <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[560px]">
-              {/* Left — KB config */}
-              <div className="w-[360px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                    <p className="text-sm font-semibold">Base de conhecimento</p>
-                  </div>
-                  <KnowledgeBuilder
-                    flowId={config.flow_id}
-                    type="conhecimento"
-                    active={config.conhecimento_ativo}
-                    onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
-                    persona={config.persona}
-                    onPersonaChange={setPersona}
-                    sharedNicheId={sharedNicheId}
-                    onNicheChange={handleNicheChange}
-                  />
-                </div>
-                <div className="border-t border-border/60 pt-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
-                    <p className="text-sm font-semibold">Base de objeções</p>
-                  </div>
-                  <KnowledgeBuilder
-                    flowId={config.flow_id}
-                    type="objecoes"
-                    active={config.objecoes_ativo}
-                    onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
-                    persona={config.persona}
-                    onPersonaChange={setPersona}
-                    sharedNicheId={sharedNicheId}
-                    onNicheChange={handleNicheChange}
-                  />
-                </div>
-              </div>
+        {/* Save + connection at bottom */}
+        <div className="p-3 border-t border-border space-y-2">
+          <div className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border',
+            isConnected ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400'
+              : isConnecting ? 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-400'
+              : 'bg-muted text-muted-foreground border-border')}>
+            {isConnected
+              ? <Wifi className="w-3 h-3 shrink-0" />
+              : isConnecting ? <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              : <WifiOff className="w-3 h-3 shrink-0" />}
+            <span className="truncate font-medium">
+              {isConnected ? (config.instance_phone || 'Conectado') : isConnecting ? 'Conectando…' : 'Desconectado'}
+            </span>
+          </div>
+          <Button onClick={handleSave} disabled={saving} className="w-full gap-1.5" size="sm">
+            {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Salvando…</> : <><Save className="w-3.5 h-3.5" />Salvar</>}
+          </Button>
+        </div>
+      </aside>
 
-              {/* Right — Simulator */}
-              <div className="flex-1 min-w-0 rounded-xl border border-border overflow-hidden">
-                <SimulatorChat
-                  nicheId={sharedNicheId}
+      {/* ── Right content ─────────────────────────────────────────────────── */}
+      <main className={cn('flex-1 min-w-0', activeSection === 'testar' ? 'overflow-hidden' : 'overflow-y-auto')}>
+
+        {/* ── Testar agente — full height simulator ── */}
+        {activeSection === 'testar' && (
+          <div className="h-full">
+            <SimulatorChat nicheId={sharedNicheId} flowId={config.flow_id} variables={simVariables} />
+          </div>
+        )}
+
+        {/* ── Conhecimento — split panel ── */}
+        {activeSection === 'conhecimento' && (
+          <div className="flex gap-0 h-full">
+            <div className="w-80 shrink-0 overflow-y-auto p-5 space-y-6 border-r border-border">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Base de conhecimento</p>
+                <KnowledgeBuilder
                   flowId={config.flow_id}
-                  variables={simVariables}
+                  type="conhecimento"
+                  active={config.conhecimento_ativo}
+                  onActiveChange={(v) => setConfig((p) => ({ ...p, conhecimento_ativo: v }))}
+                  persona={config.persona}
+                  onPersonaChange={setPersona}
+                  sharedNicheId={sharedNicheId}
+                  onNicheChange={handleNicheChange}
+                />
+              </div>
+              <div className="border-t border-border/60 pt-5">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Base de objeções</p>
+                <KnowledgeBuilder
+                  flowId={config.flow_id}
+                  type="objecoes"
+                  active={config.objecoes_ativo}
+                  onActiveChange={(v) => setConfig((p) => ({ ...p, objecoes_ativo: v }))}
+                  persona={config.persona}
+                  onPersonaChange={setPersona}
+                  sharedNicheId={sharedNicheId}
+                  onNicheChange={handleNicheChange}
                 />
               </div>
             </div>
-          )}
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <SimulatorChat nicheId={sharedNicheId} flowId={config.flow_id} variables={simVariables} />
+            </div>
+          </div>
+        )}
 
-        </div>
-      </div>
+        {/* ── Scrollable sections ── */}
+        {activeSection !== 'testar' && activeSection !== 'conhecimento' && (
+          <div className="max-w-2xl mx-auto p-6 pb-16 space-y-6">
 
+            {/* ── Visão geral ── */}
+            {activeSection === 'visao-geral' && (
+              <div className="space-y-5">
+                {/* Status hero */}
+                <div className={cn('rounded-2xl border p-5 transition-all',
+                  config.agente_ativo ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border bg-card')}>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center transition-colors',
+                        config.agente_ativo ? 'bg-emerald-500/15' : 'bg-muted')}>
+                        <Bot className={cn('w-6 h-6', config.agente_ativo ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-base">{config.persona.nome_agente || 'Agente SDR'}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {config.persona.empresa || 'Configure a persona'}
+                          {config.persona.tom ? ` · ${config.persona.tom}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Switch checked={config.agente_ativo} onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))} />
+                      <p className="text-[11px] text-muted-foreground">
+                        {config.agente_ativo ? 'Respondendo automaticamente' : 'Pausado'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tipo + Modo */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">Tipo de agente</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {AGENT_TYPES.map((opt) => {
+                        const Icon = opt.icon; const selected = config.agent_type === opt.value
+                        return (
+                          <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, agent_type: opt.value as 'atendimento_venda' | 'atendimento_venda_agendamento' }))}
+                            className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+                            <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center mb-2', selected ? 'bg-primary/15' : 'bg-muted')}>
+                              <Icon className={cn('w-3.5 h-3.5', selected ? 'text-primary' : 'text-muted-foreground')} />
+                            </div>
+                            <p className="text-xs font-semibold leading-tight">{opt.label}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">Modo de atendimento</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar' },
+                        { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre atendentes (round-robin)' },
+                      ] as const).map((opt) => {
+                        const selected = config.inbox_mode === opt.value
+                        return (
+                          <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
+                            className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+                            <p className="text-xs font-semibold leading-tight">{opt.label}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Completion checklist */}
+                {hasIncomplete && (
+                  <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-3">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                      Configuração pendente
+                    </p>
+                    {[
+                      { id: 'persona' as SectionId, label: 'Persona', desc: 'Nome, empresa e tom de voz' },
+                      { id: 'negocio' as SectionId, label: 'Negócio', desc: 'Produto, preços e links' },
+                      { id: 'conhecimento' as SectionId, label: 'Conhecimento', desc: 'Base de conhecimento gerada' },
+                    ].map((item) => (
+                      <button key={item.id} onClick={() => setActiveSection(item.id)}
+                        className="w-full flex items-center gap-3 text-left group">
+                        <div className={cn('w-5 h-5 rounded-full flex items-center justify-center shrink-0 border-2',
+                          completion[item.id]
+                            ? 'bg-emerald-500 border-emerald-500'
+                            : 'border-amber-400 bg-transparent')}>
+                          {completion[item.id] && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-sm font-medium', completion[item.id] ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                            {item.label}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                        </div>
+                        {!completion[item.id] && (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {!hasIncomplete && (
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">Agente totalmente configurado</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Persona ── */}
+            {activeSection === 'persona' && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold">Persona</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Quem é o agente — identidade, tom e restrições</p>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <Field label="Nicho de atuação" hint="Define o comportamento base do agente conforme o segmento.">
+                    <div className="relative">
+                      <button onClick={() => setIdentNicheOpen((o) => !o)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors">
+                        <span className={nicheSelectedIdent ? 'text-foreground' : 'text-muted-foreground'}>
+                          {nicheSelectedIdent ? `${nicheSelectedIdent.emoji} ${nicheSelectedIdent.label}` : 'Selecione o nicho…'}
+                        </span>
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                      </button>
+                      {identNicheOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                          {[{ label: '🎯 Vendas', items: nicheVendas }, { label: '🛎️ Atendimento', items: nicheAtendimento }].map((group) => (
+                            <div key={group.label}>
+                              <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
+                              {group.items.map((n) => (
+                                <button key={n.id} onClick={() => { handleNicheChange(n.id); setIdentNicheOpen(false) }}
+                                  className={cn('w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left', sharedNicheId === n.id && 'bg-primary/5')}>
+                                  <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium">{n.label}</p>
+                                    <p className="text-xs text-muted-foreground">{n.description}</p>
+                                  </div>
+                                  {sharedNicheId === n.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Field>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Nome do agente">
+                      <Input value={config.persona.nome_agente} onChange={(e) => setPersona('nome_agente', e.target.value)} placeholder="Ex: Ana, João, Sofia" className="h-9 text-sm" />
+                    </Field>
+                    <Field label="Nome da empresa">
+                      <Input value={config.persona.empresa} onChange={(e) => setPersona('empresa', e.target.value)} placeholder="Ex: Clínica Silva" className="h-9 text-sm" />
+                    </Field>
+                  </div>
+
+                  <Field label="Tom de voz" hint="Como o agente se comunica — aparece no comportamento das respostas.">
+                    <div className="grid grid-cols-2 gap-2">
+                      {TOM_OPTIONS.map((t) => (
+                        <button key={t.value} type="button" onClick={() => setPersona('tom', t.value)}
+                          className={cn('text-left p-3 rounded-xl border transition-all',
+                            config.persona.tom === t.value ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
+                          <p className="text-xs font-semibold">{t.label}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{t.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                    {config.persona.tom && !TOM_OPTIONS.find((t) => t.value === config.persona.tom) && (
+                      <Input value={config.persona.tom} onChange={(e) => setPersona('tom', e.target.value)} placeholder="Tom personalizado…" className="h-9 text-sm mt-2" />
+                    )}
+                  </Field>
+
+                  <Field label="O que nunca dizer" hint="Restrições e comportamentos que o agente deve evitar." optional>
+                    <Textarea value={config.persona.restricoes} onChange={(e) => setPersona('restricoes', e.target.value)}
+                      placeholder="Ex: nunca mencione preços sem entender a necessidade, nunca prometa prazos sem consultar…"
+                      className="min-h-[80px] text-sm resize-none" />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* ── Negócio ── */}
+            {activeSection === 'negocio' && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold">Negócio</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">O que a empresa vende, como funciona e onde encontrar</p>
+                </div>
+
+                {/* Produto e preço */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Produto & Preço</p>
+                  <Field label="Produto / Serviço" hint="O que a empresa oferece — usado diretamente nas respostas do agente.">
+                    <Textarea value={config.persona.produto} onChange={(e) => setPersona('produto', e.target.value)}
+                      placeholder="Ex: planos de saúde empresariais com cobertura nacional, sem carência para urgência…"
+                      className="min-h-[72px] text-sm resize-none" />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Preços e condições" optional>
+                      <Textarea value={config.persona.preco} onChange={(e) => setPersona('preco', e.target.value)}
+                        placeholder="Ex: a partir de R$49/mês, parcelamos em 12x" className="min-h-[60px] text-sm resize-none" />
+                    </Field>
+                    <Field label="Período de teste" optional>
+                      <Input value={config.persona.periodo_teste} onChange={(e) => setPersona('periodo_teste', e.target.value)} placeholder="Ex: 7 dias grátis" className="h-9 text-sm" />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* Horário e localização */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Operação</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Horário de atendimento" optional>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <Input value={config.persona.horario} onChange={(e) => setPersona('horario', e.target.value)} placeholder="Seg–Sex 9h–18h" className="h-9 text-sm pl-9" />
+                      </div>
+                    </Field>
+                    <Field label="Endereço" optional>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <Input value={config.persona.endereco} onChange={(e) => setPersona('endereco', e.target.value)} placeholder="Rua, número — Cidade" className="h-9 text-sm pl-9" />
+                      </div>
+                    </Field>
+                  </div>
+                </div>
+
+                {/* Links */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Links</p>
+                  {[
+                    { key: 'url_empresa' as keyof AgentPersona, label: 'Site da empresa', placeholder: 'https://suaempresa.com.br' },
+                    { key: 'link_agendamento' as keyof AgentPersona, label: 'Agendamento', placeholder: 'https://calendly.com/…' },
+                    { key: 'link_teste' as keyof AgentPersona, label: 'Teste grátis / aula experimental', placeholder: 'https://' },
+                    { key: 'link_catalogo' as keyof AgentPersona, label: 'Catálogo / cardápio', placeholder: 'https://' },
+                    { key: 'link_pedido' as keyof AgentPersona, label: 'Link de pedido / compra', placeholder: 'https://' },
+                    { key: 'link_playlist' as keyof AgentPersona, label: 'Playlist / tutoriais', placeholder: 'https://youtube.com/…' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                      <Field label={label} optional>
+                        <Input value={config.persona[key] as string} onChange={(e) => setPersona(key, e.target.value)} placeholder={placeholder} className="h-9 text-sm" type="url" />
+                      </Field>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Entrega (somente se tiver campos relevantes) */}
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Entrega & Pagamento</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Taxa de entrega" optional>
+                      <Input value={config.persona.taxa_entrega} onChange={(e) => setPersona('taxa_entrega', e.target.value)} placeholder="Ex: R$5 ou Grátis acima R$50" className="h-9 text-sm" />
+                    </Field>
+                    <Field label="Tempo de entrega" optional>
+                      <Input value={config.persona.tempo_entrega} onChange={(e) => setPersona('tempo_entrega', e.target.value)} placeholder="Ex: 40–60 minutos" className="h-9 text-sm" />
+                    </Field>
+                    <Field label="Valor mínimo" optional>
+                      <Input value={config.persona.valor_minimo_pedido} onChange={(e) => setPersona('valor_minimo_pedido', e.target.value)} placeholder="Ex: R$25,00" className="h-9 text-sm" />
+                    </Field>
+                    <Field label="Tipo de pedido" optional>
+                      <Input value={config.persona.pedido_tipo} onChange={(e) => setPersona('pedido_tipo', e.target.value)} placeholder="whatsapp ou link" className="h-9 text-sm" />
+                    </Field>
+                  </div>
+                  <Field label="Zonas de entrega" optional>
+                    <DeliveryZonesEditor value={config.persona.area_entrega} onChange={(v) => setPersona('area_entrega', v)} />
+                  </Field>
+                  <Field label="Formas de pagamento" optional>
+                    <PaymentChipsEditor value={config.persona.formas_pagamento} onChange={(v) => setPersona('formas_pagamento', v)} />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* ── Integrações ── */}
+            {activeSection === 'integracoes' && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-bold">Integrações</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Google Calendar e cardápio de produtos</p>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Google Calendar</p>
+                    {!needsAgendamento && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium ml-auto">
+                        Ative o tipo "Agendamento" em Visão geral
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Calendário usado pelo agente para agendar reuniões automaticamente.</p>
+                  <div className={cn(!needsAgendamento && 'opacity-50 pointer-events-none')}>
+                    <CalendarSection calendarId={config.google_calendar_id} onCalendarIdChange={(id) => setConfig((p) => ({ ...p, google_calendar_id: id }))} />
+                  </div>
+                  {needsAgendamento && (
+                    <Field label="Título da reunião" hint={`Use {nome} para incluir o nome do lead.`} optional>
+                      <Input placeholder="Ex: Call de vendas — {nome}" value={config.event_title_template}
+                        onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))} className="h-9 text-sm" />
+                    </Field>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Cardápio / Catálogo</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Cadastre itens numerados para o agente identificar pedidos por número.</p>
+                  <CatalogManager />
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+      </main>
     </div>
   )
 }
