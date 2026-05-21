@@ -3,9 +3,8 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { cn } from '@/lib/utils/cn';
 import {
-  Ticket, Send, Loader2, CheckCircle2, AlertCircle,
-  Clock, MessageSquare, X, ChevronDown, ChevronUp,
-  LifeBuoy, ExternalLink,
+  Send, CheckCircle2, AlertCircle, Loader2,
+  Clock, MessageSquare, ChevronRight, LifeBuoy, ArrowUpRight,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -20,13 +19,13 @@ interface SupportTicket {
   created_at: string;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  aberto:         { label: 'Aberto',          color: 'bg-yellow-500/15 text-yellow-500 border-yellow-500/20' },
-  em_atendimento: { label: 'Em atendimento',  color: 'bg-blue-500/15 text-blue-500 border-blue-500/20' },
-  respondido:     { label: 'Respondido',       color: 'bg-green-500/15 text-green-500 border-green-500/20' },
-  fechado:        { label: 'Fechado',          color: 'bg-muted text-muted-foreground border-border' },
+  aberto:         { label: 'Aberto',        dot: 'bg-amber-400' },
+  em_atendimento: { label: 'Em andamento',  dot: 'bg-blue-500' },
+  respondido:     { label: 'Respondido',    dot: 'bg-green-500' },
+  fechado:        { label: 'Fechado',       dot: 'bg-muted-foreground/30' },
 } as const;
 
 const ASSUNTOS = [
@@ -39,53 +38,58 @@ const ASSUNTOS = [
 ];
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60_000) return 'agora';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}min atrás`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h atrás`;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ── TicketCard ─────────────────────────────────────────────────────────────────
+// ── TicketItem ─────────────────────────────────────────────────────────────────
 
-function TicketCard({ ticket }: { ticket: SupportTicket }) {
+function TicketItem({ ticket }: { ticket: SupportTicket }) {
   const [open, setOpen] = useState(false);
   const cfg = STATUS_CONFIG[ticket.status];
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden transition-all">
+    <div className={cn('border-b border-border/60 last:border-0', open && 'bg-muted/20')}>
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-muted/10 transition-colors"
       >
+        <div className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', cfg.dot)} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-xs font-mono text-muted-foreground">{ticket.protocolo}</span>
-            <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full border', cfg.color)}>
-              {cfg.label}
-            </span>
-          </div>
           <p className="text-sm font-medium text-foreground truncate">{ticket.assunto}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{formatDate(ticket.created_at)}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {cfg.label} · {formatDate(ticket.created_at)}
+          </p>
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+        <ChevronRight className={cn(
+          'h-4 w-4 text-muted-foreground/40 flex-shrink-0 transition-transform duration-150',
+          open && 'rotate-90'
+        )} />
       </button>
 
       {open && (
-        <div className="border-t border-border px-4 py-4 space-y-4">
-          {ticket.resposta && (
-            <div className="rounded-lg bg-green-500/8 border border-green-500/20 p-3.5">
-              <div className="flex items-center gap-2 mb-2">
+        <div className="px-5 pb-5 ml-5 space-y-3">
+          <p className="text-[11px] font-mono text-muted-foreground/50">{ticket.protocolo}</p>
+          {ticket.resposta ? (
+            <div className="rounded-xl bg-green-500/6 border border-green-500/15 p-4">
+              <div className="flex items-center gap-2 mb-2.5">
                 <MessageSquare className="h-3.5 w-3.5 text-green-500" />
                 <span className="text-xs font-semibold text-green-500">Resposta do suporte</span>
                 {ticket.respondido_em && (
-                  <span className="text-xs text-muted-foreground ml-auto">{formatDate(ticket.respondido_em)}</span>
+                  <span className="text-[11px] text-muted-foreground ml-auto">
+                    {formatDate(ticket.respondido_em)}
+                  </span>
                 )}
               </div>
               <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{ticket.resposta}</p>
             </div>
-          )}
-          {!ticket.resposta && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+              <Clock className="h-3.5 w-3.5 flex-shrink-0" />
               Aguardando resposta — retornamos em até 24 horas úteis.
             </div>
           )}
@@ -100,20 +104,20 @@ function TicketCard({ ticket }: { ticket: SupportTicket }) {
 export default function SuportePage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
-  const [filter, setFilter] = useState<'todos' | SupportTicket['status']>('todos');
-
   const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [protocolo, setProtocolo] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
+  function reload() {
     fetch('/api/support/tickets')
       .then(r => r.json())
       .then(d => setTickets(d.tickets ?? []))
       .catch(() => {})
       .finally(() => setLoadingTickets(false));
-  }, [submitStatus === 'success']);
+  }
+
+  useEffect(() => { reload(); }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -134,156 +138,145 @@ export default function SuportePage() {
       setProtocolo(data.protocolo);
       setSubmitStatus('success');
       setForm({ nome: '', email: '', assunto: '', mensagem: '' });
+      reload();
     } catch (err: unknown) {
       setSubmitStatus('error');
       setErrorMsg(err instanceof Error ? err.message : 'Erro desconhecido.');
     }
   }
 
-  const filtered = filter === 'todos' ? tickets : tickets.filter(t => t.status === filter);
-
-  const inputCls = 'w-full h-9 rounded-lg border border-border bg-muted/40 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors';
+  const field = 'w-full rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all';
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+    <div className="max-w-4xl mx-auto pb-20">
 
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <LifeBuoy className="h-4 w-4 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold">Suporte</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold tracking-tight">Suporte</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Abra um ticket e nossa equipe retorna em até 24 horas úteis.
         </p>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-8 items-start">
+      <div className="grid lg:grid-cols-[1fr_340px] gap-10 items-start">
 
-        {/* ── Formulário ──────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-border">
-            <Ticket className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Novo ticket</h2>
-          </div>
-
+        {/* ── Formulário ───────────────────────────────────────────────────── */}
+        <div>
           {submitStatus === 'success' ? (
-            <div className="flex flex-col items-center justify-center py-14 px-6 text-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-green-500" />
+            <div className="rounded-2xl border border-border bg-card p-12 flex flex-col items-center text-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                <CheckCircle2 className="h-7 w-7 text-green-500" />
               </div>
-              <p className="text-base font-semibold">Ticket enviado!</p>
-              <p className="text-xs text-muted-foreground max-w-xs">
-                Você receberá uma confirmação por e-mail com o protocolo{' '}
-                <strong className="text-foreground font-mono">{protocolo}</strong>.
-                Retornamos em até 24 horas úteis.
-              </p>
+              <div>
+                <p className="font-semibold text-foreground">Ticket enviado com sucesso</p>
+                <p className="text-sm text-muted-foreground mt-2 max-w-xs leading-relaxed">
+                  Você receberá uma confirmação por e-mail. Protocolo:{' '}
+                  <span className="font-mono font-semibold text-foreground">{protocolo}</span>
+                </p>
+              </div>
               <button
                 onClick={() => setSubmitStatus('idle')}
-                className="mt-3 text-xs text-primary hover:underline"
+                className="text-sm text-primary hover:text-primary/80 transition-colors mt-1"
               >
-                Abrir outro ticket
+                Abrir outro ticket →
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">Nome <span className="text-red-500">*</span></label>
-                  <input name="nome" required value={form.nome} onChange={handleChange} placeholder="Seu nome" className={inputCls} />
+                  <label className="text-xs font-medium text-muted-foreground">Nome</label>
+                  <input
+                    name="nome" required value={form.nome} onChange={handleChange}
+                    placeholder="Seu nome completo"
+                    className={field}
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground">E-mail <span className="text-red-500">*</span></label>
-                  <input name="email" type="email" required value={form.email} onChange={handleChange} placeholder="seu@email.com" className={inputCls} />
+                  <label className="text-xs font-medium text-muted-foreground">E-mail</label>
+                  <input
+                    name="email" type="email" required value={form.email} onChange={handleChange}
+                    placeholder="seu@email.com"
+                    className={field}
+                  />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">Assunto <span className="text-red-500">*</span></label>
-                <select name="assunto" required value={form.assunto} onChange={handleChange} className={cn(inputCls, 'cursor-pointer')}>
-                  <option value="" disabled>Selecione...</option>
+                <label className="text-xs font-medium text-muted-foreground">Categoria</label>
+                <select
+                  name="assunto" required value={form.assunto} onChange={handleChange}
+                  className={cn(field, 'cursor-pointer')}
+                >
+                  <option value="" disabled>Selecione uma categoria...</option>
                   {ASSUNTOS.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">Descreva o problema <span className="text-red-500">*</span></label>
+                <label className="text-xs font-medium text-muted-foreground">Descrição</label>
                 <textarea
-                  name="mensagem" required rows={5}
+                  name="mensagem" required rows={6}
                   value={form.mensagem} onChange={handleChange}
-                  placeholder="Descreva com o máximo de detalhes possível..."
-                  className={cn(inputCls, 'h-auto resize-none py-2.5')}
+                  placeholder="Descreva o problema com o máximo de detalhes possível..."
+                  className={cn(field, 'resize-none leading-relaxed')}
                 />
               </div>
 
               {submitStatus === 'error' && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/8 px-3 py-2 text-xs text-red-500">
-                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/6 px-4 py-3 text-sm text-red-500">
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                   <p>{errorMsg}</p>
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={submitStatus === 'loading' || !form.nome || !form.email || !form.assunto || !form.mensagem}
-                className="w-full h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitStatus === 'loading'
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Enviando...</>
-                  : <><Send className="h-3.5 w-3.5" />Enviar ticket</>}
-              </button>
-
-              <p className="text-[11px] text-muted-foreground text-center">
-                Urgente?{' '}
-                <a href="mailto:suporte@zaapply.com.br" className="text-primary hover:underline inline-flex items-center gap-1">
-                  suporte@zaapply.com.br <ExternalLink className="h-2.5 w-2.5" />
+              <div className="flex items-center justify-between pt-1">
+                <a
+                  href="mailto:suporte@zaapply.com.br"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                >
+                  suporte@zaapply.com.br
+                  <ArrowUpRight className="h-3 w-3" />
                 </a>
-              </p>
+                <button
+                  type="submit"
+                  disabled={submitStatus === 'loading' || !form.nome || !form.email || !form.assunto || !form.mensagem}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40"
+                >
+                  {submitStatus === 'loading'
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Enviando...</>
+                    : <><Send className="h-3.5 w-3.5" />Enviar ticket</>}
+                </button>
+              </div>
             </form>
           )}
         </div>
 
-        {/* ── Lista de tickets ─────────────────────────────────────────────────── */}
-        <div className="space-y-4">
+        {/* ── Lista de tickets ─────────────────────────────────────────────── */}
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Seus tickets</h2>
-            <div className="flex gap-1">
-              {(['todos', 'aberto', 'respondido', 'fechado'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    'text-xs px-2.5 py-1 rounded-lg capitalize transition-colors',
-                    filter === f
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                >
-                  {f === 'todos' ? 'Todos' : STATUS_CONFIG[f as SupportTicket['status']].label}
-                </button>
-              ))}
-            </div>
+            <h2 className="text-sm font-semibold">Seus tickets</h2>
+            {tickets.length > 0 && (
+              <span className="text-xs text-muted-foreground">{tickets.length} total</span>
+            )}
           </div>
 
           {loadingTickets ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-16 rounded-2xl border border-border">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-16 rounded-2xl border border-dashed border-border">
-              <Ticket className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                {tickets.length === 0 ? 'Nenhum ticket aberto ainda.' : 'Nenhum ticket com esse filtro.'}
-              </p>
+          ) : tickets.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border py-16 flex flex-col items-center gap-3 text-center">
+              <LifeBuoy className="h-7 w-7 text-muted-foreground/20" />
+              <p className="text-sm text-muted-foreground">Nenhum ticket aberto ainda.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filtered.map(t => <TicketCard key={t.id} ticket={t} />)}
+            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+              {tickets.map(t => <TicketItem key={t.id} ticket={t} />)}
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

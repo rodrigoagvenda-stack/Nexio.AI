@@ -29,6 +29,7 @@ import {
   Sparkles,
   LifeBuoy,
   Ticket,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -112,9 +113,16 @@ const navSections: NavSection[] = [
   {
     label: 'Sistema',
     links: [
-      { href: '/novidades', label: 'Novidades', icon: Sparkles, badge: 'Novo' },
-      { href: '/suporte', label: 'Suporte', icon: LifeBuoy },
-      { href: '/ajuda', label: 'Ajuda', icon: Info },
+      { href: '/novidades', label: 'Novidades', icon: Sparkles },
+      {
+        href: '/ajuda',
+        label: 'Ajuda',
+        icon: LifeBuoy,
+        children: [
+          { href: '/ajuda', label: 'Documentação', icon: BookOpen },
+          { href: '/suporte', label: 'Tickets', icon: Ticket },
+        ],
+      },
       { href: '/configuracoes', label: 'Configuração', icon: Settings, exact: true },
     ],
   },
@@ -215,7 +223,21 @@ export const Sidebar = memo(function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [flyout, setFlyout] = useState<FlyoutState | null>(null);
+  const [hasUnseenChangelog, setHasUnseenChangelog] = useState(false);
   const flyoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const lastSeen = localStorage.getItem('zaapply_changelog_last_seen');
+    if (!lastSeen) { setHasUnseenChangelog(true); return; }
+    fetch('/api/changelog')
+      .then(r => r.json())
+      .then(d => {
+        const changelogs: Array<{ published_at: string }> = d.changelogs ?? [];
+        const hasNew = changelogs.some(c => new Date(c.published_at) > new Date(lastSeen));
+        setHasUnseenChangelog(hasNew);
+      })
+      .catch(() => {});
+  }, [pathname]);
 
   const openFlyout = useCallback((link: NavLink, el: HTMLElement) => {
     if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
@@ -269,11 +291,11 @@ export const Sidebar = memo(function Sidebar({
     const sections = navSections.map(section => ({
       ...section,
       links: section.links.map(link => {
+        if (link.href === '/novidades') {
+          return { ...link, badge: hasUnseenChangelog ? 'Novo' : undefined };
+        }
         if (link.children) {
-          return {
-            ...link,
-            children: link.children,
-          };
+          return { ...link, children: link.children };
         }
         return link;
       }).filter(link => {
@@ -304,7 +326,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, userRole, hasBriefing, trialEnabled]);
+  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog]);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);

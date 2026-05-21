@@ -1,7 +1,7 @@
 -- ── support_tickets ───────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS support_tickets (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id    UUID REFERENCES companies(id) ON DELETE CASCADE,
+  company_id    BIGINT REFERENCES companies(id) ON DELETE CASCADE,
   user_id       UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   protocolo     TEXT UNIQUE NOT NULL,
   nome          TEXT NOT NULL,
@@ -21,7 +21,7 @@ ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tickets_company_select" ON support_tickets
   FOR SELECT TO authenticated
   USING (company_id = (
-    SELECT company_id FROM members WHERE user_id = auth.uid() LIMIT 1
+    SELECT company_id FROM users WHERE auth_user_id = auth.uid() LIMIT 1
   ));
 
 CREATE POLICY "tickets_service_all" ON support_tickets
