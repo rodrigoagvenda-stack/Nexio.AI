@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   Send,
@@ -14,19 +15,13 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
-  Eye,
-  UserX,
-  ShieldOff,
-  AlertTriangle,
-  ChevronLeft,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { FilterPeriod } from '@/components/dashboard/FilterButtons';
+import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Periodo = '7d' | '30d' | '90d';
+interface DateRange { from: Date | undefined; to: Date | undefined; }
 
 interface MetricasData {
   periodo: string;
@@ -535,23 +530,34 @@ function Section({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const PERIODOS: { value: Periodo; label: string }[] = [
-  { value: '7d', label: '7d' },
-  { value: '30d', label: '30d' },
-  { value: '90d', label: '90d' },
-];
+const PERIOD_LABELS: Record<FilterPeriod, string> = {
+  today: 'Hoje', week: 'Semana', month: 'Mês', year: 'Ano', custom: 'Personalizado',
+};
+const PERIODS: FilterPeriod[] = ['today', 'week', 'month', 'year', 'custom'];
+
+function getPeriodRange(period: FilterPeriod, dr?: DateRange): { from: Date; to: Date } {
+  const now = new Date();
+  if (period === 'custom' && dr?.from && dr?.to) return { from: startOfDay(dr.from), to: endOfDay(dr.to) };
+  if (period === 'today') return { from: startOfDay(now), to: endOfDay(now) };
+  if (period === 'week') return { from: startOfWeek(now, { weekStartsOn: 0 }), to: endOfDay(now) };
+  if (period === 'year') return { from: startOfYear(now), to: endOfDay(now) };
+  return { from: startOfMonth(now), to: endOfDay(now) };
+}
 
 export default function MetricasPage() {
-  const [periodo, setPeriodo] = useState<Periodo>('30d');
+  const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [data, setData] = useState<MetricasData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (p: Periodo) => {
+  const load = useCallback(async (period: FilterPeriod, dr?: DateRange) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/metricas?periodo=${p}`);
+      const { from, to } = getPeriodRange(period, dr);
+      const res = await fetch(`/api/metricas?from=${from.toISOString()}&to=${to.toISOString()}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Erro ao carregar métricas');
       setData(json);
@@ -562,9 +568,16 @@ export default function MetricasPage() {
     }
   }, []);
 
+  const handlePeriodChange = (period: FilterPeriod) => {
+    setSelectedPeriod(period);
+    if (period !== 'custom') { setDateRange(undefined); setShowDatePicker(false); load(period); }
+    else setShowDatePicker(true);
+  };
+
   useEffect(() => {
-    load(periodo);
-  }, [periodo, load]);
+    load('month');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 py-2 pb-16">
@@ -578,28 +591,34 @@ export default function MetricasPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Period selector */}
-          <div className="flex items-center rounded-xl border border-border overflow-hidden text-sm bg-card">
-            {PERIODOS.map(({ value, label }) => (
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <div className="flex gap-1 bg-muted p-1 rounded-xl">
+            {PERIODS.map((period) => (
               <button
-                key={value}
-                onClick={() => setPeriodo(value)}
+                key={period}
+                onClick={() => handlePeriodChange(period)}
                 className={cn(
-                  'px-4 py-1.5 font-medium transition-colors',
-                  periodo === value
-                    ? 'bg-foreground text-background'
-                    : 'text-muted-foreground hover:bg-muted/50',
+                  'px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap',
+                  selectedPeriod === period
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
-                {label}
+                {PERIOD_LABELS[period]}
               </button>
             ))}
           </div>
-
-          {/* Refresh */}
+          {showDatePicker && (
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={(dr) => {
+                setDateRange(dr);
+                if (dr?.from && dr?.to) load('custom', dr);
+              }}
+            />
+          )}
           <button
-            onClick={() => load(periodo)}
+            onClick={() => load(selectedPeriod, dateRange)}
             disabled={loading}
             className="h-9 w-9 rounded-xl border border-border bg-card flex items-center justify-center hover:bg-muted/50 transition-colors disabled:opacity-50"
           >
@@ -725,321 +744,7 @@ export default function MetricasPage() {
         </>
       )}
 
-      {/* ── Agenda de Automações (Trial + Anti-noshow) ─────────────────────── */}
-      <AgendaCalendario />
-
     </div>
   );
 }
 
-// ─── Agenda Calendário (Trial + Anti-noshow) ──────────────────────────────────
-
-interface TrialListRecord {
-  id: number;
-  nome: string;
-  email: string;
-  whatsapp: string;
-  status: string;
-  criado_em: string;
-  trial_days: number;
-}
-
-const MONTH_NAMES_M = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const DAY_NAMES_M = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-function MetricasTrialCalendar({ trials }: { trials: TrialListRecord[] }) {
-  const [current, setCurrent] = useState(() => { const d = new Date(); d.setDate(1); return d; });
-  const [selected, setSelected] = useState<TrialListRecord | null>(null);
-
-  const year = current.getFullYear();
-  const month = current.getMonth();
-  const firstDow = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const byDay = new Map<string, TrialListRecord[]>();
-  for (const t of trials) {
-    const exp = new Date(new Date(t.criado_em).getTime() + (t.trial_days ?? 7) * 86_400_000);
-    const key = `${exp.getFullYear()}-${exp.getMonth()}-${exp.getDate()}`;
-    if (!byDay.has(key)) byDay.set(key, []);
-    byDay.get(key)!.push(t);
-  }
-
-  const today = new Date();
-
-  function trialColor(trial: TrialListRecord) {
-    const exp = new Date(new Date(trial.criado_em).getTime() + (trial.trial_days ?? 7) * 86_400_000);
-    const daysLeft = Math.ceil((exp.getTime() - Date.now()) / 86_400_000);
-    if (daysLeft < 0) return 'bg-muted text-muted-foreground';
-    if (daysLeft <= 2) return 'bg-red-500/20 text-red-600 border-red-500/30 dark:text-red-400';
-    if (daysLeft <= 5) return 'bg-amber-500/20 text-amber-600 border-amber-500/30 dark:text-amber-400';
-    return 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30 dark:text-emerald-400';
-  }
-
-  const cells: (null | number)[] = [];
-  for (let i = 0; i < firstDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  const trialDetailInfo = selected ? (() => {
-    const exp = new Date(new Date(selected.criado_em).getTime() + (selected.trial_days ?? 7) * 86_400_000);
-    const daysLeft = Math.ceil((exp.getTime() - Date.now()) / 86_400_000);
-    const daysGone = (selected.trial_days ?? 7) - Math.max(0, daysLeft);
-    const expired = daysLeft < 0;
-    return { exp, daysLeft, daysGone, expired };
-  })() : null;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm">{MONTH_NAMES_M[month]} {year}</h3>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrent(new Date(year, month - 1, 1))}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrent(new Date(year, month + 1, 1))}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
-        {DAY_NAMES_M.map((d) => (
-          <div key={d} className="bg-muted/40 text-center py-2 text-[11px] font-medium text-muted-foreground">{d}</div>
-        ))}
-        {cells.map((day, i) => {
-          if (!day) return <div key={`empty-${i}`} className="bg-background min-h-[72px]" />;
-          const key = `${year}-${month}-${day}`;
-          const dayTrials = byDay.get(key) ?? [];
-          const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
-          return (
-            <div key={day} className={cn('bg-background min-h-[72px] p-1.5 space-y-1', isToday && 'bg-primary/5')}>
-              <div className={cn('text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full', isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
-                {day}
-              </div>
-              {dayTrials.slice(0, 3).map((trial) => (
-                <button key={trial.id} onClick={() => setSelected(trial)}
-                  className={cn('w-full text-left text-[10px] px-1.5 py-0.5 rounded border truncate transition-all hover:opacity-80', trialColor(trial))}>
-                  {trial.nome.split(' ')[0]}
-                </button>
-              ))}
-              {dayTrials.length > 3 && <p className="text-[10px] text-muted-foreground text-center">+{dayTrials.length - 3}</p>}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/20 border border-emerald-500/30" /> &gt;5 dias</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/30" /> 2-5 dias</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-red-500/20 border border-red-500/30" /> &lt;2 dias</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-muted border border-border" /> Expirado</div>
-      </div>
-
-      <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-        <DialogContent className="max-w-sm">
-          {selected && trialDetailInfo && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-base">{selected.nome}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">{selected.email}</p>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge className={cn('text-xs border',
-                    trialDetailInfo.expired ? 'bg-muted text-muted-foreground border-border'
-                    : trialDetailInfo.daysLeft <= 2 ? 'bg-red-500/10 text-red-600 border-red-500/20'
-                    : trialDetailInfo.daysLeft <= 5 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                    : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20')}>
-                    {trialDetailInfo.expired ? 'Expirado' : trialDetailInfo.daysLeft === 0 ? 'Expira hoje' : `${trialDetailInfo.daysLeft} dias restantes`}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Trial de {selected.trial_days ?? 7} dias</span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className={cn('h-full rounded-full transition-all',
-                    trialDetailInfo.expired ? 'bg-muted-foreground'
-                    : trialDetailInfo.daysLeft <= 2 ? 'bg-red-500'
-                    : trialDetailInfo.daysLeft <= 5 ? 'bg-amber-500' : 'bg-emerald-500')}
-                    style={{ width: `${Math.min(100, Math.round((trialDetailInfo.daysGone / (selected.trial_days ?? 7)) * 100))}%` }} />
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div><span className="font-medium">WhatsApp: </span>{selected.whatsapp}</div>
-                  <div><span className="font-medium">Cadastro: </span>{new Date(selected.criado_em).toLocaleDateString('pt-BR')}</div>
-                  <div><span className="font-medium">Expiração: </span>{trialDetailInfo.exp.toLocaleDateString('pt-BR')}</div>
-                  <div><span className="font-medium">Progresso: </span>{Math.max(0, trialDetailInfo.daysGone)}/{selected.trial_days ?? 7} dias</div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setSelected(null)}>Fechar</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-interface CallRecord {
-  id: number;
-  contact_name: string;
-  whatsapp: string;
-  status: string;
-  call_agendada_para: string;
-  call_status: string | null;
-}
-
-function AntiNoshowCalendar({ calls }: { calls: CallRecord[] }) {
-  const [current, setCurrent] = useState(() => { const d = new Date(); d.setDate(1); return d; });
-  const [selected, setSelected] = useState<CallRecord | null>(null);
-
-  const year = current.getFullYear();
-  const month = current.getMonth();
-  const firstDow = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const today = new Date();
-
-  const byDay = new Map<string, CallRecord[]>();
-  for (const c of calls) {
-    const d = new Date(c.call_agendada_para);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    if (!byDay.has(key)) byDay.set(key, []);
-    byDay.get(key)!.push(c);
-  }
-
-  const cells: (null | number)[] = [];
-  for (let i = 0; i < firstDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  function callColor(c: CallRecord) {
-    const diff = Math.ceil((new Date(c.call_agendada_para).getTime() - Date.now()) / 86_400_000);
-    if (diff < 0) return 'bg-muted text-muted-foreground';
-    if (diff === 0) return 'bg-red-500/20 text-red-600 border-red-500/30 dark:text-red-400';
-    if (diff <= 1) return 'bg-amber-500/20 text-amber-600 border-amber-500/30 dark:text-amber-400';
-    return 'bg-blue-500/20 text-blue-600 border-blue-500/30 dark:text-blue-400';
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm">{MONTH_NAMES_M[month]} {year}</h3>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrent(new Date(year, month - 1, 1))}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setCurrent(new Date(year, month + 1, 1))}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
-        {DAY_NAMES_M.map((d) => (
-          <div key={d} className="bg-muted/40 text-center py-2 text-[11px] font-medium text-muted-foreground">{d}</div>
-        ))}
-        {cells.map((day, i) => {
-          if (!day) return <div key={`empty-${i}`} className="bg-background min-h-[72px]" />;
-          const key = `${year}-${month}-${day}`;
-          const dayCalls = byDay.get(key) ?? [];
-          const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
-          return (
-            <div key={day} className={cn('bg-background min-h-[72px] p-1.5 space-y-1', isToday && 'bg-primary/5')}>
-              <div className={cn('text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full', isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
-                {day}
-              </div>
-              {dayCalls.slice(0, 3).map((c) => (
-                <button key={c.id} onClick={() => setSelected(c)}
-                  className={cn('w-full text-left text-[10px] px-1.5 py-0.5 rounded border truncate hover:opacity-80', callColor(c))}>
-                  {c.contact_name.split(' ')[0]}
-                </button>
-              ))}
-              {dayCalls.length > 3 && <p className="text-[10px] text-muted-foreground text-center">+{dayCalls.length - 3}</p>}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500/20 border border-blue-500/30" /> Agendado</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500/20 border border-amber-500/30" /> Amanhã</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-red-500/20 border border-red-500/30" /> Hoje</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-muted border border-border" /> Passado</div>
-      </div>
-
-      <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-        <DialogContent className="max-w-sm">
-          {selected && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-base">{selected.contact_name}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div><span className="font-medium text-foreground">WhatsApp: </span>{selected.whatsapp}</div>
-                  <div><span className="font-medium text-foreground">Status CRM: </span>{selected.status}</div>
-                  <div><span className="font-medium text-foreground">Call: </span>{new Date(selected.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                  <div><span className="font-medium text-foreground">Status call: </span>{selected.call_status ?? 'pendente'}</div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setSelected(null)}>Fechar</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-type AgendaTab = 'trial' | 'noshow';
-
-function AgendaCalendario() {
-  const [tab, setTab] = useState<AgendaTab>('trial');
-  const [trials, setTrials] = useState<TrialListRecord[]>([]);
-  const [calls, setCalls] = useState<CallRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/trial/list').then((r) => r.ok ? r.json() : { trials: [] }),
-      fetch('/api/follow/calls').then((r) => r.ok ? r.json() : { calls: [] }),
-    ])
-      .then(([t, c]) => { setTrials(t.trials ?? []); setCalls(c.calls ?? []); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">Agenda de Automações</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Calendário de trials e reuniões agendadas</p>
-        </div>
-        <div className="flex items-center rounded-lg border border-border overflow-hidden text-xs bg-muted/30">
-          {([
-            { id: 'trial' as AgendaTab, label: `Trial${!loading ? ` · ${trials.length}` : ''}` },
-            { id: 'noshow' as AgendaTab, label: `Anti-noshow${!loading ? ` · ${calls.length}` : ''}` },
-          ]).map(({ id, label }) => (
-            <button key={id} onClick={() => setTab(id)}
-              className={cn('px-3 py-1.5 font-medium transition-colors',
-                tab === id ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted/50')}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="h-64 animate-pulse rounded-xl bg-muted" />
-      ) : tab === 'trial' ? (
-        trials.length === 0
-          ? <p className="text-sm text-muted-foreground text-center py-10">Nenhum trial ativo no momento</p>
-          : <MetricasTrialCalendar trials={trials} />
-      ) : (
-        calls.length === 0
-          ? <p className="text-sm text-muted-foreground text-center py-10">Nenhuma reunião agendada</p>
-          : <AntiNoshowCalendar calls={calls} />
-      )}
-    </div>
-  );
-}

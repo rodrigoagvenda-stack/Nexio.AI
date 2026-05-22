@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import {
   ChevronLeft,
@@ -119,18 +119,17 @@ const MSG_ICONS: Record<string, React.ElementType> = {
   video: Video,
 };
 
-// ─── Mock events ──────────────────────────────────────────────────────────────
+// ─── API Event (raw from /api/follow/agenda) ──────────────────────────────────
 
-function buildMockEvents(): AgendaEvent[] {
-  const monday = getMonday(new Date());
-  return [
-    { id: '1', leadName: 'João Silva', leadCount: 1, sequenceName: 'Follow-up Geral', sequenceTipo: 'follow_geral', horario: '09:00', tipoMensagem: 'texto', dia: addDays(monday, 0) },
-    { id: '2', leadName: '34 leads', leadCount: 34, sequenceName: 'Remarketing', sequenceTipo: 'remarketing', horario: '14:00', tipoMensagem: 'imagem', dia: addDays(monday, 1) },
-    { id: '3', leadName: 'Maria Costa', leadCount: 1, sequenceName: 'Trial SaaS', sequenceTipo: 'trial_saas', horario: '10:00', tipoMensagem: 'texto', dia: addDays(monday, 2) },
-    { id: '4', leadName: '12 leads', leadCount: 12, sequenceName: 'Anti-Noshow', sequenceTipo: 'anti_noshow', horario: '08:30', tipoMensagem: 'audio', dia: addDays(monday, 3) },
-    { id: '5', leadName: '67 leads', leadCount: 67, sequenceName: 'Follow-up Geral', sequenceTipo: 'follow_geral', horario: '11:00', tipoMensagem: 'texto', dia: addDays(monday, 4) },
-    { id: '6', leadName: 'Carlos Mendes', leadCount: 1, sequenceName: 'Remarketing', sequenceTipo: 'remarketing', horario: '15:30', tipoMensagem: 'video', dia: addDays(monday, 5) },
-  ];
+interface ApiEvent {
+  id: string;
+  leadName: string;
+  leadCount: number;
+  sequenceName: string;
+  sequenceTipo: string;
+  horario: string;
+  tipoMensagem: string;
+  dia: string; // ISO
 }
 
 // ─── Event Card ───────────────────────────────────────────────────────────────
@@ -268,19 +267,34 @@ const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 export default function AgendaPage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null);
+  const [allEvents, setAllEvents] = useState<AgendaEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/follow/agenda')
+      .then((r) => r.json())
+      .then((json) => {
+        const raw: ApiEvent[] = json.events ?? [];
+        setAllEvents(raw.map((e) => ({
+          ...e,
+          sequenceTipo: e.sequenceTipo as SequenceTipo,
+          dia: new Date(e.dia),
+        })));
+      })
+      .catch(() => setAllEvents([]))
+      .finally(() => setLoadingEvents(false));
+  }, []);
 
   const today = new Date();
   const baseMonday = getMonday(today);
   const monday = addDays(baseMonday, weekOffset * 7);
   const sunday = addDays(monday, 6);
 
-  const MOCK_EVENTS = buildMockEvents();
-
-  // Adjust mock events to current week + offset
-  const events: AgendaEvent[] = MOCK_EVENTS.map((e) => ({
-    ...e,
-    dia: addDays(monday, e.dia.getDay() === 0 ? 6 : e.dia.getDay() - 1),
-  }));
+  // Filter to current week
+  const events = allEvents.filter((e) => {
+    const d = e.dia;
+    return d >= monday && d <= addDays(sunday, 1);
+  });
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
@@ -327,7 +341,13 @@ export default function AgendaPage() {
       </div>
 
       {/* Stats */}
-      <StatsRow events={events} />
+      {loadingEvents ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[0,1,2,3].map((i) => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}
+        </div>
+      ) : (
+        <StatsRow events={events} />
+      )}
 
       {/* Grid */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">

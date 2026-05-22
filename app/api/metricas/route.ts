@@ -17,8 +17,9 @@ const MSG_LABELS: Record<string, string> = {
 }
 
 function periodoMs(p: string) {
-  if (p === '7d') return 7 * 86_400_000
-  if (p === '90d') return 90 * 86_400_000
+  if (p === 'today') return 1 * 86_400_000
+  if (p === '7d' || p === 'week') return 7 * 86_400_000
+  if (p === '90d' || p === 'year') return 365 * 86_400_000
   return 30 * 86_400_000
 }
 
@@ -43,13 +44,17 @@ export async function GET(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request)
   if (authError) return authError
 
-  const periodo = request.nextUrl.searchParams.get('periodo') ?? '30d'
+  const params = request.nextUrl.searchParams
+  const fromParam = params.get('from')
+  const toParam = params.get('to')
+  const periodo = params.get('periodo') ?? 'month'
   const companyId = context.companyId
   const svc = createServiceClient()
 
-  const now = new Date()
-  const since = new Date(now.getTime() - periodoMs(periodo))
-  const prevSince = new Date(since.getTime() - periodoMs(periodo))
+  const now = toParam ? new Date(toParam) : new Date()
+  const since = fromParam ? new Date(fromParam) : new Date(now.getTime() - periodoMs(periodo))
+  const spanMs = now.getTime() - since.getTime()
+  const prevSince = new Date(since.getTime() - spanMs)
   const sinceIso = since.toISOString()
   const prevSinceIso = prevSince.toISOString()
 
