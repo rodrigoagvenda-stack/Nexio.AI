@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const service = createServiceClient()
   const { data, error: dbErr } = await service
     .from('support_tickets')
-    .select('id, protocolo, assunto, status, resposta, respondido_em, created_at')
+    .select('id, protocolo, assunto, mensagem, status, resposta, respondido_em, created_at, images')
     .eq('company_id', context.companyId)
     .order('created_at', { ascending: false })
 
