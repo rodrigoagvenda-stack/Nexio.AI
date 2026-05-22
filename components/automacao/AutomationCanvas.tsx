@@ -126,6 +126,7 @@ interface CanvasConfig {
   triggerPos: { x: number; y: number };
   edges: CanvasConfigEdge[];
   remarketing?: RemarketingConfig;
+  customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
 }
 
 interface FollowSequence {
@@ -147,6 +148,7 @@ interface TriggerNodeData extends Record<string, unknown> {
   kind: 'trigger';
   label: string;
   condicao: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
   _leadCount?: number;
@@ -161,6 +163,9 @@ interface MessageNodeData extends Record<string, unknown> {
   _leadCount?: number;
   tipo_mensagem: string;
   stepId: string;
+  customLabel?: string;
+  // Blocos: multiple text messages sent sequentially (texto type only)
+  blocos?: string[];
   media_url?: string;
   media_name?: string;
   uploading?: boolean;
@@ -181,6 +186,7 @@ interface WaitNodeData extends Record<string, unknown> {
   label: string;
   dia_offset: number;
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -193,6 +199,7 @@ interface ConditionNodeData extends Record<string, unknown> {
   operador?: 'eq' | 'contains' | 'starts_with' | 'not_empty';
   valor?: string;
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -201,6 +208,7 @@ interface EndNodeData extends Record<string, unknown> {
   kind: 'end';
   label: string;
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -211,6 +219,7 @@ interface WebhookNodeData extends Record<string, unknown> {
   url: string;
   method: 'POST' | 'GET';
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -221,6 +230,7 @@ interface LeadScoreNodeData extends Record<string, unknown> {
   scoreMin: number;
   scoreMax: number;
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -231,6 +241,7 @@ interface ABTestNodeData extends Record<string, unknown> {
   variantA: string;
   variantB: string;
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -242,6 +253,7 @@ interface SwitchNodeData extends Record<string, unknown> {
   variavel: string;
   cases: SwitchCase[];
   stepId: string;
+  customLabel?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -537,12 +549,18 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         : undefined;
     // Carousel
     const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
+    // Blocos: array of separate text messages sent sequentially
+    const blocos = Array.isArray(step.media_config?.blocos) && (step.media_config!.blocos as string[]).length > 0
+      ? (step.media_config!.blocos as string[])
+      : undefined;
+    // Custom label (stored in canvas_config.customLabels keyed by stepId)
+    const customLabel = canvasConfig?.customLabels?.[step.id] ?? undefined;
 
-    if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id } satisfies EndNodeData });
+    if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id, customLabel } satisfies EndNodeData });
     else if (step.tipo_mensagem === 'switch') {
       const mc = step.media_config as any ?? {};
       nodes.push({ id: step.id, type: 'switchNode', position: { x, y },
-        data: { kind: 'switch', label: 'Switch', variavel: mc.variavel ?? 'resposta_botao', cases: mc.cases ?? [], stepId: step.id } satisfies SwitchNodeData });
+        data: { kind: 'switch', label: 'Switch', variavel: mc.variavel ?? 'resposta_botao', cases: mc.cases ?? [], stepId: step.id, customLabel } satisfies SwitchNodeData });
     }
     else if (isCondition) {
       const mc = step.media_config as any ?? {};
@@ -553,36 +571,33 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         try { const p = JSON.parse(step.condicao); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
       }
       nodes.push({ id: step.id, type: 'conditionNode', position: { x, y },
-        data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', variavel, operador, valor, stepId: step.id } satisfies ConditionNodeData });
+        data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', variavel, operador, valor, stepId: step.id, customLabel } satisfies ConditionNodeData });
     }
     else if (step.tipo_mensagem === 'webhook') {
       const wmc = step.media_config as any ?? {};
-      // Backwards compat: url was previously stored in condicao
       const url = wmc.url ?? step.condicao ?? '';
       const method = wmc.method ?? 'POST';
       nodes.push({ id: step.id, type: 'webhookNode', position: { x, y },
-        data: { kind: 'webhook', label: 'Webhook', url, method, stepId: step.id } satisfies WebhookNodeData });
+        data: { kind: 'webhook', label: 'Webhook', url, method, stepId: step.id, customLabel } satisfies WebhookNodeData });
     }
     else if (step.tipo_mensagem === 'lead_score') {
       const lmc = step.media_config as any ?? {};
-      // Backwards compat: scores were previously stored in condicao as 'min-max'
       const legacyParts = (step.condicao ?? '').split('-');
       const scoreMin = lmc.scoreMin ?? (parseInt(legacyParts[0] ?? '0') || 0);
       const scoreMax = lmc.scoreMax ?? (parseInt(legacyParts[1] ?? '100') || 100);
       nodes.push({ id: step.id, type: 'leadScoreNode', position: { x, y },
-        data: { kind: 'lead_score', label: 'Lead Score', scoreMin, scoreMax, stepId: step.id } satisfies LeadScoreNodeData });
+        data: { kind: 'lead_score', label: 'Lead Score', scoreMin, scoreMax, stepId: step.id, customLabel } satisfies LeadScoreNodeData });
     }
     else if (step.tipo_mensagem === 'ab_test') {
       const amc = step.media_config as any ?? {};
-      // Backwards compat: variants were previously stored in condicao as 'A|B'
       const legacyParts = (step.condicao ?? '').split('|');
       const variantA = amc.variantA ?? legacyParts[0] ?? 'Variante A';
       const variantB = amc.variantB ?? legacyParts[1] ?? 'Variante B';
       nodes.push({ id: step.id, type: 'abTestNode', position: { x, y },
-        data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id } satisfies ABTestNodeData });
+        data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id, customLabel } satisfies ABTestNodeData });
     }
-    else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json } satisfies MessageNodeData });
+    else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, blocos, customLabel } satisfies MessageNodeData });
   });
   return nodes;
 }
@@ -619,7 +634,9 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       const tipoDb = CANVAS_TO_UAZAPI[d.tipo_mensagem] ?? d.tipo_mensagem ?? 'text';
       let media_config: FollowStep['media_config'] = null;
 
-      if (d.tipo_mensagem === 'localizacao') {
+      if (d.tipo_mensagem === 'texto' && d.blocos && d.blocos.length > 0) {
+        media_config = { blocos: d.blocos };
+      } else if (d.tipo_mensagem === 'localizacao') {
         const coords = parseGoogleMapsUrl(String(d.location_url ?? ''));
         media_config = {
           name: d.location_name ?? '',
@@ -647,7 +664,9 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
         media_config = { file: d.media_url, text: d.mensagem || undefined, docName: d.media_name || undefined };
       }
 
-      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: d.mensagem || null, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config };
+      // When using blocos, first block becomes mensagem for backwards compat with executors
+      const mensagemFinal = d.blocos && d.blocos.length > 0 ? (d.blocos[0] || null) : (d.mensagem || null);
+      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: mensagemFinal, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config };
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
     if (d.kind === 'condition') {
@@ -744,7 +763,7 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   const acc = ACCENTS[accent];
   return (
     <div className={cn(
-      'relative bg-card rounded-xl min-w-[230px] border transition-all duration-100',
+      'relative bg-card rounded-xl w-[240px] border transition-all duration-100',
       'shadow-[0_1px_3px_rgba(0,0,0,0.07),0_4px_14px_rgba(0,0,0,0.05)]',
       isSkipped && 'opacity-40',
       isRunning ? 'node-running border-border/30'
@@ -768,19 +787,74 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   );
 }
 
-function NodeHeader({ icon: Icon, label, accent = 'primary', meta }: {
+function NodeHeader({ icon: Icon, label, accent = 'primary', meta, nodeId, customLabel }: {
   icon: React.ElementType; label: string; accent?: AccentKey; meta?: string;
+  nodeId?: string; customLabel?: string;
 }) {
+  const { setNodes } = useReactFlow();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const acc = ACCENTS[accent];
+
+  const startEdit = useCallback((e: React.MouseEvent) => {
+    if (!nodeId) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setDraft(customLabel ?? '');
+    setEditing(true);
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 10);
+  }, [nodeId, customLabel]);
+
+  const commit = useCallback(() => {
+    if (!nodeId) return;
+    const trimmed = draft.trim();
+    setNodes((nds) => nds.map((n) => n.id === nodeId
+      ? { ...n, data: { ...n.data, customLabel: trimmed || undefined } }
+      : n
+    ));
+    setEditing(false);
+  }, [nodeId, draft, setNodes]);
+
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2 min-w-0">
+    <div className="flex items-center justify-between gap-2 group" onDoubleClick={startEdit}>
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         <div className={cn('w-5 h-5 rounded-md flex items-center justify-center shrink-0 bg-muted/60')}>
           <Icon className={cn('w-3 h-3', acc.icon)} />
         </div>
-        <span className="text-[11px] font-semibold text-foreground/60 tracking-wide uppercase leading-none truncate">{label}</span>
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commit(); }
+              if (e.key === 'Escape') { e.stopPropagation(); setEditing(false); }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            placeholder={label}
+            className="text-[11px] font-semibold bg-muted/60 border border-primary/40 rounded px-1.5 py-0.5 outline-none text-foreground w-full min-w-0"
+          />
+        ) : (
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-foreground/50 tracking-wide uppercase leading-none truncate">{label}</span>
+              {nodeId && !customLabel && (
+                <PenLine className="w-2.5 h-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/30 transition-colors shrink-0 cursor-text" />
+              )}
+            </div>
+            {customLabel && (
+              <p className="text-[11px] font-medium text-foreground/80 leading-snug truncate mt-0.5 flex items-center gap-1">
+                <span>—</span>
+                <span>{customLabel}</span>
+                <PenLine className="w-2.5 h-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors shrink-0 cursor-text" />
+              </p>
+            )}
+          </div>
+        )}
       </div>
-      {meta && (
+      {meta && !editing && (
         <span className="text-[10px] text-muted-foreground/40 font-mono shrink-0 bg-muted/40 px-1.5 py-0.5 rounded">{meta}</span>
       )}
     </div>
@@ -793,11 +867,11 @@ const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-background !border !border-border/60 !roun
 
 const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
 
-function TriggerNode({ data, selected }: NodeProps) {
+function TriggerNode({ id, data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   return (
     <NodeShell selected={selected} accent="primary"
-      header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" />}
+      header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <p className="text-sm font-semibold text-foreground/90 leading-snug">{d.label}</p>
@@ -806,7 +880,7 @@ function TriggerNode({ data, selected }: NodeProps) {
   );
 }
 
-function MessageNode({ data, selected }: NodeProps) {
+function MessageNode({ id, data, selected }: NodeProps) {
   const d = data as MessageNodeData;
   const meta = `D${d.dia_offset} · ${d.horario}`;
 
@@ -816,9 +890,12 @@ function MessageNode({ data, selected }: NodeProps) {
     ? (d.media_url.split('.').pop()?.split('?')[0]?.toUpperCase() ?? 'DOC')
     : 'DOC';
 
+  // Blocks preview: use blocos[] if set, otherwise fall back to single mensagem
+  const hasBlocos = d.blocos && d.blocos.length > 0;
+
   return (
     <NodeShell selected={selected} accent="emerald"
-      header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} />}
+      header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
@@ -834,7 +911,20 @@ function MessageNode({ data, selected }: NodeProps) {
       )}
 
       {!d.uploading && d.tipo_mensagem === 'texto' && (
-        d.mensagem
+        hasBlocos ? (
+          <div className="space-y-1.5">
+            {(d.blocos as string[]).slice(0, 2).map((bloco, i) => (
+              <p key={i} className="text-xs text-foreground/80 leading-relaxed line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">
+                {bloco || <span className="text-muted-foreground/40 italic">Bloco vazio</span>}
+              </p>
+            ))}
+            {(d.blocos as string[]).length > 2 && (
+              <p className="text-[10px] text-muted-foreground/50 font-medium pl-1">
+                +{(d.blocos as string[]).length - 2} bloco{(d.blocos as string[]).length - 2 > 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        ) : d.mensagem
           ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>
           : <p className="text-xs text-muted-foreground/50 italic">Sem mensagem</p>
       )}
@@ -998,11 +1088,11 @@ function MessageNode({ data, selected }: NodeProps) {
   );
 }
 
-function WaitNode({ data, selected }: NodeProps) {
+function WaitNode({ id, data, selected }: NodeProps) {
   const d = data as WaitNodeData;
   return (
     <NodeShell selected={selected} accent="amber"
-      header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" />}
+      header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
@@ -1012,7 +1102,7 @@ function WaitNode({ data, selected }: NodeProps) {
   );
 }
 
-function ConditionNode({ data, selected }: NodeProps) {
+function ConditionNode({ id, data, selected }: NodeProps) {
   const d = data as ConditionNodeData;
   const opLabel: Record<string, string> = { eq: '==', contains: 'contém', starts_with: 'começa', not_empty: '≠ vazio' };
   const condExpr = d.variavel && d.valor != null
@@ -1020,7 +1110,7 @@ function ConditionNode({ data, selected }: NodeProps) {
     : (d.condicao || 'Respondeu?');
   return (
     <NodeShell selected={selected} accent="violet"
-      header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" />}
+      header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
@@ -1034,11 +1124,11 @@ function ConditionNode({ data, selected }: NodeProps) {
   );
 }
 
-function EndNode({ data, selected }: NodeProps) {
+function EndNode({ id, data, selected }: NodeProps) {
   const d = data as EndNodeData;
   return (
     <NodeShell selected={selected} accent="destructive"
-      header={<NodeHeader icon={XCircle} label="Fim" accent="destructive" />}
+      header={<NodeHeader icon={XCircle} label="Fim" accent="destructive" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <p className="text-xs text-muted-foreground/60">Encerrar sequência</p>
@@ -1046,12 +1136,12 @@ function EndNode({ data, selected }: NodeProps) {
   );
 }
 
-function WebhookNode({ data, selected }: NodeProps) {
+function WebhookNode({ id, data, selected }: NodeProps) {
   const d = data as WebhookNodeData;
   const domain = d.url ? getDomain(d.url) : null;
   return (
     <NodeShell selected={selected} accent="blue"
-      header={<NodeHeader icon={Globe} label="Webhook" accent="blue" meta={d.method} />}
+      header={<NodeHeader icon={Globe} label="Webhook" accent="blue" meta={d.method} nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
@@ -1062,11 +1152,11 @@ function WebhookNode({ data, selected }: NodeProps) {
   );
 }
 
-function LeadScoreNode({ data, selected }: NodeProps) {
+function LeadScoreNode({ id, data, selected }: NodeProps) {
   const d = data as LeadScoreNodeData;
   return (
     <NodeShell selected={selected} accent="amber"
-      header={<NodeHeader icon={Star} label="Lead Score" accent="amber" />}
+      header={<NodeHeader icon={Star} label="Lead Score" accent="amber" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-amber-500/60 !border !border-amber-500/40 !rounded-full" />
@@ -1080,11 +1170,11 @@ function LeadScoreNode({ data, selected }: NodeProps) {
   );
 }
 
-function ABTestNode({ data, selected }: NodeProps) {
+function ABTestNode({ id, data, selected }: NodeProps) {
   const d = data as ABTestNodeData;
   return (
     <NodeShell selected={selected} accent="cyan"
-      header={<NodeHeader icon={GitMerge} label="Teste A/B" accent="cyan" meta="50/50" />}
+      header={<NodeHeader icon={GitMerge} label="Teste A/B" accent="cyan" meta="50/50" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="source-top" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-violet-500/60 !border !border-violet-500/40 !rounded-full" />
@@ -1101,13 +1191,13 @@ function ABTestNode({ data, selected }: NodeProps) {
 const SWITCH_ROW_H = 26;
 const SWITCH_HEADER_OFFSET = 50;
 
-function SwitchNode({ data, selected }: NodeProps) {
+function SwitchNode({ id, data, selected }: NodeProps) {
   const d = data as SwitchNodeData;
   const cases = d.cases ?? [];
   const COLORS = ['!bg-emerald-500/60 !border-emerald-500/40', '!bg-sky-500/60 !border-sky-500/40', '!bg-violet-500/60 !border-violet-500/40', '!bg-amber-500/60 !border-amber-500/40', '!bg-rose-500/60 !border-rose-500/40'];
   return (
     <NodeShell selected={selected} accent="violet"
-      header={<NodeHeader icon={GitMerge} label="Switch" accent="violet" meta={`${cases.length} saídas`} />}
+      header={<NodeHeader icon={GitMerge} label="Switch" accent="violet" meta={`${cases.length} saídas`} nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <p className="text-[10px] text-muted-foreground/60 font-mono mb-1">{d.variavel || 'resposta_botao'}</p>
@@ -1760,6 +1850,78 @@ const REMARKETING_STATUS_OPTIONS = [
   'Sem resposta', 'Remarketing', 'Perdido', 'Cliente',
 ];
 
+// ─── Blocos Editor ───────────────────────────────────────────────────────────────
+
+function BlocosEditor({ blocos, mensagem, onChange }: {
+  blocos?: string[];
+  mensagem?: string | null;
+  onChange: (blocos: string[]) => void;
+}) {
+  // Initialize: if no blocos but has mensagem, migrate to single block
+  const current = blocos && blocos.length > 0 ? blocos : (mensagem ? [mensagem] : ['']);
+
+  const update = (idx: number, val: string) => {
+    const next = [...current];
+    next[idx] = val;
+    onChange(next);
+  };
+
+  const add = () => onChange([...current, '']);
+
+  const remove = (idx: number) => {
+    if (current.length <= 1) { onChange(['']); return; }
+    onChange(current.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+          Blocos de mensagem
+        </label>
+        <span className="text-[10px] text-muted-foreground/40">{current.length} bloco{current.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {current.map((bloco, idx) => (
+          <div key={idx} className="relative group">
+            <div className="flex items-start gap-1.5">
+              <div className="flex flex-col items-center gap-0.5 pt-2 shrink-0">
+                <span className="w-5 h-5 rounded-md bg-muted/60 flex items-center justify-center text-[9px] font-bold text-muted-foreground/50">{idx + 1}</span>
+              </div>
+              <textarea
+                rows={3}
+                value={bloco}
+                onChange={(e) => update(idx, e.target.value)}
+                placeholder={`Mensagem ${idx + 1}...`}
+                className="field-input resize-none flex-1 text-xs"
+              />
+              <button
+                onClick={() => remove(idx)}
+                className="pt-1.5 text-muted-foreground/30 hover:text-destructive transition-colors shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {idx < current.length - 1 && (
+              <div className="flex items-center gap-1 pl-6 mt-1 mb-0.5">
+                <div className="w-px h-3 bg-border/40 ml-2" />
+                <span className="text-[9px] text-muted-foreground/30 font-mono">envia e aguarda 1s</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={add}
+        className="flex items-center gap-1.5 text-[11px] text-primary font-medium hover:underline underline-offset-2 mt-0.5"
+      >
+        <Plus className="w-3 h-3" />
+        Adicionar bloco
+      </button>
+    </div>
+  );
+}
+
 interface ConfigPanelProps {
   node: Node<AutoNodeData> | null;
   onClose: () => void;
@@ -1788,6 +1950,19 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
       </div>
 
       <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-1">
+
+        {/* ── Nome do node (todos os tipos, exceto trigger) ── */}
+        {d.kind !== 'trigger' && (
+          <Field label="Nome do node">
+            <input
+              type="text"
+              value={(d.customLabel as string) ?? ''}
+              onChange={(e) => onUpdate(node.id, { customLabel: e.target.value || undefined })}
+              placeholder={`Ex: ${d.kind === 'message' ? 'Sequência 1' : d.kind === 'wait' ? 'Aguardar 2 dias' : 'Meu nó'}`}
+              className="field-input"
+            />
+          </Field>
+        )}
 
         {/* ── Message node ── */}
         {d.kind === 'message' && (
@@ -1831,12 +2006,14 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             </Field>
 
             {d.tipo_mensagem === 'texto' && (
-              <Field label="Mensagem">
-                <textarea rows={4} value={d.mensagem ?? ''}
-                  onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
-                  placeholder="Digite a mensagem aqui..."
-                  className="field-input resize-none" />
-              </Field>
+              <BlocosEditor
+                blocos={d.blocos as string[] | undefined}
+                mensagem={d.mensagem as string | null | undefined}
+                onChange={(blocos) => onUpdate(node.id, {
+                  blocos: blocos.length > 0 ? blocos : undefined,
+                  mensagem: blocos.length > 0 ? blocos[0] : (d.mensagem ?? null),
+                })}
+              />
             )}
 
             {d.tipo_mensagem === 'imagem' && (
@@ -2688,6 +2865,14 @@ function CanvasInner() {
       const nonTrigger = [...nodes.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
       const idToIdx: Record<string, number> = {};
       nonTrigger.forEach((n, i) => { idToIdx[n.id] = i; });
+      // Collect custom labels from all nodes (keyed by stepId)
+      const customLabels: Record<string, string> = {};
+      nodes.forEach((n) => {
+        const cl = (n.data as any).customLabel as string | undefined;
+        const sid = (n.data as any).stepId as string | undefined;
+        if (cl && sid) customLabels[sid] = cl;
+      });
+
       const canvas_config: CanvasConfig = {
         triggerPos: triggerNode?.position ?? { x: 0, y: 150 },
         positions: nonTrigger.map((n) => ({ x: n.position.x, y: n.position.y })),
@@ -2700,6 +2885,7 @@ function CanvasInner() {
           }))
           .filter((e) => e.sourceIdx !== undefined && e.targetIdx !== undefined) as CanvasConfigEdge[],
         ...(currentSeq.tipo === 'remarketing' ? { remarketing: remarketingCfg } : {}),
+        ...(Object.keys(customLabels).length > 0 ? { customLabels } : {}),
       };
 
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
