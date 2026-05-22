@@ -587,7 +587,7 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         try { const p = JSON.parse(step.condicao); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
       }
       // When variavel is 'custom', restore the custom variable name from media_config.customVariavel
-      const condicaoCanvas = variavel === 'custom' ? (mc.customVariavel || step.condicao || 'Respondeu?') : (step.condicao || 'Respondeu?');
+      const condicaoCanvas = variavel === 'custom' ? (mc.customVariavel || step.condicao || '') : (step.condicao || 'Respondeu?');
       nodes.push({ id: step.id, type: 'conditionNode', position: { x, y },
         data: { kind: 'condition', label: 'Condição', condicao: condicaoCanvas, variavel, operador, valor, stepId: step.id, customLabel } satisfies ConditionNodeData });
     }
@@ -696,7 +696,7 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'condition') {
       const isCustomVar = d.variavel === 'custom';
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1,
-        condicao: 'Respondeu?', // always canonical — custom var name stored in media_config to avoid CHECK constraint violation
+        condicao: null, // null passes the DB CHECK constraint — tipo_mensagem='condicao' já identifica o node
         media_config: {
           variavel: d.variavel ?? 'resposta_botao',
           ...(isCustomVar && { customVariavel: d.condicao || '' }),
