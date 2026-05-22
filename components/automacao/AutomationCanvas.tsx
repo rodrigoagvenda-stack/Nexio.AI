@@ -3322,7 +3322,8 @@ function CanvasInner() {
         } else if (d.kind === 'switch') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
           setTestWaitingReply(true);
-          const reply = await waitForLeadReply(conversaId);
+          const reply = await waitForLeadReply(conversaId, 120_000, replyBaselineCount);
+          replyBaselineCount = undefined; // consumido
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           chosenHandle = evaluateSwitch(d as SwitchNodeData, reply);
