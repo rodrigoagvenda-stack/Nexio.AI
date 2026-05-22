@@ -122,6 +122,15 @@ export async function POST(
 
     await sendRichStep(uazapi, normalizedPhone, tipo, mensagem, media)
 
+    // Enviar blocos adicionais como mensagens de texto separadas
+    const blocos: string[] = Array.isArray(step.media_config?.blocos) ? step.media_config.blocos : []
+    for (let i = 1; i < blocos.length; i++) {
+      const bloco = blocos[i]
+      if (!bloco) continue
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 400))
+      await sendRichStep(uazapi, normalizedPhone, 'text', bloco, undefined)
+    }
+
     // Save message to atendimento chat if a conversa exists for this phone
     try {
       const variants = [normalizedPhone, `+${normalizedPhone}`, normalizedPhone.replace(/^55/, '')]

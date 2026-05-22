@@ -554,6 +554,17 @@ async function processFollowGeral(
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
+
+          // Enviar blocos adicionais como mensagens de texto separadas
+          const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+          for (let i = 1; i < blocos.length; i++) {
+            const bloco = substituirVariaveis(blocos[i] || '', lead)
+            if (!bloco) continue
+            await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+            await enviarMensagem(phone, bloco, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_geral', supabase, 'text', null)
+          }
+
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           sent++
           await antiBanDelay()
