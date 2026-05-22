@@ -34,35 +34,33 @@ interface CompanyFull {
 interface GoogleStatus { connected: boolean; email: string | null }
 
 const PLANS = {
-  basic:   { name: 'Basic',   price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
-  starter: { name: 'Starter', price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'Para quem quer vender mais sem contratar mais' },
-  pro:     { name: 'Pro',     price: 597, tokens: 15_000_000, icon: Rocket,     desc: 'Para times que não podem perder nenhuma oportunidade' },
-  scale:   { name: 'Scale',   price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Para operações que vendem em escala' },
+  basic:   { name: 'Basic',          price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
+  starter: { name: 'Zaapply Start',  price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + follow-up automático' },
+  pro:     { name: 'Zaapply Growth', price: 697, tokens: 15_000_000, icon: Rocket,     desc: 'Anti-Noshow, Remarketing e Trial SaaS desbloqueados' },
+  scale:   { name: 'Zaapply Pro',    price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Escala total: 50M tokens, usuários ilimitados e até 5 números' },
 } as const;
 
 const PLAN_FEATURES: Record<'starter' | 'pro' | 'scale', string[]> = {
   starter: [
-    '1 número WhatsApp conectado',
-    'Agente SDR com IA — responde, qualifica e agenda 24/7',
-    'Follow-up automático para nenhum lead esfriar',
-    'Base de conhecimento RAG — o agente aprende sobre seu negócio',
-    'CRM Kanban completo',
-    'Até 3 atendentes',
-    '5M tokens de IA/mês',
+    'Agente SDR com IA',
+    'Atendimento via chat',
+    'CRM Kanban',
+    'Canvas → Follow-up automático',
+    '5M tokens/mês',
+    '1 número WhatsApp · 3 usuários',
   ],
   pro: [
-    'Tudo do Starter',
-    'Agendamento direto no Google Calendar',
-    'Relatórios de desempenho',
-    'Até 10 atendentes',
-    '15M tokens de IA/mês',
+    'Tudo do Start',
+    'Canvas → Anti-Noshow, Remarketing, Trial SaaS',
+    'Google Calendar integrado',
+    '15M tokens/mês',
+    '1 número WhatsApp · 10 usuários',
   ],
   scale: [
-    'Tudo do Pro',
-    'Até 10 números WhatsApp conectados',
-    'Atendentes ilimitados',
-    'Suporte prioritário',
-    '50M tokens de IA/mês',
+    'Tudo do Growth',
+    '50M tokens/mês',
+    'Até 5 números WhatsApp',
+    'Usuários ilimitados',
   ],
 };
 

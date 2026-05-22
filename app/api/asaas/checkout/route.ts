@@ -4,14 +4,14 @@ import { getPlatformConfig } from '@/lib/platform-config'
 
 const PLAN_VALUES: Record<string, number> = {
   starter: 397,
-  pro: 597,
+  pro: 697,
   scale: 997,
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  starter: 'Starter',
-  pro: 'Pro',
-  scale: 'Scale',
+  starter: 'Zaapply Start',
+  pro: 'Zaapply Growth',
+  scale: 'Zaapply Pro',
 }
 
 export async function POST(request: NextRequest) {
