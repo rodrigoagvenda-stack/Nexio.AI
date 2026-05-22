@@ -178,6 +178,8 @@ interface MessageNodeData extends Record<string, unknown> {
   menu_choices?: string;
   // Carrossel (JSON string)
   carousel_json?: string;
+  // Controle de IA: null = sem mudança, true = ativar, false = pausar
+  sdr_ativo?: boolean | null;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -621,7 +623,7 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id, customLabel } satisfies ABTestNodeData });
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, blocos, customLabel } satisfies MessageNodeData });
+    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, blocos, customLabel, sdr_ativo: step.sdr_ativo ?? null } satisfies MessageNodeData });
   });
   return nodes;
 }
@@ -690,7 +692,8 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
 
       // When using blocos, first block becomes mensagem for backwards compat with executors
       const mensagemFinal = d.blocos && d.blocos.length > 0 ? (d.blocos[0] || null) : (d.mensagem || null);
-      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: mensagemFinal, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config };
+      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: mensagemFinal, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config,
+        sdr_ativo: d.sdr_ativo ?? null };
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
     if (d.kind === 'condition') {
@@ -2111,6 +2114,25 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                   className="field-input flex-1 text-center font-mono"
                 />
               </div>
+            </Field>
+
+            <Field label="Controle da IA">
+              <select
+                value={d.sdr_ativo === null || d.sdr_ativo === undefined ? 'null' : String(d.sdr_ativo)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  onUpdate(node.id, { sdr_ativo: v === 'null' ? null : v === 'true' });
+                }}
+                className="field-input"
+              >
+                <option value="null">Sem mudança</option>
+                <option value="false">Pausar IA após este node</option>
+                <option value="true">Ativar IA após este node</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground/60 leading-snug mt-1">
+                {(d.sdr_ativo === false) && 'Se o lead responder, o SDR não assume — a IA fica pausada.'}
+                {(d.sdr_ativo === true) && 'O SDR volta a responder automaticamente após este step.'}
+              </p>
             </Field>
 
             <Field label="Tipo de mensagem">
