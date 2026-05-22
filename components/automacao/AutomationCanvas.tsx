@@ -3168,14 +3168,17 @@ function CanvasInner() {
     return idx >= 0 ? `case-${idx}` : 'else';
   }
 
-  async function waitForLeadReply(conversaId: string, timeoutMs = 120_000): Promise<string> {
-    // Use max inbound message ID as baseline — immune to .limit() saturation and timezone issues
-    let baselineMaxId = 0;
-    try {
-      const initRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
-      const initJ = await initRes.json();
-      baselineMaxId = initJ.maxId ?? 0;
-    } catch {}
+  // sinceId: baseline capturado ANTES do envio da mensagem — evita perder respostas rápidas (ex: clique em botão)
+  async function waitForLeadReply(conversaId: string, timeoutMs = 120_000, sinceId?: number): Promise<string> {
+    let baselineMaxId = sinceId ?? 0;
+    if (sinceId === undefined) {
+      // Fallback: captura baseline agora (pode perder respostas já chegadas)
+      try {
+        const initRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
+        const initJ = await initRes.json();
+        baselineMaxId = initJ.maxId ?? 0;
+      } catch {}
+    }
 
     const deadline = Date.now() + timeoutMs;
 
@@ -3188,7 +3191,11 @@ function CanvasInner() {
         }
         if (Date.now() > deadline) {
           clearInterval(interval);
-          reject(new Error('Timeout: lead não respondeu em 2 minutos'));
+          reject(new Error(
+            `Timeout: nenhuma resposta recebida em 2 minutos.\n` +
+            `Verifique se o lead respondeu à mensagem anterior. ` +
+            `Se clicou num botão antes do teste chegar neste node, reinicie o teste e responda após ver "Aguardando resposta...".`
+          ));
           return;
         }
         try {
@@ -3229,6 +3236,8 @@ function CanvasInner() {
 
     let currentId: string | null = 'trigger';
     const visited = new Set<string>();
+    // Baseline capturado ANTES de cada mensagem enviada — condition node usa para detectar respostas chegadas durante o envio
+    let replyBaselineId: number | undefined = undefined;
 
     while (currentId && !abortTestRef.current) {
       if (visited.has(currentId)) break;
@@ -3256,6 +3265,14 @@ function CanvasInner() {
           if (String(d.stepId ?? '').startsWith('new-')) {
             throw new Error('Salve a sequência antes de executar o teste');
           }
+          // Captura baseline ANTES do envio — garante que respostas rápidas (botões) sejam detectadas pela condição seguinte
+          if (conversaId) {
+            try {
+              const bRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
+              const bJson = await bRes.json();
+              replyBaselineId = bJson.maxId ?? 0;
+            } catch {}
+          }
           const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3269,11 +3286,12 @@ function CanvasInner() {
         } else if (d.kind === 'condition') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
           setTestWaitingReply(true);
-          const reply = await waitForLeadReply(conversaId);
+          const reply = await waitForLeadReply(conversaId, 120_000, replyBaselineId);
+          replyBaselineId = undefined; // consumido
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           const result = evaluateCondition(d as ConditionNodeData, reply);
-          setNodeExecState(node.id, result === 'sim' ? 'success' : 'skipped');
+          setNodeExecState(node.id, result === 'sim' ? 'success' : 'skipped', result === 'nao' ? `Resposta "${reply}" não satisfaz a condição` : undefined);
           chosenHandle = result;
         } else if (d.kind === 'switch') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');

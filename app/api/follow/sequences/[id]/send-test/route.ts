@@ -118,14 +118,36 @@ export async function POST(
 
     const media: StepMediaConfig | undefined = step.media_config ?? undefined
     const menuFallback = tipo === 'menu' ? 'Selecione uma opção:' : null
-    const mensagem: string = step.mensagem || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
+    const mensagemRaw: string = step.mensagem || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
+
+    // Substituir variáveis {nome}, {primeiro_nome} etc usando dados reais do lead
+    const variants = [normalizedPhone, `+${normalizedPhone}`, normalizedPhone.replace(/^55/, '')]
+    const { data: conversaLead } = await service
+      .from('conversas_do_whatsapp')
+      .select('id_do_lead')
+      .eq('company_id', context.companyId)
+      .in('numero_de_telefone', variants)
+      .maybeSingle()
+    let leadName = ''
+    if (conversaLead?.id_do_lead) {
+      const { data: leadRow } = await service.from('leads').select('contact_name').eq('id', conversaLead.id_do_lead).single()
+      leadName = leadRow?.contact_name ?? ''
+    }
+    const primeiroNome = leadName.split(' ')[0]
+    const substituir = (t: string) => t
+      .replace(/\{nome\}/gi, leadName || 'você')
+      .replace(/\{name\}/gi, leadName || 'você')
+      .replace(/\{primeiro_nome\}/gi, primeiroNome || 'você')
+      .replace(/\{first_name\}/gi, primeiroNome || 'você')
+
+    const mensagem = substituir(mensagemRaw)
 
     await sendRichStep(uazapi, normalizedPhone, tipo, mensagem, media)
 
     // Enviar blocos adicionais como mensagens de texto separadas
     const blocos: string[] = Array.isArray(step.media_config?.blocos) ? step.media_config.blocos : []
     for (let i = 1; i < blocos.length; i++) {
-      const bloco = blocos[i]
+      const bloco = substituir(blocos[i] || '')
       if (!bloco) continue
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 400))
       await sendRichStep(uazapi, normalizedPhone, 'text', bloco, undefined)
