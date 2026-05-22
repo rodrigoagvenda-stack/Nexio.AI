@@ -3190,16 +3190,18 @@ function CanvasInner() {
     return idx >= 0 ? `case-${idx}` : 'else';
   }
 
-  // sinceId: baseline capturado ANTES do envio da mensagem — evita perder respostas rápidas (ex: clique em botão)
-  async function waitForLeadReply(conversaId: string, timeoutMs = 120_000, sinceId?: number): Promise<string> {
-    let baselineMaxId = sinceId ?? 0;
-    if (sinceId === undefined) {
+  // since: ISO timestamp capturado ANTES do envio da mensagem — evita perder respostas rápidas (ex: clique em botão)
+  async function waitForLeadReply(conversaId: string, timeoutMs = 120_000, since?: string): Promise<string> {
+    let baselineSince = since ?? '';
+    if (!since) {
       // Fallback: captura baseline agora (pode perder respostas já chegadas)
       try {
         const initRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
         const initJ = await initRes.json();
-        baselineMaxId = initJ.maxId ?? 0;
-      } catch {}
+        baselineSince = initJ.ts ?? new Date().toISOString();
+      } catch {
+        baselineSince = new Date().toISOString();
+      }
     }
 
     const deadline = Date.now() + timeoutMs;
@@ -3221,7 +3223,7 @@ function CanvasInner() {
           return;
         }
         try {
-          const res = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}&baselineMaxId=${baselineMaxId}`);
+          const res = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}&since=${encodeURIComponent(baselineSince)}`);
           const j = await res.json();
           if (j.text != null) {
             clearInterval(interval);
@@ -3259,7 +3261,7 @@ function CanvasInner() {
     let currentId: string | null = 'trigger';
     const visited = new Set<string>();
     // Baseline capturado ANTES de cada mensagem enviada — condition node usa para detectar respostas chegadas durante o envio
-    let replyBaselineId: number | undefined = undefined;
+    let replyBaselineSince: string | undefined = undefined;
 
     while (currentId && !abortTestRef.current) {
       if (visited.has(currentId)) break;
@@ -3292,8 +3294,10 @@ function CanvasInner() {
             try {
               const bRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
               const bJson = await bRes.json();
-              replyBaselineId = bJson.maxId ?? 0;
-            } catch {}
+              replyBaselineSince = bJson.ts ?? new Date().toISOString();
+            } catch {
+              replyBaselineSince = new Date().toISOString();
+            }
           }
           const res = await fetch(`/api/follow/sequences/${currentSeq.id}/send-test`, {
             method: 'POST',
@@ -3308,8 +3312,8 @@ function CanvasInner() {
         } else if (d.kind === 'condition') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número. O lead precisa ter conversado antes.');
           setTestWaitingReply(true);
-          const reply = await waitForLeadReply(conversaId, 120_000, replyBaselineId);
-          replyBaselineId = undefined; // consumido
+          const reply = await waitForLeadReply(conversaId, 120_000, replyBaselineSince);
+          replyBaselineSince = undefined; // consumido
           setTestWaitingReply(false);
           if (abortTestRef.current) break;
           const result = evaluateCondition(d as ConditionNodeData, reply);
@@ -3330,6 +3334,9 @@ function CanvasInner() {
           const variant = Math.random() < 0.5 ? 'A' : 'B';
           setNodeExecState(node.id, 'success', `Variante ${variant} selecionada`);
           chosenHandle = variant.toLowerCase();
+        } else if (d.kind === 'scheduling') {
+          setNodeExecState(node.id, 'success', 'Agente de agendamento ativado — SDR assume a conversa');
+          break; // real executor hands off to SDR; test stops here
         } else if (d.kind === 'lead_score') {
           setNodeExecState(node.id, 'success');
         }
