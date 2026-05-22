@@ -15,9 +15,10 @@ import { toast } from '@/components/ui/use-toast';
 import {
   User, Camera, CreditCard, Calendar,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
-  AlertCircle, Sparkles, X, Shield, Check, Plus, Bot, UserMinus,
+  AlertCircle, Sparkles, X, Shield, Check, Bot, UserMinus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
 
 interface CompanyFull {
   id: number;
@@ -40,29 +41,6 @@ const PLANS = {
   scale:   { name: 'Zaapply Pro',    price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Escala total: 50M tokens, usuários ilimitados e até 5 números' },
 } as const;
 
-const PLAN_FEATURES: Record<'starter' | 'pro' | 'scale', string[]> = {
-  starter: [
-    'Agente SDR com IA',
-    'Atendimento via chat',
-    'CRM Kanban',
-    'Canvas → Follow-up automático',
-    '5M tokens/mês',
-    '1 número WhatsApp · 3 usuários',
-  ],
-  pro: [
-    'Tudo do Start',
-    'Canvas → Anti-Noshow, Remarketing, Trial SaaS',
-    'Google Calendar integrado',
-    '15M tokens/mês',
-    '1 número WhatsApp · 10 usuários',
-  ],
-  scale: [
-    'Tudo do Growth',
-    '50M tokens/mês',
-    'Até 5 números WhatsApp',
-    'Usuários ilimitados',
-  ],
-};
 
 function fmtTokens(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M`;
@@ -180,7 +158,6 @@ function ConfiguracoesContent() {
   const [company, setCompany] = useState<CompanyFull | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [extraNumbers, setExtraNumbers] = useState(0);
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -270,11 +247,11 @@ function ConfiguracoesContent() {
     }
   };
 
-  const doCheckout = async (plan: string, cpfCnpj?: string) => {
+  const doCheckout = async (plan: string, cpfCnpj?: string, extra = 0) => {
     setCheckoutLoading(plan);
     try {
       const doc = cpfCnpj || company?.asaas_cpf_cnpj || '';
-      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers }) });
+      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers: extra }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       if (d.url) {
@@ -286,13 +263,16 @@ function ConfiguracoesContent() {
     } catch (err: any) { toast({ title: err.message || 'Erro no checkout', variant: 'destructive' }); setCheckoutLoading(null); }
   };
 
-  const handleCheckout = (plan: string) => {
+  const [pendingExtra, setPendingExtra] = useState(0);
+
+  const handleCheckout = (plan: string, extra = 0) => {
     if (!company?.asaas_cpf_cnpj) {
       setCpfCnpjPrompt(plan);
       setCpfCnpjInput('');
+      setPendingExtra(extra);
       return;
     }
-    doCheckout(plan);
+    doCheckout(plan, undefined, extra);
   };
 
   const handleCpfCnpjSubmit = async () => {
@@ -309,7 +289,7 @@ function ConfiguracoesContent() {
       const pending = cpfCnpjPrompt;
       setCpfCnpjPrompt(null);
       if (pending === '_extra_tokens_') handleBuyExtraTokens();
-      else doCheckout(pending!, doc);
+      else doCheckout(pending!, doc, pendingExtra);
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar documento', variant: 'destructive' });
     } finally {
@@ -591,118 +571,11 @@ function ConfiguracoesContent() {
               {/* Cards de planos */}
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-4">Planos disponíveis</p>
-
-                {/* Add-on número adicional — acima dos cards */}
-                <div className="mb-4 p-4 rounded-xl border border-dashed border-border bg-muted/20">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <Plus className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Número adicional</p>
-                        <p className="text-xs text-muted-foreground">R$ 97/mês por número extra</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setExtraNumbers(n => Math.max(0, n - 1))}
-                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                        >
-                          <span className="text-base leading-none">−</span>
-                        </button>
-                        <span className="w-6 text-center text-sm font-semibold tabular-nums">{extraNumbers}</span>
-                        <button
-                          onClick={() => setExtraNumbers(n => Math.min(9, n + 1))}
-                          className="w-7 h-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-                        >
-                          <span className="text-base leading-none">+</span>
-                        </button>
-                      </div>
-                      <div className="text-right min-w-[80px]">
-                        {extraNumbers > 0
-                          ? <><p className="font-semibold text-sm">R$ {extraNumbers * 97}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
-                            <p className="text-xs text-muted-foreground">+{extraNumbers} número{extraNumbers > 1 ? 's' : ''}</p></>
-                          : <p className="text-xs text-muted-foreground">Nenhum extra</p>
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid sm:grid-cols-3 gap-4">
-                  {(['starter', 'pro', 'scale'] as const).map((plan) => {
-                    const cfg = PLANS[plan];
-                    const features = PLAN_FEATURES[plan];
-                    const isCurrent = currentPlanKey === plan;
-                    const isPopular = plan === 'pro';
-                    const totalPrice = cfg.price + extraNumbers * 97;
-                    return (
-                      <div key={plan} className={cn(
-                        'relative rounded-2xl border flex flex-col transition-all',
-                        isCurrent
-                          ? 'border-primary bg-primary/5'
-                          : isPopular
-                          ? 'border-primary/40 bg-card shadow-sm'
-                          : 'border-border bg-card hover:border-border/80'
-                      )}>
-                        {/* Badge */}
-                        {(isPopular || isCurrent) && (
-                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-semibold bg-primary text-primary-foreground px-2.5 py-0.5 rounded-full whitespace-nowrap">
-                            {isCurrent ? 'Plano atual' : 'Mais popular'}
-                          </span>
-                        )}
-
-                        {/* Header */}
-                        <div className="p-5 pb-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <cfg.icon className="h-4 w-4 text-primary" />
-                            <span className="font-semibold text-sm">{cfg.name}</span>
-                          </div>
-                          <p className="text-2xl font-bold leading-none">
-                            R$ {totalPrice}
-                            <span className="text-sm font-normal text-muted-foreground">/mês</span>
-                          </p>
-                          {extraNumbers > 0 && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              R$ {cfg.price} + {extraNumbers}× R$ 97
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">{cfg.desc}</p>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="border-t border-border/60 mx-5" />
-
-                        {/* Feature list */}
-                        <ul className="p-5 pt-4 space-y-2.5 flex-1">
-                          {features.map((feat) => (
-                            <li key={feat} className="flex items-start gap-2.5 text-sm">
-                              <Check className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
-                              <span className="text-foreground/80 leading-snug">{feat}</span>
-                            </li>
-                          ))}
-                        </ul>
-
-                        {/* CTA */}
-                        <div className="p-5 pt-0">
-                          <Button
-                            className={cn('w-full h-10', isCurrent && 'opacity-60')}
-                            variant={isCurrent ? 'outline' : 'default'}
-                            disabled={isCurrent || checkoutLoading === plan}
-                            onClick={() => !isCurrent && handleCheckout(plan)}
-                          >
-                            {checkoutLoading === plan
-                              ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Aguarde…</>
-                              : isCurrent ? 'Plano atual' : 'Escolher plano'
-                            }
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <PlanoCards
+                  onSelect={(plan, extra) => handleCheckout(plan, extra)}
+                  currentPlan={currentPlanKey === 'basic' ? undefined : currentPlanKey}
+                  loadingPlan={checkoutLoading ?? undefined}
+                />
               </div>
             </>
           )}
