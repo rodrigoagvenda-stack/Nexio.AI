@@ -24,20 +24,26 @@ export async function GET(request: NextRequest) {
     .eq('company_id', context.companyId)
     .maybeSingle()
 
-  if (!conversa) return NextResponse.json({ text: null, count: 0 })
+  if (!conversa) {
+    console.log(`[poll] conversa ${conversaId} não encontrada para company ${context.companyId}`)
+    return NextResponse.json({ text: null, count: 0 })
+  }
+
+  // Fetch inbound messages (id only) — count via data.length
+  const { data: inboundRows, error: inboundErr } = await service
+    .from('mensagens_do_whatsapp')
+    .select('id')
+    .eq('id_da_conversacao', conversaId)
+    .eq('direcao', 'inbound')
+
+  if (inboundErr) console.log(`[poll] erro ao buscar inbound: ${inboundErr.message}`)
+
+  const current = inboundRows?.length ?? 0
+
+  console.log(`[poll] conv=${conversaId} baselineCount=${baselineCount} current=${current}`)
 
   if (baselineCount >= 0) {
-    // Poll mode: check if new inbound message arrived
-    const { count: currentCount } = await service
-      .from('mensagens_do_whatsapp')
-      .select('*', { count: 'exact', head: true })
-      .eq('id_da_conversacao', conversaId)
-      .eq('direcao', 'inbound')
-
-    const current = currentCount ?? 0
-
     if (current > baselineCount) {
-      // New message arrived — get its text
       const { data: latest } = await service
         .from('mensagens_do_whatsapp')
         .select('texto_da_mensagem')
@@ -47,18 +53,14 @@ export async function GET(request: NextRequest) {
         .limit(1)
         .maybeSingle()
 
-      return NextResponse.json({ text: latest?.texto_da_mensagem ?? null, count: current })
+      console.log(`[poll] nova mensagem detectada! texto="${latest?.texto_da_mensagem?.slice(0, 60)}"`)
+      return NextResponse.json({ text: latest?.texto_da_mensagem ?? '', count: current })
     }
 
     return NextResponse.json({ text: null, count: current })
   }
 
-  // Init mode: return current count of inbound messages
-  const { count } = await service
-    .from('mensagens_do_whatsapp')
-    .select('*', { count: 'exact', head: true })
-    .eq('id_da_conversacao', conversaId)
-    .eq('direcao', 'inbound')
-
-  return NextResponse.json({ text: null, count: count ?? 0 })
+  // Init mode
+  console.log(`[poll] init mode — retornando count=${current}`)
+  return NextResponse.json({ text: null, count: current })
 }
