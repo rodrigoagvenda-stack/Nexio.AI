@@ -913,16 +913,14 @@ function MessageNode({ id, data, selected }: NodeProps) {
       {!d.uploading && d.tipo_mensagem === 'texto' && (
         hasBlocos ? (
           <div className="space-y-1.5">
-            {(d.blocos as string[]).slice(0, 2).map((bloco, i) => (
-              <p key={i} className="text-xs text-foreground/80 leading-relaxed line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">
-                {bloco || <span className="text-muted-foreground/40 italic">Bloco vazio</span>}
-              </p>
-            ))}
-            {(d.blocos as string[]).length > 2 && (
-              <p className="text-[10px] text-muted-foreground/50 font-medium pl-1">
-                +{(d.blocos as string[]).length - 2} bloco{(d.blocos as string[]).length - 2 > 1 ? 's' : ''}
-              </p>
-            )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-500/70">
+                {(d.blocos as string[]).length} mensagens
+              </span>
+            </div>
+            <p className="text-xs text-foreground/80 leading-relaxed line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">
+              {(d.blocos as string[])[0] || <span className="text-muted-foreground/40 italic">Sem conteúdo</span>}
+            </p>
           </div>
         ) : d.mensagem
           ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>
@@ -1850,6 +1848,32 @@ const REMARKETING_STATUS_OPTIONS = [
   'Sem resposta', 'Remarketing', 'Perdido', 'Cliente',
 ];
 
+// ─── Variáveis disponíveis para inserção ─────────────────────────────────────────
+
+const TEMPLATE_VARS = [
+  { label: 'nome',     value: '{nome}'     },
+  { label: 'empresa',  value: '{empresa}'  },
+  { label: 'telefone', value: '{telefone}' },
+  { label: 'email',    value: '{email}'    },
+  { label: 'produto',  value: '{produto}'  },
+];
+
+function insertVariable(
+  textarea: HTMLTextAreaElement,
+  variable: string,
+  currentValue: string,
+  onChange: (v: string) => void,
+) {
+  const start = textarea.selectionStart ?? currentValue.length;
+  const end = textarea.selectionEnd ?? start;
+  const next = currentValue.slice(0, start) + variable + currentValue.slice(end);
+  onChange(next);
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.setSelectionRange(start + variable.length, start + variable.length);
+  });
+}
+
 // ─── Blocos Editor ───────────────────────────────────────────────────────────────
 
 function BlocosEditor({ blocos, mensagem, onChange }: {
@@ -1857,8 +1881,9 @@ function BlocosEditor({ blocos, mensagem, onChange }: {
   mensagem?: string | null;
   onChange: (blocos: string[]) => void;
 }) {
-  // Initialize: if no blocos but has mensagem, migrate to single block
   const current = blocos && blocos.length > 0 ? blocos : (mensagem ? [mensagem] : ['']);
+  const [focusedIdx, setFocusedIdx] = useState(0);
+  const textareaRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
 
   const update = (idx: number, val: string) => {
     const next = [...current];
@@ -1866,33 +1891,66 @@ function BlocosEditor({ blocos, mensagem, onChange }: {
     onChange(next);
   };
 
-  const add = () => onChange([...current, '']);
+  const add = () => { onChange([...current, '']); setFocusedIdx(current.length); };
 
   const remove = (idx: number) => {
     if (current.length <= 1) { onChange(['']); return; }
-    onChange(current.filter((_, i) => i !== idx));
+    const next = current.filter((_, i) => i !== idx);
+    onChange(next);
+    setFocusedIdx(Math.min(focusedIdx, next.length - 1));
+  };
+
+  const handleInsertVar = (v: string) => {
+    const textarea = textareaRefs.current[focusedIdx];
+    if (!textarea) {
+      const next = [...current];
+      next[focusedIdx] = (next[focusedIdx] || '') + v;
+      onChange(next);
+      return;
+    }
+    insertVariable(textarea, v, current[focusedIdx] ?? '', (val) => update(focusedIdx, val));
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
           Blocos de mensagem
         </label>
         <span className="text-[10px] text-muted-foreground/40">{current.length} bloco{current.length !== 1 ? 's' : ''}</span>
       </div>
+
+      {/* Chips de variáveis */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">Inserir variável</span>
+        <div className="flex flex-wrap gap-1">
+          {TEMPLATE_VARS.map((v) => (
+            <button
+              key={v.value}
+              type="button"
+              onClick={() => handleInsertVar(v.value)}
+              className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2">
         {current.map((bloco, idx) => (
-          <div key={idx} className="relative group">
+          <div key={idx}>
             <div className="flex items-start gap-1.5">
-              <div className="flex flex-col items-center gap-0.5 pt-2 shrink-0">
+              <div className="pt-2 shrink-0">
                 <span className="w-5 h-5 rounded-md bg-muted/60 flex items-center justify-center text-[9px] font-bold text-muted-foreground/50">{idx + 1}</span>
               </div>
               <textarea
+                ref={(el) => { textareaRefs.current[idx] = el; }}
                 rows={3}
                 value={bloco}
                 onChange={(e) => update(idx, e.target.value)}
-                placeholder={`Mensagem ${idx + 1}...`}
+                onFocus={() => setFocusedIdx(idx)}
+                placeholder={`Mensagem ${idx + 1}…`}
                 className="field-input resize-none flex-1 text-xs"
               />
               <button
@@ -1911,9 +1969,10 @@ function BlocosEditor({ blocos, mensagem, onChange }: {
           </div>
         ))}
       </div>
+
       <button
         onClick={add}
-        className="flex items-center gap-1.5 text-[11px] text-primary font-medium hover:underline underline-offset-2 mt-0.5"
+        className="flex items-center gap-1.5 text-[11px] text-primary font-medium hover:underline underline-offset-2"
       >
         <Plus className="w-3 h-3" />
         Adicionar bloco
