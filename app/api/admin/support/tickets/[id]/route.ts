@@ -33,6 +33,15 @@ export async function PATCH(
 
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
 
+  // Also insert support reply into messages table (best-effort)
+  if (resposta) {
+    await service
+      .from('support_ticket_messages')
+      .insert({ ticket_id: params.id, sender_type: 'support', content: resposta })
+      .then(() => {})
+      .catch(() => {})
+  }
+
   // Send email notification when admin responds
   if (resposta && data) {
     void sendSuporteConfirmacaoEmail({

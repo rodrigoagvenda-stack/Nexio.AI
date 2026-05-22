@@ -50,11 +50,42 @@ function fmt(iso: string) {
 
 // ── TicketThread ──────────────────────────────────────────────────────────────
 
+interface AdminMessage {
+  id: string;
+  sender_type: 'user' | 'support';
+  content: string;
+  created_at: string;
+}
+
 function TicketThread({ ticket, onUpdate, onBack }: { ticket: AdminTicket; onUpdate: () => void; onBack: () => void }) {
-  const [resposta, setResposta] = useState(ticket.resposta ?? '');
+  const [resposta, setResposta] = useState('');
   const [status, setStatus] = useState<StatusKey>(ticket.status);
   const [saving, setSaving] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [messages, setMessages] = useState<AdminMessage[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(true);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/admin/support/tickets/${ticket.id}/messages`)
+      .then(r => r.json())
+      .then(d => {
+        const msgs: AdminMessage[] = d.messages ?? [];
+        // If no messages yet, seed from legacy fields
+        if (msgs.length === 0) {
+          const legacy: AdminMessage[] = [];
+          if (ticket.mensagem) legacy.push({ id: 'legacy-user', sender_type: 'user', content: ticket.mensagem, created_at: ticket.created_at });
+          if (ticket.resposta) legacy.push({ id: 'legacy-support', sender_type: 'support', content: ticket.resposta, created_at: ticket.respondido_em ?? ticket.created_at });
+          setMessages(legacy);
+        } else {
+          setMessages(msgs);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMsgs(false));
+  }, [ticket.id]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   async function save() {
     setSaving(true);
@@ -111,55 +142,50 @@ function TicketThread({ ticket, onUpdate, onBack }: { ticket: AdminTicket; onUpd
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* User message */}
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
-              <User className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-foreground">{ticket.nome}</span>
-                <span className="text-[11px] text-muted-foreground">{fmt(ticket.created_at)}</span>
-              </div>
-              <div className="rounded-2xl rounded-tl-sm bg-muted/40 border border-border/60 px-4 py-3 max-w-prose">
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{ticket.mensagem}</p>
-              </div>
-              {ticket.images && ticket.images.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {ticket.images.map((url, i) => (
-                    <button key={i} type="button" onClick={() => setLightbox(url)}>
-                      <img
-                        src={url}
-                        alt=""
-                        className="w-20 h-20 rounded-xl object-cover border border-border hover:opacity-90 transition-opacity"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Admin response (if exists) */}
-          {ticket.resposta && (
-            <div className="flex gap-3 flex-row-reverse">
-              <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <LifeBuoy className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-2 flex flex-col items-end">
-                <div className="flex items-center gap-2">
-                  {ticket.respondido_em && (
-                    <span className="text-[11px] text-muted-foreground">{fmt(ticket.respondido_em)}</span>
-                  )}
-                  <span className="text-xs font-semibold text-foreground">Suporte Zaapply</span>
-                </div>
-                <div className="rounded-2xl rounded-tr-sm bg-primary/8 border border-primary/15 px-4 py-3 max-w-prose">
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{ticket.resposta}</p>
-                </div>
-              </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* Legacy images */}
+          {ticket.images && ticket.images.length > 0 && (
+            <div className="flex justify-start gap-2 flex-wrap">
+              {ticket.images.map((url, i) => (
+                <button key={i} type="button" onClick={() => setLightbox(url)}>
+                  <img src={url} alt="" className="w-20 h-20 rounded-xl object-cover border border-border hover:opacity-90 transition-opacity" />
+                </button>
+              ))}
             </div>
           )}
+
+          {loadingMsgs ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+            </div>
+          ) : (
+            messages.map(msg => {
+              const isUser = msg.sender_type === 'user';
+              return (
+                <div key={msg.id} className={cn('flex gap-3', !isUser && 'flex-row-reverse')}>
+                  <div className={cn(
+                    'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
+                    isUser ? 'bg-muted border border-border' : 'bg-primary/10 border border-primary/20'
+                  )}>
+                    {isUser ? <User className="h-4 w-4 text-muted-foreground" /> : <LifeBuoy className="h-4 w-4 text-primary" />}
+                  </div>
+                  <div className={cn('flex-1 min-w-0 space-y-1.5', !isUser && 'flex flex-col items-end')}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold">{isUser ? ticket.nome : 'Suporte Zaapply'}</span>
+                      <span className="text-[11px] text-muted-foreground">{fmt(msg.created_at)}</span>
+                    </div>
+                    <div className={cn(
+                      'rounded-2xl px-4 py-3 max-w-prose',
+                      isUser ? 'rounded-tl-sm bg-muted/40 border border-border/60' : 'rounded-tr-sm bg-primary/8 border border-primary/15'
+                    )}>
+                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={bottomRef} />
         </div>
 
         {/* Reply area */}
