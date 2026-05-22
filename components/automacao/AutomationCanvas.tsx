@@ -62,6 +62,7 @@ import {
   History,
   LayoutTemplate,
   CalendarX,
+  CalendarCheck,
   Megaphone,
   FlaskConical,
   StopCircle,
@@ -246,6 +247,19 @@ interface ABTestNodeData extends Record<string, unknown> {
   _execError?: string;
 }
 
+interface SchedulingNodeData extends Record<string, unknown> {
+  kind: 'scheduling';
+  label: string;
+  dia_offset: number;
+  horario: string;
+  duracao?: number;
+  mensagemInicial?: string;
+  stepId: string;
+  customLabel?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
 interface SwitchCase { value: string; label: string }
 interface SwitchNodeData extends Record<string, unknown> {
   kind: 'switch';
@@ -267,7 +281,8 @@ type AutoNodeData =
   | EndNodeData
   | WebhookNodeData
   | LeadScoreNodeData
-  | ABTestNodeData;
+  | ABTestNodeData
+  | SchedulingNodeData;
 
 // ─── Google Maps URL parser ──────────────────────────────────────────────────────
 
@@ -524,10 +539,11 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
     let tipoCanvas = UAZAPI_TO_CANVAS[step.tipo_mensagem] ?? step.tipo_mensagem;
     // Distinguish lista vs botoes by menuType stored in media_config
     if (tipoCanvas === 'lista' && step.media_config?.menuType === 'button') tipoCanvas = 'botoes';
+    const isScheduling = step.tipo_mensagem === 'agendamento';
     const isFim = tipoCanvas === 'fim' || step.condicao?.toLowerCase().includes('fim') || step.condicao?.toLowerCase().includes('encerr');
     const isCondition = tipoCanvas === 'condicao' || step.condicao?.toLowerCase().includes('respondeu') || step.condicao?.toLowerCase().includes('condicao');
     const hasMedia = !!step.media_config?.file || !!step.media_config?.latitude || !!step.media_config?.choices || !!step.media_config?.carousel;
-    const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition);
+    const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition && !isScheduling);
 
     // Extract media from media_config (stored by nodesToSteps)
     const media_url = step.media_config?.file ?? undefined;
@@ -570,8 +586,16 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
       if (!mc.variavel) {
         try { const p = JSON.parse(step.condicao); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
       }
+      // When variavel is 'custom', restore the custom variable name from media_config.customVariavel
+      const condicaoCanvas = variavel === 'custom' ? (mc.customVariavel || step.condicao || 'Respondeu?') : (step.condicao || 'Respondeu?');
       nodes.push({ id: step.id, type: 'conditionNode', position: { x, y },
-        data: { kind: 'condition', label: 'Condição', condicao: step.condicao || 'Respondeu?', variavel, operador, valor, stepId: step.id, customLabel } satisfies ConditionNodeData });
+        data: { kind: 'condition', label: 'Condição', condicao: condicaoCanvas, variavel, operador, valor, stepId: step.id, customLabel } satisfies ConditionNodeData });
+    }
+    else if (isScheduling) {
+      const smc = step.media_config as any ?? {};
+      nodes.push({ id: step.id, type: 'schedulingNode', position: { x, y },
+        data: { kind: 'scheduling', label: 'Agendar Call', dia_offset: step.dia_offset, horario: step.horario ?? '09:00',
+          duracao: smc.duracao ?? 60, mensagemInicial: smc.mensagemInicial ?? '', stepId: step.id, customLabel } satisfies SchedulingNodeData });
     }
     else if (step.tipo_mensagem === 'webhook') {
       const wmc = step.media_config as any ?? {};
@@ -670,10 +694,15 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
     if (d.kind === 'condition') {
-      // condicao = human-readable label (passes DB constraint); variavel/operador/valor in media_config (JSONB)
+      const isCustomVar = d.variavel === 'custom';
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1,
-        condicao: d.condicao || 'Respondeu?',
-        media_config: { variavel: d.variavel ?? 'resposta_botao', operador: d.operador ?? 'eq', valor: d.valor ?? '' } };
+        condicao: 'Respondeu?', // always canonical — custom var name stored in media_config to avoid CHECK constraint violation
+        media_config: {
+          variavel: d.variavel ?? 'resposta_botao',
+          ...(isCustomVar && { customVariavel: d.condicao || '' }),
+          operador: d.operador ?? 'eq',
+          valor: d.valor ?? '',
+        } };
     }
     if (d.kind === 'switch') {
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'switch', ordem: idx + 1,
@@ -683,6 +712,11 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'webhook') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'webhook', ordem: idx + 1, condicao: '', media_config: { url: d.url, method: d.method ?? 'POST' } };
     if (d.kind === 'lead_score') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'lead_score', ordem: idx + 1, condicao: '', media_config: { scoreMin: d.scoreMin, scoreMax: d.scoreMax } };
     if (d.kind === 'ab_test') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'ab_test', ordem: idx + 1, condicao: '', media_config: { variantA: d.variantA, variantB: d.variantB } };
+    if (d.kind === 'scheduling') {
+      const sd = d as SchedulingNodeData;
+      return { id: stepId, dia_offset: sd.dia_offset ?? 0, horario: sd.horario ?? '09:00', mensagem: null, tipo_mensagem: 'agendamento', ordem: idx + 1, condicao: '',
+        media_config: { duracao: sd.duracao ?? 60, ...(sd.mensagemInicial ? { mensagemInicial: sd.mensagemInicial } : {}) } };
+    }
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
 }
@@ -1257,6 +1291,28 @@ function DeletableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition,
   );
 }
 
+function SchedulingNode({ id, data, selected }: NodeProps) {
+  const d = data as SchedulingNodeData;
+  return (
+    <NodeShell selected={selected} execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} />
+      <NodeHeader icon={CalendarCheck} label="AGENDAR CALL" accent="emerald" nodeId={id} customLabel={d.customLabel} />
+      <div className="px-3 pb-3 space-y-1">
+        <p className="text-[10px] text-muted-foreground/60 font-medium">
+          {d.duracao ?? 60} min · dia {d.dia_offset ?? 0} às {d.horario ?? '09:00'}
+        </p>
+        {d.mensagemInicial && (
+          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{d.mensagemInicial}</p>
+        )}
+        {!d.mensagemInicial && (
+          <p className="text-[10px] text-muted-foreground/40 italic">Mensagem padrão do agente</p>
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} />
+    </NodeShell>
+  );
+}
+
 const nodeTypes = {
   triggerNode: TriggerNode,
   messageNode: MessageNode,
@@ -1267,6 +1323,7 @@ const nodeTypes = {
   webhookNode: WebhookNode,
   leadScoreNode: LeadScoreNode,
   abTestNode: ABTestNode,
+  schedulingNode: SchedulingNode,
 };
 
 const edgeTypes = {
@@ -2241,6 +2298,40 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           />
         )}
 
+        {/* ── Scheduling node ── */}
+        {d.kind === 'scheduling' && (
+          <>
+            <Field label="Dia do fluxo">
+              <input type="number" min={0} value={(d as SchedulingNodeData).dia_offset ?? 0}
+                onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
+                className="field-input" />
+            </Field>
+            <Field label="Horário">
+              <input type="time" value={(d as SchedulingNodeData).horario ?? '09:00'}
+                onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
+                className="field-input" />
+            </Field>
+            <Field label="Duração da call">
+              <select value={(d as SchedulingNodeData).duracao ?? 60}
+                onChange={(e) => onUpdate(node.id, { duracao: Number(e.target.value) })}
+                className="field-input">
+                <option value={30}>30 minutos</option>
+                <option value={60}>60 minutos</option>
+                <option value={90}>90 minutos</option>
+              </select>
+            </Field>
+            <Field label="Mensagem inicial (opcional)">
+              <textarea value={(d as SchedulingNodeData).mensagemInicial ?? ''}
+                onChange={(e) => onUpdate(node.id, { mensagemInicial: e.target.value })}
+                placeholder={`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`}
+                className="field-input min-h-[80px] resize-none" />
+            </Field>
+            <p className="text-[10px] text-muted-foreground/60 leading-snug">
+              O agente de agendamento assume a conversa e agenda via Google Calendar. O fluxo encerra aqui.
+            </p>
+          </>
+        )}
+
         {/* ── Trigger node ── */}
         {d.kind === 'trigger' && (
           <>
@@ -2377,7 +2468,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'webhook' | 'lead_score' | 'ab_test';
+type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -2393,6 +2484,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Webhook', desc: 'Chamar URL externa', kind: 'webhook', icon: Globe, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Lead Score', desc: 'Filtrar por pontuação do lead', kind: 'lead_score', icon: Star, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
   { label: 'Teste A/B', desc: 'Dividir tráfego entre variantes', kind: 'ab_test', icon: GitMerge, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Agendar Call', desc: 'Agente ativa agendamento via Google Calendar', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
 ];
 
 function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; onClose: () => void }) {
@@ -2860,11 +2952,12 @@ function CanvasInner() {
     else if (kind === 'webhook') data = { kind: 'webhook', label: 'Webhook', url: '', method: 'POST', stepId: id } satisfies WebhookNodeData;
     else if (kind === 'lead_score') data = { kind: 'lead_score', label: 'Lead Score', scoreMin: 60, scoreMax: 100, stepId: id } satisfies LeadScoreNodeData;
     else if (kind === 'ab_test') data = { kind: 'ab_test', label: 'Teste A/B', variantA: 'Variante A', variantB: 'Variante B', stepId: id } satisfies ABTestNodeData;
+    else if (kind === 'scheduling') data = { kind: 'scheduling', label: 'Agendar Call', dia_offset: 0, horario: '09:00', duracao: 60, mensagemInicial: '', stepId: id } satisfies SchedulingNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
       message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
-      webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode',
+      webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
     };
 
     const newNode: Node<AutoNodeData> = {

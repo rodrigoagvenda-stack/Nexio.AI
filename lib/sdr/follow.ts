@@ -17,6 +17,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, sendRichStep, StepTipoMensagem, StepMediaConfig } from './uazapi'
+import { getRedis } from './redis'
 
 /** Mesma lógica de engine.ts — variações de formato do número BR */
 function phoneVariants(phone: string): string[] {
@@ -516,6 +517,29 @@ async function processFollowGeral(
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
+
+        // ── Scheduling step: ativa agente de agendamento via Redis e encerra o fluxo ──
+        if (tipo === 'agendamento') {
+          try {
+            const redis = getRedis()
+            const schedKey = `canvas:sched:${company.id}:${phone}`
+            const schedData = JSON.stringify({ duracao: media?.duracao ?? 60, sequenceId: sequence.id })
+            await redis.set(schedKey, schedData, 'EX', 7 * 24 * 3600) // TTL 7 dias
+
+            const msgAbertura = media?.mensagemInicial
+              ? substituirVariaveis(media.mensagemInicial as string, lead)
+              : substituirVariaveis(`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`, lead)
+
+            await enviarMensagem(phone, msgAbertura, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'follow_geral', supabase, 'text', null)
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            sent++
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          }
+          continue
+        }
+
         const textoRaw = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)

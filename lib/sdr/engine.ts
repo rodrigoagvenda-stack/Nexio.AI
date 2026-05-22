@@ -1084,6 +1084,8 @@ REGRAS:
         if (args.event_id) updates.calendar_event_id = args.event_id
       }
       await supabase.from('leads').update(updates).eq('id', ctx.leadId)
+      // Limpa flag de agendamento via canvas (harmless se não houver)
+      getRedis().del(`canvas:sched:${ctx.companyId}:${ctx.leadPhone}`).catch(() => {})
       return JSON.stringify({ salvo: true, acao: args.acao })
     },
   }
@@ -2528,6 +2530,23 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (conv?.agente_pausado) {
       console.log(`[SDR:${companyId}] RETORNO ANTECIPADO — agente pausado, não processa SDR`)
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
+      return
+    }
+
+    // ── Canvas scheduling: lead aguarda agendamento via canvas node ──────────
+    const schedKey = `canvas:sched:${companyId}:${phone}`
+    const schedRaw = await getRedis().get(schedKey).catch(() => null)
+    if (schedRaw) {
+      console.log(`[SDR:${companyId}] canvas:sched ativo para ${phone} — roteando para agente de agendamento`)
+      const history = await getHistory(leadId, companyId, supabase)
+      const acc: UsageAcc = []
+      const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
+      const schedResponse = await runAgenteAgendamento(combinedText, ctx, openai, supabase, acc, history)
+      if (schedResponse) {
+        const paragraphs = schedResponse.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+        await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
+      }
+      recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
       return
     }
 

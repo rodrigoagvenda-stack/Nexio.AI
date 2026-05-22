@@ -74,6 +74,7 @@ export type StepTipoMensagem =
   | 'carousel'
   | 'location'
   | 'sticker'
+  | 'agendamento'
 
 export interface ButtonAction {
   status?: string         // mover lead para este status
