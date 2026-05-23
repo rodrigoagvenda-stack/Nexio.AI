@@ -116,7 +116,10 @@ export async function POST(
       const wh = await uazapi.getWebhook()
       const currentUrl = wh?.url ?? wh?.webhook?.url ?? ''
       const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-      const expectedUrl = `${appUrl}/api/webhook/nexio`
+      const nexioSecret = process.env.NEXIO_WEBHOOK_SECRET ?? ''
+      const expectedUrl = nexioSecret
+        ? `${appUrl}/api/webhook/nexio?secret=${encodeURIComponent(nexioSecret)}`
+        : `${appUrl}/api/webhook/nexio`
       console.log(`[send-test] webhook atual="${currentUrl}" esperado="${expectedUrl}"`)
       if (!currentUrl || !currentUrl.includes('/api/webhook/nexio')) {
         await uazapi.setWebhook(expectedUrl)
