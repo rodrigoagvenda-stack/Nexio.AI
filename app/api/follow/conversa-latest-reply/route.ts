@@ -49,12 +49,17 @@ export async function GET(request: NextRequest) {
         .select('texto_da_mensagem')
         .eq('id_da_conversacao', conversaId)
         .eq('direcao', 'inbound')
-        .order('created_at', { ascending: false })
+        .not('texto_da_mensagem', 'is', null)
+        .order('carimbo_de_data_e_hora', { ascending: false })
         .limit(1)
         .maybeSingle()
 
       console.log(`[poll] nova mensagem detectada! texto="${latest?.texto_da_mensagem?.slice(0, 60)}"`)
-      return NextResponse.json({ text: latest?.texto_da_mensagem ?? '', count: current })
+      if (!latest?.texto_da_mensagem) {
+        // Pre-save row still being populated — keep polling at same baseline
+        return NextResponse.json({ text: null, count: baselineCount })
+      }
+      return NextResponse.json({ text: latest.texto_da_mensagem, count: current })
     }
 
     return NextResponse.json({ text: null, count: current })

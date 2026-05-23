@@ -134,13 +134,16 @@ export async function POST(
       texto: 'text', imagem: 'image', video: 'video', audio: 'audio',
       ptt: 'ptt', documento: 'document', localizacao: 'location',
       lista: 'menu', botoes: 'menu', carrossel: 'carousel', sticker: 'sticker',
+      // scheduling node: send mensagemInicial as plain text
+      agendamento: 'text',
     }
     const rawTipo = step.tipo_mensagem ?? 'text'
     const tipo: StepTipoMensagem = (TIPO_MAP[rawTipo] ?? rawTipo) as StepTipoMensagem
 
     const media: StepMediaConfig | undefined = step.media_config ?? undefined
     const menuFallback = tipo === 'menu' ? 'Selecione uma opção:' : null
-    const mensagemRaw: string = step.mensagem || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
+    const agendamentoFallback = rawTipo === 'agendamento' ? ((step.media_config as any)?.mensagemInicial || null) : null
+    const mensagemRaw: string = step.mensagem || agendamentoFallback || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
 
     // Substituir variáveis {nome}, {primeiro_nome} etc usando dados reais do lead
     const variants = [normalizedPhone, `+${normalizedPhone}`, normalizedPhone.replace(/^55/, '')]

@@ -3336,6 +3336,19 @@ function CanvasInner() {
           setNodeExecState(node.id, 'success', `Variante ${variant} selecionada`);
           chosenHandle = variant.toLowerCase();
         } else if (d.kind === 'scheduling') {
+          const sd = d as SchedulingNodeData;
+          if (sd.mensagemInicial && conversaId) {
+            setNodeExecState(node.id, 'running', 'Enviando mensagem inicial…');
+            const r = await fetch(`/api/follow/sequences/${currentSeq!.id}/send-test`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stepId: sd.stepId, phone, dryRun: false }),
+            });
+            if (!r.ok) {
+              const e = await r.json().catch(() => ({}));
+              throw new Error(e.error ?? `send-test ${r.status}`);
+            }
+          }
           setNodeExecState(node.id, 'success', 'Agente de agendamento ativado — SDR assume a conversa');
           break; // real executor hands off to SDR; test stops here
         } else if (d.kind === 'lead_score') {
