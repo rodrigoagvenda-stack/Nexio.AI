@@ -15,7 +15,9 @@ export const maxDuration = 10
 // company_id é resolvido pelo instanceName (campo companies.whatsapp_instance_name)
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-webhook-secret')
+  console.log(`[nexio-webhook] recebido — secretOk=${secret === process.env.NEXIO_WEBHOOK_SECRET}`)
   if (secret !== process.env.NEXIO_WEBHOOK_SECRET) {
+    console.log(`[nexio-webhook] auth falhou — NEXIO_WEBHOOK_SECRET definido=${!!process.env.NEXIO_WEBHOOK_SECRET}`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -29,10 +31,13 @@ export async function POST(request: NextRequest) {
   }
 
   const instanceName = body.instanceName
+  const msgType = (body as any).EventType ?? (body as any).type ?? 'unknown'
+  const from = (body as any).chat?.phone ?? (body as any).from ?? '?'
+  console.log(`[nexio-webhook] instanceName=${instanceName} msgType=${msgType} from=${from}`)
 
   const companyId = await resolveCompanyByInstance(instanceName)
+  console.log(`[nexio-webhook] resolvedCompany=${companyId ?? 'null (não mapeado)'}`)
   if (!companyId) {
-    // Instância não mapeada — aceita silenciosamente para não gerar ruído no log da uazapi
     return NextResponse.json({ ok: true, skipped: true })
   }
 
