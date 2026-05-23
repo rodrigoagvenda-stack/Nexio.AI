@@ -44,19 +44,20 @@ export async function GET(request: NextRequest) {
 
   if (baselineCount >= 0) {
     if (current > baselineCount) {
+      // Order by created_at (Postgres auto-timestamp, always set on INSERT, never null for new rows)
+      // Do NOT filter by texto_da_mensagem IS NOT NULL — instead handle empty text below
       const { data: latest } = await service
         .from('mensagens_do_whatsapp')
         .select('texto_da_mensagem')
         .eq('id_da_conversacao', conversaId)
         .eq('direcao', 'inbound')
-        .not('texto_da_mensagem', 'is', null)
-        .order('carimbo_de_data_e_hora', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
       console.log(`[poll] nova mensagem detectada! texto="${latest?.texto_da_mensagem?.slice(0, 60)}"`)
       if (!latest?.texto_da_mensagem) {
-        // Pre-save row still being populated — keep polling at same baseline
+        // Newest row has no text yet (pre-save before saveInbound) — keep polling at same baseline
         return NextResponse.json({ text: null, count: baselineCount })
       }
       return NextResponse.json({ text: latest.texto_da_mensagem, count: current })
