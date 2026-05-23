@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { createUazapiClient, sendRichStep, normalizePhone, StepTipoMensagem, StepMediaConfig } from '@/lib/sdr/uazapi'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { decrypt } from '@/lib/crypto'
+import { getRedis } from '@/lib/sdr/redis'
 
 function safeDecrypt(value: string | null | undefined): string {
   if (!value) return ''
@@ -184,6 +185,17 @@ export async function POST(
       const bloco = substituir(blocos[i] || '')
       if (!bloco) continue
       await humanSend(normalizedPhone, 'text', bloco, undefined)
+    }
+
+    // Scheduling node: ativa o roteamento para o agente de agendamento nas próximas respostas do lead
+    if (rawTipo === 'agendamento') {
+      try {
+        const schedKey = `canvas:sched:${context.companyId}:${normalizedPhone}`
+        await getRedis().set(schedKey, '1', 'EX', 172800) // 48h TTL
+        console.log(`[send-test] canvas:sched setado para ${normalizedPhone}`)
+      } catch (redisErr) {
+        console.log(`[send-test] redis erro ao setar canvas:sched: ${redisErr instanceof Error ? redisErr.message : redisErr}`)
+      }
     }
 
     // Save message to atendimento chat if a conversa exists for this phone
