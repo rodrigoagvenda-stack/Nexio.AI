@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
 
   if (baselineCount >= 0) {
     if (current > baselineCount) {
-      // Order by created_at (Postgres auto-timestamp, always set on INSERT, never null for new rows)
-      // Do NOT filter by texto_da_mensagem IS NOT NULL — instead handle empty text below
+      // carimbo_de_data_e_hora is always set by the app (pre-save: new Date().toISOString())
+      // nullsFirst:false = NULLS LAST, so old rows without timestamp sort after new ones
       const { data: latest } = await service
         .from('mensagens_do_whatsapp')
         .select('texto_da_mensagem')
         .eq('id_da_conversacao', conversaId)
         .eq('direcao', 'inbound')
-        .order('created_at', { ascending: false })
+        .order('carimbo_de_data_e_hora', { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle()
 
