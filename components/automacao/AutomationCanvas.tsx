@@ -3364,8 +3364,11 @@ function CanvasInner() {
       }
 
       const outgoing = edgeMap[node.id] ?? [];
+      const hasHandles = outgoing.some((e) => e.sourceHandle);
       const next = chosenHandle
-        ? outgoing.find((e) => e.sourceHandle === chosenHandle) ?? outgoing[0]
+        ? (hasHandles
+            ? outgoing.find((e) => e.sourceHandle === chosenHandle)
+            : chosenHandle === 'nao' ? outgoing[outgoing.length - 1] : outgoing[0])
         : outgoing[0];
       currentId = next?.targetId ?? null;
     }
