@@ -167,15 +167,23 @@ export async function POST(
 
     const mensagem = substituir(mensagemRaw)
 
-    await sendRichStep(uazapi, normalizedPhone, tipo, mensagem, media)
+    // Typing delay before first message — ~30ms per char, capped at 4s
+    const typingMs = (text: string) => Math.min(600 + text.length * 28, 4000) + Math.floor(Math.random() * 600)
+    const humanSend = async (phone: string, t: typeof tipo, text: string, m?: typeof media) => {
+      const ms = typingMs(text)
+      try { await uazapi.sendPresence(phone, t === 'audio' || t === 'ptt' ? 'recording' : 'composing', ms) } catch {}
+      await new Promise((r) => setTimeout(r, ms))
+      await sendRichStep(uazapi, phone, t, text, m)
+    }
 
-    // Enviar blocos adicionais como mensagens de texto separadas
+    await humanSend(normalizedPhone, tipo, mensagem, media)
+
+    // Blocos adicionais com delay humanizado
     const blocos: string[] = Array.isArray(step.media_config?.blocos) ? step.media_config.blocos : []
     for (let i = 1; i < blocos.length; i++) {
       const bloco = substituir(blocos[i] || '')
       if (!bloco) continue
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 400))
-      await sendRichStep(uazapi, normalizedPhone, 'text', bloco, undefined)
+      await humanSend(normalizedPhone, 'text', bloco, undefined)
     }
 
     // Save message to atendimento chat if a conversa exists for this phone
@@ -195,16 +203,14 @@ export async function POST(
         else if (tipo === 'carousel') urlMidia = JSON.stringify(media?.carousel ?? [])
         else if (['image', 'video', 'audio', 'ptt', 'document', 'sticker'].includes(tipo)) urlMidia = media?.file ?? null
 
-        const displayText = step.mensagem || media?.text || `[${tipo}]`
         const now = new Date().toISOString()
 
         await Promise.all([
-          // 1. The actual message with proper url_da_midia for atendimento rendering
           service.from('mensagens_do_whatsapp').insert({
             id_da_conversacao: conversa.id,
             id_do_lead: conversa.id_do_lead,
             company_id: sequence.company_id,
-            texto_da_mensagem: displayText,
+            texto_da_mensagem: mensagem,
             tipo_de_mensagem: tipo,
             direcao: 'outbound',
             sender_type: 'ai',
@@ -212,7 +218,6 @@ export async function POST(
             url_da_midia: urlMidia,
             carimbo_de_data_e_hora: now,
           }),
-          // 2. System chip — renders as bigtech centered label in atendimento UI
           service.from('mensagens_do_whatsapp').insert({
             id_da_conversacao: conversa.id,
             id_do_lead: conversa.id_do_lead,
@@ -226,7 +231,7 @@ export async function POST(
             carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(),
           }),
           service.from('conversas_do_whatsapp').update({
-            ultima_mensagem: displayText,
+            ultima_mensagem: mensagem,
             hora_da_ultima_mensagem: now,
           }).eq('id', conversa.id),
         ])
