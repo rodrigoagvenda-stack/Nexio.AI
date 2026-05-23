@@ -15,9 +15,12 @@ export const maxDuration = 10
 // company_id é resolvido pelo instanceName (campo companies.whatsapp_instance_name)
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-webhook-secret')
-  console.log(`[nexio-webhook] recebido — secretOk=${secret === process.env.NEXIO_WEBHOOK_SECRET}`)
-  if (secret !== process.env.NEXIO_WEBHOOK_SECRET) {
-    console.log(`[nexio-webhook] auth falhou — NEXIO_WEBHOOK_SECRET definido=${!!process.env.NEXIO_WEBHOOK_SECRET}`)
+  const expectedSecret = process.env.NEXIO_WEBHOOK_SECRET
+  // uazapi não envia headers customizados — só bloqueia se o secret estiver definido E não bater
+  const secretBlocked = !!expectedSecret && secret !== expectedSecret
+  console.log(`[nexio-webhook] recebido — secretBlocked=${secretBlocked} secretDefined=${!!expectedSecret}`)
+  if (secretBlocked) {
+    console.log(`[nexio-webhook] auth falhou`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

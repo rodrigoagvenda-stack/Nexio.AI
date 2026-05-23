@@ -101,6 +101,8 @@ export async function POST(
     console.log(`[send-test] company=${context.companyId} uazapiUrl=${uazapiUrl} tokenLen=${uazapiToken.length} sdrCfg=${!!sdrCfg}`)
 
     if (!uazapiToken) {
+      // log extra antes do early return
+      console.log(`[send-test] token vazio — abortando`)
       return NextResponse.json(
         { error: 'Instância uazapi não configurada. Configure em Agente SDR.' },
         { status: 400 }
@@ -108,6 +110,21 @@ export async function POST(
     }
 
     const uazapi = createUazapiClient(uazapiUrl, uazapiToken)
+
+    // Verifica e configura o webhook se necessário
+    try {
+      const wh = await uazapi.getWebhook()
+      const currentUrl = wh?.url ?? wh?.webhook?.url ?? ''
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+      const expectedUrl = `${appUrl}/api/webhook/nexio`
+      console.log(`[send-test] webhook atual="${currentUrl}" esperado="${expectedUrl}"`)
+      if (!currentUrl || !currentUrl.includes('/api/webhook/nexio')) {
+        await uazapi.setWebhook(expectedUrl)
+        console.log(`[send-test] webhook reconfigurado → ${expectedUrl}`)
+      }
+    } catch (whErr) {
+      console.log(`[send-test] erro ao verificar/configurar webhook: ${whErr instanceof Error ? whErr.message : whErr}`)
+    }
 
     // Map canvas PT tipo to uazapi EN tipo (in case step was saved before the mapping fix)
     const TIPO_MAP: Record<string, StepTipoMensagem> = {
