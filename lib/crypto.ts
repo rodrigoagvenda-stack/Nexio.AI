@@ -45,11 +45,12 @@ export function decrypt(encryptedData: string): string {
     throw new Error('ENCRYPTION_KEY necessária para descriptografar este valor');
   }
 
+  const parts = encryptedData.split(':');
+  if (parts.length !== 3) {
+    throw new Error('Formato inválido');
+  }
+
   try {
-    const parts = encryptedData.split(':');
-    if (parts.length !== 3) {
-      throw new Error('Formato inválido');
-    }
     const iv = Buffer.from(parts[0], 'hex');
     const authTag = Buffer.from(parts[1], 'hex');
     const encrypted = parts[2];
