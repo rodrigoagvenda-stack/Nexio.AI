@@ -245,6 +245,8 @@ export async function POST(
           service.from('conversas_do_whatsapp').update({
             ultima_mensagem: mensagem,
             hora_da_ultima_mensagem: now,
+            // Replica lógica do botão de pause do atendimento: sdr_ativo=false → agente_pausado=true
+            ...(step.sdr_ativo != null ? { agente_pausado: !step.sdr_ativo } : {}),
           }).eq('id', conversa.id),
         ])
       }
