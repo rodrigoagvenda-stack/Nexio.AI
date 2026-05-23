@@ -22,7 +22,8 @@ ALTER TABLE follow_sequences
 -- 4. RLS policy para follow_executions (se ainda não existir)
 ALTER TABLE follow_executions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "company_isolation_follow_executions" ON follow_executions
+DROP POLICY IF EXISTS "company_isolation_follow_executions" ON follow_executions;
+CREATE POLICY "company_isolation_follow_executions" ON follow_executions
   USING (
     sequence_id IN (
       SELECT id FROM follow_sequences
