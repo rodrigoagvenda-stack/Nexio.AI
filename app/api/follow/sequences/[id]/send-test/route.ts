@@ -98,6 +98,8 @@ export async function POST(
     const uazapiUrl = sdrCfg?.uazapi_instance_url ?? platformCfg.uazapi_base_url
     const uazapiToken = safeDecrypt(sdrCfg?.uazapi_token)
 
+    console.log(`[send-test] company=${context.companyId} uazapiUrl=${uazapiUrl} tokenLen=${uazapiToken.length} sdrCfg=${!!sdrCfg}`)
+
     if (!uazapiToken) {
       return NextResponse.json(
         { error: 'Instância uazapi não configurada. Configure em Agente SDR.' },
