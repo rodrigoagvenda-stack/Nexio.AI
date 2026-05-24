@@ -53,7 +53,7 @@ function resolvePlan(raw: string) {
   return 'basic' as keyof typeof PLANS;
 }
 
-const TABS = ['perfil', 'plano', 'integracoes', 'automacao'] as const;
+const TABS = ['perfil', 'plano', 'integracoes', 'automacao', 'seguranca'] as const;
 type Tab = typeof TABS[number];
 
 // ─── Automação Inteligente ────────────────────────────────────────────────────
@@ -169,6 +169,15 @@ function ConfiguracoesContent() {
   const [googleLoading, setGoogleLoading] = useState(true);
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
 
+  // MFA state
+  const [mfaFactor, setMfaFactor] = useState<{ id: string } | null>(null);
+  const [mfaLoading, setMfaLoading] = useState(true);
+  const [mfaEnrolling, setMfaEnrolling] = useState(false);
+  const [mfaEnrollData, setMfaEnrollData] = useState<{ id: string; qr_code: string; secret: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaVerifying, setMfaVerifying] = useState(false);
+  const [mfaDisabling, setMfaDisabling] = useState(false);
+
   useEffect(() => {
     const r = searchParams.get('checkout');
     if (r === 'success') toast({ title: '🎉 Assinatura ativada!' });
@@ -195,6 +204,62 @@ function ConfiguracoesContent() {
   useEffect(() => {
     fetch('/api/google/status').then(r => r.ok ? r.json() : null).then(d => { if (d) setGoogleStatus(d); setGoogleLoading(false); }).catch(() => setGoogleLoading(false));
   }, []);
+
+  useEffect(() => {
+    createClient().auth.mfa.listFactors().then(({ data }) => {
+      setMfaFactor(data?.totp?.[0] ?? null);
+      setMfaLoading(false);
+    });
+  }, []);
+
+  const handleMfaStart = async () => {
+    setMfaEnrolling(true);
+    try {
+      const { data, error } = await createClient().auth.mfa.enroll({ factorType: 'totp' });
+      if (error) throw error;
+      setMfaEnrollData({ id: data.id, qr_code: data.totp.qr_code, secret: data.totp.secret });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao iniciar MFA', variant: 'destructive' });
+    } finally {
+      setMfaEnrolling(false);
+    }
+  };
+
+  const handleMfaVerify = async () => {
+    if (!mfaEnrollData || mfaCode.length < 6) return;
+    setMfaVerifying(true);
+    try {
+      const supabase = createClient();
+      const { data: challenge, error: cErr } = await supabase.auth.mfa.challenge({ factorId: mfaEnrollData.id });
+      if (cErr) throw cErr;
+      const { error: vErr } = await supabase.auth.mfa.verify({ factorId: mfaEnrollData.id, challengeId: challenge.id, code: mfaCode });
+      if (vErr) throw vErr;
+      setMfaFactor({ id: mfaEnrollData.id });
+      setMfaEnrollData(null);
+      setMfaCode('');
+      toast({ title: 'MFA ativado com sucesso! Sua conta está protegida.' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Código inválido', variant: 'destructive' });
+      setMfaCode('');
+    } finally {
+      setMfaVerifying(false);
+    }
+  };
+
+  const handleMfaDisable = async () => {
+    if (!mfaFactor) return;
+    setMfaDisabling(true);
+    try {
+      const { error } = await createClient().auth.mfa.unenroll({ factorId: mfaFactor.id });
+      if (error) throw error;
+      setMfaFactor(null);
+      toast({ title: 'MFA desativado.' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao desativar MFA', variant: 'destructive' });
+    } finally {
+      setMfaDisabling(false);
+    }
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -331,7 +396,7 @@ function ConfiguracoesContent() {
     }
   };
 
-  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', automacao: 'Automação' };
+  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', automacao: 'Automação', seguranca: 'Segurança' };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -648,6 +713,115 @@ function ConfiguracoesContent() {
 
       {/* ── AUTOMAÇÃO ──────────────────────────────────────────── */}
       {tab === 'automacao' && <AutomacaoContent />}
+
+      {/* ── SEGURANÇA ──────────────────────────────────────────── */}
+      {tab === 'seguranca' && (
+        <div className="space-y-4">
+          <div className="p-6 rounded-2xl border border-border bg-card space-y-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="h-4 w-4 text-primary" />
+              <h2 className="font-semibold text-sm">Autenticação em dois fatores (MFA)</h2>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-3">
+              Adiciona uma camada extra de segurança exigindo um código do app autenticador no login
+            </p>
+
+            {mfaLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+              </div>
+            ) : mfaFactor ? (
+              /* MFA ATIVO */
+              <div className="flex items-center justify-between gap-4 py-4 border-t border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">MFA ativo</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">App autenticador vinculado</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMfaDisable}
+                  disabled={mfaDisabling}
+                  className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive"
+                >
+                  {mfaDisabling ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Desativar'}
+                </Button>
+              </div>
+            ) : mfaEnrollData ? (
+              /* FLUXO DE ATIVAÇÃO */
+              <div className="space-y-5 py-4 border-t border-border">
+                <div>
+                  <p className="text-sm font-medium mb-1">1. Escaneie o QR code</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Abra o Google Authenticator, Authy ou similar e escaneie o código abaixo
+                  </p>
+                  <div className="flex justify-center">
+                    <div className="p-3 bg-white border border-border rounded-xl inline-block">
+                      <img src={mfaEnrollData.qr_code} alt="QR Code MFA" width={160} height={160} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-1">Ou insira manualmente</p>
+                  <code className="text-xs bg-muted px-3 py-2 rounded-lg block text-center tracking-widest select-all">
+                    {mfaEnrollData.secret}
+                  </code>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-2">2. Digite o código gerado</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="000000"
+                      maxLength={6}
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                      className="text-center tracking-widest font-mono text-lg"
+                    />
+                    <Button onClick={handleMfaVerify} disabled={mfaVerifying || mfaCode.length < 6}>
+                      {mfaVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => { setMfaEnrollData(null); setMfaCode(''); }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              /* MFA INATIVO */
+              <div className="flex items-center justify-between gap-4 py-4 border-t border-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">MFA desativado</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Recomendado para proteção da conta</p>
+                  </div>
+                </div>
+                <Button size="sm" onClick={handleMfaStart} disabled={mfaEnrolling}>
+                  {mfaEnrolling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Ativar MFA
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,11 @@ export default function LoginPage() {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      if (data.user) window.location.href = '/dashboard';
+      if (data.user) {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
+        window.location.href = needsMfa ? '/mfa' : '/dashboard';
+      }
     } catch (error: any) {
       toast({ title: error.message || 'Email ou senha incorretos', variant: 'destructive' });
     } finally {
