@@ -16,6 +16,7 @@ import {
   User, Camera, CreditCard, Calendar,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
   AlertCircle, Sparkles, X, Shield, Check, Bot, UserMinus,
+  ShieldCheck, Copy, CheckCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
@@ -177,6 +178,7 @@ function ConfiguracoesContent() {
   const [mfaCode, setMfaCode] = useState('');
   const [mfaVerifying, setMfaVerifying] = useState(false);
   const [mfaDisabling, setMfaDisabling] = useState(false);
+  const [mfaCopied, setMfaCopied] = useState(false);
 
   useEffect(() => {
     const r = searchParams.get('checkout');
@@ -259,6 +261,13 @@ function ConfiguracoesContent() {
     } finally {
       setMfaDisabling(false);
     }
+  };
+
+  const handleCopySecret = () => {
+    if (!mfaEnrollData) return;
+    navigator.clipboard.writeText(mfaEnrollData.secret);
+    setMfaCopied(true);
+    setTimeout(() => setMfaCopied(false), 2000);
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -716,109 +725,157 @@ function ConfiguracoesContent() {
 
       {/* ── SEGURANÇA ──────────────────────────────────────────── */}
       {tab === 'seguranca' && (
-        <div className="space-y-4">
-          <div className="p-6 rounded-2xl border border-border bg-card space-y-5">
-            <div className="flex items-center gap-2 mb-1">
-              <Shield className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold text-sm">Autenticação em dois fatores (MFA)</h2>
-            </div>
-            <p className="text-xs text-muted-foreground -mt-3">
-              Adiciona uma camada extra de segurança exigindo um código do app autenticador no login
-            </p>
-
-            {mfaLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
-              </div>
-            ) : mfaFactor ? (
-              /* MFA ATIVO */
-              <div className="flex items-center justify-between gap-4 py-4 border-t border-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">MFA ativo</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">App autenticador vinculado</p>
-                  </div>
+        <div className="max-w-xl space-y-4">
+          {/* MFA card */}
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            {/* Card header */}
+            <div className="px-6 py-5 border-b border-border flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMfaDisable}
-                  disabled={mfaDisabling}
-                  className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive"
-                >
-                  {mfaDisabling ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Desativar'}
-                </Button>
-              </div>
-            ) : mfaEnrollData ? (
-              /* FLUXO DE ATIVAÇÃO */
-              <div className="space-y-5 py-4 border-t border-border">
                 <div>
-                  <p className="text-sm font-medium mb-1">1. Escaneie o QR code</p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Abra o Google Authenticator, Authy ou similar e escaneie o código abaixo
-                  </p>
-                  <div className="flex justify-center">
-                    <div className="p-3 bg-white border border-border rounded-xl inline-block">
-                      <img src={mfaEnrollData.qr_code} alt="QR Code MFA" width={160} height={160} />
+                  <p className="font-semibold text-sm">Autenticação em dois fatores</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Código TOTP via app autenticador</p>
+                </div>
+              </div>
+              {/* Status badge */}
+              {!mfaLoading && (
+                <span className={cn(
+                  'text-[11px] font-semibold px-2.5 py-1 rounded-full',
+                  mfaFactor
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20'
+                    : 'bg-muted text-muted-foreground ring-1 ring-border'
+                )}>
+                  {mfaFactor ? '● Ativo' : '○ Inativo'}
+                </span>
+              )}
+            </div>
+
+            <div className="px-6 py-5">
+              {mfaLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+                </div>
+              ) : mfaFactor ? (
+                /* ── MFA ATIVO ── */
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Conta protegida</p>
+                      <p className="text-xs text-emerald-700/70 dark:text-emerald-400/70 mt-0.5 leading-relaxed">
+                        Um código do app autenticador será exigido em cada login.
+                      </p>
                     </div>
                   </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium mb-1">Ou insira manualmente</p>
-                  <code className="text-xs bg-muted px-3 py-2 rounded-lg block text-center tracking-widest select-all">
-                    {mfaEnrollData.secret}
-                  </code>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium mb-2">2. Digite o código gerado</p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="000000"
-                      maxLength={6}
-                      value={mfaCode}
-                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                      className="text-center tracking-widest font-mono text-lg"
-                    />
-                    <Button onClick={handleMfaVerify} disabled={mfaVerifying || mfaCode.length < 6}>
-                      {mfaVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="text-xs text-muted-foreground">Compatível com Google Authenticator, Authy, 1Password…</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleMfaDisable}
+                      disabled={mfaDisabling}
+                      className="shrink-0 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive hover:bg-destructive/5"
+                    >
+                      {mfaDisabling ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
+                      Desativar
                     </Button>
                   </div>
                 </div>
+              ) : mfaEnrollData ? (
+                /* ── FLUXO DE ATIVAÇÃO ── */
+                <div className="space-y-6">
+                  {/* Step 1 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shrink-0">1</span>
+                      <p className="text-sm font-semibold">Escaneie o QR code</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-8">
+                      Abra o Google Authenticator, Authy ou 1Password e escaneie o código.
+                    </p>
+                    <div className="flex flex-col items-center gap-3 pt-1">
+                      <div className="p-4 bg-white rounded-2xl border border-border shadow-sm inline-block">
+                        <img src={mfaEnrollData.qr_code} alt="QR Code MFA" width={180} height={180} />
+                      </div>
+                      {/* Manual key */}
+                      <div className="w-full">
+                        <p className="text-[11px] text-muted-foreground text-center mb-1.5">Ou insira a chave manualmente</p>
+                        <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2.5">
+                          <code className="flex-1 text-[11px] tracking-widest font-mono text-center select-all break-all">
+                            {mfaEnrollData.secret}
+                          </code>
+                          <button
+                            onClick={handleCopySecret}
+                            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-background"
+                            title="Copiar"
+                          >
+                            {mfaCopied ? <CheckCheck className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onClick={() => { setMfaEnrollData(null); setMfaCode(''); }}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            ) : (
-              /* MFA INATIVO */
-              <div className="flex items-center justify-between gap-4 py-4 border-t border-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
+                  {/* Divider */}
+                  <div className="border-t border-border" />
+
+                  {/* Step 2 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shrink-0">2</span>
+                      <p className="text-sm font-semibold">Confirme o código gerado</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-8">
+                      Digite o código de 6 dígitos exibido no seu app para ativar.
+                    </p>
+                    <div className="flex gap-2 pt-1">
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="000 000"
+                        maxLength={6}
+                        value={mfaCode}
+                        onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleMfaVerify()}
+                        className="text-center text-xl tracking-[0.4em] font-mono h-12 border-2 focus-visible:ring-0 focus-visible:border-primary transition-colors"
+                        autoFocus
+                      />
+                      <Button
+                        onClick={handleMfaVerify}
+                        disabled={mfaVerifying || mfaCode.length < 6}
+                        className="h-12 px-5 shrink-0"
+                      >
+                        {mfaVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Ativar'}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">MFA desativado</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Recomendado para proteção da conta</p>
-                  </div>
+
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
+                    onClick={() => { setMfaEnrollData(null); setMfaCode(''); }}
+                  >
+                    Cancelar
+                  </button>
                 </div>
-                <Button size="sm" onClick={handleMfaStart} disabled={mfaEnrolling}>
-                  {mfaEnrolling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  Ativar MFA
-                </Button>
-              </div>
-            )}
+              ) : (
+                /* ── MFA INATIVO ── */
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Adicione uma camada extra de segurança. Após ativar, cada login exigirá um código do seu app autenticador além da senha.
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                    {['Google Authenticator', 'Authy', '1Password', 'Microsoft Authenticator', 'Bitwarden'].map(app => (
+                      <span key={app} className="px-2.5 py-1 rounded-full bg-muted border border-border/60">{app}</span>
+                    ))}
+                  </div>
+                  <Button onClick={handleMfaStart} disabled={mfaEnrolling} className="h-10">
+                    {mfaEnrolling ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Preparando…</> : 'Ativar autenticação em dois fatores'}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
