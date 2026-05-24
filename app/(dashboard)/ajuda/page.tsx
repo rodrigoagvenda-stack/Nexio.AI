@@ -710,8 +710,123 @@ Tokens não utilizados no mês não acumulam para o mês seguinte. O saldo é re
     id: 'faq',
     title: 'FAQ',
     icon: HelpCircle,
-    description: 'Problemas comuns e como resolver',
+    description: 'Problemas comuns, canvas de automações e como resolver',
     items: [
+      {
+        question: 'O que é o Canvas de Automações?',
+        answer:
+`O Canvas é o editor visual de fluxos de automação do Zaapply. Em vez de configurar uma sequência passo a passo em uma lista, você **arrasta e conecta nodes** em uma tela infinita para construir fluxos completos com bifurcações, condições, esperas e múltiplos tipos de mensagem.
+
+## Como acessar
+Acesse **Automações → Follow-up**, selecione ou crie uma sequência e clique em **Abrir Canvas**.
+
+## O que você pode construir
+• Sequências lineares simples (Mensagem → Aguardar → Mensagem)
+• Fluxos condicionais com bifurcações (lead respondeu? → caminho Sim ou Não)
+• Roteamento por resposta de botão (Switch: qual botão o lead clicou?)
+• Fluxos com Teste A/B (dividir 50/50 entre duas mensagens diferentes)
+• Integrações com sistemas externos via Webhook
+
+## Interface do canvas
+• **Barra lateral esquerda** — Paleta de nodes para adicionar ao fluxo
+• **Tela central** — Área de arrastar, conectar e organizar os nodes
+• **MiniMap** — Minimapa no canto inferior para navegar em fluxos grandes
+• **Botão Salvar** — Persiste o fluxo e converte em etapas de sequência
+[TIP]
+Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste o fundo da tela para mover a visualização sem mover nodes.
+[/TIP]`,
+      },
+      {
+        question: 'Os nodes disponíveis e o que cada um faz',
+        answer:
+`O canvas tem 9 tipos de nodes. Cada um representa uma ação ou decisão no fluxo do lead:
+
+## 🟢 Trigger (início)
+Criado automaticamente. É o ponto de entrada do fluxo — representa o gatilho que ativa a sequência (início automático, mudança de estágio no CRM, etc.). Só existe um por fluxo e não pode ser deletado.
+
+## 💬 Mensagem
+Envia uma mensagem WhatsApp ao lead. O tipo de conteúdo é configurável:
+• **Texto** — Mensagem escrita simples. Suporte a múltiplos blocos (sequência de textos)
+• **Imagem / Vídeo / Documento** — Upload de arquivo com legenda opcional
+• **Áudio** — Grava ou faz upload de áudio enviado como mensagem de voz (PTT)
+• **Localização** — Envia um pin de mapa via URL do Google Maps
+• **Botões** — Mensagem com até 3 botões de resposta rápida, URL ou chamada
+• **Lista** — Menu de opções para o lead selecionar
+• **Carrossel** — Sequência de cards com imagem, título e botão
+
+Cada node Mensagem também controla o **Agente SDR**: você pode pausar ou reativar o agente automaticamente ao enviar aquela mensagem.
+
+## ⏱ Aguardar
+Pausa o fluxo por um número de dias antes de executar o próximo node. Configure a quantidade de dias e o horário em que o fluxo deve continuar. Usado para espaçar mensagens no tempo.
+
+## 🔀 Condição (Se/Senão)
+Bifurca o fluxo em dois caminhos: **Sim** e **Não**. A condição avalia uma variável:
+• **respondeu** — Lead mandou alguma mensagem após a última automação?
+• **resposta_botao** — O lead clicou em algum botão?
+• **variável personalizada** — Compara qualquer variável do lead (igual a, contém, começa com, não está vazio)
+
+A saída **Sim** segue se a condição for verdadeira; **Não** segue caso contrário.
+
+## 🔁 Switch (N saídas)
+Roteamento por valor de botão — cria um caminho de saída para cada resposta possível de botão. Ideal após um node de Mensagem com botões: cada botão clicado roteia para um caminho diferente do fluxo.
+
+## ⛔ Encerrar
+Finaliza a sequência para aquele lead. Coloque no fim de cada caminho do fluxo que deve parar. Um fluxo pode ter vários nodes Encerrar (ex: um para "convertido" e outro para "desistiu").
+
+## 🌐 Webhook
+Faz uma chamada HTTP (POST ou GET) para uma URL externa quando o fluxo chega naquele ponto. Use para integrar com seu CRM, ERP, planilha do Google, Make, n8n ou qualquer outro sistema.
+
+## ⭐ Lead Score
+Bifurca o fluxo baseado na pontuação do lead. Configure um intervalo mínimo e máximo de score. Leads dentro do intervalo seguem o caminho Sim; fora do intervalo, o caminho Não.
+
+## 🧪 Teste A/B
+Divide o tráfego 50/50 entre duas variantes de mensagem. Leads são roteados alternadamente entre Variante A e Variante B. Use para testar qual mensagem converte mais.
+
+## 📅 Agendar Call
+Node especial de agendamento integrado ao Google Calendar. Quando o lead confirma interesse, o Agente SDR verifica a agenda e propõe horários disponíveis automaticamente via WhatsApp.
+[INFO]
+O node Agendar Call requer o Google Calendar conectado em Configurações → Integrações.
+[/INFO]`,
+      },
+      {
+        question: 'Como conectar nodes e montar um fluxo',
+        answer:
+`## Adicionar um node
+1. Clique no botão **+ Adicionar node** (ou arraste da paleta lateral)
+2. Selecione o tipo de node desejado
+3. O node aparece na tela — arraste para posicioná-lo
+
+## Conectar dois nodes
+• Passe o mouse sobre um node até aparecer o **ponto de saída** (círculo na borda direita)
+• Clique e arraste desse ponto até o **ponto de entrada** do próximo node (borda esquerda)
+• Uma seta curva conecta os dois — esse é um "edge"
+
+## Nodes com múltiplas saídas
+• **Condição** tem dois pontos de saída: ✓ Sim (verde) e ✗ Não (cinza)
+• **Switch** tem um ponto de saída por caso configurado
+• Conecte cada saída a um node diferente para criar bifurcações
+
+## Configurar um node
+• **Clique duplo** no node (ou clique simples no ícone de editar) para abrir o painel de configuração à direita
+• Configure mensagem, intervalo, condição, etc.
+• Feche o painel — as alterações são salvas no estado do canvas
+
+## Deletar um node ou conexão
+• Clique no node/seta para selecioná-lo (fica destacado)
+• Pressione **Delete** ou **Backspace**
+• Ou clique no botão de lixeira que aparece no node
+
+## Salvar o fluxo
+• Clique no botão **Salvar** no canto superior direito do canvas
+• O canvas é convertido em etapas de sequência salvas no banco de dados
+• Um indicador verde confirma que o save foi concluído
+[AVISO]
+Não feche o canvas sem salvar. Alterações não salvas são perdidas ao fechar o browser ou mudar de página.
+[/AVISO]
+
+## Usar templates prontos
+Ao criar uma nova sequência, o botão **Usar template** oferece fluxos pré-montados por tipo (boas-vindas, remarketing, anti-noshow). Use como ponto de partida e edite conforme necessário.`,
+      },
       {
         question: 'WhatsApp não conecta ou desconecta',
         answer:
