@@ -485,7 +485,7 @@ export const Sidebar = memo(function Sidebar({
         <div className="p-4 border-t border-border space-y-3">
 
           {/* Token card — aurora interno */}
-          {!isCollapsed && tokensLimit > 0 && (() => {
+          {!isCollapsed && !isTrial && tokensLimit > 0 && (() => {
             const pct = Math.min(100, Math.round((tokensUsed / tokensLimit) * 100));
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
