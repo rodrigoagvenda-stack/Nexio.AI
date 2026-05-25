@@ -541,6 +541,8 @@ function StepPlanos({
     purple: { ring: 'ring-purple-500 border-purple-500', bg: 'bg-purple-50',   text: 'text-purple-600', badge: 'bg-purple-600 text-white' },
   };
 
+  const isTrialSelected = selected === 'trial';
+
   return (
     <div className="space-y-4 sm:space-y-5">
       <div>
@@ -548,6 +550,39 @@ function StepPlanos({
         <p className="text-gray-500 mt-1 text-sm">
           Você pode alterar ou cancelar a qualquer momento.
         </p>
+      </div>
+
+      {/* Trial banner */}
+      <button
+        type="button"
+        onClick={() => onSelect('trial')}
+        className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl border-2 transition-all text-left ${
+          isTrialSelected
+            ? 'border-[#369E47] ring-2 ring-[#369E47] bg-[#369E47]/5'
+            : 'border-dashed border-gray-300 hover:border-[#369E47]/60 hover:bg-gray-50'
+        }`}
+      >
+        <div className="w-9 h-9 rounded-xl bg-[#369E47]/10 flex items-center justify-center flex-shrink-0">
+          <Zap className="h-4 w-4 text-[#369E47]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-gray-900 text-sm">Testar grátis por 7 dias</p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#369E47] text-white">SEM CARTÃO</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">CRM completo · Veja como funciona antes de assinar</p>
+        </div>
+        {isTrialSelected && (
+          <span className="w-5 h-5 rounded-full bg-[#369E47] flex items-center justify-center flex-shrink-0">
+            <Check className="h-3 w-3 text-white" />
+          </span>
+        )}
+      </button>
+
+      <div className="relative flex items-center gap-3">
+        <div className="flex-1 border-t border-gray-100" />
+        <p className="text-xs text-gray-400 flex-shrink-0">ou assine agora</p>
+        <div className="flex-1 border-t border-gray-100" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -597,7 +632,6 @@ function StepPlanos({
           );
         })}
       </div>
-
     </div>
   );
 }
@@ -686,7 +720,7 @@ export default function OnboardingPage() {
     segment: '',
     companySize: '',
     logoUrl: null,
-    selectedPlan: 'starter',
+    selectedPlan: 'trial',
   });
 
   // CPF/CNPJ modal para planos pagos
@@ -733,7 +767,7 @@ export default function OnboardingPage() {
           segment: data.segment,
           companySize: data.companySize,
           userName: data.userName,
-          planType: 'basic',
+          planType: data.selectedPlan,
           logoUrl: data.logoUrl,
         }),
       });
@@ -741,7 +775,8 @@ export default function OnboardingPage() {
       if (!json.success) throw new Error(json.error || 'Erro ao criar conta');
 
       // Se plano pago, abre modal CPF/CNPJ para checkout
-      if (data.selectedPlan !== 'basic') {
+      const isPaid = data.selectedPlan !== 'basic' && data.selectedPlan !== 'trial';
+      if (isPaid) {
         setSaving(false);
         setShowCpfModal(true);
         return;
@@ -988,6 +1023,8 @@ export default function OnboardingPage() {
                 >
                   {saving ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /><span className="hidden sm:inline">Criando...</span><span className="sm:hidden">...</span></>
+                  ) : data.selectedPlan === 'trial' ? (
+                    <><Zap className="h-4 w-4" />Iniciar teste grátis</>
                   ) : data.selectedPlan === 'basic' ? (
                     <><Check className="h-4 w-4" />Criar conta grátis</>
                   ) : (
