@@ -43,7 +43,7 @@ export default async function DashboardLayout({
   const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
     supabase
       .from('companies')
-      .select('name, email, image_url, plan_name, plan_type, trial_enabled, tokens_used, plan_monthly_limit')
+      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, tokens_used, plan_monthly_limit')
       .eq('id', userData?.company_id || 0)
       .single(),
     supabase
@@ -79,6 +79,8 @@ export default async function DashboardLayout({
     LEGACY_NAME_MAP[rawPlanName.toLowerCase()] ??
     (rawPlanName || 'Zaapply');
   const trialEnabled = companyData?.trial_enabled ?? false;
+  const trialEndsAt = companyData?.trial_ends_at ?? null;
+  const isTrial = companyData?.plan_type === 'trial';
   const tokensUsed = companyData?.tokens_used ?? 0;
   const tokensLimit = companyData?.plan_monthly_limit ?? 0;
   const isAdmin = !!adminUser;
@@ -99,6 +101,8 @@ export default async function DashboardLayout({
         brandLogoUrl={brandLogoUrl}
         userRole={userRole}
         trialEnabled={trialEnabled}
+        trialEndsAt={trialEndsAt}
+        isTrial={isTrial}
         tokensUsed={tokensUsed}
         tokensLimit={tokensLimit}
       />

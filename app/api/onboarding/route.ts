@@ -32,16 +32,20 @@ export async function POST(req: NextRequest) {
     const userEmail = user.email ?? ''
     const userDisplayName = userName?.trim() || user.user_metadata?.full_name || userEmail.split('@')[0]
 
-    // 1. Cria a empresa
+    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    // 1. Cria a empresa — novas contas sempre iniciam em trial de 7 dias (sem SDR/Canvas)
     const { data: company, error: companyErr } = await service
       .from('companies')
       .insert({
         name: companyName.trim(),
         email: userEmail,
         phone: companyPhone?.trim() || null,
-        plan_type: planType,
-        plan_name: planType,
+        plan_type: 'trial',
+        plan_name: 'trial',
         is_active: true,
+        trial_enabled: true,
+        trial_ends_at: trialEndsAt,
         image_url: logoUrl || null,
       })
       .select('id')

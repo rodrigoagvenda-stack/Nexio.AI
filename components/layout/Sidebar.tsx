@@ -30,6 +30,7 @@ import {
   LifeBuoy,
   Ticket,
   BookOpen,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -46,6 +47,8 @@ interface SidebarProps {
   brandLogoUrl?: string | null;
   userRole?: string;
   trialEnabled?: boolean;
+  trialEndsAt?: string | null;
+  isTrial?: boolean;
   tokensUsed?: number;
   tokensLimit?: number;
 }
@@ -213,9 +216,16 @@ export const Sidebar = memo(function Sidebar({
   brandLogoUrl,
   userRole,
   trialEnabled = false,
+  trialEndsAt,
+  isTrial = false,
   tokensUsed = 0,
   tokensLimit = 0,
 }: SidebarProps) {
+  const trialDaysLeft = useMemo(() => {
+    if (!isTrial || !trialEndsAt) return null;
+    const diff = new Date(trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [isTrial, trialEndsAt]);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -300,6 +310,8 @@ export const Sidebar = memo(function Sidebar({
       }).filter(link => {
         if (isCloser && (link.href === '/automacoes' || link.href === '/membros')) return false;
         if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
+        // Trial: sem Automações (SDR, Canvas, Métricas — custam instância e tokens)
+        if (isTrial && link.href === '/automacoes') return false;
         return true;
       }),
     })).filter(section => section.links.length > 0);
@@ -506,6 +518,54 @@ export const Sidebar = memo(function Sidebar({
               </div>
             );
           })()}
+
+          {/* Trial banner */}
+          {isTrial && !isCollapsed && (
+            <div className={cn(
+              'rounded-xl border p-3 space-y-2',
+              trialDaysLeft === 0
+                ? 'border-red-500/30 bg-red-500/5'
+                : trialDaysLeft !== null && trialDaysLeft <= 2
+                ? 'border-amber-500/30 bg-amber-500/5'
+                : 'border-primary/20 bg-primary/5'
+            )}>
+              <div className="flex items-center gap-2">
+                <Zap className={cn('h-3.5 w-3.5 flex-shrink-0',
+                  trialDaysLeft === 0 ? 'text-red-500'
+                  : trialDaysLeft !== null && trialDaysLeft <= 2 ? 'text-amber-500'
+                  : 'text-primary'
+                )} />
+                <p className="text-[11px] font-bold text-foreground leading-none">
+                  {trialDaysLeft === 0
+                    ? 'Trial expirado'
+                    : trialDaysLeft === 1
+                    ? '1 dia restante'
+                    : `${trialDaysLeft} dias restantes`}
+                </p>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                {trialDaysLeft === 0
+                  ? 'Assine um plano para continuar usando o CRM e WhatsApp.'
+                  : 'CRM + WhatsApp ativos. Automações disponíveis após assinar.'}
+              </p>
+              <Link
+                href="/configuracoes?tab=plano"
+                className="flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Assinar agora
+                <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
+          {isTrial && isCollapsed && (
+            <Link
+              href="/configuracoes?tab=plano"
+              title="Trial — Assinar agora"
+              className="flex items-center justify-center w-9 h-9 mx-auto rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <Zap className="h-4 w-4" />
+            </Link>
+          )}
 
           {/* Avatar */}
           <div className={cn('flex items-center gap-3 px-2 py-2 rounded-xl bg-accent/30', isCollapsed && 'justify-center px-2')}>
