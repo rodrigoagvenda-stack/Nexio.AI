@@ -137,11 +137,14 @@ interface FlyoutState {
   left: number;
 }
 
+const TRIAL_BLOCKED_PATHS = ['/configuracoes/sdr', '/configuracoes/follow', '/configuracoes/agenda', '/configuracoes/metricas'];
+
 function FlyoutPanel({
   state,
   pathname,
   searchParams,
   currentView,
+  isTrial,
   onClose,
   onKeepOpen,
 }: {
@@ -149,10 +152,12 @@ function FlyoutPanel({
   pathname: string;
   searchParams: ReturnType<typeof useSearchParams>;
   currentView: string;
+  isTrial: boolean;
   onClose: () => void;
   onKeepOpen: () => void;
 }) {
   const { link, top, left } = state;
+  const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
 
   return createPortal(
@@ -170,6 +175,7 @@ function FlyoutPanel({
         const ChildIcon = child.icon;
         const childBase = child.href.split('?')[0];
         const isCrmChild = link.href === '/crm';
+        const isBlocked = isTrial && TRIAL_BLOCKED_PATHS.some(p => child.href.startsWith(p));
         let isChildActive: boolean;
         if (isCrmChild) {
           const childView = child.href.includes('view=kanban') ? 'kanban' : 'table';
@@ -181,6 +187,19 @@ function FlyoutPanel({
             searchParams.get('tab') === childTab;
         } else {
           isChildActive = pathname === childBase || pathname.startsWith(childBase + '/');
+        }
+        if (isBlocked) {
+          return (
+            <button
+              key={child.href}
+              onClick={() => { onClose(); router.push('/configuracoes?tab=plano'); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100 text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent/30"
+            >
+              <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{child.label}</span>
+              <Zap className="h-3 w-3 ml-auto text-primary/60" />
+            </button>
+          );
         }
         return (
           <Link
@@ -310,8 +329,6 @@ export const Sidebar = memo(function Sidebar({
       }).filter(link => {
         if (isCloser && (link.href === '/automacoes' || link.href === '/membros')) return false;
         if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
-        // Trial: sem Automações (SDR, Canvas, Métricas — custam instância e tokens)
-        if (isTrial && link.href === '/automacoes') return false;
         return true;
       }),
     })).filter(section => section.links.length > 0);
@@ -630,6 +647,7 @@ export const Sidebar = memo(function Sidebar({
           pathname={pathname}
           searchParams={searchParams}
           currentView={currentView}
+          isTrial={isTrial}
           onClose={closeFlyout}
           onKeepOpen={keepFlyout}
         />
