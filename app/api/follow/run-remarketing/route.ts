@@ -10,8 +10,9 @@ export async function POST(req: NextRequest) {
   if (authError) return authError
 
   try {
-    // skipDelay=true: pula o antiBanDelay (45-135s) no disparo manual
-    const result = await runRemarketingForCompany(context.companyId, true)
+    const body = await req.json().catch(() => ({}))
+    const force = body?.force === true
+    const result = await runRemarketingForCompany(context.companyId, true, force)
     return NextResponse.json({ ok: true, ...result })
   } catch (err: any) {
     console.error('[run-remarketing]', err)

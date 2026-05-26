@@ -2704,7 +2704,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     </div>
                   </Field>
 
-                  <Field label="Mín. dias inativo">
+                  <Field label="Mín. dias inativo" hint={remarketingCfg.diasInativo > 0 ? `leads recentes bloqueados por ${remarketingCfg.diasInativo}d` : 'dispara imediatamente'}>
                     <input
                       type="number"
                       min={0}
@@ -2864,10 +2864,13 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{label}</label>
+      <div className="flex items-center gap-2">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">{label}</label>
+        {hint && <span className="text-[10px] text-muted-foreground/50 italic normal-case tracking-normal">{hint}</span>}
+      </div>
       {children}
     </div>
   );
@@ -3243,6 +3246,13 @@ const NOSHOW_DISPATCH_PHASES = [
   'Disparando mensagens…',
 ] as const;
 
+const REMARKETING_DISPATCH_PHASES = [
+  'Conectando à instância WhatsApp…',
+  'Buscando leads no remarketing…',
+  'Verificando nodes do canvas…',
+  'Disparando mensagens…',
+] as const;
+
 // ─── Helpers anti-noshow offset ──────────────────────────────────────────────
 
 /** value em minutos totais (inteiro). Negativo = antes da call. */
@@ -3405,6 +3415,109 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
                 ))}
                 <div className="px-3 py-2.5 rounded-xl text-xs font-semibold border bg-primary/10 border-primary/30 text-primary mt-1">
                   ✓ Concluído — {result.disparados ?? 0} {result.disparados === 1 ? 'node disparado' : 'nodes disparados'}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {!loading && !result && (
+          <button
+            onClick={handleDispatch}
+            className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+            <Zap className="w-3.5 h-3.5" />
+            Disparar agora
+          </button>
+        )}
+        {!loading && result && (
+          <button
+            onClick={() => { setResult(null); setPhase(0); }}
+            className="w-full py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground border border-border bg-muted/50 transition-colors">
+            Disparar novamente
+          </button>
+        )}
+      </div>
+    </ModalOverlay>
+  );
+}
+
+function RemarketingTestModal({ onClose }: { onClose: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState(0);
+  const [result, setResult] = useState<{ ok: boolean; sent?: number; error?: string } | null>(null);
+
+  useEffect(() => {
+    if (!loading) return;
+    setPhase(0);
+    const iv = setInterval(() => setPhase((p) => Math.min(p + 1, REMARKETING_DISPATCH_PHASES.length - 1)), 1400);
+    return () => clearInterval(iv);
+  }, [loading]);
+
+  async function handleDispatch() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/follow/run-remarketing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      });
+      const json = await res.json();
+      setResult(json);
+    } catch (e: any) {
+      setResult({ ok: false, error: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">Disparar Remarketing agora</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2 leading-relaxed">
+          Dispara para todos os leads no status configurado. Ignora filtro de horário e dias de inatividade.
+        </p>
+
+        {loading && (
+          <div className="flex flex-col gap-1.5">
+            {REMARKETING_DISPATCH_PHASES.map((label, i) => (
+              <div key={i} className={cn(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all duration-300',
+                i < phase ? 'bg-primary/8 border-primary/20 opacity-60' :
+                i === phase ? 'bg-primary/10 border-primary/30' :
+                'bg-muted/40 border-transparent opacity-30',
+              )}>
+                {i < phase
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                  : i === phase
+                    ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+                    : <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/30 shrink-0" />}
+                <span className={cn('text-xs', i <= phase ? 'text-foreground' : 'text-muted-foreground/40')}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {result && !loading && (
+          <div className="flex flex-col gap-1.5">
+            {result.error ? (
+              <div className="px-3 py-2.5 rounded-xl text-xs leading-relaxed border bg-destructive/10 border-destructive/20 text-destructive">
+                ✗ Erro: {result.error}
+              </div>
+            ) : (
+              <>
+                {REMARKETING_DISPATCH_PHASES.map((label, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border bg-primary/8 border-primary/20 opacity-70">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs text-foreground">{label}</span>
+                  </div>
+                ))}
+                <div className="px-3 py-2.5 rounded-xl text-xs font-semibold border bg-primary/10 border-primary/30 text-primary mt-1">
+                  ✓ Concluído — {result.sent ?? 0} {result.sent === 1 ? 'mensagem enviada' : 'mensagens enviadas'}
                 </div>
               </>
             )}
@@ -3748,6 +3861,7 @@ function CanvasInner() {
   // Test run
   const [testModalOpen, setTestModalOpen] = useState(false);
   const [noshowCronTestOpen, setNoshowCronTestOpen] = useState(false);
+  const [remarketingTestOpen, setRemarketingTestOpen] = useState(false);
   const [testRunning, setTestRunning] = useState(false);
   const [testWaitingReply, setTestWaitingReply] = useState(false);
   const abortTestRef = useRef(false);
@@ -3760,13 +3874,13 @@ function CanvasInner() {
   // Remarketing entry config (persisted in canvas_config.remarketing)
   const [remarketingCfg, setRemarketingCfg] = useState<RemarketingConfig>({
     statusFiltros: ['Remarketing'],
-    diasInativo: 3,
+    diasInativo: 0,
   });
 
   useEffect(() => {
     if (activeTipo === 'remarketing') {
       const saved = currentSeq?.canvas_config?.remarketing;
-      setRemarketingCfg(saved ?? { statusFiltros: ['Remarketing'], diasInativo: 3 });
+      setRemarketingCfg(saved ?? { statusFiltros: ['Remarketing'], diasInativo: 0 });
     }
   }, [currentSeq?.id, activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4413,6 +4527,14 @@ function CanvasInner() {
               </button>
             )}
 
+            {/* Remarketing force trigger */}
+            {activeTipo === 'remarketing' && (
+              <button onClick={() => setRemarketingTestOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20">
+                <Zap className="w-3.5 h-3.5" />Disparar agora
+              </button>
+            )}
+
             {/* Test run */}
             {testRunning ? (
               <button onClick={stopTest}
@@ -4571,6 +4693,10 @@ function CanvasInner() {
 
       {noshowCronTestOpen && (
         <NoshowCronTestModal onClose={() => setNoshowCronTestOpen(false)} />
+      )}
+
+      {remarketingTestOpen && (
+        <RemarketingTestModal onClose={() => setRemarketingTestOpen(false)} />
       )}
 
       {templatesOpen && (

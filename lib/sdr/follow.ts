@@ -946,7 +946,8 @@ async function processRemarketing(
   sequences: FollowSequence[],
   openai: OpenAI,
   supabase: Supabase,
-  skipDelay = false
+  skipDelay = false,
+  force = false,
 ): Promise<number> {
   let sent = 0
   const now = Date.now()
@@ -990,26 +991,27 @@ async function processRemarketing(
       // Só dispara se passou da hora configurada (cron roda a cada hora cheia)
       const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
       const stepMinutes = hh * 60 + mm
-      if (nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
+      if (!force && nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
 
       for (const lead of leads as unknown as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
-        if (await stepJaDisparado(lead.id, step.id, supabase)) continue
+        if (!force && await stepJaDisparado(lead.id, step.id, supabase)) continue
 
         // ── Retry / DLQ ──
         const retryStatusRm = await checkRetry(lead.id, step.id, supabase)
         if (retryStatusRm === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
-        if (retryStatusRm === 'backoff') continue
-        if (await isCircuitOpen(sequence.id)) continue
-        if (await isFatigued(company.id, lead.id)) continue
+        if (!force && retryStatusRm === 'backoff') continue
+        if (!force && await isCircuitOpen(sequence.id)) continue
+        if (!force && await isFatigued(company.id, lead.id)) continue
 
         // Verifica inatividade mínima configurada no canvas (diasInativo)
         const rmUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
         const rmMs = rmUnit === 'hours' ? 3_600_000 : 86_400_000
         const movedAt = new Date((lead as any).updated_at ?? now).getTime()
         const elapsedRm = (now - movedAt) / rmMs
-        const minInativo = rmUnit === 'hours' ? 0 : diasInativo
-        if (elapsedRm < Math.max(step.dia_offset, minInativo)) continue
+        // diasInativo = guard adicional; dia_offset = delay por step
+        if (!force && diasInativo > 0 && elapsedRm < diasInativo) continue
+        if (!force && elapsedRm < step.dia_offset) continue
 
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
@@ -1501,7 +1503,7 @@ export async function runAntNoshowForCompany(
   return { sent }
 }
 
-export async function runRemarketingForCompany(companyId: number, skipDelay = false): Promise<{ sent: number; error?: string }> {
+export async function runRemarketingForCompany(companyId: number, skipDelay = false, force = false): Promise<{ sent: number; error?: string }> {
   const supabase = createServiceClient()
 
   const platformCfg = await getPlatformConfig()
@@ -1534,6 +1536,6 @@ export async function runRemarketingForCompany(companyId: number, skipDelay = fa
 
   if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência de remarketing ativa' }
 
-  const sent = await processRemarketing(company, sequences as FollowSequence[], openai, supabase, skipDelay)
+  const sent = await processRemarketing(company, sequences as FollowSequence[], openai, supabase, skipDelay, force)
   return { sent }
 }
