@@ -82,19 +82,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 1. Verificar se o email já existe na empresa
+    // 1. Verificar se o email já existe em qualquer empresa
     const { data: existingMember } = await supabaseService
       .from('users')
-      .select('id')
+      .select('id, company_id')
       .eq('email', email)
-      .eq('company_id', companyId)
       .maybeSingle();
 
     if (existingMember) {
-      return NextResponse.json(
-        { success: false, message: 'Este email já é membro desta empresa.' },
-        { status: 400 }
-      );
+      const msg = existingMember.company_id === companyId
+        ? 'Este email já é membro desta empresa.'
+        : 'Este email já possui uma conta na plataforma.';
+      return NextResponse.json({ success: false, message: msg }, { status: 400 });
     }
 
     // 2. Buscar nome da empresa primeiro
@@ -127,8 +126,12 @@ export async function POST(request: NextRequest) {
     );
 
     if (authError) {
-      console.error('[INVITE] Erro ao enviar convite:', authError);
-      throw new Error(`Erro ao enviar convite: ${authError.message}`);
+      console.error('[INVITE] Erro ao enviar convite:', authError)
+      const msg = authError.message || ''
+      if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('already been registered')) {
+        return NextResponse.json({ success: false, message: 'Este email já possui uma conta. Verifique a caixa de entrada do convidado.' }, { status: 400 })
+      }
+      return NextResponse.json({ success: false, message: `Erro ao enviar convite: ${msg}` }, { status: 500 })
     }
 
     console.log('[INVITE] Convite enviado com sucesso! User ID:', authUser.user.id);
