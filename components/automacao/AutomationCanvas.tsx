@@ -3240,35 +3240,14 @@ function ApprovalModal({ sequenceName, onConfirm, onClose }: { sequenceName: str
 }
 
 function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
-  const [phone, setPhone] = useState(() => {
-    try { return localStorage.getItem(PHONE_LS_KEY) ?? ''; } catch { return ''; }
-  });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; disparados?: number; pulados?: number; error?: string } | null>(null);
-
-  function handlePhoneChange(raw: string) {
-    const digits = raw.replace(/\D/g, '').slice(0, 13);
-    setPhone(digits);
-    try { localStorage.setItem(PHONE_LS_KEY, digits); } catch {}
-  }
-
-  function formatDisplay(digits: string) {
-    const d = digits.startsWith('55') ? digits.slice(2) : digits;
-    if (d.length <= 2) return d;
-    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-    if (d.length <= 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
-  }
 
   async function handleDispatch() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch('/api/cron/antnoshow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${(window as any).__CRON_SECRET__ ?? ''}` },
-        body: JSON.stringify({ phone: phone || undefined }),
-      });
+      const res = await fetch('/api/follow/antnoshow/force', { method: 'POST' });
       const json = await res.json();
       setResult(json);
     } catch (e: any) {
@@ -3278,8 +3257,6 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const canSend = phone.replace(/\D/g, '').length >= 10 || phone === '';
-
   return (
     <ModalOverlay onClose={onClose}>
       <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
@@ -3288,25 +3265,8 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <p className="text-xs text-muted-foreground -mt-2 leading-relaxed">
-          Aciona o motor de anti-noshow ignorando a janela de tempo. Útil para testes — filtre por número ou deixe vazio para todos os leads com call agendada.
+          Força o cron para todos os leads com call agendada, ignorando a janela de tempo. Os lembretes serão disparados imediatamente.
         </p>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Filtrar por número (opcional)</label>
-          <div className="flex items-center gap-0 rounded-xl border border-border overflow-hidden bg-muted focus-within:ring-2 focus-within:ring-primary/40">
-            <div className="flex items-center gap-1.5 px-3 py-2.5 border-r border-border bg-muted/60 shrink-0">
-              <span className="text-base leading-none">🇧🇷</span>
-              <span className="text-xs font-medium text-muted-foreground">+55</span>
-            </div>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={formatDisplay(phone.startsWith('55') ? phone.slice(2) : phone)}
-              onChange={(e) => handlePhoneChange('55' + e.target.value.replace(/\D/g, ''))}
-              placeholder="(11) 99999-9999 — opcional"
-              className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none"
-            />
-          </div>
-        </div>
         {result && (
           <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border',
             result.ok
