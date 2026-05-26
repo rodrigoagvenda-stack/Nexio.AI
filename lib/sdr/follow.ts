@@ -91,7 +91,12 @@ interface FollowSequence {
   nome: string
   tipo: SequenceTipo
   ativo: boolean
-  canvas_config?: { remarketing?: RemarketingCanvasConfig; expira_em_dias?: number } | null
+  staging?: boolean
+  canvas_config?: {
+    remarketing?: RemarketingCanvasConfig
+    expira_em_dias?: number
+    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook'
+  } | null
 }
 
 interface Lead {
@@ -547,7 +552,11 @@ async function processFollowGeral(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
+    // Staging mode — skip real sends (dry-run only)
+    const isStaging = sequence.staging === true
+
     const expiraDias = (sequence.canvas_config as any)?.expira_em_dias ?? 0
+    const eventoEntrada = sequence.canvas_config?.eventoEntrada
     // Hot leads first (call_de_venda, Interessado)
     const sortedLeads = [...((leads ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
@@ -561,17 +570,26 @@ async function processFollowGeral(
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
 
-        const { data: ultimaMsg } = await supabase
-          .from('mensagens_do_whatsapp')
-          .select('created_at')
-          .eq('id_do_lead', lead.id)
-          .eq('direcao', 'inbound')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        // For novo_lead sequences, anchor timing to lead.created_at; otherwise use last inbound message
+        let anchorDate: Date | null = null
+        if (eventoEntrada === 'novo_lead') {
+          const { data: leadRow } = await supabase
+            .from('leads').select('created_at').eq('id', lead.id).maybeSingle()
+          anchorDate = leadRow?.created_at ? new Date(leadRow.created_at) : null
+        } else {
+          const { data: ultimaMsg } = await supabase
+            .from('mensagens_do_whatsapp')
+            .select('created_at')
+            .eq('id_do_lead', lead.id)
+            .eq('direcao', 'inbound')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          anchorDate = ultimaMsg?.created_at ? new Date(ultimaMsg.created_at) : null
+        }
 
-        if (!ultimaMsg) continue
-        const elapsed = (Date.now() - new Date(ultimaMsg.created_at).getTime()) / msPerUnit
+        if (!anchorDate) continue
+        const elapsed = (Date.now() - anchorDate.getTime()) / msPerUnit
         if (elapsed < step.dia_offset) continue
 
         // ── Sequence expiry ──
@@ -658,6 +676,34 @@ async function processFollowGeral(
           continue
         }
 
+        // ── Sub-flow step — enrola lead na sequência referenciada ──
+        if (tipo === 'sub_flow') {
+          try {
+            const subSeqId = (media as any)?.subSequenceId as string | undefined
+            if (subSeqId) {
+              const { data: subSeq } = await supabase
+                .from('follow_sequences').select('id, ativo').eq('id', subSeqId).maybeSingle()
+              if (subSeq?.ativo) {
+                // Mark first step of sub-sequence as pending by NOT recording any execution —
+                // the sub-sequence cron will pick it up naturally since no executions exist yet.
+                // We only record this enrollment step as sent.
+                await syslog({
+                  type: 'follow_up', severity: 'info',
+                  message: `Sub-flow enrollment — lead=${lead.id} → sequence=${subSeqId}`,
+                  company_id: company.id,
+                  payload: { leadId: lead.id, subSeqId },
+                })
+              }
+            }
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
+          continue
+        }
+
         // ── WaitEvent step — gating: avança só se lead respondeu com padrão desde última execução ──
         if (tipo === 'wait_event') {
           const event = (media as any)?.event as string | undefined
@@ -735,23 +781,30 @@ async function processFollowGeral(
         }
 
         try {
-          await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
+          if (isStaging) {
+            // Staging: log intent without sending real WhatsApp message
+            console.log(`[follow][staging] skip send — lead=${lead.id} seq=${sequence.id} step=${step.id} tipo=${tipo} msg="${texto.slice(0, 80)}"`)
+          } else {
+            await enviarMensagem(phone, texto, company, tipo, media)
+            await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
 
-          const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
-          for (let i = 1; i < blocos.length; i++) {
-            const bloco = substituirVariaveis(blocos[i] || '', lead)
-            if (!bloco) continue
-            await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
-            await enviarMensagem(phone, bloco, company, 'text', null)
-            await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_geral', supabase, 'text', null)
+            const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+            for (let i = 1; i < blocos.length; i++) {
+              const bloco = substituirVariaveis(blocos[i] || '', lead)
+              if (!bloco) continue
+              await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+              await enviarMensagem(phone, bloco, company, 'text', null)
+              await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_geral', supabase, 'text', null)
+            }
           }
 
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
-          await recordFatigue(company.id, lead.id)
-          sent++
-          await antiBanDelay()
+          if (!isStaging) {
+            await recordFatigue(company.id, lead.id)
+            sent++
+            await antiBanDelay()
+          }
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
           const { shouldOpen } = await recordCircuitFailure(sequence.id)

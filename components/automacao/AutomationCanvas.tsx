@@ -79,6 +79,12 @@ import {
   MessageCircle,
   Bell,
   GitCompare,
+  Layers,
+  Radio,
+  ShieldCheck,
+  TrendingUp,
+  BarChart2,
+  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -133,6 +139,7 @@ interface CanvasConfig {
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
   nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook'; // entry event type
 }
 
 interface FollowSequence {
@@ -140,6 +147,8 @@ interface FollowSequence {
   nome: string;
   tipo: SequenceTipo;
   ativo: boolean;
+  staging?: boolean;
+  aprovacao_pendente?: boolean;
   follow_steps: FollowStep[];
   canvas_config?: CanvasConfig | null;
 }
@@ -156,6 +165,7 @@ interface TriggerNodeData extends Record<string, unknown> {
   condicao: string;
   customLabel?: string;
   expira_em_dias?: number;
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook';
   _execState?: ExecState;
   _execError?: string;
   _leadCount?: number;
@@ -247,6 +257,18 @@ interface SentimentNodeData extends Record<string, unknown> {
   _execError?: string;
 }
 
+interface SubFlowNodeData extends Record<string, unknown> {
+  kind: 'sub_flow';
+  label: string;
+  subSequenceId: string;
+  subSequenceName?: string;
+  stepId: string;
+  customLabel?: string;
+  comment?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
 interface WaitEventNodeData extends Record<string, unknown> {
   kind: 'wait_event';
   label: string;
@@ -322,6 +344,7 @@ type AutoNodeData =
   | MessageNodeData
   | WaitNodeData
   | WaitEventNodeData
+  | SubFlowNodeData
   | ConditionNodeData
   | SwitchNodeData
   | EndNodeData
@@ -576,7 +599,8 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
   nodes.push({
     id: 'trigger', type: 'triggerNode', position: triggerPos,
     data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
-      expira_em_dias: canvasConfig?.expira_em_dias ?? 0 } satisfies TriggerNodeData,
+      expira_em_dias: canvasConfig?.expira_em_dias ?? 0,
+      eventoEntrada: canvasConfig?.eventoEntrada } satisfies TriggerNodeData,
   });
   const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
@@ -626,6 +650,11 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
       const wmc = step.media_config as any ?? {};
       nodes.push({ id: step.id, type: 'waitEventNode', position: { x, y },
         data: { kind: 'wait_event', label: 'Aguardar Evento', event: wmc.event ?? 'reply', pattern: wmc.pattern ?? '', stepId: step.id, customLabel, comment } satisfies WaitEventNodeData });
+    }
+    else if (step.tipo_mensagem === 'sub_flow') {
+      const smc = step.media_config as any ?? {};
+      nodes.push({ id: step.id, type: 'subFlowNode', position: { x, y },
+        data: { kind: 'sub_flow', label: 'Sub-fluxo', subSequenceId: smc.subSequenceId ?? '', subSequenceName: smc.subSequenceName ?? '', stepId: step.id, customLabel, comment } satisfies SubFlowNodeData });
     }
     else if (step.tipo_mensagem === 'goal') {
       nodes.push({ id: step.id, type: 'goalNode', position: { x, y },
@@ -798,6 +827,11 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       const wd = d as WaitEventNodeData;
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'wait_event' as any, ordem: idx + 1, condicao: '',
         media_config: { event: wd.event ?? 'reply', ...(wd.pattern ? { pattern: wd.pattern } : {}) } };
+    }
+    if (d.kind === 'sub_flow') {
+      const sd = d as SubFlowNodeData;
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'sub_flow' as any, ordem: idx + 1, condicao: '',
+        media_config: { subSequenceId: sd.subSequenceId, subSequenceName: sd.subSequenceName ?? '' } };
     }
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
@@ -1334,6 +1368,22 @@ function WaitEventNode({ id, data, selected }: NodeProps) {
   );
 }
 
+function SubFlowNode({ id, data, selected }: NodeProps) {
+  const d = data as SubFlowNodeData;
+  return (
+    <NodeShell selected={selected} accent="blue"
+      header={<NodeHeader icon={Layers} label="Sub-fluxo" accent="blue" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError} comment={d.comment}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+      {d.subSequenceName
+        ? <p className="text-xs font-semibold text-blue-500 leading-snug">{d.subSequenceName}</p>
+        : <p className="text-xs text-muted-foreground/50 italic">Selecionar sequência…</p>}
+      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Enrola lead na sub-sequência</p>
+    </NodeShell>
+  );
+}
+
 function WebhookNode({ id, data, selected }: NodeProps) {
   const d = data as WebhookNodeData;
   const domain = d.url ? getDomain(d.url) : null;
@@ -1484,6 +1534,7 @@ const nodeTypes = {
   messageNode: MessageNode,
   waitNode: WaitNode,
   waitEventNode: WaitEventNode,
+  subFlowNode: SubFlowNode,
   conditionNode: ConditionNode,
   switchNode: SwitchNode,
   endNode: EndNode,
@@ -2217,9 +2268,11 @@ interface ConfigPanelProps {
   sequenceTipo?: SequenceTipo;
   remarketingCfg?: RemarketingConfig;
   onRemarketingChange?: (cfg: RemarketingConfig) => void;
+  sequences?: FollowSequence[];
+  currentSeqId?: string;
 }
 
-function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange }: ConfigPanelProps) {
+function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange, sequences = [], currentSeqId }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
 
@@ -2604,6 +2657,21 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 0 = nunca expira. Se definido, leads que entraram há mais dias são ignorados.
               </p>
             </Field>
+            <Field label="Entrada automática por evento">
+              <select
+                value={(d as TriggerNodeData).eventoEntrada ?? ''}
+                onChange={(e) => onUpdate(node.id, { eventoEntrada: (e.target.value as TriggerNodeData['eventoEntrada']) || undefined })}
+                className="field-input"
+              >
+                <option value="">Manual / cron padrão</option>
+                <option value="novo_lead">Novo lead criado</option>
+                <option value="mudanca_status">Mudança de status</option>
+                <option value="webhook">Evento de webhook</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                Define quando leads entram automaticamente nesta sequência.
+              </p>
+            </Field>
 
             {/* Remarketing-specific entry criteria */}
             {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (
@@ -2705,6 +2773,30 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </>
         )}
 
+        {/* ── Sub-flow node ── */}
+        {d.kind === 'sub_flow' && (
+          <>
+            <Field label="Sequência de destino">
+              <select
+                value={(d as SubFlowNodeData).subSequenceId ?? ''}
+                onChange={(e) => {
+                  const chosen = sequences.find((s) => s.id === e.target.value);
+                  onUpdate(node.id, { subSequenceId: e.target.value, subSequenceName: chosen?.nome ?? '' } as any);
+                }}
+                className="field-input"
+              >
+                <option value="">Selecionar sequência…</option>
+                {sequences.filter((s) => s.id !== currentSeqId).map((s) => (
+                  <option key={s.id} value={s.id}>{s.nome} ({s.tipo})</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                O lead será enrolado nessa sequência ao chegar neste nó.
+              </p>
+            </Field>
+          </>
+        )}
+
         {/* ── Goal node ── */}
         {d.kind === 'goal' && (
           <Field label="Marcar lead como">
@@ -2786,7 +2878,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'wait_event' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
+type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -2797,6 +2889,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
   { label: 'Aguardar Evento', desc: 'Continua quando lead responder (ou palavra-chave)', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
+  { label: 'Sub-fluxo', desc: 'Enrolar lead em outra sequência', kind: 'sub_flow', icon: Layers, bgClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
   { label: 'Condição', desc: 'Se/senão por variável', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Switch', desc: 'N saídas por valor (botões)', kind: 'switch', icon: GitMerge, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
@@ -2872,11 +2965,26 @@ interface ExecLogReal {
   ts: string | null;
 }
 
+interface ConversionRow {
+  lead_id: number
+  lead_name: string
+  lead_status: string
+  whatsapp: string | null
+  goal_label: string
+  goal_ordem: number
+  converted_at: string
+}
+
 function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo: SequenceTipo }) {
   const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS' };
+  const [tab, setTab] = useState<'execucoes' | 'conversoes'>('execucoes');
   const [executions, setExecutions] = useState<ExecLogReal[]>([]);
   const [loadingExec, setLoadingExec] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
+  const [conversions, setConversions] = useState<ConversionRow[]>([]);
+  const [convTotal, setConvTotal] = useState(0);
+  const [convRate, setConvRate] = useState(0);
+  const [loadingConv, setLoadingConv] = useState(false);
 
   useEffect(() => {
     if (!sequenceId) { setExecutions([]); return; }
@@ -2891,6 +2999,20 @@ function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo:
       .catch((err) => { setExecError(err instanceof Error ? err.message : 'Erro ao carregar'); })
       .finally(() => setLoadingExec(false));
   }, [sequenceId]);
+
+  useEffect(() => {
+    if (!sequenceId || tab !== 'conversoes') return;
+    setLoadingConv(true);
+    fetch(`/api/follow/sequences/${sequenceId}/conversions`)
+      .then(async (res) => {
+        const json = await res.json();
+        setConversions(json.conversions ?? []);
+        setConvTotal(json.total ?? 0);
+        setConvRate(json.rate ?? 0);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingConv(false));
+  }, [sequenceId, tab]);
 
   function formatTs(ts: string | null): string {
     if (!ts) return '—';
@@ -2907,62 +3029,138 @@ function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo:
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-2xl mx-auto p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">Execuções recentes</p>
+          <div className="flex gap-1 p-1 rounded-lg bg-muted">
+            <button onClick={() => setTab('execucoes')}
+              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                tab === 'execucoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+              <Play className="w-3 h-3" />Execuções
+            </button>
+            <button onClick={() => setTab('conversoes')}
+              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
+                tab === 'conversoes' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+              <TrendingUp className="w-3 h-3" />Conversões
+            </button>
+          </div>
           <span className="text-xs text-muted-foreground">{label[tipo]}</span>
         </div>
 
-        {loadingExec ? (
-          <div className="flex items-center justify-center py-20 gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Carregando execuções…</span>
-          </div>
-        ) : execError ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <AlertCircle className="w-8 h-8 text-destructive/50" />
-            <p className="text-sm text-destructive">{execError}</p>
-          </div>
-        ) : !sequenceId ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Clock3 className="w-10 h-10 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground">Selecione uma sequência para ver execuções</p>
-          </div>
-        ) : executions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Clock3 className="w-10 h-10 text-muted-foreground/30" />
-            <div className="text-center">
-              <p className="text-sm font-medium text-muted-foreground">Nenhuma execução registrada</p>
-              <p className="text-xs text-muted-foreground/70">As execuções aparecerão aqui após os primeiros disparos</p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {executions.map((exec) => (
-              <div key={exec.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card">
-                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                  exec.status === 'sent' ? 'bg-primary/10' : exec.status === 'failed' ? 'bg-destructive/10' : 'bg-muted')}>
-                  {exec.status === 'sent' ? <CheckCheck className="w-4 h-4 text-primary" />
-                    : exec.status === 'failed' ? <AlertCircle className="w-4 h-4 text-destructive" />
-                    : <Clock3 className="w-4 h-4 text-muted-foreground" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{exec.lead}</p>
-                  <p className="text-xs text-muted-foreground truncate">{exec.step}</p>
-                  {exec.telefone && (
-                    <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{exec.telefone}</p>
-                  )}
-                </div>
-                <div className="text-right shrink-0">
-                  <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide',
-                    exec.status === 'sent' ? 'bg-primary/10 text-primary border-primary/20'
-                      : exec.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20'
-                      : 'bg-muted text-muted-foreground border-border')}>
-                    {exec.status === 'sent' ? 'Enviado' : exec.status === 'failed' ? 'Falhou' : 'Pulado'}
-                  </span>
-                  <p className="text-[10px] text-muted-foreground mt-1">{formatTs(exec.ts)}</p>
+        {tab === 'execucoes' && (
+          <>
+            {loadingExec ? (
+              <div className="flex items-center justify-center py-20 gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Carregando execuções…</span>
+              </div>
+            ) : execError ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <AlertCircle className="w-8 h-8 text-destructive/50" />
+                <p className="text-sm text-destructive">{execError}</p>
+              </div>
+            ) : !sequenceId ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Clock3 className="w-10 h-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Selecione uma sequência para ver execuções</p>
+              </div>
+            ) : executions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Clock3 className="w-10 h-10 text-muted-foreground/30" />
+                <div className="text-center">
+                  <p className="text-sm font-medium text-muted-foreground">Nenhuma execução registrada</p>
+                  <p className="text-xs text-muted-foreground/70">As execuções aparecerão aqui após os primeiros disparos</p>
                 </div>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="space-y-2">
+                {executions.map((exec) => (
+                  <div key={exec.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card">
+                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                      exec.status === 'sent' ? 'bg-primary/10' : exec.status === 'failed' ? 'bg-destructive/10' : 'bg-muted')}>
+                      {exec.status === 'sent' ? <CheckCheck className="w-4 h-4 text-primary" />
+                        : exec.status === 'failed' ? <AlertCircle className="w-4 h-4 text-destructive" />
+                        : <Clock3 className="w-4 h-4 text-muted-foreground" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{exec.lead}</p>
+                      <p className="text-xs text-muted-foreground truncate">{exec.step}</p>
+                      {exec.telefone && (
+                        <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{exec.telefone}</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide',
+                        exec.status === 'sent' ? 'bg-primary/10 text-primary border-primary/20'
+                          : exec.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20'
+                          : 'bg-muted text-muted-foreground border-border')}>
+                        {exec.status === 'sent' ? 'Enviado' : exec.status === 'failed' ? 'Falhou' : 'Pulado'}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground mt-1">{formatTs(exec.ts)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === 'conversoes' && (
+          <>
+            {loadingConv ? (
+              <div className="flex items-center justify-center py-20 gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Carregando conversões…</span>
+              </div>
+            ) : !sequenceId ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <TrendingUp className="w-10 h-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">Selecione uma sequência para ver conversões</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-4 rounded-xl border border-border bg-card">
+                    <p className="text-xs text-muted-foreground mb-1">Leads convertidos</p>
+                    <p className="text-2xl font-bold text-foreground">{convTotal}</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-border bg-card">
+                    <p className="text-xs text-muted-foreground mb-1">Taxa de conversão</p>
+                    <p className="text-2xl font-bold text-emerald-500">{convRate}%</p>
+                  </div>
+                </div>
+                {conversions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-4">
+                    <TrendingUp className="w-10 h-10 text-muted-foreground/30" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-muted-foreground">Nenhuma conversão registrada</p>
+                      <p className="text-xs text-muted-foreground/70">Adicione nós de Meta/Goal ao canvas para rastrear conversões</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {conversions.map((c, i) => (
+                      <div key={`${c.lead_id}-${i}`} className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-card">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-500/10">
+                          <TrendingUp className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{c.lead_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{c.goal_label}</p>
+                          {c.whatsapp && (
+                            <p className="text-[10px] text-muted-foreground/60 truncate font-mono">{c.whatsapp}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                            {c.lead_status}
+                          </span>
+                          <p className="text-[10px] text-muted-foreground mt-1">{formatTs(c.converted_at)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -2998,6 +3196,48 @@ function ModalOverlay({ children, onClose }: ModalOverlayProps) {
 // ─── Test Run Modal ──────────────────────────────────────────────────────────────
 
 // ─── Noshow Cron Test Modal ──────────────────────────────────────────────────────
+
+function ApprovalModal({ sequenceName, onConfirm, onClose }: { sequenceName: string; onConfirm: () => void; onClose: () => void }) {
+  const [notes, setNotes] = useState('');
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-96 p-5 flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Ativar sequência</p>
+            <p className="text-xs text-muted-foreground">{sequenceName}</p>
+          </div>
+          <button onClick={onClose} className="ml-auto text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed -mt-1">
+          Ao ativar, esta sequência começará a disparar mensagens automaticamente para leads qualificados. Revise o canvas antes de confirmar.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Motivo / notas (opcional)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Ex: Ativando para campanha de outubro…"
+            className="field-input resize-none min-h-[60px] text-xs"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:bg-muted transition-colors">
+            Cancelar
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+            <ShieldCheck className="w-3.5 h-3.5" />Confirmar ativação
+          </button>
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
 
 function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
   const [phone, setPhone] = useState(() => {
@@ -3396,6 +3636,10 @@ function CanvasInner() {
   const [diffOpen, setDiffOpen] = useState(false);
   const [versions, setVersions] = useState<CanvasVersion[]>([]);
 
+  // Staging + Approval
+  const [stagingLoading, setStagingLoading] = useState(false);
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+
   // Templates
   const [templatesOpen, setTemplatesOpen] = useState(false);
 
@@ -3503,10 +3747,12 @@ function CanvasInner() {
     else if (kind === 'goal') data = { kind: 'goal', label: 'Meta', marcarStatus: 'Convertido', stepId: id } satisfies GoalNodeData;
     else if (kind === 'sentiment') data = { kind: 'sentiment', label: 'Sentimento', stepId: id } satisfies SentimentNodeData;
     else if (kind === 'wait_event') data = { kind: 'wait_event', label: 'Aguardar Evento', event: 'reply', pattern: '', stepId: id } satisfies WaitEventNodeData;
+    else if (kind === 'sub_flow') data = { kind: 'sub_flow', label: 'Sub-fluxo', subSequenceId: '', subSequenceName: '', stepId: id } satisfies SubFlowNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
-      message: 'messageNode', wait: 'waitNode', wait_event: 'waitEventNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
+      message: 'messageNode', wait: 'waitNode', wait_event: 'waitEventNode', sub_flow: 'subFlowNode',
+      condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
       goal: 'goalNode', sentiment: 'sentimentNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
     };
 
@@ -3531,11 +3777,38 @@ function CanvasInner() {
   async function toggleAtivo() {
     if (!currentSeq) return;
     const nextAtivo = !currentSeq.ativo;
+    // Show approval modal when activating for the first time
+    if (nextAtivo && !currentSeq.ativo) {
+      setApprovalModalOpen(true);
+      return;
+    }
     try {
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ativo: nextAtivo }) });
       if (!res.ok) throw new Error('patch failed');
       setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? { ...s, ativo: nextAtivo } : s));
     } catch (err) { console.error('[AutomationCanvas] toggle', err); }
+  }
+
+  async function confirmAtivo() {
+    if (!currentSeq) return;
+    setApprovalModalOpen(false);
+    try {
+      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ativo: true }) });
+      if (!res.ok) throw new Error('patch failed');
+      setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? { ...s, ativo: true } : s));
+    } catch (err) { console.error('[AutomationCanvas] confirm ativo', err); }
+  }
+
+  async function toggleStaging() {
+    if (!currentSeq) return;
+    const nextStaging = !(currentSeq.staging ?? false);
+    setStagingLoading(true);
+    try {
+      const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staging: nextStaging }) });
+      if (!res.ok) throw new Error('patch failed');
+      setSequences((seqs) => seqs.map((s) => s.id === currentSeq.id ? { ...s, staging: nextStaging } : s));
+    } catch (err) { console.error('[AutomationCanvas] toggleStaging', err); }
+    finally { setStagingLoading(false); }
   }
 
   async function createSequence() {
@@ -3578,7 +3851,9 @@ function CanvasInner() {
         if (cm && sid) nodeComments[sid] = cm;
       });
 
-      const triggerExpiry = (triggerNode?.data as TriggerNodeData | undefined)?.expira_em_dias ?? 0;
+      const triggerData = triggerNode?.data as TriggerNodeData | undefined;
+      const triggerExpiry = triggerData?.expira_em_dias ?? 0;
+      const eventoEntrada = triggerData?.eventoEntrada;
       const canvas_config: CanvasConfig = {
         triggerPos: triggerNode?.position ?? { x: 0, y: 150 },
         positions: nonTrigger.map((n) => ({ x: n.position.x, y: n.position.y })),
@@ -3594,6 +3869,7 @@ function CanvasInner() {
         ...(Object.keys(customLabels).length > 0 ? { customLabels } : {}),
         ...(Object.keys(nodeComments).length > 0 ? { nodeComments } : {}),
         ...(triggerExpiry > 0 ? { expira_em_dias: triggerExpiry } : {}),
+        ...(eventoEntrada ? { eventoEntrada } : {}),
       };
 
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
@@ -4050,6 +4326,20 @@ function CanvasInner() {
 
             <div className="w-px h-5 bg-border" />
 
+            {/* Staging mode toggle */}
+            <button
+              onClick={toggleStaging}
+              disabled={stagingLoading}
+              title={currentSeq.staging ? 'Modo staging ativo — desligar' : 'Ligar modo staging (testes)'}
+              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
+                currentSeq.staging
+                  ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
+                  : 'bg-muted border-border text-muted-foreground hover:bg-accent hover:text-foreground')}>
+              {stagingLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
+              {currentSeq.staging ? 'Staging' : 'Staging'}
+            </button>
+
+            {/* Active toggle */}
             <button onClick={toggleAtivo}
               className={cn('flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
                 currentSeq.ativo ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground')}>
@@ -4161,7 +4451,9 @@ function CanvasInner() {
                 nodes={nodes} edges={edges}
                 sequenceTipo={activeTipo}
                 remarketingCfg={remarketingCfg}
-                onRemarketingChange={setRemarketingCfg} />
+                onRemarketingChange={setRemarketingCfg}
+                sequences={sequences}
+                currentSeqId={currentSeq?.id} />
             )}
           </>
         )}
@@ -4188,6 +4480,14 @@ function CanvasInner() {
 
       {diffOpen && (
         <VersionDiffModal versions={versions} onClose={() => setDiffOpen(false)} />
+      )}
+
+      {approvalModalOpen && (
+        <ApprovalModal
+          sequenceName={currentSeq?.nome ?? ''}
+          onConfirm={confirmAtivo}
+          onClose={() => setApprovalModalOpen(false)}
+        />
       )}
 
       {/* Field input styles */}

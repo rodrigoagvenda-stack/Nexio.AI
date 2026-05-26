@@ -13,12 +13,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!existing) return NextResponse.json({ error: 'Cadência não encontrada' }, { status: 404 })
 
     const body = await request.json()
-    const { nome, tipo, ativo, steps } = body
+    const { nome, tipo, ativo, staging, steps } = body
 
     const updates: Record<string, any> = {}
     if (nome !== undefined) updates.nome = nome
     if (tipo !== undefined) updates.tipo = tipo
     if (ativo !== undefined) updates.ativo = ativo
+    if (staging !== undefined) updates.staging = staging
 
     if (Object.keys(updates).length > 0) {
       await service.from('follow_sequences').update(updates).eq('id', params.id)
