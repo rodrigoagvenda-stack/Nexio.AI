@@ -73,6 +73,7 @@ import {
   GalleryHorizontal,
   Smile,
   ChevronDown,
+  ChevronUp,
   Trash2,
   Link,
   Phone,
@@ -1048,7 +1049,7 @@ function TriggerNode({ id, data, selected }: NodeProps) {
 function MessageNode({ id, data, selected }: NodeProps) {
   const d = data as MessageNodeData;
   const meta = d.offset_unit === 'hours'
-    ? `${d.dia_offset}h`
+    ? formatHorasOffset(d.dia_offset)
     : `D${d.dia_offset} · ${d.horario}`;
 
   const docExt = d.media_name
@@ -2310,18 +2311,11 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           <>
             {/* Offset — anti_noshow: sempre horas (relativo à call). Outros: toggle Dias/Horas */}
             {sequenceTipo === 'anti_noshow' ? (
-              <Field label="Horas (relativo à call)">
-                <input
-                  type="number"
-                  step={0.25}
+              <Field label="Tempo relativo à call">
+                <AntiNoshowOffsetPicker
                   value={d.dia_offset}
-                  onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value), offset_unit: 'hours' })}
-                  className="field-input"
-                  placeholder="-24 = 24h antes"
+                  onChange={(v) => onUpdate(node.id, { dia_offset: v, offset_unit: 'hours' })}
                 />
-                <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
-                  Negativo = antes da call. Ex: -24 = 24h antes · -2 = 2h · 0.083 ≈ 5min depois
-                </p>
               </Field>
             ) : (
               <>
@@ -3248,6 +3242,93 @@ const NOSHOW_DISPATCH_PHASES = [
   'Verificando nodes do canvas…',
   'Disparando mensagens…',
 ] as const;
+
+// ─── Helpers anti-noshow offset ──────────────────────────────────────────────
+
+function formatHorasOffset(value: number): string {
+  if (value === 0) return 'Na call'
+  const abs = Math.abs(value)
+  const h = Math.floor(abs)
+  const m = Math.round((abs - h) * 60)
+  const suffix = value < 0 ? 'antes' : 'pós'
+  if (h === 0) return `${m}min ${suffix}`
+  if (m === 0) return `${h}h ${suffix}`
+  return `${h}h ${m}min ${suffix}`
+}
+
+const NOSHOW_MINUTE_OPTS = [0, 5, 10, 15, 20, 30, 45] as const
+
+function AntiNoshowOffsetPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const isAfter = value > 0
+  const abs = Math.abs(value)
+  const h = Math.floor(abs)
+  const m = Math.round((abs - h) * 60)
+
+  function commit(after: boolean, hours: number, minutes: number) {
+    const total = hours + minutes / 60
+    onChange(after ? total : -total)
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Antes / Após toggle */}
+      <div className="flex rounded-xl border border-border overflow-hidden">
+        <button type="button" onClick={() => commit(false, h, m)}
+          className={cn('flex-1 py-1.5 text-xs font-semibold transition-colors',
+            !isAfter ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+          Antes da call
+        </button>
+        <button type="button" onClick={() => commit(true, h, m)}
+          className={cn('flex-1 py-1.5 text-xs font-semibold transition-colors',
+            isAfter ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+          Após a call
+        </button>
+      </div>
+
+      {/* Horas + Minutos */}
+      <div className="flex items-start gap-3">
+        {/* Horas */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Horas</span>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => commit(!isAfter, Math.max(0, h - 1), m)}
+              className="w-7 h-7 rounded-lg border border-border hover:bg-muted flex items-center justify-center transition-colors">
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+            <span className="w-8 text-center font-mono text-lg font-bold leading-none">{h}</span>
+            <button type="button" onClick={() => commit(!isAfter, h + 1, m)}
+              className="w-7 h-7 rounded-lg border border-border hover:bg-muted flex items-center justify-center transition-colors">
+              <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+
+        <span className="text-xl font-bold text-muted-foreground mt-6">:</span>
+
+        {/* Minutos */}
+        <div className="flex flex-col gap-1 flex-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Minutos</span>
+          <div className="flex flex-wrap gap-1">
+            {NOSHOW_MINUTE_OPTS.map((min) => (
+              <button key={min} type="button" onClick={() => commit(!isAfter, h, min)}
+                className={cn('w-9 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors',
+                  m === min
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40')}>
+                {String(min).padStart(2, '0')}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Resumo */}
+      <p className="text-[11px] text-center font-medium text-primary/70">
+        {formatHorasOffset(value)}
+      </p>
+    </div>
+  )
+}
 
 function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
