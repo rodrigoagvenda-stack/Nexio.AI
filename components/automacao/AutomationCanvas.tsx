@@ -1048,8 +1048,8 @@ function TriggerNode({ id, data, selected }: NodeProps) {
 
 function MessageNode({ id, data, selected }: NodeProps) {
   const d = data as MessageNodeData;
-  const meta = d.offset_unit === 'hours'
-    ? formatHorasOffset(d.dia_offset)
+  const meta = (d.offset_unit === 'hours' || d.offset_unit === 'minutes')
+    ? formatHorasOffset(offsetToMins(d.dia_offset, d.offset_unit))
     : `D${d.dia_offset} · ${d.horario}`;
 
   const docExt = d.media_name
@@ -2313,8 +2313,8 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             {sequenceTipo === 'anti_noshow' ? (
               <Field label="Tempo relativo à call">
                 <AntiNoshowOffsetPicker
-                  value={d.dia_offset}
-                  onChange={(v) => onUpdate(node.id, { dia_offset: v, offset_unit: 'hours' })}
+                  value={offsetToMins(d.dia_offset, d.offset_unit)}
+                  onChange={(mins) => onUpdate(node.id, { dia_offset: mins, offset_unit: 'minutes' })}
                 />
               </Field>
             ) : (
@@ -3245,28 +3245,37 @@ const NOSHOW_DISPATCH_PHASES = [
 
 // ─── Helpers anti-noshow offset ──────────────────────────────────────────────
 
-function formatHorasOffset(value: number): string {
-  if (value === 0) return 'Na call'
-  const abs = Math.abs(value)
-  const h = Math.floor(abs)
-  const m = Math.round((abs - h) * 60)
-  const suffix = value < 0 ? 'antes' : 'pós'
+/** value em minutos totais (inteiro). Negativo = antes da call. */
+function formatHorasOffset(totalMins: number): string {
+  if (totalMins === 0) return 'Na call'
+  const abs = Math.abs(totalMins)
+  const h = Math.floor(abs / 60)
+  const m = abs % 60
+  const suffix = totalMins < 0 ? 'antes' : 'pós'
   if (h === 0) return `${m}min ${suffix}`
   if (m === 0) return `${h}h ${suffix}`
   return `${h}h ${m}min ${suffix}`
 }
 
+/** Converte dia_offset para minutos independente da unit armazenada */
+function offsetToMins(value: number, unit?: string): number {
+  if (unit === 'minutes') return value
+  // legacy: unit === 'hours' ou indefinido → valor em horas (pode ser decimal)
+  return Math.round(value * 60)
+}
+
 const NOSHOW_MINUTE_OPTS = [0, 5, 10, 15, 20, 30, 45] as const
 
-function AntiNoshowOffsetPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+/** value e onChange sempre em minutos inteiros */
+function AntiNoshowOffsetPicker({ value, onChange }: { value: number; onChange: (mins: number) => void }) {
   const isAfter = value > 0
   const abs = Math.abs(value)
-  const h = Math.floor(abs)
-  const m = Math.round((abs - h) * 60)
+  const h = Math.floor(abs / 60)
+  const m = abs % 60
 
   function commit(after: boolean, hours: number, minutes: number) {
-    const total = hours + minutes / 60
-    onChange(after ? total : -total)
+    const totalMins = hours * 60 + minutes
+    onChange(after ? totalMins : -totalMins)
   }
 
   return (
@@ -3324,7 +3333,7 @@ function AntiNoshowOffsetPicker({ value, onChange }: { value: number; onChange: 
 
       {/* Resumo */}
       <p className="text-[11px] text-center font-medium text-primary/70">
-        {formatHorasOffset(value)}
+        {formatHorasOffset(value) /* value já é minutos */}
       </p>
     </div>
   )

@@ -873,8 +873,12 @@ async function processAntiNoshow(
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
-        // dia_offset = horas (negativo = antes, positivo = depois)
-        const targetTime = callTime + step.dia_offset * 3_600_000
+        // dia_offset: 'minutes' = minutos inteiros | 'hours'/legacy = horas decimais
+        const offsetUnit = (step.media_config as any)?.offset_unit
+        const offsetMs = offsetUnit === 'minutes'
+          ? step.dia_offset * 60_000
+          : step.dia_offset * 3_600_000
+        const targetTime = callTime + offsetMs
         const diff = Math.abs(now - targetTime)
 
         if (force) {
