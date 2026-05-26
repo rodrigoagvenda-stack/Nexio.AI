@@ -345,15 +345,22 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
   }
 
   // Busca leads com call agendada e status ativo
-  let query = supabase
+  const { data: leadsRaw, error: leadsErr } = await supabase
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, call_agendada_para, meet_url, resumo_ia, segment, call_status')
     .eq('call_de_venda', true)
     .eq('call_status', 'agendada')
     .not('call_agendada_para', 'is', null)
 
-  const { data: leadsRaw, error: leadsErr } = await query
-  if (leadsErr || !leadsRaw?.length) return result
+  if (leadsErr) {
+    console.error('[antnoshow] erro ao buscar leads:', leadsErr.message)
+    result.errors.push(`query_leads: ${leadsErr.message}`)
+    return result
+  }
+  if (!leadsRaw?.length) {
+    console.log('[antnoshow] nenhum lead com call agendada encontrado')
+    return result
+  }
 
   // Filtra por telefone de teste se fornecido
   const leads = testPhone

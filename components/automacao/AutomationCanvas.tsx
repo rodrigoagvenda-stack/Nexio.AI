@@ -3241,7 +3241,7 @@ function ApprovalModal({ sequenceName, onConfirm, onClose }: { sequenceName: str
 
 function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; disparados?: number; pulados?: number; error?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; processados?: number; disparados?: number; pulados?: number; errors?: string[]; error?: string } | null>(null);
 
   async function handleDispatch() {
     setLoading(true);
@@ -3268,13 +3268,17 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
           Força o cron para todos os leads com call agendada, ignorando a janela de tempo. Os lembretes serão disparados imediatamente.
         </p>
         {result && (
-          <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border',
-            result.ok
-              ? 'bg-primary/10 border-primary/20 text-primary'
-              : 'bg-destructive/10 border-destructive/20 text-destructive')}>
-            {result.ok
-              ? `✓ Concluído — ${result.disparados ?? 0} disparados · ${result.pulados ?? 0} pulados`
-              : `✗ Erro: ${result.error}`}
+          <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border space-y-1',
+            result.errors?.length || result.error
+              ? 'bg-destructive/10 border-destructive/20 text-destructive'
+              : 'bg-primary/10 border-primary/20 text-primary')}>
+            {result.error
+              ? `✗ Erro: ${result.error}`
+              : <>
+                  <p>{`✓ Concluído — ${result.disparados ?? 0} disparados · ${result.pulados ?? 0} pulados · ${result.processados ?? 0} processados`}</p>
+                  {result.errors?.map((e, i) => <p key={i} className="text-destructive text-[10px] break-all">⚠ {e}</p>)}
+                </>
+            }
           </div>
         )}
         <button
