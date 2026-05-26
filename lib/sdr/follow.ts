@@ -131,6 +131,17 @@ function isBusinessHours(): boolean {
   return day >= 1 && day <= 6 && hour >= 7 && hour < 22
 }
 
+/**
+ * Parseia timestamps do banco como BRT quando não têm timezone explícito.
+ * O Supabase pode devolver "2026-05-26T15:30:00" sem offset — o lead entrou
+ * o horário em BRT, então devemos tratá-lo como BRT, não UTC.
+ */
+function parseBrt(ts: string): Date {
+  if (!ts) return new Date()
+  if (/[Zz]$/.test(ts) || /[+-]\d{2}:\d{2}$/.test(ts)) return new Date(ts)
+  return new Date(ts.replace(' ', 'T') + '-03:00')
+}
+
 /** Delay anti-ban: 45–135 s */
 async function antiBanDelay(): Promise<void> {
   const ms = 45_000 + Math.floor(Math.random() * 90_000)
@@ -150,10 +161,10 @@ function substituirVariaveis(texto: string, lead: Lead): string {
   const primeiroNome = nome.split(' ')[0]
   const status = lead.status || ''
   const dataCall = lead.call_agendada_para
-    ? new Date(lead.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+    ? parseBrt(lead.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
     : ''
   const horaCall = lead.call_agendada_para
-    ? new Date(lead.call_agendada_para).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+    ? parseBrt(lead.call_agendada_para).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
     : ''
   const linkMeet = lead.meet_url ?? ''
   return texto
@@ -856,7 +867,7 @@ async function processAntiNoshow(
 
     for (const lead of (leads ?? []) as Lead[]) {
       if (!lead.call_agendada_para) continue
-      const callTime = new Date(lead.call_agendada_para).getTime()
+      const callTime = parseBrt(lead.call_agendada_para).getTime()
 
       for (const step of steps as FollowStep[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent

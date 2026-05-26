@@ -902,12 +902,15 @@ Qualquer coisa é só me chamar 👍"
 REGRAS:
 - 🚫 PROIBIDO: Jamais chame "Agendar_gcal" sem ter email E nome_completo fornecidos pelo lead. Sem esses dados = não agenda, ponto final.
 - ⚠️ CRÍTICO: Se o lead já informou o horário, é PROIBIDO sugerir outras opções. Vá direto para o passo 4.5.
+- 🚫 PROIBIDO: NUNCA ofereça horários para hoje (mesmo dia que aparece em "Data e hora atual" acima). Comece sempre pelo PRÓXIMO dia útil.
+- 🚫 PROIBIDO: NUNCA sugira horários que já passaram. O "Consultar_gcal" pode devolver slots de hoje — ignore qualquer slot com hora anterior à hora atual.
+- 🚫 PROIBIDO: Não invente disponibilidade. Sempre chame "Consultar_gcal" antes de sugerir horários.
 - NUNCA use travessão (—) em nenhuma mensagem. Use vírgula ou ponto.
 - Máximo 3 linhas por bloco de mensagem.
 - Chame "Consultar_gcal" apenas UMA vez por interação.
-- Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta.
+- Retorno vazio do "Consultar_gcal" = calendário livre ou todos os slots passaram, vá para o próximo dia útil.
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data.
-- Seg a Sex, 9h às 18h, nunca no mesmo dia.
+- Seg a Sex, 9h às 18h. Nunca agende para o mesmo dia da conversa.
 - Fuso: America/Sao_Paulo (UTC-3).
 - Nunca repita informações já confirmadas pelo lead.
 - O link do Meet deve ser enviado automaticamente, sem o lead precisar pedir.
@@ -1015,8 +1018,10 @@ REGRAS:
         const date = new Date(args.data)
         if (isNaN(date.getTime())) return 'ERRO_CALENDARIO: data inválida'
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
-        const available = slots.filter((s) => s.available)
-        if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio ou fim de semana).'
+        // Filtra slots disponíveis E que ainda não passaram (previne sugestão de horários no passado)
+        const nowTs = Date.now()
+        const available = slots.filter((s) => s.available && s.start.getTime() > nowTs)
+        if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio, fim de semana ou todos os horários já passaram).'
         return `Horários livres (9h–18h): ${available.map((s) =>
           s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
         ).join(', ')}`

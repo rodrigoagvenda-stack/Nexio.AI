@@ -21,6 +21,13 @@ function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   }
   return value // texto puro sem prefixo
 }
+
+/** Parseia timestamps do banco como BRT quando não têm timezone explícito */
+function parseBrt(ts: string): Date {
+  if (!ts) return new Date()
+  if (/[Zz]$/.test(ts) || /[+-]\d{2}:\d{2}$/.test(ts)) return new Date(ts)
+  return new Date(ts.replace(' ', 'T') + '-03:00')
+}
 import { getSystemConfig } from './system-config'
 import OpenAI from 'openai'
 
@@ -151,7 +158,7 @@ function calcularJanela(
   force = false
 ): { janela: Janela; ok: boolean } {
   const agora = Date.now()
-  const callTs = new Date(callAgendadaPara).getTime()
+  const callTs = parseBrt(callAgendadaPara).getTime()
   const diffMs = callTs - agora
   const diffMin = diffMs / 60_000
   const diffHoras = diffMs / 3_600_000
@@ -230,7 +237,7 @@ async function gerarMensagemIA(
     lead.segment ?? ''
   )
 
-  const callDate = new Date(lead.call_agendada_para).toLocaleString('pt-BR', {
+  const callDate = parseBrt(lead.call_agendada_para).toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     weekday: 'long',
     day: '2-digit',
