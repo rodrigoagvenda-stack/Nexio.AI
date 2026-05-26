@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { runAntNoshow } from '@/lib/sdr/follow-antnoshow'
+import { NextResponse } from 'next/server'
+import { runAntNoshowAll } from '@/lib/sdr/follow'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -14,7 +14,7 @@ function checkAuth(request: Request): boolean {
 export async function GET(request: Request) {
   if (!checkAuth(request)) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   try {
-    const result = await runAntNoshow()
+    const result = await runAntNoshowAll()
     return NextResponse.json({ ok: true, ...result })
   } catch (err: any) {
     console.error('[Cron antnoshow]', err)
@@ -22,13 +22,11 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/cron/antnoshow — disparo manual de teste (bypass janela de tempo)
-// Body: { phone?: string }  — se phone informado, filtra só esse lead
-export async function POST(request: NextRequest) {
+// POST /api/cron/antnoshow — disparo manual (autenticação CRON_SECRET)
+export async function POST(request: Request) {
   if (!checkAuth(request)) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   try {
-    const body = await request.json().catch(() => ({}))
-    const result = await runAntNoshow({ force: true, testPhone: body.phone })
+    const result = await runAntNoshowAll()
     return NextResponse.json({ ok: true, ...result })
   } catch (err: any) {
     console.error('[Cron antnoshow force]', err)

@@ -3242,18 +3242,24 @@ function ApprovalModal({ sequenceName, onConfirm, onClose }: { sequenceName: str
   );
 }
 
-const NOSHOW_JANELAS = [
-  { label: 'Todos os nodes', horas: undefined },
-  { label: '24h antes', horas: -24 },
-  { label: '2h antes', horas: -2 },
-  { label: '15min antes', horas: -0.25 },
-  { label: '5min após', horas: 0.083 },
+const NOSHOW_DISPATCH_PHASES = [
+  'Conectando à instância WhatsApp…',
+  'Buscando leads com call agendada…',
+  'Verificando nodes do canvas…',
+  'Disparando mensagens…',
 ] as const;
 
 function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
-  const [janela, setJanela] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState(0);
   const [result, setResult] = useState<{ ok: boolean; disparados?: number; error?: string } | null>(null);
+
+  useEffect(() => {
+    if (!loading) return;
+    setPhase(0);
+    const iv = setInterval(() => setPhase((p) => Math.min(p + 1, NOSHOW_DISPATCH_PHASES.length - 1)), 1400);
+    return () => clearInterval(iv);
+  }, [loading]);
 
   async function handleDispatch() {
     setLoading(true);
@@ -3262,7 +3268,7 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
       const res = await fetch('/api/follow/antnoshow/force', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ horasAlvo: janela }),
+        body: JSON.stringify({}),
       });
       const json = await res.json();
       setResult(json);
@@ -3283,33 +3289,64 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
         <p className="text-xs text-muted-foreground -mt-2 leading-relaxed">
           Usa 100% os nodes do canvas. Ignora janela de tempo e dispara imediatamente para leads com call agendada.
         </p>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Qual lembrete disparar</label>
-          <div className="flex flex-wrap gap-1.5">
-            {NOSHOW_JANELAS.map((j) => (
-              <button key={String(j.horas)} onClick={() => setJanela(j.horas)}
-                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                  janela === j.horas
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-muted border-border text-muted-foreground hover:text-foreground')}>
-                {j.label}
-              </button>
+
+        {loading && (
+          <div className="flex flex-col gap-1.5">
+            {NOSHOW_DISPATCH_PHASES.map((label, i) => (
+              <div key={i} className={cn(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all duration-300',
+                i < phase ? 'bg-primary/8 border-primary/20 opacity-60' :
+                i === phase ? 'bg-primary/10 border-primary/30' :
+                'bg-muted/40 border-transparent opacity-30',
+              )}>
+                {i < phase
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                  : i === phase
+                    ? <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+                    : <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/30 shrink-0" />}
+                <span className={cn('text-xs', i <= phase ? 'text-foreground' : 'text-muted-foreground/40')}>{label}</span>
+              </div>
             ))}
           </div>
-        </div>
-        {result && (
-          <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border',
-            result.error ? 'bg-destructive/10 border-destructive/20 text-destructive' : 'bg-primary/10 border-primary/20 text-primary')}>
-            {result.error ? `✗ Erro: ${result.error}` : `✓ Concluído — ${result.disparados ?? 0} disparados`}
+        )}
+
+        {result && !loading && (
+          <div className={cn('flex flex-col gap-1.5')}>
+            {result.error ? (
+              <div className="px-3 py-2.5 rounded-xl text-xs leading-relaxed border bg-destructive/10 border-destructive/20 text-destructive">
+                ✗ Erro: {result.error}
+              </div>
+            ) : (
+              <>
+                {NOSHOW_DISPATCH_PHASES.map((label, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg border bg-primary/8 border-primary/20 opacity-70">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs text-foreground">{label}</span>
+                  </div>
+                ))}
+                <div className="px-3 py-2.5 rounded-xl text-xs font-semibold border bg-primary/10 border-primary/30 text-primary mt-1">
+                  ✓ Concluído — {result.disparados ?? 0} {result.disparados === 1 ? 'node disparado' : 'nodes disparados'}
+                </div>
+              </>
+            )}
           </div>
         )}
-        <button
-          onClick={handleDispatch}
-          disabled={loading}
-          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-          {loading ? 'Disparando…' : 'Disparar agora'}
-        </button>
+
+        {!loading && !result && (
+          <button
+            onClick={handleDispatch}
+            className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+            <Zap className="w-3.5 h-3.5" />
+            Disparar agora
+          </button>
+        )}
+        {!loading && result && (
+          <button
+            onClick={() => { setResult(null); setPhase(0); }}
+            className="w-full py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground border border-border bg-muted/50 transition-colors">
+            Disparar novamente
+          </button>
+        )}
       </div>
     </ModalOverlay>
   );

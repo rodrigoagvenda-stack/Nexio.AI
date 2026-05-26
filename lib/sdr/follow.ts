@@ -831,11 +831,11 @@ async function processAntiNoshow(
   company: CompanyCtx,
   sequences: FollowSequence[],
   supabase: Supabase,
-  opts: { force?: boolean; horasAlvo?: number } = {}
+  opts: { force?: boolean; horasAlvo?: number; skipDelay?: boolean } = {}
 ): Promise<number> {
   let sent = 0
   const now = Date.now()
-  const { force = false, horasAlvo } = opts
+  const { force = false, horasAlvo, skipDelay = false } = opts
 
   const { data: leads } = await supabase
     .from('leads')
@@ -911,7 +911,7 @@ async function processAntiNoshow(
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
           sent++
-          await antiBanDelay()
+          if (!force && !skipDelay) await antiBanDelay()
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
           const { shouldOpen } = await recordCircuitFailure(sequence.id)
@@ -1340,19 +1340,18 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         const byTipo = (tipo: SequenceTipo) =>
           sequences.filter((s: any) => s.tipo === tipo) as FollowSequence[]
 
-        const [g, n, r, p, t] = await Promise.allSettled([
+        const [g, r, p, t] = await Promise.allSettled([
           processFollowGeral(company, byTipo('follow_geral'), openai, supabase),
-          processAntiNoshow(company, byTipo('anti_noshow'), supabase),
           processRemarketing(company, byTipo('remarketing'), openai, supabase),
           processFollowProposta(company, byTipo('follow_proposta'), openai, supabase),
           processTrialSaas(company, byTipo('trial_saas'), supabase),
         ])
 
-        const total = [g, n, r, p, t]
+        const total = [g, r, p, t]
           .filter((r) => r.status === 'fulfilled')
           .reduce((acc, r) => acc + (r as PromiseFulfilledResult<number>).value, 0)
 
-        for (const result of [g, n, r, p, t]) {
+        for (const result of [g, r, p, t]) {
           if (result.status === 'rejected') {
             errors.push(`Empresa ${company.id}: ${result.reason?.message}`)
           }
@@ -1398,6 +1397,53 @@ function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   return value
 }
 
+/** Roda anti-noshow para todas as empresas ativas — usado pelo cron a cada 15 min */
+export async function runAntNoshowAll(): Promise<{ processed: number; sent: number; errors: string[] }> {
+  const supabase = createServiceClient()
+  const platformCfg = await getPlatformConfig()
+  const errors: string[] = []
+  let processed = 0
+  let totalSent = 0
+
+  const { data: configs, error: cfgErr } = await supabase
+    .from('sdr_configs')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .eq('agente_ativo', true)
+
+  if (cfgErr) return { processed: 0, sent: 0, errors: [cfgErr.message] }
+
+  for (const cfg of configs ?? []) {
+    try {
+      const company: CompanyCtx = {
+        id: cfg.company_id,
+        uazapi_url: cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url,
+        uazapi_token: safeDecrypt(cfg.uazapi_token),
+        openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
+        sdr_prompt: cfg.prompt ?? null,
+      }
+      if (!company.uazapi_token) continue
+      if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) continue
+
+      const { data: sequences } = await supabase
+        .from('follow_sequences')
+        .select('*')
+        .eq('company_id', company.id)
+        .eq('tipo', 'anti_noshow')
+        .eq('ativo', true)
+
+      if (!sequences?.length) { processed++; continue }
+
+      const sent = await processAntiNoshow(company, sequences as FollowSequence[], supabase)
+      totalSent += sent
+      processed++
+    } catch (err: any) {
+      errors.push(`Empresa ${cfg.company_id}: ${err.message}`)
+    }
+  }
+
+  return { processed, sent: totalSent, errors }
+}
+
 export async function runAntNoshowForCompany(
   companyId: number,
   opts: { horasAlvo?: number } = {}
@@ -1435,7 +1481,7 @@ export async function runAntNoshowForCompany(
     company,
     sequences as FollowSequence[],
     supabase,
-    { force: true, horasAlvo: opts.horasAlvo }
+    { force: true, horasAlvo: opts.horasAlvo, skipDelay: true }
   )
   return { sent }
 }
