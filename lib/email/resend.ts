@@ -445,35 +445,6 @@ export async function sendWelcomeEmail({
   const client = getResend()
   if (!client) return { success: false }
 
-  const { data, error } = await client.emails.send({
-    from: 'Zaapply <noreply@zaapply.com.br>',
-    to: [email],
-    subject: `Bem-vindo ao Zaapply, ${nome}!`,
-    html: zaapplyHtml({
-      heading: `Boa, ${nome}! Sua conta está pronta.`,
-      body: `<p style="margin:0 0 16px;color:#444444;font-size:15px;line-height:1.7;">A empresa <strong style="color:#111111;">${companyName}</strong> foi configurada com sucesso. ${isTrial ? 'Você tem <strong style="color:#15803d;">7 dias grátis</strong> para explorar o CRM e o WhatsApp — sem cartão de crédito.' : 'Tudo pronto para começar a vender.'}</p><p style="margin:0 0 20px;color:#6b7280;font-size:14px;line-height:1.7;">Conecte seu WhatsApp, importe seus leads e deixe o Zaapply trabalhar por você.</p>`,
-      button: { text: 'Acessar o painel', url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'}/dashboard` },
-    }),
-  })
-
-  if (error) return { success: false, message: error.message }
-  return { success: true, data }
-}
-
-export async function sendWelcomeEmail({
-  nome,
-  email,
-  companyName,
-  isTrial,
-}: {
-  nome: string
-  email: string
-  companyName: string
-  isTrial?: boolean
-}) {
-  const client = getResend()
-  if (!client) return { success: false }
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'
   const bodyText = isTrial
     ? `A empresa <strong style="font-weight:600;">${companyName}</strong> foi criada com sucesso. Você tem <strong style="font-weight:600;">7 dias grátis</strong> para explorar o CRM e o WhatsApp — sem cartão de crédito.`
