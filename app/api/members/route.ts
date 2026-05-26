@@ -163,38 +163,14 @@ export async function POST(request: NextRequest) {
 
     console.log('[INVITE] Usuário criado na tabela com sucesso');
 
-    // 5. Registrar logs
-    await supabaseService.from('system_logs').insert({
+    // 5. Logs — fire-and-forget, não bloqueia o retorno
+    supabaseService.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',
       severity: 'info',
       message: `Novo membro convidado: ${name} (${email})`,
-      payload: {
-        user_id: authUser.user.id,
-        role,
-        invite_sent: true,
-        email_confirmed: !!authUser.user.email_confirmed_at,
-      },
-    });
-
-    // 6. Criar log de atividade para notificações
-    const { data: { user: currentUser } } = await supabaseService.auth.getUser();
-    if (currentUser) {
-      await supabaseService.from('activity_logs').insert({
-        user_id: currentUser.id,
-        company_id: companyId,
-        action: 'member_invited',
-        description: `Convidou ${name} para a equipe`,
-        metadata: {
-          invited_user_id: authUser.user.id,
-          invited_user_name: name,
-          invited_user_email: email,
-          role,
-        },
-      });
-    }
-
-    console.log('[INVITE] ✅ Processo completo! Email de convite foi enviado pelo Supabase.');
+      payload: { user_id: authUser.user.id, role, invite_sent: true },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,
