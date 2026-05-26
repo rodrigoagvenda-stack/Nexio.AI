@@ -77,6 +77,8 @@ import {
   Link,
   Phone,
   MessageCircle,
+  Bell,
+  GitCompare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -129,6 +131,7 @@ interface CanvasConfig {
   edges: CanvasConfigEdge[];
   remarketing?: RemarketingConfig;
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
+  nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
 }
 
@@ -239,6 +242,19 @@ interface SentimentNodeData extends Record<string, unknown> {
   label: string;
   stepId: string;
   customLabel?: string;
+  comment?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
+interface WaitEventNodeData extends Record<string, unknown> {
+  kind: 'wait_event';
+  label: string;
+  event: 'reply' | 'keyword';
+  pattern?: string;
+  stepId: string;
+  customLabel?: string;
+  comment?: string;
   _execState?: ExecState;
   _execError?: string;
 }
@@ -305,6 +321,7 @@ type AutoNodeData =
   | TriggerNodeData
   | MessageNodeData
   | WaitNodeData
+  | WaitEventNodeData
   | ConditionNodeData
   | SwitchNodeData
   | EndNodeData
@@ -601,16 +618,22 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
     const blocos = Array.isArray(step.media_config?.blocos) && (step.media_config!.blocos as string[]).length > 0
       ? (step.media_config!.blocos as string[])
       : undefined;
-    // Custom label (stored in canvas_config.customLabels keyed by stepId)
+    // Custom label and comment (stored in canvas_config, keyed by stepId)
     const customLabel = canvasConfig?.customLabels?.[step.id] ?? undefined;
+    const comment = canvasConfig?.nodeComments?.[step.id] ?? undefined;
 
-    if (step.tipo_mensagem === 'goal') {
+    if (step.tipo_mensagem === 'wait_event') {
+      const wmc = step.media_config as any ?? {};
+      nodes.push({ id: step.id, type: 'waitEventNode', position: { x, y },
+        data: { kind: 'wait_event', label: 'Aguardar Evento', event: wmc.event ?? 'reply', pattern: wmc.pattern ?? '', stepId: step.id, customLabel, comment } satisfies WaitEventNodeData });
+    }
+    else if (step.tipo_mensagem === 'goal') {
       nodes.push({ id: step.id, type: 'goalNode', position: { x, y },
-        data: { kind: 'goal', label: 'Meta', marcarStatus: step.condicao || 'Convertido', stepId: step.id, customLabel } satisfies GoalNodeData });
+        data: { kind: 'goal', label: 'Meta', marcarStatus: step.condicao || 'Convertido', stepId: step.id, customLabel, comment } satisfies GoalNodeData });
     }
     else if (step.tipo_mensagem === 'sentiment') {
       nodes.push({ id: step.id, type: 'sentimentNode', position: { x, y },
-        data: { kind: 'sentiment', label: 'Sentimento', stepId: step.id, customLabel } satisfies SentimentNodeData });
+        data: { kind: 'sentiment', label: 'Sentimento', stepId: step.id, customLabel, comment } satisfies SentimentNodeData });
     }
     else if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id, customLabel } satisfies EndNodeData });
     else if (step.tipo_mensagem === 'switch') {
@@ -771,6 +794,11 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'sentiment') {
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'sentiment', ordem: idx + 1, condicao: '' };
     }
+    if (d.kind === 'wait_event') {
+      const wd = d as WaitEventNodeData;
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'wait_event' as any, ordem: idx + 1, condicao: '',
+        media_config: { event: wd.event ?? 'reply', ...(wd.pattern ? { pattern: wd.pattern } : {}) } };
+    }
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
 }
@@ -835,7 +863,7 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   return null;
 }
 
-function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount, dlqCount }: {
+function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount, dlqCount, comment }: {
   children: React.ReactNode;
   selected?: boolean;
   accent?: AccentKey;
@@ -844,6 +872,7 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   execError?: string;
   leadCount?: number;
   dlqCount?: number;
+  comment?: string;
 }) {
   const isRunning = execState === 'running';
   const isSuccess = execState === 'success';
@@ -878,6 +907,12 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
         <ExecBadge state={execState} error={execError} />
         {header}
         <div className="mt-2 flex flex-col gap-1.5">{children}</div>
+        {comment && (
+          <div className="mt-2 pt-2 border-t border-border/20 flex items-start gap-1.5">
+            <MessageSquare className="w-2.5 h-2.5 text-amber-500/70 shrink-0 mt-px" />
+            <span className="text-[10px] text-muted-foreground/60 leading-snug line-clamp-2">{comment}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -999,7 +1034,8 @@ function MessageNode({ id, data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="emerald"
       header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} nodeId={id} customLabel={d.customLabel} />}
-      execState={d._execState} execError={d._execError} leadCount={d._leadCount} dlqCount={dlqCount}>
+      execState={d._execState} execError={d._execError} leadCount={d._leadCount} dlqCount={dlqCount}
+      comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
@@ -1202,7 +1238,7 @@ function WaitNode({ id, data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="amber"
       header={<NodeHeader icon={Clock} label="Aguardar" accent="amber" nodeId={id} customLabel={d.customLabel} />}
-      execState={d._execState} execError={d._execError}>
+      execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <p className="text-sm font-semibold text-foreground/90">{d.dia_offset} dia{d.dia_offset !== 1 ? 's' : ''}</p>
@@ -1220,7 +1256,7 @@ function ConditionNode({ id, data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="violet"
       header={<NodeHeader icon={GitBranch} label="Condição" accent="violet" nodeId={id} customLabel={d.customLabel} />}
-      execState={d._execState} execError={d._execError}>
+      execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="sim" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-primary/60 !border !border-primary/40 !rounded-full" />
       <Handle id="nao" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/50 !border !border-destructive/30 !rounded-full" />
@@ -1250,7 +1286,7 @@ function GoalNode({ id, data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="emerald"
       header={<NodeHeader icon={Target} label="Meta" accent="emerald" nodeId={id} customLabel={d.customLabel} />}
-      execState={d._execState} execError={d._execError}>
+      execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
         {d.marcarStatus ? `→ ${d.marcarStatus}` : '→ Convertido'}
@@ -1265,7 +1301,7 @@ function SentimentNode({ id, data, selected }: NodeProps) {
   return (
     <NodeShell selected={selected} accent="violet"
       header={<NodeHeader icon={MessageCircle} label="Sentimento" accent="violet" nodeId={id} customLabel={d.customLabel} />}
-      execState={d._execState} execError={d._execError}>
+      execState={d._execState} execError={d._execError} comment={(d as any).comment as string | undefined}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle id="positivo" type="source" position={Position.Top} style={{ left: '25%' }} className="!w-2.5 !h-2.5 !bg-emerald-500/70 !border !border-emerald-500/40 !rounded-full" />
       <Handle id="neutro" type="source" position={Position.Right} className={HANDLE_CLS} />
@@ -1276,6 +1312,24 @@ function SentimentNode({ id, data, selected }: NodeProps) {
         <span className="text-[10px] text-muted-foreground/60 font-medium">→ Neutro</span>
         <span className="text-[10px] text-destructive/70 font-medium">↓ Negativo</span>
       </div>
+    </NodeShell>
+  );
+}
+
+function WaitEventNode({ id, data, selected }: NodeProps) {
+  const d = data as WaitEventNodeData;
+  return (
+    <NodeShell selected={selected} accent="cyan"
+      header={<NodeHeader icon={Bell} label="Aguardar Evento" accent="cyan" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError} comment={d.comment}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+      <p className="text-xs leading-snug">
+        {d.event === 'keyword' && d.pattern
+          ? <><span className="font-semibold text-cyan-500">"{d.pattern}"</span><span className="text-foreground/70"> na resposta</span></>
+          : <span className="text-muted-foreground/70">Qualquer resposta do lead</span>}
+      </p>
+      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Aguarda antes de continuar o fluxo</p>
     </NodeShell>
   );
 }
@@ -1429,6 +1483,7 @@ const nodeTypes = {
   triggerNode: TriggerNode,
   messageNode: MessageNode,
   waitNode: WaitNode,
+  waitEventNode: WaitEventNode,
   conditionNode: ConditionNode,
   switchNode: SwitchNode,
   endNode: EndNode,
@@ -2664,6 +2719,51 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </Field>
         )}
 
+        {/* ── WaitEvent node ── */}
+        {d.kind === 'wait_event' && (
+          <>
+            <Field label="Tipo de evento">
+              <select
+                value={(d as WaitEventNodeData).event ?? 'reply'}
+                onChange={(e) => onUpdate(node.id, { event: e.target.value as 'reply' | 'keyword' })}
+                className="field-input"
+              >
+                <option value="reply">Qualquer resposta</option>
+                <option value="keyword">Palavra-chave específica</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                O fluxo avança quando o lead enviar uma mensagem que satisfaça o critério.
+              </p>
+            </Field>
+            {(d as WaitEventNodeData).event === 'keyword' && (
+              <Field label="Palavra-chave">
+                <input
+                  type="text"
+                  value={(d as WaitEventNodeData).pattern ?? ''}
+                  onChange={(e) => onUpdate(node.id, { pattern: e.target.value })}
+                  placeholder="Ex: SIM, confirmo, quero..."
+                  className="field-input"
+                />
+                <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                  A resposta do lead deve conter este texto (sem diferenciar maiúsculas).
+                </p>
+              </Field>
+            )}
+          </>
+        )}
+
+        {/* ── Anotações (todos os nós exceto trigger) ── */}
+        {d.kind !== 'trigger' && (
+          <Field label="Anotações">
+            <textarea
+              value={(d as any).comment ?? ''}
+              onChange={(e) => onUpdate(node.id, { comment: e.target.value || undefined } as any)}
+              placeholder="Notas internas sobre este nó…"
+              className="field-input resize-none min-h-[60px] text-xs"
+            />
+          </Field>
+        )}
+
         {d.kind !== 'trigger' && (
           <button onClick={() => { onDelete(node.id); onClose(); }}
             className="mt-auto w-full py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors border border-destructive/20">
@@ -2686,7 +2786,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
+type PaletteKind = 'message' | 'wait' | 'wait_event' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -2696,6 +2796,7 @@ interface PaletteItem {
 const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Aguardar Evento', desc: 'Continua quando lead responder (ou palavra-chave)', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
   { label: 'Condição', desc: 'Se/senão por variável', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Switch', desc: 'N saídas por valor (botões)', kind: 'switch', icon: GitMerge, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
@@ -3102,6 +3203,138 @@ function TemplatesModal({ onUse, onClose }: TemplatesModalProps) {
   );
 }
 
+// ─── Version Diff Modal ──────────────────────────────────────────────────────────
+
+function VersionDiffModal({ versions, onClose }: { versions: CanvasVersion[]; onClose: () => void }) {
+  const [v1Idx, setV1Idx] = useState(Math.max(0, versions.length - 2));
+  const [v2Idx, setV2Idx] = useState(Math.max(0, versions.length - 1));
+
+  if (versions.length < 2) {
+    return (
+      <ModalOverlay onClose={onClose}>
+        <div className="bg-card border border-border rounded-2xl shadow-2xl w-96 p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Comparar versões</p>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+          </div>
+          <p className="text-sm text-muted-foreground text-center py-6">Salve pelo menos 2 versões para comparar.</p>
+        </div>
+      </ModalOverlay>
+    );
+  }
+
+  const v1 = versions[v1Idx];
+  const v2 = versions[v2Idx];
+  const v1Map = new Map(v1.nodes.map((n) => [n.id, n]));
+  const v2Map = new Map(v2.nodes.map((n) => [n.id, n]));
+
+  const added = v2.nodes.filter((n) => !v1Map.has(n.id));
+  const removed = v1.nodes.filter((n) => !v2Map.has(n.id));
+  const modified = v2.nodes.filter((n) => {
+    const old = v1Map.get(n.id);
+    if (!old) return false;
+    return JSON.stringify(old.data) !== JSON.stringify(n.data) ||
+      Math.abs(old.position.x - n.position.x) > 5 ||
+      Math.abs(old.position.y - n.position.y) > 5;
+  });
+
+  const nodeLabel = (n: Node<AutoNodeData>) => {
+    const d = n.data as any;
+    return d.customLabel || d.label || d.kind || n.type || n.id;
+  };
+  const nodeType = (n: Node<AutoNodeData>) => String(n.type ?? '').replace('Node', '');
+
+  const unchanged = v2.nodes.length - added.length - modified.length;
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <GitCompare className="w-4 h-4 text-muted-foreground" />
+            <p className="text-sm font-semibold">Comparar versões</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Versão anterior</label>
+              <select value={v1Idx} onChange={(e) => setV1Idx(Number(e.target.value))} className="field-input">
+                {versions.map((v, i) => (
+                  <option key={v.ts} value={i}>{formatVersionLabel(v, i, versions.length)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Versão nova</label>
+              <select value={v2Idx} onChange={(e) => setV2Idx(Number(e.target.value))} className="field-input">
+                {versions.map((v, i) => (
+                  <option key={v.ts} value={i}>{formatVersionLabel(v, i, versions.length)}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {v1Idx === v2Idx ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Selecione versões diferentes para comparar.</p>
+          ) : added.length === 0 && removed.length === 0 && modified.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-6">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+              <p className="text-sm text-muted-foreground">Nenhuma diferença — {unchanged} nós idênticos.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground pb-1 border-b border-border">
+                {added.length > 0 && <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">+{added.length} adicionados</span>}
+                {removed.length > 0 && <span className="flex items-center gap-1 text-destructive font-semibold">–{removed.length} removidos</span>}
+                {modified.length > 0 && <span className="flex items-center gap-1 text-amber-500 font-semibold">~{modified.length} modificados</span>}
+                {unchanged > 0 && <span className="text-muted-foreground/60">{unchanged} sem mudança</span>}
+              </div>
+              {added.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-1">Adicionados</p>
+                  {added.map((n) => (
+                    <div key={n.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-xs font-medium text-foreground/80">{nodeLabel(n)}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground font-mono">{nodeType(n)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {removed.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-destructive mb-1">Removidos</p>
+                  {removed.map((n) => (
+                    <div key={n.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-destructive/8 border border-destructive/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                      <span className="text-xs font-medium text-foreground/80">{nodeLabel(n)}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground font-mono">{nodeType(n)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {modified.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-1">Modificados</p>
+                  {modified.map((n) => (
+                    <div key={n.id} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                      <span className="text-xs font-medium text-foreground/80">{nodeLabel(n)}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground font-mono">{nodeType(n)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}
+
 // ─── Versions Dropdown ───────────────────────────────────────────────────────────
 
 interface VersionsDropdownProps {
@@ -3160,6 +3393,7 @@ function CanvasInner() {
 
   // Versioning
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
   const [versions, setVersions] = useState<CanvasVersion[]>([]);
 
   // Templates
@@ -3268,10 +3502,11 @@ function CanvasInner() {
     else if (kind === 'scheduling') data = { kind: 'scheduling', label: 'Agendar Call', dia_offset: 0, horario: '09:00', duracao: 60, mensagemInicial: '', stepId: id } satisfies SchedulingNodeData;
     else if (kind === 'goal') data = { kind: 'goal', label: 'Meta', marcarStatus: 'Convertido', stepId: id } satisfies GoalNodeData;
     else if (kind === 'sentiment') data = { kind: 'sentiment', label: 'Sentimento', stepId: id } satisfies SentimentNodeData;
+    else if (kind === 'wait_event') data = { kind: 'wait_event', label: 'Aguardar Evento', event: 'reply', pattern: '', stepId: id } satisfies WaitEventNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
-      message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
+      message: 'messageNode', wait: 'waitNode', wait_event: 'waitEventNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
       goal: 'goalNode', sentiment: 'sentimentNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
     };
 
@@ -3332,12 +3567,15 @@ function CanvasInner() {
       const nonTrigger = [...nodes.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
       const idToIdx: Record<string, number> = {};
       nonTrigger.forEach((n, i) => { idToIdx[n.id] = i; });
-      // Collect custom labels from all nodes (keyed by stepId)
+      // Collect custom labels and comments from all nodes (keyed by stepId)
       const customLabels: Record<string, string> = {};
+      const nodeComments: Record<string, string> = {};
       nodes.forEach((n) => {
         const cl = (n.data as any).customLabel as string | undefined;
+        const cm = (n.data as any).comment as string | undefined;
         const sid = (n.data as any).stepId as string | undefined;
         if (cl && sid) customLabels[sid] = cl;
+        if (cm && sid) nodeComments[sid] = cm;
       });
 
       const triggerExpiry = (triggerNode?.data as TriggerNodeData | undefined)?.expira_em_dias ?? 0;
@@ -3354,6 +3592,7 @@ function CanvasInner() {
           .filter((e) => e.sourceIdx !== undefined && e.targetIdx !== undefined) as CanvasConfigEdge[],
         ...(currentSeq.tipo === 'remarketing' ? { remarketing: remarketingCfg } : {}),
         ...(Object.keys(customLabels).length > 0 ? { customLabels } : {}),
+        ...(Object.keys(nodeComments).length > 0 ? { nodeComments } : {}),
         ...(triggerExpiry > 0 ? { expira_em_dias: triggerExpiry } : {}),
       };
 
@@ -3651,6 +3890,21 @@ function CanvasInner() {
           }
           setNodeExecState(node.id, 'success', 'Agente de agendamento ativado — SDR assume a conversa');
           break; // real executor hands off to SDR; test stops here
+        } else if (d.kind === 'wait_event') {
+          if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número.');
+          const wd = d as WaitEventNodeData;
+          setTestWaitingReply(true);
+          const reply = await waitForLeadReply(conversaId, 120_000, replyBaselineCount);
+          replyBaselineCount = undefined;
+          setTestWaitingReply(false);
+          if (abortTestRef.current) break;
+          const matched = wd.event !== 'keyword' || !wd.pattern || reply.toLowerCase().includes(wd.pattern.toLowerCase());
+          if (matched) {
+            setNodeExecState(node.id, 'success');
+          } else {
+            setNodeExecState(node.id, 'skipped', `Resposta "${reply}" não contém "${wd.pattern}"`);
+            break;
+          }
         } else if (d.kind === 'lead_score') {
           setNodeExecState(node.id, 'success');
         }
@@ -3754,13 +4008,20 @@ function CanvasInner() {
             </button>
 
             {/* Versions */}
-            <div className="relative">
+            <div className="relative flex items-center gap-1">
               <button onClick={() => setVersionsOpen((v) => !v)}
                 title="Versões"
                 className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
                   versionsOpen ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}>
                 <History className="w-3.5 h-3.5" />Versões
               </button>
+              {versions.length >= 2 && (
+                <button onClick={() => setDiffOpen(true)}
+                  title="Comparar versões"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <GitCompare className="w-3.5 h-3.5" />
+                </button>
+              )}
               {versionsOpen && (
                 <VersionsDropdown versions={versions} onRestore={restoreVersion} onClose={() => setVersionsOpen(false)} />
               )}
@@ -3923,6 +4184,10 @@ function CanvasInner() {
           onUse={useTemplate}
           onClose={() => setTemplatesOpen(false)}
         />
+      )}
+
+      {diffOpen && (
+        <VersionDiffModal versions={versions} onClose={() => setDiffOpen(false)} />
       )}
 
       {/* Field input styles */}

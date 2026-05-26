@@ -658,6 +658,42 @@ async function processFollowGeral(
           continue
         }
 
+        // ── WaitEvent step — gating: avança só se lead respondeu com padrão desde última execução ──
+        if (tipo === 'wait_event') {
+          const event = (media as any)?.event as string | undefined
+          const pattern = (media as any)?.pattern as string | undefined
+          const { data: lastExec } = await supabase
+            .from('follow_executions')
+            .select('disparado_em')
+            .eq('lead_id', lead.id)
+            .eq('sequence_id', sequence.id)
+            .eq('status', 'sent')
+            .order('disparado_em', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          const since = lastExec?.disparado_em ? new Date(lastExec.disparado_em) : new Date(Date.now() - 7 * 86_400_000)
+          let matched = false
+          if (pattern && event === 'keyword') {
+            const { data: msgs } = await supabase
+              .from('mensagens_do_whatsapp')
+              .select('texto_da_mensagem')
+              .eq('id_do_lead', lead.id)
+              .eq('company_id', company.id)
+              .eq('direcao', 'inbound')
+              .gte('created_at', since.toISOString())
+            matched = (msgs ?? []).some((m) =>
+              m.texto_da_mensagem?.toLowerCase().includes(pattern.toLowerCase())
+            )
+          } else {
+            matched = await leadJaRespondeuDesde(lead.id, company.id, since, supabase)
+          }
+          if (matched) {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          }
+          await releaseSendLock(lockKey)
+          continue
+        }
+
         // ── Scheduling step ──
         if (tipo === 'agendamento') {
           try {
