@@ -897,6 +897,17 @@ async function processAntiNoshow(
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase, tipo as StepTipoMensagem, media)
+
+          // Blocos adicionais (bloco[0] já foi enviado acima como texto principal)
+          const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+          for (let i = 1; i < blocos.length; i++) {
+            const bloco = substituirVariaveis(blocos[i] || '', lead)
+            if (!bloco) continue
+            await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1500))
+            await enviarMensagem(phone, bloco, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'anti_noshow', supabase, 'text', null)
+          }
+
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
           sent++
@@ -1203,6 +1214,17 @@ async function processTrialSaas(
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase, phone, trial.nome, tipo, media)
+
+          // Blocos adicionais
+          const blocosTrial: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+          for (let i = 1; i < blocosTrial.length; i++) {
+            const bloco = blocosTrial[i] || ''
+            if (!bloco) continue
+            await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1500))
+            await enviarMensagem(phone, bloco, company, 'text', null)
+            await gravarMensagemTrial(trial.id, company.id, bloco, 'trial_saas', supabase, phone, trial.nome, 'text', null)
+          }
+
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
 
           // Controle de SDR por step
