@@ -11,6 +11,16 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { createUazapiClient, normalizePhone } from './uazapi'
+
+function safeDecrypt(value: string | null | undefined, fallback = ''): string {
+  if (!value) return fallback
+  if (value.startsWith('plain:')) return value.slice(6)
+  const parts = value.split(':')
+  if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
+    try { return decrypt(value) } catch { return fallback }
+  }
+  return value // texto puro sem prefixo
+}
 import { getSystemConfig } from './system-config'
 import OpenAI from 'openai'
 
@@ -412,7 +422,7 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
         continue
       }
 
-      const uazapiToken = cfg.uazapi_token ? decrypt(cfg.uazapi_token) : ''
+      const uazapiToken = safeDecrypt(cfg.uazapi_token)
       const uazapiUrl = cfg.uazapi_instance_url ?? process.env.UAZAPI_URL ?? 'https://vendai.uazapi.com'
 
       if (!uazapiToken) {
@@ -420,7 +430,7 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
         continue
       }
 
-      const openaiKeyFromConfig = cfg.openai_key ? decrypt(cfg.openai_key) : ''
+      const openaiKeyFromConfig = safeDecrypt(cfg.openai_key)
       const openaiKey =
         openaiKeyFromConfig ||
         (await getSystemConfig('OPENAI_API_KEY')) ||
