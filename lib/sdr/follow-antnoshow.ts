@@ -328,25 +328,42 @@ export interface AntNoshowResult {
   errors: string[]
 }
 
-export async function runAntNoshow(): Promise<AntNoshowResult> {
+export interface AntNoshowOptions {
+  force?: boolean      // ignora janela de tempo e horário comercial
+  testPhone?: string   // filtra só o lead com esse telefone
+}
+
+export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntNoshowResult> {
+  const { force = false, testPhone } = options
   const supabase = createServiceClient()
   const result: AntNoshowResult = { processados: 0, disparados: 0, pulados: 0, errors: [] }
 
-  // Verificação de horário comercial
-  const horarioOk = await isHorarioComercial(supabase)
-  if (!horarioOk) {
-    return result
+  // Verifica horário comercial (pulado em modo force)
+  if (!force) {
+    const horarioOk = await isHorarioComercial(supabase)
+    if (!horarioOk) return result
   }
 
   // Busca leads com call agendada e status ativo
-  const { data: leads, error: leadsErr } = await supabase
+  let query = supabase
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, call_agendada_para, meet_url, resumo_ia, segment, call_status')
     .eq('call_de_venda', true)
     .eq('call_status', 'agendada')
     .not('call_agendada_para', 'is', null)
 
-  if (leadsErr || !leads?.length) return result
+  const { data: leadsRaw, error: leadsErr } = await query
+  if (leadsErr || !leadsRaw?.length) return result
+
+  // Filtra por telefone de teste se fornecido
+  const leads = testPhone
+    ? leadsRaw.filter((l) => {
+        const norm = (p: string) => p.replace(/\D/g, '')
+        return norm(l.whatsapp ?? '') === norm(testPhone)
+      })
+    : leadsRaw
+
+  if (!leads.length) return result
 
   // Carrega configurações das empresas únicas (token uazapi + openai)
   const companyIds = Array.from(new Set(leads.map((l) => l.company_id)))
@@ -370,12 +387,13 @@ export async function runAntNoshow(): Promise<AntNoshowResult> {
 
     try {
       const { janela, ok } = calcularJanela(lead.call_agendada_para)
-      if (!ok) {
+      if (!force && !ok) {
         result.pulados++
         continue
       }
+      const effectiveJanela: Janela = ok ? janela : '24h_antes'
 
-      const jaFoi = await jaDisparou(lead.id, janela, lead.company_id, supabase)
+      const jaFoi = await jaDisparou(lead.id, effectiveJanela, lead.company_id, supabase)
       if (jaFoi) {
         result.pulados++
         continue
@@ -404,8 +422,8 @@ export async function runAntNoshow(): Promise<AntNoshowResult> {
       const openai = new OpenAI({ apiKey: openaiKey })
 
       // Sorteia template e gera mensagem via IA
-      const template = sortearTemplate(janela)
-      const mensagem = await gerarMensagemIA(lead, janela, template, openai)
+      const template = sortearTemplate(effectiveJanela)
+      const mensagem = await gerarMensagemIA(lead, effectiveJanela, template, openai)
 
       // Anti-ban: delay aleatório 45–135 segundos entre disparos
       if (disparosTotal > 0) {
@@ -424,7 +442,7 @@ export async function runAntNoshow(): Promise<AntNoshowResult> {
       await uazapi.sendText({ number: phone, text: mensagem })
 
       // Registra no follow_logs (deduplicação)
-      await registrarDisparo(lead.id, janela, lead.company_id, mensagem, supabase)
+      await registrarDisparo(lead.id, effectiveJanela, lead.company_id, mensagem, supabase)
 
       // Grava a mensagem no histórico
       await gravarMensagemOutbound(

@@ -180,6 +180,8 @@ interface MessageNodeData extends Record<string, unknown> {
   carousel_json?: string;
   // Controle de IA: null = sem mudança, true = ativar, false = pausar
   sdr_ativo?: boolean | null;
+  // Unidade do dia_offset: 'days' (padrão) ou 'hours'. Para anti_noshow sempre 'hours'.
+  offset_unit?: 'days' | 'hours';
   _execState?: ExecState;
   _execError?: string;
 }
@@ -524,7 +526,7 @@ function getDomain(url: string): string {
   }
 }
 
-function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: CanvasConfig | null): Node<AutoNodeData>[] {
+function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: CanvasConfig | null, sequenceTipo?: SequenceTipo): Node<AutoNodeData>[] {
   const nodes: Node<AutoNodeData>[] = [];
   const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
   nodes.push({
@@ -623,7 +625,10 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id, customLabel } satisfies ABTestNodeData });
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
-    else nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, blocos, customLabel, sdr_ativo: step.sdr_ativo ?? null } satisfies MessageNodeData });
+    else {
+      const offset_unit: 'days' | 'hours' = (step.media_config as any)?.offset_unit ?? (sequenceTipo === 'anti_noshow' ? 'hours' : 'days');
+      nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, blocos, customLabel, sdr_ativo: step.sdr_ativo ?? null, offset_unit } satisfies MessageNodeData });
+    }
   });
   return nodes;
 }
@@ -692,7 +697,10 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
 
       // When using blocos, first block becomes mensagem for backwards compat with executors
       const mensagemFinal = d.blocos && d.blocos.length > 0 ? (d.blocos[0] || null) : (d.mensagem || null);
-      return { id: stepId, dia_offset: d.dia_offset, horario: d.horario, mensagem: mensagemFinal, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config,
+      const finalMediaConfig = d.offset_unit === 'hours'
+        ? { ...(media_config ?? {}), offset_unit: 'hours' }
+        : media_config;
+      return { id: stepId, dia_offset: d.dia_offset, horario: d.offset_unit === 'hours' ? '00:00' : d.horario, mensagem: mensagemFinal, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config: finalMediaConfig,
         sdr_ativo: d.sdr_ativo ?? null };
     }
     if (d.kind === 'wait') return { id: stepId, dia_offset: d.dia_offset, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar', ordem: idx + 1, condicao: '' };
@@ -919,7 +927,9 @@ function TriggerNode({ id, data, selected }: NodeProps) {
 
 function MessageNode({ id, data, selected }: NodeProps) {
   const d = data as MessageNodeData;
-  const meta = `D${d.dia_offset} · ${d.horario}`;
+  const meta = d.offset_unit === 'hours'
+    ? `${d.dia_offset}h`
+    : `D${d.dia_offset} · ${d.horario}`;
 
   const docExt = d.media_name
     ? d.media_name.split('.').pop()?.toUpperCase() ?? 'DOC'
@@ -2086,35 +2096,97 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
         {/* ── Message node ── */}
         {d.kind === 'message' && (
           <>
-            <Field label="Dia offset">
-              <input type="number" min={0} value={d.dia_offset}
-                onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
-                className="field-input" />
-            </Field>
-
-            <Field label="Horário">
-              <div className="flex items-center gap-2">
-                <select
-                  value={hh}
-                  onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${mm.padStart(2, '0')}` })}
-                  className="field-input flex-1 text-center font-mono"
-                >
-                  {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
-                </select>
-                <span className="text-muted-foreground font-bold text-lg">:</span>
+            {/* Offset — anti_noshow: sempre horas (relativo à call). Outros: toggle Dias/Horas */}
+            {sequenceTipo === 'anti_noshow' ? (
+              <Field label="Horas (relativo à call)">
                 <input
                   type="number"
-                  min={0}
-                  max={59}
-                  value={Number(mm)}
-                  onChange={(e) => {
-                    const val = Math.max(0, Math.min(59, Number(e.target.value)));
-                    onUpdate(node.id, { horario: `${hh}:${String(val).padStart(2, '0')}` });
-                  }}
-                  className="field-input flex-1 text-center font-mono"
+                  step={0.25}
+                  value={d.dia_offset}
+                  onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value), offset_unit: 'hours' })}
+                  className="field-input"
+                  placeholder="-24 = 24h antes"
                 />
-              </div>
-            </Field>
+                <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                  Negativo = antes da call. Ex: -24 = 24h antes · -2 = 2h · 0.083 ≈ 5min depois
+                </p>
+              </Field>
+            ) : (
+              <>
+                <Field label="Quando disparar">
+                  <div className="flex rounded-xl border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => onUpdate(node.id, { offset_unit: 'days' })}
+                      className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+                        (d.offset_unit ?? 'days') === 'days'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground')}
+                    >
+                      Dias
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onUpdate(node.id, { offset_unit: 'hours' })}
+                      className={cn('flex-1 py-1.5 text-xs font-medium transition-colors',
+                        d.offset_unit === 'hours'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground')}
+                    >
+                      Horas
+                    </button>
+                  </div>
+                </Field>
+
+                {(d.offset_unit ?? 'days') === 'days' ? (
+                  <>
+                    <Field label="Dia">
+                      <input type="number" min={0} value={d.dia_offset}
+                        onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
+                        className="field-input" />
+                    </Field>
+                    <Field label="Horário">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={hh}
+                          onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${mm.padStart(2, '0')}` })}
+                          className="field-input flex-1 text-center font-mono"
+                        >
+                          {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+                        </select>
+                        <span className="text-muted-foreground font-bold text-lg">:</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={59}
+                          value={Number(mm)}
+                          onChange={(e) => {
+                            const val = Math.max(0, Math.min(59, Number(e.target.value)));
+                            onUpdate(node.id, { horario: `${hh}:${String(val).padStart(2, '0')}` });
+                          }}
+                          className="field-input flex-1 text-center font-mono"
+                        />
+                      </div>
+                    </Field>
+                  </>
+                ) : (
+                  <Field label="Horas após o início">
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={d.dia_offset}
+                      onChange={(e) => onUpdate(node.id, { dia_offset: Number(e.target.value) })}
+                      className="field-input"
+                      placeholder="Ex: 2 = 2h · 0.5 = 30min"
+                    />
+                    <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                      Ex: 1 = 1 hora · 0.5 = 30 min · 48 = 2 dias
+                    </p>
+                  </Field>
+                )}
+              </>
+            )}
 
             <Field label="Controle da IA">
               <select
@@ -2698,6 +2770,98 @@ function ModalOverlay({ children, onClose }: ModalOverlayProps) {
 
 // ─── Test Run Modal ──────────────────────────────────────────────────────────────
 
+// ─── Noshow Cron Test Modal ──────────────────────────────────────────────────────
+
+function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
+  const [phone, setPhone] = useState(() => {
+    try { return localStorage.getItem(PHONE_LS_KEY) ?? ''; } catch { return ''; }
+  });
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; disparados?: number; pulados?: number; error?: string } | null>(null);
+
+  function handlePhoneChange(raw: string) {
+    const digits = raw.replace(/\D/g, '').slice(0, 13);
+    setPhone(digits);
+    try { localStorage.setItem(PHONE_LS_KEY, digits); } catch {}
+  }
+
+  function formatDisplay(digits: string) {
+    const d = digits.startsWith('55') ? digits.slice(2) : digits;
+    if (d.length <= 2) return d;
+    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
+  }
+
+  async function handleDispatch() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch('/api/cron/antnoshow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${(window as any).__CRON_SECRET__ ?? ''}` },
+        body: JSON.stringify({ phone: phone || undefined }),
+      });
+      const json = await res.json();
+      setResult(json);
+    } catch (e: any) {
+      setResult({ ok: false, error: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const canSend = phone.replace(/\D/g, '').length >= 10 || phone === '';
+
+  return (
+    <ModalOverlay onClose={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">Disparar Anti-Noshow agora</p>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2 leading-relaxed">
+          Aciona o motor de anti-noshow ignorando a janela de tempo. Útil para testes — filtre por número ou deixe vazio para todos os leads com call agendada.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Filtrar por número (opcional)</label>
+          <div className="flex items-center gap-0 rounded-xl border border-border overflow-hidden bg-muted focus-within:ring-2 focus-within:ring-primary/40">
+            <div className="flex items-center gap-1.5 px-3 py-2.5 border-r border-border bg-muted/60 shrink-0">
+              <span className="text-base leading-none">🇧🇷</span>
+              <span className="text-xs font-medium text-muted-foreground">+55</span>
+            </div>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={formatDisplay(phone.startsWith('55') ? phone.slice(2) : phone)}
+              onChange={(e) => handlePhoneChange('55' + e.target.value.replace(/\D/g, ''))}
+              placeholder="(11) 99999-9999 — opcional"
+              className="flex-1 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none"
+            />
+          </div>
+        </div>
+        {result && (
+          <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border',
+            result.ok
+              ? 'bg-primary/10 border-primary/20 text-primary'
+              : 'bg-destructive/10 border-destructive/20 text-destructive')}>
+            {result.ok
+              ? `✓ Concluído — ${result.disparados ?? 0} disparados · ${result.pulados ?? 0} pulados`
+              : `✗ Erro: ${result.error}`}
+          </div>
+        )}
+        <button
+          onClick={handleDispatch}
+          disabled={loading}
+          className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+          {loading ? 'Disparando…' : 'Disparar agora'}
+        </button>
+      </div>
+    </ModalOverlay>
+  );
+}
+
 interface TestRunModalProps {
   onStart: (phone: string) => void;
   onClose: () => void;
@@ -2877,6 +3041,7 @@ function CanvasInner() {
 
   // Test run
   const [testModalOpen, setTestModalOpen] = useState(false);
+  const [noshowCronTestOpen, setNoshowCronTestOpen] = useState(false);
   const [testRunning, setTestRunning] = useState(false);
   const [testWaitingReply, setTestWaitingReply] = useState(false);
   const abortTestRef = useRef(false);
@@ -2919,7 +3084,7 @@ function CanvasInner() {
 
   useEffect(() => {
     if (!currentSeq) { setNodes([]); setEdges([]); return; }
-    setNodes(stepsToNodes(currentSeq.follow_steps, currentSeq.nome, currentSeq.canvas_config));
+    setNodes(stepsToNodes(currentSeq.follow_steps, currentSeq.nome, currentSeq.canvas_config, currentSeq.tipo));
     setEdges(stepsToEdges(currentSeq.follow_steps, currentSeq.canvas_config));
     setSelectedNodeId(null);
     setVersions(loadVersions(currentSeq.id));
@@ -3466,6 +3631,14 @@ function CanvasInner() {
               )}
             </div>
 
+            {/* Anti-noshow force trigger */}
+            {activeTipo === 'anti_noshow' && (
+              <button onClick={() => setNoshowCronTestOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20">
+                <Zap className="w-3.5 h-3.5" />Disparar agora
+              </button>
+            )}
+
             {/* Test run */}
             {testRunning ? (
               <button onClick={stopTest}
@@ -3604,6 +3777,10 @@ function CanvasInner() {
           onStart={(phone) => { setTestModalOpen(false); runTest(phone); }}
           onClose={() => setTestModalOpen(false)}
         />
+      )}
+
+      {noshowCronTestOpen && (
+        <NoshowCronTestModal onClose={() => setNoshowCronTestOpen(false)} />
       )}
 
       {templatesOpen && (

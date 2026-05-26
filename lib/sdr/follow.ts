@@ -494,7 +494,9 @@ async function processFollowGeral(
     if (!steps?.length) continue
 
     for (const step of steps as FollowStep[]) {
-      const cutoff = new Date(Date.now() - step.dia_offset * 86_400_000)
+      const unit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
+      const msPerUnit = unit === 'hours' ? 3_600_000 : 86_400_000
+      const cutoff = new Date(Date.now() - step.dia_offset * msPerUnit)
 
       for (const lead of (leads ?? []) as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
@@ -511,8 +513,8 @@ async function processFollowGeral(
           .maybeSingle()
 
         if (!ultimaMsg) continue
-        const dias = (Date.now() - new Date(ultimaMsg.created_at).getTime()) / 86_400_000
-        if (dias < step.dia_offset) continue
+        const elapsed = (Date.now() - new Date(ultimaMsg.created_at).getTime()) / msPerUnit
+        if (elapsed < step.dia_offset) continue
 
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
@@ -697,9 +699,12 @@ async function processRemarketing(
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
         // Verifica inatividade mínima configurada no canvas (diasInativo)
+        const rmUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
+        const rmMs = rmUnit === 'hours' ? 3_600_000 : 86_400_000
         const movedAt = new Date((lead as any).updated_at ?? now).getTime()
-        const diasDesdeMovimento = (now - movedAt) / 86_400_000
-        if (diasDesdeMovimento < Math.max(step.dia_offset, diasInativo)) continue
+        const elapsedRm = (now - movedAt) / rmMs
+        const minInativo = rmUnit === 'hours' ? 0 : diasInativo
+        if (elapsedRm < Math.max(step.dia_offset, minInativo)) continue
 
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
@@ -852,9 +857,14 @@ async function processTrialSaas(
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) continue
 
-        // ±12h window around dia_offset
-        const diff = Math.abs(daysSinceSignup - step.dia_offset)
-        if (diff > 0.5) continue
+        const trialUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
+        const trialElapsed = trialUnit === 'hours'
+          ? (now - signupTime) / 3_600_000
+          : daysSinceSignup
+        // ±30min window for hours, ±12h for days
+        const trialWindow = 0.5
+        const diff = Math.abs(trialElapsed - step.dia_offset)
+        if (diff > trialWindow) continue
 
         // Checa condição do step
         const condicao = step.condicao ?? 'sempre'
