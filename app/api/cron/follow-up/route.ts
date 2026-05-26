@@ -5,12 +5,13 @@ import { syslog } from '@/lib/logger'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-// GET /api/cron/follow-up — chamado pelo Vercel Cron (ou trigger externo)
-export async function GET(request: Request) {
+async function handler(request: Request) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
+  const n8nToken = process.env.N8N_AUTH_TOKEN
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  const validTokens = [cronSecret, n8nToken].filter(Boolean)
+  if (!validTokens.some(t => authHeader === `Bearer ${t}`)) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
@@ -38,3 +39,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
+
+// GET /api/cron/follow-up — Vercel Cron
+export const GET = handler
+// POST /api/cron/follow-up — Supabase Edge Function relay
+export const POST = handler
