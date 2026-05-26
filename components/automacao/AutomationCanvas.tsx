@@ -3264,76 +3264,65 @@ function offsetToMins(value: number, unit?: string): number {
   return Math.round(value * 60)
 }
 
-const NOSHOW_MINUTE_OPTS = [0, 5, 10, 15, 20, 30, 45] as const
+const NOSHOW_PRESETS_ANTES = [
+  { label: '5min',  mins: -5 },
+  { label: '10min', mins: -10 },
+  { label: '15min', mins: -15 },
+  { label: '30min', mins: -30 },
+  { label: '1h',    mins: -60 },
+  { label: '2h',    mins: -120 },
+  { label: '4h',    mins: -240 },
+  { label: '24h',   mins: -1440 },
+] as const
+
+const NOSHOW_PRESETS_APOS = [
+  { label: '5min',  mins: 5 },
+  { label: '10min', mins: 10 },
+  { label: '15min', mins: 15 },
+  { label: '30min', mins: 30 },
+  { label: '1h',    mins: 60 },
+] as const
 
 /** value e onChange sempre em minutos inteiros */
 function AntiNoshowOffsetPicker({ value, onChange }: { value: number; onChange: (mins: number) => void }) {
   const isAfter = value > 0
-  const abs = Math.abs(value)
-  const h = Math.floor(abs / 60)
-  const m = abs % 60
-
-  function commit(after: boolean, hours: number, minutes: number) {
-    const totalMins = hours * 60 + minutes
-    onChange(after ? totalMins : -totalMins)
-  }
+  const presets = isAfter ? NOSHOW_PRESETS_APOS : NOSHOW_PRESETS_ANTES
+  const isCustom = value !== 0 && !presets.some((p) => p.mins === value)
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Antes / Após toggle */}
+    <div className="flex flex-col gap-2.5">
+      {/* Antes / Após */}
       <div className="flex rounded-xl border border-border overflow-hidden">
-        <button type="button" onClick={() => commit(false, h, m)}
+        <button type="button" onClick={() => onChange(-15)}
           className={cn('flex-1 py-1.5 text-xs font-semibold transition-colors',
             !isAfter ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
           Antes da call
         </button>
-        <button type="button" onClick={() => commit(true, h, m)}
+        <button type="button" onClick={() => onChange(5)}
           className={cn('flex-1 py-1.5 text-xs font-semibold transition-colors',
             isAfter ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
           Após a call
         </button>
       </div>
 
-      {/* Horas + Minutos */}
-      <div className="flex items-start gap-3">
-        {/* Horas */}
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Horas</span>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => commit(!isAfter, Math.max(0, h - 1), m)}
-              className="w-7 h-7 rounded-lg border border-border hover:bg-muted flex items-center justify-center transition-colors">
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-            <span className="w-8 text-center font-mono text-lg font-bold leading-none">{h}</span>
-            <button type="button" onClick={() => commit(!isAfter, h + 1, m)}
-              className="w-7 h-7 rounded-lg border border-border hover:bg-muted flex items-center justify-center transition-colors">
-              <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-
-        <span className="text-xl font-bold text-muted-foreground mt-6">:</span>
-
-        {/* Minutos */}
-        <div className="flex flex-col gap-1 flex-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Minutos</span>
-          <div className="flex flex-wrap gap-1">
-            {NOSHOW_MINUTE_OPTS.map((min) => (
-              <button key={min} type="button" onClick={() => commit(!isAfter, h, min)}
-                className={cn('w-9 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors',
-                  m === min
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40')}>
-                {String(min).padStart(2, '0')}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Presets */}
+      <div className="flex flex-wrap gap-1.5">
+        {presets.map((p) => (
+          <button key={p.mins} type="button" onClick={() => onChange(p.mins)}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
+              value === p.mins
+                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                : 'bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:border-primary/40',
+            )}>
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {/* Resumo */}
-      <p className="text-[11px] text-center font-medium text-primary/70">
-        {formatHorasOffset(value) /* value já é minutos */}
+      <p className={cn('text-[11px] text-center font-medium', isCustom ? 'text-amber-500' : 'text-primary/70')}>
+        {isCustom ? `${formatHorasOffset(value)} (valor personalizado)` : formatHorasOffset(value)}
       </p>
     </div>
   )
