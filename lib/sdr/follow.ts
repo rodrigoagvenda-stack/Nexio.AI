@@ -18,6 +18,12 @@ import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, sendRichStep, StepTipoMensagem, StepMediaConfig } from './uazapi'
 import { getRedis } from './redis'
+import {
+  acquireSendLock, releaseSendLock, sendLockKey,
+  recordCircuitFailure, recordCircuitSuccess, isCircuitOpen,
+  getFailedCount, shouldRetryNow, MAX_RETRIES, backoffMs,
+  isUazapiHealthy,
+} from './reliability'
 
 /** Mesma lógica de engine.ts — variações de formato do número BR */
 function phoneVariants(phone: string): string[] {
@@ -169,6 +175,7 @@ async function stepJaDisparado(leadId: number, stepId: string, supabase: Supabas
     .select('id')
     .eq('lead_id', leadId)
     .eq('step_id', stepId)
+    .in('status', ['sent', 'skipped', 'dlq']) // 'failed' permite retry
     .maybeSingle()
   return !!data
 }
@@ -179,8 +186,50 @@ async function stepJaDisparadoTrial(trialId: number, stepId: string, supabase: S
     .select('id')
     .eq('trial_id', trialId)
     .eq('step_id', stepId)
+    .in('status', ['sent', 'skipped', 'dlq'])
     .maybeSingle()
   return !!data
+}
+
+/** Verifica backoff e DLQ antes de cada tentativa. Retorna 'ok' | 'dlq' | 'backoff'. */
+async function checkRetry(
+  leadOrTrialId: number,
+  stepId: string,
+  supabase: Supabase,
+  isTrial = false,
+): Promise<'ok' | 'dlq' | 'backoff'> {
+  const failed = await getFailedCount(leadOrTrialId, stepId, supabase, isTrial)
+  if (failed === 0) return 'ok'
+  if (failed >= MAX_RETRIES) return 'dlq'
+  const ready = await shouldRetryNow(leadOrTrialId, stepId, supabase, isTrial)
+  return ready ? 'ok' : 'backoff'
+}
+
+async function openCircuit(sequenceId: string, companyId: number, supabase: Supabase): Promise<void> {
+  await syslog({
+    type: 'follow_up',
+    severity: 'warn',
+    message: `Circuit breaker aberto — sequência ${sequenceId} pausada por 30 min`,
+    company_id: companyId,
+    payload: { sequenceId },
+  })
+}
+
+async function registrarExecucaoTrial(
+  trialId: number,
+  sequenceId: string,
+  stepId: string,
+  companyId: number,
+  status: 'sent' | 'failed' | 'skipped' | 'dlq',
+  supabase: Supabase
+): Promise<void> {
+  await supabase.from('follow_executions').insert({
+    trial_id: trialId,
+    sequence_id: sequenceId,
+    step_id: stepId,
+    company_id: companyId,
+    status,
+  })
 }
 
 async function leadJaRespondeuDesde(
@@ -206,7 +255,7 @@ async function registrarExecucao(
   sequenceId: string,
   stepId: string,
   companyId: number,
-  status: 'sent' | 'failed' | 'skipped',
+  status: 'sent' | 'failed' | 'skipped' | 'dlq',
   supabase: Supabase
 ): Promise<void> {
   await supabase.from('follow_executions').insert({
@@ -516,17 +565,29 @@ async function processFollowGeral(
         const elapsed = (Date.now() - new Date(ultimaMsg.created_at).getTime()) / msPerUnit
         if (elapsed < step.dia_offset) continue
 
+        // ── Retry / DLQ ──
+        const retryStatus = await checkRetry(lead.id, step.id, supabase)
+        if (retryStatus === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
+        if (retryStatus === 'backoff') continue
+
+        // ── Circuit breaker ──
+        if (await isCircuitOpen(sequence.id)) continue
+
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
 
-        // ── Scheduling step: ativa agente de agendamento via Redis e encerra o fluxo ──
+        // ── Exactly-once lock ──
+        const lockKey = sendLockKey(company.id, lead.id, step.id)
+        if (!(await acquireSendLock(lockKey))) continue
+
+        // ── Scheduling step ──
         if (tipo === 'agendamento') {
           try {
             const redis = getRedis()
             const schedKey = `canvas:sched:${company.id}:${phone}`
             const schedData = JSON.stringify({ duracao: media?.duracao ?? 60, sequenceId: sequence.id })
-            await redis.set(schedKey, schedData, 'EX', 7 * 24 * 3600) // TTL 7 dias
+            await redis.set(schedKey, schedData, 'EX', 7 * 24 * 3600)
 
             const msgAbertura = media?.mensagemInicial
               ? substituirVariaveis(media.mensagemInicial as string, lead)
@@ -535,9 +596,14 @@ async function processFollowGeral(
             await enviarMensagem(phone, msgAbertura, company, 'text', null)
             await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'follow_geral', supabase, 'text', null)
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            await recordCircuitSuccess(sequence.id)
             sent++
           } catch {
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+            const { shouldOpen } = await recordCircuitFailure(sequence.id)
+            if (shouldOpen) await openCircuit(sequence.id, company.id, supabase)
+          } finally {
+            await releaseSendLock(lockKey)
           }
           continue
         }
@@ -549,6 +615,7 @@ async function processFollowGeral(
 
         const precisaTexto = tipo === 'text' || step.usar_ia
         if (precisaTexto && !texto) {
+          await releaseSendLock(lockKey)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'skipped', supabase)
           continue
         }
@@ -557,7 +624,6 @@ async function processFollowGeral(
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
 
-          // Enviar blocos adicionais como mensagens de texto separadas
           const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
           for (let i = 1; i < blocos.length; i++) {
             const bloco = substituirVariaveis(blocos[i] || '', lead)
@@ -568,10 +634,15 @@ async function processFollowGeral(
           }
 
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          await recordCircuitSuccess(sequence.id)
           sent++
           await antiBanDelay()
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          const { shouldOpen } = await recordCircuitFailure(sequence.id)
+          if (shouldOpen) await openCircuit(sequence.id, company.id, supabase)
+        } finally {
+          await releaseSendLock(lockKey)
         }
       }
     }
@@ -619,6 +690,14 @@ async function processAntiNoshow(
         // Janela de ±15 min
         if (diff > 15 * 60_000) continue
 
+        // ── Retry / DLQ ──
+        const retryStatus = await checkRetry(lead.id, step.id, supabase)
+        if (retryStatus === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
+        if (retryStatus === 'backoff') continue
+
+        // ── Circuit breaker ──
+        if (await isCircuitOpen(sequence.id)) continue
+
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
@@ -627,14 +706,23 @@ async function processAntiNoshow(
           lead
         )
 
+        // ── Exactly-once lock ──
+        const lockKey = sendLockKey(company.id, lead.id, step.id)
+        if (!(await acquireSendLock(lockKey))) continue
+
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          await recordCircuitSuccess(sequence.id)
           sent++
           await antiBanDelay()
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          const { shouldOpen } = await recordCircuitFailure(sequence.id)
+          if (shouldOpen) await openCircuit(sequence.id, company.id, supabase)
+        } finally {
+          await releaseSendLock(lockKey)
         }
       }
     }
@@ -698,6 +786,12 @@ async function processRemarketing(
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
 
+        // ── Retry / DLQ ──
+        const retryStatusRm = await checkRetry(lead.id, step.id, supabase)
+        if (retryStatusRm === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
+        if (retryStatusRm === 'backoff') continue
+        if (await isCircuitOpen(sequence.id)) continue
+
         // Verifica inatividade mínima configurada no canvas (diasInativo)
         const rmUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
         const rmMs = rmUnit === 'hours' ? 3_600_000 : 86_400_000
@@ -720,14 +814,22 @@ async function processRemarketing(
         }
 
         const phone = normalizePhone(lead.whatsapp)
+        const lockKeyRm = sendLockKey(company.id, lead.id, step.id)
+        if (!(await acquireSendLock(lockKeyRm))) continue
+
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          await recordCircuitSuccess(sequence.id)
           sent++
           if (!skipDelay) await antiBanDelay()
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          const { shouldOpen: rmOpen } = await recordCircuitFailure(sequence.id)
+          if (rmOpen) await openCircuit(sequence.id, company.id, supabase)
+        } finally {
+          await releaseSendLock(lockKeyRm)
         }
       }
     }
@@ -767,6 +869,13 @@ async function processFollowProposta(
       for (const lead of (leads ?? []) as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
+
+        // ── Retry / DLQ ──
+        const retryStatusProp = await checkRetry(lead.id, step.id, supabase)
+        if (retryStatusProp === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
+        if (retryStatusProp === 'backoff') continue
+        if (await isCircuitOpen(sequence.id)) continue
+
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
 
         // Verifica última mensagem inbound
@@ -797,14 +906,22 @@ async function processFollowProposta(
           continue
         }
 
+        const lockKeyProp = sendLockKey(company.id, lead.id, step.id)
+        if (!(await acquireSendLock(lockKeyProp))) continue
+
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_proposta', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          await recordCircuitSuccess(sequence.id)
           sent++
           await antiBanDelay()
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          const { shouldOpen: propOpen } = await recordCircuitFailure(sequence.id)
+          if (propOpen) await openCircuit(sequence.id, company.id, supabase)
+        } finally {
+          await releaseSendLock(lockKeyProp)
         }
       }
     }
@@ -857,6 +974,12 @@ async function processTrialSaas(
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) continue
 
+        // ── Retry / DLQ ──
+        const retryStatusTrial = await checkRetry(trial.id, step.id, supabase, true)
+        if (retryStatusTrial === 'dlq') { await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
+        if (retryStatusTrial === 'backoff') continue
+        if (await isCircuitOpen(sequence.id)) continue
+
         const trialUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
         const trialElapsed = trialUnit === 'hours'
           ? (now - signupTime) / 3_600_000
@@ -886,16 +1009,13 @@ async function processTrialSaas(
         })
         const media = step.media_config
 
+        const lockKeyTrial = sendLockKey(company.id, trial.id, step.id)
+        if (!(await acquireSendLock(lockKeyTrial))) continue
+
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase, phone, trial.nome, tipo, media)
-          await supabase.from('follow_executions').insert({
-            trial_id: trial.id,
-            sequence_id: sequence.id,
-            step_id: step.id,
-            company_id: company.id,
-            status: 'sent',
-          })
+          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
 
           // Controle de SDR por step
           console.log(`[trial:cron] step ${step.id} sdr_ativo=${JSON.stringify(step.sdr_ativo)}`)
@@ -918,11 +1038,10 @@ async function processTrialSaas(
               if (step.sdr_ativo === true) {
                 const dias = Math.floor((Date.now() - new Date(trial.criado_em).getTime()) / 86_400_000)
                 const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trial.trial_days}). Estágio: ${trial.estagio ?? 'não definido'}. SDR reativado pela sequência trial.`
-                const phoneVarsLead = phoneVars
                 const { data: lead } = await supabase
                   .from('leads').select('id')
                   .eq('company_id', company.id)
-                  .in('whatsapp', phoneVarsLead)
+                  .in('whatsapp', phoneVars)
                   .order('created_at', { ascending: false })
                   .limit(1)
                   .maybeSingle()
@@ -935,16 +1054,13 @@ async function processTrialSaas(
             }
           }
 
+          await recordCircuitSuccess(sequence.id)
           sent++
           await antiBanDelay()
         } catch (err: any) {
-          await supabase.from('follow_executions').insert({
-            trial_id: trial.id,
-            sequence_id: sequence.id,
-            step_id: step.id,
-            company_id: company.id,
-            status: 'failed',
-          })
+          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'failed', supabase)
+          const { shouldOpen: trialOpen } = await recordCircuitFailure(sequence.id)
+          if (trialOpen) await openCircuit(sequence.id, company.id, supabase)
           await syslog({
             type: 'follow_up',
             severity: 'error',
@@ -952,6 +1068,8 @@ async function processTrialSaas(
             company_id: company.id,
             payload: { trial_id: trial.id },
           })
+        } finally {
+          await releaseSendLock(lockKeyTrial)
         }
       }
     }
@@ -990,6 +1108,11 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         }
 
         if (!company.uazapi_token) continue
+
+        if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) {
+          console.log(`[follow] WhatsApp desconectado — empresa ${company.id} ignorada`)
+          continue
+        }
 
         const openai = new OpenAI({ apiKey: company.openai_key })
 
