@@ -1038,6 +1038,23 @@ REGRAS:
         if (!args.nome_completo || args.nome_completo.trim().split(' ').length < 2) {
           return 'BLOQUEADO: Você precisa coletar o nome completo do lead antes de agendar. Pergunte agora: "Para enviar o convite, pode me informar seu nome completo e e-mail?"'
         }
+
+        // Se já existe um evento agendado, cancela antes de criar o novo (reagendamento)
+        if (ctx.calendarId) {
+          const { data: leadData } = await supabase
+            .from('leads')
+            .select('calendar_event_id')
+            .eq('id', ctx.leadId)
+            .single()
+          if (leadData?.calendar_event_id) {
+            try {
+              await cancelEvent(ctx.calendarId, leadData.calendar_event_id, ctx.companyId)
+            } catch {
+              // ignora erro de deleção (evento pode já ter sido removido)
+            }
+          }
+        }
+
         const start = parseBrazilDateTime(args.data_hora)
         const nomeCompleto: string = args.nome_completo
         const resolvedTitle = ctx.eventTitleTemplate
