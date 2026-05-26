@@ -151,6 +151,54 @@ export async function recordFatigue(companyId: number, leadId: number): Promise<
   } catch {}
 }
 
+// ─── Best send time ───────────────────────────────────────────────────────────
+
+/**
+ * Retorna a hora BRT (0-23) em que o lead costuma responder, ou null se sem padrão.
+ * Analisa as últimas 10 mensagens inbound e exige ≥35% concentradas em uma hora.
+ * Resultado cacheado 4h no Redis para evitar queries repetidas.
+ */
+export async function getBestSendHour(
+  companyId: number,
+  leadId: number,
+  supabase: SupabaseClient,
+): Promise<number | null> {
+  const cacheKey = `follow:besttime:${companyId}:${leadId}`
+  try {
+    const cached = await getRedis().get(cacheKey)
+    if (cached !== null) return cached === '' ? null : parseInt(cached)
+  } catch {}
+
+  try {
+    const { data } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('carimbo_de_data_e_hora')
+      .eq('id_do_lead', leadId)
+      .eq('company_id', companyId)
+      .eq('direcao', 'inbound')
+      .order('carimbo_de_data_e_hora', { ascending: false })
+      .limit(10)
+
+    const noPattern = async () => { try { await getRedis().set(cacheKey, '', 'EX', 4 * 3600) } catch {} }
+    if (!data || data.length < 3) { await noPattern(); return null }
+
+    const hourCounts: Record<number, number> = {}
+    for (const msg of data) {
+      const brtHour = new Date(new Date(msg.carimbo_de_data_e_hora).getTime() - 3 * 3_600_000).getUTCHours()
+      hourCounts[brtHour] = (hourCounts[brtHour] ?? 0) + 1
+    }
+    const sorted = Object.entries(hourCounts).sort(([, a], [, b]) => b - a)
+    const [bestHourStr, count] = sorted[0]
+    if (count / data.length < 0.35) { await noPattern(); return null }
+
+    const hour = parseInt(bestHourStr)
+    try { await getRedis().set(cacheKey, String(hour), 'EX', 4 * 3600) } catch {}
+    return hour
+  } catch {
+    return null
+  }
+}
+
 // ─── Health check WhatsApp ────────────────────────────────────────────────────
 
 /** Verifica se a instância uazapi está conectada (cache Redis de 2 min). */

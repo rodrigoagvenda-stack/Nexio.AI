@@ -22,7 +22,7 @@ import {
   acquireSendLock, releaseSendLock, sendLockKey,
   recordCircuitFailure, recordCircuitSuccess, isCircuitOpen,
   getFailedCount, shouldRetryNow, MAX_RETRIES, backoffMs,
-  isUazapiHealthy, isFatigued, recordFatigue,
+  isUazapiHealthy, isFatigued, recordFatigue, getBestSendHour,
 } from './reliability'
 
 /** Mesma lógica de engine.ts — variações de formato do número BR */
@@ -157,6 +157,11 @@ function substituirVariaveis(texto: string, lead: Lead): string {
 }
 
 type Supabase = ReturnType<typeof createServiceClient>
+
+/** Hot leads (call_de_venda + Interessado) são processados antes dos demais. */
+function leadPriority(lead: Lead): number {
+  return (lead.call_de_venda ? 20 : 0) + (lead.status === 'Interessado' ? 10 : 0) + (lead.status === 'Em contato' ? 5 : 0)
+}
 
 async function withinRateLimit(companyId: number, supabase: Supabase): Promise<boolean> {
   const since = new Date(Date.now() - 3_600_000).toISOString()
@@ -543,13 +548,15 @@ async function processFollowGeral(
     if (!steps?.length) continue
 
     const expiraDias = (sequence.canvas_config as any)?.expira_em_dias ?? 0
+    // Hot leads first (call_de_venda, Interessado)
+    const sortedLeads = [...((leads ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
     for (const step of steps as FollowStep[]) {
       const unit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
       const msPerUnit = unit === 'hours' ? 3_600_000 : 86_400_000
       const cutoff = new Date(Date.now() - step.dia_offset * msPerUnit)
 
-      for (const lead of (leads ?? []) as Lead[]) {
+      for (const lead of sortedLeads) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparado(lead.id, step.id, supabase)) continue
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
@@ -587,6 +594,14 @@ async function processFollowGeral(
         // ── Fatigue guard ──
         if (await isFatigued(company.id, lead.id)) continue
 
+        // ── Best time soft filter (deferralss to lead's preferred reply hour) ──
+        const bestHour = await getBestSendHour(company.id, lead.id, supabase)
+        if (bestHour !== null) {
+          const nowBrtHour = new Date(Date.now() - 3 * 3_600_000).getUTCHours()
+          const diff = Math.min(Math.abs(nowBrtHour - bestHour), 24 - Math.abs(nowBrtHour - bestHour))
+          if (diff > 2) continue  // wait for better send window
+        }
+
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
@@ -594,6 +609,40 @@ async function processFollowGeral(
         // ── Exactly-once lock ──
         const lockKey = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKey))) continue
+
+        // ── Sentiment step — classifica última mensagem via IA, armazena em Redis ──
+        if (tipo === 'sentiment') {
+          try {
+            const { data: lastMsg } = await supabase
+              .from('mensagens_do_whatsapp')
+              .select('texto_da_mensagem')
+              .eq('id_do_lead', lead.id)
+              .eq('direcao', 'inbound')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (lastMsg?.texto_da_mensagem) {
+              const completion = await openai.chat.completions.create({
+                model: 'gpt-4.1-mini',
+                messages: [
+                  { role: 'system', content: 'Você é um classificador de sentimento. Responda exatamente com uma palavra: "positivo", "negativo" ou "neutro".' },
+                  { role: 'user', content: lastMsg.texto_da_mensagem },
+                ],
+                max_tokens: 5,
+                temperature: 0,
+              })
+              const sentiment = completion.choices[0]?.message?.content?.trim().toLowerCase() ?? 'neutro'
+              try { await getRedis().set(`follow:sentiment:${company.id}:${lead.id}`, sentiment, 'EX', 24 * 3600) } catch {}
+            }
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
+          continue
+        }
 
         // ── Goal step — marca lead como convertido, sem envio ──
         if (tipo === 'goal') {

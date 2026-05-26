@@ -234,6 +234,15 @@ interface GoalNodeData extends Record<string, unknown> {
   _execError?: string;
 }
 
+interface SentimentNodeData extends Record<string, unknown> {
+  kind: 'sentiment';
+  label: string;
+  stepId: string;
+  customLabel?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
 interface WebhookNodeData extends Record<string, unknown> {
   kind: 'webhook';
   label: string;
@@ -300,6 +309,7 @@ type AutoNodeData =
   | SwitchNodeData
   | EndNodeData
   | GoalNodeData
+  | SentimentNodeData
   | WebhookNodeData
   | LeadScoreNodeData
   | ABTestNodeData
@@ -598,6 +608,10 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
       nodes.push({ id: step.id, type: 'goalNode', position: { x, y },
         data: { kind: 'goal', label: 'Meta', marcarStatus: step.condicao || 'Convertido', stepId: step.id, customLabel } satisfies GoalNodeData });
     }
+    else if (step.tipo_mensagem === 'sentiment') {
+      nodes.push({ id: step.id, type: 'sentimentNode', position: { x, y },
+        data: { kind: 'sentiment', label: 'Sentimento', stepId: step.id, customLabel } satisfies SentimentNodeData });
+    }
     else if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id, customLabel } satisfies EndNodeData });
     else if (step.tipo_mensagem === 'switch') {
       const mc = step.media_config as any ?? {};
@@ -753,6 +767,9 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'goal') {
       const gd = d as GoalNodeData;
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'goal', ordem: idx + 1, condicao: gd.marcarStatus || 'Convertido' };
+    }
+    if (d.kind === 'sentiment') {
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'sentiment', ordem: idx + 1, condicao: '' };
     }
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
@@ -1243,6 +1260,26 @@ function GoalNode({ id, data, selected }: NodeProps) {
   );
 }
 
+function SentimentNode({ id, data, selected }: NodeProps) {
+  const d = data as SentimentNodeData;
+  return (
+    <NodeShell selected={selected} accent="violet"
+      header={<NodeHeader icon={MessageCircle} label="Sentimento" accent="violet" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle id="positivo" type="source" position={Position.Top} style={{ left: '25%' }} className="!w-2.5 !h-2.5 !bg-emerald-500/70 !border !border-emerald-500/40 !rounded-full" />
+      <Handle id="neutro" type="source" position={Position.Right} className={HANDLE_CLS} />
+      <Handle id="negativo" type="source" position={Position.Bottom} style={{ left: '25%' }} className="!w-2.5 !h-2.5 !bg-destructive/50 !border !border-destructive/30 !rounded-full" />
+      <p className="text-xs text-muted-foreground/70">Analisa última mensagem do lead via IA</p>
+      <div className="flex gap-2 mt-0.5">
+        <span className="text-[10px] text-emerald-500 font-medium">↑ Positivo</span>
+        <span className="text-[10px] text-muted-foreground/60 font-medium">→ Neutro</span>
+        <span className="text-[10px] text-destructive/70 font-medium">↓ Negativo</span>
+      </div>
+    </NodeShell>
+  );
+}
+
 function WebhookNode({ id, data, selected }: NodeProps) {
   const d = data as WebhookNodeData;
   const domain = d.url ? getDomain(d.url) : null;
@@ -1396,6 +1433,7 @@ const nodeTypes = {
   switchNode: SwitchNode,
   endNode: EndNode,
   goalNode: GoalNode,
+  sentimentNode: SentimentNode,
   webhookNode: WebhookNode,
   leadScoreNode: LeadScoreNode,
   abTestNode: ABTestNode,
@@ -2648,7 +2686,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'goal' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
+type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -2662,6 +2700,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Switch', desc: 'N saídas por valor (botões)', kind: 'switch', icon: GitMerge, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
   { label: 'Meta', desc: 'Marcar lead como convertido', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Sentimento', desc: 'Rotear por sentimento via IA (positivo/neutro/negativo)', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Webhook', desc: 'Chamar URL externa', kind: 'webhook', icon: Globe, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Lead Score', desc: 'Filtrar por pontuação do lead', kind: 'lead_score', icon: Star, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
   { label: 'Teste A/B', desc: 'Dividir tráfego entre variantes', kind: 'ab_test', icon: GitMerge, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
@@ -3228,11 +3267,12 @@ function CanvasInner() {
     else if (kind === 'ab_test') data = { kind: 'ab_test', label: 'Teste A/B', variantA: 'Variante A', variantB: 'Variante B', stepId: id } satisfies ABTestNodeData;
     else if (kind === 'scheduling') data = { kind: 'scheduling', label: 'Agendar Call', dia_offset: 0, horario: '09:00', duracao: 60, mensagemInicial: '', stepId: id } satisfies SchedulingNodeData;
     else if (kind === 'goal') data = { kind: 'goal', label: 'Meta', marcarStatus: 'Convertido', stepId: id } satisfies GoalNodeData;
+    else if (kind === 'sentiment') data = { kind: 'sentiment', label: 'Sentimento', stepId: id } satisfies SentimentNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
       message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
-      goal: 'goalNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
+      goal: 'goalNode', sentiment: 'sentimentNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
     };
 
     const newNode: Node<AutoNodeData> = {
