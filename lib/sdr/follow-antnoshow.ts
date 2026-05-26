@@ -275,12 +275,20 @@ Regras:
 
 // ─── Conversa e mensagem ───────────────────────────────────────
 
+const JANELA_LABEL: Record<Janela, string> = {
+  '24h_antes': '24h antes',
+  '2h_antes': '2h antes',
+  '15min_antes': '15min antes',
+  '5min_apos': '5min após',
+}
+
 async function gravarMensagemOutbound(
   leadId: number,
   companyId: number,
   phone: string,
   contactName: string,
   texto: string,
+  janela: Janela,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<void> {
   // Busca por mensagem existente do lead (como no JSON: busca em mensagens, não em conversas)
@@ -313,17 +321,32 @@ async function gravarMensagemOutbound(
     conversationId = novaConversa?.id ?? null
   }
 
-  await supabase.from('mensagens_do_whatsapp').insert({
-    id_da_conversacao: conversationId,
-    id_do_lead: leadId,
-    company_id: companyId,
-    texto_da_mensagem: texto,
-    tipo_de_mensagem: 'text',
-    direcao: 'outbound',
-    sender_type: 'ai',
-    status: 'sent',
-    nome_do_agente: 'Follow-up AntNoshow',
-  })
+  const now = new Date().toISOString()
+  await Promise.all([
+    supabase.from('mensagens_do_whatsapp').insert({
+      id_da_conversacao: conversationId,
+      id_do_lead: leadId,
+      company_id: companyId,
+      texto_da_mensagem: texto,
+      tipo_de_mensagem: 'text',
+      direcao: 'outbound',
+      sender_type: 'ai',
+      status: 'sent',
+      nome_do_agente: 'Follow-up AntNoshow',
+      carimbo_de_data_e_hora: now,
+    }),
+    supabase.from('mensagens_do_whatsapp').insert({
+      id_da_conversacao: conversationId,
+      id_do_lead: leadId,
+      company_id: companyId,
+      texto_da_mensagem: `Anti-Noshow · ${JANELA_LABEL[janela]}`,
+      tipo_de_mensagem: 'system',
+      direcao: 'outbound',
+      sender_type: 'ai',
+      status: 'sent',
+      carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(),
+    }),
+  ])
 
   if (conversationId) {
     await supabase
@@ -472,6 +495,7 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
         phone,
         lead.contact_name,
         mensagem,
+        janela,
         supabase
       )
 
