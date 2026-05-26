@@ -15,6 +15,9 @@ import {
   Bot,
   FileText,
   X,
+  Zap,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -260,11 +263,183 @@ function StatsRow({ events }: { events: AgendaEvent[] }) {
   );
 }
 
+// ─── Trial Types ──────────────────────────────────────────────────────────────
+
+interface TrialCompany {
+  id: number
+  name: string
+  email: string
+  created_at: string
+  trial_ends_at: string | null
+  plan_type: string
+  is_active: boolean
+}
+
+function trialDaysLeft(endsAt: string | null): number | null {
+  if (!endsAt) return null
+  return Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000)
+}
+
+// ─── Trial Calendar View ──────────────────────────────────────────────────────
+
+function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
+  monday: Date; sunday: Date; today: Date;
+  weekOffset: number; setWeekOffset: (fn: (o: number) => number) => void;
+}) {
+  const [trials, setTrials] = useState<TrialCompany[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/admin/trials')
+      .then(r => r.json())
+      .then(d => setTrials(d.trials ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i))
+
+  function trialsForDay(day: Date): TrialCompany[] {
+    return trials.filter(t => {
+      const start = new Date(t.created_at)
+      return isSameDay(start, day)
+    })
+  }
+
+  const active = trials.filter(t => (trialDaysLeft(t.trial_ends_at) ?? 0) > 0)
+  const expired = trials.filter(t => (trialDaysLeft(t.trial_ends_at) ?? 0) <= 0)
+
+  return (
+    <div className="space-y-4">
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Zap className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-lg font-bold tabular-nums text-primary">{trials.length}</p>
+            <p className="text-[10px] text-muted-foreground">Total em trial</p>
+          </div>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+            <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
+          </div>
+          <div>
+            <p className="text-lg font-bold tabular-nums text-green-600 dark:text-green-400">{active.length}</p>
+            <p className="text-[10px] text-muted-foreground">Ativos</p>
+          </div>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+          </div>
+          <div>
+            <p className="text-lg font-bold tabular-nums text-red-500">{expired.length}</p>
+            <p className="text-[10px] text-muted-foreground">Expirados</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="grid grid-cols-7 border-b border-border">
+          {days.map((day, i) => {
+            const isToday = isSameDay(day, today)
+            const count = trialsForDay(day).length
+            return (
+              <div key={i} className={cn('p-3 text-center border-r border-border last:border-r-0', isToday && 'bg-primary/5')}>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'][i]}</p>
+                <p className={cn('text-lg font-bold mt-0.5 tabular-nums', isToday ? 'text-primary' : 'text-foreground')}>{day.getDate()}</p>
+                {count > 0 && (
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold mt-0.5">{count}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-7 min-h-[320px]">
+          {days.map((day, i) => {
+            const dayTrials = trialsForDay(day)
+            const isToday = isSameDay(day, today)
+            return (
+              <div key={i} className={cn('p-2 space-y-1.5 border-r border-border last:border-r-0 min-h-[120px]', isToday && 'bg-primary/5')}>
+                {loading ? (
+                  <div className="h-12 rounded-lg bg-muted animate-pulse" />
+                ) : dayTrials.length === 0 ? (
+                  <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40">—</div>
+                ) : dayTrials.map(t => {
+                  const days = trialDaysLeft(t.trial_ends_at)
+                  const expired = days !== null && days <= 0
+                  const urgent = days !== null && days <= 2 && days > 0
+                  return (
+                    <div key={t.id} className={cn(
+                      'w-full text-left rounded-xl border p-2.5 space-y-1',
+                      expired ? 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300'
+                        : urgent ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
+                        : 'bg-primary/10 border-primary/20 text-primary'
+                    )}>
+                      <div className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 shrink-0" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide truncate">Trial</span>
+                      </div>
+                      <p className="text-xs font-medium leading-tight truncate">{t.name}</p>
+                      <p className="text-[10px] font-mono opacity-80">
+                        {expired ? 'Expirado' : days !== null ? `${days}d restantes` : '7d'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* List */}
+      {trials.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-sm font-semibold">Todos os trials</p>
+          </div>
+          <div className="divide-y divide-border">
+            {trials.map(t => {
+              const days = trialDaysLeft(t.trial_ends_at)
+              const expired = days !== null && days <= 0
+              return (
+                <div key={t.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{t.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{t.email}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      Início: {new Date(t.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                    <span className={cn(
+                      'text-[11px] font-semibold',
+                      expired ? 'text-red-500' : (days ?? 0) <= 2 ? 'text-amber-500' : 'text-primary'
+                    )}>
+                      {expired ? 'Expirado' : `${days}d restantes`}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const WEEKDAY_SHORT = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
 export default function AgendaPage() {
+  const [view, setView] = useState<'sequences' | 'trial'>('sequences');
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null);
   const [allEvents, setAllEvents] = useState<AgendaEvent[]>([]);
@@ -315,6 +490,22 @@ export default function AgendaPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Tabs */}
+          <div className="flex items-center rounded-xl border border-border overflow-hidden bg-card">
+            <button
+              onClick={() => setView('sequences')}
+              className={cn('px-3 py-1.5 text-xs font-medium transition-colors', view === 'sequences' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+            >
+              Sequências
+            </button>
+            <button
+              onClick={() => setView('trial')}
+              className={cn('px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1', view === 'trial' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+            >
+              <Zap className="w-3 h-3" /> Trial SaaS
+            </button>
+          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -340,86 +531,102 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      {loadingEvents ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[0,1,2,3].map((i) => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}
-        </div>
-      ) : (
-        <StatsRow events={events} />
+      {/* Trial SaaS view */}
+      {view === 'trial' && (
+        <TrialCalendar
+          monday={monday}
+          sunday={sunday}
+          today={today}
+          weekOffset={weekOffset}
+          setWeekOffset={setWeekOffset}
+        />
       )}
 
-      {/* Grid */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-border">
-          {days.map((day, i) => {
-            const isToday = isSameDay(day, today);
-            const count = eventsForDay(day).length;
-            return (
-              <div
-                key={i}
-                className={cn(
-                  'p-3 text-center border-r border-border last:border-r-0',
-                  isToday && 'bg-primary/5',
-                )}
-              >
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                  {WEEKDAY_SHORT[i]}
-                </p>
-                <p className={cn(
-                  'text-lg font-bold mt-0.5 tabular-nums',
-                  isToday ? 'text-primary' : 'text-foreground',
-                )}>
-                  {day.getDate()}
-                </p>
-                {count > 0 && (
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold mt-0.5">
-                    {count}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+      {/* Sequences view */}
+      {view === 'sequences' && (
+        <>
+          {/* Stats */}
+          {loadingEvents ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[0,1,2,3].map((i) => <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />)}
+            </div>
+          ) : (
+            <StatsRow events={events} />
+          )}
 
-        {/* Day columns */}
-        <div className="grid grid-cols-7 min-h-[320px]">
-          {days.map((day, i) => {
-            const dayEvents = eventsForDay(day);
-            const isToday = isSameDay(day, today);
-            return (
-              <div
-                key={i}
-                className={cn(
-                  'p-2 space-y-1.5 border-r border-border last:border-r-0 min-h-[120px]',
-                  isToday && 'bg-primary/5',
-                )}
-              >
-                {dayEvents.length === 0 ? (
-                  <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40 text-center">
-                    —
+          {/* Grid */}
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-border">
+              {days.map((day, i) => {
+                const isToday = isSameDay(day, today);
+                const count = eventsForDay(day).length;
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      'p-3 text-center border-r border-border last:border-r-0',
+                      isToday && 'bg-primary/5',
+                    )}
+                  >
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      {WEEKDAY_SHORT[i]}
+                    </p>
+                    <p className={cn(
+                      'text-lg font-bold mt-0.5 tabular-nums',
+                      isToday ? 'text-primary' : 'text-foreground',
+                    )}>
+                      {day.getDate()}
+                    </p>
+                    {count > 0 && (
+                      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold mt-0.5">
+                        {count}
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  dayEvents
-                    .sort((a, b) => a.horario.localeCompare(b.horario))
-                    .map((event) => (
-                      <EventCard
-                        key={event.id}
-                        event={event}
-                        onClick={() => setSelectedEvent(event)}
-                      />
-                    ))
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                );
+              })}
+            </div>
 
-      {/* Event detail */}
-      {selectedEvent && (
-        <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+            {/* Day columns */}
+            <div className="grid grid-cols-7 min-h-[320px]">
+              {days.map((day, i) => {
+                const dayEvents = eventsForDay(day);
+                const isToday = isSameDay(day, today);
+                return (
+                  <div
+                    key={i}
+                    className={cn(
+                      'p-2 space-y-1.5 border-r border-border last:border-r-0 min-h-[120px]',
+                      isToday && 'bg-primary/5',
+                    )}
+                  >
+                    {dayEvents.length === 0 ? (
+                      <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40 text-center">
+                        —
+                      </div>
+                    ) : (
+                      dayEvents
+                        .sort((a, b) => a.horario.localeCompare(b.horario))
+                        .map((event) => (
+                          <EventCard
+                            key={event.id}
+                            event={event}
+                            onClick={() => setSelectedEvent(event)}
+                          />
+                        ))
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Event detail */}
+          {selectedEvent && (
+            <EventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+          )}
+        </>
       )}
     </div>
   );
