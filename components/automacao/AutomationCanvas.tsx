@@ -3239,15 +3239,28 @@ function ApprovalModal({ sequenceName, onConfirm, onClose }: { sequenceName: str
   );
 }
 
+const NOSHOW_JANELAS = [
+  { label: 'Todos os nodes', horas: undefined },
+  { label: '24h antes', horas: -24 },
+  { label: '2h antes', horas: -2 },
+  { label: '15min antes', horas: -0.25 },
+  { label: '5min após', horas: 0.083 },
+] as const;
+
 function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
+  const [janela, setJanela] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; processados?: number; disparados?: number; pulados?: number; errors?: string[]; error?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; disparados?: number; error?: string } | null>(null);
 
   async function handleDispatch() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch('/api/follow/antnoshow/force', { method: 'POST' });
+      const res = await fetch('/api/follow/antnoshow/force', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ horasAlvo: janela }),
+      });
       const json = await res.json();
       setResult(json);
     } catch (e: any) {
@@ -3265,20 +3278,26 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
         </div>
         <p className="text-xs text-muted-foreground -mt-2 leading-relaxed">
-          Força o cron para todos os leads com call agendada, ignorando a janela de tempo. Os lembretes serão disparados imediatamente.
+          Usa 100% os nodes do canvas. Ignora janela de tempo e dispara imediatamente para leads com call agendada.
         </p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Qual lembrete disparar</label>
+          <div className="flex flex-wrap gap-1.5">
+            {NOSHOW_JANELAS.map((j) => (
+              <button key={String(j.horas)} onClick={() => setJanela(j.horas)}
+                className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                  janela === j.horas
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-muted border-border text-muted-foreground hover:text-foreground')}>
+                {j.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {result && (
-          <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border space-y-1',
-            result.errors?.length || result.error
-              ? 'bg-destructive/10 border-destructive/20 text-destructive'
-              : 'bg-primary/10 border-primary/20 text-primary')}>
-            {result.error
-              ? `✗ Erro: ${result.error}`
-              : <>
-                  <p>{`✓ Concluído — ${result.disparados ?? 0} disparados · ${result.pulados ?? 0} pulados · ${result.processados ?? 0} processados`}</p>
-                  {result.errors?.map((e, i) => <p key={i} className="text-destructive text-[10px] break-all">⚠ {e}</p>)}
-                </>
-            }
+          <div className={cn('px-3 py-2.5 rounded-xl text-xs leading-relaxed border',
+            result.error ? 'bg-destructive/10 border-destructive/20 text-destructive' : 'bg-primary/10 border-primary/20 text-primary')}>
+            {result.error ? `✗ Erro: ${result.error}` : `✓ Concluído — ${result.disparados ?? 0} disparados`}
           </div>
         )}
         <button

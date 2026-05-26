@@ -822,10 +822,12 @@ async function processFollowGeral(
 async function processAntiNoshow(
   company: CompanyCtx,
   sequences: FollowSequence[],
-  supabase: Supabase
+  supabase: Supabase,
+  opts: { force?: boolean; horasAlvo?: number } = {}
 ): Promise<number> {
   let sent = 0
   const now = Date.now()
+  const { force = false, horasAlvo } = opts
 
   const { data: leads } = await supabase
     .from('leads')
@@ -855,8 +857,14 @@ async function processAntiNoshow(
         // dia_offset = horas (negativo = antes, positivo = depois)
         const targetTime = callTime + step.dia_offset * 3_600_000
         const diff = Math.abs(now - targetTime)
-        // Janela de ±15 min
-        if (diff > 15 * 60_000) continue
+
+        if (force) {
+          // Se horasAlvo especificado, só nodes com dia_offset próximo (±1h)
+          if (horasAlvo !== undefined && Math.abs(step.dia_offset - horasAlvo) > 1) continue
+        } else {
+          // Janela de ±15 min
+          if (diff > 15 * 60_000) continue
+        }
 
         // ── Retry / DLQ ──
         const retryStatus = await checkRetry(lead.id, step.id, supabase)
@@ -1358,6 +1366,48 @@ function safeDecrypt(value: string | null | undefined, fallback = ''): string {
     try { return decrypt(value) } catch { return fallback }
   }
   return value
+}
+
+export async function runAntNoshowForCompany(
+  companyId: number,
+  opts: { horasAlvo?: number } = {}
+): Promise<{ sent: number; error?: string }> {
+  const supabase = createServiceClient()
+  const platformCfg = await getPlatformConfig()
+
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!cfg) return { sent: 0, error: 'sdr_configs não encontrado para esta empresa' }
+
+  const company: CompanyCtx = {
+    id: cfg.company_id,
+    uazapi_url: cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url,
+    uazapi_token: safeDecrypt(cfg.uazapi_token),
+    openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
+    sdr_prompt: cfg.prompt ?? null,
+  }
+  if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
+
+  const { data: sequences } = await supabase
+    .from('follow_sequences')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('tipo', 'anti_noshow')
+    .eq('ativo', true)
+
+  if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência Anti-Noshow ativa' }
+
+  const sent = await processAntiNoshow(
+    company,
+    sequences as FollowSequence[],
+    supabase,
+    { force: true, horasAlvo: opts.horasAlvo }
+  )
+  return { sent }
 }
 
 export async function runRemarketingForCompany(companyId: number, skipDelay = false): Promise<{ sent: number; error?: string }> {
