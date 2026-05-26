@@ -2128,11 +2128,14 @@ const REMARKETING_STATUS_OPTIONS = [
 // ─── Variáveis disponíveis para inserção ─────────────────────────────────────────
 
 const TEMPLATE_VARS = [
-  { label: 'nome',     value: '{nome}'     },
-  { label: 'empresa',  value: '{empresa}'  },
-  { label: 'telefone', value: '{telefone}' },
-  { label: 'email',    value: '{email}'    },
-  { label: 'produto',  value: '{produto}'  },
+  { label: 'nome',         value: '{nome}'         },
+  { label: 'empresa',      value: '{empresa}'      },
+  { label: 'telefone',     value: '{telefone}'     },
+  { label: 'email',        value: '{email}'        },
+  { label: 'produto',      value: '{produto}'      },
+  { label: 'hora_reuniao', value: '{hora_reuniao}' },
+  { label: 'link_meet',    value: '{link_meet}'    },
+  { label: 'data_call',    value: '{data_call}'    },
 ];
 
 function insertVariable(

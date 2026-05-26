@@ -110,6 +110,7 @@ interface Lead {
   call_de_venda: boolean | null
   call_agendada_para: string | null
   call_status: string | null
+  meet_url?: string | null
 }
 
 interface CompanyCtx {
@@ -151,6 +152,10 @@ function substituirVariaveis(texto: string, lead: Lead): string {
   const dataCall = lead.call_agendada_para
     ? new Date(lead.call_agendada_para).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
     : ''
+  const horaCall = lead.call_agendada_para
+    ? new Date(lead.call_agendada_para).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+    : ''
+  const linkMeet = lead.meet_url ?? ''
   return texto
     .replace(/\{nome\}/gi, nome)
     .replace(/\{name\}/gi, nome)
@@ -159,6 +164,9 @@ function substituirVariaveis(texto: string, lead: Lead): string {
     .replace(/\{status\}/gi, status)
     .replace(/\{data_call\}/gi, dataCall)
     .replace(/\{horario_call\}/gi, dataCall)
+    .replace(/\{hora_reuniao\}/gi, horaCall)
+    .replace(/\{link_meet\}/gi, linkMeet)
+    .replace(/\{meet_url\}/gi, linkMeet)
 }
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -831,7 +839,7 @@ async function processAntiNoshow(
 
   const { data: leads } = await supabase
     .from('leads')
-    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, meet_url')
     .eq('company_id', company.id)
     .eq('call_de_venda', true)
     .eq('call_status', 'agendada')
