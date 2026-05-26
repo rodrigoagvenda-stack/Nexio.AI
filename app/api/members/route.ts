@@ -82,18 +82,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 1. Verificar se o email já existe no Auth
-    console.log('[INVITE] Verificando email:', email);
-    const { data: existingUsers } = await supabaseService.auth.admin.listUsers();
-    const userExists = existingUsers?.users?.find(u => u.email === email);
+    // 1. Verificar se o email já existe na empresa
+    const { data: existingMember } = await supabaseService
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .eq('company_id', companyId)
+      .maybeSingle();
 
-    if (userExists) {
-      console.log('[INVITE] Email já existe no Auth:', email);
+    if (existingMember) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Este email já está cadastrado no sistema. Se foi deletado, aguarde alguns minutos e tente novamente.'
-        },
+        { success: false, message: 'Este email já é membro desta empresa.' },
         { status: 400 }
       );
     }
