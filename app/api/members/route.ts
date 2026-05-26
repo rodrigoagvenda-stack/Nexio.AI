@@ -83,14 +83,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Verificar se o email já existe em qualquer empresa
-    const { data: existingMember } = await supabaseService
+    const { data: existingMembers } = await supabaseService
       .from('users')
       .select('id, company_id')
       .eq('email', email)
-      .maybeSingle();
+      .limit(1);
 
-    if (existingMember) {
-      const msg = existingMember.company_id === companyId
+    if (existingMembers && existingMembers.length > 0) {
+      const msg = existingMembers[0].company_id === companyId
         ? 'Este email já é membro desta empresa.'
         : 'Este email já possui uma conta na plataforma.';
       return NextResponse.json({ success: false, message: msg }, { status: 400 });
@@ -210,15 +210,20 @@ export async function POST(request: NextRequest) {
     console.error('[INVITE] ❌ Erro ao criar membro:', error);
 
     // Mensagem mais específica baseada no erro
-    let errorMessage = error.message || 'Erro ao adicionar membro';
+    const errorMessage = error.message || 'Erro ao adicionar membro';
 
-    if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
-      errorMessage = 'Este email já está cadastrado. Tente outro email ou delete o usuário anterior completamente.';
+    if (
+      errorMessage.includes('already registered') ||
+      errorMessage.includes('already exists') ||
+      errorMessage.includes('users_email_key') ||
+      errorMessage.includes('duplicate key')
+    ) {
+      return NextResponse.json(
+        { success: false, message: 'Este email já possui uma conta na plataforma.' },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json(
-      { success: false, message: errorMessage },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: errorMessage }, { status: 500 });
   }
 }
