@@ -280,6 +280,87 @@ function trialDaysLeft(endsAt: string | null): number | null {
   return Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000)
 }
 
+// ─── Trial Detail Modal ───────────────────────────────────────────────────────
+
+function TrialDetail({ trial, onClose }: { trial: TrialCompany; onClose: () => void }) {
+  const days = trialDaysLeft(trial.trial_ends_at)
+  const expired = days !== null && days <= 0
+  const urgent = days !== null && days <= 2 && days > 0
+
+  const statusColor = expired
+    ? 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300'
+    : urgent
+    ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
+    : 'bg-primary/10 border-primary/20 text-primary'
+
+  const badgeColor = expired
+    ? 'bg-red-500/20 text-red-700 border-red-500/30 dark:text-red-300'
+    : urgent
+    ? 'bg-amber-500/20 text-amber-700 border-amber-500/30 dark:text-amber-300'
+    : 'bg-primary/20 text-primary border-primary/30'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className="relative bg-card border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', statusColor)}>
+              <Zap className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">{trial.name}</p>
+              <p className="text-xs text-muted-foreground">Trial SaaS</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted/50 transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="font-medium truncate">{trial.email}</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-muted-foreground">
+              Início: {new Date(trial.created_at).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+            </span>
+          </div>
+
+          {trial.trial_ends_at && (
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground">
+                Expira: {new Date(trial.trial_ends_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 text-sm">
+            <AlertTriangle className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className={cn('font-medium', expired ? 'text-red-500' : urgent ? 'text-amber-500' : 'text-primary')}>
+              {expired ? 'Trial expirado' : days !== null ? `${days} dias restantes` : '7 dias restantes'}
+            </span>
+          </div>
+        </div>
+
+        <div className={cn('px-3 py-2 rounded-xl border text-xs font-medium', badgeColor)}>
+          {expired
+            ? `Expirado em ${trial.trial_ends_at ? new Date(trial.trial_ends_at).toLocaleDateString('pt-BR') : '—'}`
+            : `Trial ativo — ${days ?? 7}d restantes`}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Trial Calendar View ──────────────────────────────────────────────────────
 
 function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
@@ -288,6 +369,7 @@ function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
 }) {
   const [trials, setTrials] = useState<TrialCompany[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedTrial, setSelectedTrial] = useState<TrialCompany | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/trials')
@@ -370,25 +452,29 @@ function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
                 ) : dayTrials.length === 0 ? (
                   <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40">—</div>
                 ) : dayTrials.map(t => {
-                  const days = trialDaysLeft(t.trial_ends_at)
-                  const expired = days !== null && days <= 0
-                  const urgent = days !== null && days <= 2 && days > 0
+                  const d = trialDaysLeft(t.trial_ends_at)
+                  const isExpired = d !== null && d <= 0
+                  const isUrgent = d !== null && d <= 2 && d > 0
                   return (
-                    <div key={t.id} className={cn(
-                      'w-full text-left rounded-xl border p-2.5 space-y-1',
-                      expired ? 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300'
-                        : urgent ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
-                        : 'bg-primary/10 border-primary/20 text-primary'
-                    )}>
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTrial(t)}
+                      className={cn(
+                        'w-full text-left rounded-xl border p-2.5 space-y-1 transition-all hover:opacity-80 hover:shadow-sm',
+                        isExpired ? 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300'
+                          : isUrgent ? 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300'
+                          : 'bg-primary/10 border-primary/20 text-primary'
+                      )}
+                    >
                       <div className="flex items-center gap-1">
                         <Zap className="w-3 h-3 shrink-0" />
                         <span className="text-[10px] font-semibold uppercase tracking-wide truncate">Trial</span>
                       </div>
                       <p className="text-xs font-medium leading-tight truncate">{t.name}</p>
                       <p className="text-[10px] font-mono opacity-80">
-                        {expired ? 'Expirado' : days !== null ? `${days}d restantes` : '7d'}
+                        {isExpired ? 'Expirado' : d !== null ? `${d}d restantes` : '7d'}
                       </p>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -405,10 +491,14 @@ function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
           </div>
           <div className="divide-y divide-border">
             {trials.map(t => {
-              const days = trialDaysLeft(t.trial_ends_at)
-              const expired = days !== null && days <= 0
+              const d = trialDaysLeft(t.trial_ends_at)
+              const isExpired = d !== null && d <= 0
               return (
-                <div key={t.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedTrial(t)}
+                  className="w-full flex items-center justify-between px-4 py-3 gap-3 hover:bg-muted/30 transition-colors text-left"
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{t.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{t.email}</p>
@@ -419,16 +509,21 @@ function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
                     </p>
                     <span className={cn(
                       'text-[11px] font-semibold',
-                      expired ? 'text-red-500' : (days ?? 0) <= 2 ? 'text-amber-500' : 'text-primary'
+                      isExpired ? 'text-red-500' : (d ?? 0) <= 2 ? 'text-amber-500' : 'text-primary'
                     )}>
-                      {expired ? 'Expirado' : `${days}d restantes`}
+                      {isExpired ? 'Expirado' : `${d}d restantes`}
                     </span>
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
         </div>
+      )}
+
+      {/* Trial detail modal */}
+      {selectedTrial && (
+        <TrialDetail trial={selectedTrial} onClose={() => setSelectedTrial(null)} />
       )}
     </div>
   )
