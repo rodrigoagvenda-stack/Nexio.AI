@@ -147,7 +147,8 @@ async function isHorarioComercial(
 // ─── Janela de disparo ─────────────────────────────────────────
 
 function calcularJanela(
-  callAgendadaPara: string
+  callAgendadaPara: string,
+  force = false
 ): { janela: Janela; ok: boolean } {
   const agora = Date.now()
   const callTs = new Date(callAgendadaPara).getTime()
@@ -155,15 +156,18 @@ function calcularJanela(
   const diffMin = diffMs / 60_000
   const diffHoras = diffMs / 3_600_000
 
-  const statusBloqueados = [
-    'nao_interessado', 'descadastrado', 'perdido', 'bloqueado',
-    'Perdido', 'Não Interessado', 'no_show', 'cancelada', 'realizada',
-  ]
-
+  // Janelas exatas (cron normal)
   if (diffHoras >= 23 && diffHoras <= 25) return { janela: '24h_antes', ok: true }
   if (diffHoras >= 1.5 && diffHoras <= 2.5) return { janela: '2h_antes', ok: true }
   if (diffMin >= 10 && diffMin <= 20) return { janela: '15min_antes', ok: true }
   if (diffMin >= -10 && diffMin <= -2) return { janela: '5min_apos', ok: true }
+
+  // Modo force: escolhe a janela semanticamente mais próxima
+  if (force) {
+    if (diffHoras > 12) return { janela: '24h_antes', ok: false }   // mais de 12h antes → lembrete de amanhã
+    if (diffHoras > 0) return { janela: '2h_antes', ok: false }      // em breve → lembrete de horas
+    return { janela: '5min_apos', ok: false }                        // já passou → mensagem de noshow
+  }
 
   return { janela: '24h_antes', ok: false }
 }
@@ -403,7 +407,7 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
     result.processados++
 
     try {
-      const { janela, ok } = calcularJanela(lead.call_agendada_para)
+      const { janela, ok } = calcularJanela(lead.call_agendada_para, force)
       if (!force && !ok) {
         result.pulados++
         continue
