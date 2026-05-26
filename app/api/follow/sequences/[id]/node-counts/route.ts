@@ -19,12 +19,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const { data } = await service
     .from('follow_executions')
-    .select('step_id')
+    .select('step_id, status')
     .eq('sequence_id', params.id)
 
-  const counts: Record<string, number> = {}
+  type StepStats = { total: number; sent: number; failed: number; skipped: number; dlq: number }
+  const counts: Record<string, StepStats> = {}
   for (const row of data ?? []) {
-    if (row.step_id) counts[row.step_id] = (counts[row.step_id] ?? 0) + 1
+    if (!row.step_id) continue
+    if (!counts[row.step_id]) counts[row.step_id] = { total: 0, sent: 0, failed: 0, skipped: 0, dlq: 0 }
+    counts[row.step_id].total++
+    const s = row.status as keyof StepStats
+    if (s in counts[row.step_id]) counts[row.step_id][s]++
   }
 
   return NextResponse.json({ counts })

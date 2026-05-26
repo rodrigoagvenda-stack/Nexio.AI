@@ -165,6 +165,9 @@ interface MessageNodeData extends Record<string, unknown> {
   horario: string;
   mensagem: string | null;
   _leadCount?: number;
+  _sentCount?: number;
+  _failedCount?: number;
+  _dlqCount?: number;
   tipo_mensagem: string;
   stepId: string;
   customLabel?: string;
@@ -815,7 +818,7 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   return null;
 }
 
-function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount }: {
+function NodeShell({ children, selected, accent = 'primary', header, execState, execError, leadCount, dlqCount }: {
   children: React.ReactNode;
   selected?: boolean;
   accent?: AccentKey;
@@ -823,11 +826,13 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   execState?: ExecState;
   execError?: string;
   leadCount?: number;
+  dlqCount?: number;
 }) {
   const isRunning = execState === 'running';
   const isSuccess = execState === 'success';
   const isError = execState === 'error';
   const isSkipped = execState === 'skipped';
+  const hasDlq = (dlqCount ?? 0) > 0;
   const acc = ACCENTS[accent];
   return (
     <div className={cn(
@@ -837,6 +842,7 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
       isRunning ? 'node-running border-border/30'
         : isSuccess ? 'node-success border-border/30'
         : isError ? 'node-error border-border/30'
+        : hasDlq ? 'border-destructive/40 ring-1 ring-destructive/20'
         : selected
           ? cn('ring-2', acc.sel, 'shadow-[0_4px_24px_rgba(0,0,0,0.1)]')
           : 'border-border/25 hover:border-border/40 hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)]',
@@ -844,6 +850,11 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
       {leadCount != null && leadCount > 0 && (
         <div className="absolute -top-2 -left-2 z-10 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none shadow-sm">
           <Phone className="w-2 h-2" />{leadCount}
+        </div>
+      )}
+      {hasDlq && (
+        <div className="absolute -top-2 -right-2 z-10 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold leading-none shadow-sm">
+          DLQ {dlqCount}
         </div>
       )}
       <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-0 relative">
@@ -963,10 +974,15 @@ function MessageNode({ id, data, selected }: NodeProps) {
   // Blocks preview: use blocos[] if set, otherwise fall back to single mensagem
   const hasBlocos = d.blocos && d.blocos.length > 0;
 
+  const sentCount = d._sentCount ?? 0;
+  const failedCount = d._failedCount ?? 0;
+  const dlqCount = d._dlqCount ?? 0;
+  const showFunnel = (sentCount + failedCount + dlqCount) > 0;
+
   return (
     <NodeShell selected={selected} accent="emerald"
       header={<NodeHeader icon={MessageSquare} label="Mensagem" accent="emerald" meta={meta} nodeId={id} customLabel={d.customLabel} />}
-      execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
+      execState={d._execState} execError={d._execError} leadCount={d._leadCount} dlqCount={dlqCount}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
 
@@ -1150,6 +1166,14 @@ function MessageNode({ id, data, selected }: NodeProps) {
             <span className="text-xs text-muted-foreground/60">Adicionar sticker</span>
           </div>
         )
+      )}
+
+      {showFunnel && (
+        <div className="flex items-center gap-2 pt-1 border-t border-border/20 mt-0.5">
+          <span className="text-[9px] text-emerald-500 font-semibold">✓{sentCount}</span>
+          {failedCount > 0 && <span className="text-[9px] text-amber-500 font-semibold">⚠{failedCount}</span>}
+          {dlqCount > 0 && <span className="text-[9px] text-destructive font-bold">DLQ·{dlqCount}</span>}
+        </div>
       )}
 
     </NodeShell>
@@ -3345,10 +3369,15 @@ function CanvasInner() {
       try {
         const res = await fetch(`/api/follow/sequences/${currentSeq!.id}/node-counts`);
         if (!res.ok || cancelled) return;
-        const { counts } = await res.json() as { counts: Record<string, number> };
+        type StepStats = { total: number; sent: number; failed: number; skipped: number; dlq: number };
+        const { counts } = await res.json() as { counts: Record<string, StepStats | number> };
         setNodes((nds) => nds.map((n) => {
-          const count = counts[String((n.data as any).stepId)] ?? 0;
-          return count === (n.data as any)._leadCount ? n : { ...n, data: { ...n.data, _leadCount: count } as AutoNodeData };
+          const raw = counts[String((n.data as any).stepId)];
+          if (!raw) return n;
+          const stats = typeof raw === 'number' ? { total: raw, sent: raw, failed: 0, skipped: 0, dlq: 0 } : raw;
+          const cur = n.data as any;
+          if (stats.total === cur._leadCount && stats.sent === cur._sentCount && stats.dlq === cur._dlqCount) return n;
+          return { ...n, data: { ...n.data, _leadCount: stats.total, _sentCount: stats.sent, _failedCount: stats.failed, _dlqCount: stats.dlq } as AutoNodeData };
         }));
       } catch {}
     }
