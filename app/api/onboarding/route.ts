@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
+import { sendWelcomeEmail } from '@/lib/email/resend'
 
 // POST /api/onboarding — cria company + user para novos usuários
 export async function POST(req: NextRequest) {
@@ -75,6 +76,14 @@ export async function POST(req: NextRequest) {
       await service.from('companies').delete().eq('id', company.id)
       throw userErr
     }
+
+    // Envia email de boas-vindas (fire-and-forget, não bloqueia o retorno)
+    sendWelcomeEmail({
+      nome: userDisplayName,
+      email: userEmail,
+      companyName: companyName.trim(),
+      isTrial: true,
+    }).catch(() => {})
 
     return NextResponse.json({ success: true, companyId: company.id })
   } catch (err: any) {

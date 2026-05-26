@@ -431,6 +431,179 @@ export async function sendContatoNotificacaoEmail({
   return { success: true, data }
 }
 
+export async function sendWelcomeEmail({
+  nome,
+  email,
+  companyName,
+  isTrial,
+}: {
+  nome: string
+  email: string
+  companyName: string
+  isTrial?: boolean
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply <noreply@zaapply.com.br>',
+    to: [email],
+    subject: `Bem-vindo ao Zaapply, ${nome}!`,
+    html: zaapplyHtml({
+      heading: `Boa, ${nome}! Sua conta está pronta.`,
+      body: `<p style="margin:0 0 16px;color:#444444;font-size:15px;line-height:1.7;">A empresa <strong style="color:#111111;">${companyName}</strong> foi configurada com sucesso. ${isTrial ? 'Você tem <strong style="color:#15803d;">7 dias grátis</strong> para explorar o CRM e o WhatsApp — sem cartão de crédito.' : 'Tudo pronto para começar a vender.'}</p><p style="margin:0 0 20px;color:#6b7280;font-size:14px;line-height:1.7;">Conecte seu WhatsApp, importe seus leads e deixe o Zaapply trabalhar por você.</p>`,
+      button: { text: 'Acessar o painel', url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'}/dashboard` },
+    }),
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
+export async function sendWelcomeEmail({
+  nome,
+  email,
+  companyName,
+  isTrial,
+}: {
+  nome: string
+  email: string
+  companyName: string
+  isTrial?: boolean
+}) {
+  const client = getResend()
+  if (!client) return { success: false }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'
+  const bodyText = isTrial
+    ? `A empresa <strong style="font-weight:600;">${companyName}</strong> foi criada com sucesso. Você tem <strong style="font-weight:600;">7 dias grátis</strong> para explorar o CRM e o WhatsApp — sem cartão de crédito.`
+    : `A empresa <strong style="font-weight:600;">${companyName}</strong> foi criada. Tudo pronto para começar a vender.`
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bem-vindo ao Zaapply</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+    img{-ms-interpolation-mode:bicubic;border:0;outline:none;text-decoration:none;}
+    body{margin:0!important;padding:0!important;background-color:#ffffff;}
+    @media only screen and (max-width:600px){
+      .card{width:100%!important;}
+      .logo-img{width:150px!important;height:auto!important;}
+      .headline{font-size:24px!important;}
+      .body-text{font-size:15px!important;}
+      .btn a{font-size:16px!important;padding:14px 28px!important;}
+      .warn-cell{padding-left:20px!important;padding-right:20px!important;}
+      .outer-pad{padding:24px 0!important;}
+    }
+  </style>
+</head>
+<body>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#ffffff;">
+    <tr>
+      <td align="center" class="outer-pad" style="padding:48px 16px;background-color:#ffffff;">
+
+        <table class="card" width="600" cellpadding="0" cellspacing="0" border="0" role="presentation"
+          style="background-color:#ebebeb;background-image:url('https://app.zaapply.com.br/email-pattern.png');background-repeat:repeat;box-shadow:15px 15px 0px 0px #07261c;">
+
+          <tr>
+            <td align="center" style="padding:24px 48px 0;">
+              <img class="logo-img" src="https://app.zaapply.com.br/logo-email.png" alt="Zaapply" width="209" height="67" style="display:block;" />
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:40px 48px 0;">
+              <p class="headline" style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:30px;font-weight:400;color:#1a1a1a;text-align:center;line-height:1.2;">
+                Bem-vindo ao
+                <span style="font-weight:800;border-bottom:3px solid #a6f821;padding-bottom:2px;">Zaapply.</span>
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:16px 64px 0;">
+              <p class="body-text" style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:18px;font-weight:400;color:#1a1a1a;text-align:center;line-height:1.65;">
+                ${bodyText}
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:40px 48px 0;">
+              <table class="btn" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                <tr>
+                  <td style="background-color:#a6f821;box-shadow:7px 9px 0px 0px #07261c;">
+                    <a href="${appUrl}/dashboard"
+                      style="display:block;padding:16px 52px;font-family:'Montserrat',Arial,sans-serif;font-size:20px;font-weight:600;color:#1a1a1a;text-decoration:none;text-align:center;white-space:nowrap;letter-spacing:0.08em;text-transform:uppercase;">
+                      Acessar o painel
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="warn-cell" style="padding:48px 44px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+                style="background-color:#dddedc;border-radius:10px;box-shadow:3px 3px 0px 0px #a6f821;">
+                <tr>
+                  <td style="padding:12px 18px;">
+                    <table cellpadding="0" cellspacing="0" border="0" role="presentation">
+                      <tr>
+                        <td width="56" style="vertical-align:middle;padding-right:14px;">
+                          <img src="https://app.zaapply.com.br/icon-warning.png" alt="⚠" width="44" height="46" style="display:block;" />
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <p style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:15px;font-weight:400;color:#1a1a1a;line-height:1.55;">
+                            Dúvidas? Acesse a <strong style="font-weight:600;">Central de Ajuda</strong> ou abra um chamado — nossa equipe responde em até 24 horas úteis.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+
+        <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation">
+          <tr>
+            <td align="center" style="padding:20px 16px 0;">
+              <p style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:12px;color:#999999;text-align:center;line-height:1.6;">
+                Zaapply &middot;
+                <a href="${appUrl}/privacidade" style="color:#999999;text-decoration:underline;">Política de Privacidade</a>
+                &middot;
+                <a href="${appUrl}/ajuda" style="color:#999999;text-decoration:underline;">Central de Ajuda</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const { data, error } = await client.emails.send({
+    from: 'Zaapply <noreply@zaapply.com.br>',
+    to: [email],
+    subject: `Bem-vindo ao Zaapply, ${nome}!`,
+    html,
+  })
+
+  if (error) return { success: false, message: error.message }
+  return { success: true, data }
+}
+
 export async function sendContatoConfirmacaoEmail({
   nome,
   email,
