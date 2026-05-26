@@ -22,7 +22,7 @@ import {
   acquireSendLock, releaseSendLock, sendLockKey,
   recordCircuitFailure, recordCircuitSuccess, isCircuitOpen,
   getFailedCount, shouldRetryNow, MAX_RETRIES, backoffMs,
-  isUazapiHealthy,
+  isUazapiHealthy, isFatigued, recordFatigue,
 } from './reliability'
 
 /** Mesma lógica de engine.ts — variações de formato do número BR */
@@ -91,7 +91,7 @@ interface FollowSequence {
   nome: string
   tipo: SequenceTipo
   ativo: boolean
-  canvas_config?: { remarketing?: RemarketingCanvasConfig } | null
+  canvas_config?: { remarketing?: RemarketingCanvasConfig; expira_em_dias?: number } | null
 }
 
 interface Lead {
@@ -542,6 +542,8 @@ async function processFollowGeral(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
+    const expiraDias = (sequence.canvas_config as any)?.expira_em_dias ?? 0
+
     for (const step of steps as FollowStep[]) {
       const unit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
       const msPerUnit = unit === 'hours' ? 3_600_000 : 86_400_000
@@ -565,6 +567,15 @@ async function processFollowGeral(
         const elapsed = (Date.now() - new Date(ultimaMsg.created_at).getTime()) / msPerUnit
         if (elapsed < step.dia_offset) continue
 
+        // ── Sequence expiry ──
+        if (expiraDias > 0) {
+          const { data: firstExec } = await supabase
+            .from('follow_executions').select('disparado_em')
+            .eq('lead_id', lead.id).eq('sequence_id', sequence.id)
+            .order('disparado_em', { ascending: true }).limit(1).maybeSingle()
+          if (firstExec?.disparado_em && (Date.now() - new Date(firstExec.disparado_em).getTime()) / 86_400_000 > expiraDias) continue
+        }
+
         // ── Retry / DLQ ──
         const retryStatus = await checkRetry(lead.id, step.id, supabase)
         if (retryStatus === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
@@ -573,6 +584,9 @@ async function processFollowGeral(
         // ── Circuit breaker ──
         if (await isCircuitOpen(sequence.id)) continue
 
+        // ── Fatigue guard ──
+        if (await isFatigued(company.id, lead.id)) continue
+
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
@@ -580,6 +594,20 @@ async function processFollowGeral(
         // ── Exactly-once lock ──
         const lockKey = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKey))) continue
+
+        // ── Goal step — marca lead como convertido, sem envio ──
+        if (tipo === 'goal') {
+          try {
+            const targetStatus = step.condicao || 'Convertido'
+            await supabase.from('leads').update({ status: targetStatus, updated_at: new Date().toISOString() }).eq('id', lead.id)
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
+          continue
+        }
 
         // ── Scheduling step ──
         if (tipo === 'agendamento') {
@@ -597,6 +625,7 @@ async function processFollowGeral(
             await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'follow_geral', supabase, 'text', null)
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
             await recordCircuitSuccess(sequence.id)
+            await recordFatigue(company.id, lead.id)
             sent++
           } catch {
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
@@ -635,6 +664,7 @@ async function processFollowGeral(
 
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
+          await recordFatigue(company.id, lead.id)
           sent++
           await antiBanDelay()
         } catch {
@@ -791,6 +821,7 @@ async function processRemarketing(
         if (retryStatusRm === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
         if (retryStatusRm === 'backoff') continue
         if (await isCircuitOpen(sequence.id)) continue
+        if (await isFatigued(company.id, lead.id)) continue
 
         // Verifica inatividade mínima configurada no canvas (diasInativo)
         const rmUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
@@ -822,6 +853,7 @@ async function processRemarketing(
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
+          await recordFatigue(company.id, lead.id)
           sent++
           if (!skipDelay) await antiBanDelay()
         } catch {
@@ -875,6 +907,7 @@ async function processFollowProposta(
         if (retryStatusProp === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
         if (retryStatusProp === 'backoff') continue
         if (await isCircuitOpen(sequence.id)) continue
+        if (await isFatigued(company.id, lead.id)) continue
 
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
 
@@ -914,6 +947,7 @@ async function processFollowProposta(
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_proposta', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
+          await recordFatigue(company.id, lead.id)
           sent++
           await antiBanDelay()
         } catch {

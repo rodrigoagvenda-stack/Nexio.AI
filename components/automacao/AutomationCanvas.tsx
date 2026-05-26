@@ -43,6 +43,7 @@ import {
   Save,
   Loader2,
   CheckCircle2,
+  Target,
   X,
   Search,
   PenLine,
@@ -128,6 +129,7 @@ interface CanvasConfig {
   edges: CanvasConfigEdge[];
   remarketing?: RemarketingConfig;
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
+  expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
 }
 
 interface FollowSequence {
@@ -150,6 +152,7 @@ interface TriggerNodeData extends Record<string, unknown> {
   label: string;
   condicao: string;
   customLabel?: string;
+  expira_em_dias?: number;
   _execState?: ExecState;
   _execError?: string;
   _leadCount?: number;
@@ -212,6 +215,16 @@ interface ConditionNodeData extends Record<string, unknown> {
 interface EndNodeData extends Record<string, unknown> {
   kind: 'end';
   label: string;
+  stepId: string;
+  customLabel?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
+interface GoalNodeData extends Record<string, unknown> {
+  kind: 'goal';
+  label: string;
+  marcarStatus?: string;
   stepId: string;
   customLabel?: string;
   _execState?: ExecState;
@@ -283,6 +296,7 @@ type AutoNodeData =
   | ConditionNodeData
   | SwitchNodeData
   | EndNodeData
+  | GoalNodeData
   | WebhookNodeData
   | LeadScoreNodeData
   | ABTestNodeData
@@ -531,7 +545,8 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
   const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
   nodes.push({
     id: 'trigger', type: 'triggerNode', position: triggerPos,
-    data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência' } satisfies TriggerNodeData,
+    data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
+      expira_em_dias: canvasConfig?.expira_em_dias ?? 0 } satisfies TriggerNodeData,
   });
   const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
@@ -576,7 +591,11 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
     // Custom label (stored in canvas_config.customLabels keyed by stepId)
     const customLabel = canvasConfig?.customLabels?.[step.id] ?? undefined;
 
-    if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id, customLabel } satisfies EndNodeData });
+    if (step.tipo_mensagem === 'goal') {
+      nodes.push({ id: step.id, type: 'goalNode', position: { x, y },
+        data: { kind: 'goal', label: 'Meta', marcarStatus: step.condicao || 'Convertido', stepId: step.id, customLabel } satisfies GoalNodeData });
+    }
+    else if (isFim) nodes.push({ id: step.id, type: 'endNode', position: { x, y }, data: { kind: 'end', label: 'Encerrar sequência', stepId: step.id, customLabel } satisfies EndNodeData });
     else if (step.tipo_mensagem === 'switch') {
       const mc = step.media_config as any ?? {};
       nodes.push({ id: step.id, type: 'switchNode', position: { x, y },
@@ -727,6 +746,10 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       const sd = d as SchedulingNodeData;
       return { id: stepId, dia_offset: sd.dia_offset ?? 0, horario: sd.horario ?? '09:00', mensagem: null, tipo_mensagem: 'agendamento', ordem: idx + 1, condicao: '',
         media_config: { duracao: sd.duracao ?? 60, ...(sd.mensagemInicial ? { mensagemInicial: sd.mensagemInicial } : {}) } };
+    }
+    if (d.kind === 'goal') {
+      const gd = d as GoalNodeData;
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'goal', ordem: idx + 1, condicao: gd.marcarStatus || 'Convertido' };
     }
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
@@ -1181,6 +1204,21 @@ function EndNode({ id, data, selected }: NodeProps) {
   );
 }
 
+function GoalNode({ id, data, selected }: NodeProps) {
+  const d = data as GoalNodeData;
+  return (
+    <NodeShell selected={selected} accent="emerald"
+      header={<NodeHeader icon={Target} label="Meta" accent="emerald" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+        {d.marcarStatus ? `→ ${d.marcarStatus}` : '→ Convertido'}
+      </p>
+      <p className="text-[10px] text-muted-foreground/60 mt-0.5">Marca lead como convertido</p>
+    </NodeShell>
+  );
+}
+
 function WebhookNode({ id, data, selected }: NodeProps) {
   const d = data as WebhookNodeData;
   const domain = d.url ? getDomain(d.url) : null;
@@ -1333,6 +1371,7 @@ const nodeTypes = {
   conditionNode: ConditionNode,
   switchNode: SwitchNode,
   endNode: EndNode,
+  goalNode: GoalNode,
   webhookNode: WebhookNode,
   leadScoreNode: LeadScoreNode,
   abTestNode: ABTestNode,
@@ -2439,6 +2478,15 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 onChange={(e) => onUpdate(node.id, { condicao: e.target.value })}
                 className="field-input" />
             </Field>
+            <Field label="Expirar após (dias)">
+              <input type="number" min={0}
+                value={(d as TriggerNodeData).expira_em_dias ?? 0}
+                onChange={(e) => onUpdate(node.id, { expira_em_dias: Math.max(0, Number(e.target.value)) })}
+                className="field-input" />
+              <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                0 = nunca expira. Se definido, leads que entraram há mais dias são ignorados.
+              </p>
+            </Field>
 
             {/* Remarketing-specific entry criteria */}
             {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (
@@ -2540,6 +2588,20 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </>
         )}
 
+        {/* ── Goal node ── */}
+        {d.kind === 'goal' && (
+          <Field label="Marcar lead como">
+            <input type="text"
+              value={(d as GoalNodeData).marcarStatus ?? 'Convertido'}
+              onChange={(e) => onUpdate(node.id, { marcarStatus: e.target.value || 'Convertido' })}
+              placeholder="Ex: Convertido, Cliente, Fechado..."
+              className="field-input" />
+            <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+              Atualiza o status do lead no CRM ao atingir esta meta.
+            </p>
+          </Field>
+        )}
+
         {d.kind !== 'trigger' && (
           <button onClick={() => { onDelete(node.id); onClose(); }}
             className="mt-auto w-full py-2 rounded-xl bg-destructive/10 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors border border-destructive/20">
@@ -2562,7 +2624,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
+type PaletteKind = 'message' | 'wait' | 'condition' | 'switch' | 'end' | 'goal' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -2575,6 +2637,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Condição', desc: 'Se/senão por variável', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Switch', desc: 'N saídas por valor (botões)', kind: 'switch', icon: GitMerge, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
+  { label: 'Meta', desc: 'Marcar lead como convertido', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Webhook', desc: 'Chamar URL externa', kind: 'webhook', icon: Globe, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
   { label: 'Lead Score', desc: 'Filtrar por pontuação do lead', kind: 'lead_score', icon: Star, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
   { label: 'Teste A/B', desc: 'Dividir tráfego entre variantes', kind: 'ab_test', icon: GitMerge, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
@@ -3140,11 +3203,12 @@ function CanvasInner() {
     else if (kind === 'lead_score') data = { kind: 'lead_score', label: 'Lead Score', scoreMin: 60, scoreMax: 100, stepId: id } satisfies LeadScoreNodeData;
     else if (kind === 'ab_test') data = { kind: 'ab_test', label: 'Teste A/B', variantA: 'Variante A', variantB: 'Variante B', stepId: id } satisfies ABTestNodeData;
     else if (kind === 'scheduling') data = { kind: 'scheduling', label: 'Agendar Call', dia_offset: 0, horario: '09:00', duracao: 60, mensagemInicial: '', stepId: id } satisfies SchedulingNodeData;
+    else if (kind === 'goal') data = { kind: 'goal', label: 'Meta', marcarStatus: 'Convertido', stepId: id } satisfies GoalNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
       message: 'messageNode', wait: 'waitNode', condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
-      webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
+      goal: 'goalNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
     };
 
     const newNode: Node<AutoNodeData> = {
@@ -3212,6 +3276,7 @@ function CanvasInner() {
         if (cl && sid) customLabels[sid] = cl;
       });
 
+      const triggerExpiry = (triggerNode?.data as TriggerNodeData | undefined)?.expira_em_dias ?? 0;
       const canvas_config: CanvasConfig = {
         triggerPos: triggerNode?.position ?? { x: 0, y: 150 },
         positions: nonTrigger.map((n) => ({ x: n.position.x, y: n.position.y })),
@@ -3225,6 +3290,7 @@ function CanvasInner() {
           .filter((e) => e.sourceIdx !== undefined && e.targetIdx !== undefined) as CanvasConfigEdge[],
         ...(currentSeq.tipo === 'remarketing' ? { remarketing: remarketingCfg } : {}),
         ...(Object.keys(customLabels).length > 0 ? { customLabels } : {}),
+        ...(triggerExpiry > 0 ? { expira_em_dias: triggerExpiry } : {}),
       };
 
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {

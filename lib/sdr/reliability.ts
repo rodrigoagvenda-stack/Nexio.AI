@@ -126,6 +126,31 @@ export async function shouldRetryNow(
   return elapsed >= backoffMs(failedCount - 1)
 }
 
+// ─── Fatigue score ────────────────────────────────────────────────────────────
+
+const FATIGUE_WINDOW_SEC = 7 * 24 * 3600  // 7-day rolling window
+const FATIGUE_THRESHOLD = 10              // max messages per lead per window
+
+/** Returns true if lead is fatigued and should be skipped. */
+export async function isFatigued(companyId: number, leadId: number): Promise<boolean> {
+  try {
+    const count = parseInt(await getRedis().get(`follow:fatigue:${companyId}:${leadId}`) ?? '0')
+    return count >= FATIGUE_THRESHOLD
+  } catch {
+    return false // fail open
+  }
+}
+
+/** Increment fatigue counter after a successful send. */
+export async function recordFatigue(companyId: number, leadId: number): Promise<void> {
+  try {
+    const redis = getRedis()
+    const key = `follow:fatigue:${companyId}:${leadId}`
+    const n = await redis.incr(key)
+    if (n === 1) await redis.expire(key, FATIGUE_WINDOW_SEC)
+  } catch {}
+}
+
 // ─── Health check WhatsApp ────────────────────────────────────────────────────
 
 /** Verifica se a instância uazapi está conectada (cache Redis de 2 min). */
