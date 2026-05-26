@@ -8,10 +8,8 @@ export const maxDuration = 300
 async function handler(request: Request) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  const n8nToken = process.env.N8N_AUTH_TOKEN
 
-  const validTokens = [cronSecret, n8nToken].filter(Boolean)
-  if (!validTokens.some(t => authHeader === `Bearer ${t}`)) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
