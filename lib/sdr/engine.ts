@@ -1041,7 +1041,7 @@ REGRAS:
         parameters: {
           type: 'object',
           properties: {
-            data_hora_iso: { type: 'string' },
+            data_hora_iso: { type: 'string', description: 'Data e hora no fuso Brasília, formato YYYY-MM-DDTHH:MM:SS sem sufixo de timezone (ex: 2026-05-28T14:00:00)' },
             meet_url: { type: 'string' },
             event_id: { type: 'string' },
             acao: { type: 'string', enum: ['agendar', 'remarcar', 'cancelar'] },
@@ -1147,7 +1147,8 @@ REGRAS:
         updates.calendar_event_id = null
       } else if (args.data_hora_iso) {
         updates.call_de_venda = true
-        updates.call_agendada_para = args.data_hora_iso
+        // Normaliza para UTC — GPT frequentemente passa horário BRT com Z (ex: "14:00Z" = 11:00 BRT)
+        updates.call_agendada_para = parseBrazilDateTime(args.data_hora_iso.replace(/Z$/, '')).toISOString()
         updates.meet_url = args.meet_url ?? null
         updates.call_status = 'agendada'
         if (args.event_id) updates.calendar_event_id = args.event_id
