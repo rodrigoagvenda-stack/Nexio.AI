@@ -138,10 +138,10 @@ export async function GET(req: NextRequest) {
             .maybeSingle()
 
           const offsetLabel = offsetUnit === 'minutes' ? `${s.dia_offset}min` : `${s.dia_offset}h`
-          const dentroJanela = diff <= 15 * 60_000
+          const dentroJanela = diff <= 20 * 60_000
           const execStatus = jaMandou.data ? `${jaMandou.data.status} em ${jaMandou.data.executed_at}` : 'nunca executado'
 
-          log.push(`    [${seq.nome}] offset=${offsetLabel} → alvo BRT=${targetBrt.toUTCString()} | diff=${diffMin}min | janela=${dentroJanela ? '✅ dentro' : `❌ fora (${diffMin}min > 15)`} | execução=${execStatus}`)
+          log.push(`    [${seq.nome}] offset=${offsetLabel} → alvo BRT=${targetBrt.toUTCString()} | diff=${diffMin}min | janela=${dentroJanela ? '✅ dentro (±20min)' : `❌ fora (${diffMin}min > 20)`} | execução=${execStatus}`)
         }
       }
     }

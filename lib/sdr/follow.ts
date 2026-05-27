@@ -1129,8 +1129,8 @@ async function processAntiNoshow(
           // Se horasAlvo especificado, só nodes com dia_offset próximo (±1h)
           if (horasAlvo !== undefined && Math.abs(step.dia_offset - horasAlvo) > 1) continue
         } else {
-          // Janela de ±15 min
-          if (diff > 15 * 60_000) continue
+          // Janela de ±20 min (margem acima do intervalo de 15 min do cron para absorver variação de timing)
+          if (diff > 20 * 60_000) continue
         }
 
         // ── Retry / DLQ ──
