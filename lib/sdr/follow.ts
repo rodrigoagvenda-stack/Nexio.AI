@@ -540,6 +540,18 @@ async function enviarMensagem(
   await sendRichStep(uazapi, phone, tipo, text, media ?? undefined)
 }
 
+function formatOffsetLabel(dia_offset: number, offsetUnit: string | undefined): string {
+  const totalMins = offsetUnit === 'minutes' ? dia_offset : Math.round(dia_offset * 60)
+  if (totalMins === 0) return 'Na call'
+  const abs = Math.abs(totalMins)
+  const h = Math.floor(abs / 60)
+  const m = abs % 60
+  const suffix = totalMins < 0 ? 'antes' : 'pós'
+  if (h === 0) return `${m}min ${suffix}`
+  if (m === 0) return `${h}h ${suffix}`
+  return `${h}h ${m}min ${suffix}`
+}
+
 async function gravarMensagemFollow(
   leadId: number,
   companyId: number,
@@ -548,7 +560,8 @@ async function gravarMensagemFollow(
   tipo: string,
   supabase: Supabase,
   tipoMensagem: StepTipoMensagem = 'text',
-  media?: StepMediaConfig | null
+  media?: StepMediaConfig | null,
+  nomeAgente = 'Follow-up SDR'
 ): Promise<void> {
   let convId: number | null = null
 
@@ -633,7 +646,7 @@ async function gravarMensagemFollow(
     direcao: 'outbound',
     sender_type: 'ai',
     status: 'sent',
-    nome_do_agente: 'Follow-up SDR',
+    nome_do_agente: nomeAgente,
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
 
@@ -1151,9 +1164,11 @@ async function processAntiNoshow(
         const lockKey = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKey))) continue
 
+        const nomeAgente = `Anti-Noshow • ${formatOffsetLabel(step.dia_offset, offsetUnit)}`
+
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
-          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase, tipo as StepTipoMensagem, media)
+          await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase, tipo as StepTipoMensagem, media, nomeAgente)
 
           // Blocos adicionais (bloco[0] já foi enviado acima como texto principal)
           const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
@@ -1162,7 +1177,7 @@ async function processAntiNoshow(
             if (!bloco) continue
             await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1500))
             await enviarMensagem(phone, bloco, company, 'text', null)
-            await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'anti_noshow', supabase, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'anti_noshow', supabase, 'text', null, nomeAgente)
           }
 
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
