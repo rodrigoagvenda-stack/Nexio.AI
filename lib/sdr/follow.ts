@@ -176,13 +176,184 @@ function substituirVariaveis(texto: string, lead: Lead): string {
     .replace(/\{first_name\}/gi, primeiroNome)
     .replace(/\{status\}/gi, status)
     .replace(/\{data_call\}/gi, dataCall)
-    .replace(/\{horario_call\}/gi, dataCall)
+    .replace(/\{horario_call\}/gi, horaCall)
     .replace(/\{hora_reuniao\}/gi, horaCall)
     .replace(/\{link_meet\}/gi, linkMeet)
     .replace(/\{meet_url\}/gi, linkMeet)
 }
 
 type Supabase = ReturnType<typeof createServiceClient>
+
+// ─── Graph Traversal ─────────────────────────────────────────────────────────
+
+interface GraphEdge {
+  targetId: string
+  handle?: string
+}
+
+interface CanvasEdgeConfig {
+  sourceIdx: number
+  targetIdx: number
+  sourceHandle?: string
+  targetHandle?: string
+}
+
+/** Builds forward adjacency map from canvas_config.edges. Returns entry node (first after trigger). */
+function buildGraphAdj(
+  steps: FollowStep[],
+  canvasConfig: Record<string, unknown> | null | undefined
+): { adj: Map<string, GraphEdge[]>; entryId: string | null } {
+  const sorted = [...steps].sort((a, b) => a.ordem - b.ordem)
+  const adj = new Map<string, GraphEdge[]>()
+  for (const s of sorted) adj.set(s.id, [])
+
+  const edges: CanvasEdgeConfig[] = (canvasConfig as any)?.edges ?? []
+  let entryId: string | null = sorted[0]?.id ?? null  // linear fallback
+
+  if (edges.length > 0) {
+    entryId = null
+    for (const e of edges) {
+      const srcId = e.sourceIdx === -1 ? '__trigger__' : sorted[e.sourceIdx]?.id
+      const tgtId = e.targetIdx === -1 ? null : sorted[e.targetIdx]?.id
+      if (!srcId || !tgtId) continue
+      if (srcId === '__trigger__') {
+        if (!entryId) entryId = tgtId
+      } else {
+        const list = adj.get(srcId) ?? []
+        list.push({ targetId: tgtId, handle: e.sourceHandle })
+        adj.set(srcId, list)
+      }
+    }
+  } else {
+    // No edges stored → legacy linear layout: connect by ordem
+    for (let i = 0; i < sorted.length - 1; i++) {
+      adj.set(sorted[i].id, [{ targetId: sorted[i + 1].id }])
+    }
+  }
+
+  return { adj, entryId }
+}
+
+/** Evaluates the branch handle for a condition or sentiment node. */
+async function evaluateBranch(
+  step: FollowStep,
+  lead: Lead,
+  companyId: number,
+  supabase: Supabase
+): Promise<string> {
+  const tipo = step.tipo_mensagem as string
+
+  if (tipo === 'condicao') {
+    const cfg = step.media_config as any
+    const variavel: string = cfg?.variavel ?? 'respondeu'
+    const operador: string = cfg?.operador ?? 'eq'
+    const valor: string = cfg?.valor ?? ''
+
+    if (variavel === 'respondeu') {
+      const replied = await leadJaRespondeuDesde(lead.id, companyId, new Date(Date.now() - 7 * 86_400_000), supabase)
+      return replied ? 'sim' : 'nao'
+    }
+
+    let atual: string | null = null
+    if (variavel === 'status' || variavel === 'estagio') {
+      atual = lead.status
+    } else if (variavel === 'resposta_botao') {
+      const { data: msg } = await supabase
+        .from('mensagens_do_whatsapp')
+        .select('texto_da_mensagem')
+        .eq('id_do_lead', lead.id)
+        .eq('direcao', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      atual = msg?.texto_da_mensagem ?? null
+    } else if (variavel === 'custom') {
+      const customVar = cfg?.customVariavel ?? ''
+      // Custom: treat like respondeu with a keyword check
+      const replied = await leadJaRespondeuDesde(lead.id, companyId, new Date(Date.now() - 7 * 86_400_000), supabase)
+      if (customVar && replied) {
+        const { data: msgs } = await supabase
+          .from('mensagens_do_whatsapp')
+          .select('texto_da_mensagem')
+          .eq('id_do_lead', lead.id).eq('direcao', 'inbound')
+          .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
+        const matched = (msgs ?? []).some(m => m.texto_da_mensagem?.toLowerCase().includes(customVar.toLowerCase()))
+        return matched ? 'sim' : 'nao'
+      }
+      return replied ? 'sim' : 'nao'
+    }
+
+    const match = operador === 'eq' ? atual === valor
+      : operador === 'neq' ? atual !== valor
+      : operador === 'contains' ? (atual?.toLowerCase().includes(valor.toLowerCase()) ?? false)
+      : operador === 'gte' ? Number(atual) >= Number(valor)
+      : operador === 'lte' ? Number(atual) <= Number(valor)
+      : false
+
+    return match ? 'sim' : 'nao'
+  }
+
+  if (tipo === 'sentiment') {
+    try {
+      const redis = getRedis()
+      const sentiment = await redis.get(`follow:sentiment:${companyId}:${lead.id}`)
+      return (sentiment as string | null) ?? 'neutro'
+    } catch { return 'neutro' }
+  }
+
+  return 'sim'
+}
+
+/**
+ * Checks if a step is reachable for a given lead based on graph structure.
+ * Uses pre-loaded firedIds to avoid extra DB queries.
+ * A step is reachable if:
+ *   - It's the entry point, OR
+ *   - At least one predecessor is fired AND (if predecessor is branching) the branch matches current lead state.
+ * Falls back to true when no canvas edges are stored (linear mode).
+ */
+async function isStepReachableFromGraph(
+  stepId: string,
+  entryId: string | null,
+  adj: Map<string, GraphEdge[]>,
+  firedIds: Set<string>,
+  steps: FollowStep[],
+  lead: Lead,
+  companyId: number,
+  supabase: Supabase
+): Promise<boolean> {
+  // No graph edges → all steps are reachable (linear mode)
+  if (adj.size === 0) return true
+
+  // Entry node is always reachable
+  if (stepId === entryId) return true
+
+  // Build reverse adjacency for this specific step
+  const predecessors: { srcId: string; handle?: string }[] = []
+  for (const [srcId, edges] of adj.entries()) {
+    for (const e of edges) {
+      if (e.targetId === stepId) predecessors.push({ srcId, handle: e.handle })
+    }
+  }
+
+  if (predecessors.length === 0) return false  // no path from trigger
+
+  for (const pred of predecessors) {
+    if (!firedIds.has(pred.srcId)) continue  // predecessor not yet fired
+
+    // If edge has a branch handle, the source is a branching node — evaluate
+    if (pred.handle) {
+      const srcStep = steps.find(s => s.id === pred.srcId)
+      if (!srcStep) continue
+      const branchResult = await evaluateBranch(srcStep, lead, companyId, supabase)
+      if (branchResult !== pred.handle) continue  // wrong branch for this lead
+    }
+
+    return true  // predecessor fired and branch matches
+  }
+
+  return false
+}
 
 /** Hot leads (call_de_venda + Interessado) são processados antes dos demais. */
 function leadPriority(lead: Lead): number {
@@ -602,6 +773,24 @@ async function processFollowGeral(
 
     const expiraDias = (sequence.canvas_config as any)?.expira_em_dias ?? 0
     const eventoEntrada = sequence.canvas_config?.eventoEntrada
+
+    // ── Graph traversal setup ──
+    const { adj: graphAdj, entryId: graphEntry } = buildGraphAdj(steps as FollowStep[], sequence.canvas_config as any)
+    const hasGraph = (sequence.canvas_config as any)?.edges?.length > 0
+
+    // Batch-load all fired executions for this sequence (avoids N+1 per lead)
+    const { data: seqExecs } = await supabase
+      .from('follow_executions')
+      .select('lead_id, step_id')
+      .eq('sequence_id', sequence.id)
+      .in('status', ['sent', 'skipped', 'dlq'])
+
+    const firedByLead = new Map<number, Set<string>>()
+    for (const ex of seqExecs ?? []) {
+      if (!firedByLead.has(ex.lead_id)) firedByLead.set(ex.lead_id, new Set())
+      firedByLead.get(ex.lead_id)!.add(ex.step_id)
+    }
+
     // Hot leads first (call_de_venda, Interessado)
     const sortedLeads = [...((leads ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
@@ -612,7 +801,34 @@ async function processFollowGeral(
 
       for (const lead of sortedLeads) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
-        if (await stepJaDisparado(lead.id, step.id, supabase)) continue
+
+        let leadFired = firedByLead.get(lead.id)
+        if (!leadFired) { leadFired = new Set<string>(); firedByLead.set(lead.id, leadFired) }
+
+        // ── Graph reachability gate ──
+        if (hasGraph) {
+          const reachable = await isStepReachableFromGraph(step.id, graphEntry, graphAdj, leadFired, steps as FollowStep[], lead, company.id, supabase)
+          if (!reachable) continue
+        }
+
+        if (leadFired.has(step.id)) continue  // already dispatched
+
+        // ── Non-blocking node types — execute immediately, no timing anchor needed ──
+        if ((step.tipo_mensagem as string) === 'fim') {
+          await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          leadFired.add(step.id)
+          continue
+        }
+        if ((step.tipo_mensagem as string) === 'condicao') {
+          try {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            leadFired.add(step.id)
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          }
+          continue
+        }
+
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
 
         // For novo_lead sequences, anchor timing to lead.created_at; otherwise use last inbound message
@@ -713,6 +929,7 @@ async function processFollowGeral(
             const targetStatus = step.condicao || 'Convertido'
             await supabase.from('leads').update({ status: targetStatus, updated_at: new Date().toISOString() }).eq('id', lead.id)
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            leadFired.add(step.id)
           } catch {
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
           } finally {
@@ -844,6 +1061,7 @@ async function processFollowGeral(
           }
 
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          leadFired.add(step.id)
           await recordCircuitSuccess(sequence.id)
           if (!isStaging) {
             await recordFatigue(company.id, lead.id)
@@ -1013,6 +1231,23 @@ async function processRemarketing(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
+    // ── Graph traversal setup ──
+    const { adj: rmAdj, entryId: rmEntry } = buildGraphAdj(steps as FollowStep[], sequence.canvas_config as any)
+    const rmHasGraph = (sequence.canvas_config as any)?.edges?.length > 0
+
+    // Batch-load all fired executions for this sequence
+    const { data: rmExecs } = await supabase
+      .from('follow_executions')
+      .select('lead_id, step_id')
+      .eq('sequence_id', sequence.id)
+      .in('status', ['sent', 'skipped', 'dlq'])
+
+    const rmFiredByLead = new Map<number, Set<string>>()
+    for (const ex of rmExecs ?? []) {
+      if (!rmFiredByLead.has(ex.lead_id)) rmFiredByLead.set(ex.lead_id, new Set())
+      rmFiredByLead.get(ex.lead_id)!.add(ex.step_id)
+    }
+
     for (const step of steps as FollowStep[]) {
       // Só dispara se passou da hora configurada (cron roda a cada hora cheia)
       const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
@@ -1021,7 +1256,33 @@ async function processRemarketing(
 
       for (const lead of leads as unknown as Lead[]) {
         if (!(await withinRateLimit(company.id, supabase))) return sent
-        if (!force && await stepJaDisparado(lead.id, step.id, supabase)) continue
+
+        let rmLeadFired = rmFiredByLead.get(lead.id)
+        if (!rmLeadFired) { rmLeadFired = new Set<string>(); rmFiredByLead.set(lead.id, rmLeadFired) }
+
+        // ── Graph reachability gate ──
+        if (rmHasGraph) {
+          const rmReachable = await isStepReachableFromGraph(step.id, rmEntry, rmAdj, rmLeadFired, steps as FollowStep[], lead, company.id, supabase)
+          if (!rmReachable) continue
+        }
+
+        if (!force && rmLeadFired.has(step.id)) continue
+
+        // ── End / Condition nodes — execute immediately, no timing anchor needed ──
+        if ((step.tipo_mensagem as string) === 'fim') {
+          await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          rmLeadFired.add(step.id)
+          continue
+        }
+        if ((step.tipo_mensagem as string) === 'condicao') {
+          try {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            rmLeadFired.add(step.id)
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          }
+          continue
+        }
 
         // ── Retry / DLQ ──
         const retryStatusRm = await checkRetry(lead.id, step.id, supabase)
@@ -1060,6 +1321,7 @@ async function processRemarketing(
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          rmLeadFired.add(step.id)
           await recordCircuitSuccess(sequence.id)
           await recordFatigue(company.id, lead.id)
           sent++

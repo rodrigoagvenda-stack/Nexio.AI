@@ -2891,13 +2891,9 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Aguardar Evento', desc: 'Continua quando lead responder (ou palavra-chave)', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
   { label: 'Sub-fluxo', desc: 'Enrolar lead em outra sequência', kind: 'sub_flow', icon: Layers, bgClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
   { label: 'Condição', desc: 'Se/senão por variável', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Switch', desc: 'N saídas por valor (botões)', kind: 'switch', icon: GitMerge, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
+  { label: 'Sentimento', desc: 'Rotear por sentimento via IA (positivo/neutro/negativo)', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
   { label: 'Meta', desc: 'Marcar lead como convertido', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Sentimento', desc: 'Rotear por sentimento via IA (positivo/neutro/negativo)', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Webhook', desc: 'Chamar URL externa', kind: 'webhook', icon: Globe, bgClass: 'bg-sky-500/10', iconClass: 'text-sky-500' },
-  { label: 'Lead Score', desc: 'Filtrar por pontuação do lead', kind: 'lead_score', icon: Star, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Teste A/B', desc: 'Dividir tráfego entre variantes', kind: 'ab_test', icon: GitMerge, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
   { label: 'Agendar Call', desc: 'Agente ativa agendamento via Google Calendar', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
 ];
 
