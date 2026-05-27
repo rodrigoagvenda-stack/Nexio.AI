@@ -305,11 +305,35 @@ async function gerarMensagemIA(
   openai: OpenAI,
   sdrPrompt: string | null
 ): Promise<string> {
+  const isRemarketing = sequence.tipo === 'remarketing'
+  const tentativa = (step.ordem ?? 0) + 1
+
   const systemParts = [
     'Você é um assistente de follow-up de vendas. Gere uma mensagem curta, natural e humana para retomar contato.',
     'Regras: máximo 2-3 linhas, tom amigável sem pressão, não mencione tempo sem resposta, use o contexto disponível.',
     `Contexto do lead:\n- Nome: ${lead.contact_name}\n- Status: ${lead.status}\n- Resumo: ${lead.resumo_ia ?? 'sem histórico'}\n- Sequência: ${sequence.nome} (${sequence.tipo})`,
   ]
+
+  if (isRemarketing && lead.resumo_ia) {
+    const angulo = tentativa === 1
+      ? 'valor — reforce o benefício principal da solução com base no que o lead demonstrou interesse'
+      : tentativa === 2
+      ? 'prova social — mencione resultados reais ou casos similares ao perfil do lead (use o que souber do contexto, sem inventar)'
+      : 'encerramento — última tentativa, crie senso de escassez ou deixe a porta aberta de forma respeitosa'
+
+    systemParts.push(`
+CONTEXTO DE REMARKETING — TENTATIVA #${tentativa}:
+Antes de escrever, analise internamente o resumo do lead e identifique:
+1. Temperatura: quente (alto interesse, quase fechou), morno (interesse mas hesitante) ou frio (pouco engajamento)
+2. Última objeção ou barreira mencionada (preço, timing, dúvida técnica, etc.)
+
+REGRAS PARA ESTA MENSAGEM:
+- Ângulo desta tentativa: ${angulo}
+- Se identificou uma objeção clara, endereçe-a diretamente — não ignore
+- Leads quentes: tom de urgência/FOMO sutil. Leads mornos: reforço de valor. Leads frios: reengajamento leve sem pressão
+- NÃO mencione que é um follow-up ou tentativa de remarketing
+- NÃO repita o mesmo ângulo das tentativas anteriores`)
+  }
 
   if (step.usar_contexto_sdr && sdrPrompt) {
     systemParts.push(`\nContexto do agente SDR (tom e posicionamento):\n${sdrPrompt}`)
