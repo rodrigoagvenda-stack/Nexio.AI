@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { createUazapiClient } from '@/lib/sdr/uazapi'
+import { decrypt } from '@/lib/crypto'
 
 function parseBrt(ts: string): Date {
   if (!ts) return new Date()
@@ -33,6 +35,20 @@ export async function GET(req: NextRequest) {
     log.push(`sdr_configs: agente_ativo=${cfg.agente_ativo} | token=${cfg.uazapi_token ? '✅' : '❌ VAZIO'}`)
     if (!cfg.agente_ativo) log.push('⚠️ agente_ativo=false → cron pula esta empresa')
     if (!cfg.uazapi_token) log.push('❌ uazapi_token vazio → impossível enviar')
+
+    // Health check WhatsApp (mesmo guard do cron)
+    if (cfg.uazapi_token && cfg.uazapi_instance_url) {
+      try {
+        const token = (() => { try { return decrypt(cfg.uazapi_token) } catch { return cfg.uazapi_token } })()
+        const uazapi = createUazapiClient(cfg.uazapi_instance_url, token)
+        const { status } = await uazapi.getStatus()
+        const healthy = status === 'connected'
+        log.push(`📡 WhatsApp health: status="${status}" → ${healthy ? '✅ conectado' : '❌ DESCONECTADO — cron pula esta empresa!'}`)
+        if (!healthy) log.push('   → Reconecte o WhatsApp em Configurações › WhatsApp para o anti-noshow funcionar')
+      } catch (e: any) {
+        log.push(`📡 WhatsApp health: ❌ erro ao checar (${e.message}) — cron vai tentar mesmo assim (fail-open)`)
+      }
+    }
 
     // 2. Sequências anti_noshow
     const { data: sequences } = await supabase
@@ -97,7 +113,8 @@ export async function GET(req: NextRequest) {
     for (const lead of leads ?? []) {
       const callTime = parseBrt(lead.call_agendada_para!).getTime()
       const callBrt = new Date(callTime - 3 * 3_600_000)
-      log.push(`  • #${lead.id} ${lead.contact_name} | call=${callBrt.toUTCString()} | whatsapp=${lead.whatsapp ?? '❌ VAZIO'}`)
+      const callUTC = new Date(callTime)
+      log.push(`  • #${lead.id} ${lead.contact_name} | raw_db="${lead.call_agendada_para}" | UTC=${callUTC.toISOString()} | BRT=${String(callBrt.getUTCHours()).padStart(2,'0')}:${String(callBrt.getUTCMinutes()).padStart(2,'0')} | whatsapp=${lead.whatsapp ?? '❌ VAZIO'}`)
 
       for (const seq of (sequences ?? []).filter((s: any) => s.ativo)) {
         const { data: steps } = await supabase

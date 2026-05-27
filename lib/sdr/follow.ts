@@ -1726,8 +1726,11 @@ export async function runAntNoshowAll(): Promise<{ processed: number; sent: numb
         openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
         sdr_prompt: cfg.prompt ?? null,
       }
-      if (!company.uazapi_token) continue
-      if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) continue
+      if (!company.uazapi_token) { errors.push(`Empresa ${cfg.company_id}: token WhatsApp vazio`); continue }
+      if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) {
+        errors.push(`Empresa ${cfg.company_id}: WhatsApp desconectado — anti-noshow pulado`)
+        continue
+      }
 
       const { data: sequences } = await supabase
         .from('follow_sequences')
