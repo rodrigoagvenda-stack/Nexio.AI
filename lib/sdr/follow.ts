@@ -138,7 +138,9 @@ function isBusinessHours(): boolean {
  */
 function parseBrt(ts: string): Date {
   if (!ts) return new Date()
-  if (/[Zz]$/.test(ts) || /[+-]\d{2}:\d{2}$/.test(ts)) return new Date(ts)
+  // Aceita: Z, +00:00, +00 (formato Supabase sem dois pontos)
+  if (/[Zz]$/.test(ts) || /[+-]\d{2}:?\d{2}$/.test(ts)) return new Date(ts.replace(' ', 'T'))
+  // Naive (sem timezone) = trata como BRT (UTC-3)
   return new Date(ts.replace(' ', 'T') + '-03:00')
 }
 

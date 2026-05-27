@@ -1082,8 +1082,11 @@ REGRAS:
         updates.call_status = 'cancelada'
         updates.calendar_event_id = null
       } else if (args.data_hora_iso) {
+        // Se naive (sem timezone), interpreta como BRT e converte para UTC
+        const hasTz = /[Zz]$|[+-]\d{2}:?\d{2}$/.test(args.data_hora_iso)
+        const callDt = hasTz ? new Date(args.data_hora_iso) : parseBrazilDateTime(args.data_hora_iso)
         updates.call_de_venda = true
-        updates.call_agendada_para = args.data_hora_iso
+        updates.call_agendada_para = callDt.toISOString()
         updates.meet_url = args.meet_url ?? null
         updates.call_status = 'agendada'
         if (args.event_id) updates.calendar_event_id = args.event_id
