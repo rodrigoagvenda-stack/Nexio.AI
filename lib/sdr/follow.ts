@@ -1144,10 +1144,8 @@ async function processAntiNoshow(
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
-        const texto = substituirVariaveis(
-          pickMessage(step) || `Olá {nome}! Lembrete: temos uma call agendada em breve. Te vejo lá! 🎯`,
-          lead
-        )
+        const texto = substituirVariaveis(pickMessage(step), lead)
+        if (!texto) continue
 
         // ── Exactly-once lock ──
         const lockKey = sendLockKey(company.id, lead.id, step.id)
