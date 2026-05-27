@@ -476,6 +476,12 @@ function QuestionnaireWizard({
 
   return (
     <div className="space-y-4">
+      {step === 0 && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>A efetividade do agente depende diretamente da qualidade das suas respostas. Detalhes específicos geram scripts melhores — respostas genéricas geram um agente genérico.</span>
+        </div>
+      )}
       {/* Progress bar */}
       <div className="space-y-1.5">
         <div className="flex justify-between text-[10px] text-muted-foreground">

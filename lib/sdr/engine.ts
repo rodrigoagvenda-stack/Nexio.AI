@@ -102,7 +102,14 @@ function pushUsage(
   })
 }
 
-// ─── Prompt Injection Security (espelha Prompt Injection Security1 do N8N) ───
+// ─── Prompt Injection Security v2.1 (porta completa do N8N) ─────────────────
+
+const INJECTION_CONFIG = {
+  HIGH_ENTROPY_THRESHOLD: 4.5,
+  CRITICAL_CONFIDENCE: 0.9,
+  BLOCK_CONFIDENCE: 0.75,
+  SUSPICIOUS_CONFIDENCE: 0.4,
+}
 
 const CRITICAL_PATTERNS = [
   // Direct Override - English
@@ -117,8 +124,7 @@ const CRITICAL_PATTERNS = [
   /you\s+are\s+now\s+(a\s+)?(jailbreak|hacker|admin|developer|god|root|system)/i,
   /(pretend|act|behave|roleplay)\s+(like|as|to\s+be)\s+(a\s+)?(hacker|admin|system|developer)/i,
   /from\s+now\s+on\s+you\s+(are|will\s+be|should\s+act)/i,
-  // Role Change - Portuguese
-  /(você|vc)\s+(é|sera|deve\s+ser)\s+(um[a]?|uma)\s+.{1,30}/i,
+  // Role Change - Portuguese (padrão genérico "você é uma X" removido — falso positivo em conversa normal)
   /(agora|partir\s+de\s+agora)\s+você\s+(é|sera)/i,
   /(atue|aja|comporte|interprete)\s+como\s+(um[a]?|uma)/i,
   /finja\s+(ser|que\s+(é|voce\s+é))\s+(um[a]?|uma)/i,
@@ -176,9 +182,17 @@ const SUSPICIOUS_PATTERNS = [
   /if\s+you\s+were\s+(not\s+)?(an\s+ai|constrained|limited)/i,
 ]
 
-const HIGH_ENTROPY_THRESHOLD = 4.5
-const BLOCK_CONFIDENCE = 0.75
-const SUSPICIOUS_CONFIDENCE = 0.4
+interface InjectionResult {
+  isInjection: boolean
+  confidence: number
+  classification: 'SAFE' | 'SUSPICIOUS_CONTENT' | 'HIGH_RISK_INJECTION' | 'CRITICAL_INJECTION'
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  shouldBlock: boolean
+  evidence?: string
+  attackVector: string
+  detectedKeywords: string[]
+  structuralFlags: string[]
+}
 
 function calcEntropy(text: string): number {
   if (!text.length) return 0
@@ -192,35 +206,47 @@ function calcEntropy(text: string): number {
   return Math.round(e * 100) / 100
 }
 
-function isPromptInjection(text: string): boolean {
-  if (!text) return false
+function analyzeInjection(text: string): InjectionResult {
+  const safe: InjectionResult = {
+    isInjection: false, confidence: 0, classification: 'SAFE', riskLevel: 'LOW',
+    shouldBlock: false, attackVector: 'NONE', detectedKeywords: [], structuralFlags: [],
+  }
+  if (!text) return safe
 
-  // LAYER 1: critical patterns — bloqueio imediato
+  // LAYER 1: critical patterns — bloqueio imediato, confiança 0.95
   for (const p of CRITICAL_PATTERNS) {
-    if (p.test(text)) return true
+    const match = p.exec(text)
+    if (match) return {
+      isInjection: true, confidence: 0.95, classification: 'CRITICAL_INJECTION',
+      riskLevel: 'CRITICAL', shouldBlock: true, evidence: match[0],
+      attackVector: 'SYNTAX', detectedKeywords: [], structuralFlags: [],
+    }
   }
 
   // LAYER 2: keyword scoring
   const lower = text.toLowerCase()
   let keywordScore = 0
+  const detectedKeywords: string[] = []
   for (const kw of HIGH_RISK_KEYWORDS) {
-    if (lower.includes(kw.toLowerCase())) keywordScore += 0.3
+    if (lower.includes(kw.toLowerCase())) { keywordScore += 0.3; detectedKeywords.push(kw) }
   }
 
   // LAYER 3: structural scoring
   let structuralScore = 0
-  if (text.length > 4000) structuralScore += 0.3
+  const structuralFlags: string[] = []
+  if (text.length > 4000) { structuralScore += 0.3; structuralFlags.push('EXCESSIVE_LENGTH') }
   const specialRatio = (text.match(/[^a-zA-Z0-9\sÀ-ÿ]/g) ?? []).length / text.length
-  if (specialRatio > 0.4) structuralScore += 0.3
-  if ((text.match(/[{}]/g) ?? []).length > 10) structuralScore += 0.3
-  if ((text.match(/[<>]/g) ?? []).length > 6) structuralScore += 0.2
-  if ((text.match(/[|&;`$]/g) ?? []).length > 3) structuralScore += 0.4
+  if (specialRatio > 0.4) { structuralScore += 0.3; structuralFlags.push('HIGH_SPECIAL_CHARS') }
+  if ((text.match(/[{}]/g) ?? []).length > 10) { structuralScore += 0.3; structuralFlags.push('EXCESSIVE_BRACES') }
+  if ((text.match(/[<>]/g) ?? []).length > 6) { structuralScore += 0.2; structuralFlags.push('EXCESSIVE_BRACKETS') }
+  if ((text.match(/[|&;`$]/g) ?? []).length > 3) { structuralScore += 0.4; structuralFlags.push('COMMAND_CHARS') }
 
   // LAYER 4: entropy scoring
   const entropy = calcEntropy(text)
-  const entropyScore = entropy > HIGH_ENTROPY_THRESHOLD
-    ? Math.min((entropy - HIGH_ENTROPY_THRESHOLD) * 0.2, 0.4)
+  const entropyScore = entropy > INJECTION_CONFIG.HIGH_ENTROPY_THRESHOLD
+    ? Math.min((entropy - INJECTION_CONFIG.HIGH_ENTROPY_THRESHOLD) * 0.2, 0.4)
     : 0
+  if (entropyScore > 0) structuralFlags.push('HIGH_ENTROPY')
 
   // LAYER 5: suspicious patterns
   let suspiciousScore = 0
@@ -228,12 +254,38 @@ function isPromptInjection(text: string): boolean {
     if (p.test(text)) suspiciousScore += 0.2
   }
 
-  // LAYER 6: context
+  // LAYER 6: context (hidden chars + scripts misturados + padrões repetitivos)
   let contextScore = 0
-  if (/[​-‏⁠﻿]/.test(text)) contextScore += 0.4 // hidden chars
+  if (/[​-‏⁠﻿]/.test(text)) { contextScore += 0.4; structuralFlags.push('HIDDEN_CHARACTERS') }
+  if (/[一-鿿]/.test(text) && /[a-zA-Z]/.test(text)) { contextScore += 0.2; structuralFlags.push('MULTIPLE_SCRIPTS') }
+  const charFreq: Record<string, number> = {}
+  for (const c of text) charFreq[c] = (charFreq[c] ?? 0) + 1
+  const maxFreq = Math.max(...Object.values(charFreq))
+  if (maxFreq > text.length * 0.3) { contextScore += 0.3; structuralFlags.push('REPETITIVE_PATTERNS') }
 
   const total = Math.min(keywordScore + structuralScore + entropyScore + suspiciousScore + contextScore, 0.98)
-  return total >= BLOCK_CONFIDENCE
+
+  let classification: InjectionResult['classification'] = 'SAFE'
+  let riskLevel: InjectionResult['riskLevel'] = 'LOW'
+  if (total >= INJECTION_CONFIG.CRITICAL_CONFIDENCE) { classification = 'CRITICAL_INJECTION'; riskLevel = 'CRITICAL' }
+  else if (total >= INJECTION_CONFIG.BLOCK_CONFIDENCE) { classification = 'HIGH_RISK_INJECTION'; riskLevel = 'HIGH' }
+  else if (total >= INJECTION_CONFIG.SUSPICIOUS_CONFIDENCE) { classification = 'SUSPICIOUS_CONTENT'; riskLevel = 'MEDIUM' }
+
+  let attackVector = 'BEHAVIORAL_PATTERN'
+  if (keywordScore > structuralScore && keywordScore > entropyScore) attackVector = 'SEMANTIC_MANIPULATION'
+  else if (structuralScore > keywordScore && structuralScore > entropyScore) attackVector = 'STRUCTURAL_EXPLOITATION'
+  else if (entropyScore > 0.2) attackVector = 'OBFUSCATION_ATTACK'
+
+  return {
+    isInjection: total >= INJECTION_CONFIG.SUSPICIOUS_CONFIDENCE,
+    confidence: total,
+    classification,
+    riskLevel,
+    shouldBlock: total >= INJECTION_CONFIG.BLOCK_CONFIDENCE,
+    attackVector,
+    detectedKeywords,
+    structuralFlags,
+  }
 }
 
 // ─── Buffer (Redis) ────────────────────────────────────────────
@@ -2704,29 +2756,34 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — tipo="${msgType}" texto="${(text || placeholder).slice(0, 80)}"`)
 
-    if (text && isPromptInjection(text)) {
-      const uazapiBlock = createUazapiClient(
-        body.BaseUrl ?? 'https://nexioai.uazapi.com',
-        body.token ?? ''
-      )
-      // Nó "Bloquear contato1" — bloqueia o número na instância
-      await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
-      await log(companyId, 'injection_blocked', { text }, supabase, body.chat.phone)
-      writeSystemLog('sdr', 'critical', companyId, `Injeção de prompt bloqueada — contato banido`, { phone: body.chat.phone, text: text.slice(0, 200) })
-
-      // Nó "Enviar mensagem para o ADM1" — alerta via email (fire-and-forget)
-      sendInjectionAlertEmail({
-        pushName: body.message?.senderName || body.chat?.wa_contactName || 'Desconhecido',
-        senderNumber: normalizePhone(body.chat.phone),
-        instanceName: body.instanceName ?? '',
-        originalMessage: text,
-        classification: 'DIRECT_OVERRIDE',
-        riskLevel: 'CRITICAL',
-        confidence: 0.95,
-        timestamp: new Date().toISOString(),
-      }).catch(() => {})
-
-      return false
+    if (text) {
+      const injection = analyzeInjection(text)
+      if (injection.isInjection) {
+        if (injection.shouldBlock) {
+          const uazapiBlock = createUazapiClient(
+            body.BaseUrl ?? 'https://nexioai.uazapi.com',
+            body.token ?? ''
+          )
+          await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
+          await log(companyId, 'injection_blocked', { text, classification: injection.classification, confidence: injection.confidence }, supabase, body.chat.phone)
+          writeSystemLog('sdr', 'critical', companyId, `Injeção de prompt bloqueada — contato banido [${injection.classification} conf=${injection.confidence}]`, { phone: body.chat.phone, text: text.slice(0, 200), attackVector: injection.attackVector })
+          sendInjectionAlertEmail({
+            pushName: body.message?.senderName || body.chat?.wa_contactName || 'Desconhecido',
+            senderNumber: normalizePhone(body.chat.phone),
+            instanceName: body.instanceName ?? '',
+            originalMessage: text,
+            classification: injection.classification,
+            riskLevel: injection.riskLevel,
+            confidence: injection.confidence,
+            evidence: injection.evidence ?? injection.detectedKeywords.slice(0, 3).join(', '),
+            timestamp: new Date().toISOString(),
+          }).catch(() => {})
+          return false
+        }
+        // Suspeito mas abaixo do threshold de bloqueio — só loga, não bane
+        await log(companyId, 'injection_suspicious', { text, classification: injection.classification, confidence: injection.confidence, flags: injection.structuralFlags }, supabase, body.chat.phone)
+        writeSystemLog('sdr', 'warn', companyId, `Conteúdo suspeito detectado [${injection.classification} conf=${injection.confidence}]`, { phone: body.chat.phone, attackVector: injection.attackVector })
+      }
     }
 
     const phone = normalizePhone(body.chat.phone)

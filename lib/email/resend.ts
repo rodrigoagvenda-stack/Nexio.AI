@@ -26,7 +26,7 @@ export async function sendInjectionAlertEmail({
 
   const { data, error } = await client.emails.send({
     from: 'Nexio.AI Segurança <noreply@vendai.com.br>',
-    to: ['rodrigoevangelista.proj@gmail.com'],
+    to: ['rodrigoevangelista.proj@gmail.com', 'suporte@zaapply.com.br'],
     subject: '🚨 ALERTA: Tentativa de Prompt Injection Bloqueada',
     html: `
 <h2>⚠️ Tentativa de Ataque Bloqueada</h2>
