@@ -1039,7 +1039,6 @@ function ConfigContent() {
               ) : null
             })()}
           </div>
-          </div>
         ) : (
           <p className="text-sm text-muted-foreground">Salve a configuração para gerar sua URL.</p>
         )}
