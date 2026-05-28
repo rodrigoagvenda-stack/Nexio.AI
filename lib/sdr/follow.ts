@@ -1508,39 +1508,43 @@ async function processTrialSaas(
       // Skip expired trials (trial_days + 1 day grace)
       if (daysSinceSignup > (trial.trial_days ?? 7) + 1) continue
 
+      console.log(`[trial:cron] trial=${trial.id} nome="${trial.nome}" daysSince=${daysSinceSignup.toFixed(3)} nowMinutes=${nowMinutes}`)
+
       for (const step of steps as FollowStep[]) {
         // Só 1 step por trial por rodada do cron
-        if (firedThisRunTrial.has(trial.id)) continue
+        if (firedThisRunTrial.has(trial.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=firedThisRun`); continue }
 
         if (!(await withinRateLimit(company.id, supabase))) return sent
-        if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) continue
+        if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaDisparado`); continue }
 
         // ── Retry / DLQ ──
         const retryStatusTrial = await checkRetry(trial.id, step.id, supabase, true)
         if (retryStatusTrial === 'dlq') { await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
-        if (retryStatusTrial === 'backoff') continue
-        if (await isCircuitOpen(sequence.id)) continue
+        if (retryStatusTrial === 'backoff') { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=backoff`); continue }
+        if (await isCircuitOpen(sequence.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=circuit`); continue }
 
         const trialUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
         const trialElapsed = trialUnit === 'hours'
           ? (now - signupTime) / 3_600_000
           : daysSinceSignup
-        if (trialElapsed < step.dia_offset) continue  // ainda não chegou o dia
+        if (trialElapsed < step.dia_offset) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=diaOffset elapsed=${trialElapsed.toFixed(3)} offset=${step.dia_offset}`); continue }
 
         // Verifica horário configurado no step (ex: 19:30)
         const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
         const stepMinutes = hh * 60 + mm
-        if (nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
+        if (nowMinutes < stepMinutes - 5) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=horario nowMin=${nowMinutes} stepMin=${stepMinutes}`); continue }
 
         // Checa condição do step
         const condicao = step.condicao ?? 'sempre'
-        if (condicao === 'respondeu' && !trial.respondeu) continue
-        if (condicao === 'sem_resposta' && trial.respondeu) continue
+        if (condicao === 'respondeu' && !trial.respondeu) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=semResposta`); continue }
+        if (condicao === 'sem_resposta' && trial.respondeu) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaRespondeu`); continue }
 
         // Roteamento por estágio (qual botão o lead clicou)
         if (step.condicao_estagio) {
-          if (trial.estagio !== step.condicao_estagio) continue
+          if (trial.estagio !== step.condicao_estagio) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=estagio trial="${trial.estagio}" step="${step.condicao_estagio}"`); continue }
         }
+
+        console.log(`[trial:cron] trial=${trial.id} step=${step.id} DISPARANDO horario=${step.horario} offset=${step.dia_offset}`)
 
         const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
