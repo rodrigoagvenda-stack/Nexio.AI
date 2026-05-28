@@ -77,7 +77,8 @@ export async function PATCH(
       'whatsapp_instance', 'whatsapp_token',
       'webhook_maps_url', 'webhook_maps_enabled',
       'webhook_whatsapp_url', 'webhook_whatsapp_enabled',
-      'is_active', 'subscription_expires_at',
+      'is_active', 'subscription_expires_at', 'trial_enabled',
+      'asaas_customer_id', 'asaas_cpf_cnpj', 'asaas_subscription_id', 'subscription_start_date',
     ];
 
     const updateData: Record<string, any> = {};
