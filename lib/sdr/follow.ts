@@ -1535,8 +1535,12 @@ async function processTrialSaas(
 
         const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
-        const textoRaw = pickMessage(step) || `Oi {nome}! Seu período de teste está em andamento. Precisa de ajuda? 😊`
-        const texto = substituirVariaveis(textoRaw, {
+        const textoRaw = pickMessage(step)
+        if (!textoRaw && tipo === 'text') {
+          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
+          continue
+        }
+        const texto = substituirVariaveis(textoRaw ?? '', {
           contact_name: trial.nome, whatsapp: trial.whatsapp, status: trial.status,
           resumo_ia: null, notes: null, call_de_venda: null, call_agendada_para: null, call_status: null,
           id: trial.id, company_id: trial.company_id,
