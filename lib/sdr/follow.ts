@@ -1333,6 +1333,16 @@ async function processRemarketing(
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
+
+          const blocosRm: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+          for (let i = 1; i < blocosRm.length; i++) {
+            const bloco = substituirVariaveis(blocosRm[i] || '', lead)
+            if (!bloco) continue
+            await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1500))
+            await enviarMensagem(phone, bloco, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'remarketing', supabase, 'text', null)
+          }
+
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           rmLeadFired.add(step.id)
           await recordCircuitSuccess(sequence.id)
@@ -1636,11 +1646,6 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         }
 
         if (!company.uazapi_token) continue
-
-        if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) {
-          console.log(`[follow] WhatsApp desconectado — empresa ${company.id} ignorada`)
-          continue
-        }
 
         const openai = new OpenAI({ apiKey: company.openai_key })
 
