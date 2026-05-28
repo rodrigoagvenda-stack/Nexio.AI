@@ -1142,8 +1142,10 @@ async function processAntiNoshow(
           // Se horasAlvo especificado, só nodes com dia_offset próximo (±1h)
           if (horasAlvo !== undefined && Math.abs(step.dia_offset - horasAlvo) > 1) continue
         } else {
-          // Janela de ±8 min — cron roda a cada 15 min, metade do intervalo + buffer mínimo
-          if (diff > 8 * 60_000) continue
+          // Janela assimétrica: dispara quando target passou (tolerância 2 min antes) até 15 min depois
+          // Evita disparar cedo para steps pequenos (ex: 5min pós call)
+          if (targetTime > now + 2 * 60_000) continue   // ainda não chegou a hora
+          if (targetTime < now - 15 * 60_000) continue  // janela expirou (já rodou ou perdeu o ciclo)
         }
 
         // ── Retry / DLQ ──
