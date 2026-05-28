@@ -20,9 +20,10 @@ export default async function AtendimentoLayout({ children }: { children: React.
     .eq('id', userData?.company_id || 0)
     .single();
 
-  const isTrial = company?.plan_type === 'trial';
+  const planType = company?.plan_type ?? 'basic';
+  const hasAccess = planType !== 'basic';
 
-  if (!isTrial) return <>{children}</>;
+  if (hasAccess) return <>{children}</>;
 
   return (
     <div className="relative w-full h-full">
