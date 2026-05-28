@@ -1521,7 +1521,15 @@ async function processTrialSaas(
         const retryStatusTrial = await checkRetry(trial.id, step.id, supabase, true)
         if (retryStatusTrial === 'dlq') { await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
         if (retryStatusTrial === 'backoff') { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=backoff`); continue }
-        if (await isCircuitOpen(sequence.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=circuit`); continue }
+        const trialCircuitKey = `${sequence.id}:${trial.id}`
+        if (await isCircuitOpen(trialCircuitKey)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=circuit`); continue }
+
+        // Nós de controle (condicao/fim) — registra e avança, sem enviar mensagem
+        if ((step.tipo_mensagem as string) === 'fim' || (step.tipo_mensagem as string) === 'condicao') {
+          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
+          firedThisRunTrial.add(trial.id)
+          continue
+        }
 
         const trialUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
         const trialElapsed = trialUnit === 'hours'
@@ -1617,13 +1625,14 @@ async function processTrialSaas(
             }
           }
 
-          await recordCircuitSuccess(sequence.id)
+          await recordCircuitSuccess(trialCircuitKey)
           sent++
           await antiBanDelay()
         } catch (err: any) {
+          firedThisRunTrial.add(trial.id)
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'failed', supabase)
-          const { shouldOpen: trialOpen } = await recordCircuitFailure(sequence.id)
-          if (trialOpen) await openCircuit(sequence.id, company.id, supabase)
+          const { shouldOpen: trialOpen } = await recordCircuitFailure(trialCircuitKey)
+          if (trialOpen) await openCircuit(trialCircuitKey, company.id, supabase)
           await syslog({
             type: 'follow_up',
             severity: 'error',
