@@ -71,21 +71,11 @@ export async function POST(
     return NextResponse.json({ success: false, message: 'Erro ao processar cadastro.' }, { status: 500 })
   }
 
-  // Dispara primeiro step imediatamente (mesmo caminho do cron)
-  try {
-    console.log(`[trial:webhook] disparando imediato trial=${trial.id} company=${cfg.company_id}`)
-    const result = await runTrialSaasImmediate(cfg.company_id, trial.id)
-    console.log(`[trial:webhook] imediato resultado sent=${result.sent} error=${result.error ?? 'ok'}`)
-  } catch (err: any) {
-    console.error(`[trial:webhook] imediato falhou: ${err.message}`)
-    await syslog({
-      type: 'trial_webhook',
-      severity: 'warn',
-      message: `Disparo imediato falhou: ${err.message}`,
-      company_id: cfg.company_id,
-      payload: { trial_id: trial.id },
-    })
-  }
+  // Dispara primeiro step em background — não bloqueia a resposta HTTP
+  console.log(`[trial:webhook] disparando imediato trial=${trial.id} company=${cfg.company_id}`)
+  runTrialSaasImmediate(cfg.company_id, trial.id)
+    .then(r => console.log(`[trial:webhook] imediato sent=${r.sent} error=${r.error ?? 'ok'}`))
+    .catch(err => console.error(`[trial:webhook] imediato falhou: ${err.message}`))
 
   return NextResponse.json({ success: true, message: 'Cadastro realizado com sucesso!' })
 }

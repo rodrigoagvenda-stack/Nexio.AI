@@ -1545,6 +1545,16 @@ async function processTrialSaas(
         const stepMinutes = hh * 60 + mm
         if (nowMinutes < stepMinutes - 5) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=horario nowMin=${nowMinutes} stepMin=${stepMinutes}`); continue }
 
+        // D0 com horário definido: se passou mais de 2h, o step expirou — marca skipped e não tenta mais
+        if (trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
+          const minutesLate = nowMinutes - stepMinutes
+          if (minutesLate > 120) {
+            console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=expirado late=${minutesLate}min`)
+            await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
+            continue
+          }
+        }
+
         // Checa condição do step
         const condicao = step.condicao ?? 'sempre'
         if (condicao === 'respondeu' && !trial.respondeu) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=semResposta`); continue }
