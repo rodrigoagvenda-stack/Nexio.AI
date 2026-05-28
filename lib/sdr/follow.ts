@@ -1468,7 +1468,8 @@ async function processTrialSaas(
   company: CompanyCtx,
   sequences: FollowSequence[],
   supabase: Supabase,
-  onlyTrialId?: number
+  onlyTrialId?: number,
+  immediate = false
 ): Promise<number> {
   let sent = 0
   const now = Date.now()
@@ -1543,10 +1544,11 @@ async function processTrialSaas(
         // Verifica horário configurado no step (ex: 19:30)
         const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
         const stepMinutes = hh * 60 + mm
-        if (nowMinutes < stepMinutes - 5) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=horario nowMin=${nowMinutes} stepMin=${stepMinutes}`); continue }
+        if (!immediate && nowMinutes < stepMinutes - 5) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=horario nowMin=${nowMinutes} stepMin=${stepMinutes}`); continue }
 
         // D0 com horário definido: se passou mais de 2h, o step expirou — marca skipped e não tenta mais
-        if (trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
+        // Disparo imediato (webhook) ignora expiração — sempre envia o primeiro step
+        if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
           const minutesLate = nowMinutes - stepMinutes
           if (minutesLate > 120) {
             console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=expirado late=${minutesLate}min`)
@@ -1927,6 +1929,6 @@ export async function runTrialSaasImmediate(companyId: number, trialId: number):
 
   if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência trial_saas ativa' }
 
-  const sent = await processTrialSaas(company, sequences as FollowSequence[], supabase, trialId)
+  const sent = await processTrialSaas(company, sequences as FollowSequence[], supabase, trialId, true)
   return { sent }
 }
