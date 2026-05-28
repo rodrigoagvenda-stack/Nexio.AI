@@ -26,6 +26,7 @@ import {
 // ── Plan config ───────────────────────────────────────────────────────────────
 
 const PLANS: Record<string, { label: string; price: number; color: string }> = {
+  trial:   { label: 'Trial',  price: 0,    color: 'text-yellow-400' },
   basic:   { label: 'Free',   price: 0,    color: 'text-muted-foreground' },
   starter: { label: 'Start',  price: 1600, color: 'text-blue-400' },
   pro:     { label: 'Growth', price: 2000, color: 'text-primary' },
@@ -568,6 +569,19 @@ export default function EmpresaDetailPage() {
                   onChange={(e) => setCompany({ ...company, subscription_expires_at: e.target.value })}
                   className="h-9 flex-1"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 flex-shrink-0 gap-1 text-yellow-400 border-yellow-400/30 hover:bg-yellow-400/10"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 7);
+                    setCompany({ ...company, plan_type: 'trial', plan_price: 0, subscription_expires_at: d.toISOString() });
+                  }}
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  +7d Trial
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
