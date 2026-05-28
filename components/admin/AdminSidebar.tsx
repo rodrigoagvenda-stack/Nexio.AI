@@ -17,6 +17,7 @@ import {
   Settings2,
   LifeBuoy,
   Sparkles,
+  FlaskConical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +35,7 @@ const navLinks = [
   { href: '/admin/empresas', label: 'Empresas', icon: Building2 },
   { href: '/admin/usuarios', label: 'Usuários', icon: Users },
   { href: '/admin/financeiro', label: 'Financeiro', icon: DollarSign },
+  { href: '/admin/trial', label: 'Trial SaaS', icon: FlaskConical },
   { href: '/admin/suporte', label: 'Suporte', icon: LifeBuoy },
   { href: '/admin/novidades', label: 'Novidades', icon: Sparkles },
   { href: '/admin/logs', label: 'Logs', icon: Activity },
