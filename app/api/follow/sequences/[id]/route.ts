@@ -26,13 +26,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     if (Array.isArray(steps)) {
-      // Fetch existing step IDs before touching anything — if insert fails, old steps survive
       const { data: existingRows } = await service.from('follow_steps').select('id').eq('sequence_id', params.id)
-      const existingIds: string[] = (existingRows ?? []).map((r: any) => r.id)
+      const existingIds = new Set<string>((existingRows ?? []).map((r: any) => r.id))
 
-      // Insert new steps FIRST — if this fails, old steps are still intact (no data loss)
-      if (steps.length > 0) {
-        const { error: insErr } = await service.from('follow_steps').insert(steps.map((s: any, i: number) => ({
+      const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+      const toUpsert: any[] = []
+      const toInsert: any[] = []
+
+      steps.forEach((s: any, i: number) => {
+        const row = {
           sequence_id: params.id,
           dia_offset: s.dia_offset ?? i + 1,
           horario: s.horario ?? '09:00',
@@ -46,13 +49,28 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           condicao_estagio: s.condicao_estagio ?? null,
           sdr_ativo: s.sdr_ativo ?? null,
           ordem: i,
-        })))
+        }
+        if (s.id && uuidRe.test(s.id) && existingIds.has(s.id)) {
+          toUpsert.push({ ...row, id: s.id })
+        } else {
+          toInsert.push(row)
+        }
+      })
+
+      // Steps no longer in canvas → delete
+      const keptIds = new Set(toUpsert.map((r: any) => r.id))
+      const toDelete = [...existingIds].filter(id => !keptIds.has(id))
+
+      if (toUpsert.length > 0) {
+        const { error: upsErr } = await service.from('follow_steps').upsert(toUpsert, { onConflict: 'id' })
+        if (upsErr) throw upsErr
+      }
+      if (toInsert.length > 0) {
+        const { error: insErr } = await service.from('follow_steps').insert(toInsert)
         if (insErr) throw insErr
       }
-
-      // Delete OLD steps only after insert succeeded
-      if (existingIds.length > 0) {
-        const { error: delErr } = await service.from('follow_steps').delete().in('id', existingIds)
+      if (toDelete.length > 0) {
+        const { error: delErr } = await service.from('follow_steps').delete().in('id', toDelete)
         if (delErr) throw delErr
       }
     }
