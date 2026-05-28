@@ -1018,6 +1018,27 @@ function ConfigContent() {
                 <code className="bg-muted px-1 py-0.5 rounded text-[11px]">{`{ "name", "email", "whatsapp" }`}</code>
               </p>
             </div>
+            {/* Link do formulário público */}
+            {(() => {
+              const token = webhookUrl.split('/api/trial/webhook/')[1]
+              const formUrl = webhookUrl.replace('/api/trial/webhook/', '/trial/')
+              return token ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground font-medium">Link do formulário pronto:</p>
+                  <div className="flex items-center gap-2">
+                    <Input value={formUrl} readOnly className="h-9 text-sm font-mono bg-muted/40 text-muted-foreground" />
+                    <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => navigator.clipboard.writeText(formUrl)}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => window.open(formUrl, '_blank')}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/60">Compartilhe este link — o formulário já está pronto para uso.</p>
+                </div>
+              ) : null
+            })()}
+          </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">Salve a configuração para gerar sua URL.</p>
