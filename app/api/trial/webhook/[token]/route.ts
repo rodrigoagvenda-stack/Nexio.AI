@@ -6,9 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { normalizePhone, createUazapiClient, sendRichStep } from '@/lib/sdr/uazapi'
-import { getPlatformConfig } from '@/lib/platform-config'
-import { decrypt } from '@/lib/crypto'
+import { normalizePhone } from '@/lib/sdr/uazapi'
+import { runTrialSaasImmediate } from '@/lib/sdr/follow'
 import { syslog } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
@@ -61,98 +60,30 @@ export async function POST(
     .select('id')
     .maybeSingle()
 
-  if (error) {
+  if (error || !trial?.id) {
     await syslog({
       type: 'trial_webhook',
       severity: 'error',
-      message: `Erro ao salvar trial: ${error.message}`,
+      message: `Erro ao salvar trial: ${error?.message ?? 'id não retornado'}`,
       company_id: cfg.company_id,
       payload: { email: body.email },
     })
     return NextResponse.json({ success: false, message: 'Erro ao processar cadastro.' }, { status: 500 })
   }
 
-  // Send welcome step (dia_offset = 0) immediately if configured
+  // Dispara primeiro step imediatamente (mesmo caminho do cron)
   try {
-    const platformCfg = await getPlatformConfig()
-
-    const { data: sdrCfg } = await supabase
-      .from('sdr_configs')
-      .select('uazapi_instance_url, uazapi_token')
-      .eq('company_id', cfg.company_id)
-      .maybeSingle()
-
-    const uazapiUrl = sdrCfg?.uazapi_instance_url ?? platformCfg.uazapi_base_url
-    const uazapiToken = sdrCfg?.uazapi_token ? decrypt(sdrCfg.uazapi_token) : ''
-
-    if (!uazapiToken) console.warn(`[trial:webhook] sem uazapiToken para company ${cfg.company_id} — welcome step pulado`)
-    if (uazapiToken && trial?.id) {
-      // Find welcome step (dia_offset = 0) in any active trial_saas sequence for this company
-      const { data: sequences } = await supabase
-        .from('follow_sequences')
-        .select('id')
-        .eq('company_id', cfg.company_id)
-        .eq('tipo', 'trial_saas')
-        .eq('ativo', true)
-
-      for (const seq of sequences ?? []) {
-        const { data: welcomeStep } = await supabase
-          .from('follow_steps')
-          .select('*')
-          .eq('sequence_id', seq.id)
-          .eq('dia_offset', 0)
-          .order('ordem', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-
-        if (!welcomeStep) continue
-
-        // Check not already sent
-        const { data: alreadySent } = await supabase
-          .from('follow_executions')
-          .select('id')
-          .eq('trial_id', trial.id)
-          .eq('step_id', welcomeStep.id)
-          .maybeSingle()
-
-        if (alreadySent) break
-
-        const uazapi = createUazapiClient(uazapiUrl, uazapiToken)
-        const tipo = welcomeStep.tipo_mensagem ?? 'text'
-        const pool: string[] = (welcomeStep.pool_mensagens ?? []).filter(Boolean)
-        const rawTexto = pool.length > 0
-          ? pool[Math.floor(Math.random() * pool.length)]
-          : (welcomeStep.mensagem ?? '')
-        const texto = rawTexto.replace(/\{nome\}/gi, body.name).replace(/\{whatsapp\}/gi, whatsapp)
-
-        if (!texto && tipo === 'text') {
-          await supabase.from('follow_executions').insert({
-            trial_id: trial.id, sequence_id: seq.id, step_id: welcomeStep.id,
-            company_id: cfg.company_id, status: 'skipped',
-          })
-          break
-        }
-
-        await sendRichStep(uazapi, whatsapp, tipo, texto, welcomeStep.media_config ?? undefined)
-
-        await supabase.from('follow_executions').insert({
-          trial_id: trial.id,
-          sequence_id: seq.id,
-          step_id: welcomeStep.id,
-          company_id: cfg.company_id,
-          status: 'sent',
-        })
-        break
-      }
-    }
+    console.log(`[trial:webhook] disparando imediato trial=${trial.id} company=${cfg.company_id}`)
+    const result = await runTrialSaasImmediate(cfg.company_id, trial.id)
+    console.log(`[trial:webhook] imediato resultado sent=${result.sent} error=${result.error ?? 'ok'}`)
   } catch (err: any) {
-    // Welcome message failure is non-fatal — trial was saved
+    console.error(`[trial:webhook] imediato falhou: ${err.message}`)
     await syslog({
       type: 'trial_webhook',
       severity: 'warn',
-      message: `Welcome step falhou: ${err.message}`,
+      message: `Disparo imediato falhou: ${err.message}`,
       company_id: cfg.company_id,
-      payload: { trial_id: trial?.id },
+      payload: { trial_id: trial.id },
     })
   }
 

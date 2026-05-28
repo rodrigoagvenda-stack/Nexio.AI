@@ -1467,7 +1467,8 @@ async function processFollowProposta(
 async function processTrialSaas(
   company: CompanyCtx,
   sequences: FollowSequence[],
-  supabase: Supabase
+  supabase: Supabase,
+  onlyTrialId?: number
 ): Promise<number> {
   let sent = 0
   const now = Date.now()
@@ -1482,12 +1483,14 @@ async function processTrialSaas(
   const testPhone = testMode ? normalizePhone(trialCfg!.test_phone!) : null
   if (testMode) console.log(`[follow:trial] MODO TESTE ativo — redirecionando para ${testPhone}`)
 
-  const { data: trials } = await supabase
+  let trialsQuery = supabase
     .from('saas_trials')
     .select('id, company_id, nome, whatsapp, status, criado_em, trial_days, respondeu, estagio')
     .eq('company_id', company.id)
     .eq('status', 'ativo')
     .not('whatsapp', 'is', null)
+  if (onlyTrialId) trialsQuery = trialsQuery.eq('id', onlyTrialId)
+  const { data: trials } = await trialsQuery
 
   for (const sequence of sequences) {
     const { data: steps } = await supabase
@@ -1880,5 +1883,40 @@ export async function runRemarketingForCompany(companyId: number, skipDelay = fa
   if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência de remarketing ativa' }
 
   const sent = await processRemarketing(company, sequences as FollowSequence[], openai, supabase, skipDelay, force)
+  return { sent }
+}
+
+/** Dispara imediatamente o trial recém-criado — usado pelo webhook após upsert */
+export async function runTrialSaasImmediate(companyId: number, trialId: number): Promise<{ sent: number; error?: string }> {
+  const supabase = createServiceClient()
+  const platformCfg = await getPlatformConfig()
+
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!cfg) return { sent: 0, error: 'sdr_configs não encontrado' }
+
+  const company: CompanyCtx = {
+    id: cfg.company_id,
+    uazapi_url: cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url,
+    uazapi_token: safeDecrypt(cfg.uazapi_token),
+    openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
+    sdr_prompt: cfg.prompt ?? null,
+  }
+  if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
+
+  const { data: sequences } = await supabase
+    .from('follow_sequences')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('tipo', 'trial_saas')
+    .eq('ativo', true)
+
+  if (!sequences?.length) return { sent: 0, error: 'Nenhuma sequência trial_saas ativa' }
+
+  const sent = await processTrialSaas(company, sequences as FollowSequence[], supabase, trialId)
   return { sent }
 }
