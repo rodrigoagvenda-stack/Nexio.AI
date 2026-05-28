@@ -1497,6 +1497,10 @@ async function processTrialSaas(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
+    const nowDate = new Date(now)
+    const nowMinutes = nowDate.getHours() * 60 + nowDate.getMinutes()
+    const firedThisRunTrial = new Set<number>()
+
     for (const trial of (trials ?? []) as TrialSaas[]) {
       const signupTime = new Date(trial.criado_em).getTime()
       const daysSinceSignup = (now - signupTime) / 86_400_000
@@ -1505,6 +1509,9 @@ async function processTrialSaas(
       if (daysSinceSignup > (trial.trial_days ?? 7) + 1) continue
 
       for (const step of steps as FollowStep[]) {
+        // Só 1 step por trial por rodada do cron
+        if (firedThisRunTrial.has(trial.id)) continue
+
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) continue
 
@@ -1518,10 +1525,12 @@ async function processTrialSaas(
         const trialElapsed = trialUnit === 'hours'
           ? (now - signupTime) / 3_600_000
           : daysSinceSignup
-        // ±30min window for hours, ±12h for days
-        const trialWindow = 0.5
-        const diff = Math.abs(trialElapsed - step.dia_offset)
-        if (diff > trialWindow) continue
+        if (trialElapsed < step.dia_offset) continue  // ainda não chegou o dia
+
+        // Verifica horário configurado no step (ex: 19:30)
+        const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
+        const stepMinutes = hh * 60 + mm
+        if (nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
 
         // Checa condição do step
         const condicao = step.condicao ?? 'sempre'
@@ -1565,6 +1574,7 @@ async function processTrialSaas(
           }
 
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
+          firedThisRunTrial.add(trial.id)
 
           // Controle de SDR por step
           console.log(`[trial:cron] step ${step.id} sdr_ativo=${JSON.stringify(step.sdr_ativo)}`)
