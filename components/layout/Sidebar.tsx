@@ -31,6 +31,7 @@ import {
   Ticket,
   BookOpen,
   Zap,
+  FlaskConical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
@@ -100,6 +101,7 @@ const navSections: NavSection[] = [
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
           { href: '/configuracoes/follow', label: 'Canvas', icon: Megaphone },
+          { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FlaskConical },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDays },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
         ],
