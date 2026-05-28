@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
     const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
     // 1. Cria a empresa — novas contas sempre iniciam em trial de 7 dias (sem SDR/Canvas)
+    let companyId: number
+
     const { data: company, error: companyErr } = await service
       .from('companies')
       .insert({
@@ -52,9 +54,22 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
 
-    if (companyErr || !company) {
-      console.error('[onboarding] company insert:', companyErr)
-      throw companyErr ?? new Error('Erro ao criar empresa')
+    if (companyErr) {
+      // Duplicate email → vincula ao registro existente em vez de falhar
+      const isDuplicate = companyErr.code === '23505' || companyErr.message?.includes('companies_email_key')
+      if (!isDuplicate) {
+        console.error('[onboarding] company insert:', companyErr)
+        throw new Error('Não foi possível criar sua conta. Tente novamente.')
+      }
+      const { data: existingCompany } = await service
+        .from('companies')
+        .select('id')
+        .eq('email', userEmail)
+        .maybeSingle()
+      if (!existingCompany) throw new Error('Conta não encontrada. Entre em contato com o suporte.')
+      companyId = existingCompany.id
+    } else {
+      companyId = company!.id
     }
 
     // 2. Cria o usuário — user_id é NOT NULL, usa o auth UUID
@@ -62,8 +77,8 @@ export async function POST(req: NextRequest) {
       .from('users')
       .upsert({
         auth_user_id: user.id,
-        user_id: user.id,          // campo NOT NULL obrigatório
-        company_id: company.id,
+        user_id: user.id,
+        company_id: companyId,
         name: userDisplayName,
         email: userEmail,
         role: 'admin',
@@ -73,8 +88,7 @@ export async function POST(req: NextRequest) {
 
     if (userErr) {
       console.error('[onboarding] user upsert:', userErr)
-      await service.from('companies').delete().eq('id', company.id)
-      throw userErr
+      throw new Error('Não foi possível criar seu usuário. Tente novamente.')
     }
 
     // Envia email de boas-vindas (fire-and-forget, não bloqueia o retorno)
@@ -85,7 +99,7 @@ export async function POST(req: NextRequest) {
       isTrial: true,
     }).catch(() => {})
 
-    return NextResponse.json({ success: true, companyId: company.id })
+    return NextResponse.json({ success: true, companyId })
   } catch (err: any) {
     console.error('[onboarding] FATAL:', err?.message, err?.details, err?.hint)
     return NextResponse.json(
