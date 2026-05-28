@@ -85,6 +85,7 @@ export async function POST(
     const uazapiUrl = sdrCfg?.uazapi_instance_url ?? platformCfg.uazapi_base_url
     const uazapiToken = sdrCfg?.uazapi_token ? decrypt(sdrCfg.uazapi_token) : ''
 
+    if (!uazapiToken) console.warn(`[trial:webhook] sem uazapiToken para company ${cfg.company_id} — welcome step pulado`)
     if (uazapiToken && trial?.id) {
       // Find welcome step (dia_offset = 0) in any active trial_saas sequence for this company
       const { data: sequences } = await supabase
@@ -118,7 +119,19 @@ export async function POST(
 
         const uazapi = createUazapiClient(uazapiUrl, uazapiToken)
         const tipo = welcomeStep.tipo_mensagem ?? 'text'
-        const texto = welcomeStep.mensagem ?? `Olá, ${body.name}! Seu período de teste foi ativado com sucesso. 🎉`
+        const pool: string[] = (welcomeStep.pool_mensagens ?? []).filter(Boolean)
+        const rawTexto = pool.length > 0
+          ? pool[Math.floor(Math.random() * pool.length)]
+          : (welcomeStep.mensagem ?? '')
+        const texto = rawTexto.replace(/\{nome\}/gi, body.name).replace(/\{whatsapp\}/gi, whatsapp)
+
+        if (!texto && tipo === 'text') {
+          await supabase.from('follow_executions').insert({
+            trial_id: trial.id, sequence_id: seq.id, step_id: welcomeStep.id,
+            company_id: cfg.company_id, status: 'skipped',
+          })
+          break
+        }
 
         await sendRichStep(uazapi, whatsapp, tipo, texto, welcomeStep.media_config ?? undefined)
 
