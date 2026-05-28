@@ -1546,12 +1546,16 @@ async function processTrialSaas(
         const stepMinutes = hh * 60 + mm
         if (!immediate && nowMinutes < stepMinutes - 5) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=horario nowMin=${nowMinutes} stepMin=${stepMinutes}`); continue }
 
-        // D0 com horário definido: se passou mais de 2h, o step expirou — marca skipped e não tenta mais
-        // Disparo imediato (webhook) ignora expiração — sempre envia o primeiro step
+        // D0 com horário definido: se passou mais de 2h, o step expirou — SOMENTE se o trial
+        // já existia quando o step deveria ter disparado (signupMinutes < stepMinutes).
+        // Trials que se cadastraram DEPOIS do horário do step nunca tiveram chance de receber
+        // no horário correto, então não devemos expirar.
         if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
           const minutesLate = nowMinutes - stepMinutes
-          if (minutesLate > 120) {
-            console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=expirado late=${minutesLate}min`)
+          const signupDate = new Date(signupTime)
+          const signupMinutes = signupDate.getHours() * 60 + signupDate.getMinutes()
+          if (minutesLate > 120 && signupMinutes < stepMinutes) {
+            console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=expirado late=${minutesLate}min signupMin=${signupMinutes}`)
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
             continue
           }
