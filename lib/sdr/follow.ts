@@ -1142,8 +1142,8 @@ async function processAntiNoshow(
           // Se horasAlvo especificado, só nodes com dia_offset próximo (±1h)
           if (horasAlvo !== undefined && Math.abs(step.dia_offset - horasAlvo) > 1) continue
         } else {
-          // Janela de ±20 min (margem acima do intervalo de 15 min do cron para absorver variação de timing)
-          if (diff > 20 * 60_000) continue
+          // Janela de ±8 min — cron roda a cada 15 min, metade do intervalo + buffer mínimo
+          if (diff > 8 * 60_000) continue
         }
 
         // ── Retry / DLQ ──
@@ -1261,6 +1261,9 @@ async function processRemarketing(
       rmFiredByLead.get(ex.lead_id)!.add(ex.step_id)
     }
 
+    // Controla leads que já tiveram um step disparado nesta execução — evita disparar N steps de uma vez
+    const firedThisRun = new Set<number>()
+
     for (const step of steps as FollowStep[]) {
       // Só dispara se passou da hora configurada (cron roda a cada hora cheia)
       const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
@@ -1268,6 +1271,8 @@ async function processRemarketing(
       if (!force && nowMinutes < stepMinutes - 5) continue  // ainda não chegou a hora (5min tolerância)
 
       for (const lead of leads as unknown as Lead[]) {
+        if (!force && firedThisRun.has(lead.id)) continue  // já disparou 1 step para este lead nesta rodada
+
         if (!(await withinRateLimit(company.id, supabase))) return sent
 
         let rmLeadFired = rmFiredByLead.get(lead.id)
