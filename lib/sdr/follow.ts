@@ -1670,9 +1670,18 @@ async function processTrialSaas(
           }
 
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
-          firedThisRunTrial.add(trial.id)
           confirmedDispatched.add(step.id)
           console.log(`[trial] #${trial.id} "${trial.nome}" ✅ ENVIADO step ${step.id.slice(0,8)} @ ${step.horario ?? '??'} D${step.dia_offset}`)
+
+          // Só bloqueia próximos steps se o seguinte tiver horário/dia diferente.
+          // Steps com mesmo dia_offset+horario são complementares e disparam juntos.
+          const stepIdx = (steps as FollowStep[]).findIndex(s => s.id === step.id)
+          const nextStep = stepIdx >= 0 ? (steps as FollowStep[])[stepIdx + 1] : undefined
+          const nextIsSameTime = nextStep &&
+            nextStep.dia_offset === step.dia_offset &&
+            nextStep.horario === step.horario &&
+            !NON_MSG_TYPES.includes(nextStep.tipo_mensagem as string)
+          if (!nextIsSameTime) firedThisRunTrial.add(trial.id)
 
           if (step.sdr_ativo !== null && step.sdr_ativo !== undefined) {
             const phoneVars = phoneVariants(phone)
