@@ -1622,10 +1622,10 @@ async function processTrialSaas(
         }
 
         // Nós que não enviam mensagem WhatsApp (agendamento de call, webhook, etc.)
-        // Só precisam ser marcados como concluídos quando o horário chegar — sem envio.
+        // Usam 'skipped' para não consumir cota do rate limit (30 envios/h conta só 'sent').
         const NON_MSG_TYPES = ['agendamento', 'webhook', 'lead_score', 'ab_test', 'goal', 'sentiment']
         if (NON_MSG_TYPES.includes(step.tipo_mensagem as string)) {
-          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
+          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
           confirmedDispatched.add(step.id)
           console.log(`[trial] #${trial.id} nó ${step.id.slice(0,8)} [${step.tipo_mensagem}] ✓ @ ${step.horario} D${step.dia_offset}`)
           continue
