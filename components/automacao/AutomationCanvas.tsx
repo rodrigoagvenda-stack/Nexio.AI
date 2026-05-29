@@ -2396,7 +2396,13 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                         type="time"
                         step={300}
                         value={horarioValue}
-                        onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
+                        onChange={(e) => {
+                          const [h, m] = e.target.value.split(':').map(Number)
+                          const rm = Math.round(m / 5) * 5
+                          const hh = String(rm === 60 ? (h + 1) % 24 : h).padStart(2, '0')
+                          const mm = String(rm === 60 ? 0 : rm).padStart(2, '0')
+                          onUpdate(node.id, { horario: `${hh}:${mm}` })
+                        }}
                         className="field-input font-mono"
                       />
                     </Field>
@@ -2634,7 +2640,13 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             </Field>
             <Field label="Horário">
               <input type="time" step={300} value={(d as SchedulingNodeData).horario ?? '09:00'}
-                onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
+                onChange={(e) => {
+                  const [h, m] = e.target.value.split(':').map(Number)
+                  const rm = Math.round(m / 5) * 5
+                  const hh = String(rm === 60 ? (h + 1) % 24 : h).padStart(2, '0')
+                  const mm = String(rm === 60 ? 0 : rm).padStart(2, '0')
+                  onUpdate(node.id, { horario: `${hh}:${mm}` })
+                }}
                 className="field-input" />
             </Field>
             <Field label="Duração da call">
