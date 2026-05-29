@@ -1397,55 +1397,49 @@ async function executeButtonActions(
     console.log(`[trial:btn] matchedChoice=${matchedChoice ?? 'null'}`)
     if (!matchedChoice) continue
 
-    // Botão reconhecido — marca trial como respondido (suporta modo teste onde
-    // trial.whatsapp ≠ telefone de envio, então não dá pra usar lookup por phone)
+    // Botão reconhecido — atualiza estagio + respondeu no trial.
+    // Primeiro tenta por telefone (produção); fallback = trial ativo mais recente da empresa (modo teste).
     ;(async () => {
       try {
-        // Tenta via telefone (modo normal)
         const phoneVarsBtn = phoneVariants(ctx.leadPhone)
-        const { data: trialByPhone } = await supabase.from('saas_trials')
-          .update({ respondeu: true })
+        let trialId: number | null = null
+
+        const { data: byPhone } = await supabase.from('saas_trials')
+          .select('id')
           .eq('company_id', ctx.companyId)
           .in('whatsapp', phoneVarsBtn)
           .eq('status', 'ativo')
-          .eq('respondeu', false)
-          .select('id')
-        const trialIds: number[] = (trialByPhone ?? []).map((t: any) => t.id)
+          .order('criado_em', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        trialId = byPhone?.id ?? null
 
-        // Fallback modo teste: via mensagens Trial SaaS nesta conversa
-        if (!trialIds.length && ctx.conversationId) {
-          const { data: trialMsg } = await supabase
-            .from('mensagens_do_whatsapp')
+        if (!trialId) {
+          const { data: recent } = await supabase.from('saas_trials')
             .select('id')
-            .eq('id_da_conversacao', ctx.conversationId)
             .eq('company_id', ctx.companyId)
-            .eq('nome_do_agente', 'Trial SaaS')
+            .eq('status', 'ativo')
+            .order('criado_em', { ascending: false })
             .limit(1)
             .maybeSingle()
-          if (trialMsg) {
-            const { data: recentLog } = await supabase
-              .from('follow_logs')
-              .select('trial_id')
-              .eq('company_id', ctx.companyId)
-              .not('trial_id', 'is', null)
-              .order('enviado_em', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-            if (recentLog?.trial_id) trialIds.push(recentLog.trial_id)
-          }
+          trialId = recent?.id ?? null
         }
 
-        if (trialIds.length) {
+        if (trialId) {
           await supabase.from('saas_trials')
             .update({ respondeu: true, estagio: matchedChoice })
-            .in('id', trialIds)
+            .eq('id', trialId)
           await supabase.from('follow_logs')
             .update({ respondeu: true })
-            .in('trial_id', trialIds)
+            .eq('trial_id', trialId)
             .neq('respondeu', true)
-          console.log(`[trial:btn] respondeu=true estagio="${matchedChoice}" trial(s) ${trialIds.join(',')}`)
+          console.log(`[trial:btn] respondeu=true estagio="${matchedChoice}" trial=${trialId}`)
+        } else {
+          console.log(`[trial:btn] nenhum trial ativo encontrado para company=${ctx.companyId}`)
         }
-      } catch { /* best-effort */ }
+      } catch (e: any) {
+        console.error(`[trial:btn] ERRO ao atualizar trial:`, e?.message)
+      }
     })()
 
     if (!parsed.button_actions) { console.log(`[trial:btn] button_actions ausente no JSON — menu sem feature`); continue }
