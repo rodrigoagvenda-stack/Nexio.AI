@@ -1569,6 +1569,15 @@ async function processTrialSaas(
             console.log(`[trial] #${trial.id} nó-controle ${step.id.slice(0,8)} → aguardando predecessores: [${pendentes.join(', ')}]`)
             continue
           }
+          // Condição baseada em estagio (custom): aguarda resposta do lead antes de avaliar.
+          // Nodes de mensagem futuros continuam disparando normalmente — só a condição espera.
+          if ((step.tipo_mensagem as string) === 'condicao') {
+            const cfg = step.media_config as any
+            if (cfg?.variavel === 'custom' && !trial.estagio) {
+              console.log(`[trial] #${trial.id} nó-condição ${step.id.slice(0,8)} → aguardando resposta do lead (estagio não definido)`)
+              continue
+            }
+          }
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
           confirmedDispatched.add(step.id)
           console.log(`[trial] #${trial.id} nó-controle ${step.id.slice(0,8)} ✓ processado`)
