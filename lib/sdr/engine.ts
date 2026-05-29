@@ -1397,6 +1397,58 @@ async function executeButtonActions(
     console.log(`[trial:btn] matchedChoice=${matchedChoice ?? 'null'}`)
     if (!matchedChoice) continue
 
+    // Botão reconhecido — marca trial como respondido (suporta modo teste onde
+    // trial.whatsapp ≠ telefone de envio, então não dá pra usar lookup por phone)
+    ;(async () => {
+      try {
+        // Tenta via telefone (modo normal)
+        const phoneVarsBtn = phoneVariants(ctx.leadPhone)
+        const { data: trialByPhone } = await supabase.from('saas_trials')
+          .update({ respondeu: true })
+          .eq('company_id', ctx.companyId)
+          .in('whatsapp', phoneVarsBtn)
+          .eq('status', 'ativo')
+          .eq('respondeu', false)
+          .select('id')
+        const trialIds: number[] = (trialByPhone ?? []).map((t: any) => t.id)
+
+        // Fallback modo teste: via mensagens Trial SaaS nesta conversa
+        if (!trialIds.length && ctx.conversationId) {
+          const { data: trialMsg } = await supabase
+            .from('mensagens_do_whatsapp')
+            .select('id')
+            .eq('id_da_conversacao', ctx.conversationId)
+            .eq('company_id', ctx.companyId)
+            .eq('nome_do_agente', 'Trial SaaS')
+            .limit(1)
+            .maybeSingle()
+          if (trialMsg) {
+            const { data: recentLog } = await supabase
+              .from('follow_logs')
+              .select('trial_id')
+              .eq('company_id', ctx.companyId)
+              .not('trial_id', 'is', null)
+              .order('enviado_em', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (recentLog?.trial_id) trialIds.push(recentLog.trial_id)
+          }
+        }
+
+        if (trialIds.length) {
+          await supabase.from('saas_trials')
+            .update({ respondeu: true })
+            .in('id', trialIds)
+            .eq('respondeu', false)
+          await supabase.from('follow_logs')
+            .update({ respondeu: true })
+            .in('trial_id', trialIds)
+            .neq('respondeu', true)
+          console.log(`[trial:btn] respondeu=true trial(s) ${trialIds.join(',')}`)
+        }
+      } catch { /* best-effort */ }
+    })()
+
     if (!parsed.button_actions) { console.log(`[trial:btn] button_actions ausente no JSON — menu sem feature`); continue }
 
     const action = actions[matchedChoice]
