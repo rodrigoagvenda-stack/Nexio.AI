@@ -1576,14 +1576,15 @@ async function processTrialSaas(
           }
         }
 
-        // Checa condição do step
+        // Checa condição do step — steps pulados por condição contam como "concluídos"
+        // para que nós fim/condicao subsequentes (merge) não fiquem travados
         const condicao = step.condicao ?? 'sempre'
-        if (condicao === 'respondeu' && !trial.respondeu) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=semResposta`); continue }
-        if (condicao === 'sem_resposta' && trial.respondeu) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaRespondeu`); continue }
+        if (condicao === 'respondeu' && !trial.respondeu) { confirmedDispatched.add(step.id); console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=semResposta`); continue }
+        if (condicao === 'sem_resposta' && trial.respondeu) { confirmedDispatched.add(step.id); console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaRespondeu`); continue }
 
         // Roteamento por estágio (qual botão o lead clicou)
         if (step.condicao_estagio) {
-          if (trial.estagio !== step.condicao_estagio) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=estagio trial="${trial.estagio}" step="${step.condicao_estagio}"`); continue }
+          if (trial.estagio !== step.condicao_estagio) { confirmedDispatched.add(step.id); console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=estagio trial="${trial.estagio}" step="${step.condicao_estagio}"`); continue }
         }
 
         console.log(`[trial:cron] trial=${trial.id} step=${step.id} DISPARANDO horario=${step.horario} offset=${step.dia_offset}`)
