@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
         .eq('company_id', companyId).gte('disparado_em', prevSinceIso).lt('disparado_em', sinceIso),
 
       svc.from('follow_logs')
-        .select('id, tipo, mensagem, enviado_em, respondeu, lead_id, leads!inner(id, contact_name, status, whatsapp)')
+        .select('id, tipo, mensagem, enviado_em, respondeu, lead_id, trial_id, leads(id, contact_name, status, whatsapp)')
         .eq('company_id', companyId).gte('enviado_em', sinceIso)
         .order('enviado_em', { ascending: false }),
 
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     const trialIds = Array.from(new Set((trialExecs ?? []).map((e: any) => e.trial_id).filter(Boolean)))
     const { data: trialNames } = trialIds.length > 0
-      ? await svc.from('saas_trials').select('id, nome, whatsapp').in('id', trialIds)
+      ? await svc.from('saas_trials').select('id, nome, whatsapp, respondeu').in('id', trialIds)
       : { data: [] }
     const trialNameMap = Object.fromEntries((trialNames ?? []).map((t: any) => [t.id, t]))
 
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
     const trialsExpirando = trialLista.filter((t) => (t.trial_days - t.dia_no_trial) <= 7 && t.dia_no_trial < t.trial_days)
 
     // ── Funnel ────────────────────────────────────────────────────────────────
-    const uniqueLeadsEngajados = new Set((logs ?? []).filter((l: any) => l.respondeu).map((l: any) => l.lead_id)).size
+    const uniqueLeadsEngajados = new Set((logs ?? []).filter((l: any) => l.respondeu && l.lead_id).map((l: any) => l.lead_id)).size
     const funil = [
       { etapa: 'Total de Leads', count: totalLeads ?? 0 },
       { etapa: 'Engajados', count: uniqueLeadsEngajados },
@@ -274,7 +274,7 @@ export async function GET(request: NextRequest) {
         lead_name: trial?.nome ?? '—', lead_status: 'trial_ativo',
         lead_whatsapp: trial?.whatsapp ?? '',
         mensagem: (e.follow_steps?.mensagem ?? '').slice(0, 100),
-        enviado_em: e.disparado_em, respondeu: false, resposta: null,
+        enviado_em: e.disparado_em, respondeu: trial?.respondeu ?? false, resposta: null,
       }
     })
 

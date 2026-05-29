@@ -2942,13 +2942,23 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
             .neq('respondeu', true)
         }
 
-        // saas_trials.respondeu para leads de trial
-        await svc
+        // saas_trials.respondeu para leads de trial + follow_logs dos trials
+        const { data: trialRows } = await svc
           .from('saas_trials')
           .update({ respondeu: true })
           .eq('company_id', companyId)
           .in('whatsapp', phoneVarsResp)
           .eq('respondeu', false)
+          .select('id')
+        if (trialRows?.length) {
+          const trialIds = trialRows.map((t: any) => t.id)
+          await svc
+            .from('follow_logs')
+            .update({ respondeu: true })
+            .eq('company_id', companyId)
+            .in('trial_id', trialIds)
+            .neq('respondeu', true)
+        }
       } catch { /* best-effort */ }
     })()
 
