@@ -1690,9 +1690,7 @@ async function processTrialSaas(
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
 export async function runFollowUp(): Promise<{ processed: number; errors: string[] }> {
-  if (!isBusinessHours()) {
-    return { processed: 0, errors: [] }
-  }
+  const businessHours = isBusinessHours()
 
   const supabase = createServiceClient()
   const errors: string[] = []
@@ -1734,18 +1732,24 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         const byTipo = (tipo: SequenceTipo) =>
           sequences.filter((s: any) => s.tipo === tipo) as FollowSequence[]
 
-        const [g, r, p, t] = await Promise.allSettled([
-          processFollowGeral(company, byTipo('follow_geral'), openai, supabase),
-          processRemarketing(company, byTipo('remarketing'), openai, supabase),
-          processFollowProposta(company, byTipo('follow_proposta'), openai, supabase),
-          processTrialSaas(company, byTipo('trial_saas'), supabase),
-        ])
+        // trial_saas roda sempre — cada step tem horário próprio configurado no canvas
+        // follow_geral/remarketing/proposta só rodam em horário comercial
+        const trialPromise = processTrialSaas(company, byTipo('trial_saas'), supabase)
+        const otherPromises = businessHours
+          ? [
+              processFollowGeral(company, byTipo('follow_geral'), openai, supabase),
+              processRemarketing(company, byTipo('remarketing'), openai, supabase),
+              processFollowProposta(company, byTipo('follow_proposta'), openai, supabase),
+            ]
+          : [Promise.resolve(0), Promise.resolve(0), Promise.resolve(0)]
 
-        const total = [g, r, p, t]
+        const [t, g, r, p] = await Promise.allSettled([trialPromise, ...otherPromises])
+
+        const total = [t, g, r, p]
           .filter((r) => r.status === 'fulfilled')
           .reduce((acc, r) => acc + (r as PromiseFulfilledResult<number>).value, 0)
 
-        for (const result of [g, r, p, t]) {
+        for (const result of [t, g, r, p]) {
           if (result.status === 'rejected') {
             errors.push(`Empresa ${company.id}: ${result.reason?.message}`)
           }
