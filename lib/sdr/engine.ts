@@ -1437,14 +1437,13 @@ async function executeButtonActions(
 
         if (trialIds.length) {
           await supabase.from('saas_trials')
-            .update({ respondeu: true })
+            .update({ respondeu: true, estagio: matchedChoice })
             .in('id', trialIds)
-            .eq('respondeu', false)
           await supabase.from('follow_logs')
             .update({ respondeu: true })
             .in('trial_id', trialIds)
             .neq('respondeu', true)
-          console.log(`[trial:btn] respondeu=true trial(s) ${trialIds.join(',')}`)
+          console.log(`[trial:btn] respondeu=true estagio="${matchedChoice}" trial(s) ${trialIds.join(',')}`)
         }
       } catch { /* best-effort */ }
     })()
@@ -1484,11 +1483,24 @@ async function executeButtonActions(
 
     if (action.estagio) {
       const phoneVars = phoneVariants(ctx.leadPhone)
-      await supabase.from('saas_trials')
+      const { data: updatedByPhone } = await supabase.from('saas_trials')
         .update({ estagio: action.estagio })
         .eq('company_id', ctx.companyId)
         .in('whatsapp', phoneVars)
         .eq('status', 'ativo')
+        .select('id')
+      // Fallback modo teste: atualiza via conversa se não achou por telefone
+      if (!updatedByPhone?.length && ctx.conversationId) {
+        const { data: tLog } = await supabase.from('follow_logs')
+          .select('trial_id').eq('company_id', ctx.companyId)
+          .not('trial_id', 'is', null).order('enviado_em', { ascending: false })
+          .limit(1).maybeSingle()
+        if (tLog?.trial_id) {
+          await supabase.from('saas_trials')
+            .update({ estagio: action.estagio })
+            .eq('id', tLog.trial_id).eq('status', 'ativo')
+        }
+      }
       console.log(`[SDR:${ctx.companyId}] ButtonAction: trial estagio → "${action.estagio}" para ${ctx.leadPhone}`)
 
       if (action.trigger_immediate) {
