@@ -1519,6 +1519,14 @@ async function processTrialSaas(
       // Skip expired trials (trial_days + 1 day grace)
       if (daysSinceSignup > (trial.trial_days ?? 7) + 1) continue
 
+      // Minutos decorridos desde meia-noite BRT do dia de cadastro.
+      // Resolve wrap de meia-noite: às 00:30 BRT, um step das 23:20 D0 teria
+      // nowMinutes(30) < stepMinutes(1400) → nunca dispararia sem este cálculo absoluto.
+      const signupBRTDate = new Date(signupTime - 3 * 3_600_000)
+      const startOfSignupDayBRT = Date.UTC(signupBRTDate.getUTCFullYear(), signupBRTDate.getUTCMonth(), signupBRTDate.getUTCDate())
+      const minsSinceSignupDay = (now - 3 * 3_600_000 - startOfSignupDayBRT) / 60_000
+      const signupMinsInDay = signupBRTDate.getUTCHours() * 60 + signupBRTDate.getUTCMinutes()
+
       const brtDate = new Date(now - 3 * 3_600_000)
       const brtTime = `${brtDate.getUTCHours().toString().padStart(2, '0')}:${brtDate.getUTCMinutes().toString().padStart(2, '0')}h`
       console.log(`[trial] #${trial.id} "${trial.nome}" D${Math.floor(daysSinceSignup)} @ ${brtTime} (${daysSinceSignup.toFixed(3)}d)`)
@@ -1579,19 +1587,19 @@ async function processTrialSaas(
         // Verifica horário configurado no step (ex: 19:30)
         const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
         const stepMinutes = hh * 60 + mm
-        if (!immediate && nowMinutes < stepMinutes) {
+        // stepFiresAtMins: minutos absolutos desde meia-noite BRT do dia de cadastro em que o step deve disparar
+        const stepFiresAtMins = step.dia_offset * 1440 + stepMinutes
+        if (!immediate && minsSinceSignupDay < stepFiresAtMins) {
           console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → aguarda ${toHHMM(stepMinutes)} D${step.dia_offset} (agora ${toHHMM(nowMinutes)})`)
           continue
         }
 
         // D0 com horário definido: se passou mais de 2h, o step expirou — SOMENTE se o trial
-        // já existia quando o step deveria ter disparado (signupMinutes < stepMinutes).
+        // já existia quando o step deveria ter disparado (signupMinsInDay < stepMinutes).
         if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
-          const minutesLate = nowMinutes - stepMinutes
-          const signupDate = new Date(signupTime)
-          const signupMinutes = signupDate.getHours() * 60 + signupDate.getMinutes()
-          if (minutesLate > 120 && signupMinutes < stepMinutes) {
-            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → EXPIRADO (${minutesLate}min atrasado, cadastro foi ${toHHMM(signupMinutes)})`)
+          const minutesLate = minsSinceSignupDay - stepFiresAtMins
+          if (minutesLate > 120 && signupMinsInDay < stepMinutes) {
+            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → EXPIRADO (${Math.round(minutesLate)}min atrasado, cadastro foi ${toHHMM(signupMinsInDay)})`)
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
             confirmedDispatched.add(step.id)
             continue
