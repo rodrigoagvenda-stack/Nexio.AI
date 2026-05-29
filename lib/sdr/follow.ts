@@ -1516,8 +1516,8 @@ async function processTrialSaas(
 
       const confirmedDispatched = new Set<string>()
       for (const step of steps as FollowStep[]) {
-        // Só 1 step por trial por rodada do cron (disparo imediato via webhook ignora este limite)
-        if (!immediate && firedThisRunTrial.has(trial.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=firedThisRun`); continue }
+        // Só 1 step por trial por rodada — webhook dispara step1 e para; cron avança 1 por vez
+        if (firedThisRunTrial.has(trial.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=firedThisRun`); continue }
 
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) {
