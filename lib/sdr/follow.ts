@@ -1579,7 +1579,7 @@ async function processTrialSaas(
         // Verifica horário configurado no step (ex: 19:30)
         const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
         const stepMinutes = hh * 60 + mm
-        if (!immediate && nowMinutes < stepMinutes - 5) {
+        if (!immediate && nowMinutes < stepMinutes) {
           console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → aguarda ${toHHMM(stepMinutes)} D${step.dia_offset} (agora ${toHHMM(nowMinutes)})`)
           continue
         }
