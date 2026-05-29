@@ -123,6 +123,12 @@ interface CompanyCtx {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function toHHMM(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24
+  const m = minutes % 60
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}h`
+}
+
 /** Horário comercial BRT (UTC-3): 7h–22h, seg–sáb */
 function isBusinessHours(): boolean {
   const brt = new Date(Date.now() - 3 * 3_600_000)
@@ -1512,26 +1518,33 @@ async function processTrialSaas(
       // Skip expired trials (trial_days + 1 day grace)
       if (daysSinceSignup > (trial.trial_days ?? 7) + 1) continue
 
-      console.log(`[trial:cron] trial=${trial.id} nome="${trial.nome}" daysSince=${daysSinceSignup.toFixed(3)} nowMinutes=${nowMinutes}`)
+      const brtDate = new Date(now - 3 * 3_600_000)
+      const brtTime = `${brtDate.getUTCHours().toString().padStart(2, '0')}:${brtDate.getUTCMinutes().toString().padStart(2, '0')}h`
+      console.log(`[trial] #${trial.id} "${trial.nome}" D${Math.floor(daysSinceSignup)} @ ${brtTime} (${daysSinceSignup.toFixed(3)}d)`)
 
       const confirmedDispatched = new Set<string>()
+      let firedThisRunCount = 0
+
       for (const step of steps as FollowStep[]) {
         // Só 1 step por trial por rodada — webhook dispara step1 e para; cron avança 1 por vez
-        if (firedThisRunTrial.has(trial.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=firedThisRun`); continue }
+        if (firedThisRunTrial.has(trial.id)) { firedThisRunCount++; continue }
 
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) {
           confirmedDispatched.add(step.id)
-          console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaDisparado`)
-          continue
+          continue  // já enviado — silencioso
         }
 
         // ── Retry / DLQ ──
         const retryStatusTrial = await checkRetry(trial.id, step.id, supabase, true)
-        if (retryStatusTrial === 'dlq') { await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
-        if (retryStatusTrial === 'backoff') { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=backoff`); continue }
+        if (retryStatusTrial === 'dlq') {
+          await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'dlq', supabase)
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → DLQ (max retries atingido)`)
+          continue
+        }
+        if (retryStatusTrial === 'backoff') { console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → backoff (aguardando retry)`); continue }
         const trialCircuitKey = `${sequence.id}:${trial.id}`
-        if (await isCircuitOpen(trialCircuitKey)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=circuit`); continue }
+        if (await isCircuitOpen(trialCircuitKey)) { console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → circuit open (falhas consecutivas)`); continue }
 
         // Nós de controle (condicao/fim) — só disparam após todos os steps de mensagem anteriores concluírem
         if ((step.tipo_mensagem as string) === 'fim' || (step.tipo_mensagem as string) === 'condicao') {
@@ -1541,11 +1554,15 @@ async function processTrialSaas(
                  (s.tipo_mensagem as string) !== 'condicao'
           )
           if (!priorMsgSteps.every(s => confirmedDispatched.has(s.id))) {
-            console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=esperandoPredecessores`)
+            const pendentes = priorMsgSteps
+              .filter(s => !confirmedDispatched.has(s.id))
+              .map(s => s.horario ?? '?')
+            console.log(`[trial] #${trial.id} nó-controle ${step.id.slice(0,8)} → aguardando predecessores: [${pendentes.join(', ')}]`)
             continue
           }
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
           confirmedDispatched.add(step.id)
+          console.log(`[trial] #${trial.id} nó-controle ${step.id.slice(0,8)} ✓ processado`)
           continue  // nós de controle não contam como disparo — não bloqueia próximos steps
         }
 
@@ -1553,23 +1570,27 @@ async function processTrialSaas(
         const trialElapsed = trialUnit === 'hours'
           ? (now - signupTime) / 3_600_000
           : daysSinceSignup
-        if (trialElapsed < step.dia_offset) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=diaOffset elapsed=${trialElapsed.toFixed(3)} offset=${step.dia_offset}`); continue }
+        if (trialElapsed < step.dia_offset) {
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → aguarda D${step.dia_offset} (hoje D${Math.floor(trialElapsed)})`)
+          continue
+        }
 
         // Verifica horário configurado no step (ex: 19:30)
         const [hh, mm] = (step.horario ?? '09:00').split(':').map(Number)
         const stepMinutes = hh * 60 + mm
-        if (!immediate && nowMinutes < stepMinutes - 5) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=horario nowMin=${nowMinutes} stepMin=${stepMinutes}`); continue }
+        if (!immediate && nowMinutes < stepMinutes - 5) {
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → aguarda ${toHHMM(stepMinutes)} D${step.dia_offset} (agora ${toHHMM(nowMinutes)})`)
+          continue
+        }
 
         // D0 com horário definido: se passou mais de 2h, o step expirou — SOMENTE se o trial
         // já existia quando o step deveria ter disparado (signupMinutes < stepMinutes).
-        // Trials que se cadastraram DEPOIS do horário do step nunca tiveram chance de receber
-        // no horário correto, então não devemos expirar.
         if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
           const minutesLate = nowMinutes - stepMinutes
           const signupDate = new Date(signupTime)
           const signupMinutes = signupDate.getHours() * 60 + signupDate.getMinutes()
           if (minutesLate > 120 && signupMinutes < stepMinutes) {
-            console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=expirado late=${minutesLate}min signupMin=${signupMinutes}`)
+            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → EXPIRADO (${minutesLate}min atrasado, cadastro foi ${toHHMM(signupMinutes)})`)
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
             confirmedDispatched.add(step.id)
             continue
@@ -1579,20 +1600,25 @@ async function processTrialSaas(
         // Checa condição do step — steps pulados por condição contam como "concluídos"
         // para que nós fim/condicao subsequentes (merge) não fiquem travados
         const condicao = step.condicao ?? 'sempre'
-        if (condicao === 'respondeu' && !trial.respondeu) { confirmedDispatched.add(step.id); console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=semResposta`); continue }
-        if (condicao === 'sem_resposta' && trial.respondeu) { confirmedDispatched.add(step.id); console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaRespondeu`); continue }
+        if (condicao === 'respondeu' && !trial.respondeu) { confirmedDispatched.add(step.id); continue }
+        if (condicao === 'sem_resposta' && trial.respondeu) { confirmedDispatched.add(step.id); continue }
 
         // Roteamento por estágio (qual botão o lead clicou)
         if (step.condicao_estagio) {
-          if (trial.estagio !== step.condicao_estagio) { confirmedDispatched.add(step.id); console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=estagio trial="${trial.estagio}" step="${step.condicao_estagio}"`); continue }
+          if (trial.estagio !== step.condicao_estagio) {
+            confirmedDispatched.add(step.id)
+            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → branch ignorado (estagio="${trial.estagio}" ≠ "${step.condicao_estagio}")`)
+            continue
+          }
         }
 
-        console.log(`[trial:cron] trial=${trial.id} step=${step.id} DISPARANDO horario=${step.horario} offset=${step.dia_offset}`)
+        console.log(`[trial] #${trial.id} "${trial.nome}" → ENVIANDO step ${step.id.slice(0,8)} @ ${step.horario ?? '??'} D${step.dia_offset}`)
 
         const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const textoRaw = pickMessage(step)
         if (!textoRaw && tipo === 'text') {
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO (mensagem vazia)`)
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
           confirmedDispatched.add(step.id)
           continue
@@ -1605,7 +1631,10 @@ async function processTrialSaas(
         const media = step.media_config
 
         const lockKeyTrial = sendLockKey(company.id, trial.id, step.id)
-        if (!(await acquireSendLock(lockKeyTrial))) continue
+        if (!(await acquireSendLock(lockKeyTrial))) {
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → locked (duplo disparo bloqueado)`)
+          continue
+        }
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
@@ -1624,9 +1653,8 @@ async function processTrialSaas(
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
           firedThisRunTrial.add(trial.id)
           confirmedDispatched.add(step.id)
+          console.log(`[trial] #${trial.id} "${trial.nome}" ✅ ENVIADO step ${step.id.slice(0,8)} @ ${step.horario ?? '??'} D${step.dia_offset}`)
 
-          // Controle de SDR por step
-          console.log(`[trial:cron] step ${step.id} sdr_ativo=${JSON.stringify(step.sdr_ativo)}`)
           if (step.sdr_ativo !== null && step.sdr_ativo !== undefined) {
             const phoneVars = phoneVariants(phone)
             const { data: conv } = await supabase
@@ -1670,16 +1698,30 @@ async function processTrialSaas(
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'failed', supabase)
           const { shouldOpen: trialOpen } = await recordCircuitFailure(trialCircuitKey)
           if (trialOpen) await openCircuit(trialCircuitKey, company.id, supabase)
+          console.error(`[trial] #${trial.id} ❌ ERRO ao enviar step ${step.id.slice(0,8)}: ${err.message}`)
           await syslog({
             type: 'follow_up',
             severity: 'error',
             message: `Trial follow error: ${err.message}`,
             company_id: company.id,
-            payload: { trial_id: trial.id },
+            payload: { trial_id: trial.id, step_id: step.id, stack: err.stack?.slice(0, 500) },
           })
         } finally {
           await releaseSendLock(lockKeyTrial)
         }
+      }
+
+      // Resumo por trial: mostra próxima ação pendente
+      const nextPending = (steps as FollowStep[]).find(s =>
+        !confirmedDispatched.has(s.id) &&
+        (s.tipo_mensagem as string) !== 'fim' &&
+        (s.tipo_mensagem as string) !== 'condicao'
+      )
+      if (nextPending) {
+        const [nh, nm] = (nextPending.horario ?? '09:00').split(':').map(Number)
+        console.log(`[trial] #${trial.id} próxima msg: @ ${toHHMM(nh * 60 + nm)} D${nextPending.dia_offset}${firedThisRunCount > 0 ? ` (${firedThisRunCount} steps aguardando próxima rodada do cron)` : ''}`)
+      } else if (firedThisRunCount === 0) {
+        console.log(`[trial] #${trial.id} sequência completa`)
       }
     }
   }
