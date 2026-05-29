@@ -2394,6 +2394,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <Field label="Horário">
                       <input
                         type="time"
+                        step={300}
                         value={horarioValue}
                         onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
                         className="field-input font-mono"
@@ -2632,7 +2633,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 className="field-input" />
             </Field>
             <Field label="Horário">
-              <input type="time" value={(d as SchedulingNodeData).horario ?? '09:00'}
+              <input type="time" step={300} value={(d as SchedulingNodeData).horario ?? '09:00'}
                 onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
                 className="field-input" />
             </Field>

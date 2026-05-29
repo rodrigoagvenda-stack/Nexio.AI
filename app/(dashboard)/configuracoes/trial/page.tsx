@@ -644,7 +644,7 @@ function TrialStepEditor({ step, index, onChange, allSteps }: {
             <span className="text-sm text-muted-foreground">Dia</span>
             <Input type="number" min={1} value={step.dia_offset} onChange={(e) => onChange({ dia_offset: parseInt(e.target.value) || 1 })} className="w-20 h-9 text-sm text-center font-mono" />
             <span className="text-sm text-muted-foreground">do trial, às</span>
-            <Input type="time" value={step.horario} onChange={(e) => onChange({ horario: e.target.value })} className="w-28 h-9 text-sm font-mono" />
+            <Input type="time" step={300} value={step.horario} onChange={(e) => onChange({ horario: e.target.value })} className="w-28 h-9 text-sm font-mono" />
           </div>
         )}
       </div>
