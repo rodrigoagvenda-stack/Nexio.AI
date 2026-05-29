@@ -1514,12 +1514,17 @@ async function processTrialSaas(
 
       console.log(`[trial:cron] trial=${trial.id} nome="${trial.nome}" daysSince=${daysSinceSignup.toFixed(3)} nowMinutes=${nowMinutes}`)
 
+      const confirmedDispatched = new Set<string>()
       for (const step of steps as FollowStep[]) {
         // Só 1 step por trial por rodada do cron
         if (firedThisRunTrial.has(trial.id)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=firedThisRun`); continue }
 
         if (!(await withinRateLimit(company.id, supabase))) return sent
-        if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaDisparado`); continue }
+        if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) {
+          confirmedDispatched.add(step.id)
+          console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=jaDisparado`)
+          continue
+        }
 
         // ── Retry / DLQ ──
         const retryStatusTrial = await checkRetry(trial.id, step.id, supabase, true)
@@ -1528,11 +1533,20 @@ async function processTrialSaas(
         const trialCircuitKey = `${sequence.id}:${trial.id}`
         if (await isCircuitOpen(trialCircuitKey)) { console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=circuit`); continue }
 
-        // Nós de controle (condicao/fim) — registra e avança, sem enviar mensagem
+        // Nós de controle (condicao/fim) — só disparam após todos os steps de mensagem anteriores concluírem
         if ((step.tipo_mensagem as string) === 'fim' || (step.tipo_mensagem as string) === 'condicao') {
+          const priorMsgSteps = (steps as FollowStep[]).filter(
+            s => s.ordem < step.ordem &&
+                 (s.tipo_mensagem as string) !== 'fim' &&
+                 (s.tipo_mensagem as string) !== 'condicao'
+          )
+          if (!priorMsgSteps.every(s => confirmedDispatched.has(s.id))) {
+            console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=esperandoPredecessores`)
+            continue
+          }
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
-          firedThisRunTrial.add(trial.id)
-          continue
+          confirmedDispatched.add(step.id)
+          continue  // nós de controle não contam como disparo — não bloqueia próximos steps
         }
 
         const trialUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
@@ -1557,6 +1571,7 @@ async function processTrialSaas(
           if (minutesLate > 120 && signupMinutes < stepMinutes) {
             console.log(`[trial:cron] trial=${trial.id} step=${step.id} skip=expirado late=${minutesLate}min signupMin=${signupMinutes}`)
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
+            confirmedDispatched.add(step.id)
             continue
           }
         }
@@ -1578,6 +1593,7 @@ async function processTrialSaas(
         const textoRaw = pickMessage(step)
         if (!textoRaw && tipo === 'text') {
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
+          confirmedDispatched.add(step.id)
           continue
         }
         const texto = substituirVariaveis(textoRaw ?? '', {
@@ -1606,6 +1622,7 @@ async function processTrialSaas(
 
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
           firedThisRunTrial.add(trial.id)
+          confirmedDispatched.add(step.id)
 
           // Controle de SDR por step
           console.log(`[trial:cron] step ${step.id} sdr_ativo=${JSON.stringify(step.sdr_ativo)}`)
