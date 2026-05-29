@@ -1625,9 +1625,9 @@ async function processTrialSaas(
 
         const phone = testPhone ?? normalizePhone(trial.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
-        const textoRaw = pickMessage(step)
+        const textoRaw = pickMessage(step).trim()
         if (!textoRaw && tipo === 'text') {
-          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO (mensagem vazia)`)
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO (mensagem vazia — verifique o node no canvas)`)
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
           confirmedDispatched.add(step.id)
           continue
