@@ -1507,8 +1507,9 @@ async function processTrialSaas(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
-    const nowDate = new Date(now)
-    const nowMinutes = nowDate.getHours() * 60 + nowDate.getMinutes()
+    // Usa BRT (UTC-3) — canvas configura horários em BRT, servidor roda em UTC
+    const nowBRT = new Date(now - 3 * 3_600_000)
+    const nowMinutes = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes()
     const firedThisRunTrial = new Set<number>()
 
     for (const trial of (trials ?? []) as TrialSaas[]) {
