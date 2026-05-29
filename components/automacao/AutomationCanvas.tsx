@@ -1952,7 +1952,6 @@ function CarrosselBuilder({ value, onChange, sequenceId }: { value: string; onCh
   );
 }
 
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 
 // ─── ConditionConfig / SwitchConfig ─────────────────────────────────────────
 
@@ -2321,7 +2320,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
   if (!node) return null;
   const d = node.data;
 
-  const [hh, mm] = d.kind === 'message' ? (d.horario || '09:00').split(':') : ['09', '00'];
+  const horarioValue = d.kind === 'message' ? (d.horario || '09:00').slice(0, 5) : '09:00';
 
   return (
     <div className="w-72 bg-card border-l border-border h-full flex flex-col overflow-y-auto">
@@ -2393,27 +2392,12 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                         className="field-input" />
                     </Field>
                     <Field label="Horário">
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={hh}
-                          onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${mm.padStart(2, '0')}` })}
-                          className="field-input flex-1 text-center font-mono"
-                        >
-                          {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
-                        </select>
-                        <span className="text-muted-foreground font-bold text-lg">:</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={59}
-                          value={Number(mm)}
-                          onChange={(e) => {
-                            const val = Math.max(0, Math.min(59, Number(e.target.value)));
-                            onUpdate(node.id, { horario: `${hh}:${String(val).padStart(2, '0')}` });
-                          }}
-                          className="field-input flex-1 text-center font-mono"
-                        />
-                      </div>
+                      <input
+                        type="time"
+                        value={horarioValue}
+                        onChange={(e) => onUpdate(node.id, { horario: e.target.value })}
+                        className="field-input font-mono"
+                      />
                     </Field>
                   </>
                 ) : (
