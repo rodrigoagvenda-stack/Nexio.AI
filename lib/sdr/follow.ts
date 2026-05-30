@@ -1620,10 +1620,12 @@ async function processTrialSaas(
           continue
         }
 
-        // D0 com horário definido: valida se o step deve disparar para este trial
-        if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
+        // D0 com horário definido: valida expiração apenas para steps universais (sem ramo específico).
+        // Steps de ramo (condicao_estagio definido) não expiram — disparam assim que a condição avaliar,
+        // mesmo que o horário configurado já tenha passado.
+        if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0 && !step.condicao_estagio) {
           if (signupMinsInDay >= stepMinutes) {
-            // Trial foi cadastrado DEPOIS do horário do step → step anterior ao cadastro, nunca vai disparar
+            // Trial cadastrado DEPOIS do horário do step → step predatado, nunca dispara
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
             confirmedDispatched.add(step.id)
             console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO D0 (${toHHMM(stepMinutes)} anterior ao cadastro ${toHHMM(signupMinsInDay)})`)
