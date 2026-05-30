@@ -1620,11 +1620,17 @@ async function processTrialSaas(
           continue
         }
 
-        // D0 com horário definido: se passou mais de 2h, o step expirou — SOMENTE se o trial
-        // já existia quando o step deveria ter disparado (signupMinsInDay < stepMinutes).
+        // D0 com horário definido: valida se o step deve disparar para este trial
         if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0) {
+          if (signupMinsInDay >= stepMinutes) {
+            // Trial foi cadastrado DEPOIS do horário do step → step anterior ao cadastro, nunca vai disparar
+            await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
+            confirmedDispatched.add(step.id)
+            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO D0 (${toHHMM(stepMinutes)} anterior ao cadastro ${toHHMM(signupMinsInDay)})`)
+            continue
+          }
           const minutesLate = minsSinceSignupDay - stepFiresAtMins
-          if (minutesLate > 120 && signupMinsInDay < stepMinutes) {
+          if (minutesLate > 120) {
             console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → EXPIRADO (${Math.round(minutesLate)}min atrasado, cadastro foi ${toHHMM(signupMinsInDay)})`)
             await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
             confirmedDispatched.add(step.id)
