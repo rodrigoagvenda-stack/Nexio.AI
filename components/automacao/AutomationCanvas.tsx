@@ -4084,6 +4084,43 @@ function CanvasInner() {
       setVersions(loadVersions(currentSeq.id));
 
       const steps = nodesToSteps(nodes);
+
+      // Popula condicao_estagio dinamicamente percorrendo o grafo de edges.
+      // Ramo "Sim" da condição → condicao_estagio = valor da condição
+      // Ramo "Não" da condição → condicao_estagio = "!" + valor (negação, dinâmica)
+      {
+        const sortedForMap = nodes.filter(n => n.id !== 'trigger').sort((a, b) => a.position.x - b.position.x);
+        const stepByNodeId = new Map<string, any>();
+        sortedForMap.forEach((n, i) => { if (steps[i]) stepByNodeId.set(n.id, steps[i]); });
+        const nodeById2 = new Map(nodes.map(n => [n.id, n]));
+
+        for (const node of nodes) {
+          if (node.data.kind !== 'condition') continue;
+          const valor = String((node.data as any).valor ?? '').trim();
+          if (!valor) continue;
+
+          for (const edge of edges) {
+            if (edge.source !== node.id) continue;
+            const estagio = edge.sourceHandle === 'sim' ? valor : `!${valor}`;
+            // BFS: percorre downstream, para em outros nós de condição
+            const queue: string[] = [edge.target];
+            const seen = new Set<string>();
+            while (queue.length) {
+              const nid = queue.shift()!;
+              if (!nid || seen.has(nid) || nid === 'trigger') continue;
+              seen.add(nid);
+              const n = nodeById2.get(nid);
+              if (!n || n.data.kind === 'condition') continue;
+              const step = stepByNodeId.get(nid);
+              if (step && step.condicao_estagio == null) step.condicao_estagio = estagio;
+              for (const e of edges) {
+                if (e.source === nid && !seen.has(e.target)) queue.push(e.target);
+              }
+            }
+          }
+        }
+      }
+
       const triggerNode = nodes.find((n) => n.id === 'trigger');
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
 

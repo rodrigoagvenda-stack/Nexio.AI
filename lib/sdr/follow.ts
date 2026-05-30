@@ -1647,10 +1647,14 @@ async function processTrialSaas(
         if (condicao === 'sem_resposta' && trial.respondeu) { confirmedDispatched.add(step.id); continue }
 
         // Roteamento por estágio (qual botão o lead clicou)
+        // condicao_estagio pode ser "Valor" (igual) ou "!Valor" (diferente — ramo Não da condição)
         if (step.condicao_estagio) {
-          if (trial.estagio !== step.condicao_estagio) {
+          const isNot = step.condicao_estagio.startsWith('!')
+          const targetVal = isNot ? step.condicao_estagio.slice(1) : step.condicao_estagio
+          const matches = isNot ? trial.estagio !== targetVal : trial.estagio === targetVal
+          if (!matches) {
             confirmedDispatched.add(step.id)
-            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → branch ignorado (estagio="${trial.estagio}" ≠ "${step.condicao_estagio}")`)
+            console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → branch ignorado (estagio="${trial.estagio}" ${isNot ? '==' : '≠'} "${targetVal}")`)
             continue
           }
         }
