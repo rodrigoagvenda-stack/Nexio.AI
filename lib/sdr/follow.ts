@@ -431,13 +431,26 @@ async function registrarExecucaoTrial(
   status: 'sent' | 'failed' | 'skipped' | 'dlq',
   supabase: Supabase
 ): Promise<void> {
-  await supabase.from('follow_executions').insert({
+  // Se é status final e já existe registro 'failed' (retry), atualiza em vez de inserir novo.
+  // Evita falha silenciosa por constraint UNIQUE em (trial_id, step_id).
+  if (status === 'sent' || status === 'skipped' || status === 'dlq') {
+    const { data: updated } = await supabase
+      .from('follow_executions')
+      .update({ status })
+      .eq('trial_id', trialId)
+      .eq('step_id', stepId)
+      .eq('status', 'failed')
+      .select('id')
+    if (updated?.length) return
+  }
+  const { error } = await supabase.from('follow_executions').insert({
     trial_id: trialId,
     sequence_id: sequenceId,
     step_id: stepId,
     company_id: companyId,
     status,
   })
+  if (error) console.error(`[trial] registrarExecucaoTrial INSERT erro: trial=${trialId} step=${stepId.slice(0,8)} status=${status}: ${error.message}`)
 }
 
 async function leadJaRespondeuDesde(
@@ -541,7 +554,11 @@ async function enviarMensagem(
   const uazapi = createUazapiClient(company.uazapi_url, company.uazapi_token)
   const typingMs = 2_000 + Math.floor(Math.random() * 3_000)
   const presenceType = tipo === 'audio' || tipo === 'ptt' ? 'recording' : 'composing'
-  await uazapi.sendPresence(phone, presenceType, typingMs)
+  try {
+    await uazapi.sendPresence(phone, presenceType, typingMs)
+  } catch {
+    // presence não-crítico — falha silenciosa, continua o envio
+  }
   await new Promise((r) => setTimeout(r, typingMs))
   await sendRichStep(uazapi, phone, tipo, text, media ?? undefined)
 }
