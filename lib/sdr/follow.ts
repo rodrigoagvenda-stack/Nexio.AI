@@ -1655,6 +1655,16 @@ async function processTrialSaas(
         // Roteamento por estágio (qual botão o lead clicou)
         // condicao_estagio pode ser "Valor" (igual) ou "!Valor" (diferente — ramo Não da condição)
         if (step.condicao_estagio) {
+          // Step de ramo só dispara DEPOIS que a condição predecessor foi avaliada.
+          // Sem isso, estagio com valor inicial do trial (ex: "teste_gratis_7_dias") dispararia o ramo Não.
+          const condPred = (steps as FollowStep[])
+            .filter(s => s.ordem < step.ordem && (s.tipo_mensagem as string) === 'condicao')
+            .sort((a, b) => b.ordem - a.ordem)[0]
+          if (condPred && !confirmedDispatched.has(condPred.id)) {
+            // Condição ainda não avaliada — aguarda sem marcar como concluído
+            continue
+          }
+
           const isNot = step.condicao_estagio.startsWith('!')
           const targetVal = isNot ? step.condicao_estagio.slice(1) : step.condicao_estagio
           const matches = isNot ? trial.estagio !== targetVal : trial.estagio === targetVal
