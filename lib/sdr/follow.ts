@@ -1592,9 +1592,12 @@ async function processTrialSaas(
             const cfg = step.media_config as any
             if (cfg?.variavel === 'custom') {
               const validChoices: string[] = Array.isArray(cfg.buttonChoices) ? cfg.buttonChoices : []
+              // Com choices salvas: verifica se o estagio é uma opção válida do botão.
+              // Sem choices (canvas não re-salvo): verifica apenas se estagio não é null.
+              // Trials sempre iniciam com estagio=null — setado somente via clique de botão.
               const estagioValido = validChoices.length > 0
                 ? validChoices.includes(trial.estagio ?? '')
-                : !!trial.estagio  // fallback: se não tem choices salvas, qualquer não-nulo passa
+                : !!trial.estagio
               if (!estagioValido) {
                 console.log(`[trial] #${trial.id} nó-condição ${step.id.slice(0,8)} → aguardando clique do botão (estagio="${trial.estagio ?? 'null'}" não é opção válida)`)
                 continue

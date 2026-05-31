@@ -53,7 +53,6 @@ export async function POST(
         whatsapp,
         trial_days: trialDays,
         status: 'ativo',
-        estagio: `teste_gratis_${trialDays}_dias`,
       },
       { onConflict: 'company_id,email', ignoreDuplicates: false }
     )
