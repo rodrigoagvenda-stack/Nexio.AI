@@ -13,6 +13,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getRedis } from '@/lib/sdr/redis'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { runTrialSaasImmediate } from '@/lib/sdr/follow'
 import { createUazapiClient, normalizePhone, detectMessageType, sendRichStep, type UazapiWebhookMessage } from './uazapi'
 import {
   checkAvailableSlots,
@@ -1434,6 +1435,10 @@ async function executeButtonActions(
             .eq('trial_id', trialId)
             .neq('respondeu', true)
           console.log(`[trial:btn] respondeu=true estagio="${matchedChoice}" trial=${trialId}`)
+          // Dispara próximo step do ramo imediatamente — sem esperar o cron
+          runTrialSaasImmediate(ctx.companyId, trialId)
+            .then(r => console.log(`[trial:btn] imediato sent=${r.sent} error=${r.error ?? 'ok'}`))
+            .catch(err => console.error(`[trial:btn] imediato falhou: ${err.message}`))
         } else {
           console.log(`[trial:btn] nenhum trial ativo encontrado para company=${ctx.companyId}`)
         }
