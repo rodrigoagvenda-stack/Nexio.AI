@@ -4094,6 +4094,25 @@ function CanvasInner() {
         sortedForMap.forEach((n, i) => { if (steps[i]) stepByNodeId.set(n.id, steps[i]); });
         const nodeById2 = new Map(nodes.map(n => [n.id, n]));
 
+        // Salva buttonChoices no media_config da condição: quais choices do botão predecessor são válidas.
+        // O engine usa isso para só avaliar a condição quando o lead clicou um botão real.
+        for (const node of nodes) {
+          if (node.data.kind !== 'condition') continue;
+          if ((node.data as any).variavel !== 'custom') continue;
+          // Encontra o node botão que conecta a esta condição
+          for (const edge of edges) {
+            if (edge.target !== node.id) continue;
+            const srcNode = nodeById2.get(edge.source);
+            if (!srcNode || srcNode.data.kind !== 'message') continue;
+            const mc = (srcNode.data as any).media_config ?? {};
+            const choices: string[] = Array.isArray(mc.choices) ? mc.choices : [];
+            if (!choices.length) continue;
+            const condStep = stepByNodeId.get(node.id);
+            if (condStep) condStep.media_config = { ...(condStep.media_config ?? {}), buttonChoices: choices };
+            break;
+          }
+        }
+
         for (const node of nodes) {
           if (node.data.kind !== 'condition') continue;
           const valor = String((node.data as any).valor ?? '').trim();

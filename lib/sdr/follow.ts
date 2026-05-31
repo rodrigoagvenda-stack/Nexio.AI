@@ -1587,12 +1587,18 @@ async function processTrialSaas(
             continue
           }
           // Condição baseada em estagio (custom): aguarda resposta do lead antes de avaliar.
-          // Nodes de mensagem futuros continuam disparando normalmente — só a condição espera.
+          // Só avalia se estagio for uma das choices válidas do botão predecessor — não qualquer valor não-nulo.
           if ((step.tipo_mensagem as string) === 'condicao') {
             const cfg = step.media_config as any
-            if (cfg?.variavel === 'custom' && !trial.estagio) {
-              console.log(`[trial] #${trial.id} nó-condição ${step.id.slice(0,8)} → aguardando resposta do lead (estagio não definido)`)
-              continue
+            if (cfg?.variavel === 'custom') {
+              const validChoices: string[] = Array.isArray(cfg.buttonChoices) ? cfg.buttonChoices : []
+              const estagioValido = validChoices.length > 0
+                ? validChoices.includes(trial.estagio ?? '')
+                : !!trial.estagio  // fallback: se não tem choices salvas, qualquer não-nulo passa
+              if (!estagioValido) {
+                console.log(`[trial] #${trial.id} nó-condição ${step.id.slice(0,8)} → aguardando clique do botão (estagio="${trial.estagio ?? 'null'}" não é opção válida)`)
+                continue
+              }
             }
           }
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
@@ -1711,14 +1717,19 @@ async function processTrialSaas(
           confirmedDispatched.add(step.id)
           console.log(`[trial] #${trial.id} "${trial.nome}" ✅ ENVIADO step ${step.id.slice(0,8)} @ ${step.horario ?? '??'} D${step.dia_offset}`)
 
-          // Só bloqueia próximos steps se o seguinte tiver horário/dia diferente.
-          // Steps com mesmo dia_offset+horario são complementares e disparam juntos.
+          // Só bloqueia próximos steps se o próximo step de mensagem real tiver horário/dia diferente.
+          // Pula nodes de controle (condicao, fim, agendamento) que podem estar intercalados no canvas
+          // entre dois nodes de mensagem com o mesmo horário.
           const stepIdx = (steps as FollowStep[]).findIndex(s => s.id === step.id)
-          const nextStep = stepIdx >= 0 ? (steps as FollowStep[])[stepIdx + 1] : undefined
-          const nextIsSameTime = nextStep &&
-            nextStep.dia_offset === step.dia_offset &&
-            nextStep.horario === step.horario &&
-            !NON_MSG_TYPES.includes(nextStep.tipo_mensagem as string)
+          const CONTROL_TYPES = new Set(['fim', 'condicao', ...NON_MSG_TYPES])
+          let nextRealStep: FollowStep | undefined
+          for (let i = stepIdx + 1; i < (steps as FollowStep[]).length; i++) {
+            const s = (steps as FollowStep[])[i]
+            if (!CONTROL_TYPES.has(s.tipo_mensagem as string)) { nextRealStep = s; break }
+          }
+          const nextIsSameTime = nextRealStep &&
+            nextRealStep.dia_offset === step.dia_offset &&
+            nextRealStep.horario === step.horario
           if (!nextIsSameTime) firedThisRunTrial.add(trial.id)
 
           if (step.sdr_ativo !== null && step.sdr_ativo !== undefined) {
