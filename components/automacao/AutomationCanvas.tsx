@@ -322,6 +322,7 @@ interface SchedulingNodeData extends Record<string, unknown> {
   horario: string;
   duracao?: number;
   mensagemInicial?: string;
+  blocos?: string[];
   stepId: string;
   customLabel?: string;
   _execState?: ExecState;
@@ -701,9 +702,10 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
     }
     else if (isScheduling) {
       const smc = step.media_config as any ?? {};
+      const schedBlocos = Array.isArray(smc.blocos) && smc.blocos.length > 0 ? smc.blocos as string[] : undefined;
       nodes.push({ id: step.id, type: 'schedulingNode', position: { x, y },
         data: { kind: 'scheduling', label: 'Agendar Call', dia_offset: step.dia_offset, horario: step.horario ?? '09:00',
-          duracao: smc.duracao ?? 60, mensagemInicial: smc.mensagemInicial ?? '', stepId: step.id, customLabel } satisfies SchedulingNodeData });
+          duracao: smc.duracao ?? 60, mensagemInicial: smc.mensagemInicial ?? '', blocos: schedBlocos, stepId: step.id, customLabel } satisfies SchedulingNodeData });
     }
     else if (step.tipo_mensagem === 'webhook') {
       const wmc = step.media_config as any ?? {};
@@ -836,8 +838,13 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'ab_test') return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'ab_test', ordem: idx + 1, condicao: '', media_config: { variantA: d.variantA, variantB: d.variantB } };
     if (d.kind === 'scheduling') {
       const sd = d as SchedulingNodeData;
+      const primeiroBloco = sd.blocos && sd.blocos.length > 0 ? sd.blocos[0] : (sd.mensagemInicial || undefined);
       return { id: stepId, dia_offset: sd.dia_offset ?? 0, horario: sd.horario ?? '09:00', mensagem: null, tipo_mensagem: 'agendamento', ordem: idx + 1, condicao: '',
-        media_config: { duracao: sd.duracao ?? 60, ...(sd.mensagemInicial ? { mensagemInicial: sd.mensagemInicial } : {}) } };
+        media_config: {
+          duracao: sd.duracao ?? 60,
+          ...(primeiroBloco ? { mensagemInicial: primeiroBloco } : {}),
+          ...(sd.blocos && sd.blocos.length > 1 ? { blocos: sd.blocos } : {}),
+        } };
     }
     if (d.kind === 'post_condition') {
       const pd = d as PostConditionNodeData;
@@ -1538,6 +1545,8 @@ function DeletableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition,
 
 function SchedulingNode({ id, data, selected }: NodeProps) {
   const d = data as SchedulingNodeData;
+  const hasBlocos = d.blocos && (d.blocos as string[]).length > 0;
+  const firstText = hasBlocos ? (d.blocos as string[])[0] : d.mensagemInicial;
   return (
     <NodeShell selected={selected} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} />
@@ -1545,11 +1554,11 @@ function SchedulingNode({ id, data, selected }: NodeProps) {
       <div className="px-3 pb-3 space-y-1">
         <p className="text-[10px] text-muted-foreground/60 font-medium">
           {d.duracao ?? 60} min · dia {d.dia_offset ?? 0} às {d.horario ?? '09:00'}
+          {hasBlocos && <span className="ml-1 text-emerald-500/70">· {(d.blocos as string[]).length} msgs</span>}
         </p>
-        {d.mensagemInicial && (
-          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{d.mensagemInicial}</p>
-        )}
-        {!d.mensagemInicial && (
+        {firstText ? (
+          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{truncate(firstText, 80)}</p>
+        ) : (
           <p className="text-[10px] text-muted-foreground/40 italic">Mensagem padrão do agente</p>
         )}
       </div>
@@ -2711,12 +2720,14 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 <option value={90}>90 minutos</option>
               </select>
             </Field>
-            <Field label="Mensagem inicial (opcional)">
-              <textarea value={(d as SchedulingNodeData).mensagemInicial ?? ''}
-                onChange={(e) => onUpdate(node.id, { mensagemInicial: e.target.value })}
-                placeholder={`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`}
-                className="field-input min-h-[80px] resize-none" />
-            </Field>
+            <BlocosEditor
+              blocos={(d as SchedulingNodeData).blocos as string[] | undefined}
+              mensagem={(d as SchedulingNodeData).mensagemInicial ?? null}
+              onChange={(blocos) => onUpdate(node.id, {
+                blocos: blocos.length > 0 ? blocos : undefined,
+                mensagemInicial: blocos.length > 0 ? blocos[0] : ((d as SchedulingNodeData).mensagemInicial ?? ''),
+              })}
+            />
             <p className="text-[10px] text-muted-foreground/60 leading-snug">
               O agente de agendamento assume a conversa e agenda via Google Calendar. O fluxo encerra aqui.
             </p>

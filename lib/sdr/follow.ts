@@ -1114,6 +1114,14 @@ async function processFollowGeral(
 
             await enviarMensagem(phone, msgAbertura, company, 'text', null)
             await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'follow_geral', supabase, 'text', null)
+            const schedBlocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+            for (let i = 1; i < schedBlocos.length; i++) {
+              const bloco = substituirVariaveis(schedBlocos[i] || '', lead)
+              if (!bloco) continue
+              await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+              await enviarMensagem(phone, bloco, company, 'text', null)
+              await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_geral', supabase, 'text', null)
+            }
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
             await recordCircuitSuccess(sequence.id)
             await recordFatigue(company.id, lead.id)
