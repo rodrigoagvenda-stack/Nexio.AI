@@ -5,11 +5,13 @@ import { cn } from '@/lib/utils/cn';
 import {
   Send, CheckCircle2, AlertCircle, Loader2,
   Clock, LifeBuoy, Paperclip, X, ChevronLeft,
-  ArrowUpRight, ImageIcon, Plus,
+  ArrowUpRight, ImageIcon, Plus, UserCircle2,
+  ChevronDown, CheckCheck, Headphones, Ticket,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { useUser } from '@/lib/hooks/useUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,19 +39,19 @@ type View = 'list' | 'new' | 'thread';
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  aberto:         { label: 'Aberto',       dot: 'bg-amber-400', color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
-  em_atendimento: { label: 'Em andamento', dot: 'bg-blue-500',  color: 'text-blue-500',  bg: 'bg-blue-500/10 border-blue-500/20' },
-  respondido:     { label: 'Respondido',   dot: 'bg-green-500', color: 'text-green-500', bg: 'bg-green-500/10 border-green-500/20' },
-  fechado:        { label: 'Fechado',      dot: 'bg-muted-foreground/30', color: 'text-muted-foreground', bg: 'bg-muted/60 border-border' },
+  aberto:         { label: 'Aberto',             dot: 'bg-amber-400',           color: 'text-amber-500',       bg: 'bg-amber-500/10 border-amber-500/20' },
+  em_atendimento: { label: 'Em andamento',        dot: 'bg-blue-500',            color: 'text-blue-500',        bg: 'bg-blue-500/10 border-blue-500/20' },
+  respondido:     { label: 'Aguardando você',     dot: 'bg-green-500',           color: 'text-green-600',       bg: 'bg-green-500/10 border-green-500/20' },
+  fechado:        { label: 'Resolvido',           dot: 'bg-muted-foreground/30', color: 'text-muted-foreground', bg: 'bg-muted/60 border-border' },
 } as const;
 
-const ASSUNTOS = [
-  'Problema técnico',
-  'WhatsApp / Conexão',
-  'Agente IA não responde',
-  'Cobrança / Pagamento',
-  'Dúvida sobre funcionalidade',
-  'Outro',
+const CATEGORIES = [
+  { value: 'Problema técnico',              label: 'Problema técnico',              sla: '4h úteis' },
+  { value: 'WhatsApp / Conexão',            label: 'WhatsApp / Conexão',            sla: '2h úteis' },
+  { value: 'Agente IA não responde',        label: 'Agente IA não responde',        sla: '4h úteis' },
+  { value: 'Cobrança / Pagamento',          label: 'Cobrança / Pagamento',          sla: '24h úteis' },
+  { value: 'Dúvida sobre funcionalidade',   label: 'Dúvida sobre funcionalidade',   sla: '24h úteis' },
+  { value: 'Outro',                         label: 'Outro',                         sla: '24h úteis' },
 ];
 
 const MAX_IMAGES = 3;
@@ -72,6 +74,10 @@ function formatDate(iso: string) {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}min atrás`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h atrás`;
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDateFull(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // ── PendingImage ──────────────────────────────────────────────────────────────
@@ -97,18 +103,34 @@ function ImagePreview({ img, onRemove }: { img: PendingImage; onRemove: () => vo
   );
 }
 
+// ── StatusBadge ───────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: SupportTicket['status'] }) {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border', cfg.bg, cfg.color)}>
+      <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />
+      {cfg.label}
+    </span>
+  );
+}
+
 // ── ThreadView ────────────────────────────────────────────────────────────────
 
-function ThreadView({ ticket, onBack, onUpdated }: {
+function ThreadView({ ticket, onBack, onUpdated, onClose }: {
   ticket: SupportTicket;
   onBack: () => void;
-  onUpdated: () => void;
+  onUpdated: (updatedTicket?: Partial<SupportTicket>) => void;
+  onClose: () => void;
 }) {
+  const { user } = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(true);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [localStatus, setLocalStatus] = useState(ticket.status);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -118,7 +140,6 @@ function ThreadView({ ticket, onBack, onUpdated }: {
       const d = await r.json();
       const msgs: Message[] = d.messages ?? [];
       setMessages(msgs);
-      // mark as seen
       if (msgs.length > 0) {
         markSeen(ticket.id, msgs[msgs.length - 1].created_at);
         onUpdated();
@@ -150,6 +171,21 @@ function ThreadView({ ticket, onBack, onUpdated }: {
     }
   }
 
+  async function handleMarkResolved() {
+    if (closing || !confirm('Confirmar que o problema foi resolvido?')) return;
+    setClosing(true);
+    try {
+      const r = await fetch(`/api/support/ticket/${ticket.id}`, { method: 'PATCH' });
+      if (r.ok) {
+        setLocalStatus('fechado');
+        onUpdated({ status: 'fechado' });
+        onClose();
+      }
+    } finally {
+      setClosing(false);
+    }
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -157,27 +193,53 @@ function ThreadView({ ticket, onBack, onUpdated }: {
     }
   }
 
-  const cfg = STATUS_CONFIG[ticket.status];
+  const userInitials = (user?.name || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <>
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex-shrink-0 px-5 py-4 border-b border-border bg-card">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="lg:hidden p-1.5 rounded-lg hover:bg-muted/60 text-muted-foreground transition-colors">
+          <div className="flex items-start gap-3">
+            <button onClick={onBack} className="lg:hidden p-1.5 rounded-lg hover:bg-muted/60 text-muted-foreground transition-colors mt-0.5">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm font-semibold text-foreground truncate">{ticket.assunto}</h2>
-                <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0', cfg.bg, cfg.color)}>
-                  {cfg.label}
-                </span>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground leading-snug">{ticket.assunto}</h2>
+                  <p className="text-[11px] font-mono text-muted-foreground/40 mt-0.5">{ticket.protocolo}</p>
+                </div>
+                <StatusBadge status={localStatus} />
               </div>
-              <p className="text-[11px] font-mono text-muted-foreground/50 mt-0.5">{ticket.protocolo}</p>
+              <p className="text-[11px] text-muted-foreground/50 mt-2">
+                Aberto em {formatDateFull(ticket.created_at)}
+              </p>
             </div>
           </div>
+        </div>
+
+        {/* Agent info strip */}
+        <div className="flex-shrink-0 px-5 py-3 bg-muted/20 border-b border-border/40 flex items-center gap-3">
+          <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+            <Headphones className="h-3.5 w-3.5 text-primary/60" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-foreground/80">Suporte Zaapply</p>
+            <p className="text-[10px] text-muted-foreground/50">
+              {localStatus === 'aberto' ? 'Aguardando atribuição — retornamos em até 24h úteis' : 'Atendendo seu ticket'}
+            </p>
+          </div>
+          {localStatus !== 'fechado' && (
+            <button
+              onClick={handleMarkResolved}
+              disabled={closing}
+              className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-green-600 hover:bg-green-500/8 px-2.5 py-1.5 rounded-lg transition-colors border border-transparent hover:border-green-500/20"
+            >
+              {closing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3 w-3" />}
+              Resolvido
+            </button>
+          )}
         </div>
 
         {/* Messages */}
@@ -188,7 +250,7 @@ function ThreadView({ ticket, onBack, onUpdated }: {
             </div>
           ) : (
             <>
-              {/* Legacy images from first ticket submission */}
+              {/* Legacy images attached on ticket creation */}
               {ticket.images && ticket.images.length > 0 && messages.length > 0 && messages[0].sender_type === 'user' && (
                 <div className="flex justify-end">
                   <div className="flex gap-2 flex-wrap max-w-[80%]">
@@ -204,9 +266,9 @@ function ThreadView({ ticket, onBack, onUpdated }: {
               {messages.map((msg) => {
                 const isUser = msg.sender_type === 'user';
                 return (
-                  <div key={msg.id} className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
+                  <div key={msg.id} className={cn('flex items-end gap-2', isUser ? 'justify-end' : 'justify-start')}>
                     {!isUser && (
-                      <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mr-2 mt-auto mb-0.5">
+                      <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mb-0.5">
                         <span className="text-[11px] font-black text-primary-foreground leading-none">Z</span>
                       </div>
                     )}
@@ -217,21 +279,37 @@ function ThreadView({ ticket, onBack, onUpdated }: {
                         : 'rounded-bl-sm bg-muted/60 border border-border/60 text-foreground'
                     )}>
                       {!isUser && (
-                        <p className="text-[10px] font-semibold mb-1.5 opacity-60">Suporte Zaapply</p>
+                        <p className="text-[10px] font-semibold mb-1.5 opacity-50">Suporte Zaapply</p>
                       )}
                       <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                      <p className={cn('text-[10px] mt-1.5', isUser ? 'text-primary-foreground/60 text-right' : 'text-muted-foreground/50')}>
+                      <p className={cn('text-[10px] mt-1.5', isUser ? 'text-primary-foreground/50 text-right' : 'text-muted-foreground/40')}>
                         {formatDate(msg.created_at)}
                       </p>
                     </div>
+                    {isUser && (
+                      <div className="w-7 h-7 rounded-full bg-muted border border-border flex items-center justify-center flex-shrink-0 mb-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground leading-none">{userInitials}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
 
               {messages.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-32 gap-2">
-                  <Clock className="h-6 w-6 text-muted-foreground/20" />
-                  <p className="text-xs text-muted-foreground">Aguardando resposta — retornamos em até 24h úteis.</p>
+                <div className="flex flex-col items-center justify-center h-40 gap-3">
+                  <div className="w-10 h-10 rounded-full bg-muted/60 flex items-center justify-center">
+                    <Clock className="h-4 w-4 text-muted-foreground/30" />
+                  </div>
+                  <p className="text-xs text-muted-foreground/60 text-center">
+                    Ticket recebido. Retornamos em até 24h úteis.
+                  </p>
+                </div>
+              )}
+
+              {localStatus === 'fechado' && (
+                <div className="flex items-center gap-2 justify-center py-3">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  <span className="text-xs text-muted-foreground/60">Ticket encerrado</span>
                 </div>
               )}
 
@@ -241,7 +319,7 @@ function ThreadView({ ticket, onBack, onUpdated }: {
         </div>
 
         {/* Reply input */}
-        {ticket.status !== 'fechado' && (
+        {localStatus !== 'fechado' && (
           <div className="flex-shrink-0 border-t border-border bg-card px-4 py-3">
             <div className="flex items-end gap-2">
               <textarea
@@ -286,7 +364,9 @@ function ThreadView({ ticket, onBack, onUpdated }: {
 // ── NewTicketForm ─────────────────────────────────────────────────────────────
 
 function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ nome: '', email: '', assunto: '', mensagem: '' });
+  const { user } = useUser();
+  const [assunto, setAssunto] = useState('');
+  const [mensagem, setMensagem] = useState('');
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [protocolo, setProtocolo] = useState('');
@@ -294,6 +374,8 @@ function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: (
   const fileRef = useRef<HTMLInputElement>(null);
 
   const field = 'w-full rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all';
+
+  const selectedCategory = CATEGORIES.find(c => c.value === assunto);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -336,7 +418,13 @@ function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: (
       const res = await fetch('/api/support/ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, images }),
+        body: JSON.stringify({
+          nome: user?.name || 'Usuário',
+          email: user?.email || '',
+          assunto,
+          mensagem,
+          images,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao enviar.');
@@ -351,15 +439,18 @@ function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: (
 
   if (status === 'success') {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-8">
-        <div className="w-14 h-14 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-          <CheckCircle2 className="h-7 w-7 text-green-500" />
+      <div className="flex flex-col items-center justify-center h-full text-center gap-5 px-8">
+        <div className="w-16 h-16 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+          <CheckCircle2 className="h-8 w-8 text-green-500" />
         </div>
-        <div>
-          <p className="font-semibold">Ticket enviado!</p>
-          <p className="text-sm text-muted-foreground mt-1">Protocolo: <span className="font-mono font-semibold text-foreground">{protocolo}</span></p>
+        <div className="space-y-1">
+          <p className="font-semibold text-foreground">Ticket enviado com sucesso!</p>
+          <p className="text-sm text-muted-foreground">
+            Protocolo: <span className="font-mono font-semibold text-foreground">{protocolo}</span>
+          </p>
+          <p className="text-xs text-muted-foreground/60 mt-2">Nossa equipe retorna em até 24h úteis.</p>
         </div>
-        <button onClick={onBack} className="text-sm text-primary hover:text-primary/80 transition-colors font-medium">
+        <button onClick={onBack} className="text-sm text-primary hover:text-primary/80 transition-colors font-medium flex items-center gap-1">
           Ver meus tickets →
         </button>
       </div>
@@ -376,60 +467,89 @@ function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: (
           </button>
           <div>
             <h2 className="text-sm font-semibold">Novo ticket</h2>
-            <p className="text-xs text-muted-foreground">Retornamos em até 24 horas úteis</p>
+            <p className="text-xs text-muted-foreground">Preencha os detalhes do seu problema</p>
           </div>
         </div>
       </div>
 
+      {/* User context strip */}
+      {user && (
+        <div className="flex-shrink-0 px-5 py-3 bg-muted/20 border-b border-border/40 flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-[10px] font-bold text-primary">
+              {(user.name || 'U').charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enviando como <span className="font-medium text-foreground">{user.name}</span>
+            {user.email && <span className="text-muted-foreground/60"> · {user.email}</span>}
+          </p>
+        </div>
+      )}
+
       {/* Form */}
       <div className="flex-1 overflow-y-auto px-5 py-5">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Nome</label>
-              <input name="nome" required value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} placeholder="Seu nome" className={field} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">E-mail</label>
-              <input name="email" type="email" required value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="seu@email.com" className={field} />
-            </div>
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Categoria</label>
-            <Select value={form.assunto} onValueChange={v => setForm(p => ({ ...p, assunto: v }))}>
-              <SelectTrigger className="w-full rounded-xl border border-border bg-muted/30 px-3.5 h-auto py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all">
-                <SelectValue placeholder="Selecione..." />
+          {/* Category + SLA */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Categoria <span className="text-destructive">*</span></label>
+            <Select value={assunto} onValueChange={setAssunto}>
+              <SelectTrigger className="w-full rounded-xl border border-border bg-muted/30 px-3.5 h-auto py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all">
+                <SelectValue placeholder="Selecione o tipo de problema..." />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-border">
-                {ASSUNTOS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
+            {selectedCategory && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10">
+                <Clock className="h-3.5 w-3.5 text-primary/60 flex-shrink-0" />
+                <p className="text-xs text-primary/80">
+                  Tempo estimado de resposta: <span className="font-semibold">{selectedCategory.sla}</span>
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-            <textarea name="mensagem" required rows={5} value={form.mensagem} onChange={e => setForm(p => ({ ...p, mensagem: e.target.value }))} placeholder="Descreva o problema com o máximo de detalhes..." className={cn(field, 'resize-none leading-relaxed')} />
+          {/* Description */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Descrição <span className="text-destructive">*</span></label>
+            <textarea
+              required
+              rows={5}
+              value={mensagem}
+              onChange={e => setMensagem(e.target.value)}
+              placeholder="Descreva o problema com o máximo de detalhes. Quanto mais contexto, mais rápido resolvemos."
+              className={cn(field, 'resize-none leading-relaxed')}
+            />
           </div>
 
           {/* Images */}
-          {pendingImages.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {pendingImages.map(img => (
-                <ImagePreview key={img.preview} img={img} onRemove={() => setPendingImages(prev => prev.filter(p => p.preview !== img.preview))} />
-              ))}
-            </div>
-          )}
-          {pendingImages.length < MAX_IMAGES && (
-            <>
-              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="hidden" onChange={handleFileChange} />
-              <button type="button" onClick={() => fileRef.current?.click()} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-xl px-3.5 py-2.5 transition-colors w-full">
-                <Paperclip className="h-3.5 w-3.5" />
-                Adicionar imagem
-                <span className="ml-auto text-muted-foreground/50">{pendingImages.length}/{MAX_IMAGES} · max {MAX_SIZE_MB}MB</span>
-              </button>
-            </>
-          )}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Anexos <span className="text-muted-foreground/40">(opcional · até {MAX_IMAGES} imagens)</span></label>
+            {pendingImages.length > 0 && (
+              <div className="flex gap-2 flex-wrap mb-2">
+                {pendingImages.map(img => (
+                  <ImagePreview key={img.preview} img={img} onRemove={() => setPendingImages(prev => prev.filter(p => p.preview !== img.preview))} />
+                ))}
+              </div>
+            )}
+            {pendingImages.length < MAX_IMAGES && (
+              <>
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple className="hidden" onChange={handleFileChange} />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground border border-dashed border-border rounded-xl px-3.5 py-2.5 transition-colors w-full hover:bg-muted/20"
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                  Adicionar imagem
+                  <span className="ml-auto text-muted-foreground/40">{pendingImages.length}/{MAX_IMAGES} · max {MAX_SIZE_MB}MB</span>
+                </button>
+              </>
+            )}
+          </div>
 
           {status === 'error' && (
             <div className="flex items-start gap-2.5 rounded-xl border border-red-500/20 bg-red-500/6 px-4 py-3 text-sm text-red-500">
@@ -444,7 +564,7 @@ function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: (
             </a>
             <button
               type="submit"
-              disabled={status === 'loading' || pendingImages.some(p => p.uploading) || !form.nome || !form.email || !form.assunto || !form.mensagem}
+              disabled={status === 'loading' || pendingImages.some(p => p.uploading) || !assunto || !mensagem}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40"
             >
               {status === 'loading' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
@@ -452,6 +572,165 @@ function NewTicketForm({ onBack, onCreated }: { onBack: () => void; onCreated: (
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// ── TicketList ────────────────────────────────────────────────────────────────
+
+function TicketList({
+  tickets,
+  loading,
+  selected,
+  view,
+  seenMap,
+  onSelect,
+  onNew,
+}: {
+  tickets: SupportTicket[];
+  loading: boolean;
+  selected: SupportTicket | null;
+  view: View;
+  seenMap: Record<string, string>;
+  onSelect: (t: SupportTicket) => void;
+  onNew: () => void;
+}) {
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const active = tickets.filter(t => t.status !== 'fechado');
+  const history = tickets.filter(t => t.status === 'fechado');
+
+  const unreadCount = tickets.filter(t => {
+    if (!t.resposta) return false;
+    const seenAt = seenMap[t.id];
+    if (!seenAt) return true;
+    return t.respondido_em && new Date(t.respondido_em) > new Date(seenAt);
+  }).length;
+
+  function TicketItem({ t }: { t: SupportTicket }) {
+    const c = STATUS_CONFIG[t.status];
+    const isActive = selected?.id === t.id && view === 'thread';
+    const hasUnread = !!t.resposta && (() => {
+      const seenAt = seenMap[t.id];
+      if (!seenAt) return true;
+      return t.respondido_em && new Date(t.respondido_em) > new Date(seenAt);
+    })();
+
+    return (
+      <button
+        onClick={() => onSelect(t)}
+        className={cn(
+          'w-full text-left px-4 py-3.5 transition-colors border-l-2 group',
+          isActive ? 'bg-primary/6 border-primary' : 'hover:bg-muted/30 border-transparent'
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2', c.dot)} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <p className={cn('text-sm truncate leading-snug', hasUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80')}>
+                {t.assunto}
+              </p>
+              {hasUnread && <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className={cn('text-[10px] font-semibold', c.color)}>{c.label}</span>
+              <span className="text-muted-foreground/30 text-[10px]">·</span>
+              <span className="text-[10px] text-muted-foreground/50">{formatDate(t.created_at)}</span>
+              {t.images && t.images.length > 0 && (
+                <>
+                  <span className="text-muted-foreground/30 text-[10px]">·</span>
+                  <ImageIcon className="h-2.5 w-2.5 text-muted-foreground/30" />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-border">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-base font-semibold">Suporte</h1>
+            {unreadCount > 0 ? (
+              <p className="text-xs text-primary mt-0.5 font-medium">{unreadCount} nova{unreadCount !== 1 ? 's' : ''} resposta{unreadCount !== 1 ? 's' : ''}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground/50 mt-0.5">Seus tickets de atendimento</p>
+            )}
+          </div>
+          <button
+            onClick={onNew}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Novo ticket
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
+          </div>
+        ) : tickets.length === 0 ? (
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center py-16 text-center px-6 gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-muted/60 border border-border flex items-center justify-center">
+              <Ticket className="h-6 w-6 text-muted-foreground/25" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Nenhum ticket ainda</p>
+              <p className="text-xs text-muted-foreground/60 leading-relaxed max-w-[200px]">
+                Abra um chamado e nossa equipe retorna em até 24h úteis
+              </p>
+            </div>
+            <button
+              onClick={onNew}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Abrir primeiro ticket
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {/* Active tickets */}
+            {active.length > 0 && (
+              <>
+                {active.length > 0 && history.length > 0 && (
+                  <div className="px-4 py-2 bg-muted/20">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Em aberto</p>
+                  </div>
+                )}
+                {active.map(t => <TicketItem key={t.id} t={t} />)}
+              </>
+            )}
+
+            {/* Historical tickets */}
+            {history.length > 0 && (
+              <>
+                <button
+                  onClick={() => setHistoryOpen(o => !o)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/20 hover:bg-muted/30 transition-colors"
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+                    Histórico · {history.length}
+                  </p>
+                  <ChevronDown className={cn('h-3 w-3 text-muted-foreground/40 transition-transform', historyOpen && 'rotate-180')} />
+                </button>
+                {historyOpen && history.map(t => <TicketItem key={t.id} t={t} />)}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -484,108 +763,34 @@ export default function SuportePage() {
     setView('thread');
   }
 
-  function onUpdated() {
+  function onUpdated(patch?: Partial<SupportTicket>) {
     setSeenMap(getSeen());
+    if (patch && selected) {
+      setSelected(prev => prev ? { ...prev, ...patch } : prev);
+      setTickets(prev => prev.map(t => t.id === selected.id ? { ...t, ...patch } : t));
+    }
   }
-
-  // badge = tickets com resposta que ainda não foram vistos
-  const unreadCount = tickets.filter(t => {
-    if (!t.resposta) return false;
-    const seenAt = seenMap[t.id];
-    if (!seenAt) return true;
-    return t.respondido_em && new Date(t.respondido_em) > new Date(seenAt);
-  }).length;
-
-  const cfg = (t: SupportTicket) => STATUS_CONFIG[t.status];
 
   return (
     <div className="flex h-[calc(100vh-80px)] -m-6 overflow-hidden">
 
-      {/* ── Lista de tickets ─────────────────────────────────────────────── */}
+      {/* ── Ticket list sidebar ───────────────────────────────────────────── */}
       <div className={cn(
         'flex flex-col border-r border-border bg-card flex-shrink-0',
         (view !== 'list') ? 'hidden lg:flex lg:w-72 xl:w-80' : 'flex w-full'
       )}>
-        {/* Header da lista */}
-        <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-base font-semibold">Suporte</h1>
-              {unreadCount > 0 && (
-                <p className="text-xs text-primary mt-0.5 font-medium">{unreadCount} nova{unreadCount !== 1 ? 's' : ''} resposta{unreadCount !== 1 ? 's' : ''}</p>
-              )}
-            </div>
-            <button
-              onClick={() => setView('new')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Novo
-            </button>
-          </div>
-        </div>
-
-        {/* Lista */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/40" />
-            </div>
-          ) : tickets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-6 gap-4">
-              <LifeBuoy className="h-7 w-7 text-muted-foreground/15" />
-              <div>
-                <p className="text-sm text-muted-foreground">Nenhum ticket ainda</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Abra um e nossa equipe te ajuda em até 24h</p>
-              </div>
-              <button onClick={() => setView('new')} className="text-sm text-primary hover:text-primary/80 font-medium transition-colors">
-                Abrir um ticket →
-              </button>
-            </div>
-          ) : (
-            <div className="divide-y divide-border/40">
-              {tickets.map(t => {
-                const c = cfg(t);
-                const isActive = selected?.id === t.id && view === 'thread';
-                const hasUnread = !!t.resposta && (() => {
-                  const seenAt = seenMap[t.id];
-                  if (!seenAt) return true;
-                  return t.respondido_em && new Date(t.respondido_em) > new Date(seenAt);
-                })();
-
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => openTicket(t)}
-                    className={cn(
-                      'w-full text-left px-5 py-4 transition-colors border-l-2',
-                      isActive ? 'bg-primary/6 border-primary' : 'hover:bg-muted/30 border-transparent'
-                    )}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5', c.dot)} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate leading-snug">{t.assunto}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{c.label} · {formatDate(t.created_at)}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                        {hasUnread && (
-                          <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                        )}
-                        {t.images && t.images.length > 0 && (
-                          <ImageIcon className="h-3 w-3 text-muted-foreground/30" />
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <TicketList
+          tickets={tickets}
+          loading={loading}
+          selected={selected}
+          view={view}
+          seenMap={seenMap}
+          onSelect={openTicket}
+          onNew={() => setView('new')}
+        />
       </div>
 
-      {/* ── Painel direito ───────────────────────────────────────────────── */}
+      {/* ── Right panel ──────────────────────────────────────────────────── */}
       {view === 'thread' && selected ? (
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <ThreadView
@@ -593,6 +798,7 @@ export default function SuportePage() {
             ticket={selected}
             onBack={() => { setView('list'); setSelected(null); }}
             onUpdated={onUpdated}
+            onClose={() => { reload(); setView('list'); setSelected(null); }}
           />
         </div>
       ) : view === 'new' ? (
@@ -603,9 +809,14 @@ export default function SuportePage() {
           />
         </div>
       ) : (
-        <div className="hidden lg:flex flex-1 items-center justify-center flex-col gap-3 bg-muted/10">
-          <LifeBuoy className="h-8 w-8 text-muted-foreground/15" />
-          <p className="text-sm text-muted-foreground/60">Selecione um ticket ou abra um novo</p>
+        <div className="hidden lg:flex flex-1 items-center justify-center flex-col gap-4 bg-muted/10">
+          <div className="w-14 h-14 rounded-2xl bg-muted/60 border border-border flex items-center justify-center">
+            <LifeBuoy className="h-6 w-6 text-muted-foreground/20" />
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-medium text-muted-foreground/60">Selecione um ticket</p>
+            <p className="text-xs text-muted-foreground/40">ou abra um novo para falar com o suporte</p>
+          </div>
         </div>
       )}
     </div>
