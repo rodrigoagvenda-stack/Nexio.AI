@@ -328,6 +328,19 @@ interface SchedulingNodeData extends Record<string, unknown> {
   _execError?: string;
 }
 
+interface PostConditionNodeData extends Record<string, unknown> {
+  kind: 'post_condition';
+  label: string;
+  mensagem: string | null;
+  tipo_mensagem: string;
+  stepId: string;
+  customLabel?: string;
+  blocos?: string[];
+  _execState?: ExecState;
+  _execError?: string;
+  _leadCount?: number;
+}
+
 interface SwitchCase { value: string; label: string }
 interface SwitchNodeData extends Record<string, unknown> {
   kind: 'switch';
@@ -354,7 +367,8 @@ type AutoNodeData =
   | WebhookNodeData
   | LeadScoreNodeData
   | ABTestNodeData
-  | SchedulingNodeData;
+  | SchedulingNodeData
+  | PostConditionNodeData;
 
 // ─── Google Maps URL parser ──────────────────────────────────────────────────────
 
@@ -614,10 +628,11 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
     // Distinguish lista vs botoes by menuType stored in media_config
     if (tipoCanvas === 'lista' && step.media_config?.menuType === 'button') tipoCanvas = 'botoes';
     const isScheduling = step.tipo_mensagem === 'agendamento';
+    const isPostCondition = step.tipo_mensagem === 'pos_condicao';
     const isFim = tipoCanvas === 'fim' || step.condicao?.toLowerCase().includes('fim') || step.condicao?.toLowerCase().includes('encerr');
     const isCondition = tipoCanvas === 'condicao' || step.condicao?.toLowerCase().includes('respondeu') || step.condicao?.toLowerCase().includes('condicao');
     const hasMedia = !!step.media_config?.file || !!step.media_config?.latitude || !!step.media_config?.choices || !!step.media_config?.carousel;
-    const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition && !isScheduling);
+    const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition && !isScheduling && !isPostCondition);
 
     // Extract media from media_config (stored by nodesToSteps)
     const media_url = step.media_config?.file ?? undefined;
@@ -712,6 +727,10 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
       const variantB = amc.variantB ?? legacyParts[1] ?? 'Variante B';
       nodes.push({ id: step.id, type: 'abTestNode', position: { x, y },
         data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id, customLabel } satisfies ABTestNodeData });
+    }
+    else if (isPostCondition) {
+      nodes.push({ id: step.id, type: 'postConditionNode', position: { x, y },
+        data: { kind: 'post_condition', label: 'Pós-Condição', mensagem: mensagemDisplay, tipo_mensagem: 'texto', stepId: step.id, customLabel } satisfies PostConditionNodeData });
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
     else {
@@ -816,6 +835,11 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       const sd = d as SchedulingNodeData;
       return { id: stepId, dia_offset: sd.dia_offset ?? 0, horario: sd.horario ?? '09:00', mensagem: null, tipo_mensagem: 'agendamento', ordem: idx + 1, condicao: '',
         media_config: { duracao: sd.duracao ?? 60, ...(sd.mensagemInicial ? { mensagemInicial: sd.mensagemInicial } : {}) } };
+    }
+    if (d.kind === 'post_condition') {
+      const pd = d as PostConditionNodeData;
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: pd.mensagem, tipo_mensagem: 'pos_condicao' as any, ordem: idx + 1, condicao: '',
+        media_config: pd.blocos?.length ? { blocos: pd.blocos } : null };
     }
     if (d.kind === 'goal') {
       const gd = d as GoalNodeData;
@@ -1530,6 +1554,28 @@ function SchedulingNode({ id, data, selected }: NodeProps) {
   );
 }
 
+function PostConditionNode({ id, data, selected }: NodeProps) {
+  const d = data as PostConditionNodeData;
+  return (
+    <NodeShell selected={selected} execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <NodeHeader icon={Zap} label="PÓS-CONDIÇÃO" accent="amber" nodeId={id} customLabel={d.customLabel} />
+      <div className="px-3 pb-3 space-y-1">
+        <div className="flex items-center gap-1 text-[10px] text-amber-500/80 font-medium">
+          <Zap className="w-3 h-3" />
+          <span>Disparado por interação</span>
+        </div>
+        {d.mensagem ? (
+          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{truncate(d.mensagem, 80)}</p>
+        ) : (
+          <p className="text-[10px] text-muted-foreground/40 italic">Nenhuma mensagem configurada</p>
+        )}
+      </div>
+      <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+    </NodeShell>
+  );
+}
+
 const nodeTypes = {
   triggerNode: TriggerNode,
   messageNode: MessageNode,
@@ -1545,6 +1591,7 @@ const nodeTypes = {
   leadScoreNode: LeadScoreNode,
   abTestNode: ABTestNode,
   schedulingNode: SchedulingNode,
+  postConditionNode: PostConditionNode,
 };
 
 const edgeTypes = {
@@ -2668,6 +2715,24 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </>
         )}
 
+        {/* ── Post-Condition node ── */}
+        {d.kind === 'post_condition' && (
+          <>
+            <div className="flex items-center gap-1.5 px-1 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-1">
+              <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
+                Dispara somente quando o lead interagir com o botão. Sem horário fixo.
+              </p>
+            </div>
+            <Field label="Mensagem">
+              <textarea rows={4} value={(d as PostConditionNodeData).mensagem ?? ''}
+                onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                placeholder="Ótimo! Aqui está o próximo passo…"
+                className="field-input resize-none" />
+            </Field>
+          </>
+        )}
+
         {/* ── Trigger node ── */}
         {d.kind === 'trigger' && (
           <>
@@ -2917,7 +2982,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling';
+type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling' | 'post_condition';
 
 interface PaletteItem {
   label: string; desc: string; kind: PaletteKind;
@@ -2934,6 +2999,7 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
   { label: 'Meta', desc: 'Marcar lead como convertido', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Agendar Call', desc: 'Agente ativa agendamento via Google Calendar', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Pós-Condição', desc: 'Mensagem disparada somente por interação com botão', kind: 'post_condition', icon: Zap, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
 ];
 
 function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; onClose: () => void }) {
@@ -3999,12 +4065,14 @@ function CanvasInner() {
     else if (kind === 'sentiment') data = { kind: 'sentiment', label: 'Sentimento', stepId: id } satisfies SentimentNodeData;
     else if (kind === 'wait_event') data = { kind: 'wait_event', label: 'Aguardar Evento', event: 'reply', pattern: '', stepId: id } satisfies WaitEventNodeData;
     else if (kind === 'sub_flow') data = { kind: 'sub_flow', label: 'Sub-fluxo', subSequenceId: '', subSequenceName: '', stepId: id } satisfies SubFlowNodeData;
+    else if (kind === 'post_condition') data = { kind: 'post_condition', label: 'Pós-Condição', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies PostConditionNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
       message: 'messageNode', wait: 'waitNode', wait_event: 'waitEventNode', sub_flow: 'subFlowNode',
       condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
       goal: 'goalNode', sentiment: 'sentimentNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
+      post_condition: 'postConditionNode',
     };
 
     const newNode: Node<AutoNodeData> = {
@@ -4473,6 +4541,20 @@ function CanvasInner() {
           }
           setNodeExecState(node.id, 'success', 'Agente de agendamento ativado — SDR assume a conversa');
           break; // real executor hands off to SDR; test stops here
+        } else if (d.kind === 'post_condition') {
+          if (String(d.stepId ?? '').startsWith('new-')) {
+            throw new Error('Salve a sequência antes de executar o teste');
+          }
+          const res = await fetch(`/api/follow/sequences/${currentSeq!.id}/send-test`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stepId: d.stepId, phone }),
+          });
+          if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error((errJson as any).error ?? `HTTP ${res.status}`);
+          }
+          setNodeExecState(node.id, 'success');
         } else if (d.kind === 'wait_event') {
           if (!conversaId) throw new Error('Nenhuma conversa encontrada para este número.');
           const wd = d as WaitEventNodeData;

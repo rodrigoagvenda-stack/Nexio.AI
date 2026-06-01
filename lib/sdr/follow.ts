@@ -865,6 +865,68 @@ async function processFollowGeral(
           continue
         }
 
+        // ── Pós-Condição: dispara somente quando lead interagiu de verdade (clicou botão/respondeu) ──
+        if ((step.tipo_mensagem as string) === 'pos_condicao') {
+          const { data: replyMsg } = await supabase
+            .from('mensagens_do_whatsapp')
+            .select('id')
+            .eq('id_do_lead', lead.id)
+            .eq('direcao', 'inbound')
+            .limit(1)
+            .maybeSingle()
+          if (!replyMsg) continue  // sem interação — tenta no próximo ciclo CRON
+
+          const retryStatus = await checkRetry(lead.id, step.id, supabase)
+          if (retryStatus === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
+          if (retryStatus === 'backoff') continue
+          if (await isCircuitOpen(sequence.id)) continue
+
+          const textoRaw = pickMessage(step)
+          const texto = substituirVariaveis(textoRaw ?? '', lead)
+          if (!texto) {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'skipped', supabase)
+            leadFired.add(step.id)
+            continue
+          }
+
+          const phone = normalizePhone(lead.whatsapp)
+          const media = step.media_config
+          const lockKey = sendLockKey(company.id, lead.id, step.id)
+          if (!(await acquireSendLock(lockKey))) continue
+
+          try {
+            if (!isStaging) {
+              await enviarMensagem(phone, texto, company, 'text', media)
+              await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, 'text', media)
+              const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+              for (let i = 1; i < blocos.length; i++) {
+                const bloco = substituirVariaveis(blocos[i] || '', lead)
+                if (!bloco) continue
+                await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+                await enviarMensagem(phone, bloco, company, 'text', null)
+                await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_geral', supabase, 'text', null)
+              }
+            } else {
+              console.log(`[follow][staging] skip send pos_condicao — lead=${lead.id} msg="${texto.slice(0, 80)}"`)
+            }
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            leadFired.add(step.id)
+            await recordCircuitSuccess(sequence.id)
+            if (!isStaging) {
+              await recordFatigue(company.id, lead.id)
+              sent++
+              await antiBanDelay()
+            }
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+            const { shouldOpen } = await recordCircuitFailure(sequence.id)
+            if (shouldOpen) await openCircuit(sequence.id, company.id, supabase)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
+          continue
+        }
+
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
 
         // For novo_lead sequences, anchor timing to lead.created_at; otherwise use last inbound message
