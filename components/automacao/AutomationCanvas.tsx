@@ -729,8 +729,11 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
         data: { kind: 'ab_test', label: 'Teste A/B', variantA, variantB, stepId: step.id, customLabel } satisfies ABTestNodeData });
     }
     else if (isPostCondition) {
+      const pcBlocos = Array.isArray(step.media_config?.blocos) && (step.media_config!.blocos as string[]).length > 0
+        ? (step.media_config!.blocos as string[])
+        : undefined;
       nodes.push({ id: step.id, type: 'postConditionNode', position: { x, y },
-        data: { kind: 'post_condition', label: 'Pós-Condição', mensagem: mensagemDisplay, tipo_mensagem: 'texto', stepId: step.id, customLabel } satisfies PostConditionNodeData });
+        data: { kind: 'post_condition', label: 'Pós-Condição', mensagem: mensagemDisplay, tipo_mensagem: 'texto', blocos: pcBlocos, stepId: step.id, customLabel } satisfies PostConditionNodeData });
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
     else {
@@ -838,8 +841,9 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     }
     if (d.kind === 'post_condition') {
       const pd = d as PostConditionNodeData;
-      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: pd.mensagem, tipo_mensagem: 'pos_condicao' as any, ordem: idx + 1, condicao: '',
-        media_config: pd.blocos?.length ? { blocos: pd.blocos } : null };
+      const mensagemFinal = pd.blocos && pd.blocos.length > 0 ? (pd.blocos[0] || null) : (pd.mensagem || null);
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: mensagemFinal, tipo_mensagem: 'pos_condicao' as any, ordem: idx + 1, condicao: '',
+        media_config: pd.blocos && pd.blocos.length > 0 ? { blocos: pd.blocos } : null };
     }
     if (d.kind === 'goal') {
       const gd = d as GoalNodeData;
@@ -1556,6 +1560,8 @@ function SchedulingNode({ id, data, selected }: NodeProps) {
 
 function PostConditionNode({ id, data, selected }: NodeProps) {
   const d = data as PostConditionNodeData;
+  const hasBlocos = d.blocos && (d.blocos as string[]).length > 0;
+  const firstText = hasBlocos ? (d.blocos as string[])[0] : d.mensagem;
   return (
     <NodeShell selected={selected} execState={d._execState} execError={d._execError}>
       <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
@@ -1563,10 +1569,12 @@ function PostConditionNode({ id, data, selected }: NodeProps) {
       <div className="px-3 pb-3 space-y-1">
         <div className="flex items-center gap-1 text-[10px] text-amber-500/80 font-medium">
           <Zap className="w-3 h-3" />
-          <span>Disparado por interação</span>
+          {hasBlocos
+            ? <span>{(d.blocos as string[]).length} mensagens · por interação</span>
+            : <span>Disparado por interação</span>}
         </div>
-        {d.mensagem ? (
-          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{truncate(d.mensagem, 80)}</p>
+        {firstText ? (
+          <p className="text-xs line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2 text-foreground/80">{truncate(firstText, 80)}</p>
         ) : (
           <p className="text-[10px] text-muted-foreground/40 italic">Nenhuma mensagem configurada</p>
         )}
@@ -2724,12 +2732,14 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 Dispara somente quando o lead interagir com o botão. Sem horário fixo.
               </p>
             </div>
-            <Field label="Mensagem">
-              <textarea rows={4} value={(d as PostConditionNodeData).mensagem ?? ''}
-                onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
-                placeholder="Ótimo! Aqui está o próximo passo…"
-                className="field-input resize-none" />
-            </Field>
+            <BlocosEditor
+              blocos={(d as PostConditionNodeData).blocos as string[] | undefined}
+              mensagem={(d as PostConditionNodeData).mensagem as string | null | undefined}
+              onChange={(blocos) => onUpdate(node.id, {
+                blocos: blocos.length > 0 ? blocos : undefined,
+                mensagem: blocos.length > 0 ? blocos[0] : ((d as PostConditionNodeData).mensagem ?? null),
+              })}
+            />
           </>
         )}
 
