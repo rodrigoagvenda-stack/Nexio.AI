@@ -3006,25 +3006,26 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling' | 'post_condition';
 
 interface PaletteItem {
-  label: string; desc: string; kind: PaletteKind;
+  label: string; desc: string; useCase: string; kind: PaletteKind;
   icon: React.ElementType; bgClass: string; iconClass: string;
 }
 
 const PALETTE_ITEMS: PaletteItem[] = [
-  { label: 'Mensagem', desc: 'Enviar texto, áudio ou mídia', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Aguardar', desc: 'Pausa entre mensagens', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Aguardar Evento', desc: 'Continua quando lead responder (ou palavra-chave)', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
-  { label: 'Sub-fluxo', desc: 'Enrolar lead em outra sequência', kind: 'sub_flow', icon: Layers, bgClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
-  { label: 'Condição', desc: 'Se/senão por variável', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Sentimento', desc: 'Rotear por sentimento via IA (positivo/neutro/negativo)', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Encerrar', desc: 'Finalizar a sequência', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
-  { label: 'Meta', desc: 'Marcar lead como convertido', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Agendar Call', desc: 'Agente ativa agendamento via Google Calendar', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Pós-Condição', desc: 'Mensagem disparada somente por interação com botão', kind: 'post_condition', icon: Zap, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Mensagem', desc: 'Envia uma mensagem WhatsApp ao lead — texto, áudio, imagem, vídeo, botões ou lista.', useCase: 'Use quando quiser mandar um conteúdo específico num ponto da sequência: apresentação, oferta, prova social ou CTA.', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Aguardar', desc: 'Pausa a sequência por um tempo definido antes de executar o próximo node.', useCase: 'Use quando quiser dar um intervalo entre mensagens para não parecer spam — ex: esperar 2 dias antes de fazer follow-up.', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Aguardar Evento', desc: 'Pausa a sequência e aguarda uma ação do lead antes de continuar — resposta, clique em link ou palavra-chave.', useCase: 'Use quando a próxima etapa só deve acontecer se o lead demonstrar interesse ativo.', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
+  { label: 'Sub-fluxo', desc: 'Insere o lead em outra sequência já criada sem interromper o fluxo atual.', useCase: 'Use quando tiver uma sequência reutilizável (ex: quebra de objeção) e quiser ativá-la em múltiplos fluxos sem duplicar nodes.', kind: 'sub_flow', icon: Layers, bgClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
+  { label: 'Condição', desc: 'Cria uma bifurcação com lógica Se/Senão baseada em variáveis do lead — tag, campo CRM, etapa no funil.', useCase: 'Use quando quiser tratar leads diferentes de formas diferentes — ex: "se respondeu, vai pro caminho Sim; senão, vai pro Não".', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Sentimento', desc: 'Usa IA para analisar o tom da última mensagem do lead e rotear automaticamente — positivo, neutro ou negativo.', useCase: 'Use quando quiser adaptar a abordagem com base no humor da conversa sem precisar criar condições manuais.', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Encerrar', desc: 'Finaliza a sequência para o lead. Ele para de receber mensagens deste fluxo.', useCase: 'Use no fim de cada caminho — quando o lead converteu, pediu para parar ou chegou ao fim sem ação.', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
+  { label: 'Meta', desc: 'Marca o lead como convertido e registra a conversão no CRM.', useCase: 'Use quando o lead realizou a ação desejada — agendou, comprou ou respondeu positivamente.', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Agendar Call', desc: 'Envia blocos de mensagem e ativa o agente de agendamento que oferece horários disponíveis ao lead via WhatsApp.', useCase: 'Use quando quiser que o próprio fluxo feche uma reunião sem intervenção humana.', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Pós-Condição', desc: 'Aguarda o lead responder ou clicar num botão antes de disparar a mensagem. Sem interação genuína, o fluxo fica pausado neste ponto.', useCase: 'Use na saída "NÃO" de uma Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido de verdade.', kind: 'post_condition', icon: Zap, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
 ];
 
 function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; onClose: () => void }) {
   const [search, setSearch] = useState('');
+  const [hoveredKind, setHoveredKind] = useState<PaletteKind | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -3037,7 +3038,7 @@ function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; 
   }, [onClose]);
 
   const filtered = PALETTE_ITEMS.filter(
-    (item) => !search || item.label.toLowerCase().includes(search.toLowerCase()) || item.desc.toLowerCase().includes(search.toLowerCase())
+    (item) => !search || item.label.toLowerCase().includes(search.toLowerCase()) || item.desc.toLowerCase().includes(search.toLowerCase()) || item.useCase.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -3058,16 +3059,31 @@ function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; 
           <p className="text-center text-xs text-muted-foreground py-4">Nenhum resultado</p>
         ) : filtered.map((item) => {
           const Icon = item.icon;
+          const isExpanded = hoveredKind === item.kind;
           return (
-            <button key={item.kind} onClick={() => { onAdd(item.kind); onClose(); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm hover:bg-muted transition-colors text-left">
-              <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', item.bgClass)}>
-                <Icon className={cn('w-4 h-4', item.iconClass)} />
+            <button
+              key={item.kind}
+              onClick={() => { onAdd(item.kind); onClose(); }}
+              onMouseEnter={() => setHoveredKind(item.kind)}
+              onMouseLeave={() => setHoveredKind(null)}
+              className="w-full flex flex-col gap-0 px-3 py-2.5 rounded-xl text-sm hover:bg-muted transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', item.bgClass)}>
+                  <Icon className={cn('w-4 h-4', item.iconClass)} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">{item.label}</p>
+                  <p className={cn('text-xs text-muted-foreground transition-all duration-150', isExpanded ? '' : 'truncate')}>{item.desc}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="font-medium text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
-              </div>
+              {isExpanded && (
+                <div className="mt-2 ml-10 pl-0.5 border-l-2 border-primary/20 pl-2">
+                  <p className="text-[11px] text-primary/70 leading-relaxed">
+                    <span className="font-semibold">Use quando:</span> {item.useCase}
+                  </p>
+                </div>
+              )}
             </button>
           );
         })}

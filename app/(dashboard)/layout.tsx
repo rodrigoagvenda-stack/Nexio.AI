@@ -2,6 +2,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { SystemTopBar } from '@/components/SystemTopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { ZaapliLoader } from '@/components/brand/ZaapliLoader';
+import { DashboardTour } from '@/components/onboarding/DashboardTour';
+import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -89,6 +91,11 @@ export default async function DashboardLayout({
   const brandLogoUrl = briefingConfig?.logo_url || null;
 
   return (
+    <PostHogProvider
+      userId={user.id}
+      companyId={userData?.company_id}
+      planType={companyData?.plan_type ?? undefined}
+    >
     <div className="flex h-screen bg-background">
       <ZaapliLoader minDuration={900} />
       <Sidebar
@@ -114,6 +121,8 @@ export default async function DashboardLayout({
         </main>
       </div>
       <MobileBottomNav />
+      <DashboardTour />
     </div>
+    </PostHogProvider>
   );
 }

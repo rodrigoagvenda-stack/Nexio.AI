@@ -177,6 +177,14 @@ export async function recordUsage(
       model_price_id: price?.id ?? null,
     })
 
+    // Incrementa contador mensal da empresa
+    if (entry.totalTokens > 0) {
+      await supabase.rpc('increment_tokens_used', {
+        p_company_id: tenantId,
+        p_tokens: entry.totalTokens,
+      }).catch(() => { /* best-effort — RPC pode não existir em ambientes antigos */ })
+    }
+
     // Debitar pacote extra (até esgotar o saldo disponível)
     if (packageId && remainingPackageTokens > 0 && entry.totalTokens > 0) {
       const toDebit = Math.min(entry.totalTokens, remainingPackageTokens)

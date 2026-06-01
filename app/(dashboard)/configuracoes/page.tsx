@@ -39,7 +39,7 @@ const PLANS = {
   basic:   { name: 'Basic',          price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
   starter: { name: 'Zaapply Start',  price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + follow-up automático' },
   pro:     { name: 'Zaapply Growth', price: 697, tokens: 15_000_000, icon: Rocket,     desc: 'Anti-Noshow, Remarketing e Trial SaaS desbloqueados' },
-  scale:   { name: 'Zaapply Pro',    price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Escala total: 50M tokens, usuários ilimitados e até 5 números' },
+  scale:   { name: 'Zaapply Pro',    price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Escala total: 50M tokens/mês' },
 } as const;
 
 
@@ -136,11 +136,6 @@ function AutomacaoContent() {
         </div>
       </div>
 
-      <div className="p-4 rounded-xl border border-dashed border-border/60 bg-muted/20 flex items-center gap-3">
-        <span className="text-[11px] text-muted-foreground">
-          Configurações salvas localmente. Em breve serão sincronizadas via API para todos os membros da equipe.
-        </span>
-      </div>
     </div>
   );
 }

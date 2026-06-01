@@ -146,6 +146,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Mapa lead_id → tipo de sequência (para cruzar com follow_logs)
+    const leadTipoMap: Record<number, string> = {}
+    const leadSeqIdMap: Record<number, string> = {}
+    for (const ex of execs ?? []) {
+      const seq = (ex as any).follow_sequences
+      if (ex.lead_id && seq?.tipo) {
+        leadTipoMap[ex.lead_id] = seq.tipo
+        if (ex.sequence_id) leadSeqIdMap[ex.lead_id] = ex.sequence_id
+      }
+    }
+
     let totalResponderam = 0
     const leadLogMap: Record<number, { total: number; responderam: number }> = {}
     for (const l of logs ?? []) {
@@ -158,11 +169,12 @@ export async function GET(request: NextRequest) {
       if (!l.respondeu) continue
       totalResponderam++
       const day = fmtDay(l.enviado_em)
-      const tipo = l.tipo ?? 'desconhecido'
+      // Usar tipo da sequência (via lead_id) em vez do tipo da mensagem
+      const tipoSeq = (lid && leadTipoMap[lid]) ? leadTipoMap[lid] : (l.tipo ?? 'desconhecido')
       if (dayMap[day]) dayMap[day].responderam++
-      if (porTipoMap[tipo]) porTipoMap[tipo].responderam++
-      const seqEntry = Object.values(seqMap).find((s) => s.tipo === tipo)
-      if (seqEntry) seqEntry.responderam++
+      if (porTipoMap[tipoSeq]) porTipoMap[tipoSeq].responderam++
+      const seqId = lid ? leadSeqIdMap[lid] : undefined
+      if (seqId && seqMap[seqId]) seqMap[seqId].responderam++
     }
 
     // ── Heatmap (disparos com resposta por hora × dia-da-semana) ────────────

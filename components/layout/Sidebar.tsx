@@ -120,7 +120,6 @@ const navSections: NavSection[] = [
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
           { href: '/configuracoes/follow', label: 'Canvas', icon: Megaphone },
-          { href: '/configuracoes/trial', label: 'Trial SaaS', icon: FlaskConical },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDays },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
         ],
@@ -520,11 +519,17 @@ export const Sidebar = memo(function Sidebar({
                     );
                   }
 
+                  const TOUR_TARGETS: Record<string, string> = {
+                    '/atendimento': 'atendimento-link',
+                    '/configuracoes/follow': 'canvas-link',
+                  };
+
                   return (
                     <Link
                       key={link.href}
                       href={link.href}
                       prefetch={true}
+                      data-tour={TOUR_TARGETS[link.href]}
                       className={cn(
                         'relative w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
                         isActive

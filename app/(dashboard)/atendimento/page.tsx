@@ -1466,13 +1466,6 @@ export default function AtendimentoPage() {
                       : 'hover:bg-accent'
                   }`}
                 >
-                  <button
-                    className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
-                    title="Apagar conversa"
-                    onClick={(e) => { e.stopPropagation(); setDeleteConvDialog({ open: true, conv }); }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </button>
                   <button className="w-full text-left" onClick={() => setSelectedConversation(conv)}>
                   <div className="flex items-start gap-3">
                     <div className="relative">
@@ -1553,6 +1546,15 @@ export default function AtendimentoPage() {
                     </div>
                   </div>
                   </button>
+                  <div className="flex justify-end mt-1.5">
+                    <button
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
+                      title="Apagar conversa"
+                      onClick={(e) => { e.stopPropagation(); setDeleteConvDialog({ open: true, conv }); }}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive/60" />
+                    </button>
+                  </div>
                 </div>
                 ); })()
               ))
@@ -1613,10 +1615,6 @@ export default function AtendimentoPage() {
                       {!convAgentePausado ? <><Bot className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente ativo</span></> : <><PauseCircle className="h-4 w-4 mr-1.5" /><span className="text-xs">Agente pausado</span></>}
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => setScheduleDialog(true)} title="Agendar"><Clock className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="sm" onClick={() => setAssignDialog(true)}>
-                      <UserCircle2 className="h-4 w-4 mr-1.5" />
-                      {selectedConversation.assigned_to ? 'Transferir' : 'Atribuir'}
-                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                       {isSidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                     </Button>
@@ -1657,9 +1655,6 @@ export default function AtendimentoPage() {
                           <Clock className="h-4 w-4 mr-2" />Agendar mensagem
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setAssignDialog(true)}>
-                          <UserCircle2 className="h-4 w-4 mr-2" />{selectedConversation.assigned_to ? 'Transferir' : 'Atribuir'}
-                        </DropdownMenuItem>
                         {selectedConversation.numero_de_telefone && (
                           <DropdownMenuItem onClick={() => window.open(`https://wa.me/${selectedConversation.numero_de_telefone.replace(/\D/g, '')}`, '_blank')}>
                             <ExternalLink className="h-4 w-4 mr-2" />Abrir no WhatsApp
@@ -1861,7 +1856,7 @@ export default function AtendimentoPage() {
                     </Button>
                     <Input
                       ref={inputRef}
-                      placeholder="Digite sua mensagem... (/ para templates)"
+                      placeholder="Digite uma mensagem..."
                       value={newMessage}
                       onChange={(e) => handleMessageInputChange(e.target.value)}
                       onKeyDown={(e) => {

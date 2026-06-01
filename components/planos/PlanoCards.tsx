@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, X, Minus, Plus, ArrowRight, Loader2 } from 'lucide-react';
+import { Check, X, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ── CountUp ───────────────────────────────────────────────────────────────────
@@ -36,8 +36,6 @@ const PLANS = [
     name: 'Zaapply Start',
     basePrice: 397,
     tokens: '5M',
-    users: '3',
-    numbers: '1',
     popular: false,
     canvas: 'Follow-up automático',
     highlights: [
@@ -46,7 +44,6 @@ const PLANS = [
       'CRM Kanban',
       'Canvas → Follow-up automático',
       '5M tokens/mês',
-      '1 número WhatsApp · 3 usuários',
     ],
   },
   {
@@ -54,16 +51,13 @@ const PLANS = [
     name: 'Zaapply Growth',
     basePrice: 697,
     tokens: '15M',
-    users: '10',
-    numbers: '1',
     popular: true,
-    canvas: 'Follow-up · Anti-Noshow · Remarketing · Trial SaaS',
+    canvas: 'Follow-up · Anti-Noshow · Remarketing',
     highlights: [
       'Tudo do Start',
-      'Canvas → Anti-Noshow, Remarketing, Trial SaaS',
+      'Canvas → Anti-Noshow e Remarketing',
       'Google Calendar integrado',
       '15M tokens/mês',
-      '1 número WhatsApp · 10 usuários',
     ],
   },
   {
@@ -71,15 +65,11 @@ const PLANS = [
     name: 'Zaapply Pro',
     basePrice: 997,
     tokens: '50M',
-    users: 'Ilimitados',
-    numbers: 'Até 5',
     popular: false,
     canvas: 'Tudo do Growth',
     highlights: [
       'Tudo do Growth',
       '50M tokens/mês',
-      'Até 5 números WhatsApp',
-      'Usuários ilimitados',
     ],
   },
 ];
@@ -97,11 +87,8 @@ const FEATURES: Feature[] = [
   { label: 'Follow-up automático',  group: 'Canvas',      starter: true,    growth: true,    scale: true },
   { label: 'Anti-Noshow',           group: 'Canvas',      starter: false,   growth: true,    scale: true },
   { label: 'Remarketing',           group: 'Canvas',      starter: false,   growth: true,    scale: true },
-  { label: 'Trial SaaS',            group: 'Canvas',      starter: false,   growth: true,    scale: true },
   { label: 'Google Calendar',       group: 'Integrações', starter: false,   growth: true,    scale: true },
   { label: 'Tokens mensais',        group: 'Escala',      starter: '5M',    growth: '15M',   scale: '50M' },
-  { label: 'Usuários',              group: 'Escala',      starter: '3',     growth: '10',    scale: 'Ilimitados' },
-  { label: 'Números WhatsApp',      group: 'Escala',      starter: '1',     growth: '1',     scale: 'Até 5' },
 ];
 
 const ALL_INCLUDE = [
@@ -182,12 +169,7 @@ function PlanCard({ plan, extraNumbers, delay, isCurrent, isLoading, onSelect }:
             </span>
             <span className={cn('text-sm', plan.popular ? 'text-primary-foreground/50' : 'text-muted-foreground')}>/mês</span>
           </div>
-          {extraNumbers > 0 && (
-            <p className={cn('text-xs mt-0.5', plan.popular ? 'text-primary-foreground/40' : 'text-muted-foreground/60')}>
-              R$ {plan.basePrice} + {extraNumbers}× R$ 97
-            </p>
-          )}
-        </div>
+          </div>
 
         {/* Canvas highlight */}
         <div className={cn(
@@ -239,9 +221,8 @@ function PlanCard({ plan, extraNumbers, delay, isCurrent, isLoading, onSelect }:
         </ul>
 
         {/* Footer */}
-        <div className={cn('pt-4 border-t text-xs space-y-1', plan.popular ? 'border-primary-foreground/10 text-primary-foreground/35' : 'border-border text-muted-foreground/50')}>
+        <div className={cn('pt-4 border-t text-xs', plan.popular ? 'border-primary-foreground/10 text-primary-foreground/35' : 'border-border text-muted-foreground/50')}>
           <p>{plan.tokens} tokens/mês</p>
-          <p>{plan.users} usuários · {plan.numbers} número{plan.numbers !== '1' ? 's' : ''} WhatsApp</p>
         </div>
       </div>
     </div>
@@ -251,36 +232,10 @@ function PlanCard({ plan, extraNumbers, delay, isCurrent, isLoading, onSelect }:
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function PlanoCards({ onSelect, currentPlan, loadingPlan, showFull = false }: PlanoCardsProps) {
-  const [extraNumbers, setExtraNumbers] = useState(0);
   const groups = [...new Set(FEATURES.map(f => f.group))];
 
   return (
     <div className="space-y-10">
-
-      {/* ── Número adicional ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 px-5 py-4 rounded-xl border border-dashed border-border bg-muted/20">
-        <div>
-          <p className="text-sm font-medium">Número adicional de WhatsApp</p>
-          <p className="text-xs text-muted-foreground mt-0.5">R$ 97/mês por número extra</p>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setExtraNumbers(n => Math.max(0, n - 1))} className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors">
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <span className="w-6 text-center text-sm font-semibold tabular-nums">{extraNumbers}</span>
-            <button onClick={() => setExtraNumbers(n => Math.min(9, n + 1))} className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="text-right min-w-[90px]">
-            {extraNumbers > 0
-              ? <><p className="font-semibold text-sm">+R$ {extraNumbers * 97}<span className="text-xs font-normal text-muted-foreground">/mês</span></p><p className="text-xs text-muted-foreground">+{extraNumbers} número{extraNumbers > 1 ? 's' : ''}</p></>
-              : <p className="text-xs text-muted-foreground">Nenhum extra</p>
-            }
-          </div>
-        </div>
-      </div>
 
       {/* ── Cards ──────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 items-stretch">
@@ -288,7 +243,7 @@ export function PlanoCards({ onSelect, currentPlan, loadingPlan, showFull = fals
           <PlanCard
             key={plan.key}
             plan={plan}
-            extraNumbers={extraNumbers}
+            extraNumbers={0}
             delay={idx * 100}
             isCurrent={currentPlan === plan.key}
             isLoading={loadingPlan === plan.key}

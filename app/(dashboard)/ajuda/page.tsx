@@ -647,28 +647,22 @@ Para verificar o número de atendentes ativos e o limite do seu plano, acesse **
       {
         question: 'Comparação de planos',
         answer:
-`## Starter — R$ 397/mês
-• 1 número WhatsApp conectado
-• Agente SDR completo (SDR + atendimento + vendas)
-• CRM Kanban e Planilha
-• Até 3 atendentes
-• Follow-up automático
-• Base de conhecimento RAG (template, formulário, PDF)
-• 5 milhões de tokens de IA por mês
+`## Zaapply Start — R$ 397/mês
+• Agente SDR com IA — 24/7
+• Atendimento via chat
+• CRM Kanban
+• Canvas → Follow-up automático
+• 5M tokens/mês
 
-## Pro — R$ 597/mês
-• Tudo do Starter, mais:
-• Agendamento automático via Google Calendar
-• Trial SaaS completo com métricas avançadas
-• Até 10 atendentes
-• 15 milhões de tokens de IA por mês
+## Zaapply Growth — R$ 697/mês
+• Tudo do Start, mais:
+• Canvas → Anti-Noshow e Remarketing
+• Google Calendar integrado
+• 15M tokens/mês
 
-## Scale — R$ 997/mês
-• Tudo do Pro, mais:
-• Até 10 números WhatsApp (R$ 97 por número adicional)
-• Atendentes ilimitados
-• 50 milhões de tokens de IA por mês
-• Suporte prioritário`,
+## Zaapply Pro — R$ 997/mês
+• Tudo do Growth, mais:
+• 50M tokens/mês`,
       },
       {
         question: 'Como assinar',
@@ -707,10 +701,10 @@ Tokens não utilizados no mês não acumulam para o mês seguinte. O saldo é re
     ],
   },
   {
-    id: 'faq',
-    title: 'FAQ',
+    id: 'canvas',
+    title: 'Canvas',
     icon: HelpCircle,
-    description: 'Problemas comuns, canvas de automações e como resolver',
+    description: 'Editor visual de fluxos — nodes, conexões e como montar automações',
     items: [
       {
         question: 'O que é o Canvas de Automações?',
@@ -739,7 +733,7 @@ Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste 
       {
         question: 'Os nodes disponíveis e o que cada um faz',
         answer:
-`O canvas tem 9 tipos de nodes. Cada um representa uma ação ou decisão no fluxo do lead:
+`O canvas tem 11 tipos de nodes. Cada um representa uma ação ou decisão no fluxo do lead:
 
 ## 🟢 Trigger (início)
 Criado automaticamente. É o ponto de entrada do fluxo — representa o gatilho que ativa a sequência (início automático, mudança de estágio no CRM, etc.). Só existe um por fluxo e não pode ser deletado.
@@ -783,10 +777,22 @@ Bifurca o fluxo baseado na pontuação do lead. Configure um intervalo mínimo e
 Divide o tráfego 50/50 entre duas variantes de mensagem. Leads são roteados alternadamente entre Variante A e Variante B. Use para testar qual mensagem converte mais.
 
 ## 📅 Agendar Call
-Node especial de agendamento integrado ao Google Calendar. Quando o lead confirma interesse, o Agente SDR verifica a agenda e propõe horários disponíveis automaticamente via WhatsApp.
+Envia uma sequência de blocos de mensagem e ativa o agente de agendamento via WhatsApp. O agente oferece horários disponíveis ao lead e registra o compromisso automaticamente. Suporta múltiplos blocos de texto com delay humanizado entre eles.
+
+**Use quando:** Você quer que o próprio fluxo feche uma reunião sem intervenção humana — o lead recebe os horários disponíveis e confirma pelo WhatsApp.
 [INFO]
-O node Agendar Call requer o Google Calendar conectado em Configurações → Integrações.
-[/INFO]`,
+O node Agendar Call requer o Google Calendar conectado em Configurações → Integrações para exibir horários disponíveis reais.
+[/INFO]
+
+## ⚡ Pós-Condição
+Aguarda o lead responder ou clicar em um botão antes de disparar a próxima mensagem. Sem interação genuína do lead, o fluxo fica pausado indefinidamente neste ponto — o CRON não avança automaticamente.
+
+**Diferença do node Condição:** A Condição bifurca o fluxo em dois caminhos (Sim/Não) com base em uma variável. A Pós-Condição não bifurca — ela simplesmente bloqueia o avanço até o lead agir.
+
+**Use quando:** Você quer que a próxima mensagem só saia após o lead demonstrar interesse real. Coloque sempre na saída **"NÃO"** do node Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido.
+[AVISO]
+Nunca conecte Pós-Condição na saída "SIM" de uma Condição que verifica resposta de botão — nesse caso o lead já interagiu, e o node seria redundante.
+[/AVISO]`,
       },
       {
         question: 'Como conectar nodes e montar um fluxo',

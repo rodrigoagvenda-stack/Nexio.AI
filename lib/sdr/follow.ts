@@ -876,6 +876,15 @@ async function processFollowGeral(
             .maybeSingle()
           if (!replyMsg) continue  // sem interação — tenta no próximo ciclo CRON
 
+          // Marca follow_logs como respondido para contabilizar nas métricas
+          supabase
+            .from('follow_logs')
+            .update({ respondeu: true })
+            .eq('company_id', company.id)
+            .eq('lead_id', lead.id)
+            .neq('respondeu', true)
+            .then(() => {}).catch(() => {})
+
           const retryStatus = await checkRetry(lead.id, step.id, supabase)
           if (retryStatus === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
           if (retryStatus === 'backoff') continue
@@ -1254,6 +1263,7 @@ async function processAntiNoshow(
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
           if (!replyMsg) continue
+          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(() => {}).catch(() => {})
         }
 
         const phone = normalizePhone(lead.whatsapp)
@@ -1440,6 +1450,7 @@ async function processRemarketing(
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
           if (!replyMsg) continue
+          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(() => {}).catch(() => {})
         }
 
         // ── Retry / DLQ ──
@@ -1585,6 +1596,7 @@ async function processFollowProposta(
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
           if (!replyMsg) continue
+          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(() => {}).catch(() => {})
         } else {
           if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
         }
