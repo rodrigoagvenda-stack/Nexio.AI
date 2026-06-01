@@ -1249,6 +1249,13 @@ async function processAntiNoshow(
         // ── Circuit breaker ──
         if (await isCircuitOpen(sequence.id)) continue
 
+        // ── Pós-Condição: gate de interação real ──
+        if ((step.tipo_mensagem as string) === 'pos_condicao') {
+          const { data: replyMsg } = await supabase
+            .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
+          if (!replyMsg) continue
+        }
+
         const phone = normalizePhone(lead.whatsapp)
         const tipo = step.tipo_mensagem ?? 'text'
         const media = step.media_config
@@ -1397,6 +1404,13 @@ async function processRemarketing(
           continue
         }
 
+        // ── Pós-Condição: gate de interação real ──
+        if ((step.tipo_mensagem as string) === 'pos_condicao') {
+          const { data: replyMsg } = await supabase
+            .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
+          if (!replyMsg) continue
+        }
+
         // ── Retry / DLQ ──
         const retryStatusRm = await checkRetry(lead.id, step.id, supabase)
         if (retryStatusRm === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
@@ -1502,7 +1516,14 @@ async function processFollowProposta(
         if (await isCircuitOpen(sequence.id)) continue
         if (await isFatigued(company.id, lead.id)) continue
 
-        if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
+        // Pós-Condição: gate de interação — exige resposta; inverte lógica do leadJaRespondeuDesde
+        if ((step.tipo_mensagem as string) === 'pos_condicao') {
+          const { data: replyMsg } = await supabase
+            .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
+          if (!replyMsg) continue
+        } else {
+          if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
+        }
 
         // Verifica última mensagem inbound
         const { data: ultimaMsg } = await supabase
