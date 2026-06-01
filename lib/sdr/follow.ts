@@ -1748,6 +1748,23 @@ async function processTrialSaas(
           }
         }
 
+        // ── Pós-Condição (trial): só dispara se lead genuinamente interagiu com o botão ──
+        if ((step.tipo_mensagem as string) === 'pos_condicao') {
+          // Condição predecessora deve ter sido avaliada primeiro
+          const condPred = (steps as FollowStep[])
+            .filter(s => s.ordem < step.ordem && (s.tipo_mensagem as string) === 'condicao')
+            .sort((a, b) => b.ordem - a.ordem)[0]
+          if (condPred && !confirmedDispatched.has(condPred.id)) {
+            console.log(`[trial] #${trial.id} pos_condicao ${step.id.slice(0,8)} → aguardando condição predecessora`)
+            continue
+          }
+          if (!trial.respondeu) {
+            console.log(`[trial] #${trial.id} pos_condicao ${step.id.slice(0,8)} → aguardando interação do lead (respondeu=false)`)
+            continue
+          }
+          // respondeu=true → cai no fluxo de envio abaixo
+        }
+
         // Nós que não enviam mensagem WhatsApp (agendamento de call, webhook, etc.)
         // Usam 'skipped' para não consumir cota do rate limit (30 envios/h conta só 'sent').
         const NON_MSG_TYPES = ['agendamento', 'webhook', 'lead_score', 'ab_test', 'goal', 'sentiment']
