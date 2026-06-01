@@ -96,6 +96,7 @@ export default async function DashboardLayout({
         companyName={companyName}
         companyEmail={companyEmail}
         companyImage={companyImage}
+        companyId={userData?.company_id}
         planName={planName}
         hasBriefing={hasBriefing}
         brandLogoUrl={brandLogoUrl}

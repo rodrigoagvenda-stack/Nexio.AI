@@ -43,6 +43,7 @@ interface SidebarProps {
   companyName?: string;
   companyEmail?: string;
   companyImage?: string;
+  companyId?: number;
   planName?: string;
   hasBriefing?: boolean;
   brandLogoUrl?: string | null;
@@ -52,6 +53,23 @@ interface SidebarProps {
   isTrial?: boolean;
   tokensUsed?: number;
   tokensLimit?: number;
+}
+
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch {}
 }
 
 interface NavChild {
@@ -65,6 +83,7 @@ interface NavLink {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  unreadCount?: number;
   exact?: boolean;
   children?: NavChild[];
 }
@@ -232,6 +251,7 @@ export const Sidebar = memo(function Sidebar({
   companyName,
   companyEmail,
   companyImage,
+  companyId,
   planName,
   hasBriefing = false,
   brandLogoUrl,
@@ -254,7 +274,55 @@ export const Sidebar = memo(function Sidebar({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [flyout, setFlyout] = useState<FlyoutState | null>(null);
   const [hasUnseenChangelog, setHasUnseenChangelog] = useState(false);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const flyoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSoundRef = useRef<number>(0);
+
+  // Subscription de mensagens inbound — contador + som
+  useEffect(() => {
+    if (!companyId) return;
+    const supabase = createClient();
+    const lastSeen = localStorage.getItem('atendimento_last_seen');
+    const since = lastSeen ?? new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+
+    // Conta mensagens não lidas desde a última visita
+    supabase
+      .from('mensagens_do_whatsapp')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('direcao', 'inbound')
+      .gte('created_at', since)
+      .then(({ count }) => setUnreadMsgCount(count ?? 0));
+
+    // Realtime: incrementa e toca som a cada nova mensagem inbound
+    const channel = supabase
+      .channel(`sidebar_msgs_${companyId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'mensagens_do_whatsapp',
+        filter: `company_id=eq.${companyId}`,
+      }, (payload) => {
+        if ((payload.new as any)?.direcao !== 'inbound') return;
+        setUnreadMsgCount((c) => c + 1);
+        const now = Date.now();
+        if (now - lastSoundRef.current > 2000) {
+          lastSoundRef.current = now;
+          playNotifSound();
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [companyId]);
+
+  // Zera contador ao entrar em /atendimento
+  useEffect(() => {
+    if (pathname === '/atendimento' || pathname?.startsWith('/atendimento/')) {
+      setUnreadMsgCount(0);
+      localStorage.setItem('atendimento_last_seen', new Date().toISOString());
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const lastSeen = localStorage.getItem('zaapply_changelog_last_seen');
@@ -323,6 +391,9 @@ export const Sidebar = memo(function Sidebar({
       links: section.links.map(link => {
         if (link.href === '/novidades') {
           return { ...link, badge: hasUnseenChangelog ? 'Novo' : undefined };
+        }
+        if (link.href === '/atendimento' && unreadMsgCount > 0) {
+          return { ...link, unreadCount: unreadMsgCount };
         }
         if (link.children) {
           return { ...link, children: link.children };
@@ -455,7 +526,7 @@ export const Sidebar = memo(function Sidebar({
                       href={link.href}
                       prefetch={true}
                       className={cn(
-                        'w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
+                        'relative w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
                         isActive
                           ? 'bg-accent text-accent-foreground'
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
@@ -468,13 +539,22 @@ export const Sidebar = memo(function Sidebar({
                       {!isCollapsed && (
                         <>
                           <span className="text-sm flex-1 text-left">{link.label}</span>
-                          {link.badge && (
+                          {link.unreadCount && link.unreadCount > 0 ? (
+                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                              {link.unreadCount > 99 ? '99+' : link.unreadCount}
+                            </span>
+                          ) : link.badge ? (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
                               {link.badge}
                             </span>
-                          )}
+                          ) : null}
                         </>
                       )}
+                      {isCollapsed && link.unreadCount && link.unreadCount > 0 ? (
+                        <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">
+                          {link.unreadCount > 9 ? '9+' : link.unreadCount}
+                        </span>
+                      ) : null}
                     </Link>
                   );
                 })}

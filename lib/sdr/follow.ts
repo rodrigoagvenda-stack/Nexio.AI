@@ -1266,6 +1266,37 @@ async function processAntiNoshow(
         const lockKey = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKey))) continue
 
+        // ── Agendamento step ──
+        if (tipo === 'agendamento') {
+          try {
+            const redis = getRedis()
+            await redis.set(`canvas:sched:${company.id}:${phone}`, JSON.stringify({ duracao: media?.duracao ?? 60, sequenceId: sequence.id }), 'EX', 7 * 24 * 3600)
+            const msgAbertura = media?.mensagemInicial
+              ? substituirVariaveis(media.mensagemInicial as string, lead)
+              : substituirVariaveis(`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`, lead)
+            await enviarMensagem(phone, msgAbertura, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'anti_noshow', supabase, 'text', null)
+            const schedBlocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+            for (let i = 1; i < schedBlocos.length; i++) {
+              const bloco = substituirVariaveis(schedBlocos[i] || '', lead)
+              if (!bloco) continue
+              await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+              await enviarMensagem(phone, bloco, company, 'text', null)
+              await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'anti_noshow', supabase, 'text', null)
+            }
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            await recordCircuitSuccess(sequence.id)
+            sent++
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+            const { shouldOpen } = await recordCircuitFailure(sequence.id)
+            if (shouldOpen) await openCircuit(sequence.id, company.id, supabase)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
+          continue
+        }
+
         const nomeAgente = `Anti-Noshow • ${formatOffsetLabel(step.dia_offset, offsetUnit)}`
 
         try {
@@ -1444,6 +1475,39 @@ async function processRemarketing(
         const lockKeyRm = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKeyRm))) continue
 
+        // ── Agendamento step ──
+        if (tipo === 'agendamento') {
+          try {
+            const redis = getRedis()
+            await redis.set(`canvas:sched:${company.id}:${phone}`, JSON.stringify({ duracao: media?.duracao ?? 60, sequenceId: sequence.id }), 'EX', 7 * 24 * 3600)
+            const msgAbertura = media?.mensagemInicial
+              ? substituirVariaveis(media.mensagemInicial as string, lead)
+              : substituirVariaveis(`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`, lead)
+            await enviarMensagem(phone, msgAbertura, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'remarketing', supabase, 'text', null)
+            const schedBlocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+            for (let i = 1; i < schedBlocos.length; i++) {
+              const bloco = substituirVariaveis(schedBlocos[i] || '', lead)
+              if (!bloco) continue
+              await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+              await enviarMensagem(phone, bloco, company, 'text', null)
+              await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'remarketing', supabase, 'text', null)
+            }
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            rmLeadFired.add(step.id)
+            await recordCircuitSuccess(sequence.id)
+            await recordFatigue(company.id, lead.id)
+            sent++
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+            const { shouldOpen: rmOpen } = await recordCircuitFailure(sequence.id)
+            if (rmOpen) await openCircuit(sequence.id, company.id, supabase)
+          } finally {
+            await releaseSendLock(lockKeyRm)
+          }
+          continue
+        }
+
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
@@ -1555,6 +1619,38 @@ async function processFollowProposta(
 
         const lockKeyProp = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKeyProp))) continue
+
+        // ── Agendamento step ──
+        if (tipo === 'agendamento') {
+          try {
+            const redis = getRedis()
+            await redis.set(`canvas:sched:${company.id}:${phone}`, JSON.stringify({ duracao: media?.duracao ?? 60, sequenceId: sequence.id }), 'EX', 7 * 24 * 3600)
+            const msgAbertura = media?.mensagemInicial
+              ? substituirVariaveis(media.mensagemInicial as string, lead)
+              : substituirVariaveis(`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`, lead)
+            await enviarMensagem(phone, msgAbertura, company, 'text', null)
+            await gravarMensagemFollow(lead.id, company.id, phone, msgAbertura, 'follow_proposta', supabase, 'text', null)
+            const schedBlocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+            for (let i = 1; i < schedBlocos.length; i++) {
+              const bloco = substituirVariaveis(schedBlocos[i] || '', lead)
+              if (!bloco) continue
+              await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+              await enviarMensagem(phone, bloco, company, 'text', null)
+              await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_proposta', supabase, 'text', null)
+            }
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            await recordCircuitSuccess(sequence.id)
+            await recordFatigue(company.id, lead.id)
+            sent++
+          } catch {
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+            const { shouldOpen: propOpen } = await recordCircuitFailure(sequence.id)
+            if (propOpen) await openCircuit(sequence.id, company.id, supabase)
+          } finally {
+            await releaseSendLock(lockKeyProp)
+          }
+          continue
+        }
 
         try {
           await enviarMensagem(phone, texto, company, tipo, media)
@@ -1788,7 +1884,7 @@ async function processTrialSaas(
 
         // Nós que não enviam mensagem WhatsApp (agendamento de call, webhook, etc.)
         // Usam 'skipped' para não consumir cota do rate limit (30 envios/h conta só 'sent').
-        const NON_MSG_TYPES = ['agendamento', 'webhook', 'lead_score', 'ab_test', 'goal', 'sentiment']
+        const NON_MSG_TYPES = ['webhook', 'lead_score', 'ab_test', 'goal', 'sentiment']
         if (NON_MSG_TYPES.includes(step.tipo_mensagem as string)) {
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
           confirmedDispatched.add(step.id)
@@ -1817,6 +1913,43 @@ async function processTrialSaas(
         const lockKeyTrial = sendLockKey(company.id, trial.id, step.id)
         if (!(await acquireSendLock(lockKeyTrial))) {
           console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → locked (duplo disparo bloqueado)`)
+          continue
+        }
+
+        // ── Agendamento step (trial) ──
+        if (tipo === 'agendamento') {
+          try {
+            const redis = getRedis()
+            await redis.set(`canvas:sched:${company.id}:${phone}`, JSON.stringify({ duracao: media?.duracao ?? 60, sequenceId: sequence.id }), 'EX', 7 * 24 * 3600)
+            const mockLead = { contact_name: trial.nome, whatsapp: trial.whatsapp, status: trial.status, resumo_ia: null, notes: null, call_de_venda: null, call_agendada_para: null, call_status: null, id: trial.id, company_id: trial.company_id }
+            const msgAbertura = media?.mensagemInicial
+              ? substituirVariaveis(media.mensagemInicial as string, mockLead)
+              : substituirVariaveis(`Oi {nome}! Que tal agendarmos uma call? Que dia e horário funciona pra você? 😊`, mockLead)
+            await enviarMensagem(phone, msgAbertura, company, 'text', null)
+            await gravarMensagemTrial(trial.id, company.id, msgAbertura, 'trial_saas', supabase, phone, trial.nome, 'text', null)
+            const schedBlocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
+            for (let i = 1; i < schedBlocos.length; i++) {
+              const bloco = substituirVariaveis(schedBlocos[i] || '', mockLead)
+              if (!bloco) continue
+              await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
+              await enviarMensagem(phone, bloco, company, 'text', null)
+              await gravarMensagemTrial(trial.id, company.id, bloco, 'trial_saas', supabase, phone, trial.nome, 'text', null)
+            }
+            // Reativa SDR para o agente de agendamento assumir a conversa
+            const phoneVars = phoneVariants(phone)
+            const { data: convSched } = await supabase.from('conversas_do_whatsapp').select('id').eq('company_id', company.id).in('numero_de_telefone', phoneVars).order('hora_da_ultima_mensagem', { ascending: false }).limit(1).maybeSingle()
+            if (convSched?.id) await supabase.from('conversas_do_whatsapp').update({ agente_pausado: false }).eq('id', convSched.id)
+            await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
+            confirmedDispatched.add(step.id)
+            firedThisRunTrial.add(trial.id)
+            console.log(`[trial] #${trial.id} "${trial.nome}" ✅ agendamento disparado step ${step.id.slice(0,8)}`)
+            sent++
+          } catch (err) {
+            await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'failed', supabase)
+            console.error(`[trial] #${trial.id} agendamento falhou:`, err)
+          } finally {
+            await releaseSendLock(lockKeyTrial)
+          }
           continue
         }
 

@@ -24,10 +24,14 @@ import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
+
+type NotifTab = 'todas' | 'mensagens' | 'sistema';
 
 interface Notification {
   id: string;
-  type: string;
+  type: 'message' | 'system';
+  title: string;
   message: string;
   created_at: string;
   read: boolean;
@@ -38,6 +42,8 @@ export function SystemTopBar() {
   const router = useRouter();
   const pathname = usePathname();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [activeTab, setActiveTab] = useState<NotifTab>('todas');
+  const [notifOpen, setNotifOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const userName = user?.name || 'Usuário';
@@ -59,52 +65,63 @@ export function SystemTopBar() {
 
   const fetchNotifications = useCallback(async () => {
     if (!company?.id) return;
-
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .eq('company_id', company.id)
-        .order('created_at', { ascending: false });
+      const msgLastSeen = localStorage.getItem('notif_msg_last_seen');
 
-      if (error) {
-        console.error('Error fetching notifications:', error);
-        return;
-      }
+      const [{ data: logs }, { data: msgs }] = await Promise.all([
+        supabase
+          .from('activity_logs')
+          .select('id, action, description, created_at, read')
+          .eq('company_id', company.id)
+          .order('created_at', { ascending: false })
+          .limit(20),
+        supabase
+          .from('mensagens_do_whatsapp')
+          .select('id, texto_da_mensagem, created_at, leads(contact_name)')
+          .eq('company_id', company.id)
+          .eq('direcao', 'inbound')
+          .order('created_at', { ascending: false })
+          .limit(15),
+      ]);
 
-      if (data) {
-        const formatted = data.map((log: any) => ({
-          id: log.id,
-          type: log.action,
-          message: log.description,
-          created_at: log.created_at,
-          read: log.read || false,
-        }));
-        setNotifications(formatted);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
+      const sysNotifs: Notification[] = (logs ?? []).map((log: any) => ({
+        id: `sys-${log.id}`,
+        type: 'system' as const,
+        title: 'Sistema',
+        message: log.description ?? log.action,
+        created_at: log.created_at,
+        read: log.read || false,
+      }));
+
+      const msgNotifs: Notification[] = (msgs ?? []).map((msg: any) => ({
+        id: `msg-${msg.id}`,
+        type: 'message' as const,
+        title: (msg.leads as any)?.contact_name || 'Lead',
+        message: msg.texto_da_mensagem || '📎 Mídia',
+        created_at: msg.created_at,
+        read: msgLastSeen ? new Date(msg.created_at) <= new Date(msgLastSeen) : false,
+      }));
+
+      setNotifications([...msgNotifs, ...sysNotifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    } catch {}
   }, [company?.id]);
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-      });
+  const markAllMsgRead = () => {
+    localStorage.setItem('notif_msg_last_seen', new Date().toISOString());
+    setNotifications((prev) => prev.map((n) => n.type === 'message' ? { ...n, read: true } : n));
+  };
 
-      if (response.ok) {
-        // Atualizar localmente
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notificationId ? { ...n, read: true } : n
-          )
-        );
-      }
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+  const markAsRead = async (notif: Notification) => {
+    if (notif.type === 'message') {
+      markAllMsgRead();
+      return;
     }
+    const rawId = notif.id.replace('sys-', '');
+    try {
+      await fetch(`/api/notifications/${rawId}/read`, { method: 'POST' });
+      setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, read: true } : n));
+    } catch {}
   };
 
   useEffect(() => {
@@ -166,7 +183,7 @@ export function SystemTopBar() {
         {/* Right: Notifications + Settings */}
         <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
           {/* Notifications */}
-          <DropdownMenu>
+          <DropdownMenu open={notifOpen} onOpenChange={(open) => { setNotifOpen(open); if (open) fetchNotifications(); }}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative h-9 w-9 md:h-10 md:w-10">
                 <Bell className="h-4 w-4 md:h-5 md:w-5" />
@@ -175,56 +192,103 @@ export function SystemTopBar() {
                     variant="destructive"
                     className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center p-0 text-[10px] md:text-xs"
                   >
-                    {unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <div className="p-3 border-b">
-                <h3 className="font-semibold text-sm">Notificações</h3>
-                <p className="text-xs text-muted-foreground">
-                  {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
-                </p>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-muted-foreground">
-                    Nenhuma notificação ainda
-                  </div>
-                ) : (
-                  notifications.map((notif) => (
-                    <DropdownMenuItem
-                      key={notif.id}
-                      className="flex-col items-start p-3 cursor-pointer"
-                      onClick={() => markAsRead(notif.id)}
+            <DropdownMenuContent align="end" className="w-[340px] p-0 overflow-hidden">
+              {/* Header */}
+              <div className="px-4 pt-4 pb-3 border-b border-border">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">Notificações</h3>
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">
+                      {unreadCount} nova{unreadCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                {/* Tabs */}
+                <div className="flex gap-1">
+                  {(['todas', 'mensagens', 'sistema'] as NotifTab[]).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={cn(
+                        'flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors capitalize',
+                        activeTab === tab
+                          ? 'bg-accent text-accent-foreground'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                      )}
                     >
-                      <div className="flex items-start gap-2 w-full">
-                        <div className={`h-2 w-2 rounded-full mt-1.5 ${!notif.read ? 'bg-primary' : 'bg-muted'}`} />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{notif.message}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(notif.created_at), {
-                              addSuffix: true,
-                              locale: ptBR,
-                            })}
+                      {tab === 'todas' ? 'Todas' : tab === 'mensagens' ? 'Mensagens' : 'Sistema'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* List */}
+              <div className="max-h-[380px] overflow-y-auto">
+                {(() => {
+                  const filtered = notifications.filter(n =>
+                    activeTab === 'todas' ? true :
+                    activeTab === 'mensagens' ? n.type === 'message' :
+                    n.type === 'system'
+                  );
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-10 text-center text-sm text-muted-foreground/60">
+                        Nenhuma notificação
+                      </div>
+                    );
+                  }
+                  return filtered.map((notif) => (
+                    <button
+                      key={notif.id}
+                      className={cn(
+                        'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors border-b border-border/40 last:border-0',
+                        !notif.read && 'bg-primary/5'
+                      )}
+                      onClick={() => markAsRead(notif)}
+                    >
+                      {/* Avatar */}
+                      <div className={cn(
+                        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5',
+                        notif.type === 'message'
+                          ? 'bg-primary/15 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      )}>
+                        {notif.type === 'message'
+                          ? notif.title.charAt(0).toUpperCase()
+                          : '⚙'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
+                          <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
+                            {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: ptBR })}
                           </span>
                         </div>
+                        <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-0.5">{notif.message}</p>
                       </div>
-                    </DropdownMenuItem>
-                  ))
-                )}
+                      {!notif.read && (
+                        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-2" />
+                      )}
+                    </button>
+                  ));
+                })()}
               </div>
+
+              {/* Footer */}
               {notifications.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="justify-center text-sm text-primary cursor-pointer"
-                    onClick={() => router.push('/notificacoes')}
+                <div className="border-t border-border p-2">
+                  <button
+                    onClick={() => { router.push('/atendimento'); setNotifOpen(false); }}
+                    className="w-full py-2 text-xs text-primary font-medium hover:bg-accent/50 rounded-lg transition-colors"
                   >
-                    Ver todas as notificações
-                  </DropdownMenuItem>
-                </>
+                    Ver todas as mensagens
+                  </button>
+                </div>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
