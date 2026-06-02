@@ -157,7 +157,7 @@ interface FlyoutState {
   left: number;
 }
 
-const TRIAL_BLOCKED_PATHS = ['/configuracoes/sdr', '/configuracoes/follow', '/configuracoes/agenda', '/configuracoes/metricas'];
+const TRIAL_BLOCKED_PATHS: string[] = []; // trial = acesso completo
 
 function FlyoutPanel({
   state,
@@ -290,7 +290,7 @@ export const Sidebar = memo(function Sidebar({
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('direcao', 'inbound')
-      .gte('created_at', since)
+      .gte('criado_em', since)
       .then(({ count }) => setUnreadMsgCount(count ?? 0));
 
     // Realtime: incrementa e toca som a cada nova mensagem inbound

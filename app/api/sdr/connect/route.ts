@@ -157,7 +157,9 @@ export async function POST(request: NextRequest) {
 
   } catch (err: any) {
     console.error('[SDR connect]', err)
-    return NextResponse.json({ error: 'Não foi possível conectar o WhatsApp. Tente novamente.' }, { status: 500 })
+    // Expõe mensagem real para facilitar diagnóstico de configuração
+    const msg = err?.message || 'Não foi possível conectar o WhatsApp. Tente novamente.'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

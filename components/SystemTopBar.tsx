@@ -78,10 +78,10 @@ export function SystemTopBar() {
           .limit(20),
         supabase
           .from('mensagens_do_whatsapp')
-          .select('id, texto_da_mensagem, created_at')
+          .select('id, texto_da_mensagem, criado_em')
           .eq('company_id', company.id)
           .eq('direcao', 'inbound')
-          .order('created_at', { ascending: false })
+          .order('criado_em', { ascending: false })
           .limit(15),
       ]);
 
@@ -99,8 +99,8 @@ export function SystemTopBar() {
         type: 'message' as const,
         title: 'Nova mensagem',
         message: msg.texto_da_mensagem || '📎 Mídia',
-        created_at: msg.created_at,
-        read: msgLastSeen ? new Date(msg.created_at) <= new Date(msgLastSeen) : false,
+        created_at: msg.criado_em,
+        read: msgLastSeen ? new Date(msg.criado_em) <= new Date(msgLastSeen) : false,
       }));
 
       setNotifications([...msgNotifs, ...sysNotifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
