@@ -106,45 +106,59 @@ export async function POST(request: NextRequest) {
 
     console.log('[INVITE] Empresa:', company?.name);
 
-    // 3. Convidar usuário no Supabase Auth (envia email automaticamente)
-    console.log('[INVITE] Enviando convite via Supabase Auth para:', email);
+    // 3. Gerar link de convite via Supabase Admin (não precisa de SMTP)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'
+    const redirectUrl = `${appUrl}/auth/callback`
 
-    const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`;
-    console.log('[INVITE] Redirect URL:', redirectUrl);
-
-    const { data: authUser, error: authError } = await supabaseService.auth.admin.inviteUserByEmail(
+    const { data: linkData, error: authError } = await supabaseService.auth.admin.generateLink({
+      type: 'invite',
       email,
-      {
+      options: {
         data: {
           name,
           company_id: companyId,
-          company_name: company?.name || 'Vend.AI',
+          company_name: company?.name || 'Zaapply',
           role,
           department: department || null,
         },
         redirectTo: redirectUrl,
-      }
-    );
+      },
+    })
 
     if (authError) {
-      console.error('[INVITE] Erro ao enviar convite:', authError)
+      console.error('[INVITE] Erro ao gerar link de convite:', authError)
       const msg = authError.message || ''
       if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('already been registered')) {
         return NextResponse.json({ success: false, message: 'Este email já possui uma conta. Verifique a caixa de entrada do convidado.' }, { status: 400 })
       }
-      return NextResponse.json({ success: false, message: `Erro ao enviar convite: ${msg}` }, { status: 500 })
+      return NextResponse.json({ success: false, message: `Erro ao criar convite: ${msg}` }, { status: 500 })
     }
 
-    console.log('[INVITE] Convite enviado com sucesso! User ID:', authUser.user.id);
-    console.log('[INVITE] Email do usuário:', authUser.user.email);
-    console.log('[INVITE] Status do email:', authUser.user.email_confirmed_at ? 'Confirmado' : 'Pendente');
+    const authUser = linkData.user
+    const inviteUrl = linkData.properties?.action_link ?? redirectUrl
+    console.log('[INVITE] Link gerado para:', email, '| User ID:', authUser.id)
+
+    // 3b. Enviar email via Resend
+    const { sendMemberInviteEmail } = await import('@/lib/email/resend')
+    const emailResult = await sendMemberInviteEmail({
+      to: email,
+      name,
+      companyName: company?.name || 'Zaapply',
+      role,
+      inviteUrl,
+    })
+    if (!emailResult.success) {
+      console.warn('[INVITE] Falha ao enviar email via Resend:', emailResult.message)
+    } else {
+      console.log('[INVITE] Email enviado via Resend com sucesso')
+    }
 
     // 4. Criar registro na tabela users
     const { data: user, error: userError } = await supabaseService
       .from('users')
       .insert({
-        user_id: authUser.user.id,
-        auth_user_id: authUser.user.id,
+        user_id: authUser.id,
+        auth_user_id: authUser.id,
         company_id: companyId,
         name,
         email,
@@ -158,7 +172,7 @@ export async function POST(request: NextRequest) {
     if (userError) {
       console.error('[INVITE] Erro ao criar usuário na tabela:', userError);
       // Se falhar, deletar do Auth para evitar inconsistência
-      await supabaseService.auth.admin.deleteUser(authUser.user.id);
+      await supabaseService.auth.admin.deleteUser(authUser.id);
       throw userError;
     }
 
@@ -170,7 +184,7 @@ export async function POST(request: NextRequest) {
       type: 'user_action',
       severity: 'info',
       message: `Novo membro convidado: ${name} (${email})`,
-      payload: { user_id: authUser.user.id, role, invite_sent: true },
+      payload: { user_id: authUser.id, role, invite_sent: true },
     }).catch(() => {});
 
     return NextResponse.json({
