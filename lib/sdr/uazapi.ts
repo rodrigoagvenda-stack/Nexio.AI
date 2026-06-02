@@ -285,7 +285,8 @@ export class UazapiClient {
       body: JSON.stringify({
         url,
         enabled: true,
-        // Sem filtro de eventos — recebe tudo (ReceivedCallback, SentCallback, ConnectionUpdate, etc.)
+        events: ['messages', 'connection', 'messages_update'],
+        excludeMessages: ['wasSentByApi'], // evita loop: mensagens enviadas pela API não disparam webhook
       }),
     })
   }
