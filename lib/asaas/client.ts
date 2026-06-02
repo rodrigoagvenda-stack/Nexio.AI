@@ -11,6 +11,7 @@ async function asaasRequest<T = any>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   path: string,
   body?: object,
+  _retries = 1,
 ): Promise<T> {
   const cfg = await getPlatformConfig()
 
@@ -30,7 +31,22 @@ async function asaasRequest<T = any>(
     cache: 'no-store',
   })
 
-  const data = await res.json()
+  // 429 — rate limit: aguarda retry-after e tenta mais uma vez
+  if (res.status === 429 && _retries > 0) {
+    const retryAfter = parseInt(res.headers.get('retry-after') || '5', 10)
+    await new Promise(resolve => setTimeout(resolve, retryAfter * 1000))
+    return asaasRequest<T>(method, path, body, _retries - 1)
+  }
+
+  // Parse seguro — Asaas retorna HTML quando a chave é inválida ou a URL está errada
+  const text = await res.text()
+  let data: any
+  try {
+    data = JSON.parse(text)
+  } catch {
+    console.error(`[asaas] resposta não-JSON (${res.status}) ${method} ${path}:`, text.slice(0, 200))
+    throw new Error(`Erro na integração Asaas (${res.status}). Verifique a chave de API e a URL base nas configurações.`)
+  }
 
   if (!res.ok) {
     const msg = data?.errors?.[0]?.description ?? data?.message ?? `ASAAS error ${res.status}`
@@ -49,7 +65,6 @@ export interface AsaasCustomer {
   cpfCnpj: string
 }
 
-/** Atualiza dados de um customer existente via PUT (nunca POST) */
 export async function updateCustomer(
   customerId: string,
   params: { name?: string; email?: string; cpfCnpj?: string },
@@ -64,10 +79,9 @@ export async function createOrGetCustomer(params: {
   name: string
   email: string
   cpfCnpj: string
-  /** asaas_customer_id já salvo na empresa — se existir, faz PUT para garantir cpfCnpj */
   existingCustomerId?: string
+  externalReference?: string
 }): Promise<AsaasCustomer> {
-  // Se a empresa já tem um customer no Asaas, atualiza via PUT para garantir cpfCnpj correto
   if (params.existingCustomerId) {
     return updateCustomer(params.existingCustomerId, {
       name: params.name,
@@ -76,43 +90,43 @@ export async function createOrGetCustomer(params: {
     })
   }
 
-  // Tenta buscar existente pelo CPF/CNPJ
   const search = await asaasRequest<{ data: AsaasCustomer[] }>(
     'GET',
     `/customers?cpfCnpj=${params.cpfCnpj.replace(/\D/g, '')}`
   )
 
   if (search.data?.length) {
-    // Customer encontrado — garante cpfCnpj via PUT
     return updateCustomer(search.data[0].id, {
       name: params.name,
       cpfCnpj: params.cpfCnpj,
     })
   }
 
-  // Não existe — cria novo via POST
   return asaasRequest<AsaasCustomer>('POST', '/customers', {
     name: params.name,
     email: params.email,
     cpfCnpj: params.cpfCnpj.replace(/\D/g, ''),
     notificationDisabled: false,
+    externalReference: params.externalReference,
   })
 }
 
-// ─── Subscriptions (recorrência mensal via cartão) ────────────────────────────
+// ─── Subscriptions ────────────────────────────────────────────────────────────
 
 export interface AsaasSubscription {
   id: string
   status: string
   nextDueDate: string
   value: number
+  externalReference?: string
 }
 
 export async function createSubscription(params: {
   customerId: string
   value: number
   description: string
-  nextDueDate: string          // 'YYYY-MM-DD'
+  nextDueDate: string
+  externalReference?: string
   creditCard: {
     holderName: string
     number: string
@@ -137,6 +151,7 @@ export async function createSubscription(params: {
     value: params.value,
     description: params.description,
     nextDueDate: params.nextDueDate,
+    externalReference: params.externalReference,
     creditCard: params.creditCard,
     creditCardHolderInfo: {
       name: params.creditCardHolderInfo.name,
@@ -150,6 +165,14 @@ export async function createSubscription(params: {
   })
 }
 
+export async function listSubscriptionsByExternalRef(externalReference: string): Promise<AsaasSubscription[]> {
+  const res = await asaasRequest<{ data: AsaasSubscription[] }>(
+    'GET',
+    `/subscriptions?externalReference=${encodeURIComponent(externalReference)}`
+  )
+  return res.data ?? []
+}
+
 export async function cancelSubscription(subscriptionId: string): Promise<void> {
   await asaasRequest('DELETE', `/subscriptions/${subscriptionId}`)
 }
@@ -158,21 +181,28 @@ export async function getSubscription(subscriptionId: string): Promise<AsaasSubs
   return asaasRequest<AsaasSubscription>('GET', `/subscriptions/${subscriptionId}`)
 }
 
-// ─── PIX (cobranças avulsas para pacotes de tokens) ───────────────────────────
+// ─── Payments ─────────────────────────────────────────────────────────────────
 
 export interface AsaasPayment {
   id: string
   status: string
   value: number
   dueDate: string
+  paymentDate?: string
+  subscription?: string
+  customer?: string
+  billingType?: string
   invoiceUrl?: string
+  bankSlipUrl?: string
+  externalReference?: string
 }
 
 export async function createPixCharge(params: {
   customerId: string
   value: number
   description: string
-  dueDate: string   // 'YYYY-MM-DD'
+  dueDate: string
+  externalReference?: string
 }): Promise<AsaasPayment> {
   return asaasRequest<AsaasPayment>('POST', '/payments', {
     customer: params.customerId,
@@ -180,13 +210,13 @@ export async function createPixCharge(params: {
     value: params.value,
     dueDate: params.dueDate,
     description: params.description,
-    externalReference: `tokens_${Date.now()}`,
+    externalReference: params.externalReference ?? `tokens_${Date.now()}`,
   })
 }
 
 export interface AsaasPixQrCode {
-  encodedImage: string   // base64 do QR
-  payload: string        // copia-e-cola
+  encodedImage: string
+  payload: string
   expirationDate: string
 }
 

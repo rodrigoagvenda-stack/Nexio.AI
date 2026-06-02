@@ -640,7 +640,9 @@ export const Sidebar = memo(function Sidebar({
                   : 'text-primary'
                 )} />
                 <p className="text-[11px] font-bold text-foreground leading-none">
-                  {trialDaysLeft === 0
+                  {trialDaysLeft === null
+                    ? 'Trial ativo'
+                    : trialDaysLeft === 0
                     ? 'Trial expirado'
                     : trialDaysLeft === 1
                     ? '1 dia restante'
@@ -649,8 +651,8 @@ export const Sidebar = memo(function Sidebar({
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
                 {trialDaysLeft === 0
-                  ? 'Assine um plano para continuar usando o CRM e WhatsApp.'
-                  : 'CRM + WhatsApp ativos. Automações disponíveis após assinar.'}
+                  ? 'Assine um plano para continuar usando o sistema.'
+                  : 'Acesso completo durante o período de trial.'}
               </p>
               <Link
                 href="/configuracoes?tab=plano"

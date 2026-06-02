@@ -14,6 +14,14 @@ const PLAN_LABELS: Record<string, string> = {
   scale: 'Zaapply Pro',
 }
 
+async function asaasJson(res: Response, label: string) {
+  const text = await res.text()
+  try { return JSON.parse(text) } catch {
+    console.error(`[asaas/${label}] resposta não-JSON (${res.status}):`, text.slice(0, 200))
+    throw new Error(`Erro na integração Asaas (${res.status}). Verifique a chave de API nas configurações.`)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest) {
     const service = createServiceClient()
     const { data: company, error: companyError } = await service
       .from('companies')
-      .select('id, name, asaas_customer_id, asaas_cpf_cnpj')
+      .select('id, name, asaas_customer_id, asaas_cpf_cnpj, asaas_subscription_id')
       .eq('id', userData.company_id)
       .single()
     if (companyError) {
@@ -61,79 +69,111 @@ export async function POST(request: NextRequest) {
       'access_token': apiKey,
     }
 
-    // Salva cpfCnpj na empresa (para uso futuro)
     await service.from('companies').update({ asaas_cpf_cnpj: cpfCnpj }).eq('id', company.id)
 
     // ── 1. Garantir cliente no Asaas ──────────────────────────────────────────
     let customerId = company.asaas_customer_id
+    const customerExtRef = `nexio_company_${company.id}`
 
     if (!customerId) {
-      // Cria novo customer já com cpfCnpj
-      const custRes = await fetch(`${baseUrl}/customers`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          name: company.name || userData.name || 'Cliente',
-          email: userData.email,
-          cpfCnpj,
-          notificationDisabled: false,
-        }),
-      })
-      const custData = await custRes.json()
-      if (!custRes.ok) throw new Error(custData.errors?.[0]?.description || 'Erro ao criar cliente no Asaas')
+      // Busca por externalReference antes de criar (anti-duplicata em retry)
+      const searchRes = await fetch(`${baseUrl}/customers?externalReference=${customerExtRef}`, { headers })
+      const searchData = await asaasJson(searchRes, 'search-customer')
+      const existing = searchData.data?.[0]
 
-      customerId = custData.id
-      await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
+      if (existing?.id) {
+        customerId = existing.id
+        await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
+      } else {
+        const custRes = await fetch(`${baseUrl}/customers`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            name: company.name || userData.name || 'Cliente',
+            email: userData.email,
+            cpfCnpj,
+            notificationDisabled: false,
+            externalReference: customerExtRef,
+          }),
+        })
+        const custData = await asaasJson(custRes, 'create-customer')
+        if (!custRes.ok) throw new Error(custData.errors?.[0]?.description || 'Erro ao criar cliente no Asaas')
+
+        customerId = custData.id
+        await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
+      }
     } else {
-      // Customer já existe — sempre atualiza cpfCnpj via PUT para garantir que está correto
       const updateRes = await fetch(`${baseUrl}/customers/${customerId}`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({ cpfCnpj }),
       })
       if (!updateRes.ok) {
-        const updateErr = await updateRes.json()
+        const updateErr = await asaasJson(updateRes, 'update-customer').catch(() => ({}))
         console.error('[asaas/checkout] falha ao atualizar customer:', updateErr)
         throw new Error(updateErr.errors?.[0]?.description || 'Erro ao atualizar cliente no Asaas')
       }
     }
 
-    // ── 2. Criar assinatura ───────────────────────────────────────────────────
-    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    // ── 2. Criar assinatura (com check anti-duplicata) ────────────────────────
+    const today = new Date().toISOString().split('T')[0]
+    const subExtRef = `nexio_sub_${company.id}_${plan}`
 
-    const subRes = await fetch(`${baseUrl}/subscriptions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        customer: customerId,
-        billingType: 'UNDEFINED', // cliente escolhe PIX, boleto ou cartão
-        value: planValue,
-        nextDueDate: today,
-        cycle: 'MONTHLY',
-        description: `Nexio AI — Plano ${PLAN_LABELS[plan]}`,
-      }),
-    })
-    const subData = await subRes.json()
-    if (!subRes.ok) throw new Error(subData.errors?.[0]?.description || 'Erro ao criar assinatura')
+    // Se já existe assinatura salva no banco, retorna invoice dela
+    if (company.asaas_subscription_id) {
+      const paymentsRes = await fetch(`${baseUrl}/subscriptions/${company.asaas_subscription_id}/payments`, { headers })
+      const paymentsData = await asaasJson(paymentsRes, 'list-payments-existing')
+      const firstPayment = paymentsData.data?.[0]
+      const invoiceUrl = firstPayment?.invoiceUrl || firstPayment?.bankSlipUrl
+      if (invoiceUrl) return NextResponse.json({ url: invoiceUrl })
+    }
 
-    const subscriptionId = subData.id
+    // Busca por externalReference no Asaas antes de criar (anti-duplicata em retry)
+    const subSearchRes = await fetch(`${baseUrl}/subscriptions?externalReference=${subExtRef}`, { headers })
+    const subSearchData = await asaasJson(subSearchRes, 'search-subscription')
+    let subscriptionId: string | undefined = subSearchData.data?.[0]?.id
 
-    // Salva subscription ID imediatamente
-    await service.from('companies').update({
-      asaas_subscription_id: subscriptionId,
-      plan_type: plan,
-      subscription_start_date: today,
-    }).eq('id', company.id)
+    if (subscriptionId) {
+      // Assinatura já existe no Asaas — salva no banco se não estava
+      await service.from('companies').update({
+        asaas_subscription_id: subscriptionId,
+        plan_type: plan,
+        subscription_start_date: today,
+      }).eq('id', company.id)
+    } else {
+      const subRes = await fetch(`${baseUrl}/subscriptions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: 'UNDEFINED',
+          value: planValue,
+          nextDueDate: today,
+          cycle: 'MONTHLY',
+          description: `Nexio AI — Plano ${PLAN_LABELS[plan]}`,
+          externalReference: subExtRef,
+        }),
+      })
+      const subData = await asaasJson(subRes, 'create-subscription')
+      if (!subRes.ok) throw new Error(subData.errors?.[0]?.description || 'Erro ao criar assinatura')
+
+      subscriptionId = subData.id
+
+      await service.from('companies').update({
+        asaas_subscription_id: subscriptionId,
+        plan_type: plan,
+        subscription_start_date: today,
+      }).eq('id', company.id)
+    }
 
     // ── 3. Buscar primeiro pagamento para obter URL de fatura ─────────────────
     const paymentsRes = await fetch(`${baseUrl}/subscriptions/${subscriptionId}/payments`, { headers })
-    const paymentsData = await paymentsRes.json()
+    const paymentsData = await asaasJson(paymentsRes, 'list-payments')
     const firstPayment = paymentsData.data?.[0]
 
-    const invoiceUrl = firstPayment?.invoiceUrl || firstPayment?.bankSlipUrl || subData.invoiceUrl
+    const invoiceUrl = firstPayment?.invoiceUrl || firstPayment?.bankSlipUrl
 
     if (!invoiceUrl) {
-      // Sem URL de fatura — assinatura criada mas pagamento ainda não gerado
       return NextResponse.json({
         url: null,
         message: 'Assinatura criada! Você receberá o link de pagamento por email em instantes.',

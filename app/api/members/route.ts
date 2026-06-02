@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     const supabaseService = await createServiceClient();
 
     // 0. Verificar limite de atendentes do plano
+    // trial = acesso completo (período gratuito), scale/undefined = ilimitado
     const ATTENDANT_LIMITS: Record<string, number> = { basic: 1, starter: 3, pro: 10 };
     const { data: companyPlan } = await supabaseService
       .from('companies')

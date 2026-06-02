@@ -144,6 +144,11 @@ export default function AtendimentoPage() {
   const fetchWaStatus = async () => {
     try {
       const res = await fetch('/api/sdr/status');
+      if (res.status === 401) {
+        // Sessão expirada — redireciona para login
+        window.location.href = '/login';
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       setWaStatus(data.status ?? 'disconnected');

@@ -78,7 +78,7 @@ export function SystemTopBar() {
           .limit(20),
         supabase
           .from('mensagens_do_whatsapp')
-          .select('id, texto_da_mensagem, created_at, leads(contact_name)')
+          .select('id, texto_da_mensagem, created_at')
           .eq('company_id', company.id)
           .eq('direcao', 'inbound')
           .order('created_at', { ascending: false })
@@ -97,7 +97,7 @@ export function SystemTopBar() {
       const msgNotifs: Notification[] = (msgs ?? []).map((msg: any) => ({
         id: `msg-${msg.id}`,
         type: 'message' as const,
-        title: (msg.leads as any)?.contact_name || 'Lead',
+        title: 'Nova mensagem',
         message: msg.texto_da_mensagem || '📎 Mídia',
         created_at: msg.created_at,
         read: msgLastSeen ? new Date(msg.created_at) <= new Date(msgLastSeen) : false,
