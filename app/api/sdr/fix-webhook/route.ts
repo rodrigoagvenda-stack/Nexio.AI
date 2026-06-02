@@ -39,11 +39,12 @@ export async function POST(request: NextRequest) {
     } catch { /* ignora token legado inválido */ }
   }
 
-  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio`
-  console.log(`[fix-webhook] empresa=${userData.company_id} → ${webhookUrl}`)
+  const webhookSecret = process.env.NEXIO_WEBHOOK_SECRET
+  const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio${webhookSecret ? `?secret=${webhookSecret}` : ''}`
+  console.log(`[fix-webhook] empresa=${userData.company_id} → ${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio`)
 
   const client = createUazapiClient(config.uazapi_instance_url, token)
   await client.setWebhook(webhookUrl)
 
-  return NextResponse.json({ ok: true, webhookUrl })
+  return NextResponse.json({ ok: true, webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/nexio` })
 }
