@@ -317,8 +317,12 @@ export default function AdminSuportePage() {
     <div className="flex h-[calc(100vh-80px)] -m-6 overflow-hidden">
 
       {/* ── List ────────────────────────────────────────────────────────────── */}
-      <div className={cn('flex flex-col border-r border-border bg-card flex-shrink-0',
-        selected ? 'hidden lg:flex lg:w-80 xl:w-96' : 'flex w-full')}>
+      <div className={cn(
+        'flex flex-col border-r border-border bg-card flex-shrink-0',
+        'w-full lg:w-80 xl:w-96',
+        !selected && 'lg:flex',
+        selected ? 'hidden lg:flex' : 'flex'
+      )}>
 
         {/* Header */}
         <div className="flex-shrink-0 px-4 pt-4 pb-0">

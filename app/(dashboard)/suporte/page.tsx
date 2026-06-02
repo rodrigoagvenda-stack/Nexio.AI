@@ -528,8 +528,11 @@ export default function SuportePage() {
     <div className="flex h-[calc(100vh-80px)] -m-6 overflow-hidden">
 
       {/* ── List ────────────────────────────────────────────────────────────── */}
-      <div className={cn('flex flex-col border-r border-border bg-card flex-shrink-0',
-        view !== 'list' ? 'hidden lg:flex lg:w-72 xl:w-80' : 'flex w-full')}>
+      <div className={cn(
+        'flex flex-col border-r border-border bg-card flex-shrink-0',
+        'w-full lg:w-72 xl:w-80',
+        view !== 'list' && 'hidden lg:flex'
+      )}>
 
         <div className="flex-shrink-0 flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
           <div>
