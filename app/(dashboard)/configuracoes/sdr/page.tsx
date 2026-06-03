@@ -360,63 +360,120 @@ function Field({ label, hint, children, optional }: { label: string; hint?: stri
 // ── QuestionnaireWizard ────────────────────────────────────────────────────
 
 interface QAnswers {
-  identidade: string; produto: string; cliente: string; chegada: string
-  proximo_passo: string; precos: string; objecoes: string; limites: string
+  // Conhecimento
+  identidade: string
+  produto_contexto: string
+  nao_oferece: string
+  abordagem: string
+  qualificacao: string
+  proximo_passo: string
+  sem_perfil: string
+  precos: string
+  chegada: string
+  regras: string
+  // Objeções
+  obj_preco: string
+  obj_tempo: string
+  obj_produto: string
 }
 
 const EMPTY_ANSWERS: QAnswers = {
-  identidade: '', produto: '', cliente: '', chegada: '',
-  proximo_passo: '', precos: '', objecoes: '', limites: '',
+  identidade: '', produto_contexto: '', nao_oferece: '', abordagem: '',
+  qualificacao: '', proximo_passo: '', sem_perfil: '', precos: '',
+  chegada: '', regras: '',
+  obj_preco: '', obj_tempo: '', obj_produto: '',
 }
 
-const Q_BLOCKS: { key: keyof QAnswers; label: string; question: string; hint: string; placeholder: string; required?: boolean }[] = [
+interface QBlockDef {
+  key: keyof QAnswers
+  label: string
+  question: string
+  hint: string
+  placeholder: string
+  required?: boolean
+  tipo: 'conhecimento' | 'objecoes'
+}
+
+const Q_BLOCKS: QBlockDef[] = [
+  // ── Conhecimento ──────────────────────────────────────────────────────────
   {
-    key: 'identidade', label: '1. Identidade', required: true,
-    question: 'Como você descreveria seu negócio em 2–3 frases?',
-    hint: 'O que você faz, para quem atende e qual é o principal diferencial.',
-    placeholder: 'Ex: Somos uma clínica estética focada em procedimentos não cirúrgicos para mulheres 30+. Nosso diferencial é a avaliação personalizada antes de qualquer procedimento.',
+    key: 'identidade', tipo: 'conhecimento', label: '1. Identidade do Agente', required: true,
+    question: 'Quem é o agente e qual é o papel dele nessa conversa?',
+    hint: 'Nome, empresa e posição. Deixe claro se é especialista, SDR ou atendente — isso define o tom inteiro da conversa.',
+    placeholder: 'Ex: Você é Ana Voss, especialista comercial da Play Ads. Você não é uma assistente — você é uma especialista que qualifica leads e agenda calls. Tom direto, caloroso e consultivo. Nunca frio, nunca rude.',
   },
   {
-    key: 'produto', label: '2. Produto / Serviço', required: true,
-    question: 'O que exatamente você vende ou oferece?',
-    hint: 'Liste os principais produtos ou serviços e os benefícios reais para o cliente.',
-    placeholder: 'Ex: Botox, preenchimento labial, peeling e limpeza de pele. O benefício é autoestima elevada e resultado visível em até 48h.',
+    key: 'produto_contexto', tipo: 'conhecimento', label: '2. Produto / Serviço', required: true,
+    question: 'O que você vende? (contexto interno — o agente usa para entender, nunca cita diretamente)',
+    hint: 'Detalhe o produto: o que inclui, preço, condições, links. Isso é contexto para o agente raciocinar, não um script para falar.',
+    placeholder: 'Ex: Sistema de gestão com módulos de venda, estoque e financeiro integrados. Preço: R$49,90/mês. Teste grátis 7 dias sem cartão. Link do teste: tocli.com.br/testegratis7dias. Playlist de vídeos: tocli.com.br/youtube.',
   },
   {
-    key: 'cliente', label: '3. Cliente Ideal', required: true,
-    question: 'Quem é o seu cliente ideal?',
-    hint: 'Perfil, dores, motivações e o que ele busca quando entra em contato.',
-    placeholder: 'Ex: Mulher entre 30 e 55 anos, com insegurança sobre envelhecimento. Busca resultado natural, segurança no procedimento e atendimento acolhedor.',
+    key: 'nao_oferece', tipo: 'conhecimento', label: '3. O que NÃO existe', required: true,
+    question: 'O que você NÃO tem, NÃO oferece e o agente jamais deve mencionar ou inventar?',
+    hint: 'Crucial. Evita que o agente invente aulas gratuitas, descontos, funcionalidades ou condições que não existem.',
+    placeholder: 'Ex: Não tem aula experimental gratuita. Não tem plano anual. Não faz diagnóstico médico. Não tem módulo de RH. Não promete resultado específico. Não oferece desconto.',
   },
   {
-    key: 'chegada', label: '4. Como o Lead Chega',
-    question: 'Como os leads chegam até você e o que costumam dizer?',
-    hint: 'Canais (anúncio, indicação, Google) e frases típicas na primeira mensagem.',
-    placeholder: 'Ex: Maioria vem pelo Instagram. Costumam dizer "vi um post sobre botox" ou "uma amiga me indicou".',
+    key: 'abordagem', tipo: 'conhecimento', label: '4. Abordagem de Vendas', required: true,
+    question: 'Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto?',
+    hint: 'Defina a estratégia. "Vai na dor antes de falar de solução", "Qualifica e depois apresenta", "Oferece teste direto". Isso molda o fluxo inteiro.',
+    placeholder: 'Ex: Nunca apresente benefícios antes de entender a dor. Faça o lead sentir o custo de não resolver o problema agora. Só depois posicione o produto como solução. Perguntas de dor: "Você sabe quanto está perdendo por mês sem isso?" / "Se daqui a 6 meses nada mudar, onde você vai estar?"',
   },
   {
-    key: 'proximo_passo', label: '5. Próximo Passo', required: true,
-    question: 'Qual ação você quer que o lead tome?',
-    hint: 'Agendar consulta, fazer teste, comprar... e como esse processo funciona.',
-    placeholder: 'Ex: Agendar uma avaliação gratuita. O link é calendly.com/clinica. A avaliação dura 30 min e é sem compromisso.',
+    key: 'qualificacao', tipo: 'conhecimento', label: '5. Qualificação', required: true,
+    question: 'Quais perguntas qualificam o lead? Em que ordem? O que descarta?',
+    hint: 'Liste as perguntas na sequência exata. Uma por mensagem. Inclua o que descarta (sem verba, sem perfil, não é o decisor).',
+    placeholder: 'Ex:\n1. Qual seu tipo de negócio?\n2. Como estão chegando clientes hoje?\n3. Já testou anúncios antes?\n4. Você decide sobre marketing ou tem mais alguém?\n5. Tem verba mensal separada para marketing?\n\nDescarta: sem verba mínima de R$1.000 ou não é o decisor.',
   },
   {
-    key: 'precos', label: '6. Preços e Condições',
-    question: 'Como funciona o investimento?',
-    hint: 'Valores, período de teste, avaliação gratuita, parcelamento ou condições especiais.',
-    placeholder: 'Ex: Botox a partir de R$ 800. Avaliação gratuita. Parcelamos em até 12x sem juros no cartão.',
+    key: 'proximo_passo', tipo: 'conhecimento', label: '6. Próximo Passo', required: true,
+    question: 'Qual a ação final? Quando acionar e como?',
+    hint: 'Agendamento, teste grátis, compra, briefing... Inclua o link, a condição para acionar (ex: "só após qualificação") e o que fazer se recusar.',
+    placeholder: 'Ex: Agendar call com especialista. Só agendar após qualificação completa E briefing preenchido em nexio.com/briefing. Se recusar call → ofereça deixar contato para quando tiver melhor momento.',
   },
   {
-    key: 'objecoes', label: '7. Objeções Comuns',
-    question: 'Quais são as 3 objeções mais comuns? Como você costuma responder?',
-    hint: 'Para cada objeção, descreva como você responde. A IA vai transformar em scripts.',
-    placeholder: 'Ex:\n"Tá caro" → Explico que avaliação é gratuita e parcelamos.\n"Tenho medo de dor" → Mostramos que usamos anestesia e é tranquilo.\n"Vou pensar" → Proponho deixar um horário reservado.',
+    key: 'sem_perfil', tipo: 'conhecimento', label: '7. Lead Sem Perfil',
+    question: 'Quando o lead não tem perfil, como encerrar com elegância?',
+    hint: 'Defina o que descarta e o script de encerramento. Nunca seja rude, nunca force, nunca invista mais tempo.',
+    placeholder: 'Ex:\nSem verba → "Nosso modelo foi pensado para quem já tem verba de mídia separada. Quando isso mudar, me chama que avaliamos juntos."\nNão é decisor → "Prefiro não tomar seu tempo sem a pessoa certa. Quando puder trazer quem decide, me avisa."',
   },
   {
-    key: 'limites', label: '8. Limites do Agente',
-    question: 'O que o agente NUNCA deve fazer ou dizer?',
-    hint: 'O que deve evitar, limites de assunto e quando transferir para humano.',
-    placeholder: 'Ex: Nunca citar preço exato sem avaliação. Nunca fazer diagnóstico. Transferir para humano se pedir orçamento detalhado ou reclamar de procedimento anterior.',
+    key: 'precos', tipo: 'conhecimento', label: '8. Preços e Condições',
+    question: 'Como funciona o investimento? O que revelar, quando e como?',
+    hint: 'Se não deve revelar preço antes da call, diga isso. Se tem teste grátis, inclua link. Se tem parcelamento, inclua condições.',
+    placeholder: 'Ex: R$49,90/mês. Teste grátis 7 dias sem cartão. Se perguntarem o preço da gestão → "O investimento varia conforme a estratégia, isso é o que o especialista apresenta na call."',
+  },
+  {
+    key: 'chegada', tipo: 'conhecimento', label: '9. Como o Lead Chega',
+    question: 'Como os leads chegam e o que costumam dizer na primeira mensagem?',
+    hint: 'Canal (anúncio, indicação, orgânico) e frases típicas. Ajuda o agente a reconhecer o contexto e adaptar o tom.',
+    placeholder: 'Ex: Maioria vem de anúncios no Meta. Costumam dizer "vi o anúncio", "quero saber mais" ou "quanto custa?". Leads inbound se apresentam. Leads outbound já têm contexto da abordagem anterior.',
+  },
+  {
+    key: 'regras', tipo: 'conhecimento', label: '10. Regras Absolutas',
+    question: 'Quais são as regras que o agente NUNCA pode quebrar?',
+    hint: 'Seja específico. "Nunca revelar preço antes da call", "nunca agendar sem qualificação", "nunca inventar funcionalidade". Cada regra quebrada custa uma venda.',
+    placeholder: 'Ex: Nunca revelar preço da gestão antes da call. Nunca agendar sem qualificação completa. Nunca inventar funcionalidade que não existe. Nunca enviar bloco longo de texto. Uma pergunta por mensagem. Zero markdown. Zero emojis excessivos.',
+  },
+  // ── Objeções ──────────────────────────────────────────────────────────────
+  {
+    key: 'obj_preco', tipo: 'objecoes', label: '1. Objeções de Preço e Valor', required: true,
+    question: 'Objeções de preço/valor: para cada uma, informe gatilho + script exato + o que nunca dizer',
+    hint: 'Formato: Gatilhos: "frase1" / "frase2" → Script correto (exato, como vai ser enviado) → Nunca dizer: (exemplo errado). Inclua condicional se houver.',
+    placeholder: 'Gatilhos: "Tá caro" / "É muito caro"\nScript: "Entendo! 😊\nSão R$49,90 por mês, menos de R$2 por dia.\nMas o teste é grátis, sem cartão. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupação, mas são apenas R$49,90 por mês e você pode testar grátis."\n\nGatilhos: "Quanto custa?" / "Qual o valor?"\nScript: "O Tocli custa apenas R$49,90 por mês.\nE você pode testar gratuitamente por 7 dias, sem precisar de cartão.\nQuer que eu envie o link do teste?"\nSe lead disser SIM → "Vou enviar para você um link de teste grátis, para que você possa avaliar.\nhttps://tocli.com.br/testegratis7dias\nQualquer dúvida pode me chamar aqui!"',
+  },
+  {
+    key: 'obj_tempo', tipo: 'objecoes', label: '2. Objeções de Tempo e Decisão', required: true,
+    question: 'Objeções de tempo, indecisão e concorrência: gatilho + script + condicional',
+    hint: 'Inclua "Preciso pensar", "Não tenho tempo", "Já uso outra coisa", "Vou pensar". Inclua o que fazer se recusar duas vezes.',
+    placeholder: 'Gatilhos: "Preciso pensar" / "Vou pensar"\nScript: "Claro, sem pressão! 😊\nSó fica de olho: são 30 vagas e já temos procura alta.\nPosso te mandar o link pra você salvar e garantir quando decidir?"\n\nGatilhos: "Não tenho tempo agora"\nScript: "Tranquilo! 😊\nO teste fica disponível quando você quiser.\nSe quiser, já deixo o link aqui pra quando tiver um tempinho."\nSe lead aceitar → envie o link do teste.\n\nSe recusar 2 vezes → "Entendi! 😊\nSe mudar de ideia, pode me chamar. Qualquer coisa tô aqui."',
+  },
+  {
+    key: 'obj_produto', tipo: 'objecoes', label: '3. Dúvidas sobre o Produto', required: true,
+    question: 'Perguntas frequentes sobre o produto/serviço: para cada uma, informe gatilho + resposta exata',
+    hint: 'Perguntas do tipo "tem X?", "funciona para Y?", "como funciona?". Scripts curtos e diretos. Termine sempre perguntando se tem mais dúvidas.',
+    placeholder: 'Gatilhos: "Tem contrato?" / "Precisa fidelidade?"\nScript: "Não tem contrato, não. 😊\nÉ mensal, cancela quando quiser. Sem burocracia nenhuma."\n\nGatilhos: "É difícil de usar?" / "É complicado?"\nScript: "É bem simples de usar! 😊\nA ideia é justamente facilitar, não complicar.\nNo teste você já consegue ver como tudo funciona na prática."\n\nGatilhos: "Tem app?" / "Funciona no celular?"\nScript: "Funciona sim! 😊\nVocê pode acessar direto pelo celular, sem precisar instalar nada.\nTem mais alguma dúvida?"',
   },
 ]
 
@@ -428,7 +485,7 @@ function QuestionnaireWizard({
   variables: SdrVariables
   onSuccess: (result: { chunks: number }) => void
 }) {
-  const storageKey = flowId ? `sdr_questionnaire_${flowId}` : null
+  const storageKey = flowId ? `sdr_questionnaire_${flowId}_${type}` : null
   const [answers, setAnswers] = useState<QAnswers>(() => {
     if (!storageKey) return { ...EMPTY_ANSWERS }
     try { const saved = localStorage.getItem(storageKey); if (saved) return { ...EMPTY_ANSWERS, ...JSON.parse(saved) } } catch {}
@@ -439,8 +496,10 @@ function QuestionnaireWizard({
   const [error, setError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  const current = Q_BLOCKS[step]
-  const total = Q_BLOCKS.length
+  // Filtra blocos pelo tipo — conhecimento mostra blocos 1-10, objeções mostra blocos 11-13
+  const visibleBlocks = Q_BLOCKS.filter(b => b.tipo === type)
+  const current = visibleBlocks[step]
+  const total = visibleBlocks.length
   const progress = Math.round((step / total) * 100)
 
   function setAnswer(key: keyof QAnswers, value: string) {
@@ -451,7 +510,7 @@ function QuestionnaireWizard({
 
   useEffect(() => { setTimeout(() => textareaRef.current?.focus(), 80) }, [step])
 
-  const requiredFilled = Q_BLOCKS.filter((b) => b.required).every((b) => answers[b.key].trim())
+  const requiredFilled = visibleBlocks.filter((b) => b.required).every((b) => answers[b.key].trim())
 
   async function generate() {
     if (!flowId) { setError('Salve a configuração antes de gerar.'); return }
@@ -473,6 +532,7 @@ function QuestionnaireWizard({
   }
 
   const isLast = step === total - 1
+  if (!current) return null
 
   return (
     <div className="space-y-4">
@@ -543,14 +603,14 @@ function QuestionnaireWizard({
 
       {/* Step dots */}
       <div className="flex gap-1 justify-center">
-        {Q_BLOCKS.map((_, i) => (
+        {visibleBlocks.map((_, i) => (
           <button
             key={i}
             type="button"
             onClick={() => setStep(i)}
             className={cn(
               'w-1.5 h-1.5 rounded-full transition-colors',
-              i === step ? 'bg-primary' : answers[Q_BLOCKS[i].key].trim() ? 'bg-primary/40' : 'bg-muted-foreground/20'
+              i === step ? 'bg-primary' : answers[visibleBlocks[i].key].trim() ? 'bg-primary/40' : 'bg-muted-foreground/20'
             )}
           />
         ))}
