@@ -573,7 +573,10 @@ export const Sidebar = memo(function Sidebar({
 
           {/* Token card — aurora interno */}
           {!isCollapsed && !isTrial && tokensLimit > 0 && (() => {
-            const pct = Math.min(100, Math.round((tokensUsed / tokensLimit) * 100));
+            const pctRaw = tokensLimit > 0 ? (tokensUsed / tokensLimit) * 100 : 0;
+            const pct = Math.min(100, pctRaw);
+            const pctDisplay = pct < 1 && pct > 0 ? '< 1' : Math.round(pct).toString();
+            const barWidth = Math.max(pct, tokensUsed > 0 ? 0.5 : 0);
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
             const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#15803d';
@@ -606,9 +609,9 @@ export const Sidebar = memo(function Sidebar({
 
                   <div className="mt-2 space-y-1">
                     <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />
                     </div>
-                    <p className="text-[10px] text-muted-foreground">{pct}% utilizado</p>
+                    <p className="text-[10px] text-muted-foreground">{pctDisplay}% utilizado</p>
                   </div>
 
                   <Link
