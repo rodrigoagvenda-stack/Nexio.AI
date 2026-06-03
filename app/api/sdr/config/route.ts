@@ -146,6 +146,11 @@ export async function PUT(request: NextRequest) {
       result = data
     }
 
+    // ── companies: sincroniza agente_ativo (fonte de verdade lida pelo engine) ──
+    if (agente_ativo !== undefined) {
+      await service.from('companies').update({ agente_ativo }).eq('id', companyId)
+    }
+
     // ── sdr_flows: orchestrator_prompt + RAG fields (source of truth) ──
     const { data: existingFlow } = await service
       .from('sdr_flows')
