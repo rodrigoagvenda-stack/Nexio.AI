@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       plan_type: isTrial ? 'trial' : selectedPlan === 'pro' ? 'pro' : selectedPlan === 'scale' ? 'scale' : 'starter',
       image_url: logoUrl ?? null,
       is_active: true,
+      agente_ativo: false,
       ...(isTrial && {
         trial_enabled: true,
         trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
