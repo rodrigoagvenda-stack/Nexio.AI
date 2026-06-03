@@ -609,7 +609,7 @@ function getDomain(url: string): string {
   }
 }
 
-function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: CanvasConfig | null, sequenceTipo?: SequenceTipo): Node<AutoNodeData>[] {
+function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: string, canvasConfig?: CanvasConfig | null, sequenceTipo?: SequenceTipo): Node<AutoNodeData>[] {
   const nodes: Node<AutoNodeData>[] = [];
   const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
   nodes.push({
@@ -618,7 +618,7 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
       expira_em_dias: canvasConfig?.expira_em_dias ?? 0,
       eventoEntrada: canvasConfig?.eventoEntrada } satisfies TriggerNodeData,
   });
-  const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
+  const sorted = [...(steps ?? [])].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
     const stored = canvasConfig?.positions?.[idx];
     const x = stored?.x ?? (idx + 1) * 280;
@@ -746,8 +746,8 @@ function stepsToNodes(steps: FollowStep[], sequenceName: string, canvasConfig?: 
   return nodes;
 }
 
-function stepsToEdges(steps: FollowStep[], canvasConfig?: CanvasConfig | null): Edge[] {
-  const sorted = [...steps].sort((a, b) => a.ordem - b.ordem);
+function stepsToEdges(steps: FollowStep[] | undefined | null, canvasConfig?: CanvasConfig | null): Edge[] {
+  const sorted = [...(steps ?? [])].sort((a, b) => a.ordem - b.ordem);
 
   if (canvasConfig?.edges?.length) {
     return canvasConfig.edges

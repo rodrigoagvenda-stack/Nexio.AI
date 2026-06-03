@@ -1871,6 +1871,7 @@ async function processTrialSaas(
           const targetVal = isNot ? step.condicao_estagio.slice(1) : step.condicao_estagio
           const matches = isNot ? trial.estagio !== targetVal : trial.estagio === targetVal
           if (!matches) {
+            await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
             confirmedDispatched.add(step.id)
             console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → branch ignorado (estagio="${trial.estagio}" ${isNot ? '==' : '≠'} "${targetVal}")`)
             continue

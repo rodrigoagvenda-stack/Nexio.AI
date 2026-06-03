@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
       await service.from('follow_steps').insert(stepsToInsert)
     }
 
-    return NextResponse.json({ sequence }, { status: 201 })
+    return NextResponse.json({ sequence: { ...sequence, follow_steps: [] } }, { status: 201 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
