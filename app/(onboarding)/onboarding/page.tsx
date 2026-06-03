@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
-import { Check, ChevronLeft, Loader2, Upload, AlertCircle, TrendingUp, Rocket, Sparkles } from 'lucide-react';
+import { Check, ChevronLeft, Loader2, Upload, AlertCircle, TrendingUp, Rocket, Sparkles, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -25,6 +25,14 @@ const SEGMENTS = [
 ];
 
 const PLANS = [
+  {
+    id: 'trial',
+    name: 'Testar grátis por 7 dias',
+    price: 0,
+    desc: 'Acesso completo por 7 dias, sem cartão de crédito',
+    icon: Gift,
+    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Canvas → Follow-up'],
+  },
   {
     id: 'starter',
     name: 'Zaapply Start',
@@ -203,7 +211,10 @@ function StepPlano({ selected, onSelect }: { selected: string; onSelect: (id: st
                 <p className="text-xs text-muted-foreground mt-0.5">{plan.desc}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-bold text-foreground">R$ {plan.price}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                {plan.price === 0
+                  ? <p className="font-bold text-primary">Grátis</p>
+                  : <p className="font-bold text-foreground">R$ {plan.price}<span className="text-xs font-normal text-muted-foreground">/mês</span></p>
+                }
               </div>
               <div className={cn('w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all', isSelected ? 'border-primary bg-primary' : 'border-border')}>
                 {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
@@ -291,13 +302,16 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Não autenticado.');
 
+      const isTrial = form.selectedPlan === 'trial';
+      const trialExpiry = isTrial ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : undefined;
       const { data: company, error: compErr } = await supabase.from('companies').insert({
         name: form.companyName.trim(),
         email: userEmail,
-        plan_type: form.selectedPlan === 'starter' ? 'starter' : form.selectedPlan === 'pro' ? 'pro' : 'scale',
+        plan_type: isTrial ? 'starter' : form.selectedPlan === 'starter' ? 'starter' : form.selectedPlan === 'pro' ? 'pro' : 'scale',
         image_url: form.logoUrl,
         segment: form.segment || null,
         is_active: true,
+        ...(isTrial && { subscription_expires_at: trialExpiry }),
       }).select('id').single();
       if (compErr) throw compErr;
 
