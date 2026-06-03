@@ -2932,7 +2932,6 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
               id_do_lead: newLeadId,
               numero_de_telefone: phone,
               nome_do_contato: senderName || phone,
-              foto_do_contato: senderPhoto ?? null,
               ultima_mensagem: '',
               hora_da_ultima_mensagem: new Date().toISOString(),
               status_da_conversa: 'aberto',
@@ -3078,10 +3077,19 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
 export async function resolveCompanyByInstance(instanceName: string): Promise<number | null> {
   const supabase = createServiceClient()
-  const { data } = await supabase
+
+  const { data: co } = await supabase
     .from('companies')
     .select('id')
     .eq('whatsapp_instance_name', instanceName)
     .maybeSingle()
-  return data?.id ?? null
+  if (co?.id) return co.id
+
+  // Fallback: sdr_configs.uazapi_instance_name (onde o admin salva a instância)
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('company_id')
+    .eq('uazapi_instance_name', instanceName)
+    .maybeSingle()
+  return cfg?.company_id ?? null
 }
