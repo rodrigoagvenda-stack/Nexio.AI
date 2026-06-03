@@ -298,32 +298,19 @@ export default function OnboardingPage() {
   async function handleFinish() {
     setSaving(true); setError('');
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado.');
-
-      const isTrial = form.selectedPlan === 'trial';
-      const { data: company, error: compErr } = await supabase.from('companies').insert({
-        name: form.companyName.trim(),
-        email: userEmail,
-        plan_type: isTrial ? 'trial' : form.selectedPlan === 'pro' ? 'pro' : form.selectedPlan === 'scale' ? 'scale' : 'starter',
-        image_url: form.logoUrl,
-        is_active: true,
-        ...(isTrial && {
-          trial_enabled: true,
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      const res = await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName: form.companyName,
+          userName: form.userName,
+          selectedPlan: form.selectedPlan,
+          logoUrl: form.logoUrl,
+          userEmail,
         }),
-      }).select('id').single();
-      if (compErr) throw compErr;
-
-      await supabase.from('users').upsert({
-        auth_user_id: user.id,
-        email: userEmail,
-        name: form.userName.trim() || userEmail.split('@')[0],
-        company_id: company.id,
-        role: 'admin',
-      }, { onConflict: 'auth_user_id' });
-
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao salvar.');
       router.replace('/dashboard');
     } catch (e: any) {
       setError(e.message || 'Erro ao salvar. Tente novamente.');
