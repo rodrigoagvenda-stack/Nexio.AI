@@ -2913,10 +2913,29 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           .in('numero_de_telefone', phoneVarsImm)
           .order('hora_da_ultima_mensagem', { ascending: false })
           .limit(1)
-        const conv = convRows?.[0] ?? null
+        let conv = convRows?.[0] ?? null
         if (!conv?.id) {
-          console.warn(`[SDR:${companyId}] pre-save: conversa não encontrada para phone=${phone} variants=${JSON.stringify(phoneVarsImm)}`)
-          return
+          // Cria conversa para novos leads — mensagem deve aparecer na UI
+          // independente de agente_ativo (desligar SDR ≠ ignorar mensagens)
+          const { data: newConv, error: convErr } = await imm
+            .from('conversas_do_whatsapp')
+            .insert({
+              company_id: companyId,
+              numero_de_telefone: phone,
+              nome_do_contato: senderName || phone,
+              foto_do_contato: senderPhoto ?? null,
+              ultima_mensagem: '',
+              hora_da_ultima_mensagem: new Date().toISOString(),
+              status_da_conversa: 'aberto',
+              contagem_nao_lida: 0,
+            })
+            .select('id, id_do_lead')
+            .single()
+          if (convErr) {
+            console.warn(`[SDR:${companyId}] pre-save: falha ao criar conversa phone=${phone}:`, convErr.message)
+            return
+          }
+          conv = newConv
         }
         const dispText = msgType === 'audio' ? '🎵 Áudio'
           : msgType === 'image' ? '📷 Imagem'
