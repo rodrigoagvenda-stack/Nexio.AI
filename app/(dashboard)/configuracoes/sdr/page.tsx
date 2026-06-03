@@ -971,163 +971,18 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
             </div>
           )}
 
-          {/* ── Form mode — Typeform wizard ── */}
+          {/* ── Form mode — QuestionnaireWizard completo ── */}
           {mode === 'form' && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
-                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span>A efetividade do agente depende diretamente da qualidade das suas respostas. Detalhes específicos geram scripts melhores — respostas genéricas geram um agente genérico.</span>
-              </div>
-              {/* Niche selector (shared) */}
-              {!sharedNicheId && (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">Primeiro, selecione o nicho para filtrar as perguntas relevantes.</p>
-                  <div className="relative">
-                    <button
-                      onClick={() => setNicheDropdownOpen((o) => !o)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors"
-                    >
-                      <span className="text-muted-foreground">Selecione o nicho…</span>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </button>
-                    {nicheDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-60 overflow-y-auto">
-                        {[{ label: '🎯 Vendas', items: vendas }, { label: '🛎️ Atendimento', items: atendimento }].map((group) => (
-                          <div key={group.label}>
-                            <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
-                            {group.items.map((n) => (
-                              <button key={n.id} onClick={() => { onNicheChange(n.id); setNicheDropdownOpen(false) }}
-                                className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left">
-                                <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium">{n.label}</p>
-                                  <p className="text-xs text-muted-foreground">{n.description}</p>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Wizard steps */}
-              {wizardQuestions.length > 0 && wizardStep < wizardTotal && (
-                <div className="space-y-4">
-                  {/* Progress */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                      <span>{wizardStep + 1} de {wizardTotal}</span>
-                      {currentQ?.optional && <span className="text-amber-600 dark:text-amber-400">opcional</span>}
-                    </div>
-                    <div className="h-1 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-300"
-                        style={{ width: `${wizardProgress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Question card */}
-                  <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                    <p className="text-sm font-semibold leading-snug">{currentQ?.question}</p>
-                    {currentQ?.hint && <p className="text-[11px] text-muted-foreground">{currentQ.hint}</p>}
-                    {currentQ?.type === 'delivery-zones' ? (
-                      <DeliveryZonesEditor value={getWizardValue(currentQ)} onChange={(v) => setWizardValue(currentQ, v)} />
-                    ) : currentQ?.type === 'payment-chips' ? (
-                      <PaymentChipsEditor value={getWizardValue(currentQ)} onChange={(v) => setWizardValue(currentQ, v)} />
-                    ) : currentQ?.type === 'textarea' ? (
-                      <Textarea
-                        ref={wizardInputRef as React.RefObject<HTMLTextAreaElement>}
-                        value={getWizardValue(currentQ)}
-                        onChange={(e) => setWizardValue(currentQ, e.target.value)}
-                        placeholder={currentQ.placeholder}
-                        className="min-h-[72px] text-sm resize-none"
-                      />
-                    ) : (
-                      <Input
-                        ref={wizardInputRef as React.RefObject<HTMLInputElement>}
-                        type={currentQ?.type === 'url' ? 'url' : 'text'}
-                        value={getWizardValue(currentQ!)}
-                        onChange={(e) => setWizardValue(currentQ!, e.target.value)}
-                        placeholder={currentQ?.placeholder}
-                        className="h-9 text-sm"
-                        onKeyDown={handleWizardKeyDown}
-                      />
-                    )}
-                  </div>
-
-                  {/* Navigation */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setWizardStep((s) => Math.max(0, s - 1))}
-                      disabled={wizardStep === 0}
-                      className="gap-1.5 text-xs h-8"
-                    >
-                      <ChevronLeft className="w-3 h-3" />Anterior
-                    </Button>
-                    {wizardStep < wizardTotal - 1 ? (
-                      <Button
-                        size="sm"
-                        onClick={() => setWizardStep((s) => s + 1)}
-                        className="gap-1.5 text-xs h-8 flex-1"
-                      >
-                        Próxima <ArrowRight className="w-3 h-3" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'guiado')}
-                        disabled={processing || !flowId || !sharedNicheId}
-                        className="gap-1.5 text-xs h-8 flex-1"
-                      >
-                        {processing
-                          ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
-                          : <><Sparkles className="w-3 h-3" />Gerar base de {label}</>}
-                      </Button>
-                    )}
-                  </div>
-
-                  {wizardStep < wizardTotal - 1 && (
-                    <button
-                      onClick={() => setWizardStep(wizardTotal - 1)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 w-full text-center transition-colors"
-                    >
-                      Pular e ir para o final →
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Summary after wizard */}
-              {wizardStep >= wizardTotal && wizardTotal > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-500/20 bg-green-500/5 text-xs text-green-700 dark:text-green-400">
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    Todas as respostas preenchidas!
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setWizardStep(0)} className="text-xs h-8 gap-1.5">
-                      <ChevronLeft className="w-3 h-3" />Revisar
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'guiado')}
-                      disabled={processing || !flowId || !sharedNicheId}
-                      className="gap-1.5 text-xs h-8 flex-1"
-                    >
-                      {processing
-                        ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
-                        : <><Sparkles className="w-3 h-3" />Gerar base de {label}</>}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <QuestionnaireWizard
+              flowId={flowId}
+              type={type}
+              variables={buildVariables()}
+              onSuccess={(result) => {
+                setLastResult({ chunks: result.chunks, table: type })
+                setExistingBase({ filename: `${type}_guiado`, chunks: result.chunks })
+                toast({ title: `✓ ${result.chunks} chunks processados e salvos!` })
+              }}
+            />
           )}
 
           {pendingAction && (
