@@ -247,6 +247,7 @@ export default function AtendimentoPage() {
   // Carregar mensagens quando selecionar conversa
   useEffect(() => {
     if (!selectedConversation) return;
+    setMessages([]); // limpa imediatamente ao trocar de conversa
     fetchMessages(selectedConversation.id);
 
     // Inscrever para novas mensagens
@@ -386,7 +387,10 @@ export default function AtendimentoPage() {
       setMessages((prev) => {
         const lastPrevId = prev[prev.length - 1]?.id;
         const lastNewId = incoming[incoming.length - 1]?.id;
-        // Nunca reduz contagem (evita apagar mensagens otimistas ou em voo)
+        // Se mensagens anteriores são de outra conversa, sempre substitui
+        const prevConvId = (prev[0] as any)?.id_da_conversacao;
+        if (prevConvId && prevConvId !== conversationId) return incoming;
+        // Nunca reduz contagem dentro da mesma conversa (evita apagar mensagens otimistas)
         if (incoming.length < prev.length) return prev;
         if (prev.length === incoming.length && lastPrevId === lastNewId) return prev;
         return incoming;
