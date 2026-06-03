@@ -302,12 +302,17 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Não autenticado.');
 
+      const isTrial = form.selectedPlan === 'trial';
       const { data: company, error: compErr } = await supabase.from('companies').insert({
         name: form.companyName.trim(),
         email: userEmail,
-        plan_type: form.selectedPlan === 'pro' ? 'pro' : form.selectedPlan === 'scale' ? 'scale' : 'starter',
+        plan_type: isTrial ? 'trial' : form.selectedPlan === 'pro' ? 'pro' : form.selectedPlan === 'scale' ? 'scale' : 'starter',
         image_url: form.logoUrl,
         is_active: true,
+        ...(isTrial && {
+          trial_enabled: true,
+          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        }),
       }).select('id').single();
       if (compErr) throw compErr;
 
