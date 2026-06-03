@@ -25,6 +25,6 @@ INSERT INTO platform_config (key, value, is_encrypted) VALUES
   ('stripe_price_pro',      '',                                    false),
   ('stripe_price_scale',    '',                                    false),
   ('asaas_api_key',         '',                                    true),
-  ('asaas_base_url',        'https://sandbox.asaas.com/api/v3',   false),
+  ('asaas_base_url',        'https://api-sandbox.asaas.com/v3',   false),
   ('asaas_webhook_token',   '',                                    true)
 ON CONFLICT (key) DO NOTHING;

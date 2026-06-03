@@ -65,7 +65,7 @@ const SECTIONS = [
     description: 'Gateway de pagamentos brasileiro — mensalidades via cartão e pacotes extras via PIX.',
     fields: [
       { key: 'asaas_api_key', label: 'API Key', placeholder: '$aact_...', sensitive: true },
-      { key: 'asaas_base_url', label: 'Base URL', placeholder: 'https://api.asaas.com/v3 (produção) ou https://sandbox.asaas.com/api/v3', sensitive: false },
+      { key: 'asaas_base_url', label: 'Base URL', placeholder: 'https://api.asaas.com/v3 (produção) ou https://api-sandbox.asaas.com/v3', sensitive: false },
       { key: 'asaas_webhook_token', label: 'Webhook Token', placeholder: 'Token configurado no painel Asaas → Integrações → Webhooks', sensitive: true },
     ],
     info: 'Webhook URL: {APP_URL}/api/webhooks/asaas/billing',

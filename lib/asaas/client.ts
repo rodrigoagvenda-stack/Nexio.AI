@@ -15,7 +15,7 @@ async function asaasRequest<T = any>(
 ): Promise<T> {
   const cfg = await getPlatformConfig()
 
-  const baseUrl = cfg.asaas_base_url || 'https://sandbox.asaas.com/api/v3'
+  const baseUrl = cfg.asaas_base_url || 'https://api-sandbox.asaas.com/v3'
   const apiKey  = cfg.asaas_api_key
 
   if (!apiKey) throw new Error('ASAAS API Key não configurada. Acesse Admin → Configurações → ASAAS.')
