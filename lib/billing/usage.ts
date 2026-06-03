@@ -179,10 +179,12 @@ export async function recordUsage(
 
     // Incrementa contador mensal da empresa
     if (entry.totalTokens > 0) {
-      await supabase.rpc('increment_tokens_used', {
-        p_company_id: tenantId,
-        p_tokens: entry.totalTokens,
-      }).catch(() => { /* best-effort — RPC pode não existir em ambientes antigos */ })
+      try {
+        await supabase.rpc('increment_tokens_used', {
+          p_company_id: tenantId,
+          p_tokens: entry.totalTokens,
+        })
+      } catch { /* best-effort — RPC pode não existir em ambientes antigos */ }
     }
 
     // Debitar pacote extra (até esgotar o saldo disponível)
