@@ -309,7 +309,6 @@ export default function OnboardingPage() {
         email: userEmail,
         plan_type: isTrial ? 'starter' : form.selectedPlan === 'starter' ? 'starter' : form.selectedPlan === 'pro' ? 'pro' : 'scale',
         image_url: form.logoUrl,
-        segment: form.segment || null,
         is_active: true,
         ...(isTrial && { subscription_expires_at: trialExpiry }),
       }).select('id').single();
