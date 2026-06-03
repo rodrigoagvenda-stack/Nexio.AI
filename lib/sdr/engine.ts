@@ -2915,12 +2915,21 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           .limit(1)
         let conv = convRows?.[0] ?? null
         if (!conv?.id) {
-          // Cria conversa para novos leads — mensagem deve aparecer na UI
-          // independente de agente_ativo (desligar SDR ≠ ignorar mensagens)
+          // Cria lead + conversa para novos contatos independente de agente_ativo
+          // (desligar SDR = não responder automaticamente, não = ignorar mensagens)
+          let newLeadId: number | null = null
+          try {
+            const { id: lid } = await findOrCreateLead(companyId, phone, senderName, '', imm)
+            newLeadId = lid
+          } catch (e: any) {
+            console.warn(`[SDR:${companyId}] pre-save: falha ao criar lead phone=${phone}:`, e?.message)
+          }
+
           const { data: newConv, error: convErr } = await imm
             .from('conversas_do_whatsapp')
             .insert({
               company_id: companyId,
+              id_do_lead: newLeadId,
               numero_de_telefone: phone,
               nome_do_contato: senderName || phone,
               foto_do_contato: senderPhoto ?? null,
