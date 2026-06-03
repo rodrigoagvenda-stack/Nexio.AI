@@ -83,8 +83,14 @@ export default async function DashboardLayout({
   const trialEnabled = companyData?.trial_enabled ?? false;
   const trialEndsAt = companyData?.trial_ends_at ?? null;
   const isTrial = companyData?.plan_type === 'trial';
+  const PLAN_TOKENS: Record<string, number> = {
+    starter: 5_000_000, start: 5_000_000,
+    pro: 15_000_000, growth: 15_000_000,
+    scale: 50_000_000,
+    basic: 0, free: 0, trial: 0,
+  };
   const tokensUsed = companyData?.tokens_used ?? 0;
-  const tokensLimit = companyData?.plan_monthly_limit ?? 0;
+  const tokensLimit = PLAN_TOKENS[companyData?.plan_type ?? ''] ?? (companyData?.plan_monthly_limit ?? 0);
   const isAdmin = !!adminUser;
   const hasBriefing = !!briefingConfig;
   const userRole = userData?.role || 'closer';
