@@ -2809,6 +2809,41 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
               .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: new Date().toISOString() })
               .eq('id', conv.id)
             console.log(`[SDR:${companyId}] fromMe salvo — outbound conv=${conv.id} tipo=${outMsgType}`)
+
+            // Download e upload de mídia outbound (fromMe) → preview no chat
+            const outIsMedia = ['audio', 'ptt', 'image', 'video', 'document'].includes(outMsgType)
+            const outMessageId = body.message.id || null
+            if (outIsMedia && outMessageId) {
+              try {
+                const uazapiOut = createUazapiClient(
+                  body.BaseUrl ?? 'https://nexioai.uazapi.com',
+                  body.token ?? ''
+                )
+                const { base64Data, mimetype } = await uazapiOut.downloadMedia(outMessageId)
+                const ext = mimetype?.split('/')?.[1]?.split(';')?.[0] ?? (
+                  outMsgType === 'audio' || outMsgType === 'ptt' ? 'ogg' :
+                  outMsgType === 'image' ? 'jpg' :
+                  outMsgType === 'video' ? 'mp4' : 'bin'
+                )
+                const filePath = `${companyId}/whatsapp/outbound/${outMessageId}.${ext}`
+                const buffer = Buffer.from(base64Data, 'base64')
+                const { error: uploadErr } = await outSvc.storage
+                  .from('whatsapp-media')
+                  .upload(filePath, buffer, { contentType: mimetype || 'application/octet-stream', upsert: true })
+                if (!uploadErr) {
+                  const { data: urlData } = outSvc.storage.from('whatsapp-media').getPublicUrl(filePath)
+                  if (urlData?.publicUrl) {
+                    await outSvc.from('mensagens_do_whatsapp')
+                      .update({ url_da_midia: urlData.publicUrl })
+                      .eq('whatsapp_message_id', outMessageId)
+                      .eq('company_id', companyId)
+                    console.log(`[SDR:${companyId}] fromMe media salva — ${outMsgType} → ${filePath}`)
+                  }
+                }
+              } catch (e: any) {
+                console.error(`[SDR:${companyId}] fromMe media error:`, e?.message)
+              }
+            }
           } catch (e: any) {
             console.error(`[SDR:${companyId}] fromMe save error:`, e?.message)
           }
