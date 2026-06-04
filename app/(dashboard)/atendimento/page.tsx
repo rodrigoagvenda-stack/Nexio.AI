@@ -264,13 +264,11 @@ export default function AtendimentoPage() {
         (payload) => {
           setMessages((prev) => {
             const newMessage = payload.new as Message;
-            // Evitar duplicatas: verificar por ID real ou substituir mensagem otimista (temp)
             const existsReal = prev.some(msg =>
               typeof msg.id === 'number' && msg.id === newMessage.id
             );
             if (existsReal) return prev;
 
-            // Se é outbound, pode ser uma mensagem otimista — substituir pelo dado real
             if (newMessage.direcao === 'outbound') {
               const tempIndex = prev.findIndex(msg =>
                 typeof msg.id === 'string' &&
@@ -287,6 +285,21 @@ export default function AtendimentoPage() {
             return [...prev, newMessage];
           });
           scrollToBottom();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'mensagens_do_whatsapp',
+          filter: `id_da_conversacao=eq.${selectedConversation.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as Message;
+          setMessages((prev) =>
+            prev.map((msg) => typeof msg.id === 'number' && msg.id === updated.id ? { ...msg, ...updated } : msg)
+          );
         }
       )
       .subscribe();
