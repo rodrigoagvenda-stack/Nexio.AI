@@ -41,6 +41,8 @@ function FunnelBarChart({ data, isMobile }: { data: { name: string; quantidade: 
         <BarChart
           data={data}
           layout="vertical"
+          barSize={18}
+          barCategoryGap="35%"
           margin={isMobile
             ? { top: 4, right: 12, left: 0, bottom: 4 }
             : { top: 10, right: 30, left: 10, bottom: 5 }
