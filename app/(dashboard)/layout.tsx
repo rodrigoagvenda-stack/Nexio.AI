@@ -45,7 +45,7 @@ export default async function DashboardLayout({
   const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
     supabase
       .from('companies')
-      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, tokens_used, plan_monthly_limit')
+      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit')
       .eq('id', userData?.company_id || 0)
       .single(),
     supabase
@@ -81,7 +81,7 @@ export default async function DashboardLayout({
     LEGACY_NAME_MAP[rawPlanName.toLowerCase()] ??
     (rawPlanName || 'Zaapply');
   const trialEnabled = companyData?.trial_enabled ?? false;
-  const trialEndsAt = companyData?.trial_ends_at ?? null;
+  const trialEndsAt = companyData?.trial_ends_at ?? companyData?.subscription_expires_at ?? null;
   const isTrial = companyData?.plan_type === 'trial';
   const PLAN_TOKENS: Record<string, number> = {
     starter: 5_000_000, start: 5_000_000,
