@@ -2768,7 +2768,52 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     if (body.message?.fromMe) {
-      console.log(`[SDR:${companyId}] ignorado — fromMe=true`)
+      // Salva mensagem enviada pelo operador direto do WhatsApp na UI
+      const outPhone = normalizePhone(body.chat?.phone || '')
+      if (outPhone) {
+        const outMsg = body.message as any
+        const outMsgType = detectMessageType(body.message)
+        const outText = outMsg?.text || outMsg?.conversation || outMsg?.extendedTextMessage?.text || outMsg?.body || ''
+        const outMediaUrl: string | undefined = outMsg?.url || outMsg?.mediaUrl || outMsg?.media?.url || undefined
+        const dispText = outMsgType === 'audio' ? '🎵 Áudio'
+          : outMsgType === 'image' ? '📷 Imagem'
+          : outMsgType === 'video' ? '🎥 Vídeo'
+          : outMsgType === 'document' ? '📄 Documento'
+          : outText || ''
+        ;(async () => {
+          try {
+            const outSvc = createServiceClient()
+            const { data: convRows } = await outSvc
+              .from('conversas_do_whatsapp')
+              .select('id, id_do_lead')
+              .eq('company_id', companyId)
+              .in('numero_de_telefone', phoneVariants(outPhone))
+              .order('hora_da_ultima_mensagem', { ascending: false })
+              .limit(1)
+            const conv = convRows?.[0] ?? null
+            if (!conv?.id) return
+            await outSvc.from('mensagens_do_whatsapp').insert({
+              id_da_conversacao: conv.id,
+              id_do_lead: conv.id_do_lead ?? null,
+              company_id: companyId,
+              texto_da_mensagem: dispText,
+              tipo_de_mensagem: outMsgType === 'unknown' ? 'text' : outMsgType,
+              direcao: 'outbound',
+              sender_type: 'human',
+              status: 'delivered',
+              url_da_midia: outMediaUrl ?? null,
+              carimbo_de_data_e_hora: new Date().toISOString(),
+              whatsapp_message_id: body.message.id || null,
+            })
+            await outSvc.from('conversas_do_whatsapp')
+              .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: new Date().toISOString() })
+              .eq('id', conv.id)
+            console.log(`[SDR:${companyId}] fromMe salvo — outbound conv=${conv.id} tipo=${outMsgType}`)
+          } catch (e: any) {
+            console.error(`[SDR:${companyId}] fromMe save error:`, e?.message)
+          }
+        })()
+      }
       return false
     }
 
