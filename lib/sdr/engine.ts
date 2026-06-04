@@ -3012,6 +3012,43 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       }
     })()
 
+    // Download e upload de mídia inbound → salva URL pra preview no chat (fire-and-forget)
+    if (isMedia && messageId) {
+      ;(async () => {
+        try {
+          const uazapiMedia = createUazapiClient(
+            body.BaseUrl ?? 'https://nexioai.uazapi.com',
+            body.token ?? ''
+          )
+          const { base64Data, mimetype } = await uazapiMedia.downloadMedia(messageId)
+          const ext = mimetype?.split('/')?.[1]?.split(';')?.[0] ?? (
+            msgType === 'audio' ? 'ogg' :
+            msgType === 'image' ? 'jpg' :
+            msgType === 'video' ? 'mp4' : 'bin'
+          )
+          const filePath = `${companyId}/whatsapp/inbound/${messageId}.${ext}`
+          const buffer = Buffer.from(base64Data, 'base64')
+          const mediaStore = createServiceClient()
+          const { error: uploadErr } = await mediaStore.storage
+            .from('whatsapp-media')
+            .upload(filePath, buffer, { contentType: mimetype || 'application/octet-stream', upsert: true })
+          if (uploadErr) {
+            console.error(`[SDR:${companyId}] media upload error:`, uploadErr.message)
+            return
+          }
+          const { data: urlData } = mediaStore.storage.from('whatsapp-media').getPublicUrl(filePath)
+          if (!urlData?.publicUrl) return
+          await mediaStore.from('mensagens_do_whatsapp')
+            .update({ url_da_midia: urlData.publicUrl })
+            .eq('whatsapp_message_id', messageId)
+            .eq('company_id', companyId)
+          console.log(`[SDR:${companyId}] media inbound salva — ${msgType} → ${filePath}`)
+        } catch (e: any) {
+          console.error(`[SDR:${companyId}] media download/upload error:`, e?.message)
+        }
+      })()
+    }
+
     // Marca follow_logs como respondido + saas_trials.respondeu (fire-and-forget)
     ;(async () => {
       try {
