@@ -162,10 +162,10 @@ export async function sendMemberInviteEmail({
     to: [to],
     subject: `${name}, você foi convidado para ${companyName} no Zaapply`,
     html: zaapplyHtml({
-      heading: `Olá, ${name}!`,
-      body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Você foi convidado para fazer parte da equipe <strong style="color:#111111;">${companyName}</strong> como <strong style="color:#111111;">${roleLabel}</strong>.</p><p style="margin:0 0 28px;color:#444444;font-size:15px;line-height:1.7;">Clique no botão abaixo para criar sua senha e acessar o painel:</p>`,
+      heading: `Você foi convidado para o <span style="font-weight:800;border-bottom:3px solid #a6f821;padding-bottom:2px;">Zaapply.</span>`,
+      body: `Você foi convidado para fazer parte da equipe <strong style="font-weight:600;">${companyName}</strong> como <strong style="font-weight:600;">${roleLabel}</strong>.<br/><br/>Clique no botão abaixo para criar sua senha e acessar o painel:`,
       button: { text: 'Aceitar convite', url: inviteUrl },
-      footer: `Zaapply · zaapply.com.br · Este link expira em 24 horas.`,
+      warn: `Se você não esperava este convite, ignore este e-mail. Este link expira em <strong style="font-weight:600;">24 horas</strong>.`,
     }),
   })
 
@@ -188,12 +188,63 @@ function zaapplyHtml(opts: {
   body: string
   button?: { text: string; url: string }
   footer?: string
+  warn?: string
 }) {
-  const btn = opts.button
-    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;"><tr><td align="center"><a href="${opts.button.url}" style="display:inline-block;padding:14px 40px;background:#16a34a;color:#ffffff;text-decoration:none;border-radius:50px;font-weight:700;font-size:15px;letter-spacing:0.2px;">${opts.button.text}</a></td></tr></table>`
-    : ''
-  const footer = opts.footer ?? 'Zaapply · zaapply.com.br · Email automático, não responda.'
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;padding:0;background:#15803d;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:48px 20px;"><table cellpadding="0" cellspacing="0" style="width:100%;max-width:460px;"><tr><td align="center" style="padding-bottom:6px;"><table cellpadding="0" cellspacing="0"><tr><td valign="middle" style="padding-right:9px;">${_logoSvg(true)}</td><td valign="middle"><span style="font-family:Nunito,Poppins,'Helvetica Neue',Arial,sans-serif;font-weight:800;font-size:22px;color:#ffffff;letter-spacing:-0.01em;line-height:1;">zaapply</span></td></tr></table></td></tr><tr><td align="center" style="padding-bottom:22px;"><p style="margin:0;color:rgba(255,255,255,0.6);font-size:12px;font-weight:600;letter-spacing:0.5px;">Venda enquanto dorme.</p></td></tr><tr><td style="background:#ffffff;border-radius:20px;padding:40px 36px;"><h2 style="margin:0 0 16px;color:#111111;font-size:20px;font-weight:700;line-height:1.3;">${opts.heading}</h2>${opts.body}${btn}</td></tr><tr><td align="center" style="padding-top:20px;"><p style="margin:0;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.7;">${footer}</p></td></tr></table></td></tr></table></body></html>`
+  const btn = opts.button ? `
+    <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#07261c;margin:0 auto;">
+      <tr><td style="padding:0 7px 9px 0;">
+        <table cellpadding="0" cellspacing="0" border="0" role="presentation">
+          <tr><td style="background-color:#a6f821;">
+            <a href="${opts.button.url}" style="display:block;padding:16px 52px;font-family:'Montserrat',Arial,sans-serif;font-size:18px;font-weight:600;color:#1a1a1a;text-decoration:none;text-align:center;white-space:nowrap;letter-spacing:0.08em;text-transform:uppercase;">${opts.button.text}</a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>` : ''
+
+  const warnText = opts.warn ?? 'Se você não esperava este e-mail, ignore-o. Este link expira em <strong style="font-weight:600;">24 horas</strong>.'
+  const warn = `
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#a6f821;margin-top:32px;">
+      <tr><td style="padding:0 3px 3px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#dddedc;border-radius:10px;">
+          <tr><td style="padding:12px 18px;">
+            <p style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:14px;font-weight:400;color:#1a1a1a;line-height:1.55;">${warnText}</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>`
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');</style></head><body style="margin:0;padding:0;background-color:#ffffff;font-family:'Montserrat',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#ffffff;">
+  <tr><td align="center" style="padding:48px 16px;">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#07261c;">
+      <tr><td style="padding:0 15px 15px 0;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color:#ebebeb;background-image:url('https://app.zaapply.com.br/email-pattern.png');background-repeat:repeat;">
+          <tr><td align="center" style="padding:28px 48px 0;">
+            <img src="https://app.zaapply.com.br/logo-email.png" alt="Zaapply" width="180" style="display:block;" />
+          </td></tr>
+          <tr><td align="center" style="padding:36px 48px 0;">
+            <p style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:28px;font-weight:400;color:#1a1a1a;text-align:center;line-height:1.2;">
+              ${opts.heading}
+            </p>
+          </td></tr>
+          <tr><td align="center" style="padding:16px 64px 0;">
+            <div style="font-family:'Montserrat',Arial,sans-serif;font-size:16px;font-weight:400;color:#1a1a1a;text-align:center;line-height:1.65;">${opts.body}</div>
+          </td></tr>
+          <tr><td align="center" style="padding:36px 48px 0;">${btn}</td></tr>
+          <tr><td style="padding:32px 44px 36px;">${warn}</td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="600" cellpadding="0" cellspacing="0" border="0" role="presentation">
+      <tr><td align="center" style="padding:20px 16px 0;">
+        <p style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:12px;color:#999999;text-align:center;line-height:1.6;">
+          Zaapply &middot; <a href="https://app.zaapply.com.br/privacidade" style="color:#999999;text-decoration:underline;">Política de Privacidade</a> &middot; <a href="https://app.zaapply.com.br/ajuda" style="color:#999999;text-decoration:underline;">Central de Ajuda</a>
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`
 }
 
 function _tr(label: string, value: string, alt = false, highlight = false) {
