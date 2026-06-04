@@ -290,7 +290,7 @@ export const Sidebar = memo(function Sidebar({
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('direcao', 'inbound')
-      .gte('criado_em', since)
+      .gte('carimbo_de_data_e_hora', since)
       .then(({ count }) => setUnreadMsgCount(count ?? 0));
 
     // Realtime: incrementa e toca som a cada nova mensagem inbound
