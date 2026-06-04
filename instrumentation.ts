@@ -3,6 +3,10 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     import('openai').catch(() => {})
 
+    // SDR Job Worker — processa fila persistente de mensagens
+    const { startSdrWorker } = await import('@/lib/sdr/worker')
+    startSdrWorker()
+
     const { writeHeapSnapshot } = await import('v8')
     const THRESHOLD = 3000 * 1024 * 1024 // 3000 MB
     let saved = false

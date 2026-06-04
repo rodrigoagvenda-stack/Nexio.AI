@@ -3093,17 +3093,22 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       } catch { /* best-effort */ }
     })()
 
-    // Lock Redis (replica "Pausa Fila" do N8N): apenas o primeiro handler aguarda os 30s.
-    // Os demais retornam imediatamente — a mensagem já está na fila.
-    const redis = getRedis()
-    const { lock } = redisKeys(companyId, phone)
-    const acquired = await redis.set(lock, '1', 'EX', 35, 'NX')
-    if (!acquired) return true
-
-    // Aguarda 30s (nó "Espera" do N8N — batching de mensagens do lead)
-    await new Promise((r) => setTimeout(r, 30_000))
-    await redis.del(lock)
-    await processSdrMessage(companyId, phone)
+    // Persiste job no banco — worker processa após 30s de inatividade
+    // Garante que mensagem não seja perdida em caso de restart/deploy
+    const jobSupabase = createServiceClient()
+    await jobSupabase.from('sdr_jobs').upsert(
+      {
+        company_id: companyId,
+        phone,
+        status: 'PENDING',
+        last_message_at: new Date().toISOString(),
+        attempts: 0,
+      },
+      {
+        onConflict: 'company_id,phone',
+        ignoreDuplicates: false,
+      }
+    )
 
     return true
   } catch (err: any) {
