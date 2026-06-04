@@ -2988,7 +2988,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         const phoneVarsImm = phoneVariants(phone)
         const { data: convRows } = await imm
           .from('conversas_do_whatsapp')
-          .select('id, id_do_lead')
+          .select('id, id_do_lead, contagem_nao_lida')
           .eq('company_id', companyId)
           .in('numero_de_telefone', phoneVarsImm)
           .order('hora_da_ultima_mensagem', { ascending: false })
@@ -3085,7 +3085,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           console.log(`[SDR:${companyId}] pre-save OK — conv=${conv.id} tipo=${tipoPreSave} texto="${dispText.slice(0, 60)}"`)
         }
         await imm.from('conversas_do_whatsapp')
-          .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: new Date().toISOString() })
+          .update({
+            ultima_mensagem: dispText,
+            hora_da_ultima_mensagem: new Date().toISOString(),
+            contagem_nao_lida: ((conv as any).contagem_nao_lida ?? 0) + 1,
+          })
           .eq('id', conv.id)
       } catch (e: any) {
         console.error(`[SDR:${companyId}] pre-save exception:`, e?.message ?? e)

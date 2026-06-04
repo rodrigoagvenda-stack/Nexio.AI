@@ -57,18 +57,10 @@ interface SidebarProps {
 
 function playNotifSound() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    osc.type = 'sine';
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.35);
+    // Usa elemento de audio HTML — mais compatível que Web Audio API para autoplay
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbv4VCIyBbj8Lfw3UyHx1Xh7vbyW4rGhlQeLTVy2spGBhPdrLTyWkoFxdOda/RxmcnFhZNc6zPw2UmFRVMcqrNwGMlFBRLcafLvWElFBNJcKXJul8kExJIb6PIuF4jEhFHbqHGtVwjERBGbaHEslsjEA9FbJ/CsFoiDw5EbJ2/rFgiDg1Da5y9qFYhDQ1Ca5u7pFUhDA1BapqColQgCwxAapmZn1MgCgw/aZiXnFIgCgw+aJeWmVEfCQs9Z5aVllAfCQs8ZpWTk08eCgs7ZZSTkE4eCgs6ZJORE00dCQo5Y5OQSU0dCQo4YpKPS0wdCQo3YZGOSUscCAk2YJCMSEocCAk1X4+LSEoaCAg0Xo6KRkgZCAczXo2IRUcZBwYyXYyHQ0UYBQY=');
+    audio.volume = 0.4;
+    audio.play().catch(() => {});
   } catch {}
 }
 
@@ -281,33 +273,39 @@ export const Sidebar = memo(function Sidebar({
   useEffect(() => {
     if (!companyId) return;
     const supabase = createClient();
-    const lastSeen = localStorage.getItem('atendimento_last_seen');
-    const since = lastSeen ?? new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
-    // Conta mensagens não lidas desde a última visita
+    // Conta total de não lidas somando conversas_do_whatsapp.contagem_nao_lida
     supabase
-      .from('mensagens_do_whatsapp')
-      .select('id', { count: 'exact', head: true })
+      .from('conversas_do_whatsapp')
+      .select('contagem_nao_lida')
       .eq('company_id', companyId)
-      .eq('direcao', 'inbound')
-      .gte('carimbo_de_data_e_hora', since)
-      .then(({ count }) => setUnreadMsgCount(count ?? 0));
+      .gt('contagem_nao_lida', 0)
+      .then(({ data }) => {
+        const total = (data ?? []).reduce((s, c) => s + (c.contagem_nao_lida ?? 0), 0);
+        setUnreadMsgCount(total);
+      });
 
-    // Realtime: incrementa e toca som a cada nova mensagem inbound
+    // Realtime: escuta UPDATE em conversas_do_whatsapp (contagem_nao_lida muda)
     const channel = supabase
-      .channel(`sidebar_msgs_${companyId}`)
+      .channel(`sidebar_convs_${companyId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: 'UPDATE',
         schema: 'public',
-        table: 'mensagens_do_whatsapp',
+        table: 'conversas_do_whatsapp',
         filter: `company_id=eq.${companyId}`,
       }, (payload) => {
-        if ((payload.new as any)?.direcao !== 'inbound') return;
-        setUnreadMsgCount((c) => c + 1);
-        const now = Date.now();
-        if (now - lastSoundRef.current > 2000) {
-          lastSoundRef.current = now;
-          playNotifSound();
+        const prev = (payload.old as any)?.contagem_nao_lida ?? 0;
+        const next = (payload.new as any)?.contagem_nao_lida ?? 0;
+        if (next > prev) {
+          setUnreadMsgCount((c) => c + (next - prev));
+          const now = Date.now();
+          if (now - lastSoundRef.current > 2000) {
+            lastSoundRef.current = now;
+            playNotifSound();
+          }
+        } else if (next < prev) {
+          // Conversa foi lida — reduz contador
+          setUnreadMsgCount((c) => Math.max(0, c - (prev - next)));
         }
       })
       .subscribe();
@@ -315,13 +313,17 @@ export const Sidebar = memo(function Sidebar({
     return () => { supabase.removeChannel(channel); };
   }, [companyId]);
 
-  // Zera contador ao entrar em /atendimento
-  useEffect(() => {
-    if (pathname === '/atendimento' || pathname?.startsWith('/atendimento/')) {
-      setUnreadMsgCount(0);
-      localStorage.setItem('atendimento_last_seen', new Date().toISOString());
-    }
-  }, [pathname]);
+  // Zera contador ao clicar em Atendimento (não ao entrar pela rota)
+  const handleAtendimentoClick = () => {
+    setUnreadMsgCount(0);
+    // Zera contagem no banco para todas as conversas desta empresa
+    createClient()
+      .from('conversas_do_whatsapp')
+      .update({ contagem_nao_lida: 0 })
+      .eq('company_id', companyId ?? 0)
+      .gt('contagem_nao_lida', 0)
+      .then(() => {});
+  };
 
   useEffect(() => {
     const lastSeen = localStorage.getItem('zaapply_changelog_last_seen');
@@ -530,6 +532,7 @@ export const Sidebar = memo(function Sidebar({
                       href={link.href}
                       prefetch={true}
                       data-tour={TOUR_TARGETS[link.href]}
+                      onClick={link.href === '/atendimento' ? handleAtendimentoClick : undefined}
                       className={cn(
                         'relative w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
                         isActive
