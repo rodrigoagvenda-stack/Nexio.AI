@@ -35,6 +35,7 @@ interface Notification {
   message: string;
   created_at: string;
   read: boolean;
+  photo?: string | null;
 }
 
 export function SystemTopBar() {
@@ -78,10 +79,10 @@ export function SystemTopBar() {
           .limit(20),
         supabase
           .from('mensagens_do_whatsapp')
-          .select('id, texto_da_mensagem, criado_em')
+          .select('id, texto_da_mensagem, carimbo_de_data_e_hora, conversas_do_whatsapp(nome_do_contato, whatsapp_photo_url)')
           .eq('company_id', company.id)
           .eq('direcao', 'inbound')
-          .order('criado_em', { ascending: false })
+          .order('carimbo_de_data_e_hora', { ascending: false })
           .limit(15),
       ]);
 
@@ -97,10 +98,11 @@ export function SystemTopBar() {
       const msgNotifs: Notification[] = (msgs ?? []).map((msg: any) => ({
         id: `msg-${msg.id}`,
         type: 'message' as const,
-        title: 'Nova mensagem',
+        title: msg.conversas_do_whatsapp?.nome_do_contato || 'Nova mensagem',
         message: msg.texto_da_mensagem || '📎 Mídia',
-        created_at: msg.criado_em,
-        read: msgLastSeen ? new Date(msg.criado_em) <= new Date(msgLastSeen) : false,
+        created_at: msg.carimbo_de_data_e_hora,
+        photo: msg.conversas_do_whatsapp?.whatsapp_photo_url ?? null,
+        read: msgLastSeen ? new Date(msg.carimbo_de_data_e_hora) <= new Date(msgLastSeen) : false,
       }));
 
       setNotifications([...msgNotifs, ...sysNotifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
@@ -252,16 +254,18 @@ export function SystemTopBar() {
                       onClick={() => markAsRead(notif)}
                     >
                       {/* Avatar */}
-                      <div className={cn(
-                        'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5',
-                        notif.type === 'message'
-                          ? 'bg-primary/15 text-primary'
-                          : 'bg-muted text-muted-foreground'
-                      )}>
-                        {notif.type === 'message'
-                          ? notif.title.charAt(0).toUpperCase()
-                          : '⚙'}
-                      </div>
+                      {notif.type === 'message' ? (
+                        <Avatar className="flex-shrink-0 w-8 h-8 mt-0.5">
+                          <AvatarImage src={notif.photo ?? undefined} />
+                          <AvatarFallback className="bg-primary/15 text-primary text-[11px] font-bold">
+                            {notif.title.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5 bg-muted text-muted-foreground">
+                          ⚙
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
