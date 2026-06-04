@@ -57,10 +57,23 @@ interface SidebarProps {
 
 function playNotifSound() {
   try {
-    // Usa elemento de audio HTML — mais compatível que Web Audio API para autoplay
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbv4VCIyBbj8Lfw3UyHx1Xh7vbyW4rGhlQeLTVy2spGBhPdrLTyWkoFxdOda/RxmcnFhZNc6zPw2UmFRVMcqrNwGMlFBRLcafLvWElFBNJcKXJul8kExJIb6PIuF4jEhFHbqHGtVwjERBGbaHEslsjEA9FbJ/CsFoiDw5EbJ2/rFgiDg1Da5y9qFYhDQ1Ca5u7pFUhDA1BapqColQgCwxAapmZn1MgCgw/aZiXnFIgCgw+aJeWmVEfCQs9Z5aVllAfCQs8ZpWTk08eCgs7ZZSTkE4eCgs6ZJORE00dCQo5Y5OQSU0dCQo4YpKPS0wdCQo3YZGOSUscCAk2YJCMSEocCAk1X4+LSEoaCAg0Xo6KRkgZCAczXo2IRUcZBwYyXYyHQ0UYBQY=');
-    audio.volume = 0.4;
-    audio.play().catch(() => {});
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const playNote = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.28, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      osc.start(start);
+      osc.stop(start + duration);
+    };
+    // Dois tons ascendentes — estilo WhatsApp
+    playNote(830, ctx.currentTime, 0.18);
+    playNote(1046, ctx.currentTime + 0.12, 0.28);
   } catch {}
 }
 
