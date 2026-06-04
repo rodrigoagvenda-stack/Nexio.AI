@@ -1689,7 +1689,7 @@ export default function AtendimentoPage() {
               </CardHeader>
 
               {/* Mensagens */}
-              <CardContent className="flex-1 overflow-y-auto p-[20px] space-y-4 scrollbar-minimal chat-background">
+              <CardContent className="flex-1 overflow-y-auto px-[20px] pb-[20px] pt-[40px] space-y-4 scrollbar-minimal chat-background">
                 {messages.map((msg) => msg.tipo_de_mensagem === 'system' ? (
                   // ── Evento de sistema: chip centralizado bigtech ──
                   <div key={msg.id} className="flex items-center gap-3 py-0.5 select-none">
