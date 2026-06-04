@@ -25,7 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
-import { getPayment } from '@/lib/asaas/client'
+import { getPayment, getSubscription } from '@/lib/asaas/client'
 import { syslog } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
@@ -168,10 +168,24 @@ async function handleSubscriptionPayment(
   const dueDate = payment.dueDate ? new Date(payment.dueDate + 'T00:00:00Z') : new Date()
   const newExpiry = nextMonthFromDate(dueDate)
 
+  // Descobre o plan_type pelo valor da assinatura no Asaas
+  let planType = 'starter'
+  try {
+    const sub = await getSubscription(payment.subscription)
+    const value = sub.value ?? 0
+    if (value >= 900) planType = 'scale'
+    else if (value >= 600) planType = 'pro'
+    else planType = 'starter'
+  } catch (e: any) {
+    console.warn('[billing-webhook] falha ao buscar subscription para plan_type:', e?.message)
+  }
+
   await supabase.from('companies').update({
     is_active: true,
     agente_ativo: true,
+    plan_type: planType,
     subscription_expires_at: newExpiry.toISOString(),
+    trial_enabled: false,
     token_alert_80_sent_at: null,
     token_alert_95_sent_at: null,
   }).eq('id', company.id)

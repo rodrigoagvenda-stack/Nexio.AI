@@ -4,6 +4,7 @@ import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { ZaapliLoader } from '@/components/brand/ZaapliLoader';
 import { DashboardTour } from '@/components/onboarding/DashboardTour';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
+import { TrialGuard } from '@/components/layout/TrialGuard';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -103,6 +104,7 @@ export default async function DashboardLayout({
       planType={companyData?.plan_type ?? undefined}
     >
     <div className="flex h-screen bg-background">
+      <TrialGuard isTrial={isTrial} trialEndsAt={trialEndsAt} />
       <ZaapliLoader minDuration={900} />
       <Sidebar
         isAdmin={isAdmin}
