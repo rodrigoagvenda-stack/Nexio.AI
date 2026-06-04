@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { error: userErr } = await service.from('users').upsert({
       auth_user_id: user.id,
+      user_id: user.id,
       email: userEmail || user.email,
       name: userName?.trim() || (userEmail || user.email || '').split('@')[0],
       company_id: company.id,
