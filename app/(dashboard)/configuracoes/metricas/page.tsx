@@ -426,8 +426,11 @@ function RankingSequencias({ data }: { data: MetricasData['ranking_sequencias'] 
 
 // ─── Últimas execuções ────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 25;
+
 function UltimasExecucoes({ data }: { data: MetricasData['ultimas_execucoes'] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   if (!data.length) {
     return (
@@ -437,67 +440,100 @@ function UltimasExecucoes({ data }: { data: MetricasData['ultimas_execucoes'] })
     );
   }
 
+  const totalPages = Math.ceil(data.length / PAGE_SIZE);
+  const pageData = data.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   return (
-    <div className="divide-y divide-border/50">
-      {data.map((ex) => {
-        const key = `${ex.tipo}-${ex.id}`;
-        const isOpen = expanded === key;
-        return (
-          <button
-            key={key}
-            className="w-full text-left py-3 px-1 flex items-start gap-3 hover:bg-muted/30 rounded-xl transition-colors group"
-            onClick={() => setExpanded(isOpen ? null : key)}
-          >
-            {/* Avatar */}
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-semibold text-sm">
-              {initial(ex.lead_name)}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0 space-y-0.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm text-foreground">
-                  {ex.lead_name}
-                </span>
-                <span
-                  className={cn(
-                    'text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0',
-                    tipoBadgeClass(ex.tipo),
-                  )}
-                >
-                  {ex.label}
-                </span>
+    <div className="space-y-0">
+      <div className="divide-y divide-border/50">
+        {pageData.map((ex) => {
+          const key = `${ex.tipo}-${ex.id}`;
+          const isOpen = expanded === key;
+          return (
+            <button
+              key={key}
+              className="w-full text-left py-3 px-1 flex items-start gap-3 hover:bg-muted/30 rounded-xl transition-colors group"
+              onClick={() => setExpanded(isOpen ? null : key)}
+            >
+              {/* Avatar */}
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 text-primary font-semibold text-sm">
+                {initial(ex.lead_name)}
               </div>
-              <p className={cn('text-xs text-muted-foreground truncate', isOpen && 'whitespace-normal line-clamp-none')}>
-                {ex.mensagem}
-              </p>
-              {isOpen && ex.resposta && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-2.5 py-1.5 mt-1.5">
-                  <span className="font-semibold">Resposta: </span>{ex.resposta}
-                </p>
-              )}
-            </div>
 
-            {/* Right side */}
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <span className="text-[10px] text-muted-foreground">
-                {fmtRelTime(ex.enviado_em)}
-              </span>
-              {ex.respondeu ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              ) : (
-                <XCircle className="h-4 w-4 text-muted-foreground/25" />
-              )}
-              <ChevronRight
-                className={cn(
-                  'h-3 w-3 text-muted-foreground/40 transition-transform',
-                  isOpen && 'rotate-90',
+              {/* Content */}
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm text-foreground">
+                    {ex.lead_name}
+                  </span>
+                  <span
+                    className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0',
+                      tipoBadgeClass(ex.tipo),
+                    )}
+                  >
+                    {ex.label}
+                  </span>
+                </div>
+                <p className={cn('text-xs text-muted-foreground truncate', isOpen && 'whitespace-normal line-clamp-none')}>
+                  {ex.mensagem}
+                </p>
+                {isOpen && ex.respondeu && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg px-2.5 py-1.5 mt-1.5">
+                    <span className="font-semibold">Resposta: </span>
+                    {ex.resposta ?? '(mídia ou interação de botão)'}
+                  </p>
                 )}
-              />
-            </div>
-          </button>
-        );
-      })}
+              </div>
+
+              {/* Right side */}
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <span className="text-[10px] text-muted-foreground">
+                  {fmtRelTime(ex.enviado_em)}
+                </span>
+                {ex.respondeu ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-muted-foreground/25" />
+                )}
+                <ChevronRight
+                  className={cn(
+                    'h-3 w-3 text-muted-foreground/40 transition-transform',
+                    isOpen && 'rotate-90',
+                  )}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-4 border-t border-border/50 mt-2">
+          <span className="text-xs text-muted-foreground">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, data.length)} de {data.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => { setPage((p) => Math.max(0, p - 1)); setExpanded(null); }}
+              disabled={page === 0}
+              className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Anterior
+            </button>
+            <span className="px-2 text-xs text-muted-foreground tabular-nums">
+              {page + 1}/{totalPages}
+            </span>
+            <button
+              onClick={() => { setPage((p) => Math.min(totalPages - 1, p + 1)); setExpanded(null); }}
+              disabled={page === totalPages - 1}
+              className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Próximo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

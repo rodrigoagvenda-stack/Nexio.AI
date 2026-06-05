@@ -177,12 +177,46 @@ export async function GET(request: NextRequest) {
       if (seqId && seqMap[seqId]) seqMap[seqId].responderam++
     }
 
+    // ── Inbound messages cross-reference (bypass follow_logs.respondeu flag) ─
+    const logsLeadIds = [...new Set((logs ?? []).filter((l: any) => l.lead_id).map((l: any) => l.lead_id as number))]
+    const { data: inboundMsgs } = logsLeadIds.length > 0
+      ? await svc.from('mensagens_do_whatsapp')
+          .select('id_do_lead, texto_da_mensagem')
+          .eq('company_id', companyId)
+          .eq('direcao', 'inbound')
+          .in('id_do_lead', logsLeadIds)
+          .order('carimbo_de_data_e_hora', { ascending: false })
+          .limit(5000)
+      : { data: [] as any[] }
+
+    const respondedLeadIds = new Set<number>()
+    const inboundTextMap: Record<number, string | null> = {}
+    for (const msg of inboundMsgs ?? []) {
+      respondedLeadIds.add(msg.id_do_lead)
+      if (!(msg.id_do_lead in inboundTextMap)) {
+        inboundTextMap[msg.id_do_lead] = msg.texto_da_mensagem ?? null
+      }
+    }
+
+    // Override responderam aggregations using real inbound messages
+    totalResponderam = respondedLeadIds.size
+    for (const key in dayMap) dayMap[key].responderam = 0
+    for (const key in porTipoMap) porTipoMap[key].responderam = 0
+    for (const key in seqMap) seqMap[key].responderam = 0
+
     // ── Heatmap (disparos com resposta por hora × dia-da-semana) ────────────
     const heatRaw: Record<number, number[]> = {}
     for (let h = 0; h < 24; h++) heatRaw[h] = [0, 0, 0, 0, 0, 0, 0]
     for (const l of logs ?? []) {
-      if (!l.respondeu) continue
-      const d = new Date(l.enviado_em)
+      const lid = (l as any).lead_id as number | undefined
+      if (!lid || !respondedLeadIds.has(lid)) continue
+      const day = fmtDay((l as any).enviado_em)
+      const tipoSeq = leadTipoMap[lid] ?? ((l as any).tipo ?? 'desconhecido')
+      if (dayMap[day]) dayMap[day].responderam++
+      if (porTipoMap[tipoSeq]) porTipoMap[tipoSeq].responderam++
+      const seqId = leadSeqIdMap[lid]
+      if (seqId && seqMap[seqId]) seqMap[seqId].responderam++
+      const d = new Date((l as any).enviado_em)
       heatRaw[d.getHours()][d.getDay()]++
     }
     const heatmap = Object.entries(heatRaw).map(([hora, days]) => ({
@@ -190,13 +224,13 @@ export async function GET(request: NextRequest) {
       qua: days[3], qui: days[4], sex: days[5], sab: days[6],
     }))
 
-    // ── Cold leads (3+ mensagens, 0 respostas) ────────────────────────────────
+    // ── Cold leads (3+ mensagens, 0 respostas reais) ──────────────────────────
     const coldLeadIds = Object.entries(leadLogMap)
-      .filter(([_, v]) => v.total >= 3 && v.responderam === 0)
+      .filter(([id, v]) => v.total >= 3 && !respondedLeadIds.has(parseInt(id)))
       .map(([id]) => parseInt(id)).slice(0, 30)
     const { data: coldLeadsRaw } = coldLeadIds.length > 0
       ? await svc.from('leads').select('id, contact_name, whatsapp, status').in('id', coldLeadIds)
-      : { data: [] }
+      : { data: [] as any[] }
     const coldLeads = (coldLeadsRaw ?? []).map((l: any) => ({
       id: l.id, nome: l.contact_name ?? '—', whatsapp: l.whatsapp ?? '', status: l.status,
       total_msgs: leadLogMap[l.id]?.total ?? 0,
@@ -230,7 +264,7 @@ export async function GET(request: NextRequest) {
     const trialsExpirando = trialLista.filter((t) => (t.trial_days - t.dia_no_trial) <= 7 && t.dia_no_trial < t.trial_days)
 
     // ── Funnel ────────────────────────────────────────────────────────────────
-    const uniqueLeadsEngajados = new Set((logs ?? []).filter((l: any) => l.respondeu && l.lead_id).map((l: any) => l.lead_id)).size
+    const uniqueLeadsEngajados = respondedLeadIds.size
     const funil = [
       { etapa: 'Total de Leads', count: totalLeads ?? 0 },
       { etapa: 'Engajados', count: uniqueLeadsEngajados },
@@ -256,7 +290,7 @@ export async function GET(request: NextRequest) {
     })).sort((a, b) => b.taxa_resposta - a.taxa_resposta)
 
     // ── Últimas execuções (follow_logs + trial_execs) ─────────────────────────
-    const followExecs = (logs ?? []).slice(0, 80).map((l: any) => ({
+    const followExecs = (logs ?? []).slice(0, 150).map((l: any) => ({
       id: l.id, tipo: l.tipo, label: TIPO_LABELS[l.tipo] ?? l.tipo,
       lead_name: l.leads?.contact_name ?? '—', lead_status: l.leads?.status ?? '—',
       lead_whatsapp: l.leads?.whatsapp ?? '',
@@ -265,17 +299,11 @@ export async function GET(request: NextRequest) {
       resposta: null as string | null,
     }))
 
-    const respondedIds = followExecs.filter((e) => e.respondeu && e.lead_name !== '—').map((e: any) => (logs ?? []).find((l: any) => l.id === e.id)?.lead_id).filter(Boolean)
-    if (respondedIds.length > 0) {
-      const { data: respostas } = await svc.from('mensagens_do_whatsapp')
-        .select('id_do_lead, texto_da_mensagem, carimbo_de_data_e_hora')
-        .eq('company_id', companyId).eq('direcao', 'inbound')
-        .in('id_do_lead', respondedIds).order('carimbo_de_data_e_hora', { ascending: false })
-      const rMap: Record<number, string> = {}
-      for (const r of respostas ?? []) { if (!rMap[r.id_do_lead]) rMap[r.id_do_lead] = r.texto_da_mensagem ?? '' }
-      for (const ex of followExecs) {
-        const lid = (logs ?? []).find((l: any) => l.id === ex.id)?.lead_id
-        if (lid && rMap[lid]) ex.resposta = rMap[lid]
+    for (const ex of followExecs) {
+      const lid = (logs ?? []).find((l: any) => l.id === ex.id)?.lead_id
+      if (lid && respondedLeadIds.has(lid)) {
+        ex.respondeu = true
+        ex.resposta = inboundTextMap[lid] ?? null
       }
     }
 
@@ -292,7 +320,7 @@ export async function GET(request: NextRequest) {
 
     const ultimasExecucoes = [...followExecs, ...trialExecsFormatted]
       .sort((a, b) => new Date(b.enviado_em).getTime() - new Date(a.enviado_em).getTime())
-      .slice(0, 100)
+      .slice(0, 200)
 
     return NextResponse.json({
       periodo,
