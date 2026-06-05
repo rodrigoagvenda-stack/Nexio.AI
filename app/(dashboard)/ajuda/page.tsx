@@ -1871,7 +1871,7 @@ export default function AjudaPage() {
                       <FormatText text={item.answer} />
                     </div>
                     {item.demo && (
-                      <div className="mt-6">
+                      <div className="mt-6 overflow-x-auto">
                         {item.demo}
                       </div>
                     )}

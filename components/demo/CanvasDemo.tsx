@@ -1,21 +1,30 @@
 'use client'
+
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import {
-  LayoutDashboard, MessageSquare, Users, Bot, Mail,
-  Workflow, Settings, HelpCircle, Plus, Save, Trash2,
-  Play, Zap, Clock, AlertTriangle, GitBranch, Webhook,
-  MessageCircle, Timer, CheckCircle2, ChevronRight, X,
-  MousePointerClick, Move,
+  TrendingUp, PieChart, MessageCircle, UserCog,
+  Sparkles, LifeBuoy, Settings, Megaphone,
+  Zap, MessageSquare, Clock, Plus, Save, CheckCircle2, X,
+  PenLine, Play, LayoutTemplate, History,
 } from 'lucide-react'
 
-// ─── PortalTooltip ────────────────────────────────────────────────────────────
-type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
+// ── Real Zaapply SVG icon ────────────────────────────────────────────────────
+function ZaapliIcon({ size = 26 }: { size?: number }) {
+  const w = size * (208 / 235)
+  return (
+    <svg width={w} height={size} viewBox="0 0 208 235" fill="none">
+      <path d="M207.65 103.853C207.65 104.953 207.65 106.063 207.59 107.143V107.213C207.562 120.28 205.556 133.267 201.64 145.733C194.543 167.855 181.706 187.699 164.44 203.243C146.982 218.999 125.668 229.859 102.66 234.723V207.653C82.1745 207.423 62.2151 201.137 45.2943 189.587C28.3736 178.037 15.2477 161.74 7.56905 142.747C-0.109597 123.753 -1.99782 102.913 2.14207 82.8485C6.28195 62.7843 16.2649 44.3933 30.8343 29.9904C45.4037 15.5875 63.9083 5.81663 84.0187 1.90763C104.129 -2.00137 124.946 0.126266 143.85 8.02272C162.754 15.9192 178.9 29.2315 190.254 46.2839C201.609 63.3363 207.665 83.3666 207.66 103.853H207.65Z" fill="#369E47"/>
+      <path d="M82.5917 152.783C77.2584 152.783 73.3551 151.533 70.8817 149.033C69.6593 147.837 68.6957 146.402 68.0506 144.818C67.4056 143.233 67.0928 141.534 67.1317 139.823C67.2062 136.582 67.9519 133.392 69.3217 130.453C70.8962 126.943 73.1222 123.764 75.8817 121.083L110.712 84.6934H76.5917C75.2672 84.6934 73.9556 84.4324 72.732 83.9252C71.5084 83.418 70.3967 82.6746 69.4605 81.7375C68.5244 80.8005 67.7821 79.6881 67.2761 78.464C66.7702 77.2398 66.5104 75.928 66.5117 74.6034C66.5117 71.7285 67.6538 68.9713 69.6867 66.9384C71.7196 64.9055 74.4768 63.7634 77.3517 63.7634H125.082C130.915 63.7634 135.132 65.0101 137.732 67.5034C138.968 68.6341 139.953 70.011 140.625 71.5456C141.297 73.0801 141.64 74.7383 141.632 76.4134C141.632 81.7468 139.395 86.9001 134.922 91.8734L97.9217 131.873H129.922C132.799 131.873 135.559 133.017 137.594 135.051C139.629 137.086 140.772 139.846 140.772 142.723C140.769 144.054 140.503 145.371 139.989 146.598C139.475 147.825 138.723 148.938 137.777 149.874C136.831 150.809 135.708 151.548 134.475 152.047C133.242 152.546 131.922 152.797 130.592 152.783H82.5917Z" fill="white"/>
+    </svg>
+  )
+}
 
+// ── PortalTooltip ────────────────────────────────────────────────────────────
+type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
 function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
-  anchorRef: React.RefObject<HTMLElement | null>
-  label: string; side: TooltipSide; minW?: number
+  anchorRef: React.RefObject<HTMLElement | null>; label: string; side: TooltipSide; minW?: number
 }) {
   const [mounted, setMounted] = useState(false)
   const [style, setStyle]     = useState<React.CSSProperties | null>(null)
@@ -23,15 +32,14 @@ function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
   useLayoutEffect(() => {
     const el = anchorRef.current
     if (!el) return
-    const r   = el.getBoundingClientRect()
-    const gap = 12
+    const r = el.getBoundingClientRect(), gap = 12
     let s: React.CSSProperties
     if      (side === 'top')    s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
     else if (side === 'bottom') s = { top: r.bottom + gap,                       left: r.left + r.width / 2, transform: 'translateX(-50%)' }
     else if (side === 'right')  s = { top: r.top + r.height / 2,                left: r.right + gap,         transform: 'translateY(-50%)' }
     else                        s = { top: r.top + r.height / 2,                right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
     setStyle(s)
-  }, [label, side])
+  }, [label, side]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!mounted || !style) return null
   return createPortal(
     <div className="fixed z-[9999] pointer-events-none" style={{ ...style, minWidth: minW }}>
@@ -45,10 +53,9 @@ function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
   )
 }
 
-// ─── Hotspot ──────────────────────────────────────────────────────────────────
+// ── Hotspot ──────────────────────────────────────────────────────────────────
 function Hotspot({ children, label, onClick, side = 'top', minW = 240 }: {
-  children: React.ReactNode; label: string; onClick: () => void
-  side?: TooltipSide; minW?: number
+  children: React.ReactNode; label: string; onClick: () => void; side?: TooltipSide; minW?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
   return (
@@ -60,381 +67,379 @@ function Hotspot({ children, label, onClick, side = 'top', minW = 240 }: {
   )
 }
 
-// ─── ZaapliIcon ───────────────────────────────────────────────────────────────
-function ZaapliIcon({ size = 24 }: { size?: number }) {
+// ── FakeSidebar (exact copy from ProductDemo) ────────────────────────────────
+const NAV_SECTIONS = [
+  { label: 'Principal',   items: [{ id: 'dashboard',    label: 'Dashboard',    Icon: TrendingUp  }] },
+  { label: 'Ferramentas', items: [
+    { id: 'crm',           label: 'CRM',          Icon: PieChart      },
+    { id: 'atendimento',   label: 'Atendimento',  Icon: MessageCircle },
+    { id: 'automacoes',    label: 'Automações',   Icon: Megaphone     },
+  ]},
+  { label: 'Gestão',      items: [{ id: 'membros', label: 'Membros', Icon: UserCog }] },
+  { label: 'Sistema',     items: [
+    { id: 'novidades',     label: 'Novidades',    Icon: Sparkles  },
+    { id: 'ajuda',         label: 'Ajuda',        Icon: LifeBuoy  },
+    { id: 'configuracoes', label: 'Configuração', Icon: Settings  },
+  ]},
+] as const
+
+function FakeSidebar({ active }: { active: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M50 5 L95 85 L5 85 Z" fill="#369E47" />
-      <path d="M35 60 L50 33 L65 60 Z" fill="white" />
+    <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border h-full">
+      <div className="flex items-center h-14 border-b border-border/50 px-4 gap-2 flex-shrink-0">
+        <ZaapliIcon size={26} />
+        <span className="font-extrabold tracking-tight text-[#0d0d0d] dark:text-white leading-none select-none"
+          style={{ fontSize: 18, fontFamily: "'Nunito','Poppins',sans-serif", letterSpacing: '-0.01em' }}>
+          zaapply
+        </span>
+      </div>
+      <div className="flex-1 px-3 pt-3 space-y-3">
+        {NAV_SECTIONS.map(({ label, items }) => (
+          <div key={label}>
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">{label}</p>
+            <div className="space-y-0.5">
+              {items.map(({ id, label: lbl, Icon }) => (
+                <button key={id}
+                  className={cn('relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100 text-left',
+                    active === id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50')}>
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm flex-1 text-left">{lbl}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="p-3 border-t border-border/50 flex-shrink-0">
+        <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-accent/30">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+            <span className="text-white text-xs font-bold">R</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">Minha Empresa</p>
+            <p className="text-xs text-muted-foreground truncate">contato@empresa.com</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+// ── Canvas node (matches AutomationCanvas.tsx NodeShell + NodeHeader) ─────────
+type AccentKey = 'primary' | 'emerald' | 'amber' | 'violet'
+
+const ICON_CLS: Record<AccentKey, string> = {
+  primary: 'text-[hsl(var(--primary))]',
+  emerald: 'text-emerald-500',
+  amber:   'text-amber-500',
+  violet:  'text-violet-500',
+}
+const RING_CLS: Record<AccentKey, string> = {
+  primary: 'ring-[hsl(var(--primary)/0.4)] border-[hsl(var(--primary)/0.25)]',
+  emerald: 'ring-emerald-500/35 border-emerald-500/20',
+  amber:   'ring-amber-500/35 border-amber-500/20',
+  violet:  'ring-violet-500/35 border-violet-500/20',
+}
+
+function FakeNode({ accent = 'primary', icon: Icon, label, meta, children, selected, noLeftHandle }: {
+  accent?: AccentKey
+  icon: React.ElementType
+  label: string
+  meta?: string
+  children?: React.ReactNode
+  selected?: boolean
+  noLeftHandle?: boolean
+}) {
+  return (
+    <div
+      style={{ width: 240 }}
+      className={cn(
+        'relative bg-card rounded-xl border transition-all duration-100',
+        'shadow-[0_1px_3px_rgba(0,0,0,0.07),0_4px_14px_rgba(0,0,0,0.05)]',
+        selected
+          ? cn('ring-2', RING_CLS[accent], 'shadow-[0_4px_24px_rgba(0,0,0,0.1)]')
+          : 'border-border/25 hover:border-border/40'
+      )}
+    >
+      {!noLeftHandle && (
+        <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-card border border-border/60 rounded-full z-10" />
+      )}
+      <div className="absolute -right-[5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-card border border-border/60 rounded-full z-10" />
+      <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-5 h-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
+              <Icon className={cn('w-3 h-3', ICON_CLS[accent])} />
+            </div>
+            <span className="text-[11px] font-semibold text-foreground/50 tracking-wide uppercase leading-none truncate">{label}</span>
+          </div>
+          {meta && (
+            <span className="text-[10px] text-muted-foreground/40 font-mono bg-muted/40 px-1.5 py-0.5 rounded shrink-0">{meta}</span>
+          )}
+        </div>
+        <div className="mt-2 flex flex-col gap-1.5">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── SVG edge between nodes ────────────────────────────────────────────────────
+function Edge({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: number }) {
+  const cx = x1 + (x2 - x1) * 0.5
+  const d  = `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`
+  return (
+    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 0 }}>
+      <defs>
+        <marker id="ar-cd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L7,3 z" fill="hsl(var(--muted-foreground)/0.4)" />
+        </marker>
+      </defs>
+      <path d={d} fill="none" stroke="hsl(var(--muted-foreground)/0.3)" strokeWidth="1.5" markerEnd="url(#ar-cd)" />
     </svg>
   )
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-const NAV = [
-  { id: 'dashboard',   label: 'Dashboard',   icon: LayoutDashboard },
-  { id: 'atendimento', label: 'Atendimento', icon: MessageSquare },
-  { id: 'crm',         label: 'CRM',         icon: Users },
-  { id: 'sdr',         label: 'Agente SDR',  icon: Bot },
-  { id: 'followup',    label: 'Follow-up',   icon: Mail },
-  { id: 'canvas',      label: 'Canvas',      icon: Workflow },
-]
-
-function FakeSidebar({ active }: { active: string }) {
-  return (
-    <div className="w-16 flex flex-col items-center py-4 gap-1 border-r border-border/50 bg-card flex-shrink-0">
-      <div className="mb-3"><ZaapliIcon size={28} /></div>
-      {NAV.map(({ id, label, icon: Icon }) => (
-        <div
-          key={id}
-          title={label}
-          className={cn(
-            'w-10 h-10 rounded-xl flex items-center justify-center transition-colors',
-            active === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/60'
-          )}
-        >
-          <Icon className="w-5 h-5" />
-        </div>
-      ))}
-      <div className="mt-auto flex flex-col items-center gap-2">
-        <Settings className="w-4 h-4 text-muted-foreground" />
-        <HelpCircle className="w-4 h-4 text-muted-foreground" />
-      </div>
-    </div>
-  )
-}
-
-// ─── Node type definitions ────────────────────────────────────────────────────
-const NODE_TYPES = [
-  { kind: 'trigger',   label: 'Trigger',    icon: Zap,            bg: 'bg-emerald-500/10', border: 'border-emerald-500/40', text: 'text-emerald-600' },
-  { kind: 'mensagem',  label: 'Mensagem',   icon: MessageCircle,  bg: 'bg-primary/10',     border: 'border-primary/40',     text: 'text-primary' },
-  { kind: 'aguardar',  label: 'Aguardar',   icon: Timer,          bg: 'bg-blue-500/10',    border: 'border-blue-500/40',    text: 'text-blue-600' },
-  { kind: 'condicao',  label: 'Condição',   icon: GitBranch,      bg: 'bg-yellow-500/10',  border: 'border-yellow-500/30',  text: 'text-yellow-600' },
-  { kind: 'acao',      label: 'Ação',       icon: Play,           bg: 'bg-violet-500/10',  border: 'border-violet-500/40',  text: 'text-violet-600' },
-  { kind: 'webhook',   label: 'Webhook',    icon: Webhook,        bg: 'bg-sky-500/10',     border: 'border-sky-500/40',     text: 'text-sky-600' },
-  { kind: 'espera',    label: 'Espera resp.', icon: Clock,        bg: 'bg-amber-500/10',   border: 'border-amber-500/40',   text: 'text-amber-600' },
-  { kind: 'fim',       label: 'Fim',        icon: CheckCircle2,   bg: 'bg-muted',          border: 'border-border',         text: 'text-muted-foreground' },
-]
-
-// ─── Canvas node component ────────────────────────────────────────────────────
-function FlowNode({
-  x, y, kind, label, subtitle, selected = false, highlighted = false, noPosition = false,
-}: {
-  x: number; y: number; kind: string; label: string; subtitle?: string
-  selected?: boolean; highlighted?: boolean; noPosition?: boolean
+// ── Canvas top bar ────────────────────────────────────────────────────────────
+function CanvasTopBar({ saved, saveRef, onSave, highlightSave }: {
+  saved?: boolean
+  saveRef?: React.RefObject<HTMLButtonElement>
+  onSave?: () => void
+  highlightSave?: boolean
 }) {
-  const meta = NODE_TYPES.find(t => t.kind === kind) || NODE_TYPES[1]
-  const Icon = meta.icon
-
   return (
-    <div
-      className={cn(
-        noPosition ? 'relative' : 'absolute',
-        'rounded-xl border bg-card/90 backdrop-blur-sm overflow-hidden transition-all shadow-sm',
-        meta.border,
-        selected && 'ring-2 ring-primary/50 shadow-primary/10 shadow-lg',
-        highlighted && 'ring-2 ring-primary/70 shadow-primary/20 shadow-lg'
-      )}
-      style={noPosition ? { width: 172 } : { left: x, top: y, width: 172 }}
-    >
-      {/* Header */}
-      <div className={cn('flex items-center gap-2 px-2.5 py-2 border-b border-border/30', meta.bg)}>
-        <div className={cn('w-6 h-6 rounded-lg flex items-center justify-center border flex-shrink-0', meta.bg, meta.border)}>
-          <Icon className={cn('w-3.5 h-3.5', meta.text)} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold text-muted-foreground/60 uppercase leading-none">{kind}</p>
-          <p className="text-[11px] font-semibold text-foreground/90 leading-snug truncate mt-0.5">{label}</p>
-        </div>
-      </div>
-      {/* Body */}
-      {subtitle && (
-        <div className="px-2.5 py-2">
-          <p className="text-[10px] text-muted-foreground leading-snug">{subtitle}</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── SVG edge path ────────────────────────────────────────────────────────────
-function Edge({ x1, y1, x2, y2, dashed }: { x1: number; y1: number; x2: number; y2: number; dashed?: boolean }) {
-  const cx = (x2 - x1) / 2
-  const d  = `M${x1},${y1} C${x1 + cx},${y1} ${x2 - cx},${y2} ${x2},${y2}`
-  return (
-    <path
-      d={d}
-      stroke="#444"
-      strokeWidth={1.5}
-      fill="none"
-      strokeDasharray={dashed ? '5 3' : undefined}
-      markerEnd="url(#arrow-canvas)"
-    />
-  )
-}
-
-// ─── Node picker panel ────────────────────────────────────────────────────────
-function NodePicker({ onSelect }: { onSelect: () => void }) {
-  return (
-    <div className="absolute right-0 top-0 bottom-0 w-56 border-l border-border/60 bg-card z-20 flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-        <p className="text-xs font-semibold">Adicionar Node</p>
-        <X className="w-4 h-4 text-muted-foreground cursor-pointer" />
-      </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-        {NODE_TYPES.map((t) => {
-          const Icon = t.icon
-          const isMensagem = t.kind === 'mensagem'
-          return isMensagem ? (
-            <Hotspot
-              key={t.kind}
-              label="Clique em Mensagem para adicionar um node que envia texto ao lead"
-              onClick={onSelect}
-              side="left"
-              minW={280}
-            >
-              <div className={cn(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors w-full',
-                'border-primary/40 bg-primary/5'
-              )}>
-                <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center border flex-shrink-0', t.bg, t.border)}>
-                  <Icon className={cn('w-3.5 h-3.5', t.text)} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold">{t.label}</p>
-                  <p className="text-[10px] text-muted-foreground">Enviar mensagem de texto</p>
-                </div>
-              </div>
-            </Hotspot>
-          ) : (
-            <div
-              key={t.kind}
-              className={cn(
-                'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors',
-                'border-border/60 hover:bg-muted/40'
-              )}
-            >
-              <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center border flex-shrink-0', t.bg, t.border)}>
-                <Icon className={cn('w-3.5 h-3.5', t.text)} />
-              </div>
-              <div>
-                <p className="text-xs font-semibold">{t.label}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ─── Node config panel ────────────────────────────────────────────────────────
-function NodeConfigPanel({ onSave }: { onSave: () => void }) {
-  return (
-    <div className="absolute right-0 top-0 bottom-0 w-64 border-l border-border/60 bg-card z-20 flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-        <p className="text-xs font-semibold">Configurar Node</p>
-        <X className="w-4 h-4 text-muted-foreground cursor-pointer" />
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="space-y-2">
-          <label className="text-[11px] font-medium text-muted-foreground">Tipo de mensagem</label>
-          <div className="flex gap-2">
-            <div className="border border-primary/40 bg-primary/5 text-primary rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer">Texto</div>
-            <div className="border border-border/60 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground cursor-pointer">Imagem</div>
-            <div className="border border-border/60 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground cursor-pointer">Botões</div>
+    <div className="flex items-center justify-between px-4 bg-card border-b border-border flex-shrink-0 gap-4" style={{ height: 48 }}>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center bg-muted rounded-lg p-0.5">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-background text-foreground shadow-sm">
+            <PenLine className="w-3 h-3" />Editor
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground">
+            <Play className="w-3 h-3" />Execuções
           </div>
         </div>
-
-        <div className="space-y-2">
-          <label className="text-[11px] font-medium text-muted-foreground">Mensagem</label>
-          <div className="border border-border/60 rounded-xl p-3 bg-muted/20 text-xs min-h-[90px] text-foreground/80 leading-relaxed">
-            Oi {'{{nome}}'}! 😊 Segue o resumo da nossa reunião de hoje e os próximos passos que combinamos. Qualquer dúvida é só falar!
-            <span className="inline-block w-0.5 h-3.5 bg-primary align-middle ml-0.5 animate-pulse" />
-          </div>
-          <p className="text-[10px] text-muted-foreground">Use {'{{nome}}'}, {'{{empresa}}'} para personalizar</p>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[11px] font-medium text-muted-foreground">Agente SDR após envio</label>
-          <div className="flex gap-2">
-            <div className="border border-border/60 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground cursor-pointer">Manter</div>
-            <div className="border border-emerald-500/40 bg-emerald-500/5 text-emerald-600 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer">Ativar</div>
-            <div className="border border-border/60 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground cursor-pointer">Pausar</div>
-          </div>
+        <div className="w-px h-5 bg-border" />
+        <div className="flex items-center gap-1">
+          {['Follow-up', 'Anti-Noshow', 'Remarketing', 'Trial SaaS'].map((tab, i) => (
+            <button key={tab}
+              className={cn('px-3 py-1 rounded-lg text-sm font-medium transition-colors',
+                i === 0 ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+              {tab}
+            </button>
+          ))}
         </div>
       </div>
-      <div className="px-4 py-3 border-t border-border/50 flex justify-end">
-        <Hotspot
-          label="Clique em Salvar para registrar a configuração deste node"
-          onClick={onSave}
-          side="top"
-          minW={280}
-        >
-          <button className="text-xs font-medium bg-primary text-primary-foreground px-4 py-2 rounded-xl">
-            Salvar Node
+      <div className="flex items-center gap-2">
+        <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border border-border bg-muted text-muted-foreground">
+          <LayoutTemplate className="w-3.5 h-3.5" />Templates
+        </button>
+        <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border border-border bg-muted text-muted-foreground">
+          <History className="w-3.5 h-3.5" />Versões
+        </button>
+        <div className="w-px h-5 bg-border" />
+        <button className="flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium border bg-primary/10 border-primary/30 text-primary">
+          <span className="w-2 h-2 rounded-full bg-primary" />Ativo
+        </button>
+        <div className="relative">
+          {highlightSave && (
+            <div className="absolute -inset-1 rounded-lg ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] animate-pulse pointer-events-none" />
+          )}
+          <button ref={saveRef} onClick={onSave}
+            className={cn('relative flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all',
+              saved ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-foreground hover:bg-accent')}>
+            {saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+            {saved ? 'Salvo!' : 'Salvar'}
           </button>
-        </Hotspot>
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Canvas screen ────────────────────────────────────────────────────────────
-function CanvasScreen({
-  scene, onNext,
-}: {
-  scene: Scene; onNext?: () => void
+// ── Config panel (matches ConfigPanel in AutomationCanvas) ────────────────────
+function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
+  msgText: string; msgRef?: React.RefObject<HTMLDivElement>; onMsgClick?: () => void
 }) {
-  const showNewNode   = scene === 'node_placed' || scene === 'node_config' || scene === 'connected' || scene === 'done'
-  const showPicker    = scene === 'picker_open'
-  const showConfig    = scene === 'node_config'
-  const showConnected = scene === 'connected' || scene === 'done'
-  const showSaveOk    = scene === 'done'
-
   return (
-    <div className="absolute inset-0 flex flex-col bg-[#0d0d0d]">
-      {/* Canvas toolbar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-card/80 backdrop-blur-sm z-10 flex-shrink-0">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Workflow className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Pós-Reunião — 3 dias</span>
-          <span className="text-[11px] text-muted-foreground border border-amber-500/30 text-amber-600 bg-amber-500/10 rounded-full px-2 py-0.5">Follow-up</span>
+    <div className="w-72 bg-card border-l border-border h-full flex flex-col flex-shrink-0">
+      <div className="flex items-center justify-between px-4 h-12 border-b border-border flex-shrink-0">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Configurar</span>
+        <button className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-1">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Nome do node</label>
+          <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-muted-foreground/50 flex items-center">
+            Ex: Sequência 1
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Add node button */}
-          {scene === 'canvas_view' && onNext ? (
-            <Hotspot
-              label="Clique aqui para abrir o painel e adicionar um novo node ao fluxo"
-              onClick={onNext}
-              side="bottom"
-              minW={300}
-            >
-              <button className="flex items-center gap-1.5 text-xs font-medium border border-border/60 rounded-xl px-3 py-2 text-muted-foreground hover:bg-muted/40">
-                <Plus className="w-3.5 h-3.5" /> Adicionar Node
-              </button>
-            </Hotspot>
-          ) : (
-            <button className="flex items-center gap-1.5 text-xs font-medium border border-border/60 rounded-xl px-3 py-2 text-muted-foreground">
-              <Plus className="w-3.5 h-3.5" /> Adicionar Node
-            </button>
-          )}
-
-          {/* Save button */}
-          {scene === 'connected' && onNext ? (
-            <Hotspot
-              label="Fluxo montado! Clique em Salvar para ativar e salvar no banco de dados"
-              onClick={onNext}
-              side="bottom"
-              minW={320}
-            >
-              <button className="flex items-center gap-1.5 text-xs font-semibold bg-primary text-primary-foreground rounded-xl px-3 py-2">
-                <Save className="w-3.5 h-3.5" /> Salvar Fluxo
-              </button>
-            </Hotspot>
-          ) : (
-            <button className={cn(
-              'flex items-center gap-1.5 text-xs font-semibold rounded-xl px-3 py-2',
-              showSaveOk ? 'bg-emerald-600 text-white' : 'bg-primary text-primary-foreground'
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Quando disparar</label>
+          <div className="flex rounded-xl border border-border overflow-hidden">
+            <div className="flex-1 py-1.5 text-xs font-medium bg-primary text-primary-foreground text-center">Dias</div>
+            <div className="flex-1 py-1.5 text-xs font-medium text-muted-foreground text-center">Horas</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Dia</label>
+            <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center font-mono">1</div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Horário</label>
+            <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center gap-0.5 font-mono">
+              09<span className="text-muted-foreground font-bold">:</span>00
+            </div>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Mensagem</label>
+          <div ref={msgRef}
+            onClick={onMsgClick}
+            className={cn(
+              'w-full min-h-[80px] px-3 py-2.5 rounded-xl border border-border bg-muted text-sm leading-relaxed transition-all',
+              msgText ? 'text-foreground' : 'text-muted-foreground/50 italic',
+              onMsgClick && 'ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] cursor-pointer animate-pulse'
             )}>
-              {showSaveOk ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-              {showSaveOk ? 'Salvo!' : 'Salvar Fluxo'}
-            </button>
-          )}
+            {msgText || 'Digite a mensagem que será enviada ao lead…'}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Controle da IA</label>
+          <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center justify-between">
+            <span>Sem mudança</span><span className="text-muted-foreground/40 text-xs">▾</span>
+          </div>
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* Canvas area */}
-      <div className="flex-1 relative overflow-hidden">
-        {/* Dot background */}
-        <div
-          className="absolute inset-0"
+// ── Scenes ────────────────────────────────────────────────────────────────────
+type Scene = 'canvas_view' | 'node_open' | 'typing' | 'done'
+const SCENES: Scene[] = ['canvas_view', 'node_open', 'typing', 'done']
+const META: Record<Scene, string> = {
+  canvas_view: 'Clique em um nó para ver e editar sua configuração',
+  node_open:   'Configure o texto da mensagem que será enviada ao lead',
+  typing:      'Mensagem configurada — clique em Salvar para salvar',
+  done:        '✓ Sequência salva! O nó exibe uma prévia da mensagem',
+}
+
+const MSG = 'Olá {nome}! Vi que você se cadastrou em nossa plataforma. Posso te ajudar com alguma dúvida?'
+
+function CanvasScreen({ scene, advance }: { scene: Scene; advance: () => void }) {
+  const saveRef = useRef<HTMLButtonElement>(null)
+  const msgRef  = useRef<HTMLDivElement>(null)
+
+  const hasConfig = scene !== 'canvas_view'
+
+  // Node positions depending on whether config panel is visible
+  const trigX = hasConfig ? 22 : 60,  trigY = hasConfig ? 180 : 190
+  const msgX  = hasConfig ? 285 : 370, msgY = hasConfig ? 180 : 190
+  const waitX = 670, waitY = 190
+
+  // Handle centers (approximate node height: Trigger≈88, Message≈110, Wait≈88)
+  const trigRX = trigX + 245, trigCY = trigY + 44
+  const msgLX  = msgX  - 5,   msgCY  = msgY  + 55
+  const msgRX  = msgX  + 245
+  const waitLX = waitX - 5,   waitCY = waitY + 44
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Top bar */}
+      <CanvasTopBar
+        saved={scene === 'done'}
+        saveRef={saveRef}
+        onSave={scene === 'typing' ? advance : undefined}
+        highlightSave={scene === 'typing'}
+      />
+      {scene === 'typing' && (
+        <PortalTooltip anchorRef={saveRef} label="Clique em Salvar para salvar a sequência" side="top" minW={280} />
+      )}
+
+      <div className="flex min-h-0 flex-1">
+        {/* Canvas */}
+        <div className="relative overflow-hidden bg-background dark:bg-[#0e0e0e] flex-1"
           style={{
-            backgroundImage: 'radial-gradient(circle, #2a2a2a 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }}
-        />
+            backgroundImage: 'radial-gradient(circle, hsl(var(--muted-foreground)/0.18) 1px, transparent 1px)',
+            backgroundSize: '20px 20px',
+          }}>
 
-        {/* SVG edges */}
-        <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
-          <defs>
-            <marker id="arrow-canvas" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L8,3 Z" fill="#555" />
-            </marker>
-          </defs>
-          {/* Trigger → Mensagem D0 */}
-          <Edge x1={212} y1={240} x2={240} y2={240} />
-          {/* Mensagem D0 → Aguardar */}
-          <Edge x1={412} y1={240} x2={440} y2={240} />
-          {/* Aguardar → new node (appears in connected scene) */}
-          {showConnected && <Edge x1={612} y1={240} x2={640} y2={240} />}
-        </svg>
+          {/* Edges */}
+          <Edge x1={trigRX} y1={trigCY} x2={msgLX} y2={msgCY} />
+          {!hasConfig && <Edge x1={msgRX} y1={msgCY} x2={waitLX} y2={waitCY} />}
 
-        {/* Existing nodes */}
-        <FlowNode x={40}  y={210} kind="trigger"  label="Lead entra"     subtitle="Reunião agendada" />
-        <FlowNode x={240} y={210} kind="mensagem"  label="Pós-reunião D0" subtitle="Resumo + próximos passos" />
-        <FlowNode x={440} y={210} kind="aguardar"  label="Aguardar 1 dia" />
+          {/* Trigger node */}
+          <div style={{ position: 'absolute', left: trigX, top: trigY, zIndex: 1 }}>
+            <FakeNode accent="primary" icon={Zap} label="Gatilho" noLeftHandle>
+              <p className="text-sm font-semibold text-foreground/90 leading-snug">Novo lead adicionado</p>
+              <p className="text-xs text-muted-foreground/70">Início da sequência</p>
+            </FakeNode>
+          </div>
 
-        {/* New node — appears when placed */}
-        {showNewNode && (
-          <div style={{ position: 'absolute', left: 640, top: 210 }}>
-            {scene === 'node_placed' && onNext ? (
-              <Hotspot
-                label="Node adicionado! Clique nele para configurar a mensagem que será enviada"
-                onClick={onNext}
-                side="bottom"
-                minW={320}
-              >
-                <FlowNode x={0} y={0} kind="mensagem" label="Nova mensagem" highlighted noPosition />
+          {/* Message node — hotspot only in canvas_view */}
+          <div style={{ position: 'absolute', left: msgX, top: msgY, zIndex: scene === 'node_open' || scene === 'typing' ? 2 : 1 }}>
+            {scene === 'canvas_view' ? (
+              <Hotspot label="Clique no nó Mensagem para configurá-lo" onClick={advance} side="top" minW={310}>
+                <FakeNode accent="emerald" icon={MessageSquare} label="Mensagem" meta="D1 · 09:00">
+                  <p className="text-xs text-muted-foreground/50 italic">Sem mensagem configurada</p>
+                </FakeNode>
               </Hotspot>
             ) : (
-              <FlowNode
-                x={0} y={0}
-                kind="mensagem"
-                label={showConnected ? 'Follow D+2' : 'Nova mensagem'}
-                subtitle={showConnected ? 'Ainda conseguimos conversar?' : undefined}
-                selected={scene === 'node_config'}
-              />
+              <FakeNode accent="emerald" icon={MessageSquare} label="Mensagem" meta="D1 · 09:00"
+                selected={scene === 'node_open' || scene === 'typing'}>
+                {scene === 'typing' || scene === 'done'
+                  ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{MSG}</p>
+                  : <p className="text-xs text-muted-foreground/50 italic">Sem mensagem configurada</p>
+                }
+              </FakeNode>
+            )}
+          </div>
+
+          {/* Wait node (only when config closed) */}
+          {!hasConfig && (
+            <div style={{ position: 'absolute', left: waitX, top: waitY, zIndex: 1 }}>
+              <FakeNode accent="amber" icon={Clock} label="Aguardar">
+                <p className="text-sm font-semibold text-foreground/90">3 dias</p>
+                <p className="text-xs text-muted-foreground/60">antes da próxima mensagem</p>
+              </FakeNode>
+            </div>
+          )}
+
+          {/* Add node button */}
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+            <button className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-md text-muted-foreground">
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Config panel */}
+        {hasConfig && (
+          <div className="relative">
+            {scene === 'node_open' ? (
+              <>
+                <FakeConfigPanel msgText="" msgRef={msgRef} onMsgClick={advance} />
+                <PortalTooltip anchorRef={msgRef} label="Clique aqui para digitar a mensagem do lead" side="left" minW={290} />
+              </>
+            ) : (
+              <FakeConfigPanel msgText={MSG} msgRef={msgRef} />
             )}
           </div>
         )}
       </div>
-
-      {/* Node picker overlay */}
-      {showPicker && <NodePicker onSelect={onNext!} />}
-
-      {/* Node config overlay */}
-      {showConfig && <NodeConfigPanel onSave={onNext!} />}
     </div>
   )
 }
 
-// ─── Scene types ──────────────────────────────────────────────────────────────
-type Scene = 'canvas_view' | 'picker_open' | 'node_placed' | 'node_config' | 'connected' | 'done'
-const SCENES: Scene[] = ['canvas_view', 'picker_open', 'node_placed', 'node_config', 'connected', 'done']
-
-const SCENE_META: Record<Scene, { label: string; url: string }> = {
-  canvas_view: { label: 'Este é o Canvas — clique em "Adicionar Node" para expandir o fluxo', url: 'automacoes/follow-up/canvas' },
-  picker_open: { label: 'Painel aberto — clique em "Mensagem" para adicionar um node de texto ao fluxo', url: 'automacoes/follow-up/canvas' },
-  node_placed: { label: 'Node colocado no canvas — clique nele para configurar a mensagem', url: 'automacoes/follow-up/canvas' },
-  node_config: { label: 'Painel de configuração — escreva a mensagem e clique em Salvar Node', url: 'automacoes/follow-up/canvas' },
-  connected:   { label: 'Node configurado e conectado ao fluxo — clique em Salvar Fluxo para finalizar', url: 'automacoes/follow-up/canvas' },
-  done:        { label: 'Fluxo salvo! As mensagens serão enviadas automaticamente nos intervalos definidos', url: 'automacoes/follow-up/canvas' },
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-export function CanvasDemo({ className }: { className?: string }) {
+// ── Main export ───────────────────────────────────────────────────────────────
+export function CanvasDemo() {
   const [scene, setScene] = useState<Scene>('canvas_view')
   const advance = () => setScene(s => SCENES[Math.min(SCENES.indexOf(s) + 1, SCENES.length - 1)])
-  const sceneIdx = SCENES.indexOf(scene)
-  const meta = SCENE_META[scene]
+  const idx = SCENES.indexOf(scene)
 
   return (
-    <div
-      className={cn('rounded-2xl border border-border shadow-xl bg-background overflow-hidden', className)}
-      style={{ minWidth: 1080 }}
-    >
-      {/* URL bar */}
+    <div className="rounded-2xl border border-border shadow-xl bg-background" style={{ minWidth: 1080 }}>
+      {/* Browser bar */}
       <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 rounded-t-2xl">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-red-400/60" />
@@ -442,42 +447,36 @@ export function CanvasDemo({ className }: { className?: string }) {
           <div className="w-3 h-3 rounded-full bg-emerald-400/60" />
         </div>
         <div className="flex-1 bg-background/80 border border-border/40 rounded-md px-3 py-1 text-[11px] text-muted-foreground font-mono">
-          app.zaapply.com.br/{meta.url}
+          app.zaapply.com.br/automacoes
         </div>
       </div>
 
       {/* App shell */}
-      <div className="flex" style={{ height: 580 }}>
-        <FakeSidebar active="canvas" />
-        <div className="flex-1 min-w-0 relative overflow-hidden">
-          <div key={scene} className="absolute inset-0 animate-in fade-in duration-200">
-            <CanvasScreen scene={scene} onNext={scene !== 'done' ? advance : undefined} />
+      <div className="flex" style={{ height: 572 }}>
+        <FakeSidebar active="automacoes" />
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <div key={scene} className="h-full animate-in fade-in duration-150">
+            <CanvasScreen scene={scene} advance={advance} />
           </div>
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress */}
       <div className="border-t border-border bg-muted/20 px-5 py-3 flex items-center gap-4 rounded-b-2xl">
-        <div className="flex gap-1.5 items-center">
+        <div className="flex gap-1.5">
           {SCENES.filter(s => s !== 'done').map((s, i) => (
-            <div
-              key={s}
-              className={cn(
-                'rounded-full transition-all duration-300',
-                s === scene        ? 'w-5 h-1.5 bg-primary'
-                  : i < sceneIdx  ? 'w-1.5 h-1.5 bg-primary/50'
-                                  : 'w-1.5 h-1.5 bg-muted-foreground/20'
-              )}
-            />
+            <div key={s} className={cn('rounded-full transition-all duration-300',
+              s === scene       ? 'w-5 h-1.5 bg-primary'
+                : i < idx      ? 'w-1.5 h-1.5 bg-primary/50'
+                               : 'w-1.5 h-1.5 bg-muted-foreground/20'
+            )} />
           ))}
         </div>
-        <p className="text-[12px] text-muted-foreground flex-1">{meta.label}</p>
+        <p className="text-[12px] text-muted-foreground flex-1">{META[scene]}</p>
         {scene === 'done' && (
-          <button
-            onClick={() => setScene('canvas_view')}
-            className="text-[11px] text-muted-foreground hover:text-foreground border border-border/60 rounded-lg px-3 py-1 transition-colors"
-          >
-            Reiniciar
+          <button onClick={() => setScene('canvas_view')}
+            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+            Recomeçar
           </button>
         )}
       </div>
