@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import {
   TrendingUp, PieChart, MessageCircle, UserCog,
@@ -57,57 +58,69 @@ function FakeQR({ size = 200 }: { size?: number }) {
   )
 }
 
-// ── Sentry-style Hotspot ──────────────────────────────────────────────────────
+// ── Portal tooltip — renders into document.body, position:fixed, never clipped ─
+type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
+
+function PortalTooltip({
+  anchorRef, label, side, minW = 240,
+}: {
+  anchorRef: React.RefObject<HTMLElement | null>
+  label: string
+  side: TooltipSide
+  minW?: number
+}) {
+  const [style, setStyle] = useState<React.CSSProperties | null>(null)
+
+  useLayoutEffect(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const gap = 12
+    let s: React.CSSProperties
+    if (side === 'top')    s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'bottom') s = { top: r.bottom + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'right')  s = { top: r.top + r.height / 2, left: r.right + gap, transform: 'translateY(-50%)' }
+    else                        s = { top: r.top + r.height / 2, right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
+    setStyle(s)
+  })
+
+  if (!style) return null
+
+  return createPortal(
+    <div className="fixed z-[9999] pointer-events-none" style={{ ...style, minWidth: minW }}>
+      <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
+        {label}
+      </div>
+      {side === 'top'    && <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[7px] border-r-[7px] border-t-[8px] border-l-transparent border-r-transparent border-t-[#1c1c1e]" />}
+      {side === 'bottom' && <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[7px] border-r-[7px] border-b-[8px] border-l-transparent border-r-transparent border-b-[#1c1c1e]" />}
+      {side === 'right'  && <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[7px] border-b-[7px] border-r-[8px] border-t-transparent border-b-transparent border-r-[#1c1c1e]" />}
+      {side === 'left'   && <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[7px] border-b-[7px] border-l-[8px] border-t-transparent border-b-transparent border-l-[#1c1c1e]" />}
+    </div>,
+    document.body
+  )
+}
+
+// ── Hotspot wrapper — glow ring + portal tooltip ───────────────────────────────
 function Hotspot({
   children, label, onClick, side = 'top', minW = 240,
 }: {
   children: React.ReactNode
   label: string
   onClick: () => void
-  side?: 'top' | 'right' | 'bottom' | 'left'
+  side?: TooltipSide
   minW?: number
 }) {
+  const ref = useRef<HTMLDivElement>(null)
   return (
-    <div className="relative inline-block cursor-pointer" onClick={onClick}>
-      {/* Glow ring */}
+    <div ref={ref} className="relative inline-block cursor-pointer" onClick={onClick}>
       <div className="absolute -inset-1.5 rounded-lg ring-2 ring-primary shadow-[0_0_12px_2px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
-
-      {/* Tooltip — top */}
-      {side === 'top' && (
-        <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style={{ minWidth: minW }}>
-          <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-            {label}
-          </div>
-          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[7px] border-r-[7px] border-t-[8px] border-l-transparent border-r-transparent border-t-[#1c1c1e]" />
-        </div>
-      )}
-
-      {/* Tooltip — bottom */}
-      {side === 'bottom' && (
-        <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style={{ minWidth: minW }}>
-          <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-            {label}
-          </div>
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[7px] border-r-[7px] border-b-[8px] border-l-transparent border-r-transparent border-b-[#1c1c1e]" />
-        </div>
-      )}
-
-      {/* Tooltip — right */}
-      {side === 'right' && (
-        <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none" style={{ minWidth: minW }}>
-          <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-            {label}
-          </div>
-          <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[7px] border-b-[7px] border-r-[8px] border-t-transparent border-b-transparent border-r-[#1c1c1e]" />
-        </div>
-      )}
-
+      <PortalTooltip anchorRef={ref} label={label} side={side} minW={minW} />
       {children}
     </div>
   )
 }
 
-// ── Main sidebar (exact replica from Sidebar.tsx) ─────────────────────────────
+// ── Main sidebar ──────────────────────────────────────────────────────────────
 const NAV_SECTIONS = [
   { label: 'Principal',    items: [{ id: 'dashboard', label: 'Dashboard',   Icon: TrendingUp }] },
   { label: 'Ferramentas',  items: [
@@ -128,6 +141,8 @@ function FakeSidebar({ active, navHotspot, onNav }: {
   navHotspot: string | null
   onNav: (id: string) => void
 }) {
+  const hotspotBtnRef = useRef<HTMLButtonElement>(null)
+
   return (
     <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border h-full">
       {/* Logo */}
@@ -139,30 +154,24 @@ function FakeSidebar({ active, navHotspot, onNav }: {
         </span>
       </div>
       {/* Nav */}
-      <div className="flex-1 px-3 pt-3 space-y-3 overflow-visible">
+      <div className="flex-1 px-3 pt-3 space-y-3">
         {NAV_SECTIONS.map(({ label, items }) => (
           <div key={label}>
             <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">{label}</p>
             <div className="space-y-0.5">
               {items.map(({ id, label: lbl, Icon }) => {
-                const isActive   = active === id
-                const isHotspot  = navHotspot === id
+                const isActive  = active === id
+                const isHotspot = navHotspot === id
                 return (
                   <div key={id} className="relative">
                     {isHotspot && (
                       <div className="absolute inset-0 rounded-lg ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
                     )}
-                    {isHotspot && (
-                      <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none" style={{ minWidth: 260 }}>
-                        <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-                          Agora configure o Agente SDR — clique em Automações
-                        </div>
-                        <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[7px] border-b-[7px] border-r-[8px] border-t-transparent border-b-transparent border-r-[#1c1c1e]" />
-                      </div>
-                    )}
-                    <button onClick={() => isHotspot && onNav(id)}
+                    <button
+                      ref={isHotspot ? hotspotBtnRef : null}
+                      onClick={() => isHotspot && onNav(id)}
                       className={cn(
-                        'relative w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100 text-left',
+                        'relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100 text-left',
                         isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                         isHotspot && 'cursor-pointer'
                       )}>
@@ -176,6 +185,15 @@ function FakeSidebar({ active, navHotspot, onNav }: {
           </div>
         ))}
       </div>
+      {/* Portal tooltip for nav hotspot */}
+      {navHotspot && (
+        <PortalTooltip
+          anchorRef={hotspotBtnRef}
+          label="Agora configure o Agente SDR — clique em Automações"
+          side="right"
+          minW={260}
+        />
+      )}
       {/* Footer */}
       <div className="p-3 border-t border-border/50 flex-shrink-0">
         <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-accent/30">
@@ -192,7 +210,7 @@ function FakeSidebar({ active, navHotspot, onNav }: {
   )
 }
 
-// ── Atendimento: WhatsApp QR screen (exact replica) ───────────────────────────
+// ── Atendimento: WhatsApp QR screen ──────────────────────────────────────────
 type QRState = 'idle' | 'generating' | 'qr_shown' | 'scanning' | 'connected'
 
 function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
@@ -220,9 +238,9 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
   }
 
   return (
-    <div className="h-full w-full flex items-center justify-center bg-[#f0f2f5] dark:bg-background overflow-auto p-4">
+    <div className="h-full w-full flex items-center justify-center bg-[#f0f2f5] dark:bg-background p-4">
       <div className="w-full max-w-2xl">
-        <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border">
           <div className="flex">
             {/* Left — instructions */}
             <div className="flex-1 p-8 flex flex-col gap-6">
@@ -250,7 +268,7 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
                   <Hotspot
                     label="Clique em Gerar novo QR Code para iniciar a conexão"
                     onClick={onGerarQR}
-                    side="top"
+                    side="right"
                     minW={300}
                   >
                     <button className="text-sm text-primary underline underline-offset-4 hover:opacity-70 transition-opacity text-left">
@@ -258,7 +276,7 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
                     </button>
                   </Hotspot>
                 )}
-                {(qrState !== 'idle') && (
+                {qrState !== 'idle' && (
                   <button disabled className="text-sm text-primary underline underline-offset-4 opacity-40 text-left">
                     {qrState === 'generating' ? 'Gerando QR Code…' : 'Gerar novo QR Code'}
                   </button>
@@ -267,7 +285,7 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
             </div>
 
             {/* Right — QR area */}
-            <div className="flex items-center justify-center p-8 bg-muted/30 border-l border-border min-h-[300px] min-w-[260px]">
+            <div className="flex items-center justify-center p-8 bg-muted/30 border-l border-border rounded-r-2xl min-h-[300px] min-w-[260px]">
               {qrState === 'idle' && (
                 <div className="w-[200px] h-[200px] bg-muted rounded-xl" />
               )}
@@ -337,25 +355,11 @@ type SdrHotspot =
   | 'switch_ativo'
   | null
 
-function SdrTabButton({ id, label, Icon, active, hotspot, onClick }: {
-  id: string; label: string; Icon: React.FC<{className?:string}>
-  active: boolean; hotspot: boolean; onClick: () => void
-}) {
-  return (
-    <div className="relative">
-      {hotspot && (
-        <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.25)] pointer-events-none z-10 animate-pulse" />
-      )}
-      <button onClick={onClick}
-        className={cn(
-          'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
-          active ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-        )}>
-        <Icon className={cn('w-4 h-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
-        {label}
-      </button>
-    </div>
-  )
+const TAB_TOOLTIP: Record<string, string> = {
+  identidade:   'Configure a persona do agente — nome, tom de voz e produto',
+  conhecimento: 'Adicione a base de conhecimento e de objeções',
+  integracoes:  'Conecte o Google Calendar para agendar reuniões',
+  geral:        'Volte ao Geral para ativar o agente SDR',
 }
 
 function FakeInput({ label, value, placeholder }: { label: string; value?: string; placeholder?: string }) {
@@ -379,6 +383,12 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
   hotspot: SdrHotspot
   onHotspot: () => void
 }) {
+  const tabHotspotRef = useRef<HTMLButtonElement>(null)
+  const switchRef     = useRef<HTMLDivElement>(null)
+  const tipoRef       = useRef<HTMLDivElement>(null)
+
+  const activeTabHotspot = hotspot?.startsWith('tab_') ? hotspot.replace('tab_', '') : null
+
   return (
     <div className="h-full w-full overflow-auto">
       <div className="max-w-5xl mx-auto p-6 pb-8">
@@ -404,35 +414,38 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
             <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-primary bg-primary/5 hover:bg-primary/10 mb-2 border border-primary/20 text-left">
               <Sparkles className="w-3.5 h-3.5 shrink-0" /> Config. Rápida
             </button>
-            {SDR_TABS.map(({ id, label, Icon }) => (
-              <div key={id} className="relative">
-                {hotspot === `tab_${id}` && (
-                  <>
+            {SDR_TABS.map(({ id, label, Icon }) => {
+              const isTabHotspot = hotspot === `tab_${id}`
+              return (
+                <div key={id} className="relative">
+                  {isTabHotspot && (
                     <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.25)] pointer-events-none z-10 animate-pulse" />
-                    <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none" style={{ minWidth: 260 }}>
-                      <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-                        {id === 'identidade'   && 'Configure a persona do agente — nome, tom de voz e produto'}
-                        {id === 'conhecimento' && 'Adicione a base de conhecimento e de objeções'}
-                        {id === 'integracoes'  && 'Conecte o Google Calendar para agendar reuniões'}
-                        {id === 'geral'        && 'Volte ao Geral para ativar o agente SDR'}
-                      </div>
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[7px] border-b-[7px] border-r-[8px] border-t-transparent border-b-transparent border-r-[#1c1c1e]" />
-                    </div>
-                  </>
-                )}
-                <button
-                  onClick={() => hotspot === `tab_${id}` ? onHotspot() : undefined}
-                  className={cn(
-                    'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
-                    activeTab === id ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                    hotspot === `tab_${id}` && 'cursor-pointer'
-                  )}>
-                  <Icon className={cn('w-4 h-4 shrink-0', activeTab === id ? 'text-primary' : 'text-muted-foreground')} />
-                  {label}
-                </button>
-              </div>
-            ))}
+                  )}
+                  <button
+                    ref={isTabHotspot ? tabHotspotRef : null}
+                    onClick={() => isTabHotspot ? onHotspot() : undefined}
+                    className={cn(
+                      'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
+                      activeTab === id ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                      isTabHotspot && 'cursor-pointer'
+                    )}>
+                    <Icon className={cn('w-4 h-4 shrink-0', activeTab === id ? 'text-primary' : 'text-muted-foreground')} />
+                    {label}
+                  </button>
+                </div>
+              )
+            })}
           </aside>
+
+          {/* Portal tooltip for active tab hotspot */}
+          {activeTabHotspot && (
+            <PortalTooltip
+              anchorRef={tabHotspotRef}
+              label={TAB_TOOLTIP[activeTabHotspot] ?? ''}
+              side="right"
+              minW={260}
+            />
+          )}
 
           {/* Tab content */}
           <div className="flex-1 min-w-0">
@@ -443,17 +456,10 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                 {/* Agente ativo */}
                 <div className="relative">
                   {hotspot === 'switch_ativo' && (
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+12px)] z-[200] pointer-events-none" style={{ minWidth: 280 }}>
-                      <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-                        Tudo configurado! Ative o Agente SDR para começar a responder leads automaticamente
-                      </div>
-                      <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-[7px] border-b-[7px] border-r-[8px] border-t-transparent border-b-transparent border-r-[#1c1c1e]" />
-                    </div>
-                  )}
-                  {hotspot === 'switch_ativo' && (
                     <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_12px_3px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
                   )}
                   <div
+                    ref={hotspot === 'switch_ativo' ? switchRef : null}
                     onClick={() => hotspot === 'switch_ativo' ? onHotspot() : undefined}
                     className={cn(
                       'flex items-center justify-between gap-4 p-4 rounded-xl border transition-colors',
@@ -473,6 +479,14 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                       <div className={cn('absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200', agenteAtivo ? 'translate-x-5' : 'translate-x-0.5')} />
                     </div>
                   </div>
+                  {hotspot === 'switch_ativo' && (
+                    <PortalTooltip
+                      anchorRef={switchRef}
+                      label="Tudo configurado! Ative o Agente SDR para começar a responder leads automaticamente"
+                      side="top"
+                      minW={320}
+                    />
+                  )}
                 </div>
 
                 {/* Tipo de agente */}
@@ -480,25 +494,18 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                   <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de agente</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { value: 'atendimento_venda',              label: 'Atendimento + Venda',  desc: 'Responde dúvidas e conduz para a venda', Icon: MessageSquare },
-                      { value: 'atendimento_venda_agendamento',  label: '+ Agendamento',        desc: 'Inclui agendamento via Google Calendar', Icon: Calendar },
+                      { value: 'atendimento_venda',             label: 'Atendimento + Venda', desc: 'Responde dúvidas e conduz para a venda',   Icon: MessageSquare },
+                      { value: 'atendimento_venda_agendamento', label: '+ Agendamento',       desc: 'Inclui agendamento via Google Calendar',    Icon: Calendar },
                     ].map(({ value, label, desc, Icon: TIcon }) => {
-                      const sel = selectedTipo ? value === 'atendimento_venda_agendamento' : value === 'atendimento_venda'
-                      const isHotspot = hotspot === 'tipo_agendamento' && value === 'atendimento_venda_agendamento'
+                      const sel        = selectedTipo ? value === 'atendimento_venda_agendamento' : value === 'atendimento_venda'
+                      const isHotspot  = hotspot === 'tipo_agendamento' && value === 'atendimento_venda_agendamento'
                       return (
                         <div key={value} className="relative">
                           {isHotspot && (
                             <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_12px_3px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
                           )}
-                          {isHotspot && (
-                            <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style={{ minWidth: 280 }}>
-                              <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
-                                Selecione "+ Agendamento" para incluir agendamentos via Google Calendar
-                              </div>
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[7px] border-r-[7px] border-t-[8px] border-l-transparent border-r-transparent border-t-[#1c1c1e]" />
-                            </div>
-                          )}
                           <div
+                            ref={isHotspot ? tipoRef : null}
                             onClick={() => isHotspot ? onHotspot() : undefined}
                             className={cn(
                               'p-3 rounded-xl border-2 transition-all text-left',
@@ -511,6 +518,14 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                             </div>
                             <p className="text-xs text-muted-foreground">{desc}</p>
                           </div>
+                          {isHotspot && (
+                            <PortalTooltip
+                              anchorRef={tipoRef}
+                              label='Selecione "+ Agendamento" para incluir agendamentos via Google Calendar'
+                              side="top"
+                              minW={300}
+                            />
+                          )}
                         </div>
                       )
                     })}
@@ -667,7 +682,7 @@ function ScreenDone({ onReset }: { onReset: () => void }) {
   return (
     <div className="h-full w-full flex flex-col items-center justify-center gap-6 p-8">
       <div className="flex flex-col items-center gap-5">
-        <div className="w-18 h-18 w-[72px] h-[72px] rounded-2xl bg-primary/10 flex items-center justify-center ring-4 ring-primary/10">
+        <div className="w-[72px] h-[72px] rounded-2xl bg-primary/10 flex items-center justify-center ring-4 ring-primary/10">
           <CheckCircle2 className="w-9 h-9 text-primary" />
         </div>
         <div className="text-center">
@@ -689,37 +704,37 @@ function ScreenDone({ onReset }: { onReset: () => void }) {
   )
 }
 
-// ── Scene state machine ────────────────────────────────────────────────────────
+// ── Scene state machine ───────────────────────────────────────────────────────
 type Scene =
-  | 'qr_idle'              // Atendimento, QR idle, hotspot: "Gerar QR"
-  | 'qr_shown'             // QR shown, hotspot: QR code
-  | 'qr_connected'         // Connected, nav hotspot: Automações
-  | 'sdr_tipo'             // SDR Geral, hotspot: + Agendamento card
-  | 'sdr_identidade'       // SDR Identidade tab, hotspot: tab Conhecimento
-  | 'sdr_conhecimento'     // SDR Conhecimento, hotspot: tab Integrações
-  | 'sdr_integracoes'      // SDR Integrações, hotspot: tab Geral
-  | 'sdr_ativar'           // SDR Geral, hotspot: switch
+  | 'qr_idle'
+  | 'qr_shown'
+  | 'qr_connected'
+  | 'sdr_tipo'
+  | 'sdr_identidade'
+  | 'sdr_conhecimento'
+  | 'sdr_integracoes'
+  | 'sdr_ativar'
   | 'done'
 
 const SCENES: Scene[] = ['qr_idle','qr_shown','qr_connected','sdr_tipo','sdr_identidade','sdr_conhecimento','sdr_integracoes','sdr_ativar','done']
 
 interface SceneMeta { nav: string; url: string; label: string }
 const SCENE_META: Record<Scene, SceneMeta> = {
-  qr_idle:          { nav: 'atendimento', url: 'atendimento',         label: 'Conectando o WhatsApp' },
-  qr_shown:         { nav: 'atendimento', url: 'atendimento',         label: 'Escaneie o QR Code com o celular' },
-  qr_connected:     { nav: 'atendimento', url: 'atendimento',         label: 'WhatsApp conectado! Agora configure o Agente SDR' },
-  sdr_tipo:         { nav: 'automacoes',  url: 'configuracoes/sdr',   label: 'Escolha o tipo de agente SDR' },
-  sdr_identidade:   { nav: 'automacoes',  url: 'configuracoes/sdr',   label: 'Configure a persona: nome, tom de voz e produto' },
-  sdr_conhecimento: { nav: 'automacoes',  url: 'configuracoes/sdr',   label: 'Adicione a base de conhecimento e objeções' },
-  sdr_integracoes:  { nav: 'automacoes',  url: 'configuracoes/sdr',   label: 'Conecte o Google Calendar para agendamentos' },
-  sdr_ativar:       { nav: 'automacoes',  url: 'configuracoes/sdr',   label: 'Tudo configurado! Ative o Agente SDR' },
-  done:             { nav: 'automacoes',  url: 'configuracoes/sdr',   label: 'Agente SDR ativo e respondendo leads!' },
+  qr_idle:          { nav: 'atendimento', url: 'atendimento',       label: 'Conectando o WhatsApp' },
+  qr_shown:         { nav: 'atendimento', url: 'atendimento',       label: 'Escaneie o QR Code com o celular' },
+  qr_connected:     { nav: 'atendimento', url: 'atendimento',       label: 'WhatsApp conectado! Agora configure o Agente SDR' },
+  sdr_tipo:         { nav: 'automacoes',  url: 'configuracoes/sdr', label: 'Escolha o tipo de agente SDR' },
+  sdr_identidade:   { nav: 'automacoes',  url: 'configuracoes/sdr', label: 'Configure a persona: nome, tom de voz e produto' },
+  sdr_conhecimento: { nav: 'automacoes',  url: 'configuracoes/sdr', label: 'Adicione a base de conhecimento e objeções' },
+  sdr_integracoes:  { nav: 'automacoes',  url: 'configuracoes/sdr', label: 'Conecte o Google Calendar para agendamentos' },
+  sdr_ativar:       { nav: 'automacoes',  url: 'configuracoes/sdr', label: 'Tudo configurado! Ative o Agente SDR' },
+  done:             { nav: 'automacoes',  url: 'configuracoes/sdr', label: 'Agente SDR ativo e respondendo leads!' },
 }
 
 function getSdrTab(scene: Scene): SdrTab {
-  if (scene === 'sdr_identidade')                    return 'identidade'
-  if (scene === 'sdr_conhecimento')                  return 'conhecimento'
-  if (scene === 'sdr_integracoes')                   return 'integracoes'
+  if (scene === 'sdr_identidade')   return 'identidade'
+  if (scene === 'sdr_conhecimento') return 'conhecimento'
+  if (scene === 'sdr_integracoes')  return 'integracoes'
   return 'geral'
 }
 
@@ -732,18 +747,15 @@ function getSdrHotspot(scene: Scene): SdrHotspot {
   return null
 }
 
-// ── Root component ─────────────────────────────────────────────────────────────
+// ── Root ─────────────────────────────────────────────────────────────────────
 export function ProductDemo({ className }: { className?: string }) {
-  const [scene, setScene] = useState<Scene>('qr_idle')
-  const [qrState, setQRState] = useState<QRState>('idle')
+  const [scene, setScene]         = useState<Scene>('qr_idle')
+  const [qrState, setQRState]     = useState<QRState>('idle')
   const [agenteAtivo, setAgenteAtivo] = useState(false)
   const [selectedTipo, setSelectedTipo] = useState(false)
 
-  const meta = SCENE_META[scene]
-  const advance = () => setScene(s => {
-    const i = SCENES.indexOf(s)
-    return SCENES[Math.min(i + 1, SCENES.length - 1)]
-  })
+  const meta    = SCENE_META[scene]
+  const advance = () => setScene(s => SCENES[Math.min(SCENES.indexOf(s) + 1, SCENES.length - 1)])
 
   function handleGerarQR() {
     setQRState('generating')
@@ -757,7 +769,7 @@ export function ProductDemo({ className }: { className?: string }) {
     if (id === 'automacoes') setScene('sdr_tipo')
   }
   function handleSdrHotspot() {
-    if (scene === 'sdr_tipo') { setSelectedTipo(true); advance() }
+    if (scene === 'sdr_tipo')   { setSelectedTipo(true); advance() }
     else if (scene === 'sdr_ativar') { setAgenteAtivo(true); setTimeout(() => setScene('done'), 400) }
     else advance()
   }
@@ -766,13 +778,13 @@ export function ProductDemo({ className }: { className?: string }) {
   }
 
   const isSdrScene = ['sdr_tipo','sdr_identidade','sdr_conhecimento','sdr_integracoes','sdr_ativar'].includes(scene)
-  const sceneIdx = SCENES.indexOf(scene)
+  const sceneIdx   = SCENES.indexOf(scene)
 
   return (
-    <div className={cn('rounded-2xl border border-border shadow-xl bg-background relative', className)}
+    <div className={cn('rounded-2xl border border-border shadow-xl bg-background', className)}
          style={{ minWidth: 1080 }}>
       {/* URL bar */}
-      <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 flex-shrink-0 rounded-t-2xl overflow-hidden">
+      <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 flex-shrink-0 rounded-t-2xl">
         <div className="flex gap-1.5 shrink-0">
           <div className="w-3 h-3 rounded-full bg-red-400/60" />
           <div className="w-3 h-3 rounded-full bg-amber-400/60" />
@@ -790,9 +802,7 @@ export function ProductDemo({ className }: { className?: string }) {
           navHotspot={scene === 'qr_connected' ? 'automacoes' : null}
           onNav={handleNavClick}
         />
-
-        {/* Content */}
-        <div className="flex-1 min-w-0 relative overflow-visible">
+        <div className="flex-1 min-w-0 relative overflow-hidden">
           <div key={scene} className="absolute inset-0 animate-in fade-in duration-200">
             {(scene === 'qr_idle' || scene === 'qr_shown' || scene === 'qr_connected') && (
               <ScreenAtendimento qrState={qrState} onGerarQR={handleGerarQR} onScanQR={handleScanQR} />
@@ -812,14 +822,14 @@ export function ProductDemo({ className }: { className?: string }) {
       </div>
 
       {/* Step bar */}
-      <div className="border-t border-border bg-muted/20 px-5 py-3 flex items-center gap-4 flex-shrink-0 rounded-b-2xl overflow-hidden">
+      <div className="border-t border-border bg-muted/20 px-5 py-3 flex items-center gap-4 flex-shrink-0 rounded-b-2xl">
         <div className="flex gap-1.5">
           {SCENES.filter(s => s !== 'done').map((s, i) => (
             <div key={s} className={cn(
               'rounded-full transition-all duration-300',
-              s === scene ? 'w-5 h-1.5 bg-primary'
+              s === scene       ? 'w-5 h-1.5 bg-primary'
                 : i < sceneIdx ? 'w-1.5 h-1.5 bg-primary/50'
-                : 'w-1.5 h-1.5 bg-muted-foreground/20'
+                               : 'w-1.5 h-1.5 bg-muted-foreground/20'
             )} />
           ))}
         </div>
