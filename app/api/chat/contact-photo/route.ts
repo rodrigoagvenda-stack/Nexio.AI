@@ -27,6 +27,7 @@ function cacheSet(key: string, value: string | null) {
 export async function GET(request: NextRequest) {
   const phone = request.nextUrl.searchParams.get('phone')
   const leadId = request.nextUrl.searchParams.get('leadId')
+  const convId = request.nextUrl.searchParams.get('convId')
   if (!phone) return NextResponse.json({ photo: null })
 
   const cacheKey = leadId ? `lead:${leadId}` : phone
@@ -98,6 +99,12 @@ export async function GET(request: NextRequest) {
       null
 
     cacheSet(cacheKey, photo)
+
+    // Persiste no banco para evitar re-fetch nas próximas cargas
+    if (photo && convId) {
+      service.from('conversas_do_whatsapp').update({ whatsapp_photo_url: photo }).eq('id', Number(convId)).then(() => {})
+    }
+
     return NextResponse.json({ photo })
   } catch {
     return NextResponse.json({ photo: null })

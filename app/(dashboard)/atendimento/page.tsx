@@ -343,6 +343,7 @@ export default function AtendimentoPage() {
       const convs: Conversation[] = data.conversations ?? [];
       setConversations(convs);
 
+      const toFetch: typeof convs = [];
       convs.forEach(conv => {
         if (!conv.numero_de_telefone) return;
         const cacheKey = conv.id_do_lead ? `lead:${conv.id_do_lead}` : conv.numero_de_telefone;
@@ -358,19 +359,26 @@ export default function AtendimentoPage() {
           }
           return;
         }
-        const params = new URLSearchParams({ phone: conv.numero_de_telefone });
-        if (conv.id_do_lead) params.set('leadId', String(conv.id_do_lead));
-        fetch(`/api/chat/contact-photo?${params}`)
-          .then(r => r.json())
-          .then(d => {
+        toFetch.push(conv);
+      });
+
+      // Throttle: max 5 requests simultâneas
+      const CONCURRENCY = 5;
+      for (let i = 0; i < toFetch.length; i += CONCURRENCY) {
+        await Promise.all(toFetch.slice(i, i + CONCURRENCY).map(async conv => {
+          try {
+            const params = new URLSearchParams({ phone: conv.numero_de_telefone, convId: String(conv.id) });
+            if (conv.id_do_lead) params.set('leadId', String(conv.id_do_lead));
+            const d = await fetch(`/api/chat/contact-photo?${params}`).then(r => r.json());
+            const cacheKey = conv.id_do_lead ? `lead:${conv.id_do_lead}` : conv.numero_de_telefone;
             atendimentoPhotoCache.set(cacheKey, d.photo ?? null);
             if (d.photo) {
               setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, whatsapp_photo_url: d.photo } : c));
               setSelectedConversation(prev => prev?.id === conv.id ? { ...prev, whatsapp_photo_url: d.photo } : prev);
             }
-          })
-          .catch(() => {});
-      });
+          } catch {}
+        }));
+      }
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
