@@ -1,6 +1,7 @@
 export async function register() {
   console.log('[Instrumentation] register() chamado')
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await import('./sentry.server.config');
     import('openai').catch(() => {})
 
     // SDR Job Worker — processa fila persistente de mensagens
