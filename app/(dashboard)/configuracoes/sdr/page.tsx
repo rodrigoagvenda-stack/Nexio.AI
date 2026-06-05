@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/use-toast'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils/cn'
 import {
   Loader2, Save, MessageSquare, Calendar,
@@ -379,6 +380,7 @@ interface QBlockDef {
   question: string
   hint: string
   placeholder: string
+  example: string
   required?: boolean
   tipo: 'conhecimento' | 'objecoes'
 }
@@ -389,80 +391,93 @@ const Q_BLOCKS: QBlockDef[] = [
     key: 'identidade', tipo: 'conhecimento', label: '1. Identidade do Agente', required: true,
     question: 'Quem é o agente e qual é o papel dele nessa conversa?',
     hint: 'Nome, empresa e posição. Deixe claro se é especialista, SDR ou atendente — isso define o tom inteiro da conversa.',
-    placeholder: 'Ex: Você é Ana Voss, especialista comercial da Play Ads. Você não é uma assistente — você é uma especialista que qualifica leads e agenda calls. Tom direto, caloroso e consultivo. Nunca frio, nunca rude.',
+    placeholder: 'Descreva o nome, empresa, função e tom do agente...',
+    example: 'Você é Ana Voss, especialista comercial da Play Ads — agência de tráfego pago para e-commerces de moda.\n\nVocê não é uma assistente. Você é uma especialista que qualifica leads e agenda calls com o time.\n\nTom: direto, caloroso e consultivo. Nunca frio, nunca rude. Você acredita no produto porque viu o resultado na prática.\n\nNunca diga "posso ajudar?" — você já está ajudando.',
   },
   {
     key: 'produto_contexto', tipo: 'conhecimento', label: '2. Produto / Serviço', required: true,
     question: 'O que você vende? (contexto interno — o agente usa para entender, nunca cita diretamente)',
     hint: 'Detalhe o produto: o que inclui, preço, condições, links. Isso é contexto para o agente raciocinar, não um script para falar.',
-    placeholder: 'Ex: Sistema de gestão com módulos de venda, estoque e financeiro integrados. Preço: R$49,90/mês. Teste grátis 7 dias sem cartão. Link do teste: tocli.com.br/testegratis7dias. Playlist de vídeos: tocli.com.br/youtube.',
+    placeholder: 'Descreva o produto com o máximo de detalhe: o que inclui, preço, links, condições...',
+    example: 'Produto: Tocli — sistema de gestão para pequenos negócios.\n\nO que inclui: controle de vendas, estoque, financeiro, emissão de nota fiscal e relatórios. Tudo integrado em um só lugar.\n\nPreço: R$49,90/mês. Sem contrato, cancela quando quiser.\n\nTeste grátis: 7 dias sem cartão de crédito.\nLink do teste: tocli.com.br/testegratis7dias\nPlaylist de tutoriais: tocli.com.br/youtube\n\nDiferencial: o único do mercado que integra NF-e diretamente no fluxo de venda, sem precisar de contador para emitir.',
   },
   {
     key: 'nao_oferece', tipo: 'conhecimento', label: '3. O que NÃO existe', required: true,
     question: 'O que você NÃO tem, NÃO oferece e o agente jamais deve mencionar ou inventar?',
     hint: 'Crucial. Evita que o agente invente aulas gratuitas, descontos, funcionalidades ou condições que não existem.',
-    placeholder: 'Ex: Não tem aula experimental gratuita. Não tem plano anual. Não faz diagnóstico médico. Não tem módulo de RH. Não promete resultado específico. Não oferece desconto.',
+    placeholder: 'Liste tudo que NÃO existe: funcionalidades, planos, descontos, condições...',
+    example: 'NAO existe:\n- Plano anual ou desconto por antecipação\n- Módulo de RH ou folha de pagamento\n- Integração com marketplaces (Mercado Livre, Shopee)\n- Suporte por telefone — só chat e email\n- Garantia de resultado ou promessa de aumento de vendas\n- Versão gratuita permanente (só o teste de 7 dias)\n- Desconto por indicação\n\nSe o lead perguntar algo que não existe, responda: "Ainda não temos isso, mas está no nosso roadmap. O que você tem hoje funciona assim: [redirecione para o que existe]."',
   },
   {
     key: 'abordagem', tipo: 'conhecimento', label: '4. Abordagem de Vendas', required: true,
     question: 'Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto?',
     hint: 'Defina a estratégia. "Vai na dor antes de falar de solução", "Qualifica e depois apresenta", "Oferece teste direto". Isso molda o fluxo inteiro.',
-    placeholder: 'Ex: Nunca apresente benefícios antes de entender a dor. Faça o lead sentir o custo de não resolver o problema agora. Só depois posicione o produto como solução. Perguntas de dor: "Você sabe quanto está perdendo por mês sem isso?" / "Se daqui a 6 meses nada mudar, onde você vai estar?"',
+    placeholder: 'Descreva a estratégia de abordagem: quando falar de dor, quando apresentar, quando oferecer...',
+    example: 'Estratégia: vai na dor antes de falar de produto.\n\nNunca abra com benefícios. Primeiro entenda o cenário do lead.\n\nPerguntas de diagnóstico (use uma por vez):\n- "Hoje você controla o estoque de cabeça ou tem algum sistema?"\n- "Quando você fecha o mês, sabe exatamente quanto lucrou?"\n- "Já perdeu venda por não saber que o produto estava em falta?"\n\nDepois que o lead expor a dor, posicione o produto como solução direta para aquele problema específico. Nunca genérico — sempre específico para o que ele disse.\n\nSó fale de preço depois de gerar valor.',
   },
   {
     key: 'qualificacao', tipo: 'conhecimento', label: '5. Qualificação', required: true,
     question: 'Quais perguntas qualificam o lead? Em que ordem? O que descarta?',
     hint: 'Liste as perguntas na sequência exata. Uma por mensagem. Inclua o que descarta (sem verba, sem perfil, não é o decisor).',
-    placeholder: 'Ex:\n1. Qual seu tipo de negócio?\n2. Como estão chegando clientes hoje?\n3. Já testou anúncios antes?\n4. Você decide sobre marketing ou tem mais alguém?\n5. Tem verba mensal separada para marketing?\n\nDescarta: sem verba mínima de R$1.000 ou não é o decisor.',
+    placeholder: 'Liste as perguntas de qualificação em ordem, e o que descarta o lead...',
+    example: 'Sequência de qualificação (uma pergunta por mensagem, espere a resposta antes de avançar):\n\n1. "Qual é o seu tipo de negócio? Loja física, online ou os dois?"\n2. "Quantos produtos você tem em estoque aproximadamente?"\n3. "Hoje você usa algum sistema para controlar as vendas?"\n4. "Você é o dono do negócio ou gerencia para outra pessoa?"\n5. "Você teria como testar um sistema novo essa semana?"\n\nDescarta (encerre com elegância):\n- Não é o decisor e não tem acesso ao dono\n- Negócio com menos de 10 produtos (too small)\n- Já usa sistema concorrente e está satisfeito\n- Busca funcionalidade que não existe no produto',
   },
   {
     key: 'proximo_passo', tipo: 'conhecimento', label: '6. Próximo Passo', required: true,
     question: 'Qual a ação final? Quando acionar e como?',
-    hint: 'Agendamento, teste grátis, compra, briefing... Inclua o link, a condição para acionar (ex: "só após qualificação") e o que fazer se recusar.',
-    placeholder: 'Ex: Agendar call com especialista. Só agendar após qualificação completa E briefing preenchido em nexio.com/briefing. Se recusar call → ofereça deixar contato para quando tiver melhor momento.',
+    hint: 'Agendamento, teste grátis, compra, briefing... Inclua o link, a condição para acionar e o que fazer se recusar.',
+    placeholder: 'Descreva a ação final: o que é, quando oferecer, link, e o que fazer se recusar...',
+    example: 'Ação final: link do teste grátis por 7 dias.\n\nCondição para oferecer: somente após qualificação completa (todas as 5 perguntas respondidas).\n\nScript de oferta:\n"Quer testar na prática? São 7 dias grátis, sem cartão. Você configura em menos de 10 minutos e já consegue ver como funciona com o seu negócio."\n\nLink: tocli.com.br/testegratis7dias\n\nSe recusar o teste:\n"Tudo bem! Quando tiver um momento, o link fica salvo aqui. Qualquer dúvida pode me chamar."\n\nNao insista mais de uma vez.',
   },
   {
     key: 'sem_perfil', tipo: 'conhecimento', label: '7. Lead Sem Perfil',
     question: 'Quando o lead não tem perfil, como encerrar com elegância?',
     hint: 'Defina o que descarta e o script de encerramento. Nunca seja rude, nunca force, nunca invista mais tempo.',
-    placeholder: 'Ex:\nSem verba → "Nosso modelo foi pensado para quem já tem verba de mídia separada. Quando isso mudar, me chama que avaliamos juntos."\nNão é decisor → "Prefiro não tomar seu tempo sem a pessoa certa. Quando puder trazer quem decide, me avisa."',
+    placeholder: 'Descreva como encerrar quando o lead não tem perfil, com scripts para cada situação...',
+    example: 'Encerramento por situação:\n\nSem verba / produto muito caro:\n"Entendo! O Tocli foi pensado para quem já tem um volume de vendas rodando e quer organizar. Quando o negócio crescer um pouco mais, pode me chamar que avaliamos juntos."\n\nNao é o decisor:\n"Faz sentido. Prefiro não tomar seu tempo sem a pessoa que decide. Quando puder trazer o dono ou sócio, me chama aqui."\n\nJa usa concorrente e está satisfeito:\n"Ótimo! Se um dia sentir que precisa de algo que o sistema atual não tem — especialmente na parte fiscal — me lembra, beleza?"\n\nApós encerrar: nunca envie mais mensagens. Encerrou, encerrou.',
   },
   {
     key: 'precos', tipo: 'conhecimento', label: '8. Preços e Condições',
     question: 'Como funciona o investimento? O que revelar, quando e como?',
     hint: 'Se não deve revelar preço antes da call, diga isso. Se tem teste grátis, inclua link. Se tem parcelamento, inclua condições.',
-    placeholder: 'Ex: R$49,90/mês. Teste grátis 7 dias sem cartão. Se perguntarem o preço da gestão → "O investimento varia conforme a estratégia, isso é o que o especialista apresenta na call."',
+    placeholder: 'Descreva quando e como falar de preço, e quais condições existem...',
+    example: 'Preço: R$49,90/mês. Sem contrato, sem fidelidade.\n\nQuando revelar: pode revelar desde o início se perguntarem. Não tem call ou gatekeeping de preço.\n\nScript ao revelar:\n"São R$49,90 por mês. Mas o teste é grátis por 7 dias, sem cartão — você testa primeiro e decide depois se vale."\n\nSe perguntar se tem desconto:\n"No momento o preço é esse. Mas o teste grátis já dá pra você sentir o valor antes de pagar qualquer coisa."\n\nNao diga "é barato" ou "é acessível" — deixe o lead tirar essa conclusão.',
   },
   {
     key: 'chegada', tipo: 'conhecimento', label: '9. Como o Lead Chega',
     question: 'Como os leads chegam e o que costumam dizer na primeira mensagem?',
     hint: 'Canal (anúncio, indicação, orgânico) e frases típicas. Ajuda o agente a reconhecer o contexto e adaptar o tom.',
-    placeholder: 'Ex: Maioria vem de anúncios no Meta. Costumam dizer "vi o anúncio", "quero saber mais" ou "quanto custa?". Leads inbound se apresentam. Leads outbound já têm contexto da abordagem anterior.',
+    placeholder: 'Descreva de onde vêm os leads e o que costumam dizer ao entrar em contato...',
+    example: 'Canais de entrada:\n- 70%: anúncios no Meta (Facebook/Instagram) — já viram o produto no anúncio\n- 20%: indicação — chegam mais qualificados e diretos\n- 10%: orgânico (Instagram ou pesquisa) — mais curiosos, menos urgentes\n\nPrimeiras mensagens mais comuns:\n- "Vi o anúncio, quero saber mais"\n- "Quanto custa?"\n- "Tem pra restaurante?"\n- "Funciona pra quem tem loja no Instagram?"\n- "Oi" (lead frio — qualifique antes de avançar)\n\nAdapte o tom conforme a entrada: lead de anúncio já tem contexto, não repita o que o anúncio disse.',
   },
   {
     key: 'regras', tipo: 'conhecimento', label: '10. Regras Absolutas',
     question: 'Quais são as regras que o agente NUNCA pode quebrar?',
     hint: 'Seja específico. "Nunca revelar preço antes da call", "nunca agendar sem qualificação", "nunca inventar funcionalidade". Cada regra quebrada custa uma venda.',
-    placeholder: 'Ex: Nunca revelar preço da gestão antes da call. Nunca agendar sem qualificação completa. Nunca inventar funcionalidade que não existe. Nunca enviar bloco longo de texto. Uma pergunta por mensagem. Zero markdown. Zero emojis excessivos.',
+    placeholder: 'Liste todas as regras invioláveis do agente...',
+    example: 'REGRAS ABSOLUTAS — nenhuma pode ser quebrada:\n\n1. Uma pergunta por mensagem. Nunca duas juntas.\n2. Nunca inventar funcionalidade, plano, desconto ou condição que não existe.\n3. Nunca enviar bloco de texto longo. Máximo 3 linhas por mensagem.\n4. Nunca usar markdown (negrito, listas com traço, etc). WhatsApp não renderiza.\n5. Nunca pressionar o lead após a segunda recusa. Encerre com elegância.\n6. Nunca fingir ser humano se perguntarem diretamente se é IA.\n7. Nunca falar de concorrente — nem para comparar.\n8. Nunca prometer prazo de entrega, resultado ou garantia que não existe.\n9. Só oferecer o link do teste após qualificação completa.\n10. Se não souber a resposta, diga: "Deixa eu confirmar isso pra você" e encerre a mensagem — não invente.',
   },
   // ── Objeções ──────────────────────────────────────────────────────────────
   {
     key: 'obj_preco', tipo: 'objecoes', label: '1. Objeções de Preço e Valor', required: true,
     question: 'Objeções de preço/valor: para cada uma, informe gatilho + script exato + o que nunca dizer',
-    hint: 'Formato: Gatilhos: "frase1" / "frase2" → Script correto (exato, como vai ser enviado) → Nunca dizer: (exemplo errado). Inclua condicional se houver.',
-    placeholder: 'Gatilhos: "Tá caro" / "É muito caro"\nScript: "Entendo! 😊\nSão R$49,90 por mês, menos de R$2 por dia.\nMas o teste é grátis, sem cartão. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupação, mas são apenas R$49,90 por mês e você pode testar grátis."\n\nGatilhos: "Quanto custa?" / "Qual o valor?"\nScript: "O Tocli custa apenas R$49,90 por mês.\nE você pode testar gratuitamente por 7 dias, sem precisar de cartão.\nQuer que eu envie o link do teste?"\nSe lead disser SIM → "Vou enviar para você um link de teste grátis, para que você possa avaliar.\nhttps://tocli.com.br/testegratis7dias\nQualquer dúvida pode me chamar aqui!"',
+    hint: 'Formato: Gatilhos → Script correto (exato, como vai ser enviado) → Nunca dizer. Inclua condicional se houver.',
+    placeholder: 'Liste as objeções de preço com gatilhos, script e o que nunca dizer...',
+    example: 'Gatilhos: "Ta caro" / "E muito caro" / "Nao tenho dinheiro"\nScript:\n"Entendo!\nSao R$49,90 por mes, menos de R$2 por dia.\nMas o teste e gratis, sem cartao. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupacao, mas sao apenas R$49,90..." — soa defensivo.\n\n---\n\nGatilhos: "Quanto custa?" / "Qual o valor?" / "Qual o preco?"\nScript:\n"O Tocli custa R$49,90 por mes.\nVoce pode testar de graca por 7 dias, sem precisar de cartao.\nQuer que eu envie o link do teste?"\nSe lead disser SIM:\n"Aqui esta o link: tocli.com.br/testegratis7dias\nQualquer duvida pode me chamar aqui!"',
   },
   {
     key: 'obj_tempo', tipo: 'objecoes', label: '2. Objeções de Tempo e Decisão', required: true,
     question: 'Objeções de tempo, indecisão e concorrência: gatilho + script + condicional',
     hint: 'Inclua "Preciso pensar", "Não tenho tempo", "Já uso outra coisa", "Vou pensar". Inclua o que fazer se recusar duas vezes.',
-    placeholder: 'Gatilhos: "Preciso pensar" / "Vou pensar"\nScript: "Claro, sem pressão! 😊\nSó fica de olho: são 30 vagas e já temos procura alta.\nPosso te mandar o link pra você salvar e garantir quando decidir?"\n\nGatilhos: "Não tenho tempo agora"\nScript: "Tranquilo! 😊\nO teste fica disponível quando você quiser.\nSe quiser, já deixo o link aqui pra quando tiver um tempinho."\nSe lead aceitar → envie o link do teste.\n\nSe recusar 2 vezes → "Entendi! 😊\nSe mudar de ideia, pode me chamar. Qualquer coisa tô aqui."',
+    placeholder: 'Liste objeções de tempo, indecisão e concorrência com scripts...',
+    example: 'Gatilhos: "Preciso pensar" / "Vou pensar" / "Deixa eu ver"\nScript:\n"Claro, sem pressao!\nO teste fica disponivel quando voce quiser — sao 7 dias gratis.\nPosso te mandar o link pra voce salvar?"\nSe recusar o link: "Tudo bem! Quando decidir, me chama aqui."\nNao insista.\n\n---\n\nGatilhos: "Nao tenho tempo agora" / "To ocupado"\nScript:\n"Sem problema!\nO teste fica aqui esperando. Quando tiver 10 minutinhos, da pra configurar tranquilo.\nDeixo o link: tocli.com.br/testegratis7dias"\n\n---\n\nGatilhos: "Ja uso outro sistema" / "Ja tenho"\nScript:\n"Entendi! Qual voce usa hoje?"\n[espere resposta]\nSe for concorrente direto: "Faz sentido. Se um dia sentir falta de [funcionalidade diferencial], me lembra."\nNao fale mal do concorrente.',
   },
   {
     key: 'obj_produto', tipo: 'objecoes', label: '3. Dúvidas sobre o Produto', required: true,
     question: 'Perguntas frequentes sobre o produto/serviço: para cada uma, informe gatilho + resposta exata',
-    hint: 'Perguntas do tipo "tem X?", "funciona para Y?", "como funciona?". Scripts curtos e diretos. Termine sempre perguntando se tem mais dúvidas.',
-    placeholder: 'Gatilhos: "Tem contrato?" / "Precisa fidelidade?"\nScript: "Não tem contrato, não. 😊\nÉ mensal, cancela quando quiser. Sem burocracia nenhuma."\n\nGatilhos: "É difícil de usar?" / "É complicado?"\nScript: "É bem simples de usar! 😊\nA ideia é justamente facilitar, não complicar.\nNo teste você já consegue ver como tudo funciona na prática."\n\nGatilhos: "Tem app?" / "Funciona no celular?"\nScript: "Funciona sim! 😊\nVocê pode acessar direto pelo celular, sem precisar instalar nada.\nTem mais alguma dúvida?"',
+    hint: 'Perguntas do tipo "tem X?", "funciona para Y?", "como funciona?". Scripts curtos e diretos.',
+    placeholder: 'Liste as dúvidas mais comuns sobre o produto com respostas exatas...',
+    example: 'Gatilhos: "Tem contrato?" / "Precisa fidelidade?" / "Prende?"\nScript:\n"Nao tem contrato nenhum.\nE mensal, cancela quando quiser. Sem burocracia."\n\n---\n\nGatilhos: "E dificil de usar?" / "Precisa de treinamento?"\nScript:\n"E bem simples.\nA maioria dos clientes configura sozinho em menos de 15 minutos.\nNo teste voce ja consegue ver como funciona na pratica."\n\n---\n\nGatilhos: "Tem app?" / "Funciona no celular?"\nScript:\n"Funciona sim, direto pelo celular.\nNao precisa instalar nada — abre no navegador e ja usa."\n\n---\n\nGatilhos: "Funciona pra restaurante?" / "Serve pra [nicho especifico]?"\nScript:\n"Funciona sim para [nicho].\nVarios clientes do segmento ja usam — o controle de estoque e o financeiro sao os modulos mais usados por eles.\nQuer testar pra ver se encaixa no seu?"\nSempre termine com uma pergunta ou call-to-action.',
   },
 ]
 
@@ -483,6 +498,7 @@ function QuestionnaireWizard({
   const [step, setStep] = useState(0)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showExample, setShowExample] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Filtra blocos pelo tipo — conhecimento mostra blocos 1-10, objeções mostra blocos 11-13
@@ -497,7 +513,10 @@ function QuestionnaireWizard({
     if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch {} }
   }
 
-  useEffect(() => { setTimeout(() => textareaRef.current?.focus(), 80) }, [step])
+  useEffect(() => {
+    setShowExample(false)
+    setTimeout(() => textareaRef.current?.focus(), 80)
+  }, [step])
 
   const requiredFilled = visibleBlocks.filter((b) => b.required).every((b) => answers[b.key].trim())
 
@@ -554,6 +573,27 @@ function QuestionnaireWizard({
           )}
         </div>
         {current.hint && <p className="text-xs text-muted-foreground">{current.hint}</p>}
+
+        {/* Exemplo colapsável */}
+        <div className="rounded-lg border border-border/60 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowExample((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+          >
+            <span className="flex items-center gap-1.5">
+              <BookOpen className="w-3 h-3 shrink-0" />
+              Ver exemplo de resposta bem preenchida
+            </span>
+            {showExample ? <ChevronUp className="w-3 h-3 shrink-0" /> : <ChevronDown className="w-3 h-3 shrink-0" />}
+          </button>
+          {showExample && (
+            <div className="px-3 pb-3 pt-1 bg-muted/30 border-t border-border/40">
+              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-sans leading-relaxed">{current.example}</pre>
+            </div>
+          )}
+        </div>
+
         <textarea
           ref={textareaRef}
           value={answers[current.key]}
@@ -623,11 +663,6 @@ function QuestionnaireWizard({
 // ── Knowledge Builder ──────────────────────────────────────────────────────
 
 interface ExistingBase { filename: string; chunks: number }
-interface PendingAction { newName: string; execute: () => void }
-
-function friendlyFilename(filename: string): string {
-  return filename.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
 
 function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPersonaChange, sharedNicheId, onNicheChange }: {
   flowId: string | null; type: 'conhecimento' | 'objecoes'
@@ -637,13 +672,12 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   sharedNicheId: string
   onNicheChange: (id: string) => void
 }) {
-  const [lastResult, setLastResult] = useState<{ chunks: number; table: string } | null>(null)
   const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const isConhecimento = type === 'conhecimento'
   const label = isConhecimento ? 'conhecimento' : 'objeções'
-
+  const Icon = isConhecimento ? BookOpen : ShieldAlert
 
   useEffect(() => {
     if (!flowId || !active) return
@@ -656,12 +690,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
       .catch(() => {})
   }, [flowId, active, isConhecimento])
 
-  function withConfirm(execute: () => void, newName: string) {
-    if (!existingBase) { execute(); return }
-    setPendingAction({ newName, execute })
-  }
-
-  // Build variables from persona
   const buildVariables = (): SdrVariables => ({
     nome_agente: persona.nome_agente,
     nome_empresa: persona.empresa,
@@ -686,75 +714,77 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium">Usar base de {label}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {isConhecimento
-              ? 'O agente consulta estas informações ao responder perguntas'
-              : 'O agente usa estas respostas quando o lead levantar objeções'}
-          </p>
+    <>
+      {/* Status card */}
+      <div className="rounded-xl border border-border p-3.5 space-y-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <p className="text-sm font-medium capitalize">Base de {label}</p>
+          </div>
+          <Switch checked={active} onCheckedChange={onActiveChange} />
         </div>
-        <Switch checked={active} onCheckedChange={onActiveChange} />
+
+        {active && (
+          <>
+            {/* Status indicator */}
+            {existingBase ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/8 border border-green-500/20">
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-green-700 dark:text-green-400">Configurada</p>
+                  <p className="text-[11px] text-muted-foreground">{existingBase.chunks} chunks salvos</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/8 border border-amber-500/20">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  {isConhecimento
+                    ? 'Sem base — o agente pode alucinar em perguntas sobre o negócio'
+                    : 'Sem base — o agente não saberá tratar objeções de preço ou indecisão'}
+                </p>
+              </div>
+            )}
+
+            {/* Action button */}
+            <Button
+              size="sm"
+              variant={existingBase ? 'outline' : 'default'}
+              className="w-full h-8 text-xs gap-1.5"
+              onClick={() => setSheetOpen(true)}
+            >
+              {existingBase
+                ? <><Pencil className="w-3 h-3" />Editar base de {label}</>
+                : <><Sparkles className="w-3 h-3" />Configurar base de {label}</>}
+            </Button>
+          </>
+        )}
       </div>
 
-      {active && (
-        <>
+      {/* Sheet com wizard */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="mb-4">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Icon className="w-4 h-4" />
+              Base de {label}
+            </SheetTitle>
+          </SheetHeader>
           <QuestionnaireWizard
             flowId={flowId}
             type={type}
             variables={buildVariables()}
             onSuccess={(result) => {
-              setLastResult({ chunks: result.chunks, table: type })
               setExistingBase({ filename: `${type}_guiado`, chunks: result.chunks })
-              toast({ title: `✓ ${result.chunks} chunks processados e salvos!` })
+              setSheetOpen(false)
+              toast({ title: `${result.chunks} chunks salvos com sucesso.` })
             }}
           />
-
-          {pendingAction && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-3.5 space-y-3">
-              <div className="flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 text-sm">
-                  <p className="font-semibold text-foreground">Substituir base de {label}?</p>
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    Você possui <span className="font-medium text-foreground">"{friendlyFilename(existingBase!.filename)}"</span> cadastrada ({existingBase!.chunks} chunks).
-                    Ao prosseguir, ela será <span className="text-destructive font-medium">permanentemente deletada</span> e substituída por{' '}
-                    <span className="font-medium text-foreground">"{friendlyFilename(pendingAction.newName)}"</span>.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2 pl-6">
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={() => {
-                    const action = pendingAction.execute
-                    setPendingAction(null)
-                    setExistingBase(null)
-                    action()
-                  }}
-                >
-                  <ShieldAlert className="w-3 h-3" />Substituir
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setPendingAction(null)}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {lastResult && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-700 dark:text-green-400">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              Base salva — {lastResult.chunks} chunks · <code className="font-mono">{lastResult.table}</code>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
 
