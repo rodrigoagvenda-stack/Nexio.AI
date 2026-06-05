@@ -77,8 +77,11 @@ const nextConfig = {
 }
 
 module.exports = withSentryConfig(nextConfig, {
-  silent: true,
+  org: "zaapply",
+  project: "javascript-nextjs",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
   disableLogger: true,
   sourcemaps: { disable: true },
-  autoInstrumentServerFunctions: false,
 });

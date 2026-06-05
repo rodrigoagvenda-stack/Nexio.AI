@@ -43,3 +43,6 @@ n8n-flow-rag.json
 
 # n8n workflow exports
 Follow*.json
+
+# Sentry Config File
+.env.sentry-build-plugin
