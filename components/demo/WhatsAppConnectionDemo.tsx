@@ -127,7 +127,7 @@ export function WhatsAppConnectionDemo({ className }: { className?: string }) {
                 </div>
               </button>
 
-              <Hotspot label="Escaneie aqui →" />
+              <Hotspot label="Clique e veja como funciona" />
             </div>
 
             <p className="text-[11px] text-muted-foreground text-center leading-relaxed">

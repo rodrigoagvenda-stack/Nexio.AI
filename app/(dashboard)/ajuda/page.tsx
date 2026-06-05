@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { WhatsAppConnectionDemo } from '@/components/demo/WhatsAppConnectionDemo';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -15,7 +16,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface HelpItem { question: string; answer: string }
+interface HelpItem { question: string; answer: string; demo?: React.ReactNode }
 interface HelpSection { id: string; title: string; icon: LucideIcon; description: string; items: HelpItem[] }
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -530,6 +531,7 @@ Após escanear, o webhook é configurado automaticamente. Nenhuma configuração
 [INFO]
 O QR Code expira em 60 segundos. Se expirar antes de escanear, clique em **Atualizar** para gerar um novo. O celular precisa estar com internet ativa.
 [/INFO]`,
+        demo: <WhatsAppConnectionDemo />,
       },
     ],
   },
@@ -1862,6 +1864,11 @@ export default function AjudaPage() {
                     <div className="leading-relaxed">
                       <FormatText text={item.answer} />
                     </div>
+                    {item.demo && (
+                      <div className="mt-6">
+                        {item.demo}
+                      </div>
+                    )}
                     {index < activeSection.items.length - 1 && <Separator className="mt-12" />}
                   </article>
                 ))}
