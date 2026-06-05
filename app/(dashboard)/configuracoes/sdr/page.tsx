@@ -18,7 +18,7 @@ import {
   ThumbsUp, AlertTriangle, Star, ChevronUp, Trash,
   Mic, FileImage, FileText,
 } from 'lucide-react'
-import { NICHES, VAR_LABELS, type NicheTemplate, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
+import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -86,18 +86,7 @@ const TOM_OPTIONS = [
   { value: 'dinâmico e entusiasmado', label: 'Dinâmico', desc: 'Energético, animado, motivador' },
 ]
 
-// ── Typeform wizard questions ──────────────────────────────────────────────
-
-interface WizardQuestion {
-  key: VariableKey
-  question: string
-  hint?: string
-  placeholder: string
-  type: 'text' | 'url' | 'textarea' | 'delivery-zones' | 'payment-chips'
-  optional?: boolean
-}
-
-const WIZARD_QUESTIONS: WizardQuestion[] = [
+const _PLACEHOLDER = [
   {
     key: 'descricao_produto',
     question: 'Como você descreveria o que vende ou oferece?',
@@ -633,8 +622,6 @@ function QuestionnaireWizard({
 
 // ── Knowledge Builder ──────────────────────────────────────────────────────
 
-type KBMode = 'template' | 'form'
-
 interface ExistingBase { filename: string; chunks: number }
 interface PendingAction { newName: string; execute: () => void }
 
@@ -650,20 +637,12 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
   sharedNicheId: string
   onNicheChange: (id: string) => void
 }) {
-  const [mode, setMode] = useState<KBMode>('template')
-  const [processing, setProcessing] = useState(false)
   const [lastResult, setLastResult] = useState<{ chunks: number; table: string } | null>(null)
-  const [nicheDropdownOpen, setNicheDropdownOpen] = useState(false)
   const [existingBase, setExistingBase] = useState<ExistingBase | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
 
-  // Typeform wizard state
-  const [wizardStep, setWizardStep] = useState(0)
-  const wizardInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
-
   const isConhecimento = type === 'conhecimento'
   const label = isConhecimento ? 'conhecimento' : 'objeções'
-  const selectedNiche = NICHES.find((n) => n.id === sharedNicheId)
 
 
   useEffect(() => {
@@ -706,91 +685,6 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
     pedido_tipo: persona.pedido_tipo,
   })
 
-  function getMissingRequired(niche: NicheTemplate): VariableKey[] {
-    const vars = buildVariables()
-    return niche.requiredVars.filter((k) => !vars[k]?.trim())
-  }
-
-  function getMissingOptional(niche: NicheTemplate): VariableKey[] {
-    const vars = buildVariables()
-    return niche.optionalVars.filter((k) => !vars[k]?.trim())
-  }
-
-  async function processTemplate() {
-    if (!flowId) { toast({ title: 'Salve a configuração primeiro', variant: 'destructive' }); return }
-    if (!sharedNicheId) { toast({ title: 'Selecione um nicho', variant: 'destructive' }); return }
-    setProcessing(true)
-    try {
-      const endpoint = isConhecimento
-        ? `/api/sdr/flows/${flowId}/knowledge/from-template`
-        : `/api/sdr/flows/${flowId}/objections/from-template`
-      const res = await fetch(endpoint, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nicheId: sharedNicheId, variables: buildVariables() }),
-      })
-
-      if (res.status === 502 || res.status === 504) {
-        throw new Error('Tempo limite excedido. Verifique se a chave OpenAI está configurada em Admin → Configurações de Plataforma, depois tente novamente.')
-      }
-
-      let data: any
-      try { data = await res.json() } catch {
-        throw new Error(`Erro ${res.status}: resposta inválida do servidor`)
-      }
-      if (!res.ok) throw new Error(data.error || `Erro ${res.status}`)
-      setLastResult(data)
-      setExistingBase({ filename: `${sharedNicheId}_${type}`, chunks: data.chunks })
-      toast({ title: `✓ ${data.chunks} chunks processados e salvos!` })
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao processar template', variant: 'destructive' })
-    } finally { setProcessing(false) }
-  }
-
-  // Wizard questions filtered to niche
-  const wizardQuestions = selectedNiche
-    ? WIZARD_QUESTIONS.filter((q) =>
-        selectedNiche.requiredVars.includes(q.key) ||
-        selectedNiche.optionalVars.includes(q.key)
-      )
-    : WIZARD_QUESTIONS
-
-  const currentQ = wizardQuestions[wizardStep]
-  const wizardTotal = wizardQuestions.length
-  const wizardProgress = wizardTotal > 0 ? Math.round((wizardStep / wizardTotal) * 100) : 0
-
-  function getWizardValue(q: WizardQuestion): string {
-    const personaField = WIZARD_KEY_TO_PERSONA[q.key]
-    return personaField ? (persona[personaField] as string) || '' : ''
-  }
-
-  function setWizardValue(q: WizardQuestion, value: string) {
-    const personaField = WIZARD_KEY_TO_PERSONA[q.key]
-    if (personaField) onPersonaChange(personaField, value)
-  }
-
-  function handleWizardKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey && currentQ?.type !== 'textarea') {
-      e.preventDefault()
-      if (wizardStep < wizardTotal - 1) setWizardStep((s) => s + 1)
-    }
-  }
-
-  useEffect(() => {
-    if (mode === 'form') {
-      setTimeout(() => wizardInputRef.current?.focus(), 80)
-    }
-  }, [wizardStep, mode])
-
-  const MODES: { id: KBMode; label: string; icon: React.ElementType }[] = [
-    { id: 'template', label: 'Nosso padrão', icon: Sparkles },
-    { id: 'form', label: 'Guiado', icon: ChevronRight },
-  ]
-
-  const vendas = NICHES.filter((n) => n.category === 'vendas' && n.id !== 'monte-o-seu')
-  const atendimento = NICHES.filter((n) => n.category === 'atendimento')
-  const monteOSeu = NICHES.find((n) => n.id === 'monte-o-seu')
-  const isMonteOSeu = sharedNicheId === 'monte-o-seu'
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -807,183 +701,16 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
 
       {active && (
         <>
-          {/* Mode tabs */}
-          <div className="flex gap-0.5 p-1 bg-muted rounded-lg">
-            {MODES.map(({ id, label: ml, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setMode(id)}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all',
-                  mode === id ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Icon className="w-3 h-3 shrink-0" />{ml}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Template mode ── */}
-          {mode === 'template' && (
-            <div className="space-y-4">
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
-                <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                {isConhecimento
-                  ? 'Gera o fluxo de conversa, scripts de venda e comportamento do agente, personalizado para o seu nicho.'
-                  : 'Gera scripts de tratamento de objeções — respostas imutáveis e validadas para as objeções mais comuns do seu nicho.'}
-              </div>
-
-              {/* Niche selector */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Nicho de atuação</label>
-                <div className="relative">
-                  <button
-                    onClick={() => setNicheDropdownOpen((o) => !o)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors"
-                  >
-                    <span className={selectedNiche ? 'text-foreground' : 'text-muted-foreground'}>
-                      {selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'Selecione o nicho…'}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </button>
-                  {nicheDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-72 overflow-y-auto">
-                      {[{ label: '🎯 Vendas', items: vendas }, { label: '🛎️ Atendimento', items: atendimento }].map((group) => (
-                        <div key={group.label}>
-                          <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
-                          {group.items.map((n) => (
-                            <button
-                              key={n.id}
-                              onClick={() => { onNicheChange(n.id); setNicheDropdownOpen(false) }}
-                              className={cn(
-                                'w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left',
-                                sharedNicheId === n.id && 'bg-primary/5'
-                              )}
-                            >
-                              <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium">{n.label}</p>
-                                <p className="text-xs text-muted-foreground">{n.description}</p>
-                              </div>
-                              {sharedNicheId === n.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
-                            </button>
-                          ))}
-                        </div>
-                      ))}
-                      {monteOSeu && (
-                        <div>
-                          <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">🛠️ Personalizado</p>
-                          <button
-                            onClick={() => { onNicheChange(monteOSeu.id); setNicheDropdownOpen(false) }}
-                            className={cn(
-                              'w-full flex items-start gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left',
-                              isMonteOSeu && 'bg-primary/5'
-                            )}
-                          >
-                            <span className="text-base shrink-0 mt-0.5">{monteOSeu.emoji}</span>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium">{monteOSeu.label}</p>
-                              <p className="text-xs text-muted-foreground">{monteOSeu.description}</p>
-                            </div>
-                            {isMonteOSeu && <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0 mt-1 ml-auto" />}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Inline variable editor — only for regular niches */}
-              {selectedNiche && !isMonteOSeu && (() => {
-                const allKeys = [...selectedNiche.requiredVars, ...selectedNiche.optionalVars]
-                const allQuestions = WIZARD_QUESTIONS.filter((q) => allKeys.includes(q.key))
-                const allFilled = allQuestions.every((q) => !!getWizardValue(q))
-                return (
-                  <div className="space-y-3">
-                    {allQuestions.map((q) => (
-                      <div key={q.key} className="space-y-1">
-                        <label className="text-xs font-medium flex items-center gap-1.5">
-                          {VAR_LABELS[q.key]}
-                          {!getWizardValue(q) && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">faltando</span>
-                          )}
-                        </label>
-                        {q.hint && <p className="text-[11px] text-muted-foreground">{q.hint}</p>}
-                        {q.type === 'delivery-zones' ? (
-                          <DeliveryZonesEditor value={getWizardValue(q)} onChange={(v) => setWizardValue(q, v)} />
-                        ) : q.type === 'payment-chips' ? (
-                          <PaymentChipsEditor value={getWizardValue(q)} onChange={(v) => setWizardValue(q, v)} />
-                        ) : q.type === 'textarea' ? (
-                          <Textarea
-                            value={getWizardValue(q)}
-                            onChange={(e) => setWizardValue(q, e.target.value)}
-                            placeholder={q.placeholder}
-                            className="min-h-[72px] text-sm resize-none"
-                          />
-                        ) : (
-                          <Input
-                            type={q.type === 'url' ? 'url' : 'text'}
-                            value={getWizardValue(q)}
-                            onChange={(e) => setWizardValue(q, e.target.value)}
-                            placeholder={q.placeholder}
-                            className="h-9 text-sm"
-                          />
-                        )}
-                      </div>
-                    ))}
-                    {allFilled && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-500/20 bg-green-500/5 text-xs text-green-700 dark:text-green-400">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        Tudo preenchido. Pronto para gerar.
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
-
-              {/* Questionnaire — only for Monte o seu */}
-              {isMonteOSeu && (
-                <QuestionnaireWizard
-                  flowId={flowId}
-                  type={type}
-                  variables={buildVariables()}
-                  onSuccess={(result) => {
-                    setLastResult({ chunks: result.chunks, table: type })
-                    setExistingBase({ filename: `${type}_monte-o-seu`, chunks: result.chunks })
-                    toast({ title: `✓ ${result.chunks} chunks processados e salvos!` })
-                  }}
-                />
-              )}
-
-              {!isMonteOSeu && (
-                <Button
-                  size="sm"
-                  onClick={() => withConfirm(processTemplate, selectedNiche ? `${selectedNiche.emoji} ${selectedNiche.label}` : 'template')}
-                  disabled={processing || !flowId || !sharedNicheId}
-                  className="gap-1.5 text-xs h-8 w-full"
-                >
-                  {processing
-                    ? <><Loader2 className="w-3 h-3 animate-spin" />Processando…</>
-                    : <><Sparkles className="w-3 h-3" />Gerar e processar template</>}
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* ── Form mode — QuestionnaireWizard completo ── */}
-          {mode === 'form' && (
-            <QuestionnaireWizard
-              flowId={flowId}
-              type={type}
-              variables={buildVariables()}
-              onSuccess={(result) => {
-                setLastResult({ chunks: result.chunks, table: type })
-                setExistingBase({ filename: `${type}_guiado`, chunks: result.chunks })
-                toast({ title: `✓ ${result.chunks} chunks processados e salvos!` })
-              }}
-            />
-          )}
+          <QuestionnaireWizard
+            flowId={flowId}
+            type={type}
+            variables={buildVariables()}
+            onSuccess={(result) => {
+              setLastResult({ chunks: result.chunks, table: type })
+              setExistingBase({ filename: `${type}_guiado`, chunks: result.chunks })
+              toast({ title: `✓ ${result.chunks} chunks processados e salvos!` })
+            }}
+          />
 
           {pendingAction && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-3.5 space-y-3">
