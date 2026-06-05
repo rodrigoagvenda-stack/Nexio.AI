@@ -2,6 +2,9 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { ProductDemo } from '@/components/demo/ProductDemo';
+import { AtendimentoDemo } from '@/components/demo/AtendimentoDemo';
+import { FollowUpDemo } from '@/components/demo/FollowUpDemo';
+import { CanvasDemo } from '@/components/demo/CanvasDemo';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -253,6 +256,7 @@ A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção 
 • **Direito** — Ficha do lead: resumo IA, notas, tags, mídia enviada e agenda de mensagens
 
 Cada conversa fica sincronizada automaticamente com o WhatsApp conectado.`,
+        demo: <AtendimentoDemo />,
       },
       {
         question: 'Controlar o Agente IA',
@@ -578,6 +582,7 @@ Cada etapa define:
 • **Condição de estágio** — Estágio do lead que ativa esta etapa (opcional)
 • **Gatilho imediato** — Dispara a etapa sem aguardar o intervalo quando a condição é atingida
 • **Agente SDR** — Define se o agente é pausado (false) ou reativado (true) ao enviar esta etapa`,
+        demo: <FollowUpDemo />,
       },
       {
         question: 'Gatilhos, condições e controle do SDR',
@@ -861,6 +866,7 @@ Acesse **Automações → Follow-up**, selecione ou crie uma sequência e clique
 [TIP]
 Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste o fundo da tela para mover a visualização sem mover nodes.
 [/TIP]`,
+        demo: <CanvasDemo />,
       },
       {
         question: 'Os nodes disponíveis e o que cada um faz',
