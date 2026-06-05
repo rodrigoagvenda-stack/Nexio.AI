@@ -18,9 +18,40 @@ import {
   ShoppingBag, Pencil, Send, RefreshCw,
   ThumbsUp, AlertTriangle, Star, ChevronUp, Trash,
   Mic, FileImage, FileText,
+  Monitor, Wand2, Smile, Activity, Leaf, Stethoscope,
+  Heart, BarChart2, ShoppingCart, GraduationCap,
+  UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
+  type LucideIcon,
 } from 'lucide-react'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
+
+// ── Niche icons ────────────────────────────────────────────────────────────
+
+const NICHE_ICONS: Record<string, LucideIcon> = {
+  'saas':            Monitor,
+  'clinica-estetica': Wand2,
+  'odontologia':     Smile,
+  'psicologia':      Brain,
+  'fisioterapia':    Activity,
+  'nutricao':        Leaf,
+  'clinica-medica':  Stethoscope,
+  'consultoria':     BarChart2,
+  'ecommerce':       ShoppingCart,
+  'educacao':        GraduationCap,
+  'restaurante':     UtensilsCrossed,
+  'moda':            Shirt,
+  'beleza':          Scissors,
+  'petshop':         PawPrint,
+  'academia':        Dumbbell,
+  'generico':        Bot,
+  'monte-o-seu':     Wrench,
+}
+
+function NicheIcon({ id, className }: { id: string; className?: string }) {
+  const Icon = NICHE_ICONS[id] ?? Heart
+  return <Icon className={className ?? 'w-4 h-4'} />
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -1269,7 +1300,7 @@ function QuickOnboarding({ onComplete }: {
             <button key={n.id} type="button" onClick={() => setNicheId(n.id)}
               className={cn('text-left p-3 rounded-xl border transition-all',
                 nicheId === n.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-              <span className="text-lg">{n.emoji}</span>
+              <NicheIcon id={n.id} className="w-4 h-4 text-muted-foreground" />
               <p className="text-sm font-medium mt-1">{n.label}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{n.description}</p>
             </button>
@@ -2290,14 +2321,15 @@ export default function SdrConfigPage() {
                             onClick={() => setIdentNicheOpen((o) => !o)}
                             className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-accent transition-colors"
                           >
-                            <span className={identSelectedNiche ? 'text-foreground' : 'text-muted-foreground'}>
-                              {identSelectedNiche ? `${identSelectedNiche.emoji} ${identSelectedNiche.label}` : 'Selecione o nicho…'}
+                            <span className={cn('flex items-center gap-2', identSelectedNiche ? 'text-foreground' : 'text-muted-foreground')}>
+                              {identSelectedNiche && <NicheIcon id={identSelectedNiche.id} className="w-3.5 h-3.5 shrink-0" />}
+                              {identSelectedNiche ? identSelectedNiche.label : 'Selecione o nicho…'}
                             </span>
                             <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                           </button>
                           {identNicheOpen && (
                             <div className="absolute top-full left-0 right-0 mt-1 z-20 rounded-lg border border-border bg-background shadow-lg overflow-hidden max-h-72 overflow-y-auto">
-                              {[{ label: '🎯 Vendas', items: identVendas }, { label: '🛎️ Atendimento', items: identAtendimento }].map((group) => (
+                              {[{ label: 'Vendas', items: identVendas }, { label: 'Atendimento', items: identAtendimento }].map((group) => (
                                 <div key={group.label}>
                                   <p className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40">{group.label}</p>
                                   {group.items.map((n) => (
@@ -2309,7 +2341,7 @@ export default function SdrConfigPage() {
                                         sharedNicheId === n.id && 'bg-primary/5'
                                       )}
                                     >
-                                      <span className="text-base shrink-0 mt-0.5">{n.emoji}</span>
+                                      <NicheIcon id={n.id} className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                                       <div className="min-w-0">
                                         <p className="text-sm font-medium">{n.label}</p>
                                         <p className="text-xs text-muted-foreground">{n.description}</p>
