@@ -74,7 +74,7 @@ function Hotspot({
 
       {/* Tooltip — top */}
       {side === 'top' && (
-        <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ minWidth: minW }}>
+        <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style={{ minWidth: minW }}>
           <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
             {label}
           </div>
@@ -84,7 +84,7 @@ function Hotspot({
 
       {/* Tooltip — bottom */}
       {side === 'bottom' && (
-        <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ minWidth: minW }}>
+        <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style={{ minWidth: minW }}>
           <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
             {label}
           </div>
@@ -94,7 +94,7 @@ function Hotspot({
 
       {/* Tooltip — right */}
       {side === 'right' && (
-        <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-50 pointer-events-none" style={{ minWidth: minW }}>
+        <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none" style={{ minWidth: minW }}>
           <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
             {label}
           </div>
@@ -129,7 +129,7 @@ function FakeSidebar({ active, navHotspot, onNav }: {
   onNav: (id: string) => void
 }) {
   return (
-    <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border h-full overflow-hidden">
+    <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border h-full">
       {/* Logo */}
       <div className="flex items-center h-14 border-b border-border/50 px-4 gap-2 flex-shrink-0">
         <ZaapliIcon size={26} />
@@ -153,7 +153,7 @@ function FakeSidebar({ active, navHotspot, onNav }: {
                       <div className="absolute inset-0 rounded-lg ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
                     )}
                     {isHotspot && (
-                      <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-50 pointer-events-none" style={{ minWidth: 260 }}>
+                      <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none" style={{ minWidth: 260 }}>
                         <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
                           Agora configure o Agente SDR — clique em Automações
                         </div>
@@ -409,7 +409,7 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                 {hotspot === `tab_${id}` && (
                   <>
                     <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.25)] pointer-events-none z-10 animate-pulse" />
-                    <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-50 pointer-events-none" style={{ minWidth: 260 }}>
+                    <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-[200] pointer-events-none" style={{ minWidth: 260 }}>
                       <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
                         {id === 'identidade'   && 'Configure a persona do agente — nome, tom de voz e produto'}
                         {id === 'conhecimento' && 'Adicione a base de conhecimento e de objeções'}
@@ -443,7 +443,7 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                 {/* Agente ativo */}
                 <div className="relative">
                   {hotspot === 'switch_ativo' && (
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+12px)] z-50 pointer-events-none" style={{ minWidth: 280 }}>
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[calc(100%+12px)] z-[200] pointer-events-none" style={{ minWidth: 280 }}>
                       <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
                         Tudo configurado! Ative o Agente SDR para começar a responder leads automaticamente
                       </div>
@@ -491,7 +491,7 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                             <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_12px_3px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
                           )}
                           {isHotspot && (
-                            <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ minWidth: 280 }}>
+                            <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style={{ minWidth: 280 }}>
                               <div className="bg-[#1c1c1e] text-white text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-2xl leading-snug">
                                 Selecione "+ Agendamento" para incluir agendamentos via Google Calendar
                               </div>
@@ -561,80 +561,55 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
 
             {/* ── Conhecimento ── */}
             {activeTab === 'conhecimento' && (
-              <div className="flex gap-4" style={{ height: 380 }}>
-                <div className="w-[340px] shrink-0 overflow-y-auto pr-2 space-y-5">
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                      <p className="text-sm font-semibold">Base de conhecimento</p>
-                    </div>
-                    <div className="space-y-2.5">
-                      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium">Ativa</p>
-                          <div className="relative w-8 h-4 rounded-full bg-primary flex items-center justify-end px-0.5">
-                            <div className="w-3 h-3 rounded-full bg-white" />
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-green-500/8 border border-green-500/15 px-2.5 py-1.5 flex items-center gap-2">
-                          <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                          <p className="text-[10px] text-green-700 dark:text-green-300 font-medium">5 documentos indexados · 142 chunks</p>
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-4 text-center">
-                        <p className="text-xs text-muted-foreground">+ Adicionar URL ou documento</p>
-                      </div>
-                    </div>
+              <div className="space-y-5">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Base de conhecimento</p>
                   </div>
-                  <div className="border-t border-border/60 pt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
-                      <p className="text-sm font-semibold">Base de objeções</p>
-                    </div>
-                    <div className="space-y-2.5">
-                      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium">Ativa</p>
-                          <div className="relative w-8 h-4 rounded-full bg-primary flex items-center justify-end px-0.5">
-                            <div className="w-3 h-3 rounded-full bg-white" />
-                          </div>
-                        </div>
-                        <div className="rounded-lg bg-green-500/8 border border-green-500/15 px-2.5 py-1.5 flex items-center gap-2">
-                          <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                          <p className="text-[10px] text-green-700 dark:text-green-300 font-medium">Configurada · 8 objeções cadastradas</p>
+                  <div className="space-y-2.5">
+                    <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium">Ativa</p>
+                        <div className="relative w-8 h-4 rounded-full bg-primary flex items-center justify-end px-0.5">
+                          <div className="w-3 h-3 rounded-full bg-white" />
                         </div>
                       </div>
+                      <div className="rounded-lg bg-green-500/8 border border-green-500/15 px-2.5 py-1.5 flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
+                        <p className="text-[10px] text-green-700 dark:text-green-300 font-medium">5 documentos indexados · 142 chunks</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Manual de vendas.pdf', 'FAQ do produto.docx', 'Tabela de preços.pdf', 'Cases de sucesso.pdf'].map(f => (
+                        <div key={f} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 flex items-center gap-2">
+                          <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                            <BookOpen className="w-2.5 h-2.5 text-primary" />
+                          </div>
+                          <p className="text-[11px] text-foreground truncate">{f}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-3 text-center">
+                      <p className="text-xs text-muted-foreground">+ Adicionar URL ou documento</p>
                     </div>
                   </div>
                 </div>
-                {/* Simulator preview */}
-                <div className="flex-1 rounded-xl border border-border overflow-hidden flex flex-col">
-                  <div className="px-4 py-2.5 border-b border-border bg-muted/30 flex items-center gap-2">
-                    <Bot className="w-3.5 h-3.5 text-primary" />
-                    <p className="text-xs font-semibold">Simulador de Conversa</p>
+                <div className="border-t border-border/60 pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-sm font-semibold">Base de objeções</p>
                   </div>
-                  <div className="flex-1 p-4 space-y-3 bg-muted/10">
-                    <div className="flex items-end gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Bot className="w-3 h-3 text-primary" /></div>
-                      <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-xs max-w-[75%]">
-                        Olá! Sou a Sofia da StartupX. Como posso te ajudar hoje? 😊
+                  <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium">Ativa</p>
+                      <div className="relative w-8 h-4 rounded-full bg-primary flex items-center justify-end px-0.5">
+                        <div className="w-3 h-3 rounded-full bg-white" />
                       </div>
                     </div>
-                    <div className="flex justify-end">
-                      <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-xs max-w-[75%]">
-                        Quero saber mais sobre os planos
-                      </div>
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Bot className="w-3 h-3 text-primary" /></div>
-                      <div className="rounded-2xl rounded-tl-none bg-card border border-border/60 px-3 py-2 text-xs max-w-[75%]">
-                        Claro! Temos 3 planos. Qual o tamanho da sua equipe?
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border-t border-border px-3 py-2 flex items-center gap-2">
-                    <div className="flex-1 h-8 rounded-lg border border-border bg-background px-3 text-xs text-muted-foreground flex items-center">
-                      Digite como um lead…
+                    <div className="rounded-lg bg-green-500/8 border border-green-500/15 px-2.5 py-1.5 flex items-center gap-2">
+                      <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
+                      <p className="text-[10px] text-green-700 dark:text-green-300 font-medium">Configurada · 8 objeções cadastradas</p>
                     </div>
                   </div>
                 </div>
@@ -804,10 +779,10 @@ export function ProductDemo({ className }: { className?: string }) {
   const sceneIdx = SCENES.indexOf(scene)
 
   return (
-    <div className={cn('rounded-2xl border border-border overflow-hidden shadow-xl bg-background', className)}
-         style={{ minWidth: 860 }}>
+    <div className={cn('rounded-2xl border border-border shadow-xl bg-background relative', className)}
+         style={{ minWidth: 940 }}>
       {/* URL bar */}
-      <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 flex-shrink-0">
+      <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 flex-shrink-0 rounded-t-2xl overflow-hidden">
         <div className="flex gap-1.5 shrink-0">
           <div className="w-3 h-3 rounded-full bg-red-400/60" />
           <div className="w-3 h-3 rounded-full bg-amber-400/60" />
@@ -847,7 +822,7 @@ export function ProductDemo({ className }: { className?: string }) {
       </div>
 
       {/* Step bar */}
-      <div className="border-t border-border bg-muted/20 px-5 py-3 flex items-center gap-4 flex-shrink-0">
+      <div className="border-t border-border bg-muted/20 px-5 py-3 flex items-center gap-4 flex-shrink-0 rounded-b-2xl overflow-hidden">
         <div className="flex gap-1.5">
           {SCENES.filter(s => s !== 'done').map((s, i) => (
             <div key={s} className={cn(
