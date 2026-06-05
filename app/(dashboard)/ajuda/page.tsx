@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { SetupFlowDemo } from '@/components/demo/SetupFlowDemo';
+import { ProductDemo } from '@/components/demo/ProductDemo';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -531,7 +531,7 @@ Após escanear, o webhook é configurado automaticamente. Nenhuma configuração
 [INFO]
 O QR Code expira em 60 segundos. Se expirar antes de escanear, clique em **Atualizar** para gerar um novo. O celular precisa estar com internet ativa.
 [/INFO]`,
-        demo: <SetupFlowDemo />,
+        demo: <ProductDemo />,
       },
     ],
   },
