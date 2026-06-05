@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useLayoutEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import {
@@ -69,22 +69,27 @@ function PortalTooltip({
   side: TooltipSide
   minW?: number
 }) {
-  const [style, setStyle] = useState<React.CSSProperties | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const [style, setStyle]     = useState<React.CSSProperties | null>(null)
 
+  // Mount guard — document.body only exists on the client
+  useEffect(() => { setMounted(true) }, [])
+
+  // Measure anchor position whenever label/side change (scene transitions)
   useLayoutEffect(() => {
     const el = anchorRef.current
     if (!el) return
-    const r = el.getBoundingClientRect()
+    const r   = el.getBoundingClientRect()
     const gap = 12
     let s: React.CSSProperties
-    if (side === 'top')    s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
-    else if (side === 'bottom') s = { top: r.bottom + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
-    else if (side === 'right')  s = { top: r.top + r.height / 2, left: r.right + gap, transform: 'translateY(-50%)' }
-    else                        s = { top: r.top + r.height / 2, right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
+    if (side === 'top')         s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'bottom') s = { top: r.bottom + gap,                      left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'right')  s = { top: r.top + r.height / 2,               left: r.right + gap,         transform: 'translateY(-50%)' }
+    else                        s = { top: r.top + r.height / 2,               right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
     setStyle(s)
-  })
+  }, [label, side]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!style) return null
+  if (!mounted || !style) return null
 
   return createPortal(
     <div className="fixed z-[9999] pointer-events-none" style={{ ...style, minWidth: minW }}>
@@ -796,7 +801,7 @@ export function ProductDemo({ className }: { className?: string }) {
       </div>
 
       {/* App shell */}
-      <div className="flex" style={{ height: 560 }}>
+      <div className="flex" style={{ height: 620 }}>
         <FakeSidebar
           active={meta.nav}
           navHotspot={scene === 'qr_connected' ? 'automacoes' : null}
