@@ -269,8 +269,11 @@ export const Sidebar = memo(function Sidebar({
 }: SidebarProps) {
   const trialDaysLeft = useMemo(() => {
     if (!isTrial || !trialEndsAt) return null;
-    const diff = new Date(trialEndsAt).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    const today = new Date();
+    const end = new Date(trialEndsAt);
+    const todayUTC = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    const endUTC = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+    return Math.max(0, Math.round((endUTC - todayUTC) / (1000 * 60 * 60 * 24)));
   }, [isTrial, trialEndsAt]);
   const pathname = usePathname();
   const router = useRouter();
