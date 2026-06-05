@@ -56,6 +56,7 @@ interface SidebarProps {
 }
 
 function playNotifSound() {
+  if (typeof window !== 'undefined' && localStorage.getItem('zaapply_notif_sound') === 'false') return;
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const playNote = (freq: number, start: number, duration: number) => {

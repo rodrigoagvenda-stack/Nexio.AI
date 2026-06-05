@@ -16,7 +16,7 @@ import {
   User, Camera, CreditCard, Calendar,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
   AlertCircle, Sparkles, X, Shield, Check, Bot, UserMinus,
-  ShieldCheck, Copy, CheckCheck,
+  ShieldCheck, Copy, CheckCheck, Volume2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
@@ -37,6 +37,7 @@ interface GoogleStatus { connected: boolean; email: string | null }
 
 const PLANS = {
   basic:   { name: 'Basic',          price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
+  trial:   { name: 'Trial',          price: 0,   tokens: 5_000_000,  icon: Zap,        desc: 'Período de teste gratuito' },
   starter: { name: 'Zaapply Start',  price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + follow-up automático' },
   pro:     { name: 'Zaapply Growth', price: 697, tokens: 15_000_000, icon: Rocket,     desc: 'Anti-Noshow, Remarketing e Trial SaaS desbloqueados' },
   scale:   { name: 'Zaapply Pro',    price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Escala total: 50M tokens/mês' },
@@ -164,6 +165,15 @@ function ConfiguracoesContent() {
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
   const [googleLoading, setGoogleLoading] = useState(true);
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
+
+  const [notifSound, setNotifSound] = useState(true);
+  useEffect(() => {
+    setNotifSound(localStorage.getItem('zaapply_notif_sound') !== 'false');
+  }, []);
+  const handleNotifSoundChange = (enabled: boolean) => {
+    setNotifSound(enabled);
+    localStorage.setItem('zaapply_notif_sound', String(enabled));
+  };
 
   // MFA state
   const [mfaFactor, setMfaFactor] = useState<{ id: string } | null>(null);
@@ -510,6 +520,27 @@ function ConfiguracoesContent() {
                 {changingPassword ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Alterando…</> : 'Alterar senha'}
               </Button>
             </div>
+
+            <div className="p-6 rounded-2xl border border-border bg-card space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Volume2 className="h-4 w-4 text-primary" />
+                <h2 className="font-semibold text-sm">Notificações</h2>
+              </div>
+              <div className="flex items-center justify-between gap-4 pt-1 border-t border-border">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Volume2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Som de notificações</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Reproduz um som quando novas mensagens chegam no Atendimento
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={notifSound} onCheckedChange={handleNotifSoundChange} className="shrink-0" />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -531,7 +562,11 @@ function ConfiguracoesContent() {
                     <div>
                       <p className="font-semibold text-lg leading-none">{currentPlan.name}</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {currentPlanKey === 'basic' ? 'Sem assinatura ativa' : `R$ ${currentPlan.price}/mês`}
+                        {currentPlanKey === 'trial'
+                          ? 'Período de teste'
+                          : currentPlanKey === 'basic'
+                          ? 'Sem assinatura ativa'
+                          : `R$ ${currentPlan.price}/mês`}
                       </p>
                     </div>
                   </div>
@@ -563,7 +598,7 @@ function ConfiguracoesContent() {
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Tokens usados este mês</span>
                       <span className={cn('font-medium', tokensPct > 90 ? 'text-red-400' : 'text-foreground')}>
-                        {fmtTokens(tokensUsed)} / {fmtTokens(tokensLimit)}
+                        {tokensUsed.toLocaleString('pt-BR')} / {fmtTokens(tokensLimit)}
                       </span>
                     </div>
                     <Progress value={tokensPct} className={cn('h-1.5', tokensPct > 90 ? '[&>div]:bg-red-500' : '')} />

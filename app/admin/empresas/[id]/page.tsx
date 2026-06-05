@@ -274,42 +274,42 @@ export default function EmpresaDetailPage() {
   const subDays        = company.subscription_expires_at ? daysFromNow(company.subscription_expires_at) : null;
 
   return (
-    <div className="max-w-5xl space-y-0">
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 pb-5">
+    <div className="max-w-5xl space-y-6">
+
+      {/* ── Header ────────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => router.back()}
-            className="p-1.5 rounded-md hover:bg-accent transition-colors flex-shrink-0"
+            className="p-1.5 rounded-lg hover:bg-accent transition-colors flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-semibold tracking-tight truncate">{company.name}</h1>
-              <span className={cn('text-xs font-semibold px-1.5 py-0.5 rounded-full bg-muted', plan.color)}>
+              <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted/60', plan.color)}>
                 {plan.label}
               </span>
-              <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', company.is_active
+              <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full', company.is_active
                 ? 'bg-emerald-500/10 text-emerald-500'
                 : 'bg-muted text-muted-foreground'
               )}>
                 {company.is_active ? 'Ativa' : 'Inativa'}
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">{company.email}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{company.email}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button onClick={handleSave} disabled={saving} size="sm" className="h-8">
+          <Button onClick={handleSave} disabled={saving} size="sm" className="h-8 px-4">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
             Salvar
           </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1 px-2.5">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
@@ -348,30 +348,28 @@ export default function EmpresaDetailPage() {
         </div>
       </div>
 
-      {/* ── Body: 2 cols ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* ── Body ────────────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-        {/* ── Left (2/3): identity + SDR ────────────────────────────────────── */}
-        <div className="lg:col-span-2 space-y-5">
+        {/* ── Esquerda (3/5) ─────────────────────────────────────────────────── */}
+        <div className="lg:col-span-3 space-y-5">
 
-          {/* Identity */}
+          {/* Informações */}
           <div className="border border-border/50 rounded-xl bg-card p-5 space-y-4">
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Informações</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Informações</p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs" htmlFor="name">Nome</Label>
+                <Label className="text-xs text-muted-foreground">Nome</Label>
                 <Input
-                  id="name"
                   value={company.name}
                   onChange={(e) => setCompany({ ...company, name: e.target.value })}
                   className="h-9"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs" htmlFor="email">Email</Label>
+                <Label className="text-xs text-muted-foreground">Email</Label>
                 <Input
-                  id="email"
                   type="email"
                   value={company.email}
                   onChange={(e) => setCompany({ ...company, email: e.target.value })}
@@ -380,96 +378,77 @@ export default function EmpresaDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs" htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                value={applyPhoneMask(company.phone || '')}
-                onChange={(e) => setCompany({ ...company, phone: removeMask(e.target.value) })}
-                placeholder="(00) 00000-0000"
-                maxLength={15}
-                className="h-9 max-w-xs"
-              />
-            </div>
-
-            {/* Logo */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Logo</Label>
-              <div className="flex items-center gap-4">
-                <div className="relative flex-shrink-0">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Telefone</Label>
+                <Input
+                  value={applyPhoneMask(company.phone || '')}
+                  onChange={(e) => setCompany({ ...company, phone: removeMask(e.target.value) })}
+                  placeholder="(00) 00000-0000"
+                  maxLength={15}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Logo</Label>
+                <div className="flex items-center gap-3">
                   {company.image_url ? (
-                    <>
-                      <img
-                        src={company.image_url}
-                        alt="Logo"
-                        className="w-14 h-14 rounded-xl object-cover border border-border"
-                      />
+                    <div className="relative flex-shrink-0">
+                      <img src={company.image_url} alt="Logo" className="w-9 h-9 rounded-lg object-cover border border-border" />
                       <button
                         onClick={() => setCompany({ ...company, image_url: '' })}
-                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] font-bold"
+                        className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[9px] font-bold"
                       >×</button>
-                    </>
+                    </div>
                   ) : (
-                    <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center border border-dashed border-border">
-                      <Camera className="h-5 w-5 text-muted-foreground" />
+                    <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center border border-dashed border-border flex-shrink-0">
+                      <Camera className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
-                </div>
-                <div>
-                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageUpload} />
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-                    {company.image_url ? 'Alterar' : 'Upload'}
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground mt-1">JPG, PNG, WEBP · máx. 2MB</p>
+                  <div>
+                    <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageUpload} />
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                      {company.image_url ? 'Alterar' : 'Upload'}
+                    </Button>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">JPG, PNG, WEBP · 2MB</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* SDR credentials */}
+          {/* Agente SDR */}
           <div className="border border-border/50 rounded-xl bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Agente SDR</p>
+                <Bot className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Agente SDR</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <InstanceDot status={instanceStatus} />
                 <span className="text-xs text-muted-foreground">
                   {instanceStatus === 'connected'
                     ? `Conectado${instancePhone ? ` · ${instancePhone}` : ''}`
-                    : instanceStatus === 'connecting'
-                    ? 'Conectando…'
-                    : 'Desconectado'}
+                    : instanceStatus === 'connecting' ? 'Conectando…' : 'Desconectado'}
                 </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">URL da instância</Label>
-                <Input
-                  value={sdrConfig.uazapi_instance_url}
-                  onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_instance_url: e.target.value })}
-                  placeholder="https://nexioai.uazapi.com"
-                  className="h-9"
-                />
+                <Label className="text-xs text-muted-foreground">URL da instância</Label>
+                <Input value={sdrConfig.uazapi_instance_url} onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_instance_url: e.target.value })} placeholder="https://nexioai.uazapi.com" className="h-9" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Nome da instância</Label>
-                <Input
-                  value={sdrConfig.uazapi_instance_name}
-                  onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_instance_name: e.target.value })}
-                  placeholder="empresa-4"
-                  className="h-9"
-                />
+                <Label className="text-xs text-muted-foreground">Nome da instância</Label>
+                <Input value={sdrConfig.uazapi_instance_name} onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_instance_name: e.target.value })} placeholder="empresa-4" className="h-9" />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Token uazapi</Label>
+                <Label className="text-xs text-muted-foreground">Token uazapi</Label>
                 <Input
                   type="password"
                   value={sdrConfig.uazapi_token}
@@ -478,11 +457,11 @@ export default function EmpresaDetailPage() {
                   className="h-9"
                 />
                 {sdrConfig.has_token && !sdrConfig.uazapi_token && (
-                  <p className="text-[11px] text-emerald-500">Token configurado</p>
+                  <p className="text-[10px] text-emerald-500 flex items-center gap-1">✓ Token configurado</p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">OpenAI Key <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                <Label className="text-xs text-muted-foreground">OpenAI Key <span className="font-normal opacity-60">(opcional)</span></Label>
                 <Input
                   type="password"
                   value={sdrConfig.openai_key}
@@ -493,7 +472,7 @@ export default function EmpresaDetailPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center justify-between pt-0.5">
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleCheckStatus} disabled={checkingStatus}>
                   {checkingStatus ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
@@ -514,107 +493,106 @@ export default function EmpresaDetailPage() {
           </div>
         </div>
 
-        {/* ── Right (1/3): plan + billing ───────────────────────────────────── */}
-        <div className="space-y-5">
+        {/* ── Direita (2/5) ──────────────────────────────────────────────────── */}
+        <div className="lg:col-span-2 space-y-5">
 
-          {/* Plan */}
-          <div className="border border-border/50 rounded-xl bg-card p-5 space-y-4">
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Plano</p>
+          {/* Plano + Assinatura + Features — tudo em um card */}
+          <div className="border border-border/50 rounded-xl bg-card divide-y divide-border/50">
 
-            <Select
-              value={company.plan_type || 'basic'}
-              onValueChange={(value) => {
-                setCompany({ ...company, plan_type: value as Company['plan_type'], plan_price: PLANS[value]?.price ?? 0 });
-              }}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PLANS).map(([key, p]) => (
-                  <SelectItem key={key} value={key}>
-                    <span className={p.color}>{p.label}</span>
-                    {p.price > 0 && <span className="text-muted-foreground ml-1.5 text-xs">R$ {p.price.toLocaleString('pt-BR')}</span>}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Feature Flags */}
-          <div className="border border-border/50 rounded-xl bg-card p-5 space-y-3">
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Features</p>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Trial SaaS</p>
-                <p className="text-[11px] text-muted-foreground">Habilita módulo de trial para esta empresa</p>
-              </div>
-              <Switch
-                checked={company.trial_enabled ?? false}
-                onCheckedChange={(v) => setCompany({ ...company, trial_enabled: v })}
-              />
+            {/* Plano */}
+            <div className="p-5 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plano</p>
+              <Select
+                value={company.plan_type || 'basic'}
+                onValueChange={(value) => {
+                  setCompany({ ...company, plan_type: value as Company['plan_type'], plan_price: PLANS[value]?.price ?? 0 });
+                }}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PLANS).map(([key, p]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className={p.color}>{p.label}</span>
+                      {p.price > 0 && <span className="text-muted-foreground ml-1.5 text-xs">R$ {p.price.toLocaleString('pt-BR')}</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
 
-          {/* Subscription */}
-          <div className="border border-border/50 rounded-xl bg-card p-5 space-y-4">
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Assinatura</p>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">Vencimento</Label>
-              <div className="flex gap-2">
+            {/* Assinatura */}
+            <div className="p-5 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Assinatura</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Vencimento</Label>
                 <Input
                   type="date"
                   value={company.subscription_expires_at ? new Date(company.subscription_expires_at).toISOString().split('T')[0] : ''}
                   onChange={(e) => setCompany({ ...company, subscription_expires_at: e.target.value })}
-                  className="h-9 flex-1"
+                  className="h-9"
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3 flex-shrink-0 gap-1 text-yellow-400 border-yellow-400/30 hover:bg-yellow-400/10"
-                  onClick={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + 7);
-                    setCompany({ ...company, plan_type: 'trial', plan_price: 0, subscription_expires_at: d.toISOString() });
-                  }}
-                >
-                  <Calendar className="h-3.5 w-3.5" />
-                  +7d Trial
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 px-3 flex-shrink-0 gap-1"
-                  onClick={() => {
-                    const d = new Date();
-                    d.setMonth(d.getMonth() + 1);
-                    setCompany({ ...company, subscription_expires_at: d.toISOString() });
-                  }}
-                >
-                  <Calendar className="h-3.5 w-3.5" />
-                  +30d
-                </Button>
+                <div className="flex gap-2 pt-0.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 flex-1 text-xs gap-1 text-yellow-400 border-yellow-400/30 hover:bg-yellow-400/10"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 7);
+                      setCompany({ ...company, plan_type: 'trial', plan_price: 0, subscription_expires_at: d.toISOString() });
+                    }}
+                  >
+                    <Calendar className="h-3 w-3" />+7d Trial
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 flex-1 text-xs gap-1"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setMonth(d.getMonth() + 1);
+                      setCompany({ ...company, subscription_expires_at: d.toISOString() });
+                    }}
+                  >
+                    <Calendar className="h-3 w-3" />+30d
+                  </Button>
+                </div>
+                {subDays !== null && (
+                  <p className={cn('text-[11px] font-medium', subDays < 0 ? 'text-destructive' : 'text-emerald-500')}>
+                    {subDays < 0 ? `Vencida há ${Math.abs(subDays)} dias` : `Vence em ${subDays} dias`}
+                  </p>
+                )}
+                {company.subscription_start_date && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Início: {new Date(company.subscription_start_date).toLocaleDateString('pt-BR')}
+                  </p>
+                )}
               </div>
-              {subDays !== null && (
-                <p className={cn('text-[11px] font-medium', subDays < 0 ? 'text-destructive' : 'text-emerald-500')}>
-                  {subDays < 0 ? `Vencida há ${Math.abs(subDays)} dias` : `Vence em ${subDays} dias`}
-                </p>
-              )}
-              {company.subscription_start_date && (
-                <p className="text-[11px] text-muted-foreground">
-                  Início: {new Date(company.subscription_start_date).toLocaleDateString('pt-BR')}
-                </p>
-              )}
+            </div>
+
+            {/* Features */}
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Trial SaaS</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Habilita módulo de trial para esta empresa</p>
+                </div>
+                <Switch
+                  checked={company.trial_enabled ?? false}
+                  onCheckedChange={(v) => setCompany({ ...company, trial_enabled: v })}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Asaas */}
-          <div className="border border-border/50 rounded-xl bg-card p-5 space-y-4">
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Asaas</p>
+          {/* Asaas — cobrança */}
+          <div className="border border-border/50 rounded-xl bg-card p-5 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobrança (Asaas)</p>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Customer ID</Label>
+              <Label className="text-xs text-muted-foreground">Customer ID</Label>
               <Input
                 value={company.asaas_customer_id ?? ''}
                 onChange={(e) => setCompany({ ...company, asaas_customer_id: e.target.value || null })}
@@ -623,7 +601,7 @@ export default function EmpresaDetailPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">CPF / CNPJ</Label>
+              <Label className="text-xs text-muted-foreground">CPF / CNPJ</Label>
               <Input
                 value={company.asaas_cpf_cnpj ?? ''}
                 onChange={(e) => setCompany({ ...company, asaas_cpf_cnpj: e.target.value || null })}
@@ -632,7 +610,7 @@ export default function EmpresaDetailPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Subscription ID</Label>
+              <Label className="text-xs text-muted-foreground">Subscription ID</Label>
               <Input
                 value={company.asaas_subscription_id ?? ''}
                 onChange={(e) => setCompany({ ...company, asaas_subscription_id: e.target.value || null })}
@@ -640,7 +618,7 @@ export default function EmpresaDetailPage() {
                 className="h-9 font-mono text-xs"
               />
               {company.asaas_subscription_id && (
-                <p className="text-[11px] text-emerald-500">Assinatura recorrente ativa</p>
+                <p className="text-[10px] text-emerald-500">✓ Assinatura recorrente ativa</p>
               )}
             </div>
           </div>

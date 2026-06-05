@@ -118,14 +118,16 @@ export async function DELETE(
       return NextResponse.json({ success: false, message: auth.error }, { status: auth.status });
     }
 
+    const { id } = await Promise.resolve(params);
+
     const { error } = await auth.serviceSupabase
       .from('companies')
-      .update({ is_active: false })
-      .eq('id', params.id);
+      .delete()
+      .eq('id', id);
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, message: 'Empresa desativada' });
+    return NextResponse.json({ success: true, message: 'Empresa deletada' });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message },
