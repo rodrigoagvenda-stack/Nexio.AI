@@ -139,7 +139,7 @@ function FakeSidebar({ active, navHotspot, onNav }: {
         </span>
       </div>
       {/* Nav */}
-      <div className="flex-1 px-3 pt-3 space-y-3 overflow-y-auto">
+      <div className="flex-1 px-3 pt-3 space-y-3 overflow-visible">
         {NAV_SECTIONS.map(({ label, items }) => (
           <div key={label}>
             <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">{label}</p>
@@ -580,17 +580,7 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                         <p className="text-[10px] text-green-700 dark:text-green-300 font-medium">5 documentos indexados · 142 chunks</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {['Manual de vendas.pdf', 'FAQ do produto.docx', 'Tabela de preços.pdf', 'Cases de sucesso.pdf'].map(f => (
-                        <div key={f} className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 flex items-center gap-2">
-                          <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                            <BookOpen className="w-2.5 h-2.5 text-primary" />
-                          </div>
-                          <p className="text-[11px] text-foreground truncate">{f}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-3 text-center">
+                    <div className="rounded-lg border border-dashed border-border/60 bg-muted/30 px-3 py-4 text-center">
                       <p className="text-xs text-muted-foreground">+ Adicionar URL ou documento</p>
                     </div>
                   </div>
@@ -780,7 +770,7 @@ export function ProductDemo({ className }: { className?: string }) {
 
   return (
     <div className={cn('rounded-2xl border border-border shadow-xl bg-background relative', className)}
-         style={{ minWidth: 940 }}>
+         style={{ minWidth: 1080 }}>
       {/* URL bar */}
       <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 flex-shrink-0 rounded-t-2xl overflow-hidden">
         <div className="flex gap-1.5 shrink-0">
@@ -802,7 +792,7 @@ export function ProductDemo({ className }: { className?: string }) {
         />
 
         {/* Content */}
-        <div className="flex-1 min-w-0 relative overflow-hidden">
+        <div className="flex-1 min-w-0 relative overflow-visible">
           <div key={scene} className="absolute inset-0 animate-in fade-in duration-200">
             {(scene === 'qr_idle' || scene === 'qr_shown' || scene === 'qr_connected') && (
               <ScreenAtendimento qrState={qrState} onGerarQR={handleGerarQR} onScanQR={handleScanQR} />
