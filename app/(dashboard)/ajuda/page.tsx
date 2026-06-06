@@ -171,13 +171,13 @@ Lista dos últimos 10 leads fechados com nome da empresa, contato e valor da neg
 
 • **Triagem** 🔍 — Leads captados via integração aguardando avaliação de ICP
 • **Outbound** 📣 — Aprovados na triagem, prontos para prospecção ativa
-• **Lead novo** 🔵 — Adicionados manualmente, ainda não contactados
-• **Em contato** 💬 — Primeiro contato realizado pelo SDR ou manualmente
-• **Interessado** ⭐ — Demonstrou interesse genuíno no produto/serviço
-• **Proposta enviada** 📄 — Recebeu orçamento ou proposta formal
-• **Fechado** ✅ — Venda concluída e valor registrado
-• **Perdido** ❌ — Não converteu neste ciclo de vendas
-• **Remarketing** 🔁 — Em campanha de reativação futura
+• **Lead novo** — Adicionados manualmente, ainda não contactados
+• **Em contato** — Primeiro contato realizado pelo SDR ou manualmente
+• **Interessado** — Demonstrou interesse genuíno no produto/serviço
+• **Proposta enviada** — Recebeu orçamento ou proposta formal
+• **Fechado** — Venda concluída e valor registrado
+• **Perdido** — Não converteu neste ciclo de vendas
+• **Remarketing** — Em campanha de reativação futura
 [TIP]
 Leads em "Perdido" não são deletados. Mova-os para "Remarketing" quando quiser reengajar com uma sequência automática.
 [/TIP]`,
@@ -308,38 +308,12 @@ No modo Vendas, o atendente recebe a conversa instantaneamente. No modo Suporte,
 Todos os arquivos enviados e recebidos ficam organizados na aba **Mídia** da ficha do lead no painel direito.`,
       },
       {
-        question: 'Respostas rápidas e variáveis dinâmicas',
+        question: 'Tags',
         answer:
-`## Usar templates
-1. Digite **/** na caixa de mensagem
-2. Selecione o template na lista (↑↓ para navegar, Enter para selecionar)
-3. O sistema substitui automaticamente as variáveis antes de enviar
-
-## Variáveis disponíveis
-• \`{{nome}}\` — Nome do contato do lead
-• \`{{empresa}}\` — Nome da empresa do lead
-• \`{{telefone}}\` — Telefone do lead
-• \`{{usuario}}\` — Seu nome (atendente logado)
-• \`{{minha_empresa}}\` — Nome da sua empresa
-[TIP]
-Crie templates para respostas frequentes: apresentação, proposta, follow-up manual, confirmação de reunião. Salve em Configuração → Templates.
-[/TIP]`,
-      },
-      {
-        question: 'Tags e agendamento de mensagens',
-        answer:
-`## Tags
-Acesse a aba **Tags** na ficha do lead (painel direito):
+`Acesse a aba **Tags** na ficha do lead (painel direito):
 • Crie tags com nome e cor personalizada
 • Aplique múltiplas tags por conversa
-• As tags aparecem como badges coloridos na lista de conversas
-
-## Agendar mensagens
-1. Clique no ícone de calendário (📅) no header do chat
-2. Defina data, hora e conteúdo da mensagem
-3. Confirme — a mensagem é enviada automaticamente no horário definido
-
-Gerencie, edite e cancele agendamentos futuros na aba **Agenda** da ficha do lead.`,
+• As tags aparecem como badges coloridos na lista de conversas`,
       },
     ],
   },
@@ -624,9 +598,9 @@ O painel de Métricas mostra taxa de conversão, tempo médio de conversão e pr
       {
         question: 'Configurar o Trial',
         answer:
-`Acesse **Automações → Trial SaaS** no menu lateral.
+`Acesse **Automações → Trial SaaS** no menu lateral. Administradores e empresas com trial ativo podem criar e configurar suas próprias sequências e fluxos normalmente.
 [ADMIN]
-Apenas administradores podem configurar a duração e a sequência do Trial SaaS.
+Apenas administradores podem alterar a duração global e a sequência padrão do Trial SaaS.
 [/ADMIN]
 
 ## Configurações disponíveis
@@ -635,7 +609,7 @@ Apenas administradores podem configurar a duração e a sequência do Trial SaaS
 • **Número de teste** — Telefone para simular o fluxo sem criar registros reais
 
 ## Como um trial é iniciado
-O trial começa quando o SDR ou uma etapa de follow-up identifica o lead como trial ativo. O sistema registra automaticamente: nome, telefone, data de início, duração e status inicial \`trial_ativo\`.`,
+O trial é ativado por um **webhook** disparado por um formulário externo (ex: página de cadastro, landing page, Make, n8n). Quando o lead preenche o formulário, o webhook notifica o Zaapply que registra automaticamente: nome, telefone, data de início, duração e status \`trial_ativo\`.`,
       },
       {
         question: 'Modo de teste',
@@ -873,10 +847,10 @@ Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste 
         answer:
 `O canvas tem 11 tipos de nodes. Cada um representa uma ação ou decisão no fluxo do lead:
 
-## 🟢 Trigger (início)
+## Trigger (inicio)
 Criado automaticamente. É o ponto de entrada do fluxo — representa o gatilho que ativa a sequência (início automático, mudança de estágio no CRM, etc.). Só existe um por fluxo e não pode ser deletado.
 
-## 💬 Mensagem
+## Mensagem
 Envia uma mensagem WhatsApp ao lead. O tipo de conteúdo é configurável:
 • **Texto** — Mensagem escrita simples. Suporte a múltiplos blocos (sequência de textos)
 • **Imagem / Vídeo / Documento** — Upload de arquivo com legenda opcional
@@ -888,10 +862,10 @@ Envia uma mensagem WhatsApp ao lead. O tipo de conteúdo é configurável:
 
 Cada node Mensagem também controla o **Agente SDR**: você pode pausar ou reativar o agente automaticamente ao enviar aquela mensagem.
 
-## ⏱ Aguardar
+## Aguardar
 Pausa o fluxo por um número de dias antes de executar o próximo node. Configure a quantidade de dias e o horário em que o fluxo deve continuar. Usado para espaçar mensagens no tempo.
 
-## 🔀 Condição (Se/Senão)
+## Condição (Se/Senão)
 Bifurca o fluxo em dois caminhos: **Sim** e **Não**. A condição avalia uma variável:
 • **respondeu** — Lead mandou alguma mensagem após a última automação?
 • **resposta_botao** — O lead clicou em algum botão?
@@ -899,22 +873,22 @@ Bifurca o fluxo em dois caminhos: **Sim** e **Não**. A condição avalia uma va
 
 A saída **Sim** segue se a condição for verdadeira; **Não** segue caso contrário.
 
-## 🔁 Switch (N saídas)
+## Switch (N saídas)
 Roteamento por valor de botão — cria um caminho de saída para cada resposta possível de botão. Ideal após um node de Mensagem com botões: cada botão clicado roteia para um caminho diferente do fluxo.
 
-## ⛔ Encerrar
+## Encerrar
 Finaliza a sequência para aquele lead. Coloque no fim de cada caminho do fluxo que deve parar. Um fluxo pode ter vários nodes Encerrar (ex: um para "convertido" e outro para "desistiu").
 
-## 🌐 Webhook
+## Webhook
 Faz uma chamada HTTP (POST ou GET) para uma URL externa quando o fluxo chega naquele ponto. Use para integrar com seu CRM, ERP, planilha do Google, Make, n8n ou qualquer outro sistema.
 
-## ⭐ Lead Score
+## Lead Score
 Bifurca o fluxo baseado na pontuação do lead. Configure um intervalo mínimo e máximo de score. Leads dentro do intervalo seguem o caminho Sim; fora do intervalo, o caminho Não.
 
-## 🧪 Teste A/B
+## Teste A/B
 Divide o tráfego 50/50 entre duas variantes de mensagem. Leads são roteados alternadamente entre Variante A e Variante B. Use para testar qual mensagem converte mais.
 
-## 📅 Agendar Call
+## Agendar Call
 Envia uma sequência de blocos de mensagem e ativa o agente de agendamento via WhatsApp. O agente oferece horários disponíveis ao lead e registra o compromisso automaticamente. Suporta múltiplos blocos de texto com delay humanizado entre eles.
 
 **Use quando:** Você quer que o próprio fluxo feche uma reunião sem intervenção humana — o lead recebe os horários disponíveis e confirma pelo WhatsApp.
@@ -922,12 +896,12 @@ Envia uma sequência de blocos de mensagem e ativa o agente de agendamento via W
 O node Agendar Call requer o Google Calendar conectado em Configurações → Integrações para exibir horários disponíveis reais.
 [/INFO]
 
-## ⚡ Pós-Condição
+## Pos-Condicao
 Aguarda o lead responder ou clicar em um botão antes de disparar a próxima mensagem. Sem interação genuína do lead, o fluxo fica pausado indefinidamente neste ponto — o CRON não avança automaticamente.
 
 **Diferença do node Condição:** A Condição bifurca o fluxo em dois caminhos (Sim/Não) com base em uma variável. A Pós-Condição não bifurca — ela simplesmente bloqueia o avanço até o lead agir.
 
-**Use quando:** Você quer que a próxima mensagem só saia após o lead demonstrar interesse real. Coloque sempre na saída **"NÃO"** do node Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido.
+**Use quando:** Você quer que a próxima mensagem só saia após o lead demonstrar interesse real. Coloque sempre na saída **"NAO"** do node Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido.
 [AVISO]
 Nunca conecte Pós-Condição na saída "SIM" de uma Condição que verifica resposta de botão — nesse caso o lead já interagiu, e o node seria redundante.
 [/AVISO]`,
@@ -946,7 +920,7 @@ Nunca conecte Pós-Condição na saída "SIM" de uma Condição que verifica res
 • Uma seta curva conecta os dois — esse é um "edge"
 
 ## Nodes com múltiplas saídas
-• **Condição** tem dois pontos de saída: ✓ Sim (verde) e ✗ Não (cinza)
+• **Condição** tem dois pontos de saída: Sim (verde) e Não (cinza)
 • **Switch** tem um ponto de saída por caso configurado
 • Conecte cada saída a um node diferente para criar bifurcações
 
@@ -971,6 +945,14 @@ Não feche o canvas sem salvar. Alterações não salvas são perdidas ao fechar
 ## Usar templates prontos
 Ao criar uma nova sequência, o botão **Usar template** oferece fluxos pré-montados por tipo (boas-vindas, remarketing, anti-noshow). Use como ponto de partida e edite conforme necessário.`,
       },
+    ],
+  },
+  {
+    id: 'problemas',
+    title: 'Problemas comuns',
+    icon: AlertTriangle,
+    description: 'Soluções para os problemas mais frequentes: WhatsApp, agente IA, mensagens e acesso',
+    items: [
       {
         question: 'WhatsApp não conecta ou desconecta',
         answer:
@@ -1319,11 +1301,11 @@ function SupportTicketButton() {
 const WELCOME_BUTTONS = ['CRM e funil', 'Agente IA', 'WhatsApp', 'Planos e preços'];
 
 const RATING_OPTIONS = [
-  { emoji: '😞', label: 'Péssimo', value: 1 },
-  { emoji: '😕', label: 'Ruim', value: 2 },
-  { emoji: '😐', label: 'Ok', value: 3 },
-  { emoji: '😊', label: 'Bom', value: 4 },
-  { emoji: '🤩', label: 'Ótimo', value: 5 },
+  { label: 'Péssimo', value: 1 },
+  { label: 'Ruim',    value: 2 },
+  { label: 'Ok',      value: 3 },
+  { label: 'Bom',     value: 4 },
+  { label: 'Ótimo',   value: 5 },
 ];
 
 const CHAT_STORAGE_KEY = 'zaapply_zaia_chat';
@@ -1501,7 +1483,7 @@ function AiChat() {
     clearInactivityTimers();
     setMessages(prev => [...prev, {
       role: 'assistant',
-      content: `Obrigada pelo feedback ${r.emoji} Fico feliz em ajudar! Se surgir mais alguma dúvida, é só chamar.`,
+      content: `Obrigada pelo feedback! Fico feliz em ajudar. Se surgir mais alguma dúvida, é só chamar.`,
       timestamp: Date.now(),
     }]);
   }
@@ -1678,11 +1660,11 @@ function AiChat() {
                 {msg.role === 'assistant' && msg.askFeedback && !rated && i === messages.length - 1 && (
                   <div className="space-y-2 pl-1">
                     <p className="text-xs text-muted-foreground">Como foi esse atendimento?</p>
-                    <div className="flex gap-3">
+                    <div className="flex gap-1.5 flex-wrap">
                       {RATING_OPTIONS.map(r => (
-                        <button key={r.value} onClick={() => handleRate(r)} title={r.label}
-                          className="text-xl hover:scale-125 transition-transform leading-none">
-                          {r.emoji}
+                        <button key={r.value} onClick={() => handleRate(r)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-muted hover:bg-muted/80 hover:border-primary/50 transition-colors">
+                          {r.label}
                         </button>
                       ))}
                     </div>
@@ -1694,7 +1676,7 @@ function AiChat() {
             {inactiveWarning && (
               <div className="flex justify-start">
                 <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm max-w-[85%]">
-                  Ei, você ainda tá aí? Vou encerrar em 30 segundos… 👋
+                  Ei, você ainda tá aí? Vou encerrar em 30 segundos…
                 </div>
               </div>
             )}
@@ -1703,14 +1685,14 @@ function AiChat() {
               <div className="space-y-2">
                 <div className="flex justify-start">
                   <div className="bg-muted rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm max-w-[85%]">
-                    Tudo bem! Encerrando por aqui 😊 Como foi esse atendimento?
+                    Tudo bem! Encerrando por aqui. Como foi esse atendimento?
                   </div>
                 </div>
-                <div className="flex gap-3 pl-1">
+                <div className="flex gap-1.5 flex-wrap pl-1">
                   {RATING_OPTIONS.map(r => (
-                    <button key={r.value} onClick={() => handleRate(r)} title={r.label}
-                      className="text-xl hover:scale-125 transition-transform leading-none">
-                      {r.emoji}
+                    <button key={r.value} onClick={() => handleRate(r)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-muted hover:bg-muted/80 hover:border-primary/50 transition-colors">
+                      {r.label}
                     </button>
                   ))}
                 </div>
