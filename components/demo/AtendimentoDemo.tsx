@@ -6,12 +6,12 @@ import { cn } from '@/lib/utils'
 import {
   TrendingUp, PieChart, MessageCircle, UserCog,
   Sparkles, LifeBuoy, Settings, Megaphone,
-  Search, Send, Phone, Building2, CheckCheck,
-  MoreVertical, Bot, PauseCircle, Paperclip, Mic,
-  Tag, FileText, Clock,
+  Search, Send, Bot, PauseCircle, MoreVertical, Phone,
+  Building2, FileText, StickyNote, Tag, Calendar, Image as ImageIcon,
+  CheckCheck, Paperclip, Mic, ChevronDown, ChevronUp, Copy, Check,
 } from 'lucide-react'
 
-// ── Real Zaapply SVG icon ────────────────────────────────────────────────────
+// ── Zaapply icon ─────────────────────────────────────────────────────────────
 function ZaapliIcon({ size = 26 }: { size?: number }) {
   const w = size * (208 / 235)
   return (
@@ -22,23 +22,24 @@ function ZaapliIcon({ size = 26 }: { size?: number }) {
   )
 }
 
-// ── PortalTooltip ────────────────────────────────────────────────────────────
+// ── PortalTooltip ─────────────────────────────────────────────────────────────
 type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
 function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
   anchorRef: React.RefObject<HTMLElement | null>; label: string; side: TooltipSide; minW?: number
 }) {
   const [mounted, setMounted] = useState(false)
-  const [style, setStyle]     = useState<React.CSSProperties | null>(null)
+  const [style, setStyle] = useState<React.CSSProperties | null>(null)
   useEffect(() => { setMounted(true) }, [])
   useLayoutEffect(() => {
     const el = anchorRef.current
     if (!el) return
-    const r = el.getBoundingClientRect(), gap = 12
+    const r = el.getBoundingClientRect()
+    const gap = 12
     let s: React.CSSProperties
-    if      (side === 'top')    s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
-    else if (side === 'bottom') s = { top: r.bottom + gap,                       left: r.left + r.width / 2, transform: 'translateX(-50%)' }
-    else if (side === 'right')  s = { top: r.top + r.height / 2,                left: r.right + gap,         transform: 'translateY(-50%)' }
-    else                        s = { top: r.top + r.height / 2,                right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
+    if (side === 'top')         s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'bottom') s = { top: r.bottom + gap,                      left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'right')  s = { top: r.top + r.height / 2,               left: r.right + gap,         transform: 'translateY(-50%)' }
+    else                        s = { top: r.top + r.height / 2,               right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
     setStyle(s)
   }, [label, side]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!mounted || !style) return null
@@ -54,7 +55,6 @@ function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
   )
 }
 
-// ── Hotspot ──────────────────────────────────────────────────────────────────
 function Hotspot({ children, label, onClick, side = 'top', minW = 240 }: {
   children: React.ReactNode; label: string; onClick: () => void; side?: TooltipSide; minW?: number
 }) {
@@ -68,126 +68,187 @@ function Hotspot({ children, label, onClick, side = 'top', minW = 240 }: {
   )
 }
 
-// ── FakeSidebar (exact copy from ProductDemo) ────────────────────────────────
+// ── FakeSidebar ───────────────────────────────────────────────────────────────
 const NAV_SECTIONS = [
-  { label: 'Principal',   items: [{ id: 'dashboard',    label: 'Dashboard',    Icon: TrendingUp  }] },
+  { label: 'Principal',   items: [{ id: 'dashboard',      label: 'Dashboard',    Icon: TrendingUp  }] },
   { label: 'Ferramentas', items: [
     { id: 'crm',           label: 'CRM',          Icon: PieChart      },
     { id: 'atendimento',   label: 'Atendimento',  Icon: MessageCircle },
-    { id: 'automacoes',    label: 'Automações',   Icon: Megaphone     },
+    { id: 'automacoes',    label: 'Automacoes',   Icon: Megaphone     },
   ]},
-  { label: 'Gestão',      items: [{ id: 'membros', label: 'Membros', Icon: UserCog }] },
+  { label: 'Gestao',      items: [{ id: 'membros', label: 'Membros', Icon: UserCog }] },
   { label: 'Sistema',     items: [
     { id: 'novidades',     label: 'Novidades',    Icon: Sparkles  },
     { id: 'ajuda',         label: 'Ajuda',        Icon: LifeBuoy  },
-    { id: 'configuracoes', label: 'Configuração', Icon: Settings  },
+    { id: 'configuracoes', label: 'Configuracao', Icon: Settings  },
   ]},
 ] as const
 
 function FakeSidebar({ active }: { active: string }) {
   return (
-    <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border h-full">
-      <div className="flex items-center h-14 border-b border-border/50 px-4 gap-2 flex-shrink-0">
-        <ZaapliIcon size={26} />
-        <span className="font-extrabold tracking-tight text-[#0d0d0d] dark:text-white leading-none select-none"
-          style={{ fontSize: 18, fontFamily: "'Nunito','Poppins',sans-serif", letterSpacing: '-0.01em' }}>
-          zaapply
-        </span>
+    <div className="w-56 flex-shrink-0 bg-card border-r border-border flex flex-col h-full">
+      <div className="h-14 flex items-center px-4 border-b border-border gap-2.5 flex-shrink-0">
+        <ZaapliIcon size={24} />
+        <span className="text-sm font-bold tracking-tight">zaapply</span>
       </div>
-      <div className="flex-1 px-3 pt-3 space-y-3">
-        {NAV_SECTIONS.map(({ label, items }) => (
-          <div key={label}>
-            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">{label}</p>
-            <div className="space-y-0.5">
-              {items.map(({ id, label: lbl, Icon }) => (
-                <button key={id}
-                  className={cn('relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100 text-left',
-                    active === id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50')}>
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm flex-1 text-left">{lbl}</span>
-                </button>
-              ))}
-            </div>
+      <div className="flex-1 overflow-y-auto py-3 space-y-4 px-2">
+        {NAV_SECTIONS.map(sec => (
+          <div key={sec.label}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 px-2 mb-1">{sec.label}</p>
+            {sec.items.map(({ id, label, Icon }) => (
+              <div key={id} className={cn(
+                'flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-colors',
+                id === active ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'
+              )}>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{label}</span>
+              </div>
+            ))}
           </div>
         ))}
       </div>
-      <div className="p-3 border-t border-border/50 flex-shrink-0">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-accent/30">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <span className="text-white text-xs font-bold">R</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">Minha Empresa</p>
-            <p className="text-xs text-muted-foreground truncate">contato@empresa.com</p>
-          </div>
-        </div>
-      </div>
-    </aside>
-  )
-}
-
-// ── Fake avatar ───────────────────────────────────────────────────────────────
-function Avatar({ initials, color = 'bg-primary' }: { initials: string; color?: string }) {
-  return (
-    <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white text-sm font-semibold', color)}>
-      {initials}
     </div>
   )
 }
 
 // ── Conversation item ─────────────────────────────────────────────────────────
-function ConvItem({ initials, color, name, company, time, lastMsg, unread, active, onClick }: {
+function ConvItem({ initials, color, name, company, time, lastMsg, unread = 0, active = false, onClick }: {
   initials: string; color: string; name: string; company: string; time: string
   lastMsg: string; unread?: number; active?: boolean; onClick?: () => void
 }) {
   return (
-    <button onClick={onClick}
-      className={cn(
-        'w-full flex items-start gap-3 px-4 py-3 border-b border-border/50 transition-colors text-left',
-        active ? 'bg-accent' : 'hover:bg-muted/50'
-      )}>
-      <Avatar initials={initials} color={color} />
-      <div className="min-w-0 flex-1">
+    <div onClick={onClick} className={cn(
+      'flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-border/30 transition-colors',
+      active ? 'bg-primary/8' : 'hover:bg-muted/40'
+    )}>
+      <div className={cn('w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0', color)}>
+        {initials}
+      </div>
+      <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className="text-sm font-semibold text-foreground truncate">{name}</span>
-          <span className="text-[11px] text-muted-foreground shrink-0">{time}</span>
+          <span className={cn('text-sm truncate', unread > 0 ? 'font-semibold' : 'font-medium')}>{name}</span>
+          <span className="text-[10px] text-muted-foreground shrink-0">{time}</span>
         </div>
         <div className="flex items-center justify-between gap-1 mt-0.5">
-          <p className="text-xs text-muted-foreground truncate">{lastMsg}</p>
-          {unread != null && unread > 0 && (
-            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-              {unread}
-            </span>
+          <p className="text-xs text-muted-foreground truncate">{company}</p>
+          {unread > 0 && (
+            <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0">{unread}</span>
           )}
         </div>
-        <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5 flex items-center gap-1">
-          <Building2 className="w-2.5 h-2.5 shrink-0" />{company}
-        </p>
+        <p className="text-xs text-muted-foreground/60 truncate mt-0.5">{lastMsg}</p>
       </div>
-    </button>
+    </div>
   )
 }
 
 // ── Chat bubble ───────────────────────────────────────────────────────────────
 function Bubble({ dir, text, time, ai }: { dir: 'in' | 'out'; text: string; time: string; ai?: boolean }) {
+  const isOut = dir === 'out'
   return (
-    <div className={cn('flex gap-2 max-w-[75%]', dir === 'out' ? 'ml-auto flex-row-reverse' : '')}>
-      {dir === 'in' && <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-auto">
-        <span className="text-[11px] font-semibold text-muted-foreground">C</span>
-      </div>}
-      <div>
-        <div className={cn(
-          'px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed',
-          dir === 'in'
-            ? 'bg-muted/60 text-foreground rounded-tl-sm'
-            : 'bg-green-500/15 border border-green-500/20 text-foreground rounded-tr-sm'
-        )}>
-          {text}
+    <div className={cn('flex', isOut ? 'justify-end' : 'justify-start')}>
+      <div className={cn(
+        'relative max-w-[75%] px-3 py-2 shadow-sm',
+        isOut ? 'bg-[#dcf8c6] dark:bg-[#005c4b] rounded-2xl rounded-tr-none' : 'bg-white dark:bg-[#1f2c34] rounded-2xl rounded-tl-none'
+      )}>
+        {isOut && <div className="absolute top-0 right-[-7px] w-0 h-0 border-t-[8px] border-t-[#dcf8c6] dark:border-t-[#005c4b] border-l-[8px] border-l-transparent" />}
+        {!isOut && <div className="absolute top-0 left-[-7px] w-0 h-0 border-t-[8px] border-t-white dark:border-t-[#1f2c34] border-r-[8px] border-r-transparent" />}
+        {ai && <p className="text-[10px] font-semibold text-primary mb-1">Agente IA</p>}
+        <p className="text-[13.5px] leading-[1.4] text-[#111] dark:text-[#e9edef] break-words">{text}</p>
+        <div className="flex items-center justify-end gap-1 mt-0.5">
+          <span className="text-[10px] text-[#667781] dark:text-[#8696a0]">{time}</span>
+          {isOut && <CheckCheck className="w-3 h-3 text-[#53bdeb]" />}
         </div>
-        <div className={cn('flex items-center gap-1 mt-1 text-[10px] text-muted-foreground/50', dir === 'out' ? 'justify-end' : '')}>
-          <span>{time}</span>
-          {dir === 'out' && <CheckCheck className="w-3 h-3 text-primary/60" />}
-          {ai && dir === 'out' && <Bot className="w-3 h-3 text-primary/60" />}
+      </div>
+    </div>
+  )
+}
+
+// ── Info panel (right column) ─────────────────────────────────────────────────
+const SDR_RESUMO = `Lead altamente interessado. Perguntou sobre integração com CRM e período de trial. Demonstrou urgência para apresentar para a equipe. Perfil: decisor técnico, empresa de médio porte (TechFlow Solutions). Próximo passo: enviar proposta personalizada com foco em integrações.`
+
+function InfoPanel({ showResumo, highlightResumo, onResumoClick }: {
+  showResumo: boolean; highlightResumo: boolean; onResumoClick?: () => void
+}) {
+  const resumoRef = useRef<HTMLButtonElement>(null)
+  return (
+    <div className="flex flex-col bg-card border-l border-border flex-shrink-0" style={{ width: 264 }}>
+      <div className="flex items-center justify-between px-4 h-12 border-b border-border flex-shrink-0">
+        <span className="text-sm font-semibold">Informacoes do Lead</span>
+      </div>
+      {/* Tabs */}
+      <div className="flex border-b border-border overflow-x-auto flex-shrink-0">
+        {['Dados', 'Notas', 'Tags', 'Agenda', 'Midia'].map((tab, i) => (
+          <button key={tab} className={cn(
+            'px-3 py-2 text-xs whitespace-nowrap border-b-2 transition-colors',
+            i === 0 ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground'
+          )}>{tab}</button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* SDR Resumo */}
+        <div className="space-y-2 relative">
+          {highlightResumo && (
+            <div className="absolute inset-0 -m-1 rounded-xl ring-2 ring-primary shadow-[0_0_12px_2px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
+          )}
+          <button
+            ref={resumoRef}
+            onClick={onResumoClick}
+            className={cn(
+              'w-full flex items-center justify-between p-3 rounded-lg transition-colors border',
+              highlightResumo
+                ? 'bg-primary/20 border-primary/40 cursor-pointer'
+                : 'bg-primary/10 hover:bg-primary/20 border-primary/20'
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">nexio.ai resumo</span>
+              <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded font-medium">IA</span>
+            </div>
+            {showResumo ? <ChevronUp className="h-4 w-4 text-primary" /> : <ChevronDown className="h-4 w-4 text-primary" />}
+          </button>
+          {highlightResumo && (
+            <PortalTooltip anchorRef={resumoRef} label="Resumo da conversa gerado automaticamente pelo agente IA" side="left" minW={280} />
+          )}
+          {showResumo && (
+            <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-3 border border-primary/20 space-y-3">
+              <p className="text-sm text-foreground leading-relaxed">{SDR_RESUMO}</p>
+              <div className="flex items-center justify-between pt-2 border-t border-primary/20">
+                <p className="text-xs text-muted-foreground italic">Gerado automaticamente</p>
+                <button className="flex items-center gap-1 h-7 px-2 text-xs text-muted-foreground hover:text-foreground rounded">
+                  <Copy className="h-3 w-3" />Copiar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Contact block */}
+        <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <Building2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold truncate">TechFlow Solutions</p>
+              <p className="text-xs text-muted-foreground truncate">Carlos Mendes</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Phone className="h-3.5 w-3.5 shrink-0" />
+            <span>+55 11 9 8765-4321</span>
+          </div>
+        </div>
+
+        {/* Pipeline */}
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pipeline</p>
+          <div className="space-y-2">
+            <div className="h-8 px-3 rounded-xl border border-border bg-muted text-xs text-foreground flex items-center justify-between">
+              <span>Interessado</span><span className="text-muted-foreground/40 text-xs">▾</span>
+            </div>
+            <div className="h-8 px-3 rounded-xl border border-border bg-muted text-xs text-foreground flex items-center justify-between">
+              <span>Quente</span><span className="text-muted-foreground/40 text-xs">▾</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -195,264 +256,172 @@ function Bubble({ dir, text, time, ai }: { dir: 'in' | 'out'; text: string; time
 }
 
 // ── Scenes ────────────────────────────────────────────────────────────────────
-type Scene = 'inbox' | 'chat_open' | 'typing' | 'sent' | 'done'
-const SCENES: Scene[] = ['inbox', 'chat_open', 'typing', 'sent', 'done']
+type Scene = 'inbox' | 'agent_paused' | 'resumo_expanded' | 'typing' | 'sent' | 'done'
+const SCENES: Scene[] = ['inbox', 'agent_paused', 'resumo_expanded', 'typing', 'sent', 'done']
 const META: Record<Scene, string> = {
-  inbox:     'Selecione uma conversa para abrir o chat',
-  chat_open: 'Visualize o histórico e responda diretamente pelo sistema',
-  typing:    'Digite sua mensagem no campo de texto',
-  sent:      'Mensagem enviada! O lead recebe diretamente no WhatsApp',
-  done:      '✓ Atendimento concluído via Zaapply',
+  inbox:           'Clique em "Agente ativo" para controlar o Agente IA nesta conversa',
+  agent_paused:    'Agente pausado — veja o resumo gerado pela IA sobre este lead',
+  resumo_expanded: 'Resumo gerado automaticamente — clique no campo de mensagem para responder manualmente',
+  typing:          'Mensagem digitada — clique em Enviar para responder ao lead',
+  sent:            'Mensagem enviada diretamente pelo WhatsApp',
+  done:            'Atendimento concluido — toggle e resumo sao os pontos-chave do chat',
 }
 
-const REPLY_MSG = 'Claro, Carlos! Vou verificar isso para você agora mesmo. Qual seria o melhor horário para conversarmos?'
+const REPLY = 'Entendido Carlos! Vou preparar uma proposta com foco nas integrações CRM. Posso te enviar ainda hoje?'
 
-// ── Left column — conversation list ──────────────────────────────────────────
-function ConvList({ active, onSelect }: { active: string | null; onSelect: (id: string) => void }) {
-  return (
-    <div className="flex flex-col border-r border-border" style={{ width: 268 }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-        <h2 className="text-sm font-semibold text-foreground">Conversas</h2>
-        <div className="flex items-center gap-2">
-          <button className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-            <MoreVertical className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-      {/* Search */}
-      <div className="px-3 py-2 flex-shrink-0">
-        <div className="flex items-center gap-2 h-8 px-3 rounded-lg bg-muted/60 border border-border/50">
-          <Search className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground/60">Buscar conversa…</span>
-        </div>
-      </div>
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
-        <ConvItem initials="CM" color="bg-blue-500" name="Carlos Mendes" company="TechFlow Solutions"
-          time="09:32" lastMsg="Preciso de uma demo urgente" unread={2}
-          active={active === 'carlos'} onClick={() => onSelect('carlos')} />
-        <ConvItem initials="AL" color="bg-violet-500" name="Ana Lima" company="Padaria do João"
-          time="Ontem" lastMsg="Muito obrigada pela ajuda! 🙏"
-          active={active === 'ana'} />
-        <ConvItem initials="RF" color="bg-amber-600" name="Roberto Farias" company="Construtora RF"
-          time="Seg" lastMsg="Aguardando retorno sobre proposta"
-          active={active === 'roberto'} />
-        <ConvItem initials="MO" color="bg-rose-500" name="Mariana Oliveira" company="Studio MO"
-          time="29/05" lastMsg="Quando começa o trial?"
-          active={active === 'mariana'} />
-      </div>
-    </div>
-  )
-}
-
-// ── Middle column — chat ──────────────────────────────────────────────────────
-function ChatCol({ scene, inputRef, sendRef, advance }: {
-  scene: Scene
-  inputRef: React.RefObject<HTMLDivElement>
-  sendRef: React.RefObject<HTMLButtonElement>
-  advance: () => void
-}) {
-  const showChat    = scene !== 'inbox'
-  const showSent    = scene === 'sent' || scene === 'done'
-  const showTyping  = scene === 'typing' || scene === 'sent' || scene === 'done'
-  const showInput   = scene === 'chat_open' || scene === 'typing' || scene === 'sent' || scene === 'done'
-
-  if (!showChat) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <MessageCircle className="w-12 h-12 text-muted-foreground/20 mx-auto" />
-          <p className="text-sm text-muted-foreground">Selecione uma conversa</p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex-1 flex flex-col min-w-0">
-      {/* Chat header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0 bg-card">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold">CM</div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">Carlos Mendes</p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Phone className="w-3 h-3" />+55 11 9 8765-4321
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted text-xs text-muted-foreground border border-border">
-            <Bot className="w-3.5 h-3.5" />IA Ativa
-          </button>
-          <button className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground border border-border">
-            <MoreVertical className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-background/50">
-        {/* Date separator */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-border/50" />
-          <span className="text-[11px] text-muted-foreground/60 font-medium px-2">Hoje</span>
-          <div className="flex-1 h-px bg-border/50" />
-        </div>
-
-        <Bubble dir="in" text="Olá! Gostaria de saber mais sobre o plano da plataforma. Vocês têm suporte para integração com CRM?" time="09:15" />
-        <Bubble dir="out" text="Olá Carlos! Temos integração nativa com os principais CRMs do mercado. Posso te enviar a documentação?" time="09:20" ai />
-        <Bubble dir="in" text="Perfeito! E como funciona o período de trial?" time="09:28" />
-        <Bubble dir="out" text="O trial é de 14 dias com acesso completo a todos os recursos, sem precisar de cartão de crédito." time="09:29" ai />
-        <Bubble dir="in" text="Preciso de uma demo urgente para apresentar para minha equipe amanhã." time="09:32" />
-
-        {showSent && (
-          <Bubble dir="out" text={REPLY_MSG} time="09:33" />
-        )}
-      </div>
-
-      {/* Input area */}
-      {showInput && (
-        <div className="border-t border-border bg-card flex-shrink-0 px-3 py-3">
-          <div className="flex items-end gap-2">
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground flex-shrink-0">
-              <Paperclip className="w-4 h-4" />
-            </button>
-            {scene === 'chat_open' ? (
-              <Hotspot label="Clique aqui para digitar sua resposta" onClick={advance} side="top" minW={290}>
-                <div ref={inputRef as any}
-                  className="flex-1 min-h-[38px] px-3 py-2 rounded-xl border border-border bg-muted/50 text-sm text-muted-foreground/50">
-                  Escreva uma mensagem…
-                </div>
-              </Hotspot>
-            ) : (
-              <div ref={inputRef}
-                className={cn(
-                  'flex-1 min-h-[38px] px-3 py-2 rounded-xl border border-border bg-muted/50 text-sm',
-                  showTyping ? 'text-foreground' : 'text-muted-foreground/50'
-                )}>
-                {showTyping ? REPLY_MSG : 'Escreva uma mensagem…'}
-              </div>
-            )}
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground flex-shrink-0">
-              <Mic className="w-4 h-4" />
-            </button>
-            {scene === 'typing' ? (
-              <Hotspot label="Clique em Enviar para mandar a mensagem" onClick={advance} side="top" minW={280}>
-                <button ref={sendRef as any}
-                  className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground flex-shrink-0">
-                  <Send className="w-4 h-4" />
-                </button>
-              </Hotspot>
-            ) : (
-              <button ref={sendRef}
-                className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground flex-shrink-0">
-                <Send className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Right column — lead info panel ────────────────────────────────────────────
-function InfoPanel() {
-  return (
-    <div className="flex flex-col bg-card border-l border-border flex-shrink-0" style={{ width: 240 }}>
-      <div className="px-4 py-3 border-b border-border">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Informações</p>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="flex flex-col items-center gap-2 pb-3 border-b border-border/50">
-          <div className="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center text-white text-lg font-bold">CM</div>
-          <div className="text-center">
-            <p className="text-sm font-semibold text-foreground">Carlos Mendes</p>
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-              <Building2 className="w-3 h-3" />TechFlow Solutions
-            </p>
-          </div>
-          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-medium">
-            Em negociação
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Contato</p>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Phone className="w-3 h-3 shrink-0" /><span>+55 11 9 8765-4321</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Tags</p>
-          <div className="flex flex-wrap gap-1.5">
-            <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[11px]">demo</span>
-            <span className="px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground text-[11px]">enterprise</span>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Resumo IA</p>
-          <p className="text-xs text-muted-foreground leading-relaxed bg-muted/50 rounded-lg p-2.5">
-            Lead interessado em plano enterprise, precisa de demo para equipe. Alta prioridade.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Full atendimento layout ───────────────────────────────────────────────────
 function AtendimentoScreen({ scene, advance }: { scene: Scene; advance: () => void }) {
-  const inputRef = useRef<HTMLDivElement>(null)
-  const sendRef  = useRef<HTMLButtonElement>(null)
+  const agentBtnRef = useRef<HTMLButtonElement>(null)
+  const inputRef    = useRef<HTMLDivElement>(null)
+  const sendRef     = useRef<HTMLButtonElement>(null)
+
+  const agentePausado  = scene !== 'inbox'
+  const showResumo     = scene === 'resumo_expanded' || scene === 'typing' || scene === 'sent' || scene === 'done'
+  const showSent       = scene === 'sent' || scene === 'done'
+  const showInput      = scene !== 'inbox' && scene !== 'agent_paused'
+  const highlightResumo = scene === 'agent_paused'
+
+  // auto-advance from sent to done
+  useEffect(() => {
+    if (scene !== 'sent') return
+    const t = setTimeout(advance, 1500)
+    return () => clearTimeout(t)
+  }, [scene]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex h-full">
       {/* Conversations list */}
-      <div className="relative">
-        {scene === 'inbox' ? (
-          <div className="h-full flex flex-col border-r border-border" style={{ width: 268 }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
-              <h2 className="text-sm font-semibold text-foreground">Conversas</h2>
-              <button className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-                <MoreVertical className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="px-3 py-2 flex-shrink-0">
-              <div className="flex items-center gap-2 h-8 px-3 rounded-lg bg-muted/60 border border-border/50">
-                <Search className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground/60">Buscar conversa…</span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <Hotspot label="Clique em Carlos Mendes para abrir o chat" onClick={advance} side="right" minW={290}>
-                <ConvItem initials="CM" color="bg-blue-500" name="Carlos Mendes" company="TechFlow Solutions"
-                  time="09:32" lastMsg="Preciso de uma demo urgente" unread={2} active />
-              </Hotspot>
-              <ConvItem initials="AL" color="bg-violet-500" name="Ana Lima" company="Padaria do João"
-                time="Ontem" lastMsg="Muito obrigada pela ajuda! 🙏" />
-              <ConvItem initials="RF" color="bg-amber-600" name="Roberto Farias" company="Construtora RF"
-                time="Seg" lastMsg="Aguardando retorno sobre proposta" />
-              <ConvItem initials="MO" color="bg-rose-500" name="Mariana Oliveira" company="Studio MO"
-                time="29/05" lastMsg="Quando começa o trial?" />
+      <div className="flex flex-col border-r border-border flex-shrink-0" style={{ width: 268 }}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+          <h2 className="text-sm font-semibold">Conversas</h2>
+          <button className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+            <MoreVertical className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="px-3 py-2 flex-shrink-0">
+          <div className="flex items-center gap-2 h-8 px-3 rounded-lg bg-muted/60 border border-border/50">
+            <Search className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground/60">Buscar conversa</span>
+          </div>
+        </div>
+        <div className="flex border-b border-border flex-shrink-0">
+          {['Minhas', 'Livres', 'Todas'].map((t, i) => (
+            <button key={t} className={cn(
+              'flex-1 py-1.5 text-xs font-medium border-b-2 transition-colors',
+              i === 0 ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
+            )}>{t}</button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <ConvItem initials="CM" color="bg-blue-500" name="Carlos Mendes" company="TechFlow Solutions"
+            time="09:32" lastMsg="Preciso de uma demo urgente" unread={2} active />
+          <ConvItem initials="AL" color="bg-violet-500" name="Ana Lima" company="Padaria do Joao"
+            time="Ontem" lastMsg="Muito obrigada pela ajuda!" />
+          <ConvItem initials="RF" color="bg-amber-600" name="Roberto Farias" company="Construtora RF"
+            time="Seg" lastMsg="Aguardando retorno sobre proposta" />
+          <ConvItem initials="MO" color="bg-rose-500" name="Mariana Oliveira" company="Studio MO"
+            time="29/05" lastMsg="Quando comeca o trial?" />
+        </div>
+      </div>
+
+      {/* Chat column */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Chat header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0 bg-card">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold">CM</div>
+            <div>
+              <p className="text-sm font-semibold">Carlos Mendes</p>
+              <p className="text-xs text-muted-foreground">TechFlow Solutions</p>
             </div>
           </div>
-        ) : (
-          <ConvList active="carlos" onSelect={() => {}} />
+          <div className="flex items-center gap-2">
+            {/* Agent toggle button */}
+            {scene === 'inbox' ? (
+              <Hotspot label='Clique para pausar o Agente IA nesta conversa' onClick={advance} side="bottom" minW={310}>
+                <button ref={agentBtnRef}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                  <Bot className="h-4 w-4" />Agente ativo
+                </button>
+              </Hotspot>
+            ) : (
+              <button className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                agentePausado
+                  ? 'border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-500/5'
+                  : 'border-emerald-500/50 text-emerald-600 dark:text-emerald-400'
+              )}>
+                {agentePausado
+                  ? <><PauseCircle className="h-4 w-4" />Agente pausado</>
+                  : <><Bot className="h-4 w-4" />Agente ativo</>
+                }
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3"
+          style={{ background: 'hsl(var(--background)/0.5)' }}>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border/50" />
+            <span className="text-[11px] text-muted-foreground/60 font-medium px-2">Hoje</span>
+            <div className="flex-1 h-px bg-border/50" />
+          </div>
+          <Bubble dir="in"  text="Ola! Gostaria de saber mais sobre o plano da plataforma. Voces tem suporte para integracao com CRM?" time="09:15" />
+          <Bubble dir="out" text="Ola Carlos! Temos integracao nativa com os principais CRMs do mercado. Posso te enviar a documentacao?" time="09:20" ai />
+          <Bubble dir="in"  text="Perfeito! E como funciona o periodo de trial?" time="09:28" />
+          <Bubble dir="out" text="O trial e de 14 dias com acesso completo a todos os recursos, sem precisar de cartao de credito." time="09:29" ai />
+          <Bubble dir="in"  text="Preciso de uma demo urgente para apresentar para minha equipe amanha." time="09:32" />
+          {showSent && <Bubble dir="out" text={REPLY} time="09:33" />}
+        </div>
+
+        {/* Input bar */}
+        {showInput && (
+          <div className="border-t border-border bg-card flex-shrink-0 px-3 py-3">
+            <div className="flex items-end gap-2">
+              <button className="w-8 h-8 flex items-center justify-center text-muted-foreground">
+                <Paperclip className="w-4 h-4" />
+              </button>
+              {scene === 'resumo_expanded' ? (
+                <Hotspot label="Clique para digitar sua resposta manual" onClick={advance} side="top" minW={280}>
+                  <div ref={inputRef as any}
+                    className="flex-1 min-h-[38px] px-3 py-2 rounded-xl border border-border bg-muted/50 text-sm text-muted-foreground/50">
+                    Escreva uma mensagem
+                  </div>
+                </Hotspot>
+              ) : (
+                <div ref={inputRef}
+                  className={cn('flex-1 min-h-[38px] px-3 py-2 rounded-xl border border-border bg-muted/50 text-sm',
+                    scene === 'typing' || scene === 'sent' || scene === 'done' ? 'text-foreground' : 'text-muted-foreground/50'
+                  )}>
+                  {scene === 'typing' || scene === 'sent' || scene === 'done' ? REPLY : 'Escreva uma mensagem'}
+                </div>
+              )}
+              <button className="w-8 h-8 flex items-center justify-center text-muted-foreground"><Mic className="w-4 h-4" /></button>
+              {scene === 'typing' ? (
+                <Hotspot label="Clique em Enviar para responder ao lead" onClick={advance} side="top" minW={260}>
+                  <button ref={sendRef as any}
+                    className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+                    <Send className="w-4 h-4" />
+                  </button>
+                </Hotspot>
+              ) : (
+                <button ref={sendRef}
+                  className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
+                  <Send className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Chat */}
-      <ChatCol scene={scene} inputRef={inputRef} sendRef={sendRef} advance={advance} />
-
-      {/* Info panel (visible when chat open) */}
-      {scene !== 'inbox' && <InfoPanel />}
+      {/* Info panel */}
+      <InfoPanel
+        showResumo={showResumo}
+        highlightResumo={highlightResumo}
+        onResumoClick={highlightResumo ? advance : undefined}
+      />
     </div>
   )
 }
@@ -463,15 +432,8 @@ export function AtendimentoDemo() {
   const advance = () => setScene(s => SCENES[Math.min(SCENES.indexOf(s) + 1, SCENES.length - 1)])
   const idx = SCENES.indexOf(scene)
 
-  // Auto-advance from 'sent' to 'done' after message appears
-  useEffect(() => {
-    if (scene !== 'sent') return
-    const t = setTimeout(advance, 1500)
-    return () => clearTimeout(t)
-  }, [scene]) // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <div className="rounded-2xl border border-border shadow-xl bg-background" style={{ minWidth: 1080 }}>
+    <div className="w-full rounded-2xl border border-border shadow-xl bg-background">
       <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 rounded-t-2xl">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-red-400/60" />
@@ -483,7 +445,7 @@ export function AtendimentoDemo() {
         </div>
       </div>
 
-      <div className="flex" style={{ height: 572 }}>
+      <div className="flex" style={{ height: 520 }}>
         <FakeSidebar active="atendimento" />
         <div className="flex-1 min-w-0 overflow-hidden">
           <div key={scene} className="h-full animate-in fade-in duration-150">
@@ -506,7 +468,7 @@ export function AtendimentoDemo() {
         {scene === 'done' && (
           <button onClick={() => setScene('inbox')}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
-            Recomeçar
+            Recomecar
           </button>
         )}
       </div>

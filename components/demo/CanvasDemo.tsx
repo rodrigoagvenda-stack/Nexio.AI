@@ -7,10 +7,11 @@ import {
   TrendingUp, PieChart, MessageCircle, UserCog,
   Sparkles, LifeBuoy, Settings, Megaphone,
   Zap, MessageSquare, Clock, Plus, Save, CheckCircle2, X,
-  PenLine, Play, LayoutTemplate, History,
+  PenLine, Play, LayoutTemplate, History, Search, GitBranch,
+  Target, XCircle, ToggleRight, ToggleLeft,
 } from 'lucide-react'
 
-// ── Real Zaapply SVG icon ────────────────────────────────────────────────────
+// ── Shared primitives ─────────────────────────────────────────────────────────
 function ZaapliIcon({ size = 26 }: { size?: number }) {
   const w = size * (208 / 235)
   return (
@@ -21,23 +22,20 @@ function ZaapliIcon({ size = 26 }: { size?: number }) {
   )
 }
 
-// ── PortalTooltip ────────────────────────────────────────────────────────────
 type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
 function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
   anchorRef: React.RefObject<HTMLElement | null>; label: string; side: TooltipSide; minW?: number
 }) {
   const [mounted, setMounted] = useState(false)
-  const [style, setStyle]     = useState<React.CSSProperties | null>(null)
+  const [style, setStyle] = useState<React.CSSProperties | null>(null)
   useEffect(() => { setMounted(true) }, [])
   useLayoutEffect(() => {
-    const el = anchorRef.current
-    if (!el) return
-    const r = el.getBoundingClientRect(), gap = 12
-    let s: React.CSSProperties
-    if      (side === 'top')    s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
-    else if (side === 'bottom') s = { top: r.bottom + gap,                       left: r.left + r.width / 2, transform: 'translateX(-50%)' }
-    else if (side === 'right')  s = { top: r.top + r.height / 2,                left: r.right + gap,         transform: 'translateY(-50%)' }
-    else                        s = { top: r.top + r.height / 2,                right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
+    const el = anchorRef.current; if (!el) return
+    const r = el.getBoundingClientRect(); const gap = 12; let s: React.CSSProperties
+    if (side === 'top')         s = { bottom: window.innerHeight - r.top + gap, left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'bottom') s = { top: r.bottom + gap,                      left: r.left + r.width / 2, transform: 'translateX(-50%)' }
+    else if (side === 'right')  s = { top: r.top + r.height / 2,               left: r.right + gap,         transform: 'translateY(-50%)' }
+    else                        s = { top: r.top + r.height / 2,               right: window.innerWidth - r.left + gap, transform: 'translateY(-50%)' }
     setStyle(s)
   }, [label, side]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!mounted || !style) return null
@@ -53,7 +51,6 @@ function PortalTooltip({ anchorRef, label, side, minW = 240 }: {
   )
 }
 
-// ── Hotspot ──────────────────────────────────────────────────────────────────
 function Hotspot({ children, label, onClick, side = 'top', minW = 240 }: {
   children: React.ReactNode; label: string; onClick: () => void; side?: TooltipSide; minW?: number
 }) {
@@ -67,195 +64,168 @@ function Hotspot({ children, label, onClick, side = 'top', minW = 240 }: {
   )
 }
 
-// ── FakeSidebar (exact copy from ProductDemo) ────────────────────────────────
 const NAV_SECTIONS = [
-  { label: 'Principal',   items: [{ id: 'dashboard',    label: 'Dashboard',    Icon: TrendingUp  }] },
+  { label: 'Principal',   items: [{ id: 'dashboard',      label: 'Dashboard',    Icon: TrendingUp  }] },
   { label: 'Ferramentas', items: [
     { id: 'crm',           label: 'CRM',          Icon: PieChart      },
     { id: 'atendimento',   label: 'Atendimento',  Icon: MessageCircle },
-    { id: 'automacoes',    label: 'Automações',   Icon: Megaphone     },
+    { id: 'automacoes',    label: 'Automacoes',   Icon: Megaphone     },
   ]},
-  { label: 'Gestão',      items: [{ id: 'membros', label: 'Membros', Icon: UserCog }] },
+  { label: 'Gestao',      items: [{ id: 'membros', label: 'Membros', Icon: UserCog }] },
   { label: 'Sistema',     items: [
     { id: 'novidades',     label: 'Novidades',    Icon: Sparkles  },
     { id: 'ajuda',         label: 'Ajuda',        Icon: LifeBuoy  },
-    { id: 'configuracoes', label: 'Configuração', Icon: Settings  },
+    { id: 'configuracoes', label: 'Configuracao', Icon: Settings  },
   ]},
 ] as const
 
 function FakeSidebar({ active }: { active: string }) {
   return (
-    <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border h-full">
-      <div className="flex items-center h-14 border-b border-border/50 px-4 gap-2 flex-shrink-0">
-        <ZaapliIcon size={26} />
-        <span className="font-extrabold tracking-tight text-[#0d0d0d] dark:text-white leading-none select-none"
-          style={{ fontSize: 18, fontFamily: "'Nunito','Poppins',sans-serif", letterSpacing: '-0.01em' }}>
-          zaapply
-        </span>
+    <div className="w-56 flex-shrink-0 bg-card border-r border-border flex flex-col h-full">
+      <div className="h-14 flex items-center px-4 border-b border-border gap-2.5 flex-shrink-0">
+        <ZaapliIcon size={24} />
+        <span className="text-sm font-bold tracking-tight">zaapply</span>
       </div>
-      <div className="flex-1 px-3 pt-3 space-y-3">
-        {NAV_SECTIONS.map(({ label, items }) => (
-          <div key={label}>
-            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">{label}</p>
-            <div className="space-y-0.5">
-              {items.map(({ id, label: lbl, Icon }) => (
-                <button key={id}
-                  className={cn('relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100 text-left',
-                    active === id ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50')}>
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm flex-1 text-left">{lbl}</span>
-                </button>
-              ))}
-            </div>
+      <div className="flex-1 overflow-y-auto py-3 space-y-4 px-2">
+        {NAV_SECTIONS.map(sec => (
+          <div key={sec.label}>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 px-2 mb-1">{sec.label}</p>
+            {sec.items.map(({ id, label, Icon }) => (
+              <div key={id} className={cn(
+                'flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm transition-colors',
+                id === active ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'
+              )}>
+                <Icon className="w-4 h-4 shrink-0" /><span>{label}</span>
+              </div>
+            ))}
           </div>
         ))}
-      </div>
-      <div className="p-3 border-t border-border/50 flex-shrink-0">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-accent/30">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <span className="text-white text-xs font-bold">R</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">Minha Empresa</p>
-            <p className="text-xs text-muted-foreground truncate">contato@empresa.com</p>
-          </div>
-        </div>
-      </div>
-    </aside>
-  )
-}
-
-// ── Canvas node (matches AutomationCanvas.tsx NodeShell + NodeHeader) ─────────
-type AccentKey = 'primary' | 'emerald' | 'amber' | 'violet'
-
-const ICON_CLS: Record<AccentKey, string> = {
-  primary: 'text-[hsl(var(--primary))]',
-  emerald: 'text-emerald-500',
-  amber:   'text-amber-500',
-  violet:  'text-violet-500',
-}
-const RING_CLS: Record<AccentKey, string> = {
-  primary: 'ring-[hsl(var(--primary)/0.4)] border-[hsl(var(--primary)/0.25)]',
-  emerald: 'ring-emerald-500/35 border-emerald-500/20',
-  amber:   'ring-amber-500/35 border-amber-500/20',
-  violet:  'ring-violet-500/35 border-violet-500/20',
-}
-
-function FakeNode({ accent = 'primary', icon: Icon, label, meta, children, selected, noLeftHandle }: {
-  accent?: AccentKey
-  icon: React.ElementType
-  label: string
-  meta?: string
-  children?: React.ReactNode
-  selected?: boolean
-  noLeftHandle?: boolean
-}) {
-  return (
-    <div
-      style={{ width: 240 }}
-      className={cn(
-        'relative bg-card rounded-xl border transition-all duration-100',
-        'shadow-[0_1px_3px_rgba(0,0,0,0.07),0_4px_14px_rgba(0,0,0,0.05)]',
-        selected
-          ? cn('ring-2', RING_CLS[accent], 'shadow-[0_4px_24px_rgba(0,0,0,0.1)]')
-          : 'border-border/25 hover:border-border/40'
-      )}
-    >
-      {!noLeftHandle && (
-        <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-card border border-border/60 rounded-full z-10" />
-      )}
-      <div className="absolute -right-[5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-card border border-border/60 rounded-full z-10" />
-      <div className="px-3.5 pt-2.5 pb-3 flex flex-col gap-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-5 h-5 rounded-md bg-muted/60 flex items-center justify-center shrink-0">
-              <Icon className={cn('w-3 h-3', ICON_CLS[accent])} />
-            </div>
-            <span className="text-[11px] font-semibold text-foreground/50 tracking-wide uppercase leading-none truncate">{label}</span>
-          </div>
-          {meta && (
-            <span className="text-[10px] text-muted-foreground/40 font-mono bg-muted/40 px-1.5 py-0.5 rounded shrink-0">{meta}</span>
-          )}
-        </div>
-        <div className="mt-2 flex flex-col gap-1.5">{children}</div>
       </div>
     </div>
   )
 }
 
-// ── SVG edge between nodes ────────────────────────────────────────────────────
+// ── FakeNode ──────────────────────────────────────────────────────────────────
+const ACCENTS = {
+  primary:    { bg: 'bg-primary/10',    icon: 'text-primary',    border: 'border-primary/30'    },
+  emerald:    { bg: 'bg-emerald-500/10', icon: 'text-emerald-500', border: 'border-emerald-500/30' },
+  amber:      { bg: 'bg-amber-500/10',  icon: 'text-amber-500',  border: 'border-amber-500/30'  },
+}
+
+function FakeNode({ accent = 'primary', icon: Icon, label, meta, children, selected, noLeftHandle }: {
+  accent?: keyof typeof ACCENTS; icon: React.ElementType; label: string; meta?: string
+  children?: React.ReactNode; selected?: boolean; noLeftHandle?: boolean
+}) {
+  const a = ACCENTS[accent]
+  return (
+    <div style={{ width: 240 }} className={cn(
+      'relative bg-card rounded-xl border transition-all duration-100',
+      selected ? 'border-primary/60 shadow-[0_0_0_2px_hsl(var(--primary)/0.2),0_4px_14px_rgba(0,0,0,0.08)]' : 'border-border/25 shadow-[0_1px_3px_rgba(0,0,0,0.07),0_4px_14px_rgba(0,0,0,0.05)]'
+    )}>
+      {!noLeftHandle && <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-[5px] w-2.5 h-2.5 rounded-full border-2 border-border bg-background z-10" />}
+      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-[5px] w-2.5 h-2.5 rounded-full border-2 border-border bg-background z-10" />
+      <div className={cn('flex items-center gap-2 px-3 pt-3 pb-2')}>
+        <div className={cn('w-5 h-5 rounded-md flex items-center justify-center', a.bg)}>
+          <Icon className={cn('w-3 h-3', a.icon)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-semibold text-foreground/50 tracking-wide uppercase">{label}</p>
+          {meta && <p className="text-[10px] text-muted-foreground/60">{meta}</p>}
+        </div>
+      </div>
+      {children && <div className="px-3 pb-3">{children}</div>}
+    </div>
+  )
+}
+
 function Edge({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: number }) {
   const cx = x1 + (x2 - x1) * 0.5
-  const d  = `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`
+  const d = `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`
   return (
-    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 0 }}>
-      <defs>
-        <marker id="ar-cd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L7,3 z" fill="hsl(var(--muted-foreground)/0.4)" />
-        </marker>
-      </defs>
-      <path d={d} fill="none" stroke="hsl(var(--muted-foreground)/0.3)" strokeWidth="1.5" markerEnd="url(#ar-cd)" />
+    <svg style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible', zIndex: 0 }}>
+      <defs><marker id="ar-cd" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><circle cx="4" cy="4" r="2.5" fill="hsl(var(--muted-foreground)/0.5)" /></marker></defs>
+      <path d={d} fill="none" stroke="hsl(var(--muted-foreground)/0.35)" strokeWidth="1.5" markerEnd="url(#ar-cd)" />
     </svg>
   )
 }
 
-// ── Canvas top bar ────────────────────────────────────────────────────────────
-function CanvasTopBar({ saved, saveRef, onSave, highlightSave }: {
-  saved?: boolean
-  saveRef?: React.RefObject<HTMLButtonElement>
-  onSave?: () => void
-  highlightSave?: boolean
-}) {
+// ── Sequence list (starting screen) ──────────────────────────────────────────
+const SEQUENCES = [
+  { name: 'Boas-vindas', type: 'Follow-up', steps: 3, active: true  },
+  { name: 'Anti-Noshow', type: 'Follow-up', steps: 4, active: true  },
+  { name: 'Remarketing', type: 'Follow-up', steps: 2, active: false },
+]
+
+function SequenceList({ highlightFirst, onOpen }: { highlightFirst: boolean; onOpen: () => void }) {
+  const firstRef = useRef<HTMLDivElement>(null)
   return (
-    <div className="flex items-center justify-between px-4 bg-card border-b border-border flex-shrink-0 gap-4" style={{ height: 48 }}>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center bg-muted rounded-lg p-0.5">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-background text-foreground shadow-sm">
-            <PenLine className="w-3 h-3" />Editor
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground">
-            <Play className="w-3 h-3" />Execuções
-          </div>
-        </div>
-        <div className="w-px h-5 bg-border" />
-        <div className="flex items-center gap-1">
-          {['Follow-up', 'Anti-Noshow', 'Remarketing', 'Trial SaaS'].map((tab, i) => (
-            <button key={tab}
-              className={cn('px-3 py-1 rounded-lg text-sm font-medium transition-colors',
-                i === 0 ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-              {tab}
-            </button>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-5 h-14 border-b border-border flex-shrink-0">
+        <div className="flex gap-1">
+          {['Follow-up', 'Anti-Noshow', 'Remarketing', 'Trial SaaS'].map((t, i) => (
+            <button key={t} className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              i === 0 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+            )}>{t}</button>
           ))}
         </div>
+        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground">
+          <Plus className="w-3.5 h-3.5" />Nova sequencia
+        </button>
       </div>
-      <div className="flex items-center gap-2">
-        <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border border-border bg-muted text-muted-foreground">
-          <LayoutTemplate className="w-3.5 h-3.5" />Templates
-        </button>
-        <button className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border border-border bg-muted text-muted-foreground">
-          <History className="w-3.5 h-3.5" />Versões
-        </button>
-        <div className="w-px h-5 bg-border" />
-        <button className="flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium border bg-primary/10 border-primary/30 text-primary">
-          <span className="w-2 h-2 rounded-full bg-primary" />Ativo
-        </button>
-        <div className="relative">
-          {highlightSave && (
-            <div className="absolute -inset-1 rounded-lg ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] animate-pulse pointer-events-none" />
-          )}
-          <button ref={saveRef} onClick={onSave}
-            className={cn('relative flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all',
-              saved ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-foreground hover:bg-accent')}>
-            {saved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-            {saved ? 'Salvo!' : 'Salvar'}
-          </button>
-        </div>
+      <div className="flex-1 overflow-y-auto p-5 space-y-2">
+        {SEQUENCES.map((seq, i) => {
+          const isFirst = i === 0
+          const row = (
+            <div
+              ref={isFirst ? firstRef : null}
+              className={cn(
+                'flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:shadow-sm transition-all cursor-pointer',
+                isFirst && highlightFirst && 'ring-2 ring-primary'
+              )}
+              onClick={isFirst ? onOpen : undefined}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{seq.name}</p>
+                  <span className={cn(
+                    'text-[10px] px-1.5 py-0.5 rounded font-medium',
+                    seq.active ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'
+                  )}>
+                    {seq.type}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{seq.steps} etapas</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {seq.active
+                  ? <ToggleRight className="w-8 h-8 text-primary" />
+                  : <ToggleLeft className="w-8 h-8 text-muted-foreground/40" />
+                }
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border bg-muted/50 text-muted-foreground">
+                  <PenLine className="w-3 h-3" />Abrir Canvas
+                </button>
+              </div>
+            </div>
+          )
+          return isFirst && highlightFirst ? (
+            <div key={seq.name} className="relative">
+              <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_12px_2px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />
+              {row}
+              {firstRef.current && (
+                <PortalTooltip anchorRef={firstRef} label='Clique em "Abrir Canvas" para editar o fluxo desta sequencia' side="top" minW={330} />
+              )}
+            </div>
+          ) : <div key={seq.name}>{row}</div>
+        })}
       </div>
     </div>
   )
 }
 
-// ── Config panel (matches ConfigPanel in AutomationCanvas) ────────────────────
+// ── Config panel ──────────────────────────────────────────────────────────────
+const MSG = 'Ola {nome}! Que otimo ter voce conosco. Posso te ajudar com alguma duvida sobre a plataforma?'
+
 function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
   msgText: string; msgRef?: React.RefObject<HTMLDivElement>; onMsgClick?: () => void
 }) {
@@ -265,13 +235,7 @@ function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Configurar</span>
         <button className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
       </div>
-      <div className="p-4 flex flex-col gap-5 overflow-y-auto flex-1">
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground">Nome do node</label>
-          <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-muted-foreground/50 flex items-center">
-            Ex: Sequência 1
-          </div>
-        </div>
+      <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Quando disparar</label>
           <div className="flex rounded-xl border border-border overflow-hidden">
@@ -282,31 +246,28 @@ function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Dia</label>
-            <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center font-mono">1</div>
+            <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center font-mono">0</div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Horário</label>
-            <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center gap-0.5 font-mono">
-              09<span className="text-muted-foreground font-bold">:</span>00
-            </div>
+            <label className="text-xs font-medium text-muted-foreground">Horario</label>
+            <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center gap-0.5 font-mono">09<span className="text-muted-foreground font-bold">:</span>00</div>
           </div>
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Mensagem</label>
-          <div ref={msgRef}
-            onClick={onMsgClick}
+          <div ref={msgRef} onClick={onMsgClick}
             className={cn(
               'w-full min-h-[80px] px-3 py-2.5 rounded-xl border border-border bg-muted text-sm leading-relaxed transition-all',
               msgText ? 'text-foreground' : 'text-muted-foreground/50 italic',
               onMsgClick && 'ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] cursor-pointer animate-pulse'
             )}>
-            {msgText || 'Digite a mensagem que será enviada ao lead…'}
+            {msgText || 'Digite a mensagem que sera enviada ao lead'}
           </div>
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground">Controle da IA</label>
           <div className="w-full h-9 px-3 rounded-xl border border-border bg-muted text-sm text-foreground flex items-center justify-between">
-            <span>Sem mudança</span><span className="text-muted-foreground/40 text-xs">▾</span>
+            <span>Sem mudanca</span><span className="text-muted-foreground/40 text-xs">&#9662;</span>
           </div>
         </div>
       </div>
@@ -314,112 +275,207 @@ function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
   )
 }
 
-// ── Scenes ────────────────────────────────────────────────────────────────────
-type Scene = 'canvas_view' | 'node_open' | 'typing' | 'done'
-const SCENES: Scene[] = ['canvas_view', 'node_open', 'typing', 'done']
-const META: Record<Scene, string> = {
-  canvas_view: 'Clique em um nó para ver e editar sua configuração',
-  node_open:   'Configure o texto da mensagem que será enviada ao lead',
-  typing:      'Mensagem configurada — clique em Salvar para salvar',
-  done:        '✓ Sequência salva! O nó exibe uma prévia da mensagem',
+// ── Top bar ───────────────────────────────────────────────────────────────────
+function CanvasTopBar({ saved, saveRef, onSave, highlightSave }: {
+  saved?: boolean; saveRef?: React.RefObject<HTMLButtonElement>; onSave?: () => void; highlightSave?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-card flex-shrink-0">
+      <div className="flex items-center gap-1">
+        {['Editor', 'Execucoes'].map((t, i) => (
+          <button key={t} className={cn('px-3 py-1 rounded-lg text-xs font-medium',
+            i === 0 ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted')}>{t}</button>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-muted-foreground border border-border hover:bg-muted">
+          <LayoutTemplate className="w-3.5 h-3.5" />Templates
+        </button>
+        <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-muted-foreground border border-border hover:bg-muted">
+          <History className="w-3.5 h-3.5" />Versoes
+        </button>
+        <div className="relative">
+          {highlightSave && (
+            <div className="absolute -inset-1 rounded-lg ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] animate-pulse pointer-events-none" />
+          )}
+          <button ref={saveRef} onClick={onSave}
+            className={cn('relative flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border transition-all',
+              saved ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' : 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+            )}>
+            {saved ? <><CheckCircle2 className="w-3.5 h-3.5" />Salvo</> : <><Save className="w-3.5 h-3.5" />Salvar</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
-const MSG = 'Olá {nome}! Vi que você se cadastrou em nossa plataforma. Posso te ajudar com alguma dúvida?'
+// ── Palette ───────────────────────────────────────────────────────────────────
+const PALETTE_ITEMS = [
+  { kind: 'message',   label: 'Mensagem',  desc: 'Envia uma mensagem ao lead',    Icon: MessageSquare, bg: 'bg-emerald-500/10', ic: 'text-emerald-500' },
+  { kind: 'wait',      label: 'Aguardar',  desc: 'Pausa o fluxo por X dias',      Icon: Clock,          bg: 'bg-amber-500/10',   ic: 'text-amber-500'   },
+  { kind: 'condition', label: 'Condicao',  desc: 'Bifurca com base em variavel',   Icon: GitBranch,      bg: 'bg-violet-500/10',  ic: 'text-violet-500'  },
+  { kind: 'goal',      label: 'Meta',      desc: 'Marca lead como convertido',     Icon: Target,         bg: 'bg-emerald-500/10', ic: 'text-emerald-500' },
+  { kind: 'end',       label: 'Fim',       desc: 'Encerra a sequencia',            Icon: XCircle,        bg: 'bg-red-500/10',     ic: 'text-red-500'     },
+] as const
+
+function FakePalette({ onSelectMessage }: { onSelectMessage: () => void }) {
+  const highlightRef = useRef<HTMLButtonElement>(null)
+  return (
+    <div className="absolute right-16 top-1/2 -translate-y-1/2 z-20 w-64 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-right-2 duration-150">
+      <div className="px-4 py-3 border-b border-border space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">O que acontece a seguir?</p>
+          <button className="text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <div className="w-full h-8 pl-8 pr-3 text-sm bg-muted rounded-lg text-muted-foreground/60">Buscar no</div>
+        </div>
+      </div>
+      <div className="p-2 space-y-0.5">
+        {PALETTE_ITEMS.map(({ kind, label, desc, Icon, bg, ic }) => {
+          const isMsg = kind === 'message'
+          return (
+            <div key={kind} className="relative">
+              {isMsg && <div className="absolute inset-0 rounded-xl ring-2 ring-primary shadow-[0_0_10px_2px_rgba(54,158,71,0.3)] pointer-events-none z-10 animate-pulse" />}
+              <button
+                ref={isMsg ? highlightRef : null}
+                onClick={isMsg ? onSelectMessage : undefined}
+                className={cn('w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left transition-colors',
+                  isMsg ? 'bg-muted cursor-pointer' : 'hover:bg-muted'
+                )}>
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', bg)}>
+                  <Icon className={cn('w-4 h-4', ic)} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">{label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{desc}</p>
+                </div>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+      <PortalTooltip anchorRef={highlightRef} label="Clique em Mensagem para adicionar ao fluxo" side="left" minW={290} />
+    </div>
+  )
+}
+
+// ── Scenes ────────────────────────────────────────────────────────────────────
+type Scene = 'seq_list' | 'canvas_empty' | 'palette_open' | 'node_added' | 'node_config' | 'saved' | 'done'
+const SCENES: Scene[] = ['seq_list', 'canvas_empty', 'palette_open', 'node_added', 'node_config', 'saved', 'done']
+const META: Record<Scene, string> = {
+  seq_list:     'Clique em "Abrir Canvas" para editar o fluxo da sequencia',
+  canvas_empty: 'Canvas aberto — clique em "+" para adicionar o primeiro no',
+  palette_open: 'Selecione o tipo de no que deseja adicionar ao fluxo',
+  node_added:   'No adicionado — clique nele para configurar a mensagem',
+  node_config:  'Painel de configuracao aberto — clique no campo Mensagem',
+  saved:        'Mensagem configurada — clique em Salvar para finalizar',
+  done:         'Fluxo salvo com sucesso',
+}
 
 function CanvasScreen({ scene, advance }: { scene: Scene; advance: () => void }) {
   const saveRef = useRef<HTMLButtonElement>(null)
   const msgRef  = useRef<HTMLDivElement>(null)
+  const addRef  = useRef<HTMLButtonElement>(null)
 
-  const hasConfig = scene !== 'canvas_view'
+  const showCanvas  = scene !== 'seq_list'
+  const hasConfig   = scene === 'node_config' || scene === 'saved' || scene === 'done'
+  const showMsg     = scene === 'saved' || scene === 'done'
+  const showMsgNode = scene === 'node_added' || hasConfig
 
-  // Node positions depending on whether config panel is visible
-  const trigX = hasConfig ? 22 : 60,  trigY = hasConfig ? 180 : 190
-  const msgX  = hasConfig ? 285 : 370, msgY = hasConfig ? 180 : 190
-  const waitX = 670, waitY = 190
-
-  // Handle centers (approximate node height: Trigger≈88, Message≈110, Wait≈88)
+  const trigX = hasConfig ? 22 : 80,  trigY = hasConfig ? 190 : 200
+  const msgX  = hasConfig ? 285 : 400, msgY = hasConfig ? 190 : 200
   const trigRX = trigX + 245, trigCY = trigY + 44
   const msgLX  = msgX  - 5,   msgCY  = msgY  + 55
-  const msgRX  = msgX  + 245
-  const waitLX = waitX - 5,   waitCY = waitY + 44
+
+  if (!showCanvas) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between px-5 h-12 border-b border-border bg-card flex-shrink-0">
+          <h2 className="text-sm font-semibold">Automacoes</h2>
+        </div>
+        <SequenceList highlightFirst={scene === 'seq_list'} onOpen={advance} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top bar */}
       <CanvasTopBar
         saved={scene === 'done'}
         saveRef={saveRef}
-        onSave={scene === 'typing' ? advance : undefined}
-        highlightSave={scene === 'typing'}
+        onSave={scene === 'saved' ? advance : undefined}
+        highlightSave={scene === 'saved'}
       />
-      {scene === 'typing' && (
-        <PortalTooltip anchorRef={saveRef} label="Clique em Salvar para salvar a sequência" side="top" minW={280} />
+      {scene === 'saved' && (
+        <PortalTooltip anchorRef={saveRef} label="Clique em Salvar para finalizar o fluxo" side="top" minW={270} />
       )}
-
       <div className="flex min-h-0 flex-1">
-        {/* Canvas */}
         <div className="relative overflow-hidden bg-background dark:bg-[#0e0e0e] flex-1"
           style={{
             backgroundImage: 'radial-gradient(circle, hsl(var(--muted-foreground)/0.18) 1px, transparent 1px)',
             backgroundSize: '20px 20px',
           }}>
+          {showMsgNode && <Edge x1={trigRX} y1={trigCY} x2={msgLX} y2={msgCY} />}
 
-          {/* Edges */}
-          <Edge x1={trigRX} y1={trigCY} x2={msgLX} y2={msgCY} />
-          {!hasConfig && <Edge x1={msgRX} y1={msgCY} x2={waitLX} y2={waitCY} />}
-
-          {/* Trigger node */}
+          {/* Trigger */}
           <div style={{ position: 'absolute', left: trigX, top: trigY, zIndex: 1 }}>
             <FakeNode accent="primary" icon={Zap} label="Gatilho" noLeftHandle>
-              <p className="text-sm font-semibold text-foreground/90 leading-snug">Novo lead adicionado</p>
-              <p className="text-xs text-muted-foreground/70">Início da sequência</p>
+              <p className="text-sm font-semibold text-foreground/90 leading-snug">Boas-vindas</p>
+              <p className="text-xs text-muted-foreground/70">Novo lead criado</p>
             </FakeNode>
           </div>
 
-          {/* Message node — hotspot only in canvas_view */}
-          <div style={{ position: 'absolute', left: msgX, top: msgY, zIndex: scene === 'node_open' || scene === 'typing' ? 2 : 1 }}>
-            {scene === 'canvas_view' ? (
-              <Hotspot label="Clique no nó Mensagem para configurá-lo" onClick={advance} side="top" minW={310}>
-                <FakeNode accent="emerald" icon={MessageSquare} label="Mensagem" meta="D1 · 09:00">
-                  <p className="text-xs text-muted-foreground/50 italic">Sem mensagem configurada</p>
+          {/* Message node */}
+          {showMsgNode && (
+            <div style={{ position: 'absolute', left: msgX, top: msgY, zIndex: hasConfig ? 2 : 1 }}>
+              {scene === 'node_added' ? (
+                <Hotspot label="Clique no no para configurar a mensagem" onClick={advance} side="top" minW={290}>
+                  <FakeNode accent="emerald" icon={MessageSquare} label="Mensagem" meta="D0 · 09:00">
+                    <p className="text-xs text-muted-foreground/50 italic">Sem mensagem configurada</p>
+                  </FakeNode>
+                </Hotspot>
+              ) : (
+                <FakeNode accent="emerald" icon={MessageSquare} label="Mensagem" meta="D0 · 09:00"
+                  selected={hasConfig && !showMsg}>
+                  {showMsg
+                    ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{MSG}</p>
+                    : <p className="text-xs text-muted-foreground/50 italic">Sem mensagem configurada</p>
+                  }
                 </FakeNode>
-              </Hotspot>
-            ) : (
-              <FakeNode accent="emerald" icon={MessageSquare} label="Mensagem" meta="D1 · 09:00"
-                selected={scene === 'node_open' || scene === 'typing'}>
-                {scene === 'typing' || scene === 'done'
-                  ? <p className="text-xs text-foreground/80 leading-relaxed line-clamp-3 bg-muted/30 rounded-lg px-2.5 py-2">{MSG}</p>
-                  : <p className="text-xs text-muted-foreground/50 italic">Sem mensagem configurada</p>
-                }
-              </FakeNode>
-            )}
-          </div>
-
-          {/* Wait node (only when config closed) */}
-          {!hasConfig && (
-            <div style={{ position: 'absolute', left: waitX, top: waitY, zIndex: 1 }}>
-              <FakeNode accent="amber" icon={Clock} label="Aguardar">
-                <p className="text-sm font-semibold text-foreground/90">3 dias</p>
-                <p className="text-xs text-muted-foreground/60">antes da próxima mensagem</p>
-              </FakeNode>
+              )}
             </div>
           )}
 
-          {/* Add node button */}
+          {/* Palette */}
+          {scene === 'palette_open' && <FakePalette onSelectMessage={advance} />}
+
+          {/* "+" button */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
-            <button className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-md text-muted-foreground">
-              <Plus className="w-5 h-5" />
-            </button>
+            {scene === 'canvas_empty' ? (
+              <Hotspot label='Clique em "+" para adicionar o primeiro no ao fluxo' onClick={advance} side="left" minW={310}>
+                <button ref={addRef as any}
+                  className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-md text-muted-foreground">
+                  <Plus className="w-5 h-5" />
+                </button>
+              </Hotspot>
+            ) : (
+              <button className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-md text-muted-foreground">
+                <Plus className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Config panel */}
         {hasConfig && (
           <div className="relative">
-            {scene === 'node_open' ? (
+            {scene === 'node_config' ? (
               <>
                 <FakeConfigPanel msgText="" msgRef={msgRef} onMsgClick={advance} />
-                <PortalTooltip anchorRef={msgRef} label="Clique aqui para digitar a mensagem do lead" side="left" minW={290} />
+                <PortalTooltip anchorRef={msgRef} label="Clique aqui e configure a mensagem de boas-vindas" side="left" minW={290} />
               </>
             ) : (
               <FakeConfigPanel msgText={MSG} msgRef={msgRef} />
@@ -431,15 +487,13 @@ function CanvasScreen({ scene, advance }: { scene: Scene; advance: () => void })
   )
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
 export function CanvasDemo() {
-  const [scene, setScene] = useState<Scene>('canvas_view')
+  const [scene, setScene] = useState<Scene>('seq_list')
   const advance = () => setScene(s => SCENES[Math.min(SCENES.indexOf(s) + 1, SCENES.length - 1)])
   const idx = SCENES.indexOf(scene)
 
   return (
-    <div className="rounded-2xl border border-border shadow-xl bg-background" style={{ minWidth: 1080 }}>
-      {/* Browser bar */}
+    <div className="w-full rounded-2xl border border-border shadow-xl bg-background">
       <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 rounded-t-2xl">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-red-400/60" />
@@ -450,9 +504,7 @@ export function CanvasDemo() {
           app.zaapply.com.br/automacoes
         </div>
       </div>
-
-      {/* App shell */}
-      <div className="flex" style={{ height: 572 }}>
+      <div className="flex" style={{ height: 520 }}>
         <FakeSidebar active="automacoes" />
         <div className="flex-1 min-w-0 overflow-hidden">
           <div key={scene} className="h-full animate-in fade-in duration-150">
@@ -460,23 +512,21 @@ export function CanvasDemo() {
           </div>
         </div>
       </div>
-
-      {/* Progress */}
       <div className="border-t border-border bg-muted/20 px-5 py-3 flex items-center gap-4 rounded-b-2xl">
         <div className="flex gap-1.5">
           {SCENES.filter(s => s !== 'done').map((s, i) => (
             <div key={s} className={cn('rounded-full transition-all duration-300',
-              s === scene       ? 'w-5 h-1.5 bg-primary'
-                : i < idx      ? 'w-1.5 h-1.5 bg-primary/50'
-                               : 'w-1.5 h-1.5 bg-muted-foreground/20'
+              s === scene   ? 'w-5 h-1.5 bg-primary'
+                : i < idx  ? 'w-1.5 h-1.5 bg-primary/50'
+                           : 'w-1.5 h-1.5 bg-muted-foreground/20'
             )} />
           ))}
         </div>
         <p className="text-[12px] text-muted-foreground flex-1">{META[scene]}</p>
         {scene === 'done' && (
-          <button onClick={() => setScene('canvas_view')}
+          <button onClick={() => setScene('seq_list')}
             className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
-            Recomeçar
+            Recomecar
           </button>
         )}
       </div>

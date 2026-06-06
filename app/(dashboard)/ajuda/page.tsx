@@ -5,6 +5,10 @@ import { ProductDemo } from '@/components/demo/ProductDemo';
 import { AtendimentoDemo } from '@/components/demo/AtendimentoDemo';
 import { FollowUpDemo } from '@/components/demo/FollowUpDemo';
 import { CanvasDemo } from '@/components/demo/CanvasDemo';
+import { CRMDemo } from '@/components/demo/CRMDemo';
+import { TrialSaasDemo } from '@/components/demo/TrialSaasDemo';
+import { SDRWizardDemo } from '@/components/demo/SDRWizardDemo';
+import { SimuladorDemo } from '@/components/demo/SimuladorDemo';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -237,6 +241,7 @@ Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados
 [AVISO]
 A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção antes de confirmar.
 [/AVISO]`,
+        demo: <CRMDemo />,
       },
     ],
   },
@@ -361,6 +366,31 @@ Scripts de resposta para objeções comuns ("é caro", "preciso pensar", "já te
 [AVISO]
 Quanto mais detalhadas e específicas forem suas respostas, melhor o agente performa. Respostas genéricas geram um agente genérico — e um agente genérico alucina.
 [/AVISO]`,
+        demo: <SDRWizardDemo />,
+      },
+      {
+        question: 'Usar o Simulador de Prompt',
+        answer:
+`O Simulador está na aba **Conhecimento → Simulador** do Agente SDR. Permite testar como o agente responderia a leads reais **antes** de ativar com clientes de verdade.
+
+## Dois modos de simulação
+• **Básico** — Perguntas pré-definidas comuns (preço, funcionalidades, objeções frequentes). Bom para teste rápido
+• **Avançado** — Você digita mensagens como se fosse o lead. Ideal para testar cenários específicos e objeções difíceis
+
+## Como usar
+1. Acesse **Agente SDR → Conhecimento → Simulador**
+2. Clique em **Iniciar simulação**
+3. Escolha o modo (Básico ou Avançado)
+4. No modo Avançado, escreva mensagens como se fosse seu cliente
+5. Veja a resposta gerada pelo agente e avalie se está alinhada com seu produto e tom de voz
+6. Leia o painel de **Avaliação** com pontuação, pontos fortes e sugestões de melhoria
+
+## O que fazer com as sugestões
+Volte à aba **Conhecimento**, ajuste o texto das áreas fracas indicadas e teste novamente. Repita até o agente responder como você esperaria de um bom vendedor.
+[TIP]
+Teste especialmente os cenários mais difíceis: "Já uso outra ferramenta", "Preciso pensar", "Tá caro". Se o agente não contornar bem, a base de objeções precisa ser enriquecida.
+[/TIP]`,
+        demo: <SimuladorDemo />,
       },
       {
         question: 'Exemplo completo: base bem configurada',
@@ -610,6 +640,7 @@ Apenas administradores podem alterar a duração global e a sequência padrão d
 
 ## Como um trial é iniciado
 O trial é ativado por um **webhook** disparado por um formulário externo (ex: página de cadastro, landing page, Make, n8n). Quando o lead preenche o formulário, o webhook notifica o Zaapply que registra automaticamente: nome, telefone, data de início, duração e status \`trial_ativo\`.`,
+        demo: <TrialSaasDemo />,
       },
       {
         question: 'Modo de teste',
@@ -1815,83 +1846,94 @@ export default function AjudaPage() {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto" ref={scrollRef}>
-        <div className="max-w-3xl mx-auto px-6 md:px-12 py-8 md:py-10">
 
           {/* Search results */}
           {isSearching ? (
-            <SearchResults query={searchQuery} onNavigate={handleNavigate} />
+            <div className="max-w-3xl mx-auto px-6 md:px-12 py-8">
+              <SearchResults query={searchQuery} onNavigate={handleNavigate} />
+            </div>
           ) : (
             <>
-              {/* Breadcrumb */}
-              <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>Docs</span>
-                <ChevronRight className="h-3 w-3" />
-                <span className="text-foreground font-medium">{activeSection.title}</span>
-              </nav>
+              {/* Breadcrumb + section header */}
+              <div className="max-w-3xl mx-auto px-6 md:px-12 pt-8 md:pt-10">
+                <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
+                  <BookOpen className="h-3.5 w-3.5" />
+                  <span>Docs</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="text-foreground font-medium">{activeSection.title}</span>
+                </nav>
 
-              {/* Section header */}
-              <div className="mb-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 border border-primary/15 mb-4">
-                  <ActiveIcon className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-semibold text-primary">{activeSection.title}</span>
+                <div className="mb-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/8 border border-primary/15 mb-4">
+                    <ActiveIcon className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-primary">{activeSection.title}</span>
+                  </div>
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-2">
+                    {activeSection.title}
+                  </h1>
+                  <p className="text-muted-foreground text-base leading-relaxed">{activeSection.description}</p>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-2">
-                  {activeSection.title}
-                </h1>
-                <p className="text-muted-foreground text-base leading-relaxed">{activeSection.description}</p>
+
+                <Separator className="mb-10" />
               </div>
 
-              <Separator className="mb-10" />
-
               {/* Items */}
-              <div className="space-y-12">
+              <div className="space-y-12 pb-10">
                 {activeSection.items.map((item, index) => (
                   <article key={index} id={`item-${index}`}>
-                    <h2 className="text-lg font-semibold text-foreground mb-5">{item.question}</h2>
-                    <div className="leading-relaxed">
-                      <FormatText text={item.answer} />
+                    {/* Text content — constrained width */}
+                    <div className="max-w-3xl mx-auto px-6 md:px-12">
+                      <h2 className="text-lg font-semibold text-foreground mb-5">{item.question}</h2>
+                      <div className="leading-relaxed">
+                        <FormatText text={item.answer} />
+                      </div>
                     </div>
+                    {/* Demo — full content-area width */}
                     {item.demo && (
-                      <div className="mt-6 overflow-x-auto">
+                      <div className="mt-8 px-4 md:px-6">
                         {item.demo}
                       </div>
                     )}
-                    {index < activeSection.items.length - 1 && <Separator className="mt-12" />}
+                    {index < activeSection.items.length - 1 && (
+                      <div className="max-w-3xl mx-auto px-6 md:px-12">
+                        <Separator className="mt-12" />
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
 
               {/* Prev / Next navigation */}
-              <div className="mt-16 pt-8 border-t border-border/30 flex justify-between">
-                {activeIdx > 0 ? (
-                  <button
-                    onClick={() => { setActiveId(sections[activeIdx - 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-                    <div className="text-left">
-                      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Anterior</p>
-                      <p>{sections[activeIdx - 1].title}</p>
-                    </div>
-                  </button>
-                ) : <div />}
-                {activeIdx < sections.length - 1 ? (
-                  <button
-                    onClick={() => { setActiveId(sections[activeIdx + 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                    className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors text-right"
-                  >
-                    <div>
-                      <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Próximo</p>
-                      <p>{sections[activeIdx + 1].title}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                ) : <div />}
+              <div className="max-w-3xl mx-auto px-6 md:px-12 pb-10">
+                <div className="pt-8 border-t border-border/30 flex justify-between">
+                  {activeIdx > 0 ? (
+                    <button
+                      onClick={() => { setActiveId(sections[activeIdx - 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+                      <div className="text-left">
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Anterior</p>
+                        <p>{sections[activeIdx - 1].title}</p>
+                      </div>
+                    </button>
+                  ) : <div />}
+                  {activeIdx < sections.length - 1 ? (
+                    <button
+                      onClick={() => { setActiveId(sections[activeIdx + 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors text-right"
+                    >
+                      <div>
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Próximo</p>
+                        <p>{sections[activeIdx + 1].title}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  ) : <div />}
+                </div>
               </div>
             </>
           )}
-        </div>
         </div>
       </div>
 

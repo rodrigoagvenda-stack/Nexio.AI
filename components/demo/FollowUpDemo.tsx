@@ -497,7 +497,7 @@ export function FollowUpDemo() {
   const idx = SCENES.indexOf(scene)
 
   return (
-    <div className="rounded-2xl border border-border shadow-xl bg-background" style={{ minWidth: 1080 }}>
+    <div className="w-full rounded-2xl border border-border shadow-xl bg-background">
       <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-3 rounded-t-2xl">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-red-400/60" />
