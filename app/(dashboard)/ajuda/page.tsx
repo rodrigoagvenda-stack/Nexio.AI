@@ -5,7 +5,7 @@ import { ProductDemo } from '@/components/demo/ProductDemo';
 import { AtendimentoDemo } from '@/components/demo/AtendimentoDemo';
 import { FollowUpDemo } from '@/components/demo/FollowUpDemo';
 import { CanvasDemo } from '@/components/demo/CanvasDemo';
-import { CRMDemo } from '@/components/demo/CRMDemo';
+import { KanbanDemo } from '@/components/demo/KanbanDemo';
 import { TrialSaasDemo } from '@/components/demo/TrialSaasDemo';
 import { SDRWizardDemo } from '@/components/demo/SDRWizardDemo';
 import { SimuladorDemo } from '@/components/demo/SimuladorDemo';
@@ -241,7 +241,7 @@ Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados
 [AVISO]
 A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção antes de confirmar.
 [/AVISO]`,
-        demo: <CRMDemo />,
+        demo: <KanbanDemo />,
       },
     ],
   },
@@ -1888,9 +1888,9 @@ export default function AjudaPage() {
                         <FormatText text={item.answer} />
                       </div>
                     </div>
-                    {/* Demo — full content-area width */}
+                    {/* Demo — largura controlada */}
                     {item.demo && (
-                      <div className="mt-8 px-4 md:px-6">
+                      <div className="mt-8 px-4 md:px-6 max-w-5xl mx-auto">
                         {item.demo}
                       </div>
                     )}
