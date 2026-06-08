@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign, Bot, WifiOff, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign } from 'lucide-react';
 import {
   startOfDay, startOfWeek, startOfMonth, startOfYear,
   endOfDay, subDays, subWeeks, subMonths, subYears, format,
@@ -16,7 +15,6 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface DateRange {
   from: Date | undefined;
@@ -111,13 +109,6 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [agentStatus, setAgentStatus] = useState<{
-    name: string | null;
-    active: boolean;
-    connected: boolean;
-    phone: string | null;
-    configured: boolean;
-  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -137,34 +128,17 @@ export default function DashboardPage() {
       if (!userData?.company_id) return;
       const companyId = userData.company_id;
 
-      const [leadsRes, followLogsRes, companyRes, sdrConfigRes, sdrFlowRes] = await Promise.all([
+      const [leadsRes, followLogsRes, companyRes] = await Promise.all([
         supabase.from('leads')
           .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
           .eq('company_id', companyId)
           .order('created_at', { ascending: true }),
         supabase.from('follow_logs').select('momento').eq('company_id', companyId),
         supabase.from('companies').select('name').eq('id', companyId).maybeSingle(),
-        supabase.from('sdr_configs')
-          .select('agente_ativo, instance_status, instance_phone')
-          .eq('company_id', companyId)
-          .maybeSingle(),
-        supabase.from('sdr_flows')
-          .select('nome')
-          .eq('company_id', companyId)
-          .eq('ativo', true)
-          .maybeSingle(),
       ]);
 
       setLeads(leadsRes.data || []);
       setCompanyName(companyRes.data?.name || '');
-
-      setAgentStatus({
-        name: sdrFlowRes.data?.nome ?? null,
-        active: sdrConfigRes.data?.agente_ativo ?? false,
-        connected: ['connected', 'open'].includes(sdrConfigRes.data?.instance_status ?? ''),
-        phone: sdrConfigRes.data?.instance_phone ?? null,
-        configured: !!(sdrConfigRes.data || sdrFlowRes.data),
-      });
 
       const counts: Record<string, number> = {};
       (followLogsRes.data || []).forEach((r: any) => {
@@ -433,98 +407,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* SDR Status Widget — always shown after load */}
-      {!loading && (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            {agentStatus?.configured ? (
-              <div className="flex flex-wrap items-stretch">
-                {/* Agent identity */}
-                <div className="flex items-center gap-4 px-5 py-4 min-w-[200px]">
-                  <div className="relative flex-shrink-0">
-                    <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                      <Bot className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
-                      agentStatus.connected && agentStatus.active
-                        ? 'bg-emerald-500'
-                        : !agentStatus.connected
-                        ? 'bg-red-500'
-                        : 'bg-amber-500'
-                    }`} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{agentStatus.name || 'Agente SDR'}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {agentStatus.connected
-                        ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        : <WifiOff className="w-3 h-3 text-red-500" />
-                      }
-                      <span className="text-xs text-muted-foreground">
-                        {agentStatus.connected && agentStatus.active
-                          ? `Online${agentStatus.phone ? ` · ${agentStatus.phone}` : ''}`
-                          : !agentStatus.connected
-                          ? 'WhatsApp desconectado'
-                          : 'Agente pausado'
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="w-px bg-border self-stretch" />
-
-                <div className="flex flex-col justify-center px-6 py-4 min-w-[130px]">
-                  <p className="text-xs text-muted-foreground">Em atendimento</p>
-                  <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{emAtendimento}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">leads em contato</p>
-                </div>
-
-                <div className="w-px bg-border self-stretch" />
-
-                <div className="flex flex-col justify-center px-6 py-4 min-w-[130px]">
-                  <p className="text-xs text-muted-foreground">Fechados</p>
-                  <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{fechados}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{PERIOD_LABELS[selectedPeriod].toLowerCase()}</p>
-                </div>
-
-                <div className="w-px bg-border self-stretch" />
-
-                <div className="flex flex-col justify-center px-6 py-4 min-w-[130px]">
-                  <p className="text-xs text-muted-foreground">Conversão</p>
-                  <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{taxaConversao}%</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">fechados / entrados</p>
-                </div>
-
-                <div className="flex items-center ml-auto px-5">
-                  <Link
-                    href="/configuracoes/sdr"
-                    className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-                  >
-                    Configurar agente <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4 px-5 py-4">
-                <div className="w-11 h-11 rounded-2xl bg-muted border border-border flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Agente SDR</p>
-                  <p className="text-xs text-muted-foreground">Nenhum agente configurado ainda</p>
-                </div>
-                <Link
-                  href="/configuracoes/sdr"
-                  className="ml-auto flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-                >
-                  Configurar agente <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* KPI Cards */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
