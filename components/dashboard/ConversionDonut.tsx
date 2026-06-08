@@ -31,7 +31,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="items-center pb-0 flex-shrink-0">
-        <CardTitle className="text-base">Taxa de conversão</CardTitle>
+        <CardTitle>Taxa de conversão</CardTitle>
         <CardDescription>{periodo}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 items-center justify-center pb-0">
@@ -89,13 +89,13 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
             {delta >= 0 ? '+' : ''}{delta}% vs período anterior
           </div>
         )}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+        <div className="flex items-center gap-6 text-sm text-foreground">
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-primary inline-block" />
             {fechados} fechados
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-primary/20 border border-primary/30 inline-block" />
+          <span className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-primary/20 border border-primary/30 inline-block" />
             {emAndamento} em andamento
           </span>
         </div>

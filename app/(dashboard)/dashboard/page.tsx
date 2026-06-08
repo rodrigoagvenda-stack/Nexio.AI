@@ -16,6 +16,7 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface DateRange {
   from: Date | undefined;
@@ -427,42 +428,83 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Agent Status Banner */}
+      {/* SDR Status Widget */}
       {agentStatus && (
-        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm transition-colors ${
-          agentStatus.connected && agentStatus.active
-            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-            : !agentStatus.connected
-            ? 'bg-red-500/5 border-red-500/20 text-red-700 dark:text-red-400'
-            : 'bg-amber-500/5 border-amber-500/20 text-amber-700 dark:text-amber-400'
-        }`}>
-          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-            agentStatus.connected
-              ? 'bg-emerald-500 animate-pulse'
-              : 'bg-red-500'
-          }`} />
-          <Bot className="w-4 h-4 flex-shrink-0 opacity-70" />
-          <span className="font-medium">
-            {agentStatus.name || 'Agente SDR'}
-          </span>
-          <span className="text-xs opacity-70">
-            {agentStatus.connected && agentStatus.active
-              ? `ativo · WhatsApp conectado${agentStatus.phone ? ` (${agentStatus.phone})` : ''}`
-              : !agentStatus.connected
-              ? '· WhatsApp desconectado — agente offline'
-              : '· WhatsApp conectado · agente pausado'
-            }
-          </span>
-          {!agentStatus.connected && (
-            <WifiOff className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
-          )}
-          <Link
-            href="/configuracoes/sdr"
-            className="ml-auto flex items-center gap-1 text-xs opacity-60 hover:opacity-100 transition-opacity"
-          >
-            Configurar <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="flex flex-wrap items-stretch">
+              {/* Agent identity */}
+              <div className="flex items-center gap-4 px-5 py-4 min-w-[200px]">
+                <div className="relative flex-shrink-0">
+                  <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className={`absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card flex-shrink-0 ${
+                    agentStatus.connected && agentStatus.active
+                      ? 'bg-emerald-500'
+                      : !agentStatus.connected
+                      ? 'bg-red-500'
+                      : 'bg-amber-500'
+                  }`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{agentStatus.name || 'Agente SDR'}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {agentStatus.connected
+                      ? <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      : <WifiOff className="w-3 h-3 text-red-500" />
+                    }
+                    <span className="text-xs text-muted-foreground">
+                      {agentStatus.connected && agentStatus.active
+                        ? `Online${agentStatus.phone ? ` · ${agentStatus.phone}` : ''}`
+                        : !agentStatus.connected
+                        ? 'WhatsApp desconectado'
+                        : 'Agente pausado'
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-px bg-border self-stretch" />
+
+              {/* Metric: Em atendimento */}
+              <div className="flex flex-col justify-center px-6 py-4 min-w-[130px]">
+                <p className="text-xs text-muted-foreground">Em atendimento</p>
+                <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{emAtendimento}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">leads em contato</p>
+              </div>
+
+              <div className="w-px bg-border self-stretch" />
+
+              {/* Metric: Fechados */}
+              <div className="flex flex-col justify-center px-6 py-4 min-w-[130px]">
+                <p className="text-xs text-muted-foreground">Fechados</p>
+                <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{fechados}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{PERIOD_LABELS[selectedPeriod].toLowerCase()}</p>
+              </div>
+
+              <div className="w-px bg-border self-stretch" />
+
+              {/* Metric: Taxa de conversão */}
+              <div className="flex flex-col justify-center px-6 py-4 min-w-[130px]">
+                <p className="text-xs text-muted-foreground">Conversão</p>
+                <p className="text-2xl font-bold text-foreground tabular-nums mt-0.5">{taxaConversao}%</p>
+                <p className="text-xs text-muted-foreground mt-0.5">fechados / entrados</p>
+              </div>
+
+              {/* Configure link */}
+              <div className="flex items-center ml-auto px-5">
+                <Link
+                  href="/configuracoes/sdr"
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+                >
+                  Configurar agente <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* KPI Cards */}
