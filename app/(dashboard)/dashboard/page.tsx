@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign } from 'lucide-react';
+import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign, Bot, WifiOff, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import {
   startOfDay, startOfWeek, startOfMonth, startOfYear,
   endOfDay, subDays, subWeeks, subMonths, subYears, format,
@@ -109,6 +110,12 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<{
+    name: string | null;
+    active: boolean;
+    connected: boolean;
+    phone: string | null;
+  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -128,17 +135,30 @@ export default function DashboardPage() {
       if (!userData?.company_id) return;
       const companyId = userData.company_id;
 
-      const [leadsRes, followLogsRes, companyRes] = await Promise.all([
+      const [leadsRes, followLogsRes, companyRes, sdrRes] = await Promise.all([
         supabase.from('leads')
           .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
           .eq('company_id', companyId)
           .order('created_at', { ascending: true }),
         supabase.from('follow_logs').select('momento').eq('company_id', companyId),
         supabase.from('companies').select('name').eq('id', companyId).maybeSingle(),
+        supabase.from('sdr_flows')
+          .select('agent_name, is_active, whatsapp_number, instance_status')
+          .eq('company_id', companyId)
+          .maybeSingle(),
       ]);
 
       setLeads(leadsRes.data || []);
       setCompanyName(companyRes.data?.name || '');
+
+      if (sdrRes.data) {
+        setAgentStatus({
+          name: sdrRes.data.agent_name ?? null,
+          active: sdrRes.data.is_active ?? false,
+          connected: ['open', 'connected'].includes(sdrRes.data.instance_status ?? ''),
+          phone: sdrRes.data.whatsapp_number ?? null,
+        });
+      }
 
       const counts: Record<string, number> = {};
       (followLogsRes.data || []).forEach((r: any) => {
@@ -228,6 +248,10 @@ export default function DashboardPage() {
   const deltaFechados = calcDelta(fechados, prevFechados);
   const deltaFaturamento = calcDelta(faturamento, prevFaturamento);
   const deltaTaxaConversao = calcDelta(parseFloat(taxaConversao), prevTaxaConversao);
+  const deltaEmAtendimento = calcDelta(
+    filteredLeads.filter(l => l.status === 'Em contato').length,
+    prevFilteredLeads.filter(l => l.status === 'Em contato').length
+  );
 
   // ── Performance chart data ────────────────────────────────────────────────
   const performanceData = useMemo(() => {
@@ -323,12 +347,9 @@ export default function DashboardPage() {
     }
   }, [selectedPeriod, dateRange, filteredLeads, leadsClosedInPeriod]);
 
-  // ── Donut (all-time state) ────────────────────────────────────────────────
+  // ── Radial conversion (period-based) ─────────────────────────────────────
   const allFechados = leads.filter(l => l.status === 'Fechado').length;
-  const conversionData = [
-    { name: 'Fechados', value: allFechados, color: 'hsl(var(--chart-2))' },
-    { name: 'Em andamento', value: activeLeads.length, color: 'hsl(var(--chart-1))' },
-  ];
+  const radialEmAndamento = filteredLeads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido').length;
 
   // ── Funnel (current pipeline state) ──────────────────────────────────────
   const remarketingCount = leads.filter(l => l.status === 'Remarketing').length;
@@ -379,7 +400,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {getGreeting()}{companyName ? `, ${companyName}` : ''} 👋
+            {getGreeting()}{companyName ? `, ${companyName}` : ''}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">{formattedDate}</p>
         </div>
@@ -406,6 +427,44 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Agent Status Banner */}
+      {agentStatus && (
+        <div className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-sm transition-colors ${
+          agentStatus.connected && agentStatus.active
+            ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+            : !agentStatus.connected
+            ? 'bg-red-500/5 border-red-500/20 text-red-700 dark:text-red-400'
+            : 'bg-amber-500/5 border-amber-500/20 text-amber-700 dark:text-amber-400'
+        }`}>
+          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+            agentStatus.connected
+              ? 'bg-emerald-500 animate-pulse'
+              : 'bg-red-500'
+          }`} />
+          <Bot className="w-4 h-4 flex-shrink-0 opacity-70" />
+          <span className="font-medium">
+            {agentStatus.name || 'Agente SDR'}
+          </span>
+          <span className="text-xs opacity-70">
+            {agentStatus.connected && agentStatus.active
+              ? `ativo · WhatsApp conectado${agentStatus.phone ? ` (${agentStatus.phone})` : ''}`
+              : !agentStatus.connected
+              ? '· WhatsApp desconectado — agente offline'
+              : '· WhatsApp conectado · agente pausado'
+            }
+          </span>
+          {!agentStatus.connected && (
+            <WifiOff className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+          )}
+          <Link
+            href="/configuracoes/sdr"
+            className="ml-auto flex items-center gap-1 text-xs opacity-60 hover:opacity-100 transition-opacity"
+          >
+            Configurar <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <MetricCard
@@ -422,6 +481,7 @@ export default function DashboardPage() {
           subtitle="Pipeline ativo agora"
           icon={MessageCircleMore}
           format="number"
+          delta={deltaEmAtendimento}
         />
         <MetricCard
           title="Taxa de conversão"
@@ -454,14 +514,19 @@ export default function DashboardPage() {
           <PerformanceChart data={performanceData} />
         </div>
         <div className="h-full">
-          <ConversionDonut data={conversionData} />
+          <ConversionDonut
+            fechados={fechados}
+            emAndamento={radialEmAndamento}
+            delta={deltaTaxaConversao}
+            periodo={PERIOD_LABELS[selectedPeriod]}
+          />
         </div>
       </div>
 
       {/* Funnel + Recent Sales */}
       <div className="grid gap-6 lg:grid-cols-3 items-start">
         <div className="lg:col-span-2 h-auto md:h-[500px]">
-          <SalesFunnelTabs stages={funnelStages} antiNoshowCounts={antiNoshowCounts} />
+          <SalesFunnelTabs stages={funnelStages} antiNoshowCounts={antiNoshowCounts} remarketingCount={remarketingCount} />
         </div>
         <div className="h-auto md:h-[500px]">
           <RecentSales />

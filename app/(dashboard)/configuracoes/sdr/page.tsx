@@ -23,6 +23,11 @@ import {
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
   type LucideIcon,
 } from 'lucide-react'
+import {
+  AnimSettings,
+  AnimBot,
+  AnimBrain,
+} from '@/components/ui/animated-sidebar-icons'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 
@@ -103,9 +108,9 @@ const AGENT_TYPES = [
 ]
 
 const TABS = [
-  { id: 'geral', label: 'Geral', icon: Settings, desc: 'Ative o agente, tipo e modo de atendimento' },
-  { id: 'identidade', label: 'Identidade', icon: Bot, desc: 'Persona, tom de voz e restrições do agente' },
-  { id: 'conhecimento', label: 'Conhecimento', icon: Brain, desc: 'Base de conhecimento e simulador de conversas' },
+  { id: 'geral', label: 'Geral', icon: AnimSettings, desc: 'Ative o agente, tipo e modo de atendimento' },
+  { id: 'identidade', label: 'Identidade', icon: AnimBot, desc: 'Persona, tom de voz e restrições do agente' },
+  { id: 'conhecimento', label: 'Conhecimento', icon: AnimBrain, desc: 'Base de conhecimento e simulador de conversas' },
   { id: 'integracoes', label: 'Integrações', icon: Link2, desc: 'Google Calendar e demais integrações' },
   { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag, desc: 'Produtos e itens para pedidos via WhatsApp' },
 ] as const

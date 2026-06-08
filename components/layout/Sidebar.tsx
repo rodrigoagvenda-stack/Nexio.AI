@@ -7,16 +7,13 @@ import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  TrendingUp,
   PieChart,
-  MessageCircle,
   UserCog,
   Info,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Bot,
   Settings,
   Table2,
   Kanban,
@@ -26,13 +23,23 @@ import {
   CalendarClock,
   BarChart2,
   CalendarDays,
-  Sparkles,
   LifeBuoy,
   Ticket,
   BookOpen,
   Zap,
   FlaskConical,
+  Bot,
+  TrendingUp,
+  MessageCircle,
+  Sparkles,
 } from 'lucide-react';
+import {
+  AnimTrendingUp,
+  AnimMessageCircle,
+  AnimBot,
+  AnimSettings,
+  AnimSparkles,
+} from '@/components/ui/animated-sidebar-icons';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -103,7 +110,7 @@ const navSections: NavSection[] = [
   {
     label: 'Principal',
     links: [
-      { href: '/dashboard', label: 'Dashboard', icon: TrendingUp },
+      { href: '/dashboard', label: 'Dashboard', icon: AnimTrendingUp },
     ],
   },
   {
@@ -118,13 +125,13 @@ const navSections: NavSection[] = [
           { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
         ],
       },
-      { href: '/atendimento', label: 'Atendimento', icon: MessageCircle },
+      { href: '/atendimento', label: 'Atendimento', icon: AnimMessageCircle },
       {
         href: '/automacoes',
         label: 'Automações',
         icon: Megaphone,
         children: [
-          { href: '/configuracoes/sdr', label: 'Agente SDR', icon: Bot },
+          { href: '/configuracoes/sdr', label: 'Agente SDR', icon: AnimBot },
           { href: '/configuracoes/follow', label: 'Canvas', icon: Megaphone },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDays },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
@@ -141,7 +148,7 @@ const navSections: NavSection[] = [
   {
     label: 'Sistema',
     links: [
-      { href: '/novidades', label: 'Novidades', icon: Sparkles },
+      { href: '/novidades', label: 'Novidades', icon: AnimSparkles },
       {
         href: '/ajuda',
         label: 'Ajuda',
@@ -151,7 +158,7 @@ const navSections: NavSection[] = [
           { href: '/suporte', label: 'Tickets', icon: Ticket },
         ],
       },
-      { href: '/configuracoes', label: 'Configuração', icon: Settings, exact: true },
+      { href: '/configuracoes', label: 'Configuração', icon: AnimSettings, exact: true },
     ],
   },
 ];

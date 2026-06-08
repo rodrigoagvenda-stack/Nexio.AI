@@ -1,138 +1,105 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector } from 'recharts';
-import { motion } from 'framer-motion';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from 'recharts';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
-interface ConversionData {
-  name: string;
-  value: number;
-  color: string;
+interface ConversionRadialProps {
+  fechados: number;
+  emAndamento: number;
+  delta?: number | null;
+  periodo: string;
 }
 
-interface ConversionDonutProps {
-  data: ConversionData[];
-}
+const chartConfig = {
+  fechados: {
+    label: 'Fechados',
+    color: 'var(--primary)',
+  },
+  em_andamento: {
+    label: 'Em andamento',
+    color: 'hsl(var(--primary) / 0.15)',
+  },
+} satisfies ChartConfig;
 
-// Renderizador customizado para fatia ativa (interactive)
-const renderActiveShape = (props: any) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-
-  return (
-    <g>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 10}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-      />
-    </g>
-  );
-};
-
-export function ConversionDonut({ data }: ConversionDonutProps) {
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
-
-  // Calculate total percentage (should be close to 100)
-  const totalValue = data.reduce((sum, item) => sum + item.value, 0);
-  // Tratar divisão por zero - se totalValue é 0, retornar 0%
-  const mainPercentage = totalValue > 0 && data[0] ? Math.round((data[0].value / totalValue) * 100) : 0;
-
-  const onPieEnter = (_: any, index: number) => {
-    setActiveIndex(index);
-  };
-
-  const onPieLeave = () => {
-    setActiveIndex(undefined);
-  };
+export function ConversionDonut({ fechados, emAndamento, delta, periodo }: ConversionRadialProps) {
+  const total = fechados + emAndamento;
+  const pct = total > 0 ? Math.round((fechados / total) * 100) : 0;
+  const chartData = [{ fechados, em_andamento: emAndamento }];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
-      className="h-full"
-    >
-      <Card className="h-full flex flex-col">
-        <CardHeader className="flex-shrink-0">
-          <CardTitle>Taxa de conversão geral</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col justify-center">
-          <div className="relative h-[200px] md:h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  activeIndex={activeIndex}
-                  activeShape={renderActiveShape}
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="52%"
-                  outerRadius="86%"
-                  fill="#8884d8"
-                  paddingAngle={2}
-                  dataKey="value"
-                  strokeWidth={0}
-                  animationDuration={1000}
-                  animationBegin={300}
-                  onMouseEnter={onPieEnter}
-                  onMouseLeave={onPieLeave}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  wrapperStyle={{ zIndex: 10 }}
-                  contentStyle={{
-                    backgroundColor: '#0f1a14',
-                    border: '1px solid #166534',
-                    borderRadius: '6px',
-                    color: '#f0fdf4',
-                  }}
-                  itemStyle={{ color: '#86efac' }}
-                  labelStyle={{ color: '#22c55e', fontWeight: 600 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* Center percentage text */}
-            <motion.div
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-            >
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">{mainPercentage}%</div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">Taxa geral</div>
-              </div>
-            </motion.div>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="items-center pb-0 flex-shrink-0">
+        <CardTitle className="text-base">Taxa de conversão</CardTitle>
+        <CardDescription>{periodo}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-1 items-center justify-center pb-0">
+        <ChartContainer config={chartConfig} className="mx-auto aspect-square w-full max-w-[220px]">
+          <RadialBarChart data={chartData} endAngle={180} innerRadius={75} outerRadius={108}>
+            <PolarGrid gridType="circle" radialLines={false} stroke="none" className="first:fill-muted last:fill-background" />
+            <RadialBar
+              dataKey="em_andamento"
+              fill="var(--color-em_andamento)"
+              stackId="a"
+              cornerRadius={5}
+              className="stroke-transparent stroke-2"
+            />
+            <RadialBar
+              dataKey="fechados"
+              fill="var(--color-fechados)"
+              stackId="a"
+              cornerRadius={5}
+              className="stroke-transparent stroke-2"
+            />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+            <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
+              <Label
+                content={({ viewBox }) => {
+                  if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                    return (
+                      <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle">
+                        <tspan
+                          x={viewBox.cx}
+                          y={(viewBox.cy || 0) - 14}
+                          className="fill-foreground text-3xl font-bold"
+                        >
+                          {pct}%
+                        </tspan>
+                        <tspan
+                          x={viewBox.cx}
+                          y={(viewBox.cy || 0) + 6}
+                          className="fill-muted-foreground text-xs"
+                        >
+                          conversão
+                        </tspan>
+                      </text>
+                    );
+                  }
+                }}
+              />
+            </PolarRadiusAxis>
+          </RadialBarChart>
+        </ChartContainer>
+      </CardContent>
+      <CardFooter className="flex-col gap-1.5 text-sm pb-4 flex-shrink-0">
+        {delta !== null && delta !== undefined && (
+          <div className={`flex items-center gap-1.5 font-medium text-sm ${delta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+            {delta >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            {delta >= 0 ? '+' : ''}{delta}% vs período anterior
           </div>
-          {/* Legend below chart with circular icons */}
-          <div className="mt-6 flex justify-center gap-6">
-            {data.map((entry, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span className="text-sm text-foreground">{entry.name}</span>
-              </motion.div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        )}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+            {fechados} fechados
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-primary/20 border border-primary/30 inline-block" />
+            {emAndamento} em andamento
+          </span>
+        </div>
+      </CardFooter>
+    </Card>
   );
 }
