@@ -7,39 +7,28 @@ import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
 import { useState, useEffect, useRef, memo, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  PieChart,
-  UserCog,
-  Info,
-  ShieldCheck,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Settings,
   Table2,
   Kanban,
-  FileText,
-  Megaphone,
-  Clock,
-  CalendarClock,
-  BarChart2,
-  CalendarDays,
-  LifeBuoy,
-  Ticket,
-  BookOpen,
   Zap,
-  FlaskConical,
-  Bot,
-  TrendingUp,
-  MessageCircle,
-  Sparkles,
 } from 'lucide-react';
-import {
-  AnimTrendingUp,
-  AnimMessageCircle,
-  AnimBot,
-  AnimSettings,
-  AnimSparkles,
-} from '@/components/ui/animated-sidebar-icons';
+import { TrendingUpIcon } from '@/components/ui/trending-up';
+import { ChartPieIcon } from '@/components/ui/chart-pie';
+import { MessageCircleMoreIcon } from '@/components/ui/message-circle-more';
+import { BotIcon } from '@/components/ui/bot';
+import { BotMessageSquareIcon } from '@/components/ui/bot-message-square';
+import { CursorClickIcon } from '@/components/ui/cursor-click';
+import { CalendarDaysIcon } from '@/components/ui/calendar-days';
+import { ChartLineIcon } from '@/components/ui/chart-line';
+import { UserRoundCogIcon } from '@/components/ui/user-round-cog';
+import { FlameIcon } from '@/components/ui/flame';
+import { CircleHelpIcon } from '@/components/ui/circle-help';
+import { FileTextIcon } from '@/components/ui/file-text';
+import { ReceiptTextIcon } from '@/components/ui/receipt-text';
+import { CogIcon } from '@/components/ui/cog';
+import { ShieldCheckIcon } from '@/components/ui/shield-check';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -110,7 +99,7 @@ const navSections: NavSection[] = [
   {
     label: 'Principal',
     links: [
-      { href: '/dashboard', label: 'Dashboard', icon: AnimTrendingUp },
+      { href: '/dashboard', label: 'Dashboard', icon: TrendingUpIcon },
     ],
   },
   {
@@ -119,22 +108,22 @@ const navSections: NavSection[] = [
       {
         href: '/crm',
         label: 'CRM',
-        icon: PieChart,
+        icon: ChartPieIcon,
         children: [
           { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
           { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
         ],
       },
-      { href: '/atendimento', label: 'Atendimento', icon: AnimMessageCircle },
+      { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMoreIcon },
       {
         href: '/automacoes',
         label: 'Automações',
-        icon: Megaphone,
+        icon: BotIcon,
         children: [
-          { href: '/configuracoes/sdr', label: 'Agente SDR', icon: AnimBot },
-          { href: '/configuracoes/follow', label: 'Canvas', icon: Megaphone },
-          { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDays },
-          { href: '/configuracoes/metricas', label: 'Métricas', icon: BarChart2 },
+          { href: '/configuracoes/sdr', label: 'Agente SDR', icon: BotMessageSquareIcon },
+          { href: '/configuracoes/follow', label: 'Canvas', icon: CursorClickIcon },
+          { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDaysIcon },
+          { href: '/configuracoes/metricas', label: 'Métricas', icon: ChartLineIcon },
         ],
       },
     ],
@@ -142,26 +131,147 @@ const navSections: NavSection[] = [
   {
     label: 'Gestão',
     links: [
-      { href: '/membros', label: 'Membros', icon: UserCog },
+      { href: '/membros', label: 'Membros', icon: UserRoundCogIcon },
     ],
   },
   {
     label: 'Sistema',
     links: [
-      { href: '/novidades', label: 'Novidades', icon: AnimSparkles },
+      { href: '/novidades', label: 'Novidades', icon: FlameIcon },
       {
         href: '/ajuda',
         label: 'Ajuda',
-        icon: LifeBuoy,
+        icon: CircleHelpIcon,
         children: [
-          { href: '/ajuda', label: 'Documentação', icon: BookOpen },
-          { href: '/suporte', label: 'Tickets', icon: Ticket },
+          { href: '/ajuda', label: 'Documentação', icon: FileTextIcon },
+          { href: '/suporte', label: 'Tickets', icon: ReceiptTextIcon },
         ],
       },
-      { href: '/configuracoes', label: 'Configuração', icon: AnimSettings, exact: true },
+      { href: '/configuracoes', label: 'Configuração', icon: CogIcon, exact: true },
     ],
   },
 ];
+
+// ─── Animated icon ref types ──────────────────────────────────────────────────
+type AnyIconHandle = { startAnimation: () => void; stopAnimation: () => void };
+type AnyAnimIcon = React.ForwardRefExoticComponent<
+  React.HTMLAttributes<HTMLDivElement> & { size?: number } & React.RefAttributes<AnyIconHandle>
+>;
+
+const TOUR_TARGETS: Record<string, string> = {
+  '/atendimento': 'atendimento-link',
+  '/configuracoes/follow': 'canvas-link',
+};
+
+// ─── Nav item sub-components (need useRef at component level) ─────────────────
+function NavItemLinkComp({
+  link, isActive, isCollapsed, onClick,
+}: {
+  link: NavLink; isActive: boolean; isCollapsed: boolean; onClick?: () => void;
+}) {
+  const iconRef = useRef<AnyIconHandle>(null);
+  const Icon = link.icon as unknown as AnyAnimIcon;
+  return (
+    <Link
+      href={link.href}
+      prefetch={true}
+      data-tour={TOUR_TARGETS[link.href]}
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
+      className={cn(
+        'relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
+        isActive
+          ? 'bg-accent text-accent-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+        isCollapsed && 'justify-center px-2'
+      )}
+      title={isCollapsed ? link.label : undefined}
+      aria-current={isActive ? 'page' : undefined}
+    >
+      <Icon ref={iconRef} size={16} className="flex-shrink-0" />
+      {!isCollapsed && (
+        <>
+          <span className="text-sm flex-1 text-left">{link.label}</span>
+          {link.unreadCount && link.unreadCount > 0 ? (
+            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+              {link.unreadCount > 99 ? '99+' : link.unreadCount}
+            </span>
+          ) : link.badge ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
+              {link.badge}
+            </span>
+          ) : null}
+        </>
+      )}
+      {isCollapsed && link.unreadCount && link.unreadCount > 0 ? (
+        <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">
+          {link.unreadCount > 9 ? '9+' : link.unreadCount}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+function NavItemFlyoutComp({
+  link, isParentActive, isCollapsed, onMouseEnter, onMouseLeave,
+}: {
+  link: NavLink; isParentActive: boolean; isCollapsed: boolean;
+  onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onMouseLeave: () => void;
+}) {
+  const iconRef = useRef<AnyIconHandle>(null);
+  const Icon = link.icon as unknown as AnyAnimIcon;
+  return (
+    <div
+      onMouseEnter={(e) => { iconRef.current?.startAnimation(); onMouseEnter(e); }}
+      onMouseLeave={() => { iconRef.current?.stopAnimation(); onMouseLeave(); }}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-100 select-none',
+        isParentActive
+          ? 'bg-accent text-accent-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+        isCollapsed && 'justify-center px-2'
+      )}
+      title={isCollapsed ? link.label : undefined}
+    >
+      <Icon ref={iconRef} size={16} className="flex-shrink-0" />
+      {!isCollapsed && (
+        <>
+          <span className="text-sm flex-1 text-left">{link.label}</span>
+          <ChevronRight className="h-3 w-3 opacity-50" />
+        </>
+      )}
+    </div>
+  );
+}
+
+function FlyoutChildLink({
+  child, isActive, onClose,
+}: {
+  child: NavChild; isActive: boolean; onClose: () => void;
+}) {
+  const iconRef = useRef<AnyIconHandle>(null);
+  const Icon = child.icon as unknown as AnyAnimIcon;
+  return (
+    <Link
+      href={child.href}
+      prefetch={true}
+      onClick={onClose}
+      onMouseEnter={() => iconRef.current?.startAnimation?.()}
+      onMouseLeave={() => iconRef.current?.stopAnimation?.()}
+      className={cn(
+        'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
+        isActive
+          ? 'bg-accent text-accent-foreground font-medium'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+      )}
+    >
+      <Icon ref={iconRef} size={14} className="flex-shrink-0" />
+      <span>{child.label}</span>
+    </Link>
+  );
+}
 
 // ─── Flyout portal ────────────────────────────────────────────────────────────
 interface FlyoutState {
@@ -205,7 +315,7 @@ function FlyoutPanel({
         {link.label}
       </p>
       {link.children!.map((child) => {
-        const ChildIcon = child.icon;
+        const ChildIcon = child.icon as React.ComponentType<{ className?: string }>;
         const childBase = child.href.split('?')[0];
         const isCrmChild = link.href === '/crm';
         const isBlocked = isTrial && TRIAL_BLOCKED_PATHS.some(p => child.href.startsWith(p));
@@ -234,22 +344,33 @@ function FlyoutPanel({
             </button>
           );
         }
+        // CRM children use plain lucide icons; animated children use FlyoutChildLink
+        if (isCrmChild) {
+          return (
+            <Link
+              key={child.href}
+              href={child.href}
+              prefetch={true}
+              onClick={onClose}
+              className={cn(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
+                isChildActive
+                  ? 'bg-accent text-accent-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              )}
+            >
+              <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{child.label}</span>
+            </Link>
+          );
+        }
         return (
-          <Link
+          <FlyoutChildLink
             key={child.href}
-            href={child.href}
-            prefetch={true}
-            onClick={onClose}
-            className={cn(
-              'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
-              isChildActive
-                ? 'bg-accent text-accent-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-            )}
-          >
-            <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>{child.label}</span>
-          </Link>
+            child={child}
+            isActive={isChildActive}
+            onClose={onClose}
+          />
         );
       })}
     </div>,
@@ -437,7 +558,7 @@ export const Sidebar = memo(function Sidebar({
           ...section,
           links: [
             ...section.links,
-            ...(hasBriefing ? [{ href: '/briefing', label: 'Briefing', icon: FileText }] : []),
+            ...(hasBriefing ? [{ href: '/briefing', label: 'Briefing', icon: FileTextIcon }] : []),
           ],
         };
       }
@@ -446,7 +567,7 @@ export const Sidebar = memo(function Sidebar({
           ...section,
           links: [
             ...section.links,
-            ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck, badge: 'ADMIN' }] : []),
+            ...(isAdmin ? [{ href: '/admin', label: 'Admin', icon: ShieldCheckIcon, badge: 'ADMIN' }] : []),
           ],
         };
       }
@@ -508,7 +629,6 @@ export const Sidebar = memo(function Sidebar({
 
               <div className="space-y-0.5">
                 {section.links.map((link) => {
-                  const Icon = link.icon;
                   const isActive = link.exact
                     ? pathname === link.href
                     : pathname === link.href || pathname.startsWith(link.href + '/');
@@ -521,73 +641,25 @@ export const Sidebar = memo(function Sidebar({
                     }) || pathname === link.href || pathname.startsWith(link.href + '/');
 
                     return (
-                      <div
+                      <NavItemFlyoutComp
                         key={link.href}
+                        link={link}
+                        isParentActive={isParentActive}
+                        isCollapsed={isCollapsed}
                         onMouseEnter={(e) => openFlyout(link, e.currentTarget)}
                         onMouseLeave={closeFlyout}
-                        className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-100 select-none',
-                          isParentActive
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                          isCollapsed && 'justify-center px-2'
-                        )}
-                        title={isCollapsed ? link.label : undefined}
-                      >
-                        <Icon className="h-4 w-4 flex-shrink-0" />
-                        {!isCollapsed && (
-                          <>
-                            <span className="text-sm flex-1 text-left">{link.label}</span>
-                            <ChevronRight className="h-3 w-3 opacity-50" />
-                          </>
-                        )}
-                      </div>
+                      />
                     );
                   }
 
-                  const TOUR_TARGETS: Record<string, string> = {
-                    '/atendimento': 'atendimento-link',
-                    '/configuracoes/follow': 'canvas-link',
-                  };
-
                   return (
-                    <Link
+                    <NavItemLinkComp
                       key={link.href}
-                      href={link.href}
-                      prefetch={true}
-                      data-tour={TOUR_TARGETS[link.href]}
+                      link={link}
+                      isActive={isActive}
+                      isCollapsed={isCollapsed}
                       onClick={link.href === '/atendimento' ? handleAtendimentoClick : undefined}
-                      className={cn(
-                        'relative w-full group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
-                        isActive
-                          ? 'bg-accent text-accent-foreground'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                        isCollapsed && 'justify-center px-2'
-                      )}
-                      title={isCollapsed ? link.label : undefined}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      {!isCollapsed && (
-                        <>
-                          <span className="text-sm flex-1 text-left">{link.label}</span>
-                          {link.unreadCount && link.unreadCount > 0 ? (
-                            <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
-                              {link.unreadCount > 99 ? '99+' : link.unreadCount}
-                            </span>
-                          ) : link.badge ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium border border-primary/30">
-                              {link.badge}
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                      {isCollapsed && link.unreadCount && link.unreadCount > 0 ? (
-                        <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">
-                          {link.unreadCount > 9 ? '9+' : link.unreadCount}
-                        </span>
-                      ) : null}
-                    </Link>
+                    />
                   );
                 })}
               </div>

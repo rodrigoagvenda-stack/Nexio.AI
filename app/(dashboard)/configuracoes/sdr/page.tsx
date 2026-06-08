@@ -23,11 +23,11 @@ import {
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  AnimSettings,
-  AnimBot,
-  AnimBrain,
-} from '@/components/ui/animated-sidebar-icons'
+import { CogIcon } from '@/components/ui/cog'
+import { FlaskIcon } from '@/components/ui/flask'
+import { BrainIcon } from '@/components/ui/brain'
+import { SlidersHorizontalIcon } from '@/components/ui/sliders-horizontal'
+import { FilePenLineIcon } from '@/components/ui/file-pen-line'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 
@@ -107,14 +107,45 @@ const AGENT_TYPES = [
   { value: 'atendimento_venda_agendamento', label: '+ Agendamento', desc: 'Inclui agendamento via Google Calendar', icon: Calendar },
 ]
 
+type AnyIconHandle = { startAnimation: () => void; stopAnimation: () => void }
+type AnyAnimIcon = React.ForwardRefExoticComponent<
+  React.HTMLAttributes<HTMLDivElement> & { size?: number } & React.RefAttributes<AnyIconHandle>
+>
+
 const TABS = [
-  { id: 'geral', label: 'Geral', icon: AnimSettings, desc: 'Ative o agente, tipo e modo de atendimento' },
-  { id: 'identidade', label: 'Identidade', icon: AnimBot, desc: 'Persona, tom de voz e restrições do agente' },
-  { id: 'conhecimento', label: 'Conhecimento', icon: AnimBrain, desc: 'Base de conhecimento e simulador de conversas' },
-  { id: 'integracoes', label: 'Integrações', icon: Link2, desc: 'Google Calendar e demais integrações' },
-  { id: 'cardapio', label: 'Cardápio', icon: ShoppingBag, desc: 'Produtos e itens para pedidos via WhatsApp' },
+  { id: 'geral',        label: 'Geral',        icon: CogIcon as AnyAnimIcon,              desc: 'Ative o agente, tipo e modo de atendimento' },
+  { id: 'identidade',   label: 'Identidade',   icon: FlaskIcon as AnyAnimIcon,            desc: 'Persona, tom de voz e restrições do agente' },
+  { id: 'conhecimento', label: 'Conhecimento', icon: BrainIcon as AnyAnimIcon,            desc: 'Base de conhecimento e simulador de conversas' },
+  { id: 'integracoes',  label: 'Integrações',  icon: SlidersHorizontalIcon as AnyAnimIcon, desc: 'Google Calendar e demais integrações' },
+  { id: 'cardapio',     label: 'Cardápio',     icon: FilePenLineIcon as AnyAnimIcon,      desc: 'Produtos e itens para pedidos via WhatsApp' },
 ] as const
 type TabId = typeof TABS[number]['id']
+
+function TabButton({
+  id, label, icon: Icon, isActive, showChevron, onClick,
+}: {
+  id: string; label: string; icon: AnyAnimIcon;
+  isActive: boolean; showChevron: boolean; onClick: () => void;
+}) {
+  const iconRef = useRef<AnyIconHandle>(null)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => iconRef.current?.startAnimation?.()}
+      onMouseLeave={() => iconRef.current?.stopAnimation?.()}
+      className={cn(
+        'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
+        isActive
+          ? 'bg-primary/10 text-primary font-medium'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+      )}
+    >
+      <Icon ref={iconRef} size={16} className="shrink-0" />
+      <span>{label}</span>
+      {showChevron && <ChevronRight className="w-3 h-3 ml-auto opacity-40" />}
+    </button>
+  )
+}
 
 const TOM_OPTIONS = [
   { value: 'amigável e próximo', label: 'Amigável', desc: 'Próximo, descontraído, usa emojis com moderação' },
@@ -2244,23 +2275,16 @@ export default function SdrConfigPage() {
 
         {/* ── Nav tabs ── */}
         <aside className="w-44 shrink-0 space-y-0.5">
-          {TABS.map(({ id, label, icon: Icon }, idx) => (
-            <button
+          {TABS.map(({ id, label, icon }, idx) => (
+            <TabButton
               key={id}
+              id={id}
+              label={label}
+              icon={icon}
+              isActive={activeTab === id}
+              showChevron={idx < TABS.length - 1 && activeTab === id}
               onClick={() => setActiveTab(id)}
-              className={cn(
-                'group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
-                activeTab === id
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              )}
-            >
-              <Icon className={cn('w-4 h-4 shrink-0', activeTab === id ? 'text-primary' : 'text-muted-foreground')} />
-              <span>{label}</span>
-              {idx < TABS.length - 1 && activeTab === id && (
-                <ChevronRight className="w-3 h-3 ml-auto opacity-40" />
-              )}
-            </button>
+            />
           ))}
         </aside>
 
