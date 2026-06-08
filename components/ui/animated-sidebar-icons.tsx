@@ -1,43 +1,56 @@
 'use client';
 
-// Thin wrappers that make lucide-animated icons compatible with { className?: string } interface.
-// Each wrapper passes size={16} so the SVG dimensions match Tailwind's h-4/w-4 (16px).
+// CSS group-hover animations — reagem ao hover do item pai (não do ícone de 16px).
+// Todos os nav items do sidebar têm className="group", então group-hover: funciona.
 
-import { TrendingUpIcon } from '@/components/ui/trending-up';
-import { MessageCircleIcon } from '@/components/ui/message-circle';
-import { BotIcon } from '@/components/ui/bot';
-import { SettingsIcon } from '@/components/ui/settings';
-import { SparklesIcon } from '@/components/ui/sparkles';
-import { BrainIcon } from '@/components/ui/brain';
-import { ZapIcon } from '@/components/ui/zap';
-import { MessageSquareIcon } from '@/components/ui/message-square';
-import { SendIcon } from '@/components/ui/send';
-import { RefreshCWIcon } from '@/components/ui/refresh-cw';
-import { ActivityIcon } from '@/components/ui/activity';
+import {
+  TrendingUp, MessageCircle, Bot, Settings, Sparkles,
+  Brain, Zap, MessageSquare, Send, RefreshCw, Activity,
+} from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
-type IconProps = { className?: string };
-const wrap = (size: number) =>
-  (Component: React.ComponentType<{ size?: number; className?: string }>) =>
-    ({ className }: IconProps) => <Component size={size} className={className} />;
+type P = { className?: string };
 
-const s16 = wrap(16);
-const s20 = wrap(20);
+export function AnimTrendingUp({ className }: P) {
+  return <TrendingUp className={cn(className, 'transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5')} />;
+}
 
-// ── Size-16 (sidebar nav, tab headers) ───────────────────────────────────────
-export const AnimTrendingUp    = s16(TrendingUpIcon);
-export const AnimMessageCircle = s16(MessageCircleIcon);
-export const AnimBot           = s16(BotIcon);
-export const AnimSettings      = s16(SettingsIcon);
-export const AnimSparkles      = s16(SparklesIcon);
-export const AnimBrain         = s16(BrainIcon);
-export const AnimZap           = s16(ZapIcon);
-export const AnimMessageSquare = s16(MessageSquareIcon);
-export const AnimSend          = s16(SendIcon);
-export const AnimRefreshCW     = s16(RefreshCWIcon);
-export const AnimActivity      = s16(ActivityIcon);
+export function AnimMessageCircle({ className }: P) {
+  return <MessageCircle className={cn(className, 'transition-transform duration-200 group-hover:scale-110')} />;
+}
 
-// ── Size-20 (SDR hero/status sections) ───────────────────────────────────────
-export const AnimBot20      = s20(BotIcon);
-export const AnimSettings20 = s20(SettingsIcon);
-export const AnimBrain20    = s20(BrainIcon);
-export const AnimZap20      = s20(ZapIcon);
+export function AnimBot({ className }: P) {
+  return <Bot className={cn(className, 'transition-transform duration-200 group-hover:-translate-y-px group-hover:scale-110')} />;
+}
+
+export function AnimSettings({ className }: P) {
+  return <Settings className={cn(className, 'transition-transform duration-300 group-hover:rotate-90')} />;
+}
+
+export function AnimSparkles({ className }: P) {
+  return <Sparkles className={cn(className, 'transition-transform duration-200 group-hover:scale-125 group-hover:rotate-12')} />;
+}
+
+export function AnimBrain({ className }: P) {
+  return <Brain className={cn(className, 'transition-transform duration-200 group-hover:scale-110')} />;
+}
+
+export function AnimZap({ className }: P) {
+  return <Zap className={cn(className, 'transition-transform duration-150 group-hover:scale-125 group-hover:-translate-y-px')} />;
+}
+
+export function AnimMessageSquare({ className }: P) {
+  return <MessageSquare className={cn(className, 'transition-transform duration-200 group-hover:scale-110')} />;
+}
+
+export function AnimSend({ className }: P) {
+  return <Send className={cn(className, 'transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5')} />;
+}
+
+export function AnimRefreshCW({ className }: P) {
+  return <RefreshCw className={cn(className, 'transition-transform duration-300 group-hover:rotate-180')} />;
+}
+
+export function AnimActivity({ className }: P) {
+  return <Activity className={cn(className, 'transition-transform duration-200 group-hover:scale-110')} />;
+}

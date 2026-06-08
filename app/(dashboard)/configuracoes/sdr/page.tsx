@@ -2171,52 +2171,95 @@ export default function SdrConfigPage() {
   const identAtendimento = NICHES.filter((n) => n.category === 'atendimento')
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8">
+    <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8 space-y-5">
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agente SDR</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Atendimento automático via WhatsApp</p>
+      {/* ── Hero: agente + status ── */}
+      <div className={cn(
+        'rounded-2xl border p-5 flex items-center gap-5 transition-colors',
+        config.agente_ativo ? 'bg-primary/5 border-primary/20' : 'bg-muted/20 border-border'
+      )}>
+        {/* Avatar */}
+        <div className={cn(
+          'w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-colors',
+          config.agente_ativo ? 'bg-primary/15' : 'bg-muted'
+        )}>
+          <Bot className={cn('w-7 h-7', config.agente_ativo ? 'text-primary' : 'text-muted-foreground')} />
         </div>
-        <div className="flex items-center gap-2">
-          <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
-            isConnected ? 'bg-green-500/10 text-green-700 border-green-500/30 dark:text-green-400'
-              : isConnecting ? 'bg-yellow-500/10 text-yellow-700 border-yellow-500/30 dark:text-yellow-400'
-              : 'bg-muted text-muted-foreground border-border')}>
-            {isConnected ? <Wifi className="w-3 h-3" /> : isConnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <WifiOff className="w-3 h-3" />}
-            {isConnected ? config.instance_phone || 'Conectado' : isConnecting ? 'Conectando' : 'Desconectado'}
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight">
+              {config.persona.nome_agente || 'Agente SDR'}
+            </h1>
+            <span className={cn(
+              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border',
+              config.agente_ativo
+                ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25 dark:text-emerald-400'
+                : 'bg-muted text-muted-foreground border-border'
+            )}>
+              <span className={cn('w-1.5 h-1.5 rounded-full', config.agente_ativo ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/50')} />
+              {config.agente_ativo ? 'Ativo' : 'Inativo'}
+            </span>
           </div>
-          <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5 h-8">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <span className="text-sm text-muted-foreground">Atendimento automático via WhatsApp</span>
+            {/* WhatsApp status */}
+            <span className={cn(
+              'inline-flex items-center gap-1 text-xs font-medium',
+              isConnected ? 'text-emerald-600 dark:text-emerald-400'
+                : isConnecting ? 'text-amber-600 dark:text-amber-400'
+                : 'text-muted-foreground'
+            )}>
+              {isConnected
+                ? <><Wifi className="w-3 h-3" />{config.instance_phone || 'Conectado'}</>
+                : isConnecting
+                ? <><Loader2 className="w-3 h-3 animate-spin" />Conectando…</>
+                : <><WifiOff className="w-3 h-3" />Desconectado</>
+              }
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              {config.agente_ativo ? 'Desativar' : 'Ativar'}
+            </span>
+            <Switch
+              checked={config.agente_ativo}
+              onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))}
+            />
+          </div>
+          <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             {saving ? 'Salvando…' : 'Salvar'}
           </Button>
         </div>
       </div>
 
-      {/* Body */}
+      {/* ── Body ── */}
       <div className="flex gap-6">
 
-        {/* ── Sidebar ── */}
-        <aside className="w-44 shrink-0 space-y-1">
-          <button onClick={() => setSetupMode('quick')}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-colors text-left text-primary bg-primary/5 hover:bg-primary/10 mb-2 border border-primary/20">
-            <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            Config. Rápida
-          </button>
-          {TABS.map(({ id, label, icon: Icon }) => (
+        {/* ── Nav tabs ── */}
+        <aside className="w-44 shrink-0 space-y-0.5">
+          {TABS.map(({ id, label, icon: Icon }, idx) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
               className={cn(
-                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
+                'group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left',
                 activeTab === id
                   ? 'bg-primary/10 text-primary font-medium'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               )}
             >
               <Icon className={cn('w-4 h-4 shrink-0', activeTab === id ? 'text-primary' : 'text-muted-foreground')} />
-              {label}
+              <span>{label}</span>
+              {idx < TABS.length - 1 && activeTab === id && (
+                <ChevronRight className="w-3 h-3 ml-auto opacity-40" />
+              )}
             </button>
           ))}
         </aside>
@@ -2224,91 +2267,89 @@ export default function SdrConfigPage() {
         {/* ── Content ── */}
         <div className="flex-1 min-w-0">
 
-          {/* Non-conhecimento tabs: card layout */}
-          {activeTab !== 'conhecimento' && (() => {
-            const tab = TABS.find((t) => t.id === activeTab)!
-            const TabIcon = tab.icon
-            return (
-              <div className="rounded-xl border border-border overflow-hidden">
-                {/* Card header */}
-                <div className="flex items-center gap-3 px-5 py-4 bg-muted/20 border-b border-border">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <TabIcon className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{tab.label}</p>
-                    <p className="text-xs text-muted-foreground">{tab.desc}</p>
-                  </div>
-                  {activeTab === 'geral' && (
-                    <div className={cn(
-                      'flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border shrink-0',
-                      config.agente_ativo
-                        ? 'bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400'
-                        : 'bg-muted text-muted-foreground border-border'
-                    )}>
-                      <Zap className="w-3 h-3" />
-                      {config.agente_ativo ? 'Ativo' : 'Inativo'}
-                    </div>
-                  )}
-                </div>
+          {/* Non-conhecimento tabs */}
+          {activeTab !== 'conhecimento' && (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="p-5">
 
-                {/* Card body */}
-                <div className="p-5">
+                {/* ── Geral ── */}
+                {activeTab === 'geral' && (
+                  <div className="space-y-5">
 
-                  {/* ── Geral ── */}
-                  {activeTab === 'geral' && (
-                    <div className="space-y-5">
-                      <div className={cn('flex items-center justify-between gap-4 p-4 rounded-xl border transition-colors',
-                        config.agente_ativo ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border')}>
-                        <div className="flex items-center gap-3">
-                          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', config.agente_ativo ? 'bg-primary/15' : 'bg-muted')}>
-                            <Zap className={cn('w-4 h-4', config.agente_ativo ? 'text-primary' : 'text-muted-foreground')} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Agente ativo</p>
-                            <p className="text-xs text-muted-foreground">{config.agente_ativo ? 'Respondendo automaticamente' : 'Ative para responder automaticamente'}</p>
-                          </div>
-                        </div>
-                        <Switch checked={config.agente_ativo} onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de agente</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {AGENT_TYPES.map((opt) => {
-                            const Icon = opt.icon; const selected = config.agent_type === opt.value
-                            return (
-                              <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, agent_type: opt.value as any }))}
-                                className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-                                <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center mb-2', selected ? 'bg-primary/15' : 'bg-muted')}>
-                                  <Icon className={cn('w-3.5 h-3.5', selected ? 'text-primary' : 'text-muted-foreground')} />
-                                </div>
-                                <p className="text-xs font-semibold leading-tight">{opt.label}</p>
-                                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2">Modo de atendimento</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {([
-                            { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar' },
-                            { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)' },
-                          ] as const).map((opt) => {
-                            const selected = config.inbox_mode === opt.value
-                            return (
-                              <button key={opt.value} onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
-                                className={cn('text-left p-3 rounded-xl border transition-all', selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border hover:bg-muted/40')}>
-                                <p className="text-xs font-semibold leading-tight">{opt.label}</p>
-                                <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
-                              </button>
-                            )
-                          })}
-                        </div>
+                    {/* Tipo de agente */}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Tipo de agente</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {AGENT_TYPES.map((opt) => {
+                          const Icon = opt.icon
+                          const selected = config.agent_type === opt.value
+                          return (
+                            <button
+                              key={opt.value}
+                              onClick={() => setConfig((p) => ({ ...p, agent_type: opt.value as any }))}
+                              className={cn(
+                                'group relative text-left p-4 rounded-xl border-2 transition-all',
+                                selected
+                                  ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                                  : 'border-border hover:border-border/80 hover:bg-muted/30'
+                              )}
+                            >
+                              {selected && (
+                                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-primary" />
+                              )}
+                              <div className={cn(
+                                'w-9 h-9 rounded-xl flex items-center justify-center mb-3 transition-colors',
+                                selected ? 'bg-primary/15' : 'bg-muted group-hover:bg-muted/70'
+                              )}>
+                                <Icon className={cn('w-4.5 h-4.5', selected ? 'text-primary' : 'text-muted-foreground')} />
+                              </div>
+                              <p className={cn('text-sm font-semibold', selected ? 'text-primary' : 'text-foreground')}>{opt.label}</p>
+                              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
-                  )}
+
+                    {/* Modo de atendimento */}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Modo de atendimento</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {([
+                          { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar', icon: MessageSquare },
+                          { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)', icon: Zap },
+                        ] as const).map((opt) => {
+                          const selected = config.inbox_mode === opt.value
+                          const Icon = opt.icon
+                          return (
+                            <button
+                              key={opt.value}
+                              onClick={() => setConfig((p) => ({ ...p, inbox_mode: opt.value }))}
+                              className={cn(
+                                'group relative text-left p-4 rounded-xl border-2 transition-all',
+                                selected
+                                  ? 'border-primary bg-primary/5 shadow-sm shadow-primary/10'
+                                  : 'border-border hover:border-border/80 hover:bg-muted/30'
+                              )}
+                            >
+                              {selected && (
+                                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-primary" />
+                              )}
+                              <div className={cn(
+                                'w-9 h-9 rounded-xl flex items-center justify-center mb-3 transition-colors',
+                                selected ? 'bg-primary/15' : 'bg-muted group-hover:bg-muted/70'
+                              )}>
+                                <Icon className={cn('w-4 h-4', selected ? 'text-primary' : 'text-muted-foreground')} />
+                              </div>
+                              <p className={cn('text-sm font-semibold', selected ? 'text-primary' : 'text-foreground')}>{opt.label}</p>
+                              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{opt.desc}</p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                   {/* ── Identidade ── */}
                   {activeTab === 'identidade' && (
@@ -2414,10 +2455,9 @@ export default function SdrConfigPage() {
                     </div>
                   )}
 
-                </div>
               </div>
-            )
-          })()}
+            </div>
+          )}
 
           {/* ── Conhecimento — split panel ── */}
           {activeTab === 'conhecimento' && (
