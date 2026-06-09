@@ -23,6 +23,7 @@ import {
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
   type LucideIcon,
 } from 'lucide-react'
+import { BotMessageSquareIcon } from '@/components/ui/bot-message-square'
 import { CogIcon } from '@/components/ui/cog'
 import { FlaskIcon } from '@/components/ui/flask'
 import { BrainIcon } from '@/components/ui/brain'
@@ -450,6 +451,140 @@ interface QBlockDef {
   example: string
   required?: boolean
   tipo: 'conhecimento' | 'objecoes'
+}
+
+const GUIA_CONHECIMENTO = `Você é um especialista em SDR e criação de system prompts para agentes de WhatsApp.
+
+Abaixo estão as informações do meu negócio. Com base nelas, responda cada um dos 10 blocos com o máximo de detalhe e especificidade. Os scripts devem estar em linguagem natural de WhatsApp — curtos, diretos, sem markdown. Não seja genérico.
+
+Meu negócio: [Nome da empresa]
+Meu produto/serviço: [O que você vende]
+Nome do agente: [Nome do agente]
+
+────────────────────────────
+BLOCO 1 — Identidade do Agente
+Quem é o agente, qual o nome, empresa, função e tom de comunicação?
+[Preencha aqui]
+
+BLOCO 2 — Produto / Serviço
+O que o agente vende? Inclua tudo: o que está incluído, preço, condições, links, diferenciais. Isso é contexto interno — o agente usa para raciocinar, não para citar diretamente.
+[Preencha aqui]
+
+BLOCO 3 — O que NÃO existe
+O que o agente NUNCA deve mencionar, oferecer ou inventar? Liste funcionalidades, planos, descontos ou condições que não existem.
+[Preencha aqui]
+
+BLOCO 4 — Abordagem de Vendas
+Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto? Inclua a estratégia e exemplos de perguntas de diagnóstico.
+[Preencha aqui]
+
+BLOCO 5 — Qualificação
+Quais perguntas qualificam o lead? Em que ordem? O que descarta (sem verba, sem perfil, não é o decisor)?
+[Preencha aqui]
+
+BLOCO 6 — Próximo Passo
+Qual a ação final? Quando acionar, como apresentar, qual o link e o que fazer se o lead recusar?
+[Preencha aqui]
+
+BLOCO 7 — Lead Sem Perfil
+Quando o lead não tem perfil, como encerrar com elegância? Inclua scripts para cada situação de descarte.
+[Preencha aqui]
+
+BLOCO 8 — Preços e Condições
+Como funciona o investimento? O que revelar, quando e como? Há parcelamento, desconto ou teste grátis?
+[Preencha aqui]
+
+BLOCO 9 — Como o Lead Chega
+De onde vêm os leads (anúncio, indicação, orgânico)? O que costumam dizer na primeira mensagem?
+[Preencha aqui]
+
+BLOCO 10 — Regras Absolutas
+Quais são as regras que o agente NUNCA pode quebrar? Seja específico — cada regra deve ser clara e inviolável.
+[Preencha aqui]
+────────────────────────────
+
+Gere cada bloco com o nível de qualidade de um prompt de produção profissional. Scripts devem estar prontos para uso no WhatsApp.`
+
+const GUIA_OBJECOES = `Você é um especialista em SDR e criação de scripts de objeções para WhatsApp.
+
+Abaixo estão as informações do meu negócio. Com base nelas, responda cada um dos 3 blocos com scripts reais, específicos e prontos para uso. Para cada objeção: informe os gatilhos (frases que o lead diz), o script correto (exato, como será enviado) e o que nunca dizer.
+
+Meu negócio: [Nome da empresa]
+Meu produto/serviço: [O que você vende]
+Preço: [Valor e condições de pagamento]
+
+────────────────────────────
+BLOCO 1 — Objeções de Preço e Valor
+Para cada objeção de preço, informe: gatilhos → script exato → o que nunca dizer → condicional (se houver).
+Inclua pelo menos: "Tá caro", "Não tenho dinheiro agora", "Vou pensar", "Não sei se vale a pena".
+[Preencha aqui]
+
+BLOCO 2 — Objeções de Tempo, Indecisão e Concorrência
+Para cada objeção, informe: gatilhos → script exato → condicional (se houver).
+Inclua pelo menos: "Não tenho tempo", "Preciso pensar", "Já uso outro", "Vou esperar".
+[Preencha aqui]
+
+BLOCO 3 — Dúvidas sobre o Produto
+Para cada dúvida frequente, informe: gatilho → resposta exata e direta.
+Inclua as perguntas mais comuns que seus leads fazem sobre o produto/serviço.
+[Preencha aqui]
+────────────────────────────
+
+Scripts devem ser curtos (máximo 3 linhas), em linguagem natural de WhatsApp, sem markdown, sem emojis em excesso.`
+
+function DicaDeOuro() {
+  type Handle = { startAnimation: () => void; stopAnimation: () => void }
+  const iconRef = useRef<Handle>(null)
+  const [copiedConhecimento, setCopiedConhecimento] = useState(false)
+  const [copiedObjecoes, setCopiedObjecoes] = useState(false)
+
+  useEffect(() => {
+    const start = () => iconRef.current?.startAnimation()
+    start()
+    const interval = setInterval(start, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  function copy(text: string, type: 'conhecimento' | 'objecoes') {
+    navigator.clipboard.writeText(text)
+    if (type === 'conhecimento') {
+      setCopiedConhecimento(true)
+      setTimeout(() => setCopiedConhecimento(false), 2000)
+    } else {
+      setCopiedObjecoes(true)
+      setTimeout(() => setCopiedObjecoes(false), 2000)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-4">
+      <div className="flex items-center gap-2.5">
+        <BotMessageSquareIcon ref={iconRef} size={16} className="text-amber-500 shrink-0" />
+        <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Dica de Ouro</p>
+      </div>
+
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Antes de preencher o formulário, use o Claude para gerar respostas detalhadas para cada bloco. Copie o modelo, substitua os campos <span className="font-mono bg-muted px-1 rounded text-[10px]">[entre colchetes]</span> com as informações do seu negócio, cole no Claude e peça para gerar. Depois volte e preencha etapa por etapa.
+      </p>
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => copy(GUIA_CONHECIMENTO, 'conhecimento')}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-xs font-medium transition-colors"
+        >
+          {copiedConhecimento ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />}
+          {copiedConhecimento ? 'Copiado!' : 'Copiar guia — Conhecimento'}
+        </button>
+        <button
+          onClick={() => copy(GUIA_OBJECOES, 'objecoes')}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-xs font-medium transition-colors"
+        >
+          {copiedObjecoes ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />}
+          {copiedObjecoes ? 'Copiado!' : 'Copiar guia — Objeções'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const Q_BLOCKS: QBlockDef[] = [
@@ -2543,6 +2678,8 @@ export default function SdrConfigPage() {
                     onNicheChange={handleNicheChange}
                   />
                 </div>
+
+                <DicaDeOuro />
               </div>
 
               {/* Right — Simulator */}
