@@ -144,7 +144,11 @@ function AutomacaoContent() {
 function ConfiguracoesContent() {
   const { user, authUser } = useUser();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>(searchParams.get('checkout') ? 'plano' : 'perfil');
+  const [tab, setTab] = useState<Tab>(
+    (searchParams.get('checkout') || searchParams.get('tab') === 'plano' || searchParams.get('expired') === 'trial')
+      ? 'plano'
+      : 'perfil'
+  );
 
   const [profileData, setProfileData] = useState({ name: '', email: '', description: '', department: '' });
   const [photoUrl, setPhotoUrl] = useState('');
