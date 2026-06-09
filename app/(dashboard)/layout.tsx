@@ -6,6 +6,7 @@ import { DashboardTour } from '@/components/onboarding/DashboardTour';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { TrialGuard } from '@/components/layout/TrialGuard';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 
 // 🔥 FORÇA RENDERIZAÇÃO DINÂMICA - SEM CACHE
@@ -83,7 +84,25 @@ export default async function DashboardLayout({
     (rawPlanName || 'Zaapply');
   const trialEnabled = companyData?.trial_enabled ?? false;
   const trialEndsAt = companyData?.trial_ends_at ?? companyData?.subscription_expires_at ?? null;
-  const isTrial = companyData?.plan_type === 'trial';
+  const PAID_PLAN_TYPES = ['starter', 'start', 'pro', 'growth', 'scale'];
+  const isOnPaidPlan = PAID_PLAN_TYPES.includes(companyData?.plan_type ?? '');
+  const isTrial = !isOnPaidPlan;
+  const trialExpiredForGuard = !isOnPaidPlan && !!trialEndsAt && new Date(trialEndsAt) < new Date();
+
+  // Server-side trial gate: redirect before rendering any content
+  if (trialExpiredForGuard) {
+    const headersList = await headers();
+    const pathname = headersList.get('x-pathname') ?? '/';
+    const GATE_ALLOWED_EXACT = ['/configuracoes', '/planos'];
+    const GATE_ALLOWED_PREFIXES = ['/ajuda', '/novidades'];
+    const isGateAllowed =
+      GATE_ALLOWED_PREFIXES.some((p) => pathname.startsWith(p)) ||
+      GATE_ALLOWED_EXACT.includes(pathname);
+    if (!isGateAllowed) {
+      redirect('/configuracoes?tab=plano&expired=trial');
+    }
+  }
+
   const PLAN_TOKENS: Record<string, number> = {
     starter: 5_000_000, start: 5_000_000,
     pro: 15_000_000, growth: 15_000_000,
@@ -104,7 +123,7 @@ export default async function DashboardLayout({
       planType={companyData?.plan_type ?? undefined}
     >
     <div className="flex h-screen bg-background">
-      <TrialGuard isTrial={isTrial} trialEndsAt={trialEndsAt} />
+      <TrialGuard trialExpired={trialExpiredForGuard} />
       <ZaapliLoader minDuration={900} />
       <Sidebar
         isAdmin={isAdmin}

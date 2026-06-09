@@ -186,9 +186,15 @@ IMPORTANTE: Scripts devem ser realistas, específicos e prontos para uso em What
       { role: 'user', content: userPrompt },
     ],
     temperature: 0.3,
-    max_tokens: 2500,
+    max_tokens: 4096,
     response_format: { type: 'json_object' },
   })
+
+  const rawContent = res.choices[0]?.message?.content || '{}'
+  const finishReason = res.choices[0]?.finish_reason
+  if (finishReason === 'length') {
+    throw new Error('Resposta da IA truncada por limite de tokens. Reduza a quantidade de detalhes e tente novamente.')
+  }
 
   let generated: {
     identidade: string
@@ -201,8 +207,9 @@ IMPORTANTE: Scripts devem ser realistas, específicos e prontos para uso em What
     objetivo_final: string
   }
   try {
-    generated = JSON.parse(res.choices[0]?.message?.content ?? '{}')
+    generated = JSON.parse(rawContent)
   } catch {
+    console.error('[generateConhecimento] conteúdo não é JSON válido:', rawContent.slice(0, 300))
     throw new Error('Falha ao interpretar resposta da IA')
   }
 
@@ -304,15 +311,26 @@ Responda em JSON: { "scripts": "todos os scripts no formato acima, um após o ou
       { role: 'user', content: userPrompt },
     ],
     temperature: 0.3,
-    max_tokens: 2000,
+    max_tokens: 4096,
     response_format: { type: 'json_object' },
   })
 
+  const rawContent = res.choices[0]?.message?.content || '{}'
+  const finishReason = res.choices[0]?.finish_reason
+  if (finishReason === 'length') {
+    throw new Error('Resposta da IA truncada por limite de tokens. Reduza a quantidade de detalhes e tente novamente.')
+  }
+
   let generated: { scripts: string }
   try {
-    generated = JSON.parse(res.choices[0]?.message?.content ?? '{}')
+    generated = JSON.parse(rawContent)
   } catch {
+    console.error('[generateObjecoes] conteúdo não é JSON válido:', rawContent.slice(0, 300))
     throw new Error('Falha ao interpretar resposta da IA')
+  }
+
+  if (!generated.scripts?.trim()) {
+    throw new Error('IA não retornou scripts de objeções. Tente novamente.')
   }
 
   const vars = variables
