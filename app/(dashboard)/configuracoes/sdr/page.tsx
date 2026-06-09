@@ -567,19 +567,19 @@ function DicaDeOuro() {
         Antes de preencher o formulário, use o Claude para gerar respostas detalhadas para cada bloco. Copie o modelo, substitua os campos <span className="font-mono bg-muted px-1 rounded text-[10px]">[entre colchetes]</span> com as informações do seu negócio, cole no Claude e peça para gerar. Depois volte e preencha etapa por etapa.
       </p>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-2">
         <button
           onClick={() => copy(GUIA_CONHECIMENTO, 'conhecimento')}
-          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-xs font-medium transition-colors"
+          className="w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 text-xs font-medium transition-colors"
         >
-          {copiedConhecimento ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />}
+          {copiedConhecimento ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
           {copiedConhecimento ? 'Copiado!' : 'Copiar guia — Conhecimento'}
         </button>
         <button
           onClick={() => copy(GUIA_OBJECOES, 'objecoes')}
-          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 py-2 text-xs font-medium transition-colors"
+          className="w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 text-xs font-medium transition-colors"
         >
-          {copiedObjecoes ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground" />}
+          {copiedObjecoes ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
           {copiedObjecoes ? 'Copiado!' : 'Copiar guia — Objeções'}
         </button>
       </div>
