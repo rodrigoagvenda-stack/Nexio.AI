@@ -174,6 +174,8 @@ Responda em JSON com estas chaves:
 
   "regras_absolutas": "Regras no formato:\nREGRAS ABSOLUTAS — NUNCA QUEBRAR\n- [regra 1]\n- [regra 2]\n...",
 
+  "precos": "Bloco de preços no formato:\n[PREÇOS E PLANOS]\nGatilhos: \"Quanto custa?\" / \"Qual o valor?\" / \"Tem outros planos?\"\n[Descreva os planos com valores exatos, condições de revelação e regras. Se não informado, omita este bloco.]",
+
   "objetivo_final": "3-5 bullet points: '- [objetivo]'"
 }
 
@@ -203,6 +205,7 @@ IMPORTANTE: Scripts devem ser realistas, específicos e prontos para uso em What
     qualificacao: string
     fluxo: string
     sem_perfil: string
+    precos: string
     regras_absolutas: string
     objetivo_final: string
   }
@@ -240,7 +243,7 @@ ${generated.fluxo}
 === ENCERRAMENTO POR FALTA DE PERFIL ===
 ${generated.sem_perfil}
 
-${generated.regras_absolutas}
+${generated.precos ? generated.precos + '\n' : ''}${generated.regras_absolutas}
 
 === FOLLOW-UP ===
 Prazo: 24h se lead demonstrou interesse mas não avançou — usar apenas UMA VEZ.
