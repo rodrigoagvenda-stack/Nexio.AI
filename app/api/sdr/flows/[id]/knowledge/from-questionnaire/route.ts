@@ -168,13 +168,15 @@ Responda em JSON com estas chaves:
 
   "qualificacao": "Checklist de qualificação no formato:\nCHECKLIST DE QUALIFICAÇÃO\nUse o raciocínio interno para verificar o que já foi coletado.\nNUNCA repita uma pergunta já respondida.\n[ ] [item1] coletado?\n[ ] [item2] identificado?\n...\nColete UMA informação por vez, na ordem acima.",
 
-  "fluxo": "Fluxo de conversa completo no formato:\nPasso 1 — [nome] (gatilho: lead entrou em contato):\n'[mensagem exata entre aspas]'\n\nPasso 2 — [nome] (gatilho: lead respondeu):\n'[mensagem exata entre aspas]'\n\nPasso 3A — Lead com perfil:\n'[mensagem exata]'\n[condição adicional se houver]\n\nPasso 3B — Lead hesita:\n'[mensagem exata]'\n\n=== REGRAS DE AVANÇO ===\n- Se lead já [contexto] → [ação]\n- Nunca volte etapa já passada\n- Nunca avance sem resposta",
+  "fluxo": "Fluxo de conversa completo no formato:\nPasso 1 — [nome] (gatilho: lead entrou em contato):\n'[mensagem exata entre aspas]'\n\nPasso 2 — [nome] (gatilho: lead respondeu):\n'[mensagem exata entre aspas]'\n\nPasso 3A — Lead com perfil:\n'[mensagem exata]'\n[condição adicional se houver]\n\nPasso 3B — Lead hesita:\n'[mensagem exata]'\n\n=== REGRAS DE AVANÇO ===\n- Se lead já [contexto] → [ação]\n- Nunca volte etapa já passada\n- Nunca avance sem resposta\nNÃO inclua o passo de fechamento/envio de link aqui — ele vai no campo fechamento.",
 
   "sem_perfil": "Scripts de encerramento por falta de perfil. Formato:\n[MOTIVO DO ENCERRAMENTO]\n'[script exato]'",
 
   "regras_absolutas": "Regras no formato:\nREGRAS ABSOLUTAS — NUNCA QUEBRAR\n- [regra 1]\n- [regra 2]\n...",
 
   "precos": "Bloco de preços no formato:\n[PREÇOS E PLANOS]\nGatilhos: \"Quanto custa?\" / \"Qual o valor?\" / \"Tem outros planos?\"\n[Descreva os planos com valores exatos, condições de revelação e regras. Se não informado, omita este bloco.]",
+
+  "fechamento": "Passo de fechamento com o link exato. Formato obrigatório:\n=== FECHAMENTO ===\nGatilhos: \"quero me inscrever\" / \"como faço para garantir\" / \"qual o link\" / [intenção clara de compra]\n'[mensagem de fechamento]'\n[link EXATO copiado literalmente do campo PRÓXIMO PASSO — nunca altere um caractere da URL]\nATENÇÃO: copie os links EXATAMENTE como fornecidos. Não resuma, não parafraseie, não omita nenhuma URL.",
 
   "objetivo_final": "3-5 bullet points: '- [objetivo]'"
 }
@@ -206,6 +208,7 @@ IMPORTANTE: Scripts devem ser realistas, específicos e prontos para uso em What
     fluxo: string
     sem_perfil: string
     precos: string
+    fechamento: string
     regras_absolutas: string
     objetivo_final: string
   }
@@ -240,6 +243,7 @@ ${generated.qualificacao}
 === FLUXO INBOUND ===
 ${generated.fluxo}
 
+${generated.fechamento ? generated.fechamento + '\n' : ''}
 === ENCERRAMENTO POR FALTA DE PERFIL ===
 ${generated.sem_perfil}
 
