@@ -914,10 +914,11 @@ async function runAgenteAgendamento(
     hour: '2-digit', minute: '2-digit',
   })
 
-  const systemPrompt = `Você é um assistente de agendamento comercial da Nexio.AI. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
+  const nomeEmpresa = ctx.persona?.nome_empresa ?? ctx.prompt?.slice(0, 40) ?? 'nossa empresa'
+  const systemPrompt = `Você é um assistente de agendamento comercial de ${nomeEmpresa}. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
 Data e hora atual: ${now}
 Nome do lead: ${ctx.leadName || 'Lead'}
-Objetivo da call: Demonstração do sistema Zaapply
+Objetivo da call: Demonstração de ${nomeEmpresa}
 
 FLUXO DE AGENDAMENTO:
 0. VERIFIQUE O HISTÓRICO ANTES DE QUALQUER AÇÃO:
@@ -1628,7 +1629,7 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   // ── Camada 3 (FIXO condicional): agendamento — exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
-1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] — confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" — NÃO processe mais nada, NÃO chame outras tools.
+1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de data e hora de reunião/call (ex: "[Nome], [dia] [data] às [hora] — confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" — NÃO processe mais nada, NÃO chame outras tools. ATENÇÃO: perguntas sobre produto, preço, links ou qualquer outro assunto NÃO acionam esta regra, mesmo que o lead responda "sim".
 2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE "Agente_de_Agendamento" — sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
 Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.`
     : ''
