@@ -1,12 +1,22 @@
 export async function register() {
   console.log('[Instrumentation] register() chamado')
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    await import('./sentry.server.config');
+    // Sentry em try/catch — falha aqui NUNCA pode impedir o worker de subir
+    try {
+      await import('./sentry.server.config')
+    } catch (e: any) {
+      console.warn('[Instrumentation] Sentry init falhou (não crítico):', e?.message)
+    }
+
     import('openai').catch(() => {})
 
     // SDR Job Worker — processa fila persistente de mensagens
-    const { startSdrWorker } = await import('@/lib/sdr/worker')
-    startSdrWorker()
+    try {
+      const { startSdrWorker } = await import('@/lib/sdr/worker')
+      startSdrWorker()
+    } catch (e: any) {
+      console.error('[Instrumentation] ERRO CRÍTICO ao iniciar SDR worker:', e?.message)
+    }
 
     const { writeHeapSnapshot } = await import('v8')
     const THRESHOLD = 3000 * 1024 * 1024 // 3000 MB
