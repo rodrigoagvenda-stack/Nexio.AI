@@ -63,8 +63,12 @@ async function processNextJobs() {
     return
   }
 
-  if (!jobs || jobs.length === 0) return
+  if (!jobs || jobs.length === 0) {
+    // silencioso — log só quando encontrar jobs para não poluir
+    return
+  }
 
+  console.log(`[sdr-worker] ${jobs.length} job(s) prontos para processar`)
   await Promise.all(jobs.map(processJob))
 }
 

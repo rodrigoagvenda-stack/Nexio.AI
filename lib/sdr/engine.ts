@@ -301,18 +301,30 @@ function redisKeys(companyId: number, phone: string) {
 async function bufferMessage(companyId: number, phone: string, message: BufferedMessage): Promise<void> {
   const redis = getRedis()
   const { buf } = redisKeys(companyId, phone)
-  await redis.rpush(buf, JSON.stringify(message))
-  await redis.expire(buf, 120)
+  try {
+    const len = await redis.rpush(buf, JSON.stringify(message))
+    await redis.expire(buf, 120)
+    console.log(`[SDR:${companyId}] bufferMessage OK — key=${buf} len=${len}`)
+  } catch (e: any) {
+    console.error(`[SDR:${companyId}] bufferMessage FALHOU — Redis indisponível? err=${e?.message}`)
+    throw e
+  }
 }
 
 async function drainBuffer(companyId: number, phone: string): Promise<BufferedMessage[]> {
   const redis = getRedis()
   const { buf } = redisKeys(companyId, phone)
-  const items = await redis.lrange(buf, 0, -1)
-  if (items.length > 0) await redis.del(buf)
-  return items.map((s: string) => {
-    try { return JSON.parse(s) as BufferedMessage } catch { return null }
-  }).filter(Boolean) as BufferedMessage[]
+  try {
+    const items = await redis.lrange(buf, 0, -1)
+    console.log(`[SDR:${companyId}] drainBuffer — key=${buf} items=${items.length}`)
+    if (items.length > 0) await redis.del(buf)
+    return items.map((s: string) => {
+      try { return JSON.parse(s) as BufferedMessage } catch { return null }
+    }).filter(Boolean) as BufferedMessage[]
+  } catch (e: any) {
+    console.error(`[SDR:${companyId}] drainBuffer FALHOU — err=${e?.message}`)
+    return []
+  }
 }
 
 async function isDuplicateMessage(companyId: number, phone: string, messageId: string): Promise<boolean> {
@@ -2566,7 +2578,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     }
 
     const bufferedMessages = await drainBuffer(companyId, phone)
-    if (bufferedMessages.length === 0) return
+    if (bufferedMessages.length === 0) {
+      console.warn(`[SDR:${companyId}] processSdrMessage: drainBuffer vazio para phone=${phone} — mensagem perdida no Redis`)
+      return
+    }
 
     // Nó "Switch" (15s) — se a última mensagem chegou há menos de 15s, aguarda
     // o tempo restante antes de prosseguir (garante que o lead terminou de digitar)
@@ -3178,9 +3193,8 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     })()
 
     // Persiste job no banco — worker processa após 30s de inatividade
-    // Garante que mensagem não seja perdida em caso de restart/deploy
     const jobSupabase = createServiceClient()
-    await jobSupabase.from('sdr_jobs').upsert(
+    const { error: jobErr } = await jobSupabase.from('sdr_jobs').upsert(
       {
         company_id: companyId,
         phone,
@@ -3193,6 +3207,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         ignoreDuplicates: false,
       }
     )
+    if (jobErr) {
+      console.error(`[SDR:${companyId}] ERRO ao criar job — worker não vai processar:`, jobErr.message)
+    } else {
+      console.log(`[SDR:${companyId}] job criado/atualizado — phone=${phone}`)
+    }
 
     return true
   } catch (err: any) {
