@@ -3,8 +3,10 @@
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
-// Páginas permitidas mesmo com trial expirado
-const ALLOWED_PATHS = ['/configuracoes', '/ajuda', '/novidades']
+// Sub-rotas permitidas por prefixo
+const ALLOWED_PREFIXES = ['/ajuda', '/novidades']
+// Exact match — só a rota base, NÃO sub-rotas (/configuracoes/sdr etc ficam bloqueadas)
+const ALLOWED_EXACT = ['/configuracoes', '/planos']
 
 export function TrialGuard({
   isTrial,
@@ -20,7 +22,9 @@ export function TrialGuard({
     if (!isTrial || !trialEndsAt) return
     const expired = new Date(trialEndsAt) < new Date()
     if (!expired) return
-    const allowed = ALLOWED_PATHS.some((p) => pathname?.startsWith(p))
+    const allowed =
+      ALLOWED_PREFIXES.some((p) => pathname?.startsWith(p)) ||
+      ALLOWED_EXACT.includes(pathname ?? '')
     if (!allowed) {
       router.replace('/configuracoes?tab=plano&expired=trial')
     }
