@@ -87,7 +87,10 @@ export default async function DashboardLayout({
   const PAID_PLAN_TYPES = ['starter', 'start', 'pro', 'growth', 'scale'];
   const isOnPaidPlan = PAID_PLAN_TYPES.includes(companyData?.plan_type ?? '');
   const isTrial = !isOnPaidPlan;
-  const trialExpiredForGuard = !isOnPaidPlan && !!trialEndsAt && new Date(trialEndsAt) < new Date();
+  // Day-level comparison (matches sidebar logic: trialDaysLeft === 0 = expired)
+  const _trialEndDay = trialEndsAt ? new Date(new Date(trialEndsAt).toDateString()) : null;
+  const _todayDay = new Date(new Date().toDateString());
+  const trialExpiredForGuard = !isOnPaidPlan && !!_trialEndDay && _trialEndDay <= _todayDay;
 
   // Server-side trial gate: redirect before rendering any content
   if (trialExpiredForGuard) {

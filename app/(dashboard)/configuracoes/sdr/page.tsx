@@ -585,7 +585,6 @@ function QuestionnaireWizard({
     setTimeout(() => textareaRef.current?.focus(), 80)
   }, [step])
 
-  const MAX_CHARS = 2000
   const MIN_CHARS = 80
 
   const charCount = answers[current?.key ?? 'identidade']?.length ?? 0
@@ -601,12 +600,6 @@ function QuestionnaireWizard({
 
   async function generate() {
     if (!flowId) { setError('Salve a configuração antes de gerar.'); return }
-
-    const overLimit = visibleBlocks.filter(b => answers[b.key].length > MAX_CHARS)
-    if (overLimit.length) {
-      setError(`Blocos muito longos: ${overLimit.map(b => b.label).join(', ')}. Limite: ${MAX_CHARS} caracteres por bloco.`)
-      return
-    }
 
     const tooShort = visibleBlocks.filter(b => b.required && answers[b.key].trim().length < MIN_CHARS)
     if (tooShort.length) {
@@ -690,25 +683,14 @@ function QuestionnaireWizard({
           <textarea
             ref={textareaRef}
             value={answers[current.key]}
-            onChange={(e) => {
-              if (e.target.value.length <= MAX_CHARS) setAnswer(current.key, e.target.value)
-            }}
+            onChange={(e) => setAnswer(current.key, e.target.value)}
             placeholder={current.placeholder}
             style={{ minHeight: '120px', overflow: 'hidden' }}
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-y outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/60"
           />
-          <div className="flex items-center justify-between text-[10px]">
-            {current.required && charCount > 0 && charCount < MIN_CHARS
-              ? <span className="text-amber-500">Detalhe mais para melhores resultados ({MIN_CHARS - charCount} chars restantes)</span>
-              : <span />
-            }
-            <span className={cn(
-              'tabular-nums ml-auto',
-              charCount >= MAX_CHARS ? 'text-red-500 font-medium' : charCount >= MAX_CHARS * 0.9 ? 'text-amber-500' : 'text-muted-foreground/50'
-            )}>
-              {charCount}/{MAX_CHARS}
-            </span>
-          </div>
+          {current.required && charCount > 0 && charCount < MIN_CHARS && (
+            <p className="text-[10px] text-amber-500">Detalhe mais para melhores resultados</p>
+          )}
         </div>
       </div>
 
