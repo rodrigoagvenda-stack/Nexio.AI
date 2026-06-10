@@ -5,20 +5,27 @@ import { ChevronRight, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const SLIDES = [
-  { src: '/demo/kanban/tela1.png',  caption: 'Acesse o CRM no menu lateral' },
-  { src: '/demo/kanban/tela2.png',  caption: 'Selecione a visualização Kanban' },
+  { src: '/demo/kanban/tela1.png',  caption: 'Visão geral do dashboard — métricas, funil e conversão em tempo real' },
+  { src: '/demo/kanban/tela2.png',  caption: 'Selecione a visualização Kanban no menu lateral' },
   { src: '/demo/kanban/tela3.png',  caption: 'Visualize todos os leads organizados por etapa da venda' },
   { src: '/demo/kanban/tela4.png',  caption: 'Clique e arraste o card para a etapa desejada' },
   { src: '/demo/kanban/tela5.png',  caption: 'Solte para mover o lead de etapa' },
   { src: '/demo/kanban/tela6.png',  caption: 'Lead movido — atualizado em tempo real para toda a equipe' },
-  { src: '/demo/kanban/tela7.png',  caption: 'Clique no botão para cadastrar um novo lead' },
+  { src: '/demo/kanban/tela7.png',  caption: 'Clique aqui para cadastrar um novo lead' },
   { src: '/demo/kanban/tela8.png',  caption: 'Digite o nome da empresa' },
   { src: '/demo/kanban/tela9.png',  caption: 'Selecione o segmento de atuação' },
   { src: '/demo/kanban/tela10.png', caption: 'Clique em continuar' },
   { src: '/demo/kanban/tela11.png', caption: 'Digite o nome do contato' },
   { src: '/demo/kanban/tela12.png', caption: 'Digite o número de WhatsApp' },
   { src: '/demo/kanban/tela13.png', caption: 'Digite o e-mail' },
-  { src: '/demo/kanban/tela14.png', caption: 'Clique para salvar o lead' },
+  { src: '/demo/kanban/tela14.png', caption: 'Selecione em qual etapa do funil esse lead se encontra' },
+  { src: '/demo/kanban/tela15.png', caption: 'Indique o nível de atenção que esse lead exige: Baixa, Média ou Alta' },
+  { src: '/demo/kanban/tela16.png', caption: 'Classifique o nível de interesse — Quente indica alta intenção de compra' },
+  { src: '/demo/kanban/tela17.png', caption: 'Registre de onde esse lead veio — essencial para medir quais canais geram mais negócios' },
+  { src: '/demo/kanban/tela18.png', caption: 'Informe o valor estimado do negócio para calcular o total do pipeline' },
+  { src: '/demo/kanban/tela19.png', caption: 'Campo livre para registrar contexto, histórico ou próximos passos' },
+  { src: '/demo/kanban/tela20.png', caption: 'Confira as informações e clique para avançar — o lead será salvo ao finalizar' },
+  { src: '/demo/kanban/tela21.png', caption: 'Pronto! Seu lead foi cadastrado e já aparece no kanban' },
 ]
 
 export function KanbanDemo() {

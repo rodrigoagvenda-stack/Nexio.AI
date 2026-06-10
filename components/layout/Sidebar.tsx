@@ -670,7 +670,7 @@ export const Sidebar = memo(function Sidebar({
         {/* Footer */}
         <div className="p-4 border-t border-border space-y-3">
 
-          {/* Token card — aurora interno */}
+          {/* Token card */}
           {!isCollapsed && !isTrial && tokensLimit > 0 && (() => {
             const pctRaw = tokensLimit > 0 ? (tokensUsed / tokensLimit) * 100 : 0;
             const pct = Math.min(100, pctRaw);
@@ -678,49 +678,42 @@ export const Sidebar = memo(function Sidebar({
             const barWidth = Math.max(pct, tokensUsed > 0 ? 0.5 : 0);
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
-            const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#15803d';
+            const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : 'var(--primary)';
             return (
-              <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden p-3 space-y-2.5">
-                {/* aurora background layer */}
-                <div className="absolute inset-0 animate-aurora opacity-[0.08] pointer-events-none" />
-
-                {/* content */}
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-foreground leading-none tracking-tight">Tokens mensais</p>
-                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">{planName || 'Plano atual'}</p>
-                    </div>
-                    <span className={cn(
-                      'flex-shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border uppercase tracking-wider',
-                      isCritical ? 'border-red-500/30 text-red-500 bg-red-500/10'
-                        : isWarning ? 'border-amber-500/30 text-amber-500 bg-amber-500/10'
-                        : 'border-primary/30 text-primary bg-primary/10'
-                    )}>
-                      {isCritical ? 'Crítico' : isWarning ? 'Atenção' : 'OK'}
-                    </span>
+              <div
+                className="relative rounded-xl overflow-hidden p-3 space-y-2"
+                style={{
+                  backdropFilter: 'blur(24px)',
+                  backgroundImage: 'linear-gradient(135deg, oklch(40% -0.083 160 / 20%) 0%, oklch(55% -0.121 160 / 20%) 56%, oklch(45% -0.100 160 / 20%) 100%)',
+                  border: '1px solid oklch(55% -0.08 160 / 25%)',
+                }}
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-foreground leading-none tracking-tight">Tokens mensais</p>
+                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{planName || 'Plano atual'}</p>
                   </div>
-
-                  <div className="flex items-baseline gap-1 mt-2">
-                    <span className="text-[15px] font-bold text-foreground tabular-nums">{tokensUsed.toLocaleString('pt-BR')}</span>
-                    <span className="text-[10px] text-muted-foreground tabular-nums">/ {tokensLimit.toLocaleString('pt-BR')}</span>
-                  </div>
-
-                  <div className="mt-2 space-y-1">
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">{pctDisplay}% utilizado</p>
-                  </div>
-
-                  <Link
-                    href="/planos"
-                    className="mt-2.5 flex items-center justify-center gap-1 w-full h-7 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-colors"
-                  >
-                    Fazer upgrade
-                    <ChevronRight className="h-3 w-3" />
-                  </Link>
                 </div>
+
+                <div className="flex items-baseline gap-1">
+                  <span className="text-[15px] font-bold text-foreground tabular-nums">{tokensUsed.toLocaleString('pt-BR')}</span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums">/ {tokensLimit.toLocaleString('pt-BR')}</span>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{pctDisplay}% utilizado</p>
+                </div>
+
+                <Link
+                  href="/planos"
+                  className="flex items-center justify-center gap-1 w-full h-6 rounded-lg text-[11px] font-semibold transition-colors"
+                  style={{ backgroundColor: '#07261C', color: '#fff' }}
+                >
+                  Fazer upgrade
+                </Link>
               </div>
             );
           })()}

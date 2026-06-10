@@ -14,6 +14,7 @@ import {
 import { LogOut, Settings, Bell } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { useUser } from '@/lib/hooks/useUser';
+import Link from 'next/link';
 
 export function Header() {
   const router = useRouter();
@@ -27,39 +28,54 @@ export function Header() {
     router.refresh();
   };
 
+  const avatarUrl = (user as any)?.avatar_url || company?.image_url || null;
+  const displayName = user?.name || company?.name || 'Usuário';
+  const displayEmail = user?.email || company?.email || '';
+  const initials = displayName.substring(0, 2).toUpperCase();
+
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
-      {/* User Info */}
+    <header
+      className="mx-4 mt-3 mb-1 h-[54px] rounded-xl flex items-center justify-between px-4 flex-shrink-0"
+      style={{
+        backgroundImage: 'linear-gradient(270deg, #1a3d2a 0%, #0d1f14 100%)',
+        filter: 'brightness(150%)',
+      }}
+    >
+      {/* Avatar + user info */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-          {company?.image_url ? (
-            <img src={company.image_url} alt={company.name || ''} className="w-full h-full object-cover rounded-full" />
+        <div className="w-[22px] h-[22px] rounded-full flex-shrink-0 overflow-hidden bg-primary/30 flex items-center justify-center">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-sm font-bold text-white">
-              {company?.name?.substring(0, 2)?.toUpperCase() || user?.name?.substring(0, 2)?.toUpperCase() || 'BR'}
-            </span>
+            <span className="text-[9px] font-bold text-white">{initials}</span>
           )}
         </div>
-        <div>
-          <h2 className="text-sm font-medium text-foreground">
-            {user?.name || 'Rodrigo'}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {company?.email || user?.email || 'admin@venda.com'}
-          </p>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold text-white leading-none truncate">{displayName}</p>
+          <p className="text-[9px] text-white/60 truncate mt-0.5">{displayEmail}</p>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent/50">
-          <Bell className="h-5 w-5" />
-        </Button>
+      <div className="flex items-center gap-0.5">
+        <Link href="/notificacoes">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
+          >
+            <Bell className="h-4 w-4" />
+          </Button>
+        </Link>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-accent/50">
-              <Settings className="h-5 w-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
+            >
+              <Settings className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-card">

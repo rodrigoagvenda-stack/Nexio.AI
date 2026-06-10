@@ -34,7 +34,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Stepper, Step } from '@/components/ui/stepper';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid, GitBranch, Clock, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -1471,22 +1470,43 @@ export default function CRMPage() {
             </p>
           </div>
 
-          {/* Progress bar minimalista */}
-          <div className="px-6 pt-4">
-            <div className="flex items-center gap-2">
-              {[0, 1, 2].map((step) => (
-                <div
-                  key={step}
-                  className={`h-1 flex-1 rounded-full transition-colors ${
-                    step <= currentStep ? 'bg-primary' : 'bg-muted'
-                  }`}
-                />
+          {/* Stepper numerado */}
+          <div className="px-6 pt-5 pb-1">
+            <div className="flex items-center gap-0">
+              {[
+                { label: 'Empresa' },
+                { label: 'Contato' },
+                { label: 'Detalhes' },
+              ].map(({ label }, i) => (
+                <div key={i} className="flex items-center flex-1 last:flex-none">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div
+                      className={cn(
+                        'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors',
+                        i < currentStep
+                          ? 'bg-primary text-primary-foreground'
+                          : i === currentStep
+                          ? 'bg-primary text-primary-foreground ring-4 ring-primary/20'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {i < currentStep ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                    </div>
+                    <span className={cn(
+                      'text-[10px] font-medium',
+                      i <= currentStep ? 'text-primary' : 'text-muted-foreground'
+                    )}>
+                      {label}
+                    </span>
+                  </div>
+                  {i < 2 && (
+                    <div className={cn(
+                      'flex-1 h-px mx-2 mb-5 transition-colors',
+                      i < currentStep ? 'bg-primary' : 'bg-border'
+                    )} />
+                  )}
+                </div>
               ))}
-            </div>
-            <div className="flex justify-between mt-2">
-              <span className={`text-xs ${currentStep >= 0 ? 'text-primary' : 'text-muted-foreground'}`}>Empresa</span>
-              <span className={`text-xs ${currentStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>Contato</span>
-              <span className={`text-xs ${currentStep >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>Detalhes</span>
             </div>
           </div>
 
