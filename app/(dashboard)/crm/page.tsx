@@ -1481,29 +1481,26 @@ export default function CRMPage() {
                 <div key={i} className="flex items-center flex-1 last:flex-none">
                   <div className="flex flex-col items-center gap-1.5">
                     <div
-                      className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors',
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors"
+                      style={
                         i < currentStep
-                          ? 'bg-primary text-primary-foreground'
+                          ? { backgroundColor: '#96F63C', color: '#07261C' }
                           : i === currentStep
-                          ? 'bg-primary text-primary-foreground ring-4 ring-primary/20'
-                          : 'bg-muted text-muted-foreground'
-                      )}
+                          ? { backgroundColor: '#96F63C', color: '#07261C', boxShadow: '0 0 0 4px rgba(150,246,60,0.2)' }
+                          : { backgroundColor: '#1A1A1A', color: '#666' }
+                      }
                     >
                       {i < currentStep ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
                     </div>
-                    <span className={cn(
-                      'text-[10px] font-medium',
-                      i <= currentStep ? 'text-primary' : 'text-muted-foreground'
-                    )}>
+                    <span className="text-[10px] font-medium" style={{ color: i <= currentStep ? '#96F63C' : '#666' }}>
                       {label}
                     </span>
                   </div>
                   {i < 2 && (
-                    <div className={cn(
-                      'flex-1 h-px mx-2 mb-5 transition-colors',
-                      i < currentStep ? 'bg-primary' : 'bg-border'
-                    )} />
+                    <div
+                      className="flex-1 h-px mx-2 mb-5 transition-colors rounded-full"
+                      style={{ backgroundColor: i < currentStep ? '#96F63C' : '#141414' }}
+                    />
                   )}
                 </div>
               ))}
@@ -1718,7 +1715,7 @@ export default function CRMPage() {
                     <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
                     <textarea
                       id="notes"
-                      className="w-full min-h-[80px] px-3 py-2.5 rounded-lg border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      className="w-full min-h-[80px] px-3 py-2.5 rounded-xl border border-[#212121] bg-[#141414] text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-[#96F63C]/40 placeholder:text-muted-foreground"
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       placeholder="Adicione observações sobre este lead..."
