@@ -152,24 +152,24 @@ export function SystemTopBar() {
 
   return (
     <header
-      className="mx-4 mt-3 mb-1 h-[54px] rounded-xl flex items-center justify-between px-4 flex-shrink-0"
+      className="mx-4 mt-3 mb-1 h-[64px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
       style={{
-        backgroundImage: 'linear-gradient(270deg, #1a3d2a 0%, #0d1f14 100%)',
-        filter: 'brightness(150%)',
+        background: 'linear-gradient(270deg, #1a3d2a 0%, #0d1f14 100%)',
+        filter: 'brightness(1.5)',
       }}
     >
       {/* Left: User info */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-[22px] h-[22px] rounded-full flex-shrink-0 overflow-hidden bg-white/20 flex items-center justify-center">
+        <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden bg-white/20 flex items-center justify-center border border-white/20">
           {avatarUrl ? (
             <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-[9px] font-bold text-white">{userInitials}</span>
+            <span className="text-sm font-bold text-white">{userInitials}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold text-white leading-none truncate">{userName}</p>
-          <p className="text-[9px] text-white/60 truncate mt-0.5">{userEmail}</p>
+          <p className="text-sm font-semibold text-white leading-none truncate">{userName}</p>
+          <p className="text-xs text-white/60 truncate mt-0.5">{userEmail}</p>
         </div>
       </div>
 

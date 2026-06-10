@@ -684,8 +684,8 @@ export const Sidebar = memo(function Sidebar({
                 className="relative rounded-xl overflow-hidden p-3 space-y-2"
                 style={{
                   backdropFilter: 'blur(24px)',
-                  backgroundImage: 'linear-gradient(135deg, oklch(40% -0.083 160 / 20%) 0%, oklch(55% -0.121 160 / 20%) 56%, oklch(45% -0.100 160 / 20%) 100%)',
-                  border: '1px solid oklch(55% -0.08 160 / 25%)',
+                  background: 'linear-gradient(135deg, rgba(7,38,28,0.85) 0%, rgba(14,64,40,0.85) 56%, rgba(10,48,30,0.85) 100%)',
+                  border: '1px solid rgba(96,246,60,0.18)',
                 }}
               >
                 <div className="flex items-start justify-between gap-1">
