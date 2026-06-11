@@ -152,26 +152,26 @@ export function SystemTopBar() {
 
   return (
     <header
-      className="mx-4 mt-3 mb-1 h-[68px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
+      className="mx-4 mt-3 mb-1 h-[80px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
       style={{
-        background: 'linear-gradient(270deg, #275B3F 0%, #132E1E 100%)',
+        background: 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
       }}
     >
       {/* Left: User info */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <div
-          className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-white/20 flex items-center justify-center"
-          style={{ border: '1.5px solid #90FC1D' }}
+          className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden bg-white/20 flex items-center justify-center"
+          style={{ border: '2px solid #90FC1D' }}
         >
           {avatarUrl ? (
             <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-sm font-bold" style={{ color: '#D4D4D4' }}>{userInitials}</span>
+            <span className="text-base font-bold" style={{ color: '#D4D4D4' }}>{userInitials}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-none truncate" style={{ color: '#D4D4D4' }}>{userName}</p>
-          <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: '#D4D4D4', opacity: 0.6 }}>{userEmail}</p>
+          <p className="text-base font-bold leading-none truncate" style={{ color: '#D4D4D4' }}>{userName}</p>
+          <p className="text-sm font-medium truncate mt-1" style={{ color: '#D4D4D4', opacity: 0.6 }}>{userEmail}</p>
         </div>
       </div>
 
@@ -180,8 +180,8 @@ export function SystemTopBar() {
         {/* Notifications */}
         <DropdownMenu open={notifOpen} onOpenChange={(open) => { setNotifOpen(open); if (open) fetchNotifications(); }}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-8 w-8 text-white/70 hover:text-white hover:bg-white/10">
-              <Bell className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="relative h-10 w-10 text-white/70 hover:text-white hover:bg-white/10">
+              <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
                 <Badge
                   variant="destructive"
@@ -291,8 +291,8 @@ export function SystemTopBar() {
         {/* Settings */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10">
-              <Settings className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-10 w-10 text-white/70 hover:text-white hover:bg-white/10">
+              <Settings className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

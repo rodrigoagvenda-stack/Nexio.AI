@@ -182,8 +182,8 @@ function NavItemLinkComp({
       className={cn(
         'relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
         isActive
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+          ? 'bg-[#191919]/80 text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-[#191919]/40',
         isCollapsed && 'justify-center px-2'
       )}
       title={isCollapsed ? link.label : undefined}
@@ -229,8 +229,8 @@ function NavItemFlyoutComp({
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-100 select-none',
         isParentActive
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+          ? 'bg-[#191919]/80 text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-[#191919]/40',
         isCollapsed && 'justify-center px-2'
       )}
       title={isCollapsed ? link.label : undefined}
@@ -263,8 +263,8 @@ function FlyoutChildLink({
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
         isActive
-          ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+          ? 'bg-[#191919]/80 text-foreground font-medium'
+          : 'text-muted-foreground hover:text-foreground hover:bg-[#191919]/40'
       )}
     >
       <Icon ref={iconRef} size={14} className="flex-shrink-0" />
@@ -701,7 +701,7 @@ export const Sidebar = memo(function Sidebar({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: '#0C0C0C' }}>
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: '#0C0C0C' }}>
                     <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(barWidth, tokensUsed > 0 ? 3 : 0)}%`, backgroundColor: barColor }} />
                   </div>
                   <p className="text-[10px] text-muted-foreground">{pctDisplay}% utilizado</p>
