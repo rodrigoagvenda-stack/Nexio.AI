@@ -152,7 +152,7 @@ export function SystemTopBar() {
 
   return (
     <header
-      className="mx-4 mt-3 mb-1 h-[64px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
+      className="mx-4 mt-3 mb-1 h-[60px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
       style={{
         background: 'linear-gradient(270deg, #1a3d2a 0%, #0d1f14 100%)',
         filter: 'brightness(1.5)',
@@ -160,16 +160,19 @@ export function SystemTopBar() {
     >
       {/* Left: User info */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden bg-white/20 flex items-center justify-center border border-white/20">
+        <div
+          className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden bg-white/20 flex items-center justify-center"
+          style={{ border: '1.5px solid #90FC1D' }}
+        >
           {avatarUrl ? (
             <img src={avatarUrl} alt={userName} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-sm font-bold text-white">{userInitials}</span>
+            <span className="text-sm font-bold" style={{ color: '#D4D4D4' }}>{userInitials}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white leading-none truncate">{userName}</p>
-          <p className="text-xs text-white/60 truncate mt-0.5">{userEmail}</p>
+          <p className="text-sm font-bold leading-none truncate" style={{ color: '#D4D4D4' }}>{userName}</p>
+          <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: '#D4D4D4', opacity: 0.6 }}>{userEmail}</p>
         </div>
       </div>
 

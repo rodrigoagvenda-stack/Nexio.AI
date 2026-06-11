@@ -700,9 +700,9 @@ export const Sidebar = memo(function Sidebar({
                   <span className="text-[10px] text-muted-foreground tabular-nums">/ {tokensLimit.toLocaleString('pt-BR')}</span>
                 </div>
 
-                <div className="space-y-1">
-                  <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barWidth}%`, backgroundColor: barColor }} />
+                <div className="space-y-1.5">
+                  <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: '#0C0C0C' }}>
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(barWidth, tokensUsed > 0 ? 3 : 0)}%`, backgroundColor: barColor }} />
                   </div>
                   <p className="text-[10px] text-muted-foreground">{pctDisplay}% utilizado</p>
                 </div>
