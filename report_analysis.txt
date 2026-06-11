@@ -1,0 +1,17 @@
+# ANÁLISE DOS NODE TYPES DEFINIDOS NO CANVAS (AutomationCanvas.tsx)
+
+1. trigger - Gatilho/Trigger
+2. message - Mensagem (com múltiplos sub-tipos: texto, imagem, video, audio, documento, localizacao, lista, botoes, carrossel)
+3. wait - Aguardar (puro delay)
+4. condition - Condição (with branching: sim/não)
+5. end - Encerrar sequência
+6. goal - Meta (marca lead com status)
+7. sentiment - Sentimento (classifica última mensagem via IA)
+8. sub_flow - Sub-fluxo (enrola lead em outra sequência)
+9. wait_event - Aguardar Evento (gating por resposta/keyword)
+10. webhook - Webhook (chamada HTTP)
+11. lead_score - Lead Score (filtragem por score range)
+12. ab_test - Teste A/B (split testing)
+13. scheduling - Agendamento (scheduling de call)
+14. switch - Switch (multi-branch routing)
+

@@ -5,7 +5,6 @@ import { ProductDemo } from '@/components/demo/ProductDemo';
 import { AtendimentoDemo } from '@/components/demo/AtendimentoDemo';
 import { FollowUpDemo } from '@/components/demo/FollowUpDemo';
 import { CanvasDemo } from '@/components/demo/CanvasDemo';
-import { KanbanDemo } from '@/components/demo/KanbanDemo';
 import { TrialSaasDemo } from '@/components/demo/TrialSaasDemo';
 import { SDRWizardDemo } from '@/components/demo/SDRWizardDemo';
 import { SimuladorDemo } from '@/components/demo/SimuladorDemo';
@@ -241,7 +240,7 @@ Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados
 [AVISO]
 A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção antes de confirmar.
 [/AVISO]`,
-        demo: <KanbanDemo />,
+        demo: null,
       },
     ],
   },
