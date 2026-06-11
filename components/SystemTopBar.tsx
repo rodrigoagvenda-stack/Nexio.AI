@@ -152,10 +152,9 @@ export function SystemTopBar() {
 
   return (
     <header
-      className="mx-4 mt-3 mb-1 h-[60px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
+      className="mx-4 mt-3 mb-1 h-[68px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
       style={{
-        background: 'linear-gradient(270deg, #1a3d2a 0%, #0d1f14 100%)',
-        filter: 'brightness(1.5)',
+        background: 'linear-gradient(270deg, #275B3F 0%, #132E1E 100%)',
       }}
     >
       {/* Left: User info */}

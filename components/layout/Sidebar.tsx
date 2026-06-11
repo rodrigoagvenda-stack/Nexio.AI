@@ -678,7 +678,7 @@ export const Sidebar = memo(function Sidebar({
             const barWidth = Math.max(pct, tokensUsed > 0 ? 0.5 : 0);
             const isCritical = pct >= 95;
             const isWarning = pct >= 80;
-            const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : 'var(--primary)';
+            const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#96F63C';
             return (
               <div
                 className="relative rounded-xl overflow-hidden p-3 space-y-2"
