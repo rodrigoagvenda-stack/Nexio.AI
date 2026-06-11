@@ -709,8 +709,8 @@ export const Sidebar = memo(function Sidebar({
 
                 <Link
                   href="/planos"
-                  className="flex items-center justify-center gap-1 w-full h-6 rounded-lg text-[11px] font-semibold transition-colors"
-                  style={{ backgroundColor: '#07261C', color: '#fff' }}
+                  className="flex items-center justify-center w-full rounded-full text-[11px] font-semibold active:translate-y-px transition-transform"
+                  style={{ height: 28, backgroundColor: '#141414', color: '#D8D8D8', boxShadow: '0 2px 0 0 #1F1F1F' }}
                 >
                   Fazer upgrade
                 </Link>

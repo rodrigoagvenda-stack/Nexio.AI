@@ -180,17 +180,17 @@ export function SystemTopBar() {
         {/* Notifications */}
         <DropdownMenu open={notifOpen} onOpenChange={(open) => { setNotifOpen(open); if (open) fetchNotifications(); }}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-10 w-10 text-white/70 hover:text-white hover:bg-white/10">
+            <div className="relative h-10 w-10 flex items-center justify-center rounded-full cursor-pointer text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px]"
+                <span
+                  className="absolute top-1 right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1"
+                  style={{ backgroundColor: '#ef4444', lineHeight: 1 }}
                 >
                   {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
+                </span>
               )}
-            </Button>
+            </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[340px] p-0 overflow-hidden">
             {/* Header */}
@@ -291,9 +291,9 @@ export function SystemTopBar() {
         {/* Settings */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-10 w-10 text-white/70 hover:text-white hover:bg-white/10">
+            <div className="h-10 w-10 flex items-center justify-center rounded-full cursor-pointer text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
               <Settings className="h-5 w-5" />
-            </Button>
+            </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem onClick={() => router.push('/configuracoes')}>
