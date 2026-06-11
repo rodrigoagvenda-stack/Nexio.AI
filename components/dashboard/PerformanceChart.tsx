@@ -1,11 +1,7 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, XAxis, Tooltip } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  ChartConfig,
-  ChartContainer,
-} from '@/components/ui/chart';
 import { motion } from 'framer-motion';
 
 interface PerformanceData {
@@ -18,21 +14,7 @@ interface PerformanceChartProps {
   data: PerformanceData[];
 }
 
-const chartConfig = {
-  leads: {
-    label: 'Leads gerados',
-    color: '#15803d',
-  },
-  fechados: {
-    label: 'Leads fechados',
-    color: 'hsl(var(--chart-2))',
-  },
-} satisfies ChartConfig;
-
-const legendItems = [
-  { label: 'Leads gerados', color: 'hsl(var(--chart-1))' },
-  { label: 'Leads fechados', color: 'hsl(var(--chart-2))' },
-];
+const COLORS = { leads: '#15803d', fechados: '#2A2A2A' };
 
 export function PerformanceChart({ data }: PerformanceChartProps) {
   return (
@@ -43,64 +25,51 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
       className="h-full"
     >
       <Card className="h-full flex flex-col">
-        <CardHeader className="flex-shrink-0">
+        <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between pb-3">
           <CardTitle>Performance de Vendas</CardTitle>
+          {/* legenda inline no header */}
+          <div className="flex items-center gap-5">
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS.leads }} />
+              Leads gerados
+            </span>
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#4A4A4A' }} />
+              Leads fechados
+            </span>
+          </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col justify-center pb-4">
-          <ChartContainer config={chartConfig} className="h-[200px] md:h-[300px] w-full">
-            <BarChart accessibilityLayer data={data}>
-              <CartesianGrid vertical={false} />
+
+        <CardContent className="flex-1 min-h-0 pb-4 px-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} barCategoryGap="30%" barGap={3}>
+              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
               <XAxis
                 dataKey="name"
                 tickLine={false}
                 tickMargin={10}
                 axisLine={false}
+                tick={{ fill: '#666', fontSize: 12 }}
               />
               <Tooltip
+                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--popover))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px',
-                  color: 'hsl(var(--popover-foreground))',
+                  backgroundColor: '#161616',
+                  border: '1px solid #252525',
+                  borderRadius: 8,
+                  color: '#D8D8D8',
+                  fontSize: 12,
                 }}
-                itemStyle={{
-                  color: 'hsl(var(--popover-foreground))',
-                }}
-                formatter={(value: number, name: string) => {
-                  const label = name === 'leads' ? 'Leads gerados' : 'Leads fechados';
-                  return [value, label];
-                }}
+                itemStyle={{ color: '#D8D8D8' }}
+                formatter={(value: number, name: string) => [
+                  value,
+                  name === 'leads' ? 'Leads gerados' : 'Leads fechados',
+                ]}
               />
-              <Bar
-                dataKey="leads"
-                fill="var(--color-leads)"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar
-                dataKey="fechados"
-                fill="var(--color-fechados)"
-                radius={[4, 4, 0, 0]}
-              />
+              <Bar dataKey="leads" fill={COLORS.leads} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="fechados" fill={COLORS.fechados} radius={[4, 4, 0, 0]} />
             </BarChart>
-          </ChartContainer>
-          {/* Legend with circles - matching ConversionDonut style */}
-          <div className="mt-6 flex justify-center gap-6">
-            {legendItems.map((item, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-sm text-foreground">{item.label}</span>
-              </motion.div>
-            ))}
-          </div>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
     </motion.div>

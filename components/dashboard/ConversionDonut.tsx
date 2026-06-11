@@ -14,11 +14,11 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
   const total = fechados + emAndamento;
   const pct = total > 0 ? Math.round((fechados / total) * 100) : 0;
 
-  // Semicírculo estilo velocímetro: arco de 180° (da esquerda para a direita passando por cima)
-  const r = 56;
-  const cx = 80;
-  const cy = 72;
-  const strokeW = 11;
+  // Semicírculo 180° — dimensões maiores para preencher o card
+  const r = 90;
+  const cx = 128;
+  const cy = 108;
+  const strokeW = 14;
   const circ = Math.PI * r;
   const trackPath = `M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`;
   const fillOffset = circ * (1 - pct / 100);
@@ -28,23 +28,34 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-0 flex-shrink-0">
+      <CardHeader className="pb-2 flex-shrink-0">
         <CardTitle className="text-base">Taxa de conversão</CardTitle>
         <CardDescription className="text-xs">{periodo}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col items-center justify-center pb-5 gap-4">
+      <CardContent className="flex flex-1 flex-col items-center justify-center pb-6 gap-5">
         {/* Gauge */}
-        <div className="relative" style={{ width: 160, height: 92 }}>
-          <svg width="160" height="92" viewBox={`0 0 ${cx * 2} ${cy + strokeW / 2 + 4}`}>
-            {/* Track */}
-            <path d={trackPath} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={strokeW} strokeLinecap="round" />
-            {/* Fill — gradiente verde escuro → lime */}
+        <div className="relative w-full flex justify-center">
+          <svg
+            width="100%"
+            viewBox={`0 0 ${cx * 2} ${cy + strokeW / 2 + 6}`}
+            style={{ maxWidth: 260 }}
+            overflow="visible"
+          >
             <defs>
               <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#0E5B3F" />
                 <stop offset="100%" stopColor="#34B270" />
               </linearGradient>
             </defs>
+            {/* Track */}
+            <path
+              d={trackPath}
+              fill="none"
+              stroke="rgba(255,255,255,0.07)"
+              strokeWidth={strokeW}
+              strokeLinecap="round"
+            />
+            {/* Fill */}
             <path
               d={trackPath}
               fill="none"
@@ -55,12 +66,27 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
               strokeDashoffset={fillOffset}
               style={{ transition: 'stroke-dashoffset 0.7s ease' }}
             />
+            {/* Texto centralizado */}
+            <text
+              x={cx}
+              y={cy - 4}
+              textAnchor="middle"
+              fontSize="32"
+              fontWeight="700"
+              fill="white"
+            >
+              {pct}%
+            </text>
+            <text
+              x={cx}
+              y={cy + 16}
+              textAnchor="middle"
+              fontSize="11"
+              fill="#888"
+            >
+              Conversão
+            </text>
           </svg>
-          {/* Label centralizado dentro do arco */}
-          <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
-            <span className="text-3xl font-bold text-foreground leading-none">{pct}%</span>
-            <span className="text-xs text-muted-foreground mt-1">Conversão</span>
-          </div>
         </div>
 
         {/* Delta */}
@@ -71,7 +97,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
           </div>
         )}
 
-        {/* Legenda com valores reais */}
+        {/* Legenda */}
         <div className="flex items-center gap-5 text-sm">
           <span className="flex items-center gap-2 text-foreground">
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#34B270' }} />

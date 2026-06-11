@@ -1,13 +1,6 @@
 ﻿'use client';
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ProductDemo } from '@/components/demo/ProductDemo';
-import { AtendimentoDemo } from '@/components/demo/AtendimentoDemo';
-import { FollowUpDemo } from '@/components/demo/FollowUpDemo';
-import { CanvasDemo } from '@/components/demo/CanvasDemo';
-import { TrialSaasDemo } from '@/components/demo/TrialSaasDemo';
-import { SDRWizardDemo } from '@/components/demo/SDRWizardDemo';
-import { SimuladorDemo } from '@/components/demo/SimuladorDemo';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -22,7 +15,7 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface HelpItem { question: string; answer: string; demo?: React.ReactNode }
+interface HelpItem { question: string; answer: string }
 interface HelpSection { id: string; title: string; icon: LucideIcon; description: string; items: HelpItem[] }
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -240,7 +233,6 @@ Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados
 [AVISO]
 A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção antes de confirmar.
 [/AVISO]`,
-        demo: null,
       },
     ],
   },
@@ -260,7 +252,6 @@ A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção 
 • **Direito** — Ficha do lead: resumo IA, notas, tags, mídia enviada e agenda de mensagens
 
 Cada conversa fica sincronizada automaticamente com o WhatsApp conectado.`,
-        demo: <AtendimentoDemo />,
       },
       {
         question: 'Controlar o Agente IA',
@@ -365,7 +356,6 @@ Scripts de resposta para objeções comuns ("é caro", "preciso pensar", "já te
 [AVISO]
 Quanto mais detalhadas e específicas forem suas respostas, melhor o agente performa. Respostas genéricas geram um agente genérico — e um agente genérico alucina.
 [/AVISO]`,
-        demo: <SDRWizardDemo />,
       },
       {
         question: 'Usar o Simulador de Prompt',
@@ -389,7 +379,6 @@ Volte à aba **Conhecimento**, ajuste o texto das áreas fracas indicadas e test
 [TIP]
 Teste especialmente os cenários mais difíceis: "Já uso outra ferramenta", "Preciso pensar", "Tá caro". Se o agente não contornar bem, a base de objeções precisa ser enriquecida.
 [/TIP]`,
-        demo: <SimuladorDemo />,
       },
       {
         question: 'Exemplo completo: base bem configurada',
@@ -538,7 +527,6 @@ Após escanear, o webhook é configurado automaticamente. Nenhuma configuração
 [INFO]
 O QR Code expira em 60 segundos. Se expirar antes de escanear, clique em **Atualizar** para gerar um novo. O celular precisa estar com internet ativa.
 [/INFO]`,
-        demo: <ProductDemo />,
       },
     ],
   },
@@ -585,7 +573,6 @@ Cada etapa define:
 • **Condição de estágio** — Estágio do lead que ativa esta etapa (opcional)
 • **Gatilho imediato** — Dispara a etapa sem aguardar o intervalo quando a condição é atingida
 • **Agente SDR** — Define se o agente é pausado (false) ou reativado (true) ao enviar esta etapa`,
-        demo: <FollowUpDemo />,
       },
       {
         question: 'Gatilhos, condições e controle do SDR',
@@ -639,7 +626,6 @@ Apenas administradores podem alterar a duração global e a sequência padrão d
 
 ## Como um trial é iniciado
 O trial é ativado por um **webhook** disparado por um formulário externo (ex: página de cadastro, landing page, Make, n8n). Quando o lead preenche o formulário, o webhook notifica o Zaapply que registra automaticamente: nome, telefone, data de início, duração e status \`trial_ativo\`.`,
-        demo: <TrialSaasDemo />,
       },
       {
         question: 'Modo de teste',
@@ -870,7 +856,6 @@ Acesse **Automações → Follow-up**, selecione ou crie uma sequência e clique
 [TIP]
 Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste o fundo da tela para mover a visualização sem mover nodes.
 [/TIP]`,
-        demo: <CanvasDemo />,
       },
       {
         question: 'Os nodes disponíveis e o que cada um faz',
@@ -1887,12 +1872,6 @@ export default function AjudaPage() {
                         <FormatText text={item.answer} />
                       </div>
                     </div>
-                    {/* Demo — largura controlada */}
-                    {item.demo && (
-                      <div className="mt-8 px-4 md:px-6 max-w-5xl mx-auto">
-                        {item.demo}
-                      </div>
-                    )}
                     {index < activeSection.items.length - 1 && (
                       <div className="max-w-3xl mx-auto px-6 md:px-12">
                         <Separator className="mt-12" />
