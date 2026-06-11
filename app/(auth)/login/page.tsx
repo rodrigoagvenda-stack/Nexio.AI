@@ -1,13 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2, Eye, EyeOff, TrendingUp, Users, MessageCircle } from 'lucide-react';
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo';
-import { cn } from '@/lib/utils';
 
 function GoogleIcon() {
   return (
@@ -20,7 +19,6 @@ function GoogleIcon() {
   );
 }
 
-/* Slides placeholder — Rodrigo vai substituir pelas imagens */
 const SLIDES = [
   {
     icon: TrendingUp,
@@ -39,14 +37,35 @@ const SLIDES = [
   },
 ];
 
+const SLIDE_INTERVAL = 4000;
+
 export default function LoginPage() {
   const [tab, setTab] = useState<'login' | 'signup'>('login');
+
+  // login fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // signup fields
+  const [name, setName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
+
+  // auto-advance slides
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlideIdx(i => (i + 1) % SLIDES.length);
+    }, SLIDE_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +81,35 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       toast({ title: error.message || 'Email ou senha incorretos', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (signupPassword !== confirmPassword) {
+      toast({ title: 'As senhas não coincidem', variant: 'destructive' });
+      return;
+    }
+    if (signupPassword.length < 6) {
+      toast({ title: 'A senha deve ter pelo menos 6 caracteres', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: signupPassword,
+        options: { data: { full_name: name } },
+      });
+      if (error) throw error;
+      toast({ title: 'Conta criada! Verifique seu e-mail para confirmar o acesso.' });
+      setTab('login');
+      setEmail(signupEmail);
+    } catch (error: any) {
+      toast({ title: error.message || 'Erro ao criar conta', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -85,22 +133,23 @@ export default function LoginPage() {
   const slide = SLIDES[slideIdx];
   const SlideIcon = slide.icon;
 
+  const heading = tab === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta';
+  const subheading = tab === 'login' ? 'Entre na sua conta para continuar' : 'Preencha os dados para começar';
+
   return (
     <div className="flex min-h-svh" style={{ backgroundColor: '#080808' }}>
-      {/* ── Esquerda: slides placeholder ── */}
+      {/* ── Esquerda: slides ── */}
       <div
         className="hidden lg:flex flex-col items-center justify-between flex-1 relative overflow-hidden p-12"
         style={{ background: 'linear-gradient(160deg, #07261C 0%, #01573C 55%, #0A3728 100%)' }}
       >
-        {/* logo top-left */}
         <div className="w-full">
           <ZaapliLogo variant="full" iconSize={30} theme="dark" />
         </div>
 
-        {/* slide content */}
         <div className="flex flex-col items-center text-center gap-6 max-w-sm">
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            className="w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500"
             style={{ backgroundColor: 'rgba(150,246,60,0.12)', border: '1px solid rgba(150,246,60,0.22)' }}
           >
             <SlideIcon className="w-8 h-8" style={{ color: '#96F63C' }} />
@@ -111,7 +160,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* dots */}
         <div className="flex items-center gap-2">
           {SLIDES.map((_, i) => (
             <button
@@ -130,7 +178,7 @@ export default function LoginPage() {
 
       {/* ── Direita: formulário ── */}
       <div
-        className="flex flex-col w-full lg:w-[440px] flex-shrink-0"
+        className="flex flex-col w-full lg:w-[520px] flex-shrink-0"
         style={{ backgroundColor: '#0C0C0C', borderLeft: '1px solid #1A1A1A' }}
       >
         {/* logo mobile */}
@@ -138,15 +186,15 @@ export default function LoginPage() {
           <ZaapliLogo variant="full" iconSize={30} theme="dark" />
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-10 py-8">
-          <div className="w-full max-w-xs flex flex-col gap-7">
-            {/* título */}
+        <div className="flex flex-1 items-center justify-center px-12 py-8">
+          <div className="w-full max-w-sm flex flex-col gap-6">
+            {/* título dinâmico */}
             <div>
-              <h1 className="text-2xl font-bold text-white">Bem-vindo de volta</h1>
-              <p className="text-sm mt-1.5" style={{ color: '#888' }}>Entre na sua conta para continuar</p>
+              <h1 className="text-2xl font-bold text-white">{heading}</h1>
+              <p className="text-sm mt-1.5" style={{ color: '#888' }}>{subheading}</p>
             </div>
 
-            {/* tabs Sign In / Sign Up */}
+            {/* tabs */}
             <div className="flex rounded-full p-1" style={{ backgroundColor: '#141414' }}>
               {(['login', 'signup'] as const).map((t) => (
                 <button
@@ -182,70 +230,155 @@ export default function LoginPage() {
               <div className="flex-1 h-px" style={{ backgroundColor: '#1F1F1F' }} />
             </div>
 
-            {/* form */}
-            <form onSubmit={handleLogin} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#CCC' }}>Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#CCC' }}>Senha</Label>
-                <div className="relative">
+            {/* ── Form login ── */}
+            {tab === 'login' && (
+              <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="email" className="text-sm font-medium" style={{ color: '#CCC' }}>Email</Label>
                   <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={loading}
-                    className="pr-10"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                    style={{ color: '#666' }}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center justify-center gap-2 w-full rounded-full font-bold text-sm mt-1 transition-transform active:translate-y-px disabled:opacity-60"
-                style={{ height: 44, backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}
-              >
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Entrando…</> : 'Entrar'}
-              </button>
-            </form>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#CCC' }}>Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="pr-10"
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
 
-            {tab === 'login' && (
-              <p className="text-center text-xs" style={{ color: '#555' }}>
-                Não tem uma conta?{' '}
-                <button onClick={() => setTab('signup')} className="underline underline-offset-2 hover:text-white transition-colors" style={{ color: '#888' }}>
-                  Criar conta
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 w-full rounded-full font-bold text-sm mt-1 transition-transform active:translate-y-px disabled:opacity-60"
+                  style={{ height: 44, backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}
+                >
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Entrando…</> : 'Entrar'}
                 </button>
-              </p>
+
+                <p className="text-center text-xs" style={{ color: '#555' }}>
+                  Não tem uma conta?{' '}
+                  <button type="button" onClick={() => setTab('signup')}
+                    className="underline underline-offset-2 hover:text-white transition-colors" style={{ color: '#888' }}>
+                    Criar conta
+                  </button>
+                </p>
+              </form>
+            )}
+
+            {/* ── Form cadastro ── */}
+            {tab === 'signup' && (
+              <form onSubmit={handleSignup} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="name" className="text-sm font-medium" style={{ color: '#CCC' }}>Nome completo</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Seu nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="signup-email" className="text-sm font-medium" style={{ color: '#CCC' }}>Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="signup-password" className="text-sm font-medium" style={{ color: '#CCC' }}>Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="signup-password"
+                      type={showSignupPassword ? 'text' : 'password'}
+                      placeholder="Mínimo 6 caracteres"
+                      value={signupPassword}
+                      onChange={(e) => setSignupPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="pr-10"
+                    />
+                    <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
+                      {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="confirm-password" className="text-sm font-medium" style={{ color: '#CCC' }}>Confirmar senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                      type={showConfirm ? 'text' : 'password'}
+                      placeholder="Repita a senha"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="pr-10"
+                    />
+                    <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 w-full rounded-full font-bold text-sm mt-1 transition-transform active:translate-y-px disabled:opacity-60"
+                  style={{ height: 44, backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}
+                >
+                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Criando conta…</> : 'Criar conta'}
+                </button>
+
+                <p className="text-center text-xs" style={{ color: '#555' }}>
+                  Já tem uma conta?{' '}
+                  <button type="button" onClick={() => setTab('login')}
+                    className="underline underline-offset-2 hover:text-white transition-colors" style={{ color: '#888' }}>
+                    Entrar
+                  </button>
+                </p>
+              </form>
             )}
           </div>
         </div>
 
         {/* footer */}
-        <div className="px-10 pb-8 text-center">
+        <div className="px-12 pb-8 text-center">
           <p className="text-[11px]" style={{ color: '#444' }}>
-            Ao entrar você concorda com os{' '}
+            Ao continuar você concorda com os{' '}
             <a href="/termos" target="_blank" className="underline underline-offset-2 hover:text-white transition-colors">Termos de Uso</a>
             {' '}e a{' '}
             <a href="/privacidade" target="_blank" className="underline underline-offset-2 hover:text-white transition-colors">Política de Privacidade</a>

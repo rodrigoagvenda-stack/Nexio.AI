@@ -54,7 +54,7 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2 px-4 pt-4">
         <div className="flex items-center gap-2 min-w-0">
           <div className="p-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-            <Icon className="h-4 w-4" style={{ color: hasDelta ? (isPositive ? '#34B270' : isNegative ? '#ef4444' : '#888') : '#888' }} />
+            <Icon className="h-4 w-4" style={{ color: '#96F63C' }} />
           </div>
           <p className="text-xs text-muted-foreground truncate">{title}</p>
         </div>

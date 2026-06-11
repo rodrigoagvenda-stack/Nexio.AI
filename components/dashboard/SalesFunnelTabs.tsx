@@ -6,6 +6,13 @@ import { motion } from 'framer-motion';
 import { Bell, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Bar, BarChart, XAxis, YAxis } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 
 interface FunnelStage {
   label: string;
@@ -32,28 +39,38 @@ function resolveNoshowCount(counts: Record<string, number>, keys: string[]): num
   return 0;
 }
 
-/* Barras pill — estilo do design */
-function FunnelPillBars({ data }: { data: { name: string; quantidade: number }[] }) {
-  const max = Math.max(...data.map(d => d.quantidade), 1);
+const chartConfig = {
+  quantidade: {
+    label: 'Leads',
+    color: '#01573C',
+  },
+} satisfies ChartConfig;
+
+function HorizontalBars({ data }: { data: { name: string; quantidade: number }[] }) {
   return (
-    <div className="flex flex-col gap-2.5 pt-2">
-      {data.map((item) => (
-        <div
-          key={item.name}
-          className="flex items-center justify-between rounded-full px-5"
-          style={{
-            height: 48,
-            backgroundColor: '#0A3728',
-            minWidth: 0,
-          }}
-        >
-          <span className="text-sm font-semibold text-white truncate">{item.name}</span>
-          <span className="text-sm font-medium ml-4 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.45)' }}>
-            {item.quantidade}
-          </span>
-        </div>
-      ))}
-    </div>
+    <ChartContainer
+      config={chartConfig}
+      style={{ width: '100%', height: data.length * 56 + 16 }}
+    >
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ left: 0, right: 24, top: 4, bottom: 4 }}
+      >
+        <XAxis type="number" dataKey="quantidade" hide />
+        <YAxis
+          dataKey="name"
+          type="category"
+          tickLine={false}
+          tickMargin={12}
+          axisLine={false}
+          width={130}
+          tick={{ fill: '#D8D8D8', fontSize: 13, fontWeight: 600 }}
+        />
+        <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+        <Bar dataKey="quantidade" fill="var(--color-quantidade)" radius={5} />
+      </BarChart>
+    </ChartContainer>
   );
 }
 
@@ -87,7 +104,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
       <Card className="h-full flex flex-col overflow-hidden">
         <CardContent className="flex-1 pt-4 md:pt-6 px-4 md:px-6 flex flex-col">
           {/* Tabs */}
-          <div className="mb-5">
+          <div className="mb-5 flex-shrink-0">
             <div className="flex items-center rounded-full p-1 w-fit" style={{ backgroundColor: '#141414' }}>
               {(Object.keys(TAB_LABELS) as TabValue[]).map(t => (
                 <button
@@ -115,7 +132,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   cta="Abrir CRM"
                 />
               ) : (
-                <FunnelPillBars data={salesData} />
+                <HorizontalBars data={salesData} />
               )
             )}
 
@@ -128,7 +145,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   cta="Configurar automação"
                 />
               ) : (
-                <FunnelPillBars data={noshowData} />
+                <HorizontalBars data={noshowData} />
               )
             )}
 
@@ -141,7 +158,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   cta="Configurar remarketing"
                 />
               ) : (
-                <FunnelPillBars data={[{ name: 'Remarketing', quantidade: remarketingCount }]} />
+                <HorizontalBars data={[{ name: 'Remarketing', quantidade: remarketingCount }]} />
               )
             )}
           </div>
