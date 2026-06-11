@@ -386,16 +386,16 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <div className="flex gap-1 bg-muted p-1 rounded-xl">
+          <div className="flex items-center rounded-full p-1" style={{ backgroundColor: '#141414' }}>
             {PERIODS.map(period => (
               <button
                 key={period}
                 onClick={() => handlePeriodChange(period)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap ${
-                  selectedPeriod === period
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className="px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-150 whitespace-nowrap"
+                style={selectedPeriod === period
+                  ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
+                  : { color: '#888', background: 'transparent' }
+                }
               >
                 {PERIOD_LABELS[period]}
               </button>

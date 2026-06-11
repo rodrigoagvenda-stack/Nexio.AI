@@ -132,11 +132,16 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
         <OrbitCardContent className="p-4 space-y-3 flex flex-col">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: 'rgba(1,87,60,0.18)', flexShrink: 0 }}>
               {photoUrl ? (
-                <img src={photoUrl} alt={lead.contact_name || lead.company_name} className="w-full h-full object-cover" />
+                <img
+                  src={photoUrl}
+                  alt={lead.contact_name || lead.company_name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               ) : (
-                <span className="text-xs font-semibold text-primary">{getInitials(lead.company_name)}</span>
+                <span className="text-xs font-bold" style={{ color: '#34B270' }}>{getInitials(lead.contact_name || lead.company_name)}</span>
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -1470,36 +1475,32 @@ export default function CRMPage() {
             </p>
           </div>
 
-          {/* Stepper numerado */}
-          <div className="px-6 pt-5 pb-1">
-            <div className="flex items-center gap-0">
-              {[
-                { label: 'Empresa' },
-                { label: 'Contato' },
-                { label: 'Detalhes' },
-              ].map(({ label }, i) => (
-                <div key={i} className="flex items-center flex-1 last:flex-none">
-                  <div className="flex flex-col items-center gap-1.5">
+          {/* Stepper */}
+          <div className="px-6 pt-5 pb-2">
+            <div className="flex items-start">
+              {['Empresa', 'Contato', 'Detalhes'].map((label, i) => (
+                <div key={i} className="flex items-start flex-1 last:flex-none">
+                  <div className="flex flex-col items-center gap-2 flex-shrink-0">
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200"
                       style={
                         i < currentStep
                           ? { backgroundColor: '#96F63C', color: '#07261C' }
                           : i === currentStep
-                          ? { backgroundColor: '#96F63C', color: '#07261C', boxShadow: '0 0 0 4px rgba(150,246,60,0.2)' }
-                          : { backgroundColor: '#1A1A1A', color: '#666' }
+                          ? { backgroundColor: '#96F63C', color: '#07261C', boxShadow: '0 0 0 5px rgba(150,246,60,0.18)' }
+                          : { backgroundColor: '#1C1C1C', color: '#555', border: '1.5px solid #2A2A2A' }
                       }
                     >
-                      {i < currentStep ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                      {i < currentStep ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
                     </div>
-                    <span className="text-[10px] font-medium" style={{ color: i <= currentStep ? '#96F63C' : '#666' }}>
+                    <span className="text-[11px] font-semibold" style={{ color: i <= currentStep ? '#96F63C' : '#555' }}>
                       {label}
                     </span>
                   </div>
                   {i < 2 && (
                     <div
-                      className="flex-1 h-px mx-2 mb-5 transition-colors rounded-full"
-                      style={{ backgroundColor: i < currentStep ? '#96F63C' : '#141414' }}
+                      className="flex-1 h-[2px] mx-2 mt-4 rounded-full transition-colors"
+                      style={{ backgroundColor: i < currentStep ? '#96F63C' : '#1F1F1F' }}
                     />
                   )}
                 </div>
@@ -1877,52 +1878,53 @@ function LeadSequenceTimeline({ leadId }: { leadId: number }) {
   if (data.length === 0) return null
 
   return (
-    <div className="px-6 py-4 border-t border-border/40 space-y-3">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+    <div className="px-6 py-5 border-t border-border/40 space-y-4">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
         <GitBranch className="h-3 w-3" />
         Sequências ativas
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {data.map((seq) => {
           const sent = seq.steps.filter((s) => s.disparado).length
           const total = seq.steps.length
           return (
-            <div key={seq.sequenceId} className="space-y-1.5">
-              {/* Sequence header */}
-              <div className="flex items-center gap-2">
-                <span className={cn('text-[10px] font-medium px-1.5 py-0.5 rounded', TIPO_COLOR[seq.sequenceTipo] ?? 'bg-muted text-muted-foreground')}>
+            <div key={seq.sequenceId} className="rounded-xl p-3 space-y-3" style={{ backgroundColor: '#0E0E0E', border: '1px solid #1A1A1A' }}>
+              {/* Header da sequência */}
+              <div className="flex items-center gap-2.5">
+                <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', TIPO_COLOR[seq.sequenceTipo] ?? 'bg-muted text-muted-foreground')}>
                   {TIPO_LABEL[seq.sequenceTipo] ?? seq.sequenceTipo}
                 </span>
                 <span className="text-xs font-medium text-foreground truncate flex-1">{seq.sequenceName}</span>
-                <span className="text-[10px] text-muted-foreground shrink-0">{sent}/{total} enviados</span>
+                <span className="text-[10px] font-medium shrink-0" style={{ color: '#666' }}>{sent}/{total} enviados</span>
               </div>
 
               {/* Steps rail */}
-              <div className="flex items-center gap-1 pl-1">
+              <div className="flex items-center gap-1.5 pl-0.5">
                 {seq.steps.map((step, idx) => (
-                  <div key={step.stepId} className="flex items-center gap-1">
+                  <div key={step.stepId} className="flex items-center gap-1.5">
                     <div
                       title={step.disparado
                         ? `Dia ${step.diaOffset} · ${step.horario} · ${step.disparadoEm ? new Date(step.disparadoEm).toLocaleDateString('pt-BR') : 'enviado'}`
                         : `Dia ${step.diaOffset} · ${step.horario} · pendente`}
                       className={cn(
-                        'w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                        'w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors',
                         step.disparado
                           ? step.status === 'failed'
-                            ? 'bg-red-500/20 text-red-500'
-                            : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground'
+                            ? 'bg-red-500/20 text-red-400'
+                            : 'bg-emerald-500/20 text-emerald-400'
+                          : 'text-muted-foreground'
                       )}
+                      style={!step.disparado ? { backgroundColor: '#1A1A1A' } : undefined}
                     >
                       {step.disparado
                         ? step.status === 'failed'
-                          ? <XCircle className="h-2.5 w-2.5" />
-                          : <CheckCheck className="h-2.5 w-2.5" />
-                        : <Clock className="h-2.5 w-2.5" />}
+                          ? <XCircle className="h-3 w-3" />
+                          : <CheckCheck className="h-3 w-3" />
+                        : <Clock className="h-3 w-3" />}
                     </div>
                     {idx < seq.steps.length - 1 && (
-                      <div className={cn('h-px w-3 shrink-0', step.disparado ? 'bg-emerald-500/40' : 'bg-border')} />
+                      <div className="h-px w-4 shrink-0 rounded-full" style={{ backgroundColor: step.disparado ? 'rgba(52,178,112,0.35)' : '#242424' }} />
                     )}
                   </div>
                 ))}

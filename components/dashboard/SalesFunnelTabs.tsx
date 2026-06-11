@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { motion } from 'framer-motion';
 import { Bell, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,14 +18,11 @@ interface SalesFunnelTabsProps {
   remarketingCount?: number;
 }
 
-const salesColors  = ['#052e16', '#14532d', '#166534', '#15803d', '#16a34a', '#22c55e'];
-const noshowColors = ['#14532d', '#15803d', '#16a34a', '#22c55e'];
-
 const NOSHOW_STAGES = [
-  { label: '24h antes',   keys: ['24h', '24h_antes',  'antecipacao', '24'] },
-  { label: '2h antes',    keys: ['2h',  '2h_antes',   'reforco']          },
-  { label: '15min antes', keys: ['15min','15min_antes','15']               },
-  { label: '5min após',   keys: ['5min','5min_apos',  '5min_após','resgate','5'] },
+  { label: '24h antes',   keys: ['24h', '24h_antes', 'antecipacao', '24'] },
+  { label: '2h antes',    keys: ['2h', '2h_antes', 'reforco'] },
+  { label: '15min antes', keys: ['15min', '15min_antes', '15'] },
+  { label: '5min após',   keys: ['5min', '5min_apos', '5min_após', 'resgate', '5'] },
 ];
 
 function resolveNoshowCount(counts: Record<string, number>, keys: string[]): number {
@@ -36,52 +32,27 @@ function resolveNoshowCount(counts: Record<string, number>, keys: string[]): num
   return 0;
 }
 
-function FunnelBarChart({ data }: { data: { name: string; quantidade: number; fill: string }[] }) {
-  const maxQty = Math.max(...data.map(d => d.quantidade), 1);
-
+/* Barras pill — estilo do design */
+function FunnelPillBars({ data }: { data: { name: string; quantidade: number }[] }) {
+  const max = Math.max(...data.map(d => d.quantidade), 1);
   return (
-    <div className="h-[220px] md:h-[290px]">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          layout="vertical"
-          barSize={28}
-          barCategoryGap="28%"
-          margin={{ top: 4, right: 44, left: 4, bottom: 4 }}
+    <div className="flex flex-col gap-2.5 pt-2">
+      {data.map((item) => (
+        <div
+          key={item.name}
+          className="flex items-center justify-between rounded-full px-5"
+          style={{
+            height: 48,
+            backgroundColor: '#0A3728',
+            minWidth: 0,
+          }}
         >
-          <CartesianGrid horizontal={false} stroke="hsl(var(--border))" opacity={0.2} />
-          <YAxis type="category" dataKey="name" hide />
-          <XAxis type="number" hide domain={[0, maxQty * 1.15]} />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '8px',
-              fontSize: 12,
-            }}
-            labelStyle={{ color: 'hsl(var(--foreground))', fontWeight: 600 }}
-            itemStyle={{ color: 'hsl(var(--primary))' }}
-            cursor={{ fill: 'hsl(var(--accent))' }}
-            formatter={(v: number) => [v, 'Leads']}
-          />
-          <Bar dataKey="quantidade" radius={[0, 4, 4, 0]} animationDuration={800} minPointSize={72}>
-            {data.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-            <LabelList
-              dataKey="name"
-              position="insideLeft"
-              offset={12}
-              style={{ fill: '#fff', fontSize: 11, fontWeight: 600 }}
-              formatter={(v: string) => v.length > 16 ? v.slice(0, 15) + '…' : v}
-            />
-            <LabelList
-              dataKey="quantidade"
-              position="right"
-              offset={8}
-              style={{ fill: 'hsl(var(--foreground))', fontSize: 12, fontWeight: 700 }}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+          <span className="text-sm font-semibold text-white truncate">{item.name}</span>
+          <span className="text-sm font-medium ml-4 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {item.quantidade}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -89,22 +60,18 @@ function FunnelBarChart({ data }: { data: { name: string; quantidade: number; fi
 type TabValue = 'vendas' | 'noshow' | 'remarketing';
 
 const TAB_LABELS: Record<TabValue, string> = {
-  vendas: 'Funil de Vendas',
-  noshow: 'Anti Noshow',
+  vendas: 'Funil de vendas',
+  noshow: 'Anti noshow',
   remarketing: 'Remarketing',
 };
 
 export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0 }: SalesFunnelTabsProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('vendas');
 
-  const salesData = stages.map((s, i) => ({
-    name: s.label, quantidade: s.count, fill: salesColors[i % salesColors.length],
-  }));
-
-  const noshowData = NOSHOW_STAGES.map((s, i) => ({
+  const salesData = stages.map(s => ({ name: s.label, quantidade: s.count }));
+  const noshowData = NOSHOW_STAGES.map(s => ({
     name: s.label,
     quantidade: resolveNoshowCount(antiNoshowCounts, s.keys),
-    fill: noshowColors[i],
   }));
 
   const hasAntiNoshow = noshowData.some(d => d.quantidade > 0);
@@ -119,18 +86,18 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
     >
       <Card className="h-full flex flex-col overflow-hidden">
         <CardContent className="flex-1 pt-4 md:pt-6 px-4 md:px-6 flex flex-col">
-          <div className="mb-4">
-            <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+          {/* Tabs */}
+          <div className="mb-5">
+            <div className="flex items-center rounded-full p-1 w-fit" style={{ backgroundColor: '#141414' }}>
               {(Object.keys(TAB_LABELS) as TabValue[]).map(t => (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 whitespace-nowrap',
-                    activeTab === t
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
+                  className="px-4 py-1.5 text-xs rounded-full transition-all duration-150 whitespace-nowrap"
+                  style={activeTab === t
+                    ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
+                    : { color: '#888', background: 'transparent', fontWeight: 500 }
+                  }
                 >
                   {TAB_LABELS[t]}
                 </button>
@@ -138,7 +105,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
             </div>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             {activeTab === 'vendas' && (
               salesData.every(d => d.quantidade === 0) ? (
                 <EmptyState
@@ -148,7 +115,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   cta="Abrir CRM"
                 />
               ) : (
-                <FunnelBarChart data={salesData} />
+                <FunnelPillBars data={salesData} />
               )
             )}
 
@@ -158,10 +125,10 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   message="Nenhum disparo Anti Noshow no período"
                   detail="Configure sequências de Anti Noshow em Automações para reduzir faltas."
                   href="/automacoes"
-                  cta="Configurar automacao"
+                  cta="Configurar automação"
                 />
               ) : (
-                <FunnelBarChart data={noshowData} />
+                <FunnelPillBars data={noshowData} />
               )
             )}
 
@@ -174,7 +141,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   cta="Configurar remarketing"
                 />
               ) : (
-                <FunnelBarChart data={[{ name: 'Remarketing', quantidade: remarketingCount, fill: '#15803d' }]} />
+                <FunnelPillBars data={[{ name: 'Remarketing', quantidade: remarketingCount }]} />
               )
             )}
           </div>
@@ -190,12 +157,8 @@ function EmptyState({ message, detail, href, cta }: { message: string; detail: s
       <Bell className="h-9 w-9 text-muted-foreground/25" />
       <p className="text-sm font-medium text-muted-foreground">{message}</p>
       <p className="text-xs text-muted-foreground/60 max-w-xs">{detail}</p>
-      <Link
-        href={href}
-        className="flex items-center gap-1 text-xs text-primary hover:underline underline-offset-2 mt-1"
-      >
-        {cta}
-        <ArrowRight className="w-3 h-3" />
+      <Link href={href} className="flex items-center gap-1 text-xs text-primary hover:underline underline-offset-2 mt-1">
+        {cta} <ArrowRight className="w-3 h-3" />
       </Link>
     </div>
   );
