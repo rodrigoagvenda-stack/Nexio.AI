@@ -97,13 +97,13 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
         )}
 
         {/* Legenda */}
-        <div className="flex items-center gap-5 text-sm">
-          <span className="flex items-center gap-2 text-foreground">
+        <div className="flex items-center gap-6">
+          <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#34B270' }} />
             {fechados} fechados
           </span>
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <span className="w-2.5 h-2.5 rounded-full border flex-shrink-0" style={{ borderColor: 'rgba(52,178,112,0.4)', backgroundColor: 'rgba(52,178,112,0.12)' }} />
+          <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#4A4A4A' }} />
             {emAndamento} em andamento
           </span>
         </div>
