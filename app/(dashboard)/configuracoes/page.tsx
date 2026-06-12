@@ -792,7 +792,7 @@ function ConfiguracoesContent() {
               <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-[#009EE3]/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    <img src="/logos/mercadopago.svg" width="32" height="20" alt="Mercado Pago" className="object-contain" />
+                    <img src="/logos/mercadopago.svg" width="28" height="28" alt="Mercado Pago" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">Mercado Pago</p>
