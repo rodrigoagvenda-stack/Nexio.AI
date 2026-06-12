@@ -738,7 +738,7 @@ function ConfiguracoesContent() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl bg-white/5 border border-border flex items-center justify-center mt-0.5 overflow-hidden">
-                  <img src="/logos/google-calendar.svg" width="32" height="32" alt="Google Calendar" />
+                  <img src="/logos/google-calendar.svg?v=3" width="32" height="32" alt="Google Calendar" />
                 </div>
                 <div>
                   <p className="font-semibold">Google Calendar</p>
@@ -792,7 +792,7 @@ function ConfiguracoesContent() {
               <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-[#009EE3]/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    <img src="/logos/mercadopago.svg" width="28" height="28" alt="Mercado Pago" />
+                    <img src="/logos/mercadopago.svg?v=3" width="28" height="28" alt="Mercado Pago" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">Mercado Pago</p>
@@ -840,7 +840,7 @@ function ConfiguracoesContent() {
               <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-[#2db56f]/10 flex items-center justify-center shrink-0 overflow-hidden">
-                    <img src="/logos/kiwify.svg" width="26" height="26" alt="Kiwify" className="object-contain" />
+                    <img src="/logos/kiwify.svg?v=3" width="26" height="26" alt="Kiwify" className="object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">Kiwify</p>
