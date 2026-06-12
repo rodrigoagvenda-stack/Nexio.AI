@@ -1,0 +1,224 @@
+/**
+ * POST /api/webhooks/payment/[companyId]/[platform]
+ *
+ * Recebe eventos de pagamento confirmado do Mercado Pago e Kiwify.
+ * Fluxo: valida autenticidade → busca lead por email/telefone →
+ *        move para Fechado → dispara sequência "pagamento" no canvas.
+ *
+ * Documentação:
+ * - Mercado Pago: https://www.mercadopago.com.br/developers/pt/docs/your-integrations/notifications/webhooks
+ * - Kiwify: https://docs.kiwify.com.br/api-reference/webhooks
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { normalizePhone } from '@/lib/sdr/uazapi'
+import { runPaymentSequenceImmediate } from '@/lib/sdr/follow'
+import crypto from 'crypto'
+
+const VALID_PLATFORMS = ['mercadopago', 'kiwify'] as const
+type Platform = typeof VALID_PLATFORMS[number]
+
+// ─── Mercado Pago: valida assinatura HMAC-SHA256 ─────────────────────────────
+function validateMercadoPagoSignature(
+  req: NextRequest,
+  body: Record<string, any>,
+  secretKey: string
+): boolean {
+  try {
+    const xSignature = req.headers.get('x-signature') ?? ''
+    const xRequestId = req.headers.get('x-request-id') ?? ''
+
+    // Extrai ts e v1 do header x-signature
+    const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
+    const ts = parts['ts']
+    const v1 = parts['v1']
+    if (!ts || !v1) return false
+
+    const dataId = body?.data?.id ?? ''
+
+    // Template: id:[dataId];request-id:[xRequestId];ts:[ts];
+    const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
+    const hash = crypto.createHmac('sha256', secretKey).update(manifest).digest('hex')
+
+    // Comparação timing-safe
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(v1))
+  } catch {
+    return false
+  }
+}
+
+// ─── Mercado Pago: busca detalhes do pagamento via API ───────────────────────
+async function fetchMercadoPagoPayment(paymentId: string, accessToken: string) {
+  const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) {
+    console.error(`[payment-webhook:mp] GET /v1/payments/${paymentId} status=${res.status}`)
+    return null
+  }
+  return res.json()
+}
+
+// ─── Helper: busca lead por email ou telefone ─────────────────────────────────
+async function findLead(companyId: number, email?: string, phone?: string, supabase: any = null) {
+  if (email) {
+    const { data } = await supabase
+      .from('leads')
+      .select('id, whatsapp, company_name, contact_name')
+      .eq('company_id', companyId)
+      .eq('email', email)
+      .maybeSingle()
+    if (data) return data
+  }
+  if (phone) {
+    const normalized = normalizePhone(phone)
+    const { data } = await supabase
+      .from('leads')
+      .select('id, whatsapp, company_name, contact_name')
+      .eq('company_id', companyId)
+      .eq('whatsapp', normalized)
+      .maybeSingle()
+    if (data) return data
+  }
+  return null
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { companyId: string; platform: string } }
+) {
+  const { companyId: companyIdStr, platform } = params
+  const companyId = Number(companyIdStr)
+
+  if (isNaN(companyId) || !VALID_PLATFORMS.includes(platform as Platform)) {
+    return NextResponse.json({ error: 'Parâmetros inválidos' }, { status: 400 })
+  }
+
+  console.log(`[payment-webhook:${platform}] company=${companyId} recebido`)
+
+  const supabase = createServiceClient()
+
+  // Busca credenciais salvas para esta empresa/plataforma
+  const { data: integration } = await supabase
+    .from('payment_integrations')
+    .select('config, active')
+    .eq('company_id', companyId)
+    .eq('platform', platform)
+    .maybeSingle()
+
+  if (!integration?.active) {
+    console.warn(`[payment-webhook:${platform}] company=${companyId} integração não encontrada ou inativa`)
+    // Retorna 200 para não causar reenvios da plataforma
+    return NextResponse.json({ received: true })
+  }
+
+  const body = await req.json().catch(() => null)
+  if (!body) return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
+
+  // ─── MERCADO PAGO ───────────────────────────────────────────────────────────
+  if (platform === 'mercadopago') {
+    const { access_token, secret_key } = integration.config ?? {}
+
+    // Valida assinatura HMAC-SHA256
+    if (!validateMercadoPagoSignature(req, body, secret_key)) {
+      console.warn(`[payment-webhook:mp] company=${companyId} assinatura inválida`)
+      return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
+    }
+
+    // Ignora eventos que não são de pagamento
+    if (body.type !== 'payment') {
+      console.log(`[payment-webhook:mp] company=${companyId} evento ignorado type=${body.type}`)
+      return NextResponse.json({ received: true })
+    }
+
+    const paymentId = body?.data?.id
+    if (!paymentId) return NextResponse.json({ received: true })
+
+    // Busca detalhes completos do pagamento
+    const payment = await fetchMercadoPagoPayment(String(paymentId), access_token)
+    if (!payment) return NextResponse.json({ received: true })
+
+    // Processa apenas pagamentos aprovados
+    if (payment.status !== 'approved') {
+      console.log(`[payment-webhook:mp] company=${companyId} pagamento status=${payment.status} — ignorado`)
+      return NextResponse.json({ received: true })
+    }
+
+    // Extrai dados do comprador
+    const email = payment.payer?.email
+    const phoneInfo = payment.additional_info?.payer?.phone
+    const rawPhone = phoneInfo ? `${phoneInfo.area_code}${phoneInfo.number}` : undefined
+    const value = payment.transaction_amount
+
+    console.log(`[payment-webhook:mp] company=${companyId} payment=${paymentId} email=${email} valor=${value}`)
+
+    // Busca lead correspondente
+    const lead = await findLead(companyId, email, rawPhone, supabase)
+    if (!lead) {
+      console.warn(`[payment-webhook:mp] company=${companyId} lead não encontrado email=${email} phone=${rawPhone}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // Move lead para Fechado + seta valor se não definido
+    const updates: Record<string, any> = { status: 'Fechado' }
+    if (value && !lead.project_value) updates.project_value = value
+
+    await supabase.from('leads').update(updates).eq('id', lead.id)
+    console.log(`[payment-webhook:mp] lead=${lead.id} movido para Fechado valor=${value}`)
+
+    // Dispara sequência "pagamento" em background
+    runPaymentSequenceImmediate(companyId, lead.id, { platform: 'mercadopago', paymentId: String(paymentId), value })
+      .then(r => console.log(`[payment-webhook:mp] sequência sent=${r.sent} error=${r.error ?? 'ok'}`))
+      .catch(err => console.error(`[payment-webhook:mp] sequência falhou:`, err.message))
+
+    return NextResponse.json({ received: true })
+  }
+
+  // ─── KIWIFY ────────────────────────────────────────────────────────────────
+  if (platform === 'kiwify') {
+    const { token: savedToken } = integration.config ?? {}
+
+    // Valida token no payload (mecanismo oficial Kiwify)
+    if (!savedToken || body.token !== savedToken) {
+      console.warn(`[payment-webhook:kiwify] company=${companyId} token inválido`)
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
+    }
+
+    // Processa apenas vendas confirmadas
+    if (body.order_status !== 'paid') {
+      console.log(`[payment-webhook:kiwify] company=${companyId} status=${body.order_status} — ignorado`)
+      return NextResponse.json({ received: true })
+    }
+
+    const email = body.Customer?.email
+    const rawPhone = body.Customer?.mobile
+    const productName = body.Product?.name
+    const value = body.Commissions?.my_commission
+
+    console.log(`[payment-webhook:kiwify] company=${companyId} order=${body.order_id} email=${email} produto="${productName}"`)
+
+    // Busca lead correspondente
+    const lead = await findLead(companyId, email, rawPhone, supabase)
+    if (!lead) {
+      console.warn(`[payment-webhook:kiwify] company=${companyId} lead não encontrado email=${email} phone=${rawPhone}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // Move lead para Fechado + seta valor se não definido
+    const updates: Record<string, any> = { status: 'Fechado' }
+    if (value && !lead.project_value) updates.project_value = value
+
+    await supabase.from('leads').update(updates).eq('id', lead.id)
+    console.log(`[payment-webhook:kiwify] lead=${lead.id} movido para Fechado produto="${productName}"`)
+
+    // Dispara sequência "pagamento" em background
+    runPaymentSequenceImmediate(companyId, lead.id, { platform: 'kiwify', orderId: body.order_id, productName, value })
+      .then(r => console.log(`[payment-webhook:kiwify] sequência sent=${r.sent} error=${r.error ?? 'ok'}`))
+      .catch(err => console.error(`[payment-webhook:kiwify] sequência falhou:`, err.message))
+
+    return NextResponse.json({ received: true })
+  }
+
+  return NextResponse.json({ received: true })
+}

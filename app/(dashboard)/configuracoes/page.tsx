@@ -170,6 +170,16 @@ function ConfiguracoesContent() {
   const [googleLoading, setGoogleLoading] = useState(true);
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
 
+  // Payment integrations
+  const [paymentIntegrations, setPaymentIntegrations] = useState<{ platform: string; active: boolean }[]>([]);
+  const [mpFormOpen, setMpFormOpen] = useState(false);
+  const [kiwifyFormOpen, setKiwifyFormOpen] = useState(false);
+  const [mpAccessToken, setMpAccessToken] = useState('');
+  const [mpSecretKey, setMpSecretKey] = useState('');
+  const [kiwifyToken, setKiwifyToken] = useState('');
+  const [savingPlatform, setSavingPlatform] = useState<string | null>(null);
+  const [disconnectingPlatform, setDisconnectingPlatform] = useState<string | null>(null);
+
   const [notifSound, setNotifSound] = useState(true);
   useEffect(() => {
     setNotifSound(localStorage.getItem('zaapply_notif_sound') !== 'false');
@@ -214,6 +224,10 @@ function ConfiguracoesContent() {
 
   useEffect(() => {
     fetch('/api/google/status').then(r => r.ok ? r.json() : null).then(d => { if (d) setGoogleStatus(d); setGoogleLoading(false); }).catch(() => setGoogleLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/payment-integrations').then(r => r.ok ? r.json() : null).then(d => { if (d) setPaymentIntegrations(d.integrations ?? []); }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -386,6 +400,33 @@ function ConfiguracoesContent() {
     setGoogleStatus({ connected: false, email: null });
     toast({ title: 'Google Calendar desconectado' });
     setDisconnectingGoogle(false);
+  };
+
+  const handlePaymentSave = async (platform: string, config: Record<string, string>) => {
+    setSavingPlatform(platform);
+    try {
+      const res = await fetch('/api/payment-integrations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform, config }) });
+      const data = await res.json();
+      if (!res.ok) { toast({ title: data.error ?? 'Erro ao salvar', variant: 'destructive' }); return; }
+      setPaymentIntegrations(prev => {
+        const filtered = prev.filter(i => i.platform !== platform);
+        return [...filtered, { platform, active: true }];
+      });
+      if (platform === 'mercadopago') setMpFormOpen(false);
+      if (platform === 'kiwify') setKiwifyFormOpen(false);
+      toast({ title: `${platform === 'mercadopago' ? 'Mercado Pago' : 'Kiwify'} configurado com sucesso!` });
+    } catch { toast({ title: 'Erro de conexão', variant: 'destructive' }); }
+    finally { setSavingPlatform(null); }
+  };
+
+  const handlePaymentDisconnect = async (platform: string) => {
+    setDisconnectingPlatform(platform);
+    try {
+      await fetch('/api/payment-integrations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform }) });
+      setPaymentIntegrations(prev => prev.filter(i => i.platform !== platform));
+      toast({ title: `${platform === 'mercadopago' ? 'Mercado Pago' : 'Kiwify'} desconectado` });
+    } catch { toast({ title: 'Erro ao desconectar', variant: 'destructive' }); }
+    finally { setDisconnectingPlatform(null); }
   };
 
   const currentPlanKey = resolvePlan(company?.plan_type || 'basic');
@@ -744,11 +785,109 @@ function ConfiguracoesContent() {
             </div>
           </div>
 
+          {/* ── MERCADO PAGO ─────────────────────────────────── */}
+          {(() => {
+            const connected = paymentIntegrations.some(i => i.platform === 'mercadopago' && i.active);
+            return (
+              <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#009EE3]/10 flex items-center justify-center shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#009EE3"/>
+                      <path d="M8.5 14.5h7l-1.5-5h-4l-1.5 5z" fill="white"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">Mercado Pago</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Receba notificações automáticas de pagamento confirmado</p>
+                    {connected && <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Conectado</p>}
+                    {!connected && mpFormOpen && (
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <Label className="text-xs">Access Token</Label>
+                          <Input value={mpAccessToken} onChange={e => setMpAccessToken(e.target.value)} placeholder="APP_USR-..." className="h-8 text-xs mt-1 font-mono" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Chave Secreta do Webhook</Label>
+                          <Input value={mpSecretKey} onChange={e => setMpSecretKey(e.target.value)} placeholder="Chave gerada no painel MP" className="h-8 text-xs mt-1 font-mono" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/70">Obtenha em Suas integrações → Notificações → Webhooks no painel do Mercado Pago.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {connected ? (
+                    <Button variant="ghost" size="sm" onClick={() => handlePaymentDisconnect('mercadopago')} disabled={disconnectingPlatform === 'mercadopago'} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                      {disconnectingPlatform === 'mercadopago' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4 mr-1" />Desconectar</>}
+                    </Button>
+                  ) : mpFormOpen ? (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => setMpFormOpen(false)} className="text-muted-foreground">Cancelar</Button>
+                      <Button size="sm" onClick={() => handlePaymentSave('mercadopago', { access_token: mpAccessToken, secret_key: mpSecretKey })} disabled={!mpAccessToken || !mpSecretKey || savingPlatform === 'mercadopago'}>
+                        {savingPlatform === 'mercadopago' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setMpFormOpen(true)}>Configurar</Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── KIWIFY ───────────────────────────────────────── */}
+          {(() => {
+            const connected = paymentIntegrations.some(i => i.platform === 'kiwify' && i.active);
+            return (
+              <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="#7C3AED"/>
+                      <path d="M8 8l4 4-4 4M12 16h4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">Kiwify</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Detecta compras confirmadas de infoprodutos automaticamente</p>
+                    {connected && <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Conectado</p>}
+                    {!connected && kiwifyFormOpen && (
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <Label className="text-xs">Token de Verificação</Label>
+                          <Input value={kiwifyToken} onChange={e => setKiwifyToken(e.target.value)} placeholder="Token gerado no painel Kiwify" className="h-8 text-xs mt-1 font-mono" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/70">Obtenha em Apps → Webhooks no painel da Kiwify. Este token é gerado automaticamente ao criar o webhook.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {connected ? (
+                    <Button variant="ghost" size="sm" onClick={() => handlePaymentDisconnect('kiwify')} disabled={disconnectingPlatform === 'kiwify'} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                      {disconnectingPlatform === 'kiwify' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4 mr-1" />Desconectar</>}
+                    </Button>
+                  ) : kiwifyFormOpen ? (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => setKiwifyFormOpen(false)} className="text-muted-foreground">Cancelar</Button>
+                      <Button size="sm" onClick={() => handlePaymentSave('kiwify', { token: kiwifyToken })} disabled={!kiwifyToken || savingPlatform === 'kiwify'}>
+                        {savingPlatform === 'kiwify' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setKiwifyFormOpen(true)}>Configurar</Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="p-5 rounded-2xl border border-dashed border-border/50 flex items-center gap-4 opacity-50 select-none">
             <Zap className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Mais integrações em breve</p>
-              <p className="text-xs text-muted-foreground">Slack, HubSpot, RD Station…</p>
+              <p className="text-xs text-muted-foreground">Novas integrações chegando em breve</p>
             </div>
           </div>
         </div>

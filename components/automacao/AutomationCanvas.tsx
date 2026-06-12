@@ -92,7 +92,7 @@ import { createClient } from '@/lib/supabase/client';
 
 // ─── API Types ──────────────────────────────────────────────────────────────────
 
-type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing' | 'trial_saas';
+type SequenceTipo = 'follow_geral' | 'anti_noshow' | 'remarketing' | 'trial_saas' | 'pagamento';
 
 interface FollowStep {
   id: string;
@@ -2380,6 +2380,69 @@ function TrialWebhookField() {
   )
 }
 
+function PaymentWebhookField() {
+  const [integrations, setIntegrations] = useState<{ platform: string }[]>([])
+  const [companyId, setCompanyId] = useState<number | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/payment-integrations')
+      .then(r => r.json())
+      .then(d => { setIntegrations(d.integrations ?? []); setCompanyId(d.companyId ?? null) })
+      .catch(() => {})
+  }, [])
+
+  if (!integrations.length) return (
+    <>
+      <div className="h-px bg-border/60 -mx-4" />
+      <p className="text-[10px] text-muted-foreground/70 leading-snug">
+        Configure integrações de pagamento em <strong>Configurações → Integrações</strong> para ativar o gatilho.
+      </p>
+    </>
+  )
+
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+
+  function copy(platform: string) {
+    const url = `${baseUrl}/api/webhooks/payment/${companyId}/${platform}`
+    navigator.clipboard.writeText(url)
+    setCopied(platform)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  return (
+    <>
+      <div className="h-px bg-border/60 -mx-4" />
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">URLs dos Webhooks</p>
+        <p className="text-[10px] text-muted-foreground/70 leading-snug">Cole cada URL no painel da respectiva plataforma.</p>
+        {integrations.map(({ platform }) => {
+          const url = `${baseUrl}/api/webhooks/payment/${companyId}/${platform}`
+          const label = platform === 'mercadopago' ? 'Mercado Pago' : platform === 'kiwify' ? 'Kiwify' : platform
+          return (
+            <div key={platform} className="space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+              <div className="flex items-center gap-1.5">
+                <input readOnly value={url} className="field-input font-mono text-[10px] truncate flex-1" />
+                <button
+                  type="button"
+                  onClick={() => copy(platform)}
+                  className="shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted/40 transition-colors"
+                >
+                  {copied === platform
+                    ? <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    : <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  }
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
 function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange, sequences = [], currentSeqId }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
@@ -2794,6 +2857,9 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
 
             {/* Trial SaaS — webhook URL */}
             {sequenceTipo === 'trial_saas' && <TrialWebhookField />}
+
+            {/* Pagamento — URLs dos webhooks por plataforma */}
+            {sequenceTipo === 'pagamento' && <PaymentWebhookField />}
 
             {/* Remarketing-specific entry criteria */}
             {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (

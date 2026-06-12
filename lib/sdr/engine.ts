@@ -1648,6 +1648,8 @@ const TOOL_NAME_MAP: Record<string, string> = {
   'Memory_long':                     'Memory_long',
   'Agente de Agendamento':           'Agente_de_Agendamento',
   'Pausar_conversa':                 'Pausar_conversa',
+  'Definir_valor_projeto':           'Definir_valor_projeto',
+  'Atribuir_tag':                    'Atribuir_tag',
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
@@ -1765,6 +1767,39 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     })
   }
 
+  // Define valor do projeto quando o lead demonstrar interesse em produto específico
+  tools.push({
+    type: 'function',
+    function: {
+      name: TOOL_NAME_MAP['Definir_valor_projeto'],
+      description: 'Define o valor do projeto/venda do lead com base no produto identificado. Use quando o lead demonstrar interesse claro em um produto específico e você souber o valor dele.',
+      parameters: {
+        type: 'object',
+        properties: {
+          valor: { type: 'number', description: 'Valor em reais sem formatação (ex: 1500)' },
+          produto: { type: 'string', description: 'Nome do produto ou serviço identificado' },
+        },
+        required: ['valor'],
+      },
+    },
+  })
+
+  // Atribui tag ao lead com base no perfil identificado na conversa
+  tools.push({
+    type: 'function',
+    function: {
+      name: TOOL_NAME_MAP['Atribuir_tag'],
+      description: 'Atribui uma tag ao lead com base no perfil ou comportamento identificado. Use apenas tags que existam na lista de tags da empresa.',
+      parameters: {
+        type: 'object',
+        properties: {
+          tag_name: { type: 'string', description: 'Nome exato da tag a atribuir (deve ser uma das tags disponíveis)' },
+        },
+        required: ['tag_name'],
+      },
+    },
+  })
+
   // Sempre disponível — pausa o bot nesta conversa e sinaliza necessidade de atendimento humano
   tools.push({
     type: 'function',
@@ -1782,6 +1817,62 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
   })
 
   return tools
+}
+
+// ─── Tool: define project_value do lead ──────────────────────────────────────
+async function runDefinirValorProjeto(
+  valor: number,
+  produto: string | undefined,
+  ctx: SdrContext,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<string> {
+  if (!ctx.leadId || !valor || valor <= 0) return 'Valor inválido ou lead não identificado'
+
+  const { error } = await supabase
+    .from('leads')
+    .update({ project_value: valor })
+    .eq('id', ctx.leadId)
+
+  if (error) {
+    console.error(`[SDR:${ctx.companyId}] Definir_valor_projeto erro:`, error.message)
+    return `Erro ao definir valor: ${error.message}`
+  }
+
+  console.log(`[SDR:${ctx.companyId}] lead=${ctx.leadId} project_value=${valor}${produto ? ` produto="${produto}"` : ''}`)
+  return `Valor do projeto definido: R$ ${valor}${produto ? ` (${produto})` : ''}`
+}
+
+// ─── Tool: atribui tag ao lead ───────────────────────────────────────────────
+async function runAtribuirTag(
+  tagName: string,
+  ctx: SdrContext,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<string> {
+  if (!ctx.leadId || !tagName?.trim()) return 'Tag ou lead não identificado'
+
+  const { data: tag } = await supabase
+    .from('tags')
+    .select('id')
+    .eq('company_id', ctx.companyId)
+    .eq('tag_name', tagName.trim())
+    .maybeSingle()
+
+  if (!tag) return `Tag "${tagName}" não encontrada. Use uma das tags disponíveis da empresa.`
+
+  const { error } = await supabase
+    .from('lead_tags')
+    .upsert(
+      { lead_id: ctx.leadId, tag_id: tag.id },
+      { onConflict: 'lead_id,tag_id', ignoreDuplicates: true }
+    )
+
+  if (error) {
+    console.error(`[SDR:${ctx.companyId}] Atribuir_tag erro:`, error.message)
+    return `Erro ao atribuir tag: ${error.message}`
+  }
+
+  console.log(`[SDR:${ctx.companyId}] lead=${ctx.leadId} tag="${tagName}" (id=${tag.id}) atribuída`)
+  return `Tag "${tagName}" atribuída ao lead com sucesso`
 }
 
 async function runOrchestrator(
@@ -1954,6 +2045,10 @@ CONTEXTO DO CRM:
       } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
+      } else if (fn === 'Definir_valor_projeto') {
+        result = await runDefinirValorProjeto(args.valor, args.produto, ctx, supabase)
+      } else if (fn === 'Atribuir_tag') {
+        result = await runAtribuirTag(args.tag_name, ctx, supabase)
       } else if (fn === 'Pausar_conversa') {
         // Pausa o bot nesta conversa — atendimento humano irá assumir
         if (ctx.conversationId) {

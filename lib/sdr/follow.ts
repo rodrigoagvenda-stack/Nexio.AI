@@ -2344,3 +2344,91 @@ export async function runTrialSaasImmediate(companyId: number, trialId: number):
   const sent = await processTrialSaas(company, sequences as FollowSequence[], supabase, trialId, true)
   return { sent }
 }
+
+/** Dispara imediatamente a sequência "pagamento" para um lead que acabou de pagar */
+export async function runPaymentSequenceImmediate(
+  companyId: number,
+  leadId: number,
+  context: { platform: string; value?: number; productName?: string; paymentId?: string; orderId?: string }
+): Promise<{ sent: number; error?: string }> {
+  const supabase = createServiceClient()
+  const platformCfg = await getPlatformConfig()
+
+  console.log(`[payment-seq] company=${companyId} lead=${leadId} platform=${context.platform}`)
+
+  // Credenciais WhatsApp da empresa
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('company_id, uazapi_instance_url, uazapi_token')
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!cfg) return { sent: 0, error: 'sdr_configs não encontrado' }
+
+  const uazapiUrl = cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url
+  const uazapiToken = safeDecrypt(cfg.uazapi_token)
+  if (!uazapiToken) return { sent: 0, error: 'Token WhatsApp não configurado' }
+
+  // WhatsApp do lead
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('whatsapp, contact_name, company_name')
+    .eq('id', leadId)
+    .maybeSingle()
+
+  if (!lead?.whatsapp) {
+    console.warn(`[payment-seq] lead=${leadId} sem WhatsApp cadastrado`)
+    return { sent: 0, error: `Lead ${leadId} sem WhatsApp` }
+  }
+
+  // Sequências do tipo "pagamento" ativas para esta empresa
+  const { data: sequences } = await supabase
+    .from('follow_sequences')
+    .select('id, nome')
+    .eq('company_id', companyId)
+    .eq('tipo', 'pagamento')
+    .eq('ativo', true)
+
+  if (!sequences?.length) {
+    console.warn(`[payment-seq] company=${companyId} nenhuma sequência pagamento ativa`)
+    return { sent: 0, error: 'Nenhuma sequência pagamento ativa' }
+  }
+
+  const client = createUazapiClient(uazapiUrl, uazapiToken)
+  const phone = normalizePhone(lead.whatsapp)
+  let totalSent = 0
+
+  for (const seq of sequences) {
+    const { data: steps } = await supabase
+      .from('follow_steps')
+      .select('*')
+      .eq('sequence_id', seq.id)
+      .order('ordem', { ascending: true })
+
+    if (!steps?.length) continue
+
+    for (const step of steps) {
+      // Skip nós de espera — modo imediato envia tudo na sequência
+      if (!step.mensagem && !step.media_config) continue
+
+      try {
+        await sendRichStep(
+          client,
+          phone,
+          (step.tipo_mensagem ?? 'text') as StepTipoMensagem,
+          step.mensagem ?? '',
+          step.media_config as StepMediaConfig | undefined
+        )
+        totalSent++
+        console.log(`[payment-seq] company=${companyId} lead=${leadId} seq="${seq.nome}" step=${step.ordem} enviado`)
+
+        // Delay anti-ban entre mensagens (1.5s)
+        await new Promise(r => setTimeout(r, 1500))
+      } catch (err: any) {
+        console.error(`[payment-seq] company=${companyId} lead=${leadId} step=${step.ordem} erro:`, err.message)
+      }
+    }
+  }
+
+  return { sent: totalSent }
+}
