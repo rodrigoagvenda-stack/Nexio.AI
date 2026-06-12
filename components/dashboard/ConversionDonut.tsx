@@ -1,7 +1,7 @@
 'use client';
 
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ConversionRadialProps {
   fechados: number;
@@ -30,7 +30,6 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-2 flex-shrink-0">
         <CardTitle className="text-base font-semibold">Taxa de conversão</CardTitle>
-        <CardDescription className="text-xs">{periodo}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col items-center justify-center pb-6 gap-5">
         {/* Gauge */}
