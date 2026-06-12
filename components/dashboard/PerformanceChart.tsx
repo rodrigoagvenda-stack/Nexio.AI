@@ -25,10 +25,45 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
       className="h-full"
     >
       <Card className="h-full flex flex-col">
-        <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between pb-3">
-          <CardTitle>Performance de Vendas</CardTitle>
-          {/* legenda inline no header */}
-          <div className="flex items-center gap-5">
+        <CardHeader className="flex-shrink-0 pb-3">
+          <CardTitle className="text-base font-semibold">Performance de vendas</CardTitle>
+        </CardHeader>
+
+        <CardContent className="flex-1 flex flex-col pb-4 px-2">
+          <div className="flex-1 min-h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} barCategoryGap="30%" barGap={3}>
+                <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  tick={{ fill: '#666', fontSize: 12 }}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                  contentStyle={{
+                    backgroundColor: '#161616',
+                    border: '1px solid #252525',
+                    borderRadius: 8,
+                    color: '#D8D8D8',
+                    fontSize: 12,
+                  }}
+                  itemStyle={{ color: '#D8D8D8' }}
+                  formatter={(value: number, name: string) => [
+                    value,
+                    name === 'leads' ? 'Leads gerados' : 'Leads fechados',
+                  ]}
+                />
+                <Bar dataKey="leads" fill={COLORS.leads} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="fechados" fill={COLORS.fechados} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* legenda embaixo do gráfico */}
+          <div className="flex justify-center gap-6 pt-3">
             <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
               <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS.leads }} />
               Leads gerados
@@ -38,38 +73,6 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
               Leads fechados
             </span>
           </div>
-        </CardHeader>
-
-        <CardContent className="flex-1 min-h-0 pb-4 px-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} barCategoryGap="30%" barGap={3}>
-              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="name"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                tick={{ fill: '#666', fontSize: 12 }}
-              />
-              <Tooltip
-                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                contentStyle={{
-                  backgroundColor: '#161616',
-                  border: '1px solid #252525',
-                  borderRadius: 8,
-                  color: '#D8D8D8',
-                  fontSize: 12,
-                }}
-                itemStyle={{ color: '#D8D8D8' }}
-                formatter={(value: number, name: string) => [
-                  value,
-                  name === 'leads' ? 'Leads gerados' : 'Leads fechados',
-                ]}
-              />
-              <Bar dataKey="leads" fill={COLORS.leads} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="fechados" fill={COLORS.fechados} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </CardContent>
       </Card>
     </motion.div>

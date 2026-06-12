@@ -452,7 +452,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-3 items-stretch">
+      <div className="grid gap-6 lg:grid-cols-3 items-stretch min-h-[380px]">
         <div className="lg:col-span-2 h-full">
           <PerformanceChart data={performanceData} />
         </div>

@@ -29,7 +29,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-2 flex-shrink-0">
-        <CardTitle className="text-base">Taxa de conversão</CardTitle>
+        <CardTitle className="text-base font-semibold">Taxa de conversão</CardTitle>
         <CardDescription className="text-xs">{periodo}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col items-center justify-center pb-6 gap-5">

@@ -62,7 +62,7 @@ export function RecentSales() {
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Vendas Recentes</CardTitle>
+          <CardTitle className="text-base font-semibold">Vendas recentes</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
