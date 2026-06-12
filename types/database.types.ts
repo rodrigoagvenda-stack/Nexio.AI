@@ -135,6 +135,7 @@ export interface Lead {
   resumo_ia?: string;
   created_at: string;
   updated_at: string;
+  lead_tags?: LeadTag[];
 }
 
 export interface ICPConfiguration {

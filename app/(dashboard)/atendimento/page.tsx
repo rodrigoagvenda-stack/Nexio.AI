@@ -1570,6 +1570,20 @@ export default function AtendimentoPage() {
                                 {conv.lead.priority}
                               </Badge>
                             )}
+                            {(conv.lead.lead_tags as any[])?.map((lt: any) => {
+                              const tag = lt.tags;
+                              if (!tag) return null;
+                              return (
+                                <Badge
+                                  key={lt.tag_id}
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0"
+                                  style={{ borderColor: `${tag.tag_color}88`, color: tag.tag_color }}
+                                >
+                                  {tag.tag_name}
+                                </Badge>
+                              );
+                            })}
                           </>
                         )}
                       </div>

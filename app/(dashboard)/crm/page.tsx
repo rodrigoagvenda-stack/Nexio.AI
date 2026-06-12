@@ -200,6 +200,19 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
                 {lead.segment}
               </span>
             )}
+            {(lead.lead_tags as any[])?.map((lt: any) => {
+              const tag = lt.tags;
+              if (!tag) return null;
+              return (
+                <span
+                  key={lt.tag_id}
+                  className="text-[10px] px-2 py-0.5 rounded-md font-medium h-fit"
+                  style={{ backgroundColor: `${tag.tag_color}22`, color: tag.tag_color }}
+                >
+                  {tag.tag_name}
+                </span>
+              );
+            })}
           </div>
 
           {/* Footer com métricas */}
@@ -411,7 +424,7 @@ export default function CRMPage() {
       const supabase = createClient();
       let query = supabase
         .from('leads')
-        .select('*')
+        .select('*, lead_tags(tag_id, tags(id, tag_name, tag_color))')
         .eq('company_id', user?.company_id)
         .order('created_at', { ascending: false })
         .limit(100);
