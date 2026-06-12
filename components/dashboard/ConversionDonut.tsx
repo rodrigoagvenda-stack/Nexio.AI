@@ -31,73 +31,48 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
       <CardHeader className="pb-2 flex-shrink-0">
         <CardTitle className="text-base font-semibold">Taxa de conversão</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col items-center justify-center pb-6 gap-5">
-        {/* Gauge */}
-        <div className="relative w-full flex justify-center">
-          <svg
-            width="100%"
-            viewBox={`0 0 ${cx * 2} ${cy + strokeW / 2 + 6}`}
-            style={{ maxWidth: 260 }}
-            overflow="visible"
-          >
-            <defs>
-              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#0E5B3F" />
-                <stop offset="100%" stopColor="#34B270" />
-              </linearGradient>
-            </defs>
-            {/* Track */}
-            <path
-              d={trackPath}
-              fill="none"
-              stroke="rgba(255,255,255,0.07)"
-              strokeWidth={strokeW}
-              strokeLinecap="round"
-            />
-            {/* Fill */}
-            <path
-              d={trackPath}
-              fill="none"
-              stroke="url(#gaugeGrad)"
-              strokeWidth={strokeW}
-              strokeLinecap="round"
-              strokeDasharray={circ}
-              strokeDashoffset={fillOffset}
-              style={{ transition: 'stroke-dashoffset 0.7s ease' }}
-            />
-            {/* Texto centralizado */}
-            <text
-              x={cx}
-              y={cy - 4}
-              textAnchor="middle"
-              fontSize="32"
-              fontWeight="700"
-              fill="white"
+      <CardContent className="flex flex-1 flex-col pb-4 px-2">
+        {/* Gauge + Delta — ocupa o espaço disponível */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <div className="relative w-full flex justify-center">
+            <svg
+              width="100%"
+              viewBox={`0 0 ${cx * 2} ${cy + strokeW / 2 + 6}`}
+              style={{ maxWidth: 260 }}
+              overflow="visible"
             >
-              {pct}%
-            </text>
-            <text
-              x={cx}
-              y={cy + 16}
-              textAnchor="middle"
-              fontSize="11"
-              fill="#888"
-            >
-              Conversão
-            </text>
-          </svg>
+              <defs>
+                <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#0E5B3F" />
+                  <stop offset="100%" stopColor="#34B270" />
+                </linearGradient>
+              </defs>
+              <path d={trackPath} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={strokeW} strokeLinecap="round" />
+              <path
+                d={trackPath}
+                fill="none"
+                stroke="url(#gaugeGrad)"
+                strokeWidth={strokeW}
+                strokeLinecap="round"
+                strokeDasharray={circ}
+                strokeDashoffset={fillOffset}
+                style={{ transition: 'stroke-dashoffset 0.7s ease' }}
+              />
+              <text x={cx} y={cy - 4} textAnchor="middle" fontSize="32" fontWeight="700" fill="white">{pct}%</text>
+              <text x={cx} y={cy + 16} textAnchor="middle" fontSize="11" fill="#888">Conversão</text>
+            </svg>
+          </div>
+
+          {hasDelta && (
+            <div className={`flex items-center gap-1.5 text-sm font-semibold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+              {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+              {isPositive ? '+' : ''}{delta}% vs período anterior
+            </div>
+          )}
         </div>
 
-        {/* Delta */}
-        {hasDelta && (
-          <div className={`flex items-center gap-1.5 text-sm font-semibold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-            {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-            {isPositive ? '+' : ''}{delta}% vs período anterior
-          </div>
-        )}
-
-        {/* Legenda */}
-        <div className="flex items-center gap-6">
+        {/* Legenda — rodapé, igual ao PerformanceChart */}
+        <div className="flex justify-center gap-6 pt-3">
           <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#34B270' }} />
             {fechados} fechados
