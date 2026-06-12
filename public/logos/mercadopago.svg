@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 125" fill="none">
+  <!-- Outer oval border -->
+  <ellipse cx="100" cy="62.5" rx="99" ry="61.5" fill="#1A1ACA"/>
+  <!-- Inner blue fill -->
+  <ellipse cx="100" cy="62.5" rx="93" ry="55.5" fill="#009EE3"/>
+  <!-- Handshake: two hands meeting in center -->
+  <!-- Left hand/arm -->
+  <path d="M18 55 C28 38 55 40 72 55 L80 62 L72 70 C55 85 28 87 18 70 Z" fill="white" opacity="0.95"/>
+  <!-- Right hand/arm -->
+  <path d="M182 55 C172 38 145 40 128 55 L120 62 L128 70 C145 85 172 87 182 70 Z" fill="white" opacity="0.95"/>
+  <!-- Clasped center knuckles -->
+  <ellipse cx="76" cy="62.5" rx="10" ry="9" fill="white"/>
+  <ellipse cx="124" cy="62.5" rx="10" ry="9" fill="white"/>
+  <!-- Center join -->
+  <rect x="74" y="54" width="52" height="17" rx="5" fill="white"/>
+  <!-- Finger details left -->
+  <rect x="64" y="51" width="8" height="6" rx="3" fill="#009EE3" opacity="0.6"/>
+  <rect x="64" y="61" width="8" height="6" rx="3" fill="#009EE3" opacity="0.6"/>
+  <!-- Finger details right -->
+  <rect x="128" y="51" width="8" height="6" rx="3" fill="#009EE3" opacity="0.6"/>
+  <rect x="128" y="61" width="8" height="6" rx="3" fill="#009EE3" opacity="0.6"/>
+</svg>

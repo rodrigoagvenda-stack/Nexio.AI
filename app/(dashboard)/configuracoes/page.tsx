@@ -13,7 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import {
-  User, Camera, CreditCard, Calendar,
+  User, Camera, CreditCard,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
   AlertCircle, Sparkles, X, Shield, Check, Bot, UserMinus,
   ShieldCheck, Copy, CheckCheck, Volume2,
@@ -737,8 +737,8 @@ function ConfiguracoesContent() {
           <div className="p-6 rounded-2xl border border-border bg-card">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mt-0.5">
-                  <Calendar className="h-5 w-5 text-primary" />
+                <div className="w-10 h-10 rounded-xl bg-white/5 border border-border flex items-center justify-center mt-0.5 overflow-hidden">
+                  <img src="/logos/google-calendar.svg" width="32" height="32" alt="Google Calendar" />
                 </div>
                 <div>
                   <p className="font-semibold">Google Calendar</p>
@@ -791,11 +791,8 @@ function ConfiguracoesContent() {
             return (
               <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-[#009EE3]/10 flex items-center justify-center shrink-0">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="#009EE3"/>
-                      <path d="M8.5 14.5h7l-1.5-5h-4l-1.5 5z" fill="white"/>
-                    </svg>
+                  <div className="w-9 h-9 rounded-xl bg-[#009EE3]/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    <img src="/logos/mercadopago.svg" width="32" height="20" alt="Mercado Pago" className="object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">Mercado Pago</p>
@@ -842,11 +839,8 @@ function ConfiguracoesContent() {
             return (
               <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="10" fill="#7C3AED"/>
-                      <path d="M8 8l4 4-4 4M12 16h4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                  <div className="w-9 h-9 rounded-xl bg-[#2db56f]/10 flex items-center justify-center shrink-0 overflow-hidden">
+                    <img src="/logos/kiwify.svg" width="26" height="26" alt="Kiwify" className="object-contain" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">Kiwify</p>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <clipPath id="gcal-clip">
+    <rect width="48" height="48" rx="10"/>
+  </clipPath>
+  <g clip-path="url(#gcal-clip)">
+    <rect width="48" height="48" fill="white"/>
+    <!-- Blue header -->
+    <rect y="0" width="48" height="15" fill="#1A73E8"/>
+    <!-- Calendar ring posts -->
+    <rect x="13" y="0" width="5" height="11" rx="2.5" fill="#0D5FCB"/>
+    <rect x="30" y="0" width="5" height="11" rx="2.5" fill="#0D5FCB"/>
+    <!-- "31" number -->
+    <text x="24" y="41" text-anchor="middle" fill="#3C4043"
+      font-family="Arial, Helvetica, sans-serif"
+      font-size="21" font-weight="700">31</text>
+  </g>
+</svg>
