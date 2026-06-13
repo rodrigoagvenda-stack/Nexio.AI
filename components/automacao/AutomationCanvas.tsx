@@ -2510,7 +2510,7 @@ function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify'
         })}
         {missing.length > 0 && (
           <p className="text-[10px] text-amber-500/80 leading-snug">
-            {missing.map(p => p === 'mercadopago' ? 'Mercado Pago' : 'Kiwify').join(' e ')} não configurado em Integrações.
+            {missing.map(p => p === 'mercadopago' ? 'Mercado Pago' : p === 'kiwify' ? 'Kiwify' : 'Asaas').join(' e ')} não configurado em Integrações.
           </p>
         )}
       </div>
@@ -2920,10 +2920,10 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             </Field>
             {sequenceTipo !== 'pagamento' && (
               <Field label="Entrada automática por evento">
-                <Select value={(d as TriggerNodeData).eventoEntrada ?? ''} onValueChange={(v) => onUpdate(node.id, { eventoEntrada: (v as TriggerNodeData['eventoEntrada']) || undefined })}>
+                <Select value={(d as TriggerNodeData).eventoEntrada ?? 'none'} onValueChange={(v) => onUpdate(node.id, { eventoEntrada: v === 'none' ? undefined : (v as TriggerNodeData['eventoEntrada']) })}>
                   <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue placeholder="Manual / cron padrão" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Manual / cron padrão</SelectItem>
+                    <SelectItem value="none">Manual / cron padrão</SelectItem>
                     <SelectItem value="novo_lead">Novo lead criado</SelectItem>
                     <SelectItem value="mudanca_status">Mudança de status</SelectItem>
                     <SelectItem value="webhook">Evento de webhook</SelectItem>
