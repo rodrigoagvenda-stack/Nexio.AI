@@ -2977,16 +2977,33 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                   </Field>
                 )}
                 <PaymentWebhookField platform={(d as TriggerNodeData).platform} />
-                {allNodes.filter((n) => n.data.kind === 'trigger').length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => onDelete(node.id)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-destructive/40 text-destructive text-xs font-medium hover:bg-destructive/10 transition-colors w-full justify-center"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Remover este gatilho
-                  </button>
-                )}
+                {(() => {
+                  const triggerCount = allNodes.filter((n) => n.data.kind === 'trigger').length;
+                  const canDelete = triggerCount > 1;
+                  return (
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => canDelete && onDelete(node.id)}
+                        disabled={!canDelete}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors w-full justify-center',
+                          canDelete
+                            ? 'border-destructive/40 text-destructive hover:bg-destructive/10 cursor-pointer'
+                            : 'border-border/40 text-muted-foreground/40 cursor-not-allowed'
+                        )}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Remover este gatilho
+                      </button>
+                      {!canDelete && (
+                        <p className="text-[10px] text-muted-foreground/50 text-center leading-snug">
+                          Adicione outro gatilho antes de remover este.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             )}
 
@@ -5110,28 +5127,48 @@ function CanvasInner() {
 
                   {/* Right-edge strip */}
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-2">
-                    <button onClick={() => setPaletteOpen((v) => !v)} title="Adicionar nó"
-                      className={cn('w-10 h-10 rounded-xl bg-card border flex items-center justify-center shadow-md transition-all',
-                        paletteOpen ? 'border-primary/50 text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-primary')}>
-                      <Plus className="w-5 h-5" />
-                    </button>
+                    <div className="relative group/strip">
+                      <button onClick={() => setPaletteOpen((v) => !v)}
+                        className={cn('w-10 h-10 rounded-xl bg-card border flex items-center justify-center shadow-md transition-all',
+                          paletteOpen ? 'border-primary/50 text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-primary')}>
+                        <Plus className="w-5 h-5" />
+                      </button>
+                      <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/strip:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
+                        Adicionar nó
+                      </span>
+                    </div>
                     {activeTipo === 'pagamento' && (
                       <>
-                        <button onClick={() => addPaymentTrigger('mercadopago')} title="Adicionar gatilho Mercado Pago"
-                          className="w-10 h-10 rounded-xl bg-card border border-[#009EE3]/40 flex items-center justify-center shadow-md text-[#009EE3] hover:bg-[#009EE3]/10 transition-all"
-                          style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                          MP
-                        </button>
-                        <button onClick={() => addPaymentTrigger('kiwify')} title="Adicionar gatilho Kiwify"
-                          className="w-10 h-10 rounded-xl bg-card border border-[#2db56f]/40 flex items-center justify-center shadow-md text-[#2db56f] hover:bg-[#2db56f]/10 transition-all"
-                          style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                          KW
-                        </button>
-                        <button onClick={() => addPaymentTrigger('asaas')} title="Adicionar gatilho Asaas"
-                          className="w-10 h-10 rounded-xl bg-card border border-[#00AEEF]/40 flex items-center justify-center shadow-md text-[#00AEEF] hover:bg-[#00AEEF]/10 transition-all"
-                          style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
-                          AS
-                        </button>
+                        <div className="relative group/mp">
+                          <button onClick={() => addPaymentTrigger('mercadopago')}
+                            className="w-10 h-10 rounded-xl bg-card border border-[#009EE3]/40 flex items-center justify-center shadow-md text-[#009EE3] hover:bg-[#009EE3]/10 transition-all"
+                            style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                            MP
+                          </button>
+                          <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/mp:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
+                            Adicionar gatilho <span className="text-[#009EE3] font-semibold ml-1">Mercado Pago</span>
+                          </span>
+                        </div>
+                        <div className="relative group/kw">
+                          <button onClick={() => addPaymentTrigger('kiwify')}
+                            className="w-10 h-10 rounded-xl bg-card border border-[#2db56f]/40 flex items-center justify-center shadow-md text-[#2db56f] hover:bg-[#2db56f]/10 transition-all"
+                            style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                            KW
+                          </button>
+                          <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/kw:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
+                            Adicionar gatilho <span className="text-[#2db56f] font-semibold ml-1">Kiwify</span>
+                          </span>
+                        </div>
+                        <div className="relative group/as">
+                          <button onClick={() => addPaymentTrigger('asaas')}
+                            className="w-10 h-10 rounded-xl bg-card border border-[#00AEEF]/40 flex items-center justify-center shadow-md text-[#00AEEF] hover:bg-[#00AEEF]/10 transition-all"
+                            style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                            AS
+                          </button>
+                          <span className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 hidden group-hover/as:flex items-center whitespace-nowrap bg-[#1a1a1a] text-xs text-foreground px-2.5 py-1.5 rounded-lg border border-border shadow-lg">
+                            Adicionar gatilho <span className="text-[#00AEEF] font-semibold ml-1">Asaas</span>
+                          </span>
+                        </div>
                       </>
                     )}
                   </div>
