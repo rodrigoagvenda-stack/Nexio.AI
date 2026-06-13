@@ -894,7 +894,7 @@ function ConfiguracoesContent() {
               <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', connected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-[#0030B9]/10 flex items-center justify-center shrink-0 p-1.5 overflow-hidden">
-                    <img src="/logos/asaas.svg" className="w-full h-full object-contain" alt="Asaas" />
+                    <img src="/logos/asaas.svg?v=2" className="w-full h-full object-contain" alt="Asaas" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
