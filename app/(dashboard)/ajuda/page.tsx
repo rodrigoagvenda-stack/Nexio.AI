@@ -862,8 +862,8 @@ Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste 
         answer:
 `O canvas tem 11 tipos de nodes. Cada um representa uma ação ou decisão no fluxo do lead:
 
-## Trigger (inicio)
-Criado automaticamente. É o ponto de entrada do fluxo — representa o gatilho que ativa a sequência (início automático, mudança de estágio no CRM, etc.). Só existe um por fluxo e não pode ser deletado.
+## Trigger (início)
+Ponto de entrada do fluxo — representa o evento que ativa a sequência. Em sequências comuns (follow-up, remarketing, etc.) há um único trigger com evento de entrada configurável: novo lead, mudança de status ou webhook. Em sequências do tipo **Pagamento**, você pode ter múltiplos triggers — um por plataforma ou por evento. Use os botões **MP**, **KW** e **AS** na barra lateral do canvas para adicionar triggers adicionais. Cada trigger de pagamento pode ser removido individualmente, desde que reste ao menos um ativo no fluxo.
 
 ## Mensagem
 Envia uma mensagem WhatsApp ao lead. O tipo de conteúdo é configurável:
@@ -959,6 +959,132 @@ Não feche o canvas sem salvar. Alterações não salvas são perdidas ao fechar
 
 ## Usar templates prontos
 Ao criar uma nova sequência, o botão **Usar template** oferece fluxos pré-montados por tipo (boas-vindas, remarketing, anti-noshow). Use como ponto de partida e edite conforme necessário.`,
+      },
+    ],
+  },
+  {
+    id: 'integracoes-pagamento',
+    title: 'Integrações de Pagamento',
+    icon: CreditCard,
+    description: 'Mercado Pago, Kiwify e Asaas — gatilhos automáticos por evento de pagamento',
+    items: [
+      {
+        question: 'O que são as integrações de pagamento?',
+        answer:
+`As integrações de pagamento conectam sua plataforma de cobrança ao Zaapply para disparar sequências automáticas no WhatsApp com base em eventos — venda confirmada, boleto gerado, pagamento vencido.
+
+## Plataformas suportadas
+• **Mercado Pago** — Dispara quando um pagamento é aprovado
+• **Kiwify** — Dispara quando uma compra de infoproduto é confirmada
+• **Asaas** — Dispara por 3 eventos: pagamento confirmado, boleto gerado ou boleto vencido
+
+## Como funciona
+1. Você conecta a plataforma em **Configurações → Integrações**
+2. Cria uma sequência do tipo **Pagamento** em **Automações → Follow-up**
+3. Configura os gatilhos no canvas: um trigger por plataforma ou por evento
+4. Quando o evento ocorre na plataforma, o Zaapply recebe o webhook e dispara a sequência para o lead correspondente automaticamente
+[INFO]
+O lead é identificado pelo e-mail ou telefone cadastrado na plataforma de pagamento. Se o lead não existir no CRM, nenhuma sequência é disparada.
+[/INFO]`,
+      },
+      {
+        question: 'Conectar o Mercado Pago',
+        answer:
+`Acesse **Configurações → Integrações → Mercado Pago → Configurar**.
+
+## O que você precisa
+• **Access Token** — Gerado no painel do Mercado Pago em Suas integrações → Notificações → Webhooks
+• **Chave Secreta do Webhook** — Gerada no mesmo painel para validação de assinatura
+
+## Passos no painel do Mercado Pago
+1. Acesse **Suas integrações → Notificações → Webhooks**
+2. Clique em **Simular** ou **Criar webhook**
+3. Cole a URL do webhook exibida no Zaapply
+4. Copie a chave secreta gerada e cole no Zaapply
+5. Salve — o Mercado Pago enviará um evento de teste
+
+## Evento disparado
+Quando um pagamento tem status **approved**, o Zaapply identifica o comprador pelo e-mail, move o lead para **Fechado** no CRM e dispara a sequência de pagamento configurada.
+[TIP]
+Guarde o valor da venda no campo **Valor do projeto** do lead preenchendo o campo no CRM antes da integração. Se não estiver preenchido, o Zaapply usa automaticamente o valor da transação do Mercado Pago.
+[/TIP]`,
+      },
+      {
+        question: 'Conectar o Kiwify',
+        answer:
+`Acesse **Configurações → Integrações → Kiwify → Configurar**.
+
+## O que você precisa
+• **Token de Verificação** — Gerado automaticamente ao criar um webhook no painel da Kiwify
+
+## Passos no painel da Kiwify
+1. Acesse **Apps → Webhooks**
+2. Clique em **Criar webhook**
+3. Cole a URL exibida no Zaapply no campo de URL do webhook
+4. Copie o token gerado automaticamente pela Kiwify
+5. Cole o token no campo do Zaapply e salve
+
+## Evento disparado
+Quando uma compra tem status **paid**, o Zaapply identifica o comprador pelo e-mail ou telefone, move o lead para **Fechado** e dispara a sequência configurada.
+[INFO]
+A Kiwify envia o nome do produto e o valor da comissão no webhook. O Zaapply usa esses dados para enriquecer o registro do lead automaticamente.
+[/INFO]`,
+      },
+      {
+        question: 'Conectar o Asaas',
+        answer:
+`Acesse **Configurações → Integrações → Asaas → Configurar**.
+
+## O que você precisa
+• **Chave de API** — Gerada em Menu → Integrações → Chaves de API no painel Asaas
+• **Token do Webhook** — Configurado em Menu → Integrações → Configurar Webhook
+
+## Passos no painel do Asaas
+1. Acesse **Menu → Integrações → Chaves de API** e copie sua chave de produção (começa com \`$aact_prod_\`)
+2. Acesse **Menu → Integrações → Configurar Webhook**
+3. Cole a URL do webhook exibida no Zaapply
+4. Defina um token de segurança (qualquer string que você escolher) e cole no Zaapply
+5. Salve em ambos os lados
+
+## Eventos suportados
+O Asaas suporta 3 eventos independentes — cada um pode ter seu próprio fluxo no canvas:
+
+• **Pagamento confirmado** (\`PAYMENT_RECEIVED\` / \`PAYMENT_CONFIRMED\`) — lead comprou e pagou. Ideal para onboarding, boas-vindas e upsell
+• **Boleto gerado** (\`PAYMENT_CREATED\` com tipo BOLETO) — boleto foi emitido. Ideal para lembrete de pagamento e instruções
+• **Boleto vencido** (\`PAYMENT_OVERDUE\`) — boleto não foi pago no prazo. Ideal para sequência de recuperação de cobrança
+[TIP]
+Use uma chave de API de **sandbox** (\`$aact_hmlg_...\`) para testar sem afetar clientes reais. O Zaapply detecta automaticamente o ambiente pela chave.
+[/TIP]`,
+      },
+      {
+        question: 'Criar uma sequência de pagamento no canvas com multi-trigger',
+        answer:
+`Uma sequência de pagamento pode ter **múltiplos triggers** — um por plataforma ou por evento. Isso permite que o mesmo fluxo seja ativado por eventos diferentes sem duplicar a sequência.
+
+## Passo a passo
+
+1. Acesse **Automações → Follow-up → + Nova Sequência**
+2. Nomeie a sequência e selecione o tipo **Pagamento**
+3. Clique em **Abrir Canvas**
+4. O canvas abre com um trigger padrão — clique nele e configure a **plataforma** (MP, Kiwify ou Asaas) e, no caso do Asaas, o **evento** (confirmado, boleto gerado ou vencido)
+5. Para adicionar mais triggers, use os botões na barra lateral direita:
+   - **MP** → trigger Mercado Pago
+   - **KW** → trigger Kiwify
+   - **AS** → trigger Asaas
+6. Configure cada trigger com a plataforma e evento correspondente
+7. Conecte todos os triggers ao mesmo fluxo de nodes
+8. Clique em **Salvar**
+
+## Exemplo: fluxo de cobrança com Asaas
+• Trigger 1: Asaas → Boleto gerado → "Seu boleto está disponível, clique aqui para pagar"
+• Trigger 2: Asaas → Boleto vencido → "Seu boleto venceu, posso te ajudar a regularizar?"
+• Trigger 3: Asaas → Pagamento confirmado → "Pagamento confirmado! Bem-vindo ao [produto]"
+[INFO]
+O URL de webhook para receber eventos fica disponível no painel de configuração de cada trigger, direto no canvas. Copie e cole no painel da plataforma correspondente.
+[/INFO]
+[AVISO]
+Remover um trigger no canvas não desativa o webhook na plataforma. Acesse o painel da plataforma e remova ou atualize o webhook manualmente se não quiser mais receber aquele evento.
+[/AVISO]`,
       },
     ],
   },
