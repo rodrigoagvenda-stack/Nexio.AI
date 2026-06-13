@@ -3180,7 +3180,7 @@ interface ConversionRow {
 }
 
 function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo: SequenceTipo }) {
-  const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS' };
+  const label: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS', pagamento: 'Pagamento' };
   const [tab, setTab] = useState<'execucoes' | 'conversoes'>('execucoes');
   const [executions, setExecutions] = useState<ExecLogReal[]>([]);
   const [loadingExec, setLoadingExec] = useState(false);
@@ -3378,6 +3378,7 @@ const SEQ_TABS: { label: string; tipo: SequenceTipo }[] = [
   { label: 'Anti-Noshow', tipo: 'anti_noshow' },
   { label: 'Remarketing', tipo: 'remarketing' },
   { label: 'Trial SaaS', tipo: 'trial_saas' },
+  { label: 'Pagamento', tipo: 'pagamento' },
 ];
 
 // ─── Modals ──────────────────────────────────────────────────────────────────────
@@ -4234,7 +4235,7 @@ function CanvasInner() {
   }
 
   async function createSequence() {
-    const labels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up Geral', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS' };
+    const labels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up Geral', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS', pagamento: 'Pagamento' };
     try {
       setLoading(true);
       const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: labels[activeTipo], tipo: activeTipo, ativo: false, steps: [] }) });
