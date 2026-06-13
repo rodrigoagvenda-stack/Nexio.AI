@@ -2380,7 +2380,7 @@ function TrialWebhookField() {
   )
 }
 
-function PaymentWebhookField({ platform }: { platform: 'mercadopago' | 'kiwify' | 'mp_kiwify' }) {
+function PaymentWebhookField() {
   const [integrations, setIntegrations] = useState<{ platform: string }[]>([])
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -2392,20 +2392,14 @@ function PaymentWebhookField({ platform }: { platform: 'mercadopago' | 'kiwify' 
       .catch(() => {})
   }, [])
 
-  const visiblePlatforms = platform === 'mp_kiwify'
-    ? ['mercadopago', 'kiwify']
-    : [platform]
+  const filtered = integrations
+  const missing = (['mercadopago', 'kiwify'] as const).filter(p => !integrations.find(i => i.platform === p))
 
-  const filtered = integrations.filter(i => visiblePlatforms.includes(i.platform))
-  const missing = visiblePlatforms.filter(p => !integrations.find(i => i.platform === p))
-
-  if (!integrations.length || filtered.length === 0) return (
+  if (!integrations.length) return (
     <>
       <div className="h-px bg-border/60 -mx-4" />
       <p className="text-[10px] text-muted-foreground/70 leading-snug">
-        Configure{' '}
-        <strong>{visiblePlatforms.map(p => p === 'mercadopago' ? 'Mercado Pago' : 'Kiwify').join(' e ')}</strong>
-        {' '}em <strong>Configurações → Integrações</strong> para ativar o gatilho.
+        Configure integrações de pagamento em <strong>Configurações → Integrações</strong> para ativar o gatilho.
       </p>
     </>
   )
@@ -2853,42 +2847,29 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 0 = nunca expira. Se definido, leads que entraram há mais dias são ignorados.
               </p>
             </Field>
-            <Field label={sequenceTipo === 'pagamento' ? 'Plataforma de pagamento' : 'Entrada automática por evento'}>
-              <select
-                value={(d as TriggerNodeData).eventoEntrada ?? ''}
-                onChange={(e) => onUpdate(node.id, { eventoEntrada: (e.target.value as TriggerNodeData['eventoEntrada']) || undefined })}
-                className="field-input"
-              >
-                {sequenceTipo === 'pagamento' ? (
-                  <>
-                    <option value="">Selecionar plataforma…</option>
-                    <option value="mercadopago">Mercado Pago</option>
-                    <option value="kiwify">Kiwify</option>
-                    <option value="mp_kiwify">Mercado Pago + Kiwify</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="">Manual / cron padrão</option>
-                    <option value="novo_lead">Novo lead criado</option>
-                    <option value="mudanca_status">Mudança de status</option>
-                    <option value="webhook">Evento de webhook</option>
-                  </>
-                )}
-              </select>
-              <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
-                {sequenceTipo === 'pagamento'
-                  ? 'Sequência disparada automaticamente ao receber pagamento confirmado.'
-                  : 'Define quando leads entram automaticamente nesta sequência.'}
-              </p>
-            </Field>
+            {sequenceTipo !== 'pagamento' && (
+              <Field label="Entrada automática por evento">
+                <select
+                  value={(d as TriggerNodeData).eventoEntrada ?? ''}
+                  onChange={(e) => onUpdate(node.id, { eventoEntrada: (e.target.value as TriggerNodeData['eventoEntrada']) || undefined })}
+                  className="field-input"
+                >
+                  <option value="">Manual / cron padrão</option>
+                  <option value="novo_lead">Novo lead criado</option>
+                  <option value="mudanca_status">Mudança de status</option>
+                  <option value="webhook">Evento de webhook</option>
+                </select>
+                <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
+                  Define quando leads entram automaticamente nesta sequência.
+                </p>
+              </Field>
+            )}
 
             {/* Trial SaaS — webhook URL */}
             {sequenceTipo === 'trial_saas' && <TrialWebhookField />}
 
-            {/* Pagamento — URLs dos webhooks filtradas pela plataforma selecionada */}
-            {sequenceTipo === 'pagamento' && (d as TriggerNodeData).eventoEntrada && (
-              <PaymentWebhookField platform={(d as TriggerNodeData).eventoEntrada as 'mercadopago' | 'kiwify' | 'mp_kiwify'} />
-            )}
+            {/* Pagamento — gatilho automático por qualquer plataforma configurada */}
+            {sequenceTipo === 'pagamento' && <PaymentWebhookField />}
 
             {/* Remarketing-specific entry criteria */}
             {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (
