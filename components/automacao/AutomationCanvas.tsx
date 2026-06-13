@@ -140,7 +140,7 @@ interface CanvasConfig {
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
   nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook'; // entry event type
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify'; // entry event type
 }
 
 interface FollowSequence {
@@ -2380,7 +2380,7 @@ function TrialWebhookField() {
   )
 }
 
-function PaymentWebhookField() {
+function PaymentWebhookField({ platform }: { platform: 'mercadopago' | 'kiwify' | 'mp_kiwify' }) {
   const [integrations, setIntegrations] = useState<{ platform: string }[]>([])
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -2392,11 +2392,20 @@ function PaymentWebhookField() {
       .catch(() => {})
   }, [])
 
-  if (!integrations.length) return (
+  const visiblePlatforms = platform === 'mp_kiwify'
+    ? ['mercadopago', 'kiwify']
+    : [platform]
+
+  const filtered = integrations.filter(i => visiblePlatforms.includes(i.platform))
+  const missing = visiblePlatforms.filter(p => !integrations.find(i => i.platform === p))
+
+  if (!integrations.length || filtered.length === 0) return (
     <>
       <div className="h-px bg-border/60 -mx-4" />
       <p className="text-[10px] text-muted-foreground/70 leading-snug">
-        Configure integrações de pagamento em <strong>Configurações → Integrações</strong> para ativar o gatilho.
+        Configure{' '}
+        <strong>{visiblePlatforms.map(p => p === 'mercadopago' ? 'Mercado Pago' : 'Kiwify').join(' e ')}</strong>
+        {' '}em <strong>Configurações → Integrações</strong> para ativar o gatilho.
       </p>
     </>
   )
@@ -2416,20 +2425,20 @@ function PaymentWebhookField() {
       <div className="space-y-2">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">URLs dos Webhooks</p>
         <p className="text-[10px] text-muted-foreground/70 leading-snug">Cole cada URL no painel da respectiva plataforma.</p>
-        {integrations.map(({ platform }) => {
-          const url = `${baseUrl}/api/webhooks/payment/${companyId}/${platform}`
-          const label = platform === 'mercadopago' ? 'Mercado Pago' : platform === 'kiwify' ? 'Kiwify' : platform
+        {filtered.map(({ platform: p }) => {
+          const url = `${baseUrl}/api/webhooks/payment/${companyId}/${p}`
+          const label = p === 'mercadopago' ? 'Mercado Pago' : p === 'kiwify' ? 'Kiwify' : p
           return (
-            <div key={platform} className="space-y-1">
+            <div key={p} className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
               <div className="flex items-center gap-1.5">
                 <input readOnly value={url} className="field-input font-mono text-[10px] truncate flex-1" />
                 <button
                   type="button"
-                  onClick={() => copy(platform)}
+                  onClick={() => copy(p)}
                   className="shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted/40 transition-colors"
                 >
-                  {copied === platform
+                  {copied === p
                     ? <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     : <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                   }
@@ -2438,6 +2447,11 @@ function PaymentWebhookField() {
             </div>
           )
         })}
+        {missing.length > 0 && (
+          <p className="text-[10px] text-amber-500/80 leading-snug">
+            {missing.map(p => p === 'mercadopago' ? 'Mercado Pago' : 'Kiwify').join(' e ')} não configurado em Integrações.
+          </p>
+        )}
       </div>
     </>
   )
@@ -2839,27 +2853,42 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 0 = nunca expira. Se definido, leads que entraram há mais dias são ignorados.
               </p>
             </Field>
-            <Field label="Entrada automática por evento">
+            <Field label={sequenceTipo === 'pagamento' ? 'Plataforma de pagamento' : 'Entrada automática por evento'}>
               <select
                 value={(d as TriggerNodeData).eventoEntrada ?? ''}
                 onChange={(e) => onUpdate(node.id, { eventoEntrada: (e.target.value as TriggerNodeData['eventoEntrada']) || undefined })}
                 className="field-input"
               >
-                <option value="">Manual / cron padrão</option>
-                <option value="novo_lead">Novo lead criado</option>
-                <option value="mudanca_status">Mudança de status</option>
-                <option value="webhook">Evento de webhook</option>
+                {sequenceTipo === 'pagamento' ? (
+                  <>
+                    <option value="">Selecionar plataforma…</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                    <option value="kiwify">Kiwify</option>
+                    <option value="mp_kiwify">Mercado Pago + Kiwify</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="">Manual / cron padrão</option>
+                    <option value="novo_lead">Novo lead criado</option>
+                    <option value="mudanca_status">Mudança de status</option>
+                    <option value="webhook">Evento de webhook</option>
+                  </>
+                )}
               </select>
               <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
-                Define quando leads entram automaticamente nesta sequência.
+                {sequenceTipo === 'pagamento'
+                  ? 'Sequência disparada automaticamente ao receber pagamento confirmado.'
+                  : 'Define quando leads entram automaticamente nesta sequência.'}
               </p>
             </Field>
 
             {/* Trial SaaS — webhook URL */}
             {sequenceTipo === 'trial_saas' && <TrialWebhookField />}
 
-            {/* Pagamento — URLs dos webhooks por plataforma */}
-            {sequenceTipo === 'pagamento' && <PaymentWebhookField />}
+            {/* Pagamento — URLs dos webhooks filtradas pela plataforma selecionada */}
+            {sequenceTipo === 'pagamento' && (d as TriggerNodeData).eventoEntrada && (
+              <PaymentWebhookField platform={(d as TriggerNodeData).eventoEntrada as 'mercadopago' | 'kiwify' | 'mp_kiwify'} />
+            )}
 
             {/* Remarketing-specific entry criteria */}
             {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (
