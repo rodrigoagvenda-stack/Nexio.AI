@@ -89,6 +89,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // ─── API Types ──────────────────────────────────────────────────────────────────
 
@@ -2904,15 +2905,18 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             {sequenceTipo === 'pagamento' && (
               <>
                 <Field label="Plataforma deste gatilho">
-                  <select
+                  <Select
                     value={(d as TriggerNodeData).platform ?? ''}
-                    onChange={(e) => onUpdate(node.id, { platform: (e.target.value as TriggerNodeData['platform']) || undefined })}
-                    className="field-input"
+                    onValueChange={(v) => onUpdate(node.id, { platform: (v as TriggerNodeData['platform']) || undefined })}
                   >
-                    <option value="">Selecionar plataforma...</option>
-                    <option value="mercadopago">Mercado Pago</option>
-                    <option value="kiwify">Kiwify</option>
-                  </select>
+                    <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]">
+                      <SelectValue placeholder="Selecionar plataforma..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mercadopago">Mercado Pago</SelectItem>
+                      <SelectItem value="kiwify">Kiwify</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <PaymentWebhookField platform={(d as TriggerNodeData).platform} />
                 {node.id !== 'trigger' && (
