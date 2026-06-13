@@ -174,9 +174,12 @@ function ConfiguracoesContent() {
   const [paymentIntegrations, setPaymentIntegrations] = useState<{ platform: string; active: boolean }[]>([]);
   const [mpFormOpen, setMpFormOpen] = useState(false);
   const [kiwifyFormOpen, setKiwifyFormOpen] = useState(false);
+  const [asaasFormOpen, setAsaasFormOpen] = useState(false);
   const [mpAccessToken, setMpAccessToken] = useState('');
   const [mpSecretKey, setMpSecretKey] = useState('');
   const [kiwifyToken, setKiwifyToken] = useState('');
+  const [asaasAccessToken, setAsaasAccessToken] = useState('');
+  const [asaasWebhookToken, setAsaasWebhookToken] = useState('');
   const [savingPlatform, setSavingPlatform] = useState<string | null>(null);
   const [disconnectingPlatform, setDisconnectingPlatform] = useState<string | null>(null);
 
@@ -414,7 +417,9 @@ function ConfiguracoesContent() {
       });
       if (platform === 'mercadopago') setMpFormOpen(false);
       if (platform === 'kiwify') setKiwifyFormOpen(false);
-      toast({ title: `${platform === 'mercadopago' ? 'Mercado Pago' : 'Kiwify'} configurado com sucesso!` });
+      if (platform === 'asaas') setAsaasFormOpen(false);
+      const platformName = platform === 'mercadopago' ? 'Mercado Pago' : platform === 'kiwify' ? 'Kiwify' : 'Asaas';
+      toast({ title: `${platformName} configurado com sucesso!` });
     } catch { toast({ title: 'Erro de conexão', variant: 'destructive' }); }
     finally { setSavingPlatform(null); }
   };
@@ -424,7 +429,8 @@ function ConfiguracoesContent() {
     try {
       await fetch('/api/payment-integrations', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform }) });
       setPaymentIntegrations(prev => prev.filter(i => i.platform !== platform));
-      toast({ title: `${platform === 'mercadopago' ? 'Mercado Pago' : 'Kiwify'} desconectado` });
+      const platformName = platform === 'mercadopago' ? 'Mercado Pago' : platform === 'kiwify' ? 'Kiwify' : 'Asaas';
+      toast({ title: `${platformName} desconectado` });
     } catch { toast({ title: 'Erro ao desconectar', variant: 'destructive' }); }
     finally { setDisconnectingPlatform(null); }
   };
@@ -871,6 +877,54 @@ function ConfiguracoesContent() {
                     </>
                   ) : (
                     <Button size="sm" variant="outline" onClick={() => setKiwifyFormOpen(true)}>Configurar</Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── ASAAS ────────────────────────────────────────── */}
+          {(() => {
+            const connected = paymentIntegrations.some(i => i.platform === 'asaas' && i.active);
+            return (
+              <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#00AEEF]/10 flex items-center justify-center shrink-0 p-1.5 overflow-hidden">
+                    <img src="/logos/asaas.svg" className="w-full h-full object-contain" alt="Asaas" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">Asaas</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Dispare sequências em pagamento confirmado, boleto gerado ou vencido</p>
+                    {connected && <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Conectado</p>}
+                    {!connected && asaasFormOpen && (
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <Label className="text-xs">Chave de API Asaas</Label>
+                          <Input value={asaasAccessToken} onChange={e => setAsaasAccessToken(e.target.value)} placeholder="$aact_prod_..." className="h-8 text-xs mt-1 font-mono" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Token do Webhook</Label>
+                          <Input value={asaasWebhookToken} onChange={e => setAsaasWebhookToken(e.target.value)} placeholder="Token gerado no painel Asaas" className="h-8 text-xs mt-1 font-mono" />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/70">Chave de API em Menu → Integrações → Chaves de API. Token do Webhook em Menu → Integrações → Configurar Webhook.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {connected ? (
+                    <Button variant="ghost" size="sm" onClick={() => handlePaymentDisconnect('asaas')} disabled={disconnectingPlatform === 'asaas'} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                      {disconnectingPlatform === 'asaas' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4 mr-1" />Desconectar</>}
+                    </Button>
+                  ) : asaasFormOpen ? (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => setAsaasFormOpen(false)} className="text-muted-foreground">Cancelar</Button>
+                      <Button size="sm" onClick={() => handlePaymentSave('asaas', { access_token: asaasAccessToken, webhook_token: asaasWebhookToken })} disabled={!asaasAccessToken || !asaasWebhookToken || savingPlatform === 'asaas'}>
+                        {savingPlatform === 'asaas' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => setAsaasFormOpen(true)}>Configurar</Button>
                   )}
                 </div>
               </div>
