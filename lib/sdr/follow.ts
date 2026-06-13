@@ -2349,7 +2349,7 @@ export async function runTrialSaasImmediate(companyId: number, trialId: number):
 export async function runPaymentSequenceImmediate(
   companyId: number,
   leadId: number,
-  context: { platform: string; value?: number; productName?: string; paymentId?: string; orderId?: string }
+  context: { platform: string; eventoEntrada?: string; value?: number; productName?: string; paymentId?: string; orderId?: string }
 ): Promise<{ sent: number; error?: string }> {
   const supabase = createServiceClient()
   const platformCfg = await getPlatformConfig()
@@ -2382,15 +2382,22 @@ export async function runPaymentSequenceImmediate(
   }
 
   // Sequências do tipo "pagamento" ativas para esta empresa
-  const { data: sequences } = await supabase
+  // Filtra por eventoEntrada quando fornecido (ex: 'asaas_pago', 'mercadopago', 'kiwify')
+  let seqQuery = supabase
     .from('follow_sequences')
     .select('id, nome')
     .eq('company_id', companyId)
     .eq('tipo', 'pagamento')
     .eq('ativo', true)
 
+  if (context.eventoEntrada) {
+    seqQuery = seqQuery.filter('canvas_config->>eventoEntrada', 'eq', context.eventoEntrada)
+  }
+
+  const { data: sequences } = await seqQuery
+
   if (!sequences?.length) {
-    console.warn(`[payment-seq] company=${companyId} nenhuma sequência pagamento ativa`)
+    console.warn(`[payment-seq] company=${companyId} nenhuma sequência pagamento ativa (eventoEntrada=${context.eventoEntrada ?? 'any'})`)
     return { sent: 0, error: 'Nenhuma sequência pagamento ativa' }
   }
 

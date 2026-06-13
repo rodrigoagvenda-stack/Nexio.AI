@@ -141,8 +141,9 @@ interface CanvasConfig {
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
   nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify'; // entry event type
-  extraTriggers?: Array<{ id: string; platform: 'mercadopago' | 'kiwify'; position: { x: number; y: number } }>;
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido'; // entry event type
+  extraTriggers?: Array<{ id: string; platform: 'mercadopago' | 'kiwify' | 'asaas'; eventoEntrada?: string; position: { x: number; y: number } }>;
+  noDefaultTrigger?: boolean; // primary trigger was deleted by user
 }
 
 interface FollowSequence {
@@ -168,8 +169,8 @@ interface TriggerNodeData extends Record<string, unknown> {
   condicao: string;
   customLabel?: string;
   expira_em_dias?: number;
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify';
-  platform?: 'mercadopago' | 'kiwify'; // per-trigger platform (pagamento tipo only)
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido';
+  platform?: 'mercadopago' | 'kiwify' | 'asaas'; // per-trigger platform (pagamento tipo only)
   _execState?: ExecState;
   _execError?: string;
   _leadCount?: number;
@@ -612,24 +613,36 @@ function getDomain(url: string): string {
   }
 }
 
+function derivePlatformFromEvento(eventoEntrada?: string): 'mercadopago' | 'kiwify' | 'asaas' | undefined {
+  if (!eventoEntrada) return undefined;
+  if (eventoEntrada.startsWith('asaas')) return 'asaas';
+  if (eventoEntrada === 'mercadopago' || eventoEntrada === 'kiwify') return eventoEntrada;
+  return undefined;
+}
+
 function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: string, canvasConfig?: CanvasConfig | null, sequenceTipo?: SequenceTipo): Node<AutoNodeData>[] {
   const nodes: Node<AutoNodeData>[] = [];
-  const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
-  nodes.push({
-    id: 'trigger', type: 'triggerNode', position: triggerPos,
-    data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
-      expira_em_dias: canvasConfig?.expira_em_dias ?? 0,
-      eventoEntrada: canvasConfig?.eventoEntrada,
-      platform: sequenceTipo === 'pagamento' ? ((canvasConfig?.eventoEntrada as 'mercadopago' | 'kiwify' | undefined) ?? undefined) : undefined,
-    } satisfies TriggerNodeData,
-  });
+  // Primary trigger: skip if user explicitly deleted it
+  if (!canvasConfig?.noDefaultTrigger) {
+    const triggerPos = canvasConfig?.triggerPos ?? { x: 0, y: 150 };
+    nodes.push({
+      id: 'trigger', type: 'triggerNode', position: triggerPos,
+      data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
+        expira_em_dias: canvasConfig?.expira_em_dias ?? 0,
+        eventoEntrada: canvasConfig?.eventoEntrada,
+        platform: sequenceTipo === 'pagamento' ? derivePlatformFromEvento(canvasConfig?.eventoEntrada) : undefined,
+      } satisfies TriggerNodeData,
+    });
+  }
   // For pagamento tipo: add extra trigger nodes (each with its own independent flow)
   if (sequenceTipo === 'pagamento' && canvasConfig?.extraTriggers) {
     for (const et of canvasConfig.extraTriggers) {
       nodes.push({
         id: et.id, type: 'triggerNode', position: et.position,
         data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
-          platform: et.platform } satisfies TriggerNodeData,
+          platform: et.platform,
+          eventoEntrada: et.eventoEntrada as TriggerNodeData['eventoEntrada'],
+        } satisfies TriggerNodeData,
       });
     }
   }
@@ -1092,21 +1105,31 @@ const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
 const PAYMENT_PLATFORM_LABELS: Record<string, { label: string; color: string }> = {
   mercadopago: { label: 'Mercado Pago', color: 'text-[#009EE3]' },
   kiwify:      { label: 'Kiwify',       color: 'text-[#2db56f]' },
+  asaas:       { label: 'Asaas',        color: 'text-[#00AEEF]' },
+};
+
+const ASAAS_EVENT_LABELS: Record<string, string> = {
+  asaas_pago:            'Pagamento confirmado',
+  asaas_boleto_gerado:   'Boleto gerado',
+  asaas_boleto_vencido:  'Boleto vencido',
 };
 
 function TriggerNode({ id, data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
   const platformInfo = d.platform ? PAYMENT_PLATFORM_LABELS[d.platform] : null;
+  const asaasEventLabel = d.platform === 'asaas' && d.eventoEntrada ? ASAAS_EVENT_LABELS[d.eventoEntrada] : null;
   return (
     <NodeShell selected={selected} accent="primary"
       header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <p className="text-sm font-semibold text-foreground/90 leading-snug">{d.label}</p>
-      {platformInfo
-        ? <p className={`text-xs font-medium ${platformInfo.color}`}>{platformInfo.label}</p>
-        : d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>
-      }
+      {platformInfo ? (
+        <>
+          <p className={`text-xs font-medium ${platformInfo.color}`}>{platformInfo.label}</p>
+          {asaasEventLabel && <p className="text-xs text-muted-foreground/70">{asaasEventLabel}</p>}
+        </>
+      ) : d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>}
     </NodeShell>
   );
 }
@@ -2421,7 +2444,7 @@ function TrialWebhookField() {
   )
 }
 
-function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify' }) {
+function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify' | 'asaas' }) {
   const [integrations, setIntegrations] = useState<{ platform: string }[]>([])
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -2437,7 +2460,7 @@ function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify'
   const filtered = platform ? integrations.filter(i => i.platform === platform) : integrations
   const missing = platform
     ? (integrations.find(i => i.platform === platform) ? [] : [platform])
-    : (['mercadopago', 'kiwify'] as const).filter(p => !integrations.find(i => i.platform === p))
+    : (['mercadopago', 'kiwify', 'asaas'] as const).filter(p => !integrations.find(i => i.platform === p))
 
   if (!integrations.length) return (
     <>
@@ -2465,7 +2488,7 @@ function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify'
         <p className="text-[10px] text-muted-foreground/70 leading-snug">Cole cada URL no painel da respectiva plataforma.</p>
         {filtered.map(({ platform: p }) => {
           const url = `${baseUrl}/api/webhooks/payment/${companyId}/${p}`
-          const label = p === 'mercadopago' ? 'Mercado Pago' : p === 'kiwify' ? 'Kiwify' : p
+          const label = p === 'mercadopago' ? 'Mercado Pago' : p === 'kiwify' ? 'Kiwify' : p === 'asaas' ? 'Asaas' : p
           return (
             <div key={p} className="space-y-1">
               <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
@@ -2921,7 +2944,12 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 <Field label="Plataforma deste gatilho">
                   <Select
                     value={(d as TriggerNodeData).platform ?? ''}
-                    onValueChange={(v) => onUpdate(node.id, { platform: (v as TriggerNodeData['platform']) || undefined })}
+                    onValueChange={(v) => {
+                      const plat = (v as TriggerNodeData['platform']) || undefined;
+                      // For Asaas: default eventoEntrada to asaas_pago; for others: eventoEntrada = platform
+                      const evento = plat === 'asaas' ? 'asaas_pago' : (plat ?? undefined);
+                      onUpdate(node.id, { platform: plat, eventoEntrada: evento as TriggerNodeData['eventoEntrada'] });
+                    }}
                   >
                     <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]">
                       <SelectValue placeholder="Selecionar plataforma..." />
@@ -2929,11 +2957,27 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <SelectContent>
                       <SelectItem value="mercadopago">Mercado Pago</SelectItem>
                       <SelectItem value="kiwify">Kiwify</SelectItem>
+                      <SelectItem value="asaas">Asaas</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
+                {(d as TriggerNodeData).platform === 'asaas' && (
+                  <Field label="Evento Asaas">
+                    <Select
+                      value={(d as TriggerNodeData).eventoEntrada ?? 'asaas_pago'}
+                      onValueChange={(v) => onUpdate(node.id, { eventoEntrada: v as TriggerNodeData['eventoEntrada'] })}
+                    >
+                      <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asaas_pago">Pagamento confirmado</SelectItem>
+                        <SelectItem value="asaas_boleto_gerado">Boleto gerado</SelectItem>
+                        <SelectItem value="asaas_boleto_vencido">Boleto vencido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
                 <PaymentWebhookField platform={(d as TriggerNodeData).platform} />
-                {node.id !== 'trigger' && (
+                {allNodes.filter((n) => n.data.kind === 'trigger').length > 1 && (
                   <button
                     type="button"
                     onClick={() => onDelete(node.id)}
@@ -4292,17 +4336,19 @@ function CanvasInner() {
     setEdges((eds) => eds.filter((e) => (e as Edge).source !== id && (e as Edge).target !== id));
   }
 
-  function addPaymentTrigger(platform: 'mercadopago' | 'kiwify') {
+  function addPaymentTrigger(platform: 'mercadopago' | 'kiwify' | 'asaas') {
     const id = `trigger-${newId()}`;
     const existingTriggers = nodes.filter((n) => n.data.kind === 'trigger');
     const lastTrigger = existingTriggers[existingTriggers.length - 1];
     const pos = lastTrigger
       ? { x: lastTrigger.position.x, y: lastTrigger.position.y + 160 }
       : { x: 0, y: 310 };
-    const seqName = nodes.find((n) => n.id === 'trigger')?.data.label ?? 'Pagamento';
+    const anyTrigger = nodes.find((n) => n.data.kind === 'trigger');
+    const seqName = (anyTrigger?.data as TriggerNodeData | undefined)?.label ?? currentSeq?.nome ?? 'Pagamento';
+    const eventoEntrada: TriggerNodeData['eventoEntrada'] = platform === 'asaas' ? 'asaas_pago' : platform;
     setNodes((nds) => [...nds, {
       id, type: 'triggerNode', position: pos,
-      data: { kind: 'trigger', label: seqName as string, condicao: 'Início da sequência', platform } satisfies TriggerNodeData,
+      data: { kind: 'trigger', label: seqName, condicao: 'Início da sequência', platform, eventoEntrada } satisfies TriggerNodeData,
     }]);
   }
 
@@ -4422,11 +4468,12 @@ function CanvasInner() {
       }
 
       const triggerNode = nodes.find((n) => n.id === 'trigger');
+      const noDefaultTrigger = !triggerNode; // primary trigger was deleted
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
 
       // Extra trigger nodes (pagamento only) — stable negative indices for edge map
       const extraTriggerNodes = nodes.filter((n) => n.data.kind === 'trigger' && n.id !== 'trigger');
-      const triggerIdToIdx: Record<string, number> = { trigger: -1 };
+      const triggerIdToIdx: Record<string, number> = noDefaultTrigger ? {} : { trigger: -1 };
       extraTriggerNodes.forEach((n, i) => { triggerIdToIdx[n.id] = -(i + 2); });
 
       // Build canvas_config: positions + edges indexed by x-sorted order so they survive UUID rotation
@@ -4469,12 +4516,18 @@ function CanvasInner() {
         ...(Object.keys(nodeComments).length > 0 ? { nodeComments } : {}),
         ...(triggerExpiry > 0 ? { expira_em_dias: triggerExpiry } : {}),
         ...(eventoEntrada ? { eventoEntrada } : {}),
+        ...(noDefaultTrigger ? { noDefaultTrigger: true } : {}),
         ...(extraTriggerNodes.length > 0 ? {
-          extraTriggers: extraTriggerNodes.map((n) => ({
-            id: n.id,
-            platform: ((n.data as TriggerNodeData).platform ?? 'mercadopago') as 'mercadopago' | 'kiwify',
-            position: n.position,
-          }))
+          extraTriggers: extraTriggerNodes.map((n) => {
+            const nd = n.data as TriggerNodeData;
+            const plat = (nd.platform ?? 'mercadopago') as 'mercadopago' | 'kiwify' | 'asaas';
+            return {
+              id: n.id,
+              platform: plat,
+              position: n.position,
+              ...(plat === 'asaas' && nd.eventoEntrada ? { eventoEntrada: nd.eventoEntrada } : {}),
+            };
+          })
         } : {}),
       };
 
@@ -5073,6 +5126,11 @@ function CanvasInner() {
                           className="w-10 h-10 rounded-xl bg-card border border-[#2db56f]/40 flex items-center justify-center shadow-md text-[#2db56f] hover:bg-[#2db56f]/10 transition-all"
                           style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
                           KW
+                        </button>
+                        <button onClick={() => addPaymentTrigger('asaas')} title="Adicionar gatilho Asaas"
+                          className="w-10 h-10 rounded-xl bg-card border border-[#00AEEF]/40 flex items-center justify-center shadow-md text-[#00AEEF] hover:bg-[#00AEEF]/10 transition-all"
+                          style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                          AS
                         </button>
                       </>
                     )}

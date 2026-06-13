@@ -16,7 +16,7 @@ import { normalizePhone } from '@/lib/sdr/uazapi'
 import { runPaymentSequenceImmediate } from '@/lib/sdr/follow'
 import crypto from 'crypto'
 
-const VALID_PLATFORMS = ['mercadopago', 'kiwify'] as const
+const VALID_PLATFORMS = ['mercadopago', 'kiwify', 'asaas'] as const
 type Platform = typeof VALID_PLATFORMS[number]
 
 // ─── Mercado Pago: valida assinatura HMAC-SHA256 ─────────────────────────────
@@ -168,7 +168,7 @@ export async function POST(
     console.log(`[payment-webhook:mp] lead=${lead.id} movido para Fechado valor=${value}`)
 
     // Dispara sequência "pagamento" em background
-    runPaymentSequenceImmediate(companyId, lead.id, { platform: 'mercadopago', paymentId: String(paymentId), value })
+    runPaymentSequenceImmediate(companyId, lead.id, { platform: 'mercadopago', eventoEntrada: 'mercadopago', paymentId: String(paymentId), value })
       .then(r => console.log(`[payment-webhook:mp] sequência sent=${r.sent} error=${r.error ?? 'ok'}`))
       .catch(err => console.error(`[payment-webhook:mp] sequência falhou:`, err.message))
 
@@ -213,9 +213,84 @@ export async function POST(
     console.log(`[payment-webhook:kiwify] lead=${lead.id} movido para Fechado produto="${productName}"`)
 
     // Dispara sequência "pagamento" em background
-    runPaymentSequenceImmediate(companyId, lead.id, { platform: 'kiwify', orderId: body.order_id, productName, value })
+    runPaymentSequenceImmediate(companyId, lead.id, { platform: 'kiwify', eventoEntrada: 'kiwify', orderId: body.order_id, productName, value })
       .then(r => console.log(`[payment-webhook:kiwify] sequência sent=${r.sent} error=${r.error ?? 'ok'}`))
       .catch(err => console.error(`[payment-webhook:kiwify] sequência falhou:`, err.message))
+
+    return NextResponse.json({ received: true })
+  }
+
+  // ─── ASAAS ─────────────────────────────────────────────────────────────────
+  if (platform === 'asaas') {
+    const { access_token: asaasApiKey, webhook_token: savedToken } = integration.config ?? {}
+
+    // Valida token no header asaas-access-token
+    const receivedToken = req.headers.get('asaas-access-token')
+    if (!savedToken || receivedToken !== savedToken) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} token inválido`)
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
+    }
+
+    const { event, payment } = body ?? {}
+    if (!event || !payment?.id) return NextResponse.json({ received: true })
+
+    // Mapeia evento Asaas → eventoEntrada do canvas
+    let eventoEntrada: string | null = null
+    if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') eventoEntrada = 'asaas_pago'
+    else if (event === 'PAYMENT_CREATED' && payment.billingType === 'BOLETO') eventoEntrada = 'asaas_boleto_gerado'
+    else if (event === 'PAYMENT_OVERDUE') eventoEntrada = 'asaas_boleto_vencido'
+
+    if (!eventoEntrada) {
+      console.log(`[payment-webhook:asaas] company=${companyId} evento ignorado event=${event}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // Busca dados do cliente na API Asaas para obter email/telefone
+    const asaasBase = asaasApiKey?.startsWith('$aact_hmlg_')
+      ? 'https://api-sandbox.asaas.com/v3'
+      : 'https://api.asaas.com/v3'
+
+    const customerId = payment.customer
+    if (!customerId) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} payment sem customer`)
+      return NextResponse.json({ received: true })
+    }
+
+    const customerRes = await fetch(`${asaasBase}/customers/${customerId}`, {
+      headers: { access_token: asaasApiKey, 'User-Agent': 'Nexio.AI', 'Content-Type': 'application/json' },
+    }).catch(() => null)
+
+    const customer = customerRes?.ok ? await customerRes.json().catch(() => null) : null
+    const email = customer?.email
+    const rawPhone = customer?.mobilePhone ?? customer?.phone
+    const value = payment.value
+
+    console.log(`[payment-webhook:asaas] company=${companyId} event=${event} customer=${customerId} email=${email}`)
+
+    // Busca lead por email ou telefone
+    const lead = await findLead(companyId, email, rawPhone, supabase)
+    if (!lead) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} lead não encontrado email=${email} phone=${rawPhone}`)
+      return NextResponse.json({ received: true })
+    }
+
+    // Pagamento confirmado: move lead para Fechado
+    if (eventoEntrada === 'asaas_pago') {
+      const updates: Record<string, any> = { status: 'Fechado' }
+      if (value && !lead.project_value) updates.project_value = value
+      await supabase.from('leads').update(updates).eq('id', lead.id)
+      console.log(`[payment-webhook:asaas] lead=${lead.id} movido para Fechado valor=${value}`)
+    }
+
+    // Dispara sequência canvas em background
+    runPaymentSequenceImmediate(companyId, lead.id, {
+      platform: 'asaas',
+      eventoEntrada,
+      paymentId: payment.id,
+      value,
+    })
+      .then(r => console.log(`[payment-webhook:asaas] sequência sent=${r.sent} error=${r.error ?? 'ok'}`))
+      .catch(err => console.error(`[payment-webhook:asaas] sequência falhou:`, err.message))
 
     return NextResponse.json({ received: true })
   }
