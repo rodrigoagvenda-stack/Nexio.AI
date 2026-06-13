@@ -121,7 +121,7 @@ const UAZAPI_TO_CANVAS: Record<string, string> = {
 };
 
 interface CanvasConfigEdge {
-  sourceIdx: number;   // -1 = trigger, 0..N = index in x-sorted non-trigger nodes
+  sourceIdx: number;   // -1 = primary trigger, -2..-N = extraTriggers[idx-2], 0..N = non-trigger nodes (x-sorted)
   targetIdx: number;
   sourceHandle?: string;
   targetHandle?: string;
@@ -141,6 +141,7 @@ interface CanvasConfig {
   nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
   eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify'; // entry event type
+  extraTriggers?: Array<{ id: string; platform: 'mercadopago' | 'kiwify'; position: { x: number; y: number } }>;
 }
 
 interface FollowSequence {
@@ -166,7 +167,8 @@ interface TriggerNodeData extends Record<string, unknown> {
   condicao: string;
   customLabel?: string;
   expira_em_dias?: number;
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook';
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'mercadopago' | 'kiwify' | 'mp_kiwify';
+  platform?: 'mercadopago' | 'kiwify'; // per-trigger platform (pagamento tipo only)
   _execState?: ExecState;
   _execError?: string;
   _leadCount?: number;
@@ -616,8 +618,20 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     id: 'trigger', type: 'triggerNode', position: triggerPos,
     data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
       expira_em_dias: canvasConfig?.expira_em_dias ?? 0,
-      eventoEntrada: canvasConfig?.eventoEntrada } satisfies TriggerNodeData,
+      eventoEntrada: canvasConfig?.eventoEntrada,
+      platform: sequenceTipo === 'pagamento' ? ((canvasConfig?.eventoEntrada as 'mercadopago' | 'kiwify' | undefined) ?? undefined) : undefined,
+    } satisfies TriggerNodeData,
   });
+  // For pagamento tipo: add extra trigger nodes (each with its own independent flow)
+  if (sequenceTipo === 'pagamento' && canvasConfig?.extraTriggers) {
+    for (const et of canvasConfig.extraTriggers) {
+      nodes.push({
+        id: et.id, type: 'triggerNode', position: et.position,
+        data: { kind: 'trigger', label: sequenceName, condicao: 'Início da sequência',
+          platform: et.platform } satisfies TriggerNodeData,
+      });
+    }
+  }
   const sorted = [...(steps ?? [])].sort((a, b) => a.ordem - b.ordem);
   sorted.forEach((step, idx) => {
     const stored = canvasConfig?.positions?.[idx];
@@ -749,12 +763,18 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
 function stepsToEdges(steps: FollowStep[] | undefined | null, canvasConfig?: CanvasConfig | null): Edge[] {
   const sorted = [...(steps ?? [])].sort((a, b) => a.ordem - b.ordem);
 
+  function idxToNodeId(idx: number): string | undefined {
+    if (idx === -1) return 'trigger';
+    if (idx < -1) return canvasConfig?.extraTriggers?.[Math.abs(idx) - 2]?.id;
+    return sorted[idx]?.id;
+  }
+
   if (canvasConfig?.edges?.length) {
     return canvasConfig.edges
       .map((e, i) => {
-        const src = e.sourceIdx === -1 ? 'trigger' : sorted[e.sourceIdx]?.id;
-        const tgt = e.targetIdx === -1 ? 'trigger' : sorted[e.targetIdx]?.id;
-        const sourceStep = e.sourceIdx === -1 ? null : sorted[e.sourceIdx] ?? null;
+        const src = idxToNodeId(e.sourceIdx);
+        const tgt = idxToNodeId(e.targetIdx);
+        const sourceStep = e.sourceIdx >= 0 ? sorted[e.sourceIdx] ?? null : null;
         if (!src || !tgt) return null;
         const label = handleLabel(e.sourceHandle, sourceStep);
         return { id: `ec-${i}-${src}-${tgt}`, source: src, target: tgt, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, label, ...EDGE_BASE };
@@ -1068,15 +1088,24 @@ const HANDLE_CLS = '!w-2.5 !h-2.5 !bg-background !border !border-border/60 !roun
 
 const BARS = [3, 7, 5, 12, 8, 14, 4, 10, 6, 13, 7, 9, 4, 11, 5];
 
+const PAYMENT_PLATFORM_LABELS: Record<string, { label: string; color: string }> = {
+  mercadopago: { label: 'Mercado Pago', color: 'text-[#009EE3]' },
+  kiwify:      { label: 'Kiwify',       color: 'text-[#2db56f]' },
+};
+
 function TriggerNode({ id, data, selected }: NodeProps) {
   const d = data as TriggerNodeData;
+  const platformInfo = d.platform ? PAYMENT_PLATFORM_LABELS[d.platform] : null;
   return (
     <NodeShell selected={selected} accent="primary"
       header={<NodeHeader icon={Zap} label="Gatilho" accent="primary" nodeId={id} customLabel={d.customLabel} />}
       execState={d._execState} execError={d._execError} leadCount={d._leadCount}>
       <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
       <p className="text-sm font-semibold text-foreground/90 leading-snug">{d.label}</p>
-      {d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>}
+      {platformInfo
+        ? <p className={`text-xs font-medium ${platformInfo.color}`}>{platformInfo.label}</p>
+        : d.condicao && <p className="text-xs text-muted-foreground/70">{d.condicao}</p>
+      }
     </NodeShell>
   );
 }
@@ -2380,7 +2409,7 @@ function TrialWebhookField() {
   )
 }
 
-function PaymentWebhookField() {
+function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify' }) {
   const [integrations, setIntegrations] = useState<{ platform: string }[]>([])
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
@@ -2392,8 +2421,11 @@ function PaymentWebhookField() {
       .catch(() => {})
   }, [])
 
-  const filtered = integrations
-  const missing = (['mercadopago', 'kiwify'] as const).filter(p => !integrations.find(i => i.platform === p))
+  // If a specific platform is selected for this trigger, show only that one
+  const filtered = platform ? integrations.filter(i => i.platform === platform) : integrations
+  const missing = platform
+    ? (integrations.find(i => i.platform === platform) ? [] : [platform])
+    : (['mercadopago', 'kiwify'] as const).filter(p => !integrations.find(i => i.platform === p))
 
   if (!integrations.length) return (
     <>
@@ -2868,8 +2900,33 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             {/* Trial SaaS — webhook URL */}
             {sequenceTipo === 'trial_saas' && <TrialWebhookField />}
 
-            {/* Pagamento — gatilho automático por qualquer plataforma configurada */}
-            {sequenceTipo === 'pagamento' && <PaymentWebhookField />}
+            {/* Pagamento — plataforma por trigger + webhook */}
+            {sequenceTipo === 'pagamento' && (
+              <>
+                <Field label="Plataforma deste gatilho">
+                  <select
+                    value={(d as TriggerNodeData).platform ?? ''}
+                    onChange={(e) => onUpdate(node.id, { platform: (e.target.value as TriggerNodeData['platform']) || undefined })}
+                    className="field-input"
+                  >
+                    <option value="">Selecionar plataforma...</option>
+                    <option value="mercadopago">Mercado Pago</option>
+                    <option value="kiwify">Kiwify</option>
+                  </select>
+                </Field>
+                <PaymentWebhookField platform={(d as TriggerNodeData).platform} />
+                {node.id !== 'trigger' && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(node.id)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-destructive/40 text-destructive text-xs font-medium hover:bg-destructive/10 transition-colors w-full justify-center"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remover este gatilho
+                  </button>
+                )}
+              </>
+            )}
 
             {/* Remarketing-specific entry criteria */}
             {sequenceTipo === 'remarketing' && remarketingCfg && onRemarketingChange && (
@@ -4207,6 +4264,20 @@ function CanvasInner() {
     setEdges((eds) => eds.filter((e) => (e as Edge).source !== id && (e as Edge).target !== id));
   }
 
+  function addPaymentTrigger(platform: 'mercadopago' | 'kiwify') {
+    const id = `trigger-${newId()}`;
+    const existingTriggers = nodes.filter((n) => n.data.kind === 'trigger');
+    const lastTrigger = existingTriggers[existingTriggers.length - 1];
+    const pos = lastTrigger
+      ? { x: lastTrigger.position.x, y: lastTrigger.position.y + 160 }
+      : { x: 0, y: 310 };
+    const seqName = nodes.find((n) => n.id === 'trigger')?.data.label ?? 'Pagamento';
+    setNodes((nds) => [...nds, {
+      id, type: 'triggerNode', position: pos,
+      data: { kind: 'trigger', label: seqName as string, condicao: 'Início da sequência', platform } satisfies TriggerNodeData,
+    }]);
+  }
+
   async function toggleAtivo() {
     if (!currentSeq) return;
     const nextAtivo = !currentSeq.ativo;
@@ -4308,7 +4379,7 @@ function CanvasInner() {
             const seen = new Set<string>();
             while (queue.length) {
               const nid = queue.shift()!;
-              if (!nid || seen.has(nid) || nid === 'trigger') continue;
+              if (!nid || seen.has(nid) || nid === 'trigger' || nid.startsWith('trigger-')) continue;
               seen.add(nid);
               const n = nodeById2.get(nid);
               if (!n || n.data.kind === 'condition') continue;
@@ -4325,8 +4396,13 @@ function CanvasInner() {
       const triggerNode = nodes.find((n) => n.id === 'trigger');
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
 
+      // Extra trigger nodes (pagamento only) — stable negative indices for edge map
+      const extraTriggerNodes = nodes.filter((n) => n.data.kind === 'trigger' && n.id !== 'trigger');
+      const triggerIdToIdx: Record<string, number> = { trigger: -1 };
+      extraTriggerNodes.forEach((n, i) => { triggerIdToIdx[n.id] = -(i + 2); });
+
       // Build canvas_config: positions + edges indexed by x-sorted order so they survive UUID rotation
-      const nonTrigger = [...nodes.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
+      const nonTrigger = [...nodes.filter((n) => n.data.kind !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
       const idToIdx: Record<string, number> = {};
       nonTrigger.forEach((n, i) => { idToIdx[n.id] = i; });
       // Collect custom labels and comments from all nodes (keyed by stepId)
@@ -4343,13 +4419,19 @@ function CanvasInner() {
       const triggerData = triggerNode?.data as TriggerNodeData | undefined;
       const triggerExpiry = triggerData?.expira_em_dias ?? 0;
       const eventoEntrada = triggerData?.eventoEntrada;
+
+      const nodeIdToIdx = (nodeId: string): number | undefined => {
+        if (triggerIdToIdx[nodeId] !== undefined) return triggerIdToIdx[nodeId];
+        return idToIdx[nodeId];
+      };
+
       const canvas_config: CanvasConfig = {
         triggerPos: triggerNode?.position ?? { x: 0, y: 150 },
         positions: nonTrigger.map((n) => ({ x: n.position.x, y: n.position.y })),
         edges: edges
           .map((e) => ({
-            sourceIdx: e.source === 'trigger' ? -1 : idToIdx[e.source],
-            targetIdx: e.target === 'trigger' ? -1 : idToIdx[e.target],
+            sourceIdx: nodeIdToIdx(e.source),
+            targetIdx: nodeIdToIdx(e.target),
             sourceHandle: (e.sourceHandle ?? undefined) as string | undefined,
             targetHandle: (e.targetHandle ?? undefined) as string | undefined,
           }))
@@ -4359,6 +4441,13 @@ function CanvasInner() {
         ...(Object.keys(nodeComments).length > 0 ? { nodeComments } : {}),
         ...(triggerExpiry > 0 ? { expira_em_dias: triggerExpiry } : {}),
         ...(eventoEntrada ? { eventoEntrada } : {}),
+        ...(extraTriggerNodes.length > 0 ? {
+          extraTriggers: extraTriggerNodes.map((n) => ({
+            id: n.id,
+            platform: ((n.data as TriggerNodeData).platform ?? 'mercadopago') as 'mercadopago' | 'kiwify',
+            position: n.position,
+          }))
+        } : {}),
       };
 
       const res = await fetch(`/api/follow/sequences/${currentSeq.id}`, {
@@ -4923,7 +5012,6 @@ function CanvasInner() {
                     onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                     onPaneClick={() => { setSelectedNodeId(null); setPaletteOpen(false); }}
                     fitView fitViewOptions={{ padding: 0.2 }} minZoom={0.3} maxZoom={1.5}
-                    edgesUpdatable
                     reconnectRadius={12}
                     onReconnect={onReconnect}
                     onReconnectStart={onReconnectStart}
@@ -4946,6 +5034,20 @@ function CanvasInner() {
                         paletteOpen ? 'border-primary/50 text-primary bg-primary/10' : 'border-border text-muted-foreground hover:border-primary/40 hover:text-primary')}>
                       <Plus className="w-5 h-5" />
                     </button>
+                    {activeTipo === 'pagamento' && (
+                      <>
+                        <button onClick={() => addPaymentTrigger('mercadopago')} title="Adicionar gatilho Mercado Pago"
+                          className="w-10 h-10 rounded-xl bg-card border border-[#009EE3]/40 flex items-center justify-center shadow-md text-[#009EE3] hover:bg-[#009EE3]/10 transition-all"
+                          style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                          MP
+                        </button>
+                        <button onClick={() => addPaymentTrigger('kiwify')} title="Adicionar gatilho Kiwify"
+                          className="w-10 h-10 rounded-xl bg-card border border-[#2db56f]/40 flex items-center justify-center shadow-md text-[#2db56f] hover:bg-[#2db56f]/10 transition-all"
+                          style={{ fontSize: 10, fontWeight: 700, letterSpacing: '-0.5px' }}>
+                          KW
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {paletteOpen && (

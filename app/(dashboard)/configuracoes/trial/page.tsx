@@ -645,11 +645,11 @@ function TrialStepEditor({ step, index, onChange, allSteps }: {
             <Input type="number" min={1} value={step.dia_offset} onChange={(e) => onChange({ dia_offset: parseInt(e.target.value) || 1 })} className="w-20 h-9 text-sm text-center font-mono" />
             <span className="text-sm text-muted-foreground">do trial, às</span>
             <div className="flex items-center gap-1">
-              <select value={step.horario.slice(0, 2)} onChange={(e) => onChange({ horario: `${e.target.value}:${step.horario.slice(3, 5)}` })} className="h-9 text-sm font-mono text-center rounded-md border border-input bg-background px-2">
+              <select value={step.horario.slice(0, 2)} onChange={(e) => onChange({ horario: `${e.target.value}:${step.horario.slice(3, 5)}` })} className="field-input w-16 text-sm font-mono text-center">
                 {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <option key={h} value={h}>{h}</option>)}
               </select>
               <span className="text-muted-foreground font-bold">:</span>
-              <select value={step.horario.slice(3, 5)} onChange={(e) => onChange({ horario: `${step.horario.slice(0, 2)}:${e.target.value}` })} className="h-9 text-sm font-mono text-center rounded-md border border-input bg-background px-2">
+              <select value={step.horario.slice(3, 5)} onChange={(e) => onChange({ horario: `${step.horario.slice(0, 2)}:${e.target.value}` })} className="field-input w-16 text-sm font-mono text-center">
                 {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
