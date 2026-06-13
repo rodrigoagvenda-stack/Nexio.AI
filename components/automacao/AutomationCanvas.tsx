@@ -2083,11 +2083,14 @@ function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionC
     <>
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Variável</label>
-        <select value={variavel} onChange={(e) => onUpdate(nodeId, { variavel: e.target.value })} className="field-input">
-          <option value="resposta_botao">Resposta do botão</option>
-          <option value="ultima_resposta">Última resposta</option>
-          <option value="custom">Personalizada</option>
-        </select>
+        <Select value={variavel} onValueChange={(v) => onUpdate(nodeId, { variavel: v })}>
+          <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="resposta_botao">Resposta do botão</SelectItem>
+            <SelectItem value="ultima_resposta">Última resposta</SelectItem>
+            <SelectItem value="custom">Personalizada</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {variavel === 'custom' && (
         <div className="flex flex-col gap-1.5">
@@ -2098,24 +2101,28 @@ function ConditionConfig({ d, nodeId, allNodes, allEdges, onUpdate }: ConditionC
       )}
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Operador</label>
-        <select value={operador} onChange={(e) => onUpdate(nodeId, { operador: e.target.value as ConditionNodeData['operador'] })} className="field-input">
-          <option value="eq">igual a (=)</option>
-          <option value="contains">contém</option>
-          <option value="starts_with">começa com</option>
-          <option value="not_empty">não está vazio</option>
-        </select>
+        <Select value={operador} onValueChange={(v) => onUpdate(nodeId, { operador: v as ConditionNodeData['operador'] })}>
+          <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="eq">igual a (=)</SelectItem>
+            <SelectItem value="contains">contém</SelectItem>
+            <SelectItem value="starts_with">começa com</SelectItem>
+            <SelectItem value="not_empty">não está vazio</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {operador !== 'not_empty' && (
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Valor</label>
           {upstreamChoices.length > 0 ? (
             <>
-              <select value={inUpstream ? valor : '__custom'}
-                onChange={(e) => onUpdate(nodeId, { valor: e.target.value === '__custom' ? '' : e.target.value })}
-                className="field-input">
-                {upstreamChoices.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__custom">Personalizado…</option>
-              </select>
+              <Select value={inUpstream ? valor : '__custom'} onValueChange={(v) => onUpdate(nodeId, { valor: v === '__custom' ? '' : v })}>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {upstreamChoices.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  <SelectItem value="__custom">Personalizado…</SelectItem>
+                </SelectContent>
+              </Select>
               {!inUpstream && (
                 <input type="text" value={valor} onChange={(e) => onUpdate(nodeId, { valor: e.target.value })}
                   placeholder="Valor personalizado" className="field-input" />
@@ -2170,10 +2177,13 @@ function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigP
     <>
       <div className="flex flex-col gap-1.5">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Variável</label>
-        <select value={d.variavel ?? 'resposta_botao'} onChange={(e) => onUpdate(nodeId, { variavel: e.target.value })} className="field-input">
-          <option value="resposta_botao">Resposta do botão</option>
-          <option value="ultima_resposta">Última resposta</option>
-        </select>
+        <Select value={d.variavel ?? 'resposta_botao'} onValueChange={(v) => onUpdate(nodeId, { variavel: v })}>
+          <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="resposta_botao">Resposta do botão</SelectItem>
+            <SelectItem value="ultima_resposta">Última resposta</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Casos</label>
@@ -2181,12 +2191,13 @@ function SwitchConfig({ d, nodeId, allNodes, allEdges, onUpdate }: SwitchConfigP
           <div key={i} className="flex items-center gap-1.5">
             <span className={`text-[10px] font-bold w-4 shrink-0 ${CASE_COLORS[i % CASE_COLORS.length]}`}>{i + 1}</span>
             {upstreamChoices.length > 0 ? (
-              <select value={upstreamChoices.includes(c.value) ? c.value : '__custom'}
-                onChange={(e) => updateCase(i, { value: e.target.value === '__custom' ? '' : e.target.value })}
-                className="field-input flex-1 text-xs">
-                {upstreamChoices.map(ch => <option key={ch} value={ch}>{ch}</option>)}
-                <option value="__custom">Personalizado…</option>
-              </select>
+              <Select value={upstreamChoices.includes(c.value) ? c.value : '__custom'} onValueChange={(v) => updateCase(i, { value: v === '__custom' ? '' : v })}>
+                <SelectTrigger className="h-8 text-xs rounded-lg border-[#212121] bg-[#141414] flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {upstreamChoices.map(ch => <SelectItem key={ch} value={ch}>{ch}</SelectItem>)}
+                  <SelectItem value="__custom">Personalizado…</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <input type="text" value={c.value} onChange={(e) => updateCase(i, { value: e.target.value })}
                 placeholder="valor" className="field-input flex-1 text-xs" />
@@ -2561,13 +2572,15 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     </Field>
                     <Field label="Horário">
                       <div className="flex items-center gap-1">
-                        <select value={horarioValue.slice(0, 2)} onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${horarioValue.slice(3, 5)}` })} className="field-input flex-1 text-center font-mono">
-                          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <option key={h} value={h}>{h}</option>)}
-                        </select>
+                        <Select value={horarioValue.slice(0, 2)} onValueChange={(v) => onUpdate(node.id, { horario: `${v}:${horarioValue.slice(3, 5)}` })}>
+                          <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>{Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+                        </Select>
                         <span className="text-muted-foreground font-bold">:</span>
-                        <select value={horarioValue.slice(3, 5)} onChange={(e) => onUpdate(node.id, { horario: `${horarioValue.slice(0, 2)}:${e.target.value}` })} className="field-input flex-1 text-center font-mono">
-                          {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
+                        <Select value={horarioValue.slice(3, 5)} onValueChange={(v) => onUpdate(node.id, { horario: `${horarioValue.slice(0, 2)}:${v}` })}>
+                          <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>{['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                        </Select>
                       </div>
                     </Field>
                   </>
@@ -2591,18 +2604,17 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             )}
 
             <Field label="Controle da IA">
-              <select
+              <Select
                 value={d.sdr_ativo === null || d.sdr_ativo === undefined ? 'null' : String(d.sdr_ativo)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  onUpdate(node.id, { sdr_ativo: v === 'null' ? null : v === 'true' });
-                }}
-                className="field-input"
+                onValueChange={(v) => onUpdate(node.id, { sdr_ativo: v === 'null' ? null : v === 'true' })}
               >
-                <option value="null">Sem mudança</option>
-                <option value="false">Pausar IA após este node</option>
-                <option value="true">Ativar IA após este node</option>
-              </select>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="null">Sem mudança</SelectItem>
+                  <SelectItem value="false">Pausar IA após este node</SelectItem>
+                  <SelectItem value="true">Ativar IA após este node</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-[10px] text-muted-foreground/60 leading-snug mt-1">
                 {(d.sdr_ativo === false) && 'Se o lead responder, o SDR não assume — a IA fica pausada.'}
                 {(d.sdr_ativo === true) && 'O SDR volta a responder automaticamente após este step.'}
@@ -2805,24 +2817,27 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             <Field label="Horário">
               <div className="flex items-center gap-1">
                 {(() => { const hv = ((d as SchedulingNodeData).horario ?? '09:00').slice(0, 5); return (<>
-                  <select value={hv.slice(0, 2)} onChange={(e) => onUpdate(node.id, { horario: `${e.target.value}:${hv.slice(3, 5)}` })} className="field-input flex-1 text-center font-mono">
-                    {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
+                  <Select value={hv.slice(0, 2)} onValueChange={(v) => onUpdate(node.id, { horario: `${v}:${hv.slice(3, 5)}` })}>
+                    <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>{Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent>
+                  </Select>
                   <span className="text-muted-foreground font-bold">:</span>
-                  <select value={hv.slice(3, 5)} onChange={(e) => onUpdate(node.id, { horario: `${hv.slice(0, 2)}:${e.target.value}` })} className="field-input flex-1 text-center font-mono">
-                    {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <Select value={hv.slice(3, 5)} onValueChange={(v) => onUpdate(node.id, { horario: `${hv.slice(0, 2)}:${v}` })}>
+                    <SelectTrigger className="h-9 flex-1 rounded-xl border-[#212121] bg-[#141414] font-mono text-center text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>{['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                  </Select>
                 </>); })()}
               </div>
             </Field>
             <Field label="Duração da call">
-              <select value={(d as SchedulingNodeData).duracao ?? 60}
-                onChange={(e) => onUpdate(node.id, { duracao: Number(e.target.value) })}
-                className="field-input">
-                <option value={30}>30 minutos</option>
-                <option value={60}>60 minutos</option>
-                <option value={90}>90 minutos</option>
-              </select>
+              <Select value={String((d as SchedulingNodeData).duracao ?? 60)} onValueChange={(v) => onUpdate(node.id, { duracao: Number(v) })}>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 minutos</SelectItem>
+                  <SelectItem value="60">60 minutos</SelectItem>
+                  <SelectItem value="90">90 minutos</SelectItem>
+                </SelectContent>
+              </Select>
             </Field>
             <BlocosEditor
               blocos={(d as SchedulingNodeData).blocos as string[] | undefined}
@@ -2882,16 +2897,15 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             </Field>
             {sequenceTipo !== 'pagamento' && (
               <Field label="Entrada automática por evento">
-                <select
-                  value={(d as TriggerNodeData).eventoEntrada ?? ''}
-                  onChange={(e) => onUpdate(node.id, { eventoEntrada: (e.target.value as TriggerNodeData['eventoEntrada']) || undefined })}
-                  className="field-input"
-                >
-                  <option value="">Manual / cron padrão</option>
-                  <option value="novo_lead">Novo lead criado</option>
-                  <option value="mudanca_status">Mudança de status</option>
-                  <option value="webhook">Evento de webhook</option>
-                </select>
+                <Select value={(d as TriggerNodeData).eventoEntrada ?? ''} onValueChange={(v) => onUpdate(node.id, { eventoEntrada: (v as TriggerNodeData['eventoEntrada']) || undefined })}>
+                  <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue placeholder="Manual / cron padrão" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Manual / cron padrão</SelectItem>
+                    <SelectItem value="novo_lead">Novo lead criado</SelectItem>
+                    <SelectItem value="mudanca_status">Mudança de status</SelectItem>
+                    <SelectItem value="webhook">Evento de webhook</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
                   Define quando leads entram automaticamente nesta sequência.
                 </p>
@@ -2990,12 +3004,13 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 placeholder="https://hooks.exemplo.com/..." className="field-input" />
             </Field>
             <Field label="Método">
-              <select value={d.method}
-                onChange={(e) => onUpdate(node.id, { method: e.target.value as 'POST' | 'GET' })}
-                className="field-input">
-                <option value="POST">POST</option>
-                <option value="GET">GET</option>
-              </select>
+              <Select value={d.method ?? 'POST'} onValueChange={(v) => onUpdate(node.id, { method: v as 'POST' | 'GET' })}>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="POST">POST</SelectItem>
+                  <SelectItem value="GET">GET</SelectItem>
+                </SelectContent>
+              </Select>
             </Field>
           </>
         )}
@@ -3036,19 +3051,20 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
         {d.kind === 'sub_flow' && (
           <>
             <Field label="Sequência de destino">
-              <select
+              <Select
                 value={(d as SubFlowNodeData).subSequenceId ?? ''}
-                onChange={(e) => {
-                  const chosen = sequences.find((s) => s.id === e.target.value);
-                  onUpdate(node.id, { subSequenceId: e.target.value, subSequenceName: chosen?.nome ?? '' } as any);
+                onValueChange={(v) => {
+                  const chosen = sequences.find((s) => s.id === v);
+                  onUpdate(node.id, { subSequenceId: v, subSequenceName: chosen?.nome ?? '' } as any);
                 }}
-                className="field-input"
               >
-                <option value="">Selecionar sequência…</option>
-                {sequences.filter((s) => s.id !== currentSeqId).map((s) => (
-                  <option key={s.id} value={s.id}>{s.nome} ({s.tipo})</option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue placeholder="Selecionar sequência…" /></SelectTrigger>
+                <SelectContent>
+                  {sequences.filter((s) => s.id !== currentSeqId).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.nome} ({s.tipo})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
                 O lead será enrolado nessa sequência ao chegar neste nó.
               </p>
@@ -3074,14 +3090,16 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
         {d.kind === 'wait_event' && (
           <>
             <Field label="Tipo de evento">
-              <select
+              <Select
                 value={(d as WaitEventNodeData).event ?? 'reply'}
-                onChange={(e) => onUpdate(node.id, { event: e.target.value as 'reply' | 'keyword' })}
-                className="field-input"
+                onValueChange={(v) => onUpdate(node.id, { event: v as 'reply' | 'keyword' })}
               >
-                <option value="reply">Qualquer resposta</option>
-                <option value="keyword">Palavra-chave específica</option>
-              </select>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reply">Qualquer resposta</SelectItem>
+                  <SelectItem value="keyword">Palavra-chave específica</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
                 O fluxo avança quando o lead enviar uma mensagem que satisfaça o critério.
               </p>
@@ -3991,19 +4009,25 @@ function VersionDiffModal({ versions, onClose }: { versions: CanvasVersion[]; on
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Versão anterior</label>
-              <select value={v1Idx} onChange={(e) => setV1Idx(Number(e.target.value))} className="field-input">
-                {versions.map((v, i) => (
-                  <option key={v.ts} value={i}>{formatVersionLabel(v, i, versions.length)}</option>
-                ))}
-              </select>
+              <Select value={String(v1Idx)} onValueChange={(v) => setV1Idx(Number(v))}>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {versions.map((v, i) => (
+                    <SelectItem key={v.ts} value={String(i)}>{formatVersionLabel(v, i, versions.length)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">Versão nova</label>
-              <select value={v2Idx} onChange={(e) => setV2Idx(Number(e.target.value))} className="field-input">
-                {versions.map((v, i) => (
-                  <option key={v.ts} value={i}>{formatVersionLabel(v, i, versions.length)}</option>
-                ))}
-              </select>
+              <Select value={String(v2Idx)} onValueChange={(v) => setV2Idx(Number(v))}>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {versions.map((v, i) => (
+                    <SelectItem key={v.ts} value={String(i)}>{formatVersionLabel(v, i, versions.length)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
