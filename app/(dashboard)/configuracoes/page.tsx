@@ -795,15 +795,17 @@ function ConfiguracoesContent() {
           {(() => {
             const connected = paymentIntegrations.some(i => i.platform === 'mercadopago' && i.active);
             return (
-              <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
+              <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', connected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-[#009EE3]/10 flex items-center justify-center shrink-0 p-1 overflow-hidden">
                     <img src="/logos/mercadopago.svg?v=4" className="w-full h-full object-contain" alt="Mercado Pago" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-sm">Mercado Pago</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">Mercado Pago</p>
+                      {connected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Ativo</span>}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">Receba notificações automáticas de pagamento confirmado</p>
-                    {connected && <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Conectado</p>}
                     {!connected && mpFormOpen && (
                       <div className="mt-3 space-y-2">
                         <div>
@@ -843,15 +845,17 @@ function ConfiguracoesContent() {
           {(() => {
             const connected = paymentIntegrations.some(i => i.platform === 'kiwify' && i.active);
             return (
-              <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
+              <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', connected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-[#2db56f]/10 flex items-center justify-center shrink-0 p-1 overflow-hidden">
                     <img src="/logos/kiwify.svg?v=3" className="w-full h-full object-contain" alt="Kiwify" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-sm">Kiwify</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">Kiwify</p>
+                      {connected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Ativo</span>}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">Detecta compras confirmadas de infoprodutos automaticamente</p>
-                    {connected && <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Conectado</p>}
                     {!connected && kiwifyFormOpen && (
                       <div className="mt-3 space-y-2">
                         <div>
@@ -887,15 +891,17 @@ function ConfiguracoesContent() {
           {(() => {
             const connected = paymentIntegrations.some(i => i.platform === 'asaas' && i.active);
             return (
-              <div className="p-5 rounded-2xl border border-border bg-card flex items-start justify-between gap-4">
+              <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', connected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-[#00AEEF]/10 flex items-center justify-center shrink-0 p-1.5 overflow-hidden">
+                  <div className="w-10 h-10 rounded-xl bg-[#0030B9]/10 flex items-center justify-center shrink-0 p-1.5 overflow-hidden">
                     <img src="/logos/asaas.svg" className="w-full h-full object-contain" alt="Asaas" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-semibold text-sm">Asaas</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">Asaas</p>
+                      {connected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Ativo</span>}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">Dispare sequências em pagamento confirmado, boleto gerado ou vencido</p>
-                    {connected && <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" />Conectado</p>}
                     {!connected && asaasFormOpen && (
                       <div className="mt-3 space-y-2">
                         <div>
