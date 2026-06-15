@@ -201,6 +201,7 @@ function ConfiguracoesContent() {
   const [mfaVerifying, setMfaVerifying] = useState(false);
   const [mfaDisabling, setMfaDisabling] = useState(false);
   const [mfaCopied, setMfaCopied] = useState(false);
+  const [copiedAsaasUrl, setCopiedAsaasUrl] = useState(false);
 
   useEffect(() => {
     const r = searchParams.get('checkout');
@@ -905,6 +906,25 @@ function ConfiguracoesContent() {
                     {!connected && asaasFormOpen && (
                       <div className="mt-3 space-y-2">
                         <div>
+                          <Label className="text-xs">URL do Webhook (cole no painel Asaas)</Label>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Input readOnly value={company ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payment/${company.id}/asaas` : ''} className="h-8 text-xs font-mono bg-muted/30 cursor-text select-all" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!company) return;
+                                navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/payment/${company.id}/asaas`);
+                                setCopiedAsaasUrl(true);
+                                setTimeout(() => setCopiedAsaasUrl(false), 2000);
+                              }}
+                              className="h-8 w-8 flex items-center justify-center shrink-0 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                            >
+                              {copiedAsaasUrl ? <CheckCheck className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/70 mt-1">Cole essa URL em Menu → Integrações → Configurar Webhook no painel do Asaas.</p>
+                        </div>
+                        <div>
                           <Label className="text-xs">Chave de API Asaas</Label>
                           <Input value={asaasAccessToken} onChange={e => setAsaasAccessToken(e.target.value)} placeholder="$aact_prod_..." className="h-8 text-xs mt-1 font-mono" />
                         </div>
@@ -913,6 +933,26 @@ function ConfiguracoesContent() {
                           <Input value={asaasWebhookToken} onChange={e => setAsaasWebhookToken(e.target.value)} placeholder="Token gerado no painel Asaas" className="h-8 text-xs mt-1 font-mono" />
                         </div>
                         <p className="text-[10px] text-muted-foreground/70">Chave de API em Menu → Integrações → Chaves de API. Token do Webhook em Menu → Integrações → Configurar Webhook.</p>
+                      </div>
+                    )}
+                    {connected && (
+                      <div className="mt-2">
+                        <Label className="text-xs text-muted-foreground">URL do Webhook</Label>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Input readOnly value={company ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payment/${company.id}/asaas` : ''} className="h-7 text-[11px] font-mono bg-muted/20 cursor-text select-all" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!company) return;
+                              navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/payment/${company.id}/asaas`);
+                              setCopiedAsaasUrl(true);
+                              setTimeout(() => setCopiedAsaasUrl(false), 2000);
+                            }}
+                            className="h-7 w-7 flex items-center justify-center shrink-0 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            {copiedAsaasUrl ? <CheckCheck className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

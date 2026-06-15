@@ -13,7 +13,8 @@ interface ChangelogEntry {
   title: string;
   description: string;
   type: ChangelogType;
-  published_at: string;
+  published_at: string | null;
+  created_at: string;
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -35,22 +36,26 @@ const FILTERS: Array<{ value: ChangelogType | 'todos'; label: string }> = [
 
 const LAST_SEEN_KEY = 'zaapply_changelog_last_seen';
 
-function isNew(publishedAt: string): boolean {
-  return Date.now() - new Date(publishedAt).getTime() < 7 * 24 * 60 * 60 * 1000;
+function entryDate(e: ChangelogEntry): string {
+  return e.published_at ?? e.created_at;
 }
 
-function formatDay(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+function isNew(e: ChangelogEntry): boolean {
+  return Date.now() - new Date(entryDate(e)).getTime() < 7 * 24 * 60 * 60 * 1000;
 }
 
-function formatMonth(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+function formatDay(e: ChangelogEntry) {
+  return new Date(entryDate(e)).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+function formatMonth(e: ChangelogEntry) {
+  return new Date(entryDate(e)).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
 function groupByMonth(entries: ChangelogEntry[]): Map<string, ChangelogEntry[]> {
   const map = new Map<string, ChangelogEntry[]>();
   for (const e of entries) {
-    const key = formatMonth(e.published_at);
+    const key = formatMonth(e);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(e);
   }
@@ -125,7 +130,7 @@ export default function NovidadesPage() {
               <div className="space-y-0">
                 {items.map((entry, idx) => {
                   const cfg = TYPE_CONFIG[entry.type];
-                  const _new = isNew(entry.published_at);
+                  const _new = isNew(entry);
 
                   return (
                     <div
@@ -152,7 +157,7 @@ export default function NovidadesPage() {
                             </span>
                           )}
                           <span className="text-xs text-muted-foreground ml-auto">
-                            {formatDay(entry.published_at)}
+                            {formatDay(entry)}
                           </span>
                         </div>
                         <h3 className="text-sm font-semibold text-foreground mb-1.5 leading-snug">

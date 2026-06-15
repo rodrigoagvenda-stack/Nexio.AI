@@ -7,9 +7,9 @@ export async function GET(_req: NextRequest) {
   const service = createServiceClient()
   const { data, error } = await service
     .from('changelogs')
-    .select('id, title, description, type, published_at')
+    .select('id, title, description, type, published_at, created_at')
     .eq('is_published', true)
-    .order('published_at', { ascending: false })
+    .order('published_at', { ascending: false, nullsFirst: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ changelogs: data ?? [] })
