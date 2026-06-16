@@ -805,7 +805,7 @@ function stepsToEdges(steps: FollowStep[] | undefined | null, canvasConfig?: Can
 }
 
 function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
-  return nodes.filter((n) => n.id !== 'trigger').sort((a, b) => a.position.x - b.position.x).map((node, idx) => {
+  return nodes.filter((n) => n.data.kind !== 'trigger').sort((a, b) => a.position.x - b.position.x).map((node, idx) => {
     const d = node.data;
     const stepId = String(d.stepId ?? '');
     if (d.kind === 'message') {
@@ -4571,9 +4571,9 @@ function CanvasInner() {
       const savedSteps = [...(saved.sequence?.follow_steps ?? [])].sort((a, b) => a.ordem - b.ordem);
       if (savedSteps.length > 0) {
         setNodes((nds) => {
-          const nt = [...nds.filter((n) => n.id !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
+          const nt = [...nds.filter((n) => n.data.kind !== 'trigger')].sort((a, b) => a.position.x - b.position.x);
           return nds.map((n) => {
-            if (n.id === 'trigger') return n;
+            if (n.data.kind === 'trigger') return n;
             const idx = nt.findIndex((nn) => nn.id === n.id);
             const realStep = savedSteps[idx];
             if (!realStep) return n;
