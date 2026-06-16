@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 
-const VALID_PLATFORMS = ['mercadopago', 'kiwify'] as const
+const VALID_PLATFORMS = ['mercadopago', 'kiwify', 'asaas'] as const
 type Platform = typeof VALID_PLATFORMS[number]
 
 // GET — lista integrações da empresa (sem expor tokens)
@@ -42,6 +42,9 @@ export async function POST(req: NextRequest) {
   }
   if (platform === 'kiwify' && !config?.token) {
     return NextResponse.json({ error: 'token é obrigatório para Kiwify' }, { status: 400 })
+  }
+  if (platform === 'asaas' && (!config?.access_token || !config?.webhook_token)) {
+    return NextResponse.json({ error: 'access_token e webhook_token são obrigatórios para Asaas' }, { status: 400 })
   }
 
   const supabase = createServiceClient()
