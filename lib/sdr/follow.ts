@@ -2382,21 +2382,25 @@ export async function runPaymentSequenceImmediate(
   }
 
   // Sequências do tipo "pagamento" ativas para esta empresa
-  // Filtra por eventoEntrada quando fornecido (ex: 'asaas_pago', 'mercadopago', 'kiwify')
-  let seqQuery = supabase
+  // Busca todas e filtra em JS — precisa checar tanto canvas_config.eventoEntrada
+  // (trigger principal) quanto canvas_config.extraTriggers[*].eventoEntrada
+  const { data: allSeqs } = await supabase
     .from('follow_sequences')
-    .select('id, nome')
+    .select('id, nome, canvas_config')
     .eq('company_id', companyId)
     .eq('tipo', 'pagamento')
     .eq('ativo', true)
 
-  if (context.eventoEntrada) {
-    seqQuery = seqQuery.filter('canvas_config->>eventoEntrada', 'eq', context.eventoEntrada)
-  }
+  const sequences = context.eventoEntrada
+    ? (allSeqs ?? []).filter((seq) => {
+        const cfg = seq.canvas_config as Record<string, any> | null
+        if (cfg?.eventoEntrada === context.eventoEntrada) return true
+        return Array.isArray(cfg?.extraTriggers) &&
+          cfg.extraTriggers.some((et: any) => et.eventoEntrada === context.eventoEntrada)
+      })
+    : (allSeqs ?? [])
 
-  const { data: sequences } = await seqQuery
-
-  if (!sequences?.length) {
+  if (!sequences.length) {
     console.warn(`[payment-seq] company=${companyId} nenhuma sequência pagamento ativa (eventoEntrada=${context.eventoEntrada ?? 'any'})`)
     return { sent: 0, error: 'Nenhuma sequência pagamento ativa' }
   }
