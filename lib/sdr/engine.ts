@@ -44,8 +44,16 @@ import {
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
 import { writeSystemLog } from '@/lib/system-log'
+import { gtproCreateLead } from '@/lib/meta/gtpro'
 
 // ─── Tipos ───────────────────────────────────────────────────
+
+interface MetaReferral {
+  sourceId?: string
+  headline?: string
+  ctwaClid?: string
+  sourceUrl?: string
+}
 
 interface SdrContext {
   companyId: number
@@ -82,6 +90,7 @@ interface BufferedMessage {
   replyToText?: string
   replyToSender?: string
   replyToQuotedId?: string
+  referral?: MetaReferral
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -2359,12 +2368,48 @@ function phoneVariants(phone: string): string[] {
   return variants
 }
 
+async function applyMetaTag(
+  companyId: number,
+  leadId: number,
+  headline: string,
+  supabase: ReturnType<typeof createServiceClient>
+) {
+  try {
+    // Busca ou cria tag com o headline do criativo (cor azul Meta)
+    const { data: existing } = await supabase
+      .from('tags')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('tag_name', headline)
+      .maybeSingle()
+
+    let tagId = existing?.id
+    if (!tagId) {
+      const { data: created } = await supabase
+        .from('tags')
+        .insert({ company_id: companyId, tag_name: headline, tag_color: '#1877F2' })
+        .select('id')
+        .single()
+      tagId = created?.id
+    }
+
+    if (tagId) {
+      await supabase
+        .from('lead_tags')
+        .upsert({ lead_id: leadId, tag_id: tagId, company_id: companyId }, { onConflict: 'lead_id,tag_id' })
+    }
+  } catch (err: any) {
+    console.warn(`[SDR] applyMetaTag lead=${leadId}:`, err.message)
+  }
+}
+
 async function findOrCreateLead(
   companyId: number,
   phone: string,
   name: string,
   companyName: string,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  referral?: MetaReferral
 ): Promise<{ id: number; notes: string }> {
   const variants = phoneVariants(phone)
 
@@ -2378,13 +2423,25 @@ async function findOrCreateLead(
 
   const existing = rows?.[0]
   if (existing) {
-    // Normalize stored phone to canonical format (background, no-await)
     if (existing.whatsapp !== phone) {
       supabase.from('leads').update({ whatsapp: phone }).eq('id', existing.id)
         .then(() => {}, () => {})
     }
+    // Aplica tag do criativo mesmo em lead já existente (pode ter vindo de outro anúncio)
+    if (referral?.headline) {
+      applyMetaTag(companyId, existing.id, referral.headline, supabase)
+    }
     return { id: existing.id, notes: existing.notes ?? '' }
   }
+
+  const isMetaAd = !!referral?.ctwaClid || !!referral?.sourceId
+  const metaAttribution = referral ? {
+    ad_id: referral.sourceId ?? null,
+    headline: referral.headline ?? null,
+    ctwa_clid: referral.ctwaClid ?? null,
+    source_url: referral.sourceUrl ?? null,
+    captured_at: new Date().toISOString(),
+  } : null
 
   const { data: created, error: insertError } = await supabase
     .from('leads')
@@ -2394,8 +2451,9 @@ async function findOrCreateLead(
       whatsapp: phone,
       contact_name: name || 'Não identificado',
       status: 'Lead novo',
-      import_source: 'WhatsApp',
+      import_source: isMetaAd ? 'Meta Ads' : 'WhatsApp',
       origem: 'inbound',
+      ...(metaAttribution ? { meta_attribution: metaAttribution } : {}),
       created_at: new Date().toISOString(),
     })
     .select('id')
@@ -2403,6 +2461,10 @@ async function findOrCreateLead(
 
   if (insertError || !created?.id) {
     throw new Error(`findOrCreateLead: falha ao criar lead — ${insertError?.message ?? 'id nulo'}`)
+  }
+
+  if (referral?.headline) {
+    applyMetaTag(companyId, created.id, referral.headline, supabase)
   }
 
   return { id: created.id, notes: '' }
@@ -2701,7 +2763,41 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // Usa push_name do webhook (nó "Dados do Chat" → "None da pessoa" no N8N)
     const senderName = bufferedMessages[0]?.senderName || bufferedMessages[0]?.content?.split(' ')[0] || ''
-    const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase)
+    // Referral vem da primeira mensagem do buffer (click-to-WhatsApp)
+    const referralFromBuffer: MetaReferral | undefined = bufferedMessages[0]?.referral
+
+    const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase, referralFromBuffer)
+
+    // Se lead veio de Meta Ads e empresa tem GTPRO configurado, registra lead no GTPRO
+    if (referralFromBuffer?.ctwaClid || referralFromBuffer?.sourceId) {
+      ;(async () => {
+        try {
+          const { data: sdrcfg } = await supabase
+            .from('sdr_configs')
+            .select('gtpro_api_key')
+            .eq('company_id', companyId)
+            .maybeSingle()
+          const gtproKey = sdrcfg?.gtpro_api_key
+          if (!gtproKey) return
+          const gtproId = await gtproCreateLead(gtproKey, {
+            name: senderName || undefined,
+            phone,
+            fbclid: referralFromBuffer.ctwaClid,
+            utm_campaign: referralFromBuffer.sourceId,
+            utm_source: 'whatsapp',
+            metadata: { headline: referralFromBuffer.headline, source_url: referralFromBuffer.sourceUrl },
+          })
+          if (!gtproId) return
+          const { data: cur } = await supabase.from('leads').select('meta_attribution').eq('id', leadId).single()
+          const existing = (cur?.meta_attribution as Record<string, any>) ?? {}
+          await supabase.from('leads')
+            .update({ meta_attribution: { ...existing, gtpro_lead_id: gtproId } })
+            .eq('id', leadId)
+        } catch (err: any) {
+          console.warn(`[SDR:${companyId}] gtpro createLead falhou:`, err.message)
+        }
+      })()
+    }
 
     // Busca produtos ativos da empresa para injetar no contexto
     const { data: products } = await supabase
@@ -3076,6 +3172,14 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       ? (quotedRaw.senderName || quotedRaw.sender || undefined)
       : undefined
 
+    const rawReferral = body.message?.referral
+    const referralData: MetaReferral | undefined = rawReferral ? {
+      sourceId: rawReferral.sourceId,
+      headline: rawReferral.headline,
+      ctwaClid: rawReferral.ctwaClid,
+      sourceUrl: rawReferral.sourceUrl,
+    } : undefined
+
     const bufferedMsg: BufferedMessage = {
       content: text || placeholder,
       type: msgType,
@@ -3087,6 +3191,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       replyToText: replyToTextDirect,
       replyToSender: replyToSenderDirect,
       replyToQuotedId,
+      referral: referralData,
     }
 
     await bufferMessage(companyId, phone, bufferedMsg)
@@ -3110,7 +3215,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
           // (desligar SDR = não responder automaticamente, não = ignorar mensagens)
           let newLeadId: number | null = null
           try {
-            const { id: lid } = await findOrCreateLead(companyId, phone, senderName, '', imm)
+            const { id: lid } = await findOrCreateLead(companyId, phone, senderName, '', imm, referralData)
             newLeadId = lid
           } catch (e: any) {
             console.warn(`[SDR:${companyId}] pre-save: falha ao criar lead phone=${phone}:`, e?.message)

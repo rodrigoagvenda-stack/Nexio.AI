@@ -123,6 +123,15 @@ export interface UazapiWebhookMessage {
     }
     messageTimestamp: number
     messageType: string
+    referral?: {
+      sourceUrl?: string
+      sourceType?: string
+      sourceId?: string   // ad ID
+      headline?: string   // título do criativo
+      body?: string
+      ctwaClid?: string   // click ID para CAPI
+      thumbnailUrl?: string
+    }
   }
 }
 

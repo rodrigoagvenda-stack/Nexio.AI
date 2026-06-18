@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireAuth, validateCompanyAccess } from '@/lib/auth/require-auth';
+import { gtproConvertLead } from '@/lib/meta/gtpro';
 
 export async function PATCH(
   request: NextRequest,
@@ -35,7 +36,30 @@ export async function PATCH(
 
     const updateData: any = { [field]: value, updated_at: new Date().toISOString() };
 
-    if (field === 'status' && value === 'Fechado') updateData.closed_at = new Date().toISOString();
+    if (field === 'status' && value === 'Fechado') {
+      updateData.closed_at = new Date().toISOString();
+      // Dispara conversão CAPI no GTPRO em background
+      ;(async () => {
+        try {
+          const { data: leadMeta } = await supabase
+            .from('leads')
+            .select('meta_attribution, project_value')
+            .eq('id', leadId)
+            .single()
+          const gtproLeadId = (leadMeta?.meta_attribution as any)?.gtpro_lead_id
+          if (!gtproLeadId) return
+          const { data: sdrcfg } = await supabase
+            .from('sdr_configs')
+            .select('gtpro_api_key')
+            .eq('company_id', context.companyId)
+            .maybeSingle()
+          if (!sdrcfg?.gtpro_api_key) return
+          await gtproConvertLead(sdrcfg.gtpro_api_key, gtproLeadId, {
+            value: leadMeta?.project_value ?? undefined,
+          })
+        } catch {}
+      })()
+    }
     if (field === 'status' && value !== 'Fechado') updateData.closed_at = null;
 
     if (field === 'status' && value === 'Outbound') {
