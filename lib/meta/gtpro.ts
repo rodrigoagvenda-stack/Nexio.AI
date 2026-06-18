@@ -3,7 +3,7 @@
  * Usa a API Key da empresa armazenada em sdr_configs.gtpro_api_key
  */
 
-const GTPRO_BASE = process.env.GTPRO_API_URL ?? 'https://api.vendai.pro'
+const GTPRO_BASE = process.env.GTPRO_API_URL ?? 'https://gtpro.vendai.pro'
 
 export interface GtproLeadPayload {
   name?: string

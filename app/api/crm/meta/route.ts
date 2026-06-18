@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 
-const GTPRO_BASE = process.env.GTPRO_API_URL ?? 'https://api.vendai.pro'
+const GTPRO_BASE = process.env.GTPRO_API_URL ?? 'https://gtpro.vendai.pro'
 
 function toGtproPeriod(period: string): string {
   switch (period) {
