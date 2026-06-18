@@ -36,12 +36,16 @@ export default function MetaAdsPage() {
       const res = await fetch(`/api/crm/meta?${params}`)
       if (res.status === 424) { setConnected(false); return }
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        setError(body?.error ?? `Erro ${res.status}`)
+        const text = await res.text().catch(() => '')
+        console.error('[MetaAds] proxy error', res.status, text)
+        let body: any = {}
+        try { body = JSON.parse(text) } catch {}
+        setError(body?.error ?? `Erro ${res.status}: ${text.slice(0, 120)}`)
         return
       }
       setData(await res.json())
     } catch (err: any) {
+      console.error('[MetaAds] fetch threw', err)
       setError(err?.message ?? 'Erro de conexão')
     } finally {
       setLoading(false)
