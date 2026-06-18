@@ -189,6 +189,14 @@ function ConfiguracoesContent() {
   const [gtproSaving, setGtproSaving] = useState(false);
   const [gtproConnected, setGtproConnected] = useState(false);
 
+  // Meta Ads OAuth
+  const [metaConnected, setMetaConnected] = useState(false);
+  const [metaAccount, setMetaAccount] = useState<string | null>(null);
+  const [metaAccountName, setMetaAccountName] = useState<string | null>(null);
+  const [metaAccounts, setMetaAccounts] = useState<{ id: string; name: string; active: boolean }[]>([]);
+  const [metaAccountsLoading, setMetaAccountsLoading] = useState(false);
+  const [metaSelectOpen, setMetaSelectOpen] = useState(false);
+
   const [notifSound, setNotifSound] = useState(true);
   useEffect(() => {
     setNotifSound(localStorage.getItem('zaapply_notif_sound') !== 'false');
@@ -243,6 +251,19 @@ function ConfiguracoesContent() {
   useEffect(() => {
     fetch('/api/integrations/gtpro').then(r => r.ok ? r.json() : null).then(d => {
       if (d?.connected) setGtproConnected(true);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/integrations/meta').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      setMetaConnected(d.connected);
+      setMetaAccount(d.accountId);
+      setMetaAccountName(d.accountName);
+      // Volta do OAuth com token mas sem conta selecionada ainda → abre seleção
+      if (d.connected && !d.accountId) {
+        loadMetaAccounts();
+      }
     }).catch(() => {});
   }, []);
 
@@ -457,6 +478,38 @@ function ConfiguracoesContent() {
       setGtproConnected(false);
       toast({ title: 'GTPRO desconectado' });
     } catch { toast({ title: 'Erro ao desconectar', variant: 'destructive' }); }
+  };
+
+  const loadMetaAccounts = async () => {
+    setMetaAccountsLoading(true);
+    try {
+      const res = await fetch('/api/integrations/meta/accounts');
+      if (!res.ok) return;
+      const d = await res.json();
+      setMetaAccounts(d.accounts ?? []);
+      setMetaSelectOpen(true);
+    } finally { setMetaAccountsLoading(false); }
+  };
+
+  const handleMetaAccountSelect = async (id: string, name: string) => {
+    await fetch('/api/integrations/meta/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: id, account_name: name }),
+    });
+    setMetaAccount(id);
+    setMetaAccountName(name);
+    setMetaSelectOpen(false);
+    toast({ title: 'Conta de anúncio selecionada!' });
+  };
+
+  const handleMetaDisconnect = async () => {
+    await fetch('/api/integrations/meta', { method: 'DELETE' });
+    setMetaConnected(false);
+    setMetaAccount(null);
+    setMetaAccountName(null);
+    setMetaAccounts([]);
+    toast({ title: 'Meta desconectado' });
   };
 
   const handlePaymentDisconnect = async (platform: string) => {
@@ -1054,6 +1107,69 @@ function ConfiguracoesContent() {
                 </>
               ) : (
                 <Button variant="outline" size="sm" onClick={() => setGtproFormOpen(true)}>Conectar</Button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Meta Ads (OAuth direto) ──────────────────────────── */}
+          <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', metaConnected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center shrink-0 p-2 overflow-hidden">
+                <svg viewBox="0 0 24 24" fill="#1877F2" className="w-full h-full"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-sm">Meta Ads · Business Manager</p>
+                  {metaConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Ativo</span>}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {metaConnected && metaAccountName
+                    ? `Conta: ${metaAccountName}`
+                    : metaConnected
+                    ? 'Autenticado — selecione a conta de anúncio'
+                    : 'Conecte via OAuth para ver atribuição de campanhas no painel Meta Ads'}
+                </p>
+
+                {/* Seleção de conta de anúncio */}
+                {metaSelectOpen && metaAccounts.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-xs font-medium">Selecione a conta de anúncio:</p>
+                    {metaAccounts.filter(a => a.active).map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => handleMetaAccountSelect(a.id, a.name)}
+                        className="w-full text-left px-3 py-2 rounded-lg border border-border hover:bg-muted/50 transition-colors text-xs"
+                      >
+                        <span className="font-medium">{a.name}</span>
+                        <span className="text-muted-foreground ml-2">{a.id}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+              {metaConnected ? (
+                <>
+                  {!metaAccount && (
+                    <Button variant="outline" size="sm" onClick={loadMetaAccounts} disabled={metaAccountsLoading}>
+                      {metaAccountsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Selecionar conta'}
+                    </Button>
+                  )}
+                  {metaAccount && (
+                    <Button variant="outline" size="sm" onClick={loadMetaAccounts} disabled={metaAccountsLoading}>
+                      Trocar conta
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={handleMetaDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                    <X className="h-4 w-4 mr-1" />Desconectar
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <a href="/api/integrations/meta/oauth">Conectar com Meta</a>
+                </Button>
               )}
             </div>
           </div>
