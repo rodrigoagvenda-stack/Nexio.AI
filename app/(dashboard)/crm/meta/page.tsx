@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { format } from 'date-fns'
+import { Loader2 } from 'lucide-react'
 import { FilterButtons, FilterPeriod } from '@/components/dashboard/FilterButtons'
 import { DateRangePicker } from '@/components/dashboard/DateRangePicker'
 import { MetaGate } from '@/components/crm/meta/MetaGate'
@@ -16,12 +17,12 @@ interface DateRange {
 }
 
 export default function MetaAdsPage() {
-  const [period, setPeriod]   = useState<FilterPeriod>('month')
+  const [period, setPeriod]       = useState<FilterPeriod>('month')
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
-  const [data, setData]       = useState<MetaAttributionData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [data, setData]           = useState<MetaAttributionData | null>(null)
+  const [loading, setLoading]     = useState(true)
   const [connected, setConnected] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
+  const [error, setError]         = useState<string | null>(null)
 
   const fetchData = useCallback(async (p: FilterPeriod, range?: DateRange) => {
     setLoading(true)
@@ -47,6 +48,7 @@ export default function MetaAdsPage() {
     }
   }, [])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchData(period) }, [])
 
   function handlePeriodChange(p: FilterPeriod) {
@@ -61,21 +63,6 @@ export default function MetaAdsPage() {
 
   if (!connected) return <MetaGate />
 
-  if (!loading && error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-center">
-        <p className="text-sm font-medium text-foreground">Falha ao carregar dados</p>
-        <p className="text-xs text-muted-foreground font-mono">{error}</p>
-        <button
-          onClick={() => fetchData(period)}
-          className="text-xs text-primary underline"
-        >
-          Tentar novamente
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -85,7 +72,6 @@ export default function MetaAdsPage() {
           <p className="text-sm text-muted-foreground">Atribuição de campanhas via WhatsApp</p>
         </div>
 
-        {/* Filtros */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
           <FilterButtons selectedPeriod={period} onPeriodChange={handlePeriodChange} />
           {period === 'custom' && (
@@ -96,24 +82,30 @@ export default function MetaAdsPage() {
         </div>
       </div>
 
-      {/* Cards de resumo */}
+      {/* Conteúdo */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-muted/40 animate-pulse" />
-          ))}
+        <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Carregando dados...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-center">
+          <p className="text-sm font-medium text-foreground">Falha ao carregar dados</p>
+          <p className="text-xs text-muted-foreground font-mono bg-muted px-3 py-1.5 rounded-md">{error}</p>
+          <button
+            onClick={() => fetchData(period)}
+            className="text-xs text-primary underline"
+          >
+            Tentar novamente
+          </button>
         </div>
       ) : data ? (
-        <MetaSummaryCards summary={data.summary} />
-      ) : null}
-
-      {/* Tabela de campanhas */}
-      {loading ? (
-        <div className="h-48 rounded-xl bg-muted/30 animate-pulse" />
-      ) : data && data.campaigns.length > 0 ? (
-        <CampaignTable campaigns={data.campaigns} />
-      ) : data && data.campaigns.length === 0 ? (
-        <MetaEmptyState />
+        <>
+          <MetaSummaryCards summary={data.summary} />
+          {data.campaigns.length > 0
+            ? <CampaignTable campaigns={data.campaigns} />
+            : <MetaEmptyState />}
+        </>
       ) : null}
     </div>
   )

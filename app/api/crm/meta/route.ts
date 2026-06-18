@@ -42,10 +42,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12_000) // 12 s timeout
+
     const res = await fetch(`${GTPRO_BASE}/api/attribution?${gtproParams}`, {
       headers: { Authorization: `Bearer ${cfg.gtpro_api_key}` },
-      next: { revalidate: 0 },
-    })
+      signal: controller.signal,
+      cache: 'no-store',
+    }).finally(() => clearTimeout(timeout))
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
@@ -55,6 +59,10 @@ export async function GET(req: NextRequest) {
     const data = await res.json()
     return NextResponse.json(data)
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 502 })
+    const isTimeout = err?.name === 'AbortError'
+    return NextResponse.json(
+      { error: isTimeout ? 'timeout ao conectar com GTPRO' : err.message },
+      { status: isTimeout ? 504 : 502 },
+    )
   }
 }
