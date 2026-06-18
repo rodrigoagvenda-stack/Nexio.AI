@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     const { data: cfg, error: dbErr } = await supabase
       .from('sdr_configs')
-      .select('gtpro_api_key, meta_access_token, meta_ad_account_id')
+      .select('gtpro_api_key')
       .eq('company_id', context.companyId)
       .maybeSingle()
 
@@ -56,8 +56,6 @@ export async function GET(req: NextRequest) {
     const gtproHeaders: Record<string, string> = {
       Authorization: `Bearer ${cfg.gtpro_api_key}`,
     }
-    if (cfg.meta_access_token)  gtproHeaders['X-Meta-Token']      = cfg.meta_access_token
-    if (cfg.meta_ad_account_id) gtproHeaders['X-Meta-Account-Id'] = cfg.meta_ad_account_id
 
     let gtproRes: Response
     try {

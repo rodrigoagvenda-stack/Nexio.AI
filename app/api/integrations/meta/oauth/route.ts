@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
-import { createHmac } from 'crypto'
+import { createServiceClient } from '@/lib/supabase/server'
 
-const APP_ID     = process.env.META_APP_ID!
-const APP_SECRET = process.env.META_APP_SECRET!
-const REDIRECT   = process.env.NEXT_PUBLIC_APP_URL
-  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/integrations/meta/callback`
-  : 'https://app.zaapply.com.br/api/integrations/meta/callback'
+const GTPRO_BASE   = process.env.GTPRO_API_URL ?? 'https://gtpro.vendai.pro'
+const ZAAPPLY_BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.zaapply.com.br'
 
-function signState(payload: string): string {
-  return createHmac('sha256', APP_SECRET).update(payload).digest('hex')
-}
-
+// GET — inicia OAuth via GTPRO, retorna { url } para o cliente redirecionar
 export async function GET(req: NextRequest) {
-  if (!APP_ID || !APP_SECRET) {
-    return NextResponse.json({ error: 'META_APP_ID / META_APP_SECRET não configurados' }, { status: 503 })
-  }
-
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
 
-  const payload = Buffer.from(JSON.stringify({ cid: context.companyId, ts: Date.now() })).toString('base64url')
-  const sig     = signState(payload)
-  const state   = `${payload}.${sig}`
+  const supabase = createServiceClient()
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('gtpro_api_key')
+    .eq('company_id', context.companyId)
+    .maybeSingle()
 
-  const params = new URLSearchParams({
-    client_id:    APP_ID,
-    redirect_uri: REDIRECT,
-    scope:        'ads_read,business_management',
-    state,
-    response_type: 'code',
-  })
+  if (!cfg?.gtpro_api_key) {
+    return NextResponse.json({ error: 'Configure a API Key do GTPRO antes de conectar o Meta.' }, { status: 424 })
+  }
 
-  return NextResponse.redirect(`https://www.facebook.com/v25.0/dialog/oauth?${params}`)
+  const redirectBack = `${ZAAPPLY_BASE}/configuracoes?tab=integracoes`
+
+  const res = await fetch(
+    `${GTPRO_BASE}/api/meta/connect?redirect_back=${encodeURIComponent(redirectBack)}`,
+    { headers: { Authorization: `Bearer ${cfg.gtpro_api_key}` }, cache: 'no-store' },
+  )
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    return NextResponse.json({ error: body?.error ?? `Erro ${res.status} ao iniciar OAuth` }, { status: res.status })
+  }
+
+  const { url } = await res.json()
+  return NextResponse.json({ url })
 }

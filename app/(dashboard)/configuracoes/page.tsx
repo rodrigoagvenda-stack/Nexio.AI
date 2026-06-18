@@ -144,11 +144,12 @@ function AutomacaoContent() {
 function ConfiguracoesContent() {
   const { user, authUser } = useUser();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<Tab>(
-    (searchParams.get('checkout') || searchParams.get('tab') === 'plano' || searchParams.get('expired') === 'trial')
-      ? 'plano'
-      : 'perfil'
-  );
+  const [tab, setTab] = useState<Tab>(() => {
+    if (searchParams.get('checkout') || searchParams.get('expired') === 'trial') return 'plano'
+    const t = searchParams.get('tab')
+    if (t && (TABS as readonly string[]).includes(t)) return t as Tab
+    return 'perfil'
+  });
 
   const [profileData, setProfileData] = useState({ name: '', email: '', description: '', department: '' });
   const [photoUrl, setPhotoUrl] = useState('');
@@ -193,9 +194,10 @@ function ConfiguracoesContent() {
   const [metaConnected, setMetaConnected] = useState(false);
   const [metaAccount, setMetaAccount] = useState<string | null>(null);
   const [metaAccountName, setMetaAccountName] = useState<string | null>(null);
-  const [metaAccounts, setMetaAccounts] = useState<{ id: string; name: string; active: boolean }[]>([]);
+  const [metaAccounts, setMetaAccounts] = useState<{ id: string; ad_account_id: string; name: string; is_active: boolean }[]>([]);
   const [metaAccountsLoading, setMetaAccountsLoading] = useState(false);
   const [metaSelectOpen, setMetaSelectOpen] = useState(false);
+  const [metaOAuthLoading, setMetaOAuthLoading] = useState(false);
 
   const [notifSound, setNotifSound] = useState(true);
   useEffect(() => {
@@ -221,6 +223,11 @@ function ConfiguracoesContent() {
     const r = searchParams.get('checkout');
     if (r === 'success') toast({ title: '🎉 Assinatura ativada!' });
     if (r === 'cancelled') toast({ title: 'Pagamento cancelado.', variant: 'destructive' });
+    const m = searchParams.get('meta');
+    if (m === 'connected') { setMetaConnected(true); toast({ title: 'Meta Ads conectado com sucesso!' }); }
+    if (m === 'denied') toast({ title: 'Conexão com Meta cancelada.', variant: 'destructive' });
+    if (m === 'expired') toast({ title: 'Sessão OAuth expirada. Tente novamente.', variant: 'destructive' });
+    if (m === 'error') toast({ title: 'Erro ao conectar com Meta. Tente novamente.', variant: 'destructive' });
   }, [searchParams]);
 
   useEffect(() => {
@@ -258,12 +265,8 @@ function ConfiguracoesContent() {
     fetch('/api/integrations/meta').then(r => r.ok ? r.json() : null).then(d => {
       if (!d) return;
       setMetaConnected(d.connected);
-      setMetaAccount(d.accountId);
-      setMetaAccountName(d.accountName);
-      // Volta do OAuth com token mas sem conta selecionada ainda → abre seleção
-      if (d.connected && !d.accountId) {
-        loadMetaAccounts();
-      }
+      setMetaAccount(d.ad_account_id ?? null);
+      setMetaAccountName(d.name ?? null);
     }).catch(() => {});
   }, []);
 
@@ -486,21 +489,39 @@ function ConfiguracoesContent() {
       const res = await fetch('/api/integrations/meta/accounts');
       if (!res.ok) return;
       const d = await res.json();
-      setMetaAccounts(d.accounts ?? []);
+      setMetaAccounts(Array.isArray(d) ? d : []);
       setMetaSelectOpen(true);
     } finally { setMetaAccountsLoading(false); }
   };
 
-  const handleMetaAccountSelect = async (id: string, name: string) => {
+  const handleMetaAccountSelect = async (account: { id: string; ad_account_id: string; name: string }) => {
     await fetch('/api/integrations/meta/accounts', {
-      method: 'POST',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account_id: id, account_name: name }),
+      body: JSON.stringify({ id: account.id }),
     });
-    setMetaAccount(id);
-    setMetaAccountName(name);
+    setMetaAccount(account.ad_account_id);
+    setMetaAccountName(account.name);
     setMetaSelectOpen(false);
     toast({ title: 'Conta de anúncio selecionada!' });
+  };
+
+  const handleMetaConnect = async () => {
+    setMetaOAuthLoading(true);
+    try {
+      const res = await fetch('/api/integrations/meta/oauth');
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast({ title: (d as any).error || 'Erro ao iniciar conexão com Meta', variant: 'destructive' });
+        return;
+      }
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      toast({ title: 'Erro ao conectar com Meta', variant: 'destructive' });
+    } finally {
+      setMetaOAuthLoading(false);
+    }
   };
 
   const handleMetaDisconnect = async () => {
@@ -1134,14 +1155,15 @@ function ConfiguracoesContent() {
                 {metaSelectOpen && metaAccounts.length > 0 && (
                   <div className="mt-3 space-y-1.5">
                     <p className="text-xs font-medium">Selecione a conta de anúncio:</p>
-                    {metaAccounts.filter(a => a.active).map(a => (
+                    {metaAccounts.map(a => (
                       <button
                         key={a.id}
-                        onClick={() => handleMetaAccountSelect(a.id, a.name)}
-                        className="w-full text-left px-3 py-2 rounded-lg border border-border hover:bg-muted/50 transition-colors text-xs"
+                        onClick={() => handleMetaAccountSelect(a)}
+                        className={cn('w-full text-left px-3 py-2 rounded-lg border transition-colors text-xs', a.is_active ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/50')}
                       >
                         <span className="font-medium">{a.name}</span>
-                        <span className="text-muted-foreground ml-2">{a.id}</span>
+                        <span className="text-muted-foreground ml-2">{a.ad_account_id}</span>
+                        {a.is_active && <span className="ml-2 text-primary text-[10px]">● Ativa</span>}
                       </button>
                     ))}
                   </div>
@@ -1167,8 +1189,9 @@ function ConfiguracoesContent() {
                   </Button>
                 </>
               ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <a href="/api/integrations/meta/oauth">Conectar com Meta</a>
+                <Button variant="outline" size="sm" onClick={handleMetaConnect} disabled={metaOAuthLoading || !gtproConnected}>
+                  {metaOAuthLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {!gtproConnected ? 'Conecte o GTPRO primeiro' : 'Conectar com Meta'}
                 </Button>
               )}
             </div>
