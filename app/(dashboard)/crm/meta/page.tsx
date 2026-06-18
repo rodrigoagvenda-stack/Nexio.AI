@@ -21,9 +21,11 @@ export default function MetaAdsPage() {
   const [data, setData]       = useState<MetaAttributionData | null>(null)
   const [loading, setLoading] = useState(true)
   const [connected, setConnected] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
 
   const fetchData = useCallback(async (p: FilterPeriod, range?: DateRange) => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({ period: p })
       if (p === 'custom' && range?.from && range?.to) {
@@ -32,8 +34,14 @@ export default function MetaAdsPage() {
       }
       const res = await fetch(`/api/crm/meta?${params}`)
       if (res.status === 424) { setConnected(false); return }
-      if (!res.ok) return
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body?.error ?? `Erro ${res.status}`)
+        return
+      }
       setData(await res.json())
+    } catch (err: any) {
+      setError(err?.message ?? 'Erro de conexão')
     } finally {
       setLoading(false)
     }
@@ -52,6 +60,21 @@ export default function MetaAdsPage() {
   }
 
   if (!connected) return <MetaGate />
+
+  if (!loading && error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-center">
+        <p className="text-sm font-medium text-foreground">Falha ao carregar dados</p>
+        <p className="text-xs text-muted-foreground font-mono">{error}</p>
+        <button
+          onClick={() => fetchData(period)}
+          className="text-xs text-primary underline"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
