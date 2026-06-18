@@ -13,6 +13,7 @@ import {
   Table2,
   Kanban,
   Zap,
+  BarChart2,
 } from 'lucide-react';
 import { TrendingUpIcon } from '@/components/ui/trending-up';
 import { ChartPieIcon } from '@/components/ui/chart-pie';
@@ -49,6 +50,7 @@ interface SidebarProps {
   isTrial?: boolean;
   tokensUsed?: number;
   tokensLimit?: number;
+  gtproConnected?: boolean;
 }
 
 function playNotifSound() {
@@ -394,6 +396,7 @@ export const Sidebar = memo(function Sidebar({
   isTrial = false,
   tokensUsed = 0,
   tokensLimit = 0,
+  gtproConnected = false,
 }: SidebarProps) {
   const trialDaysLeft = useMemo(() => {
     if (!isTrial || !trialEndsAt) return null;
@@ -541,6 +544,12 @@ export const Sidebar = memo(function Sidebar({
         if (link.href === '/atendimento' && unreadMsgCount > 0) {
           return { ...link, unreadCount: unreadMsgCount };
         }
+        if (link.href === '/crm') {
+          const metaChild = gtproConnected
+            ? [{ href: '/crm/meta', label: 'Meta Ads', icon: BarChart2 }]
+            : [];
+          return { ...link, children: [...(link.children ?? []), ...metaChild] };
+        }
         if (link.children) {
           return { ...link, children: link.children };
         }
@@ -573,7 +582,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog]);
+  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, gtproConnected]);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);

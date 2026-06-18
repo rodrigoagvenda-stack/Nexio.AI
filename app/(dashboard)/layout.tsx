@@ -43,8 +43,8 @@ export default async function DashboardLayout({
       .single(),
   ]);
 
-  // Buscar dados da empresa e briefing config em paralelo
-  const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
+  // Buscar dados da empresa, briefing config e GTPRO em paralelo
+  const [{ data: companyData }, { data: briefingConfig }, { data: sdrCfg }] = await Promise.all([
     supabase
       .from('companies')
       .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit')
@@ -55,6 +55,11 @@ export default async function DashboardLayout({
       .select('is_active, logo_url')
       .eq('company_id', userData?.company_id || 0)
       .eq('is_active', true)
+      .maybeSingle(),
+    supabase
+      .from('sdr_configs')
+      .select('gtpro_api_key')
+      .eq('company_id', userData?.company_id || 0)
       .maybeSingle(),
   ]);
 
@@ -118,6 +123,7 @@ export default async function DashboardLayout({
   const hasBriefing = !!briefingConfig;
   const userRole = userData?.role || 'closer';
   const brandLogoUrl = briefingConfig?.logo_url || null;
+  const gtproConnected = !!sdrCfg?.gtpro_api_key;
 
   return (
     <PostHogProvider
@@ -143,6 +149,7 @@ export default async function DashboardLayout({
         isTrial={isTrial}
         tokensUsed={tokensUsed}
         tokensLimit={tokensLimit}
+        gtproConnected={gtproConnected}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
