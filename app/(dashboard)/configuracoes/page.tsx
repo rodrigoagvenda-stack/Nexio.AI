@@ -516,6 +516,7 @@ function ConfiguracoesContent() {
         return;
       }
       const { url } = await res.json();
+      console.log('[Meta OAuth URL]', url);
       window.location.href = url;
     } catch {
       toast({ title: 'Erro ao conectar com Meta', variant: 'destructive' });
