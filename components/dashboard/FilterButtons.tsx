@@ -1,8 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Calendar } from 'lucide-react';
-
 export type FilterPeriod = 'today' | 'week' | 'month' | 'year' | 'custom';
 
 interface FilterButtonsProps {
@@ -10,28 +7,30 @@ interface FilterButtonsProps {
   onPeriodChange: (period: FilterPeriod) => void;
 }
 
-export function FilterButtons({ selectedPeriod, onPeriodChange }: FilterButtonsProps) {
-  const filters: { label: string; value: FilterPeriod }[] = [
-    { label: 'Hoje', value: 'today' },
-    { label: 'Semana', value: 'week' },
-    { label: 'Mês', value: 'month' },
-    { label: 'Ano', value: 'year' },
-    { label: 'Custom', value: 'custom' },
-  ];
+const FILTERS: { label: string; value: FilterPeriod }[] = [
+  { label: 'Hoje',         value: 'today' },
+  { label: 'Semana',       value: 'week' },
+  { label: 'Mês',          value: 'month' },
+  { label: 'Ano',          value: 'year' },
+  { label: 'Personalizado', value: 'custom' },
+];
 
+export function FilterButtons({ selectedPeriod, onPeriodChange }: FilterButtonsProps) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {filters.map((filter) => (
-        <Button
-          key={filter.value}
-          variant={selectedPeriod === filter.value ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => onPeriodChange(filter.value)}
-          className="transition-all duration-200"
+    <div className="flex items-center rounded-full p-1" style={{ backgroundColor: '#141414' }}>
+      {FILTERS.map((f) => (
+        <button
+          key={f.value}
+          onClick={() => onPeriodChange(f.value)}
+          className="px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-150 whitespace-nowrap"
+          style={
+            selectedPeriod === f.value
+              ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
+              : { color: '#888', background: 'transparent' }
+          }
         >
-          {filter.value === 'custom' && <Calendar className="mr-2 h-4 w-4" />}
-          {filter.label}
-        </Button>
+          {f.label}
+        </button>
       ))}
     </div>
   );
