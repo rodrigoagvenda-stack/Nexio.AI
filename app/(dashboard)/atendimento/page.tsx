@@ -1393,7 +1393,7 @@ export default function AtendimentoPage() {
     <div className="h-full w-full overflow-hidden">
       <div className="h-full grid grid-cols-12 gap-2 overflow-hidden">
         {/* Lista de Conversas */}
-        <div className={cn('col-span-12 lg:col-span-3 flex flex-col overflow-hidden bg-card border-r border-border/50', selectedConversation ? 'hidden lg:flex' : 'flex')}>
+        <div className={cn('col-span-12 lg:col-span-3 flex flex-col overflow-hidden bg-card border border-border/50 rounded-xl', selectedConversation ? 'hidden lg:flex' : 'flex')}>
           <div className="flex-shrink-0 px-4 pt-4 pb-3 space-y-3 border-b border-border/40">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center gap-2">
