@@ -60,8 +60,17 @@ export async function GET(request: NextRequest) {
     const { data: conv } = await (convQuery as any).maybeSingle()
 
     if (conv?.whatsapp_photo_url) {
-      cacheSet(cacheKey, conv.whatsapp_photo_url)
-      return NextResponse.json({ photo: conv.whatsapp_photo_url })
+      const url = conv.whatsapp_photo_url
+      // URL do Supabase Storage = permanente, retorna direto
+      // URL CDN WhatsApp (pps.whatsapp.net) = expira — ignora e re-busca da uazapi
+      if (!url.includes('pps.whatsapp.net') && !url.includes('static.whatsapp.net')) {
+        cacheSet(cacheKey, url)
+        return NextResponse.json({ photo: url })
+      }
+      // URL expirada no banco — limpa e busca fresh da uazapi
+      if (convId) {
+        service.from('conversas_do_whatsapp').update({ whatsapp_photo_url: null }).eq('id', Number(convId)).then(() => {})
+      }
     }
 
     // Fallback: busca na uazapi
@@ -98,13 +107,27 @@ export async function GET(request: NextRequest) {
       data?.chat?.image ||
       null
 
-    cacheSet(cacheKey, photo)
-
-    // Persiste no banco para evitar re-fetch nas próximas cargas
+    // URL do uazapi expira — faz upload pro Supabase Storage para persistência permanente
     if (photo && convId) {
-      service.from('conversas_do_whatsapp').update({ whatsapp_photo_url: photo }).eq('id', Number(convId)).then(() => {})
+      ;(async () => {
+        try {
+          const imgRes = await fetch(photo, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' } })
+          if (!imgRes.ok) return
+          const contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+          const buffer = Buffer.from(await imgRes.arrayBuffer())
+          const filePath = `contact-photos/${userData.company_id}/${convId}.jpg`
+          const { error: uploadErr } = await service.storage
+            .from('user-uploads')
+            .upload(filePath, buffer, { contentType, cacheControl: '2592000', upsert: true })
+          if (uploadErr) return
+          const { data: { publicUrl } } = service.storage.from('user-uploads').getPublicUrl(filePath)
+          await service.from('conversas_do_whatsapp').update({ whatsapp_photo_url: publicUrl }).eq('id', Number(convId))
+          cacheSet(cacheKey, publicUrl)
+        } catch {}
+      })()
     }
 
+    cacheSet(cacheKey, photo)
     return NextResponse.json({ photo })
   } catch {
     return NextResponse.json({ photo: null })
