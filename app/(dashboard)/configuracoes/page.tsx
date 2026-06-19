@@ -190,14 +190,9 @@ function ConfiguracoesContent() {
   const [gtproSaving, setGtproSaving] = useState(false);
   const [gtproConnected, setGtproConnected] = useState(false);
 
-  // Meta Ads OAuth
-  const [metaConnected, setMetaConnected] = useState(false);
-  const [metaAccount, setMetaAccount] = useState<string | null>(null);
-  const [metaAccountName, setMetaAccountName] = useState<string | null>(null);
   const [metaAccounts, setMetaAccounts] = useState<{ id: string; ad_account_id: string; name: string; is_active: boolean }[]>([]);
-  const [metaAccountsLoading, setMetaAccountsLoading] = useState(false);
-  const [metaSelectOpen, setMetaSelectOpen] = useState(false);
-  const [metaOAuthLoading, setMetaOAuthLoading] = useState(false);
+  const [metaDropdownOpen, setMetaDropdownOpen] = useState(false);
+  const [metaAccountSaving, setMetaAccountSaving] = useState(false);
 
   const [notifSound, setNotifSound] = useState(true);
   useEffect(() => {
@@ -266,14 +261,6 @@ function ConfiguracoesContent() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetch('/api/integrations/meta').then(r => r.ok ? r.json() : null).then(d => {
-      if (!d) return;
-      setMetaConnected(d.connected);
-      setMetaAccount(d.ad_account_id ?? null);
-      setMetaAccountName(d.name ?? null);
-    }).catch(() => {});
-  }, []);
 
   useEffect(() => {
     createClient().auth.mfa.listFactors().then(({ data }) => {
@@ -492,54 +479,19 @@ function ConfiguracoesContent() {
     } catch { toast({ title: 'Erro ao desconectar', variant: 'destructive' }); }
   };
 
-  const loadMetaAccounts = async () => {
-    setMetaAccountsLoading(true);
+  const selectMetaAccount = async (account: { id: string; ad_account_id: string; name: string }) => {
+    setMetaAccountSaving(true);
     try {
-      const res = await fetch('/api/integrations/meta/accounts');
-      if (!res.ok) return;
-      const d = await res.json();
-      setMetaAccounts(Array.isArray(d) ? d : []);
-      setMetaSelectOpen(true);
-    } finally { setMetaAccountsLoading(false); }
-  };
-
-  const handleMetaAccountSelect = async (account: { id: string; ad_account_id: string; name: string }) => {
-    await fetch('/api/integrations/meta/accounts', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: account.id }),
-    });
-    setMetaAccount(account.ad_account_id);
-    setMetaAccountName(account.name);
-    setMetaSelectOpen(false);
-    toast({ title: 'Conta de anúncio selecionada!' });
-  };
-
-  const handleMetaConnect = async () => {
-    setMetaOAuthLoading(true);
-    try {
-      const res = await fetch('/api/integrations/meta/oauth');
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        toast({ title: (d as any).error || 'Erro ao iniciar conexão com Meta', variant: 'destructive' });
-        return;
-      }
-      const { url } = await res.json();
-      window.open(url, '_blank');
-    } catch {
-      toast({ title: 'Erro ao conectar com Meta', variant: 'destructive' });
-    } finally {
-      setMetaOAuthLoading(false);
-    }
-  };
-
-  const handleMetaDisconnect = async () => {
-    await fetch('/api/integrations/meta', { method: 'DELETE' });
-    setMetaConnected(false);
-    setMetaAccount(null);
-    setMetaAccountName(null);
-    setMetaAccounts([]);
-    toast({ title: 'Meta desconectado' });
+      await fetch('/api/integrations/meta/accounts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: account.id }),
+      });
+      setMetaAccounts(prev => prev.map(a => ({ ...a, is_active: a.id === account.id })));
+      setMetaDropdownOpen(false);
+      toast({ title: `Conta "${account.name}" selecionada!` });
+    } catch { toast({ title: 'Erro ao selecionar conta', variant: 'destructive' }); }
+    finally { setMetaAccountSaving(false); }
   };
 
   const handlePaymentDisconnect = async (platform: string) => {
@@ -1095,7 +1047,7 @@ function ConfiguracoesContent() {
           })()}
 
           {/* ── GTPRO · Meta Ads (API key + BM OAuth unificados) ── */}
-          <div className={cn('rounded-2xl border bg-card transition-colors', (gtproConnected || metaConnected) ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
+          <div className={cn('rounded-2xl border bg-card transition-colors', gtproConnected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
             {/* Linha principal — GTPRO API key */}
             <div className="p-5 flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -1143,29 +1095,60 @@ function ConfiguracoesContent() {
               </div>
             </div>
 
-            {/* Sub-seção contas acessíveis — só aparece quando GTPRO conectado e tem contas */}
+            {/* Sub-seção seleção de conta de anúncio */}
             {gtproConnected && metaAccounts.length > 0 && (
-              <div className="border-t border-border/60 px-5 py-3">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Contas de anúncio</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {metaAccounts.map(a => (
-                    <span
-                      key={a.id}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ring-1',
-                        a.is_active
-                          ? 'bg-emerald-500/10 ring-emerald-500/20 text-emerald-400'
-                          : 'bg-muted/40 ring-border text-muted-foreground'
-                      )}
+              <div className="border-t border-border/60 px-5 py-4">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Conta de anúncio</p>
+                  {metaAccounts.length > 1 && (
+                    <button
+                      onClick={() => setMetaDropdownOpen(o => !o)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      {a.is_active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
-                      {a.name}
-                    </span>
-                  ))}
+                      Alterar
+                    </button>
+                  )}
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  Contas definidas no GTPRO ao gerar a API key. Para alterar, acesse <span className="font-medium">GTPRO → Configurações → API</span>.
-                </p>
+
+                {/* Conta ativa */}
+                {(() => {
+                  const active = metaAccounts.find(a => a.is_active) ?? metaAccounts[0];
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                      <span className="text-sm font-medium">{active.name}</span>
+                      <span className="text-[11px] text-muted-foreground font-mono">{active.ad_account_id}</span>
+                    </div>
+                  );
+                })()}
+
+                {/* Dropdown de seleção */}
+                {metaDropdownOpen && (
+                  <div className="mt-3 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
+                    {metaAccounts.map(a => (
+                      <button
+                        key={a.id}
+                        onClick={() => selectMetaAccount(a)}
+                        disabled={metaAccountSaving}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/50 text-sm',
+                          a.is_active && 'bg-emerald-500/[0.06]'
+                        )}
+                      >
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', a.is_active ? 'bg-emerald-400' : 'bg-muted-foreground/30')} />
+                        <span className={cn('flex-1 truncate', a.is_active ? 'font-medium text-foreground' : 'text-muted-foreground')}>{a.name}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono shrink-0">{a.ad_account_id}</span>
+                        {a.is_active && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {metaAccounts.length === 1 && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5">
+                    Para adicionar contas, defina o escopo no <span className="font-medium">GTPRO → Configurações → API</span>.
+                  </p>
+                )}
               </div>
             )}
           </div>
