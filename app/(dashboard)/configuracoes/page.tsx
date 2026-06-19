@@ -1085,71 +1085,89 @@ function ConfiguracoesContent() {
             );
           })()}
 
-          {/* ── GTPRO (Meta Ads CAPI) ─────────────────────────── */}
-          <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', gtproConnected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center shrink-0 p-2 overflow-hidden">
-                <svg viewBox="0 0 24 24" fill="#1877F2" className="w-full h-full"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm">GTPRO · Meta Ads</p>
-                  {gtproConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Ativo</span>}
+          {/* ── GTPRO · Meta Ads (API key + BM OAuth unificados) ── */}
+          <div className={cn('rounded-2xl border bg-card transition-colors', (gtproConnected || metaConnected) ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
+            {/* Linha principal — GTPRO API key */}
+            <div className="p-5 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center shrink-0 p-2 overflow-hidden">
+                  <svg viewBox="0 0 24 24" fill="#1877F2" className="w-full h-full"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">Atribua leads de anúncios e dispare eventos de conversão (CAPI) automaticamente</p>
-                {!gtproConnected && gtproFormOpen && (
-                  <div className="mt-3 space-y-2">
-                    <div>
-                      <Label className="text-xs">API Key GTPRO</Label>
-                      <Input
-                        type="password"
-                        placeholder="gtpro_..."
-                        value={gtproApiKey}
-                        onChange={e => setGtproApiKey(e.target.value)}
-                        className="h-8 text-xs mt-1 font-mono"
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">Obtenha sua API Key no painel GTPRO em Configurações → API.</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-sm">GTPRO · Meta Ads</p>
+                    {gtproConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Conectado</span>}
                   </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">Atribua leads de anúncios e dispare eventos de conversão (CAPI) automaticamente</p>
+                  {!gtproConnected && gtproFormOpen && (
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <Label className="text-xs">API Key GTPRO</Label>
+                        <Input
+                          type="password"
+                          placeholder="gtpro_..."
+                          value={gtproApiKey}
+                          onChange={e => setGtproApiKey(e.target.value)}
+                          className="h-8 text-xs mt-1 font-mono"
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Obtenha sua API Key no painel GTPRO em Configurações → API.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                {gtproConnected ? (
+                  <Button variant="ghost" size="sm" onClick={handleGtproDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                    <X className="h-4 w-4 mr-1" />Desconectar
+                  </Button>
+                ) : gtproFormOpen ? (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setGtproFormOpen(false)} className="text-muted-foreground">Cancelar</Button>
+                    <Button size="sm" onClick={handleGtproSave} disabled={!gtproApiKey.trim() || gtproSaving}>
+                      {gtproSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setGtproFormOpen(true)}>Conectar</Button>
                 )}
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
-              {gtproConnected ? (
-                <Button variant="ghost" size="sm" onClick={handleGtproDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
-                  <X className="h-4 w-4 mr-1" />Desconectar
-                </Button>
-              ) : gtproFormOpen ? (
-                <>
-                  <Button variant="ghost" size="sm" onClick={() => setGtproFormOpen(false)} className="text-muted-foreground">Cancelar</Button>
-                  <Button size="sm" onClick={handleGtproSave} disabled={!gtproApiKey.trim() || gtproSaving}>
-                    {gtproSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setGtproFormOpen(true)}>Conectar</Button>
-              )}
-            </div>
-          </div>
 
-          {/* ── Meta Ads (OAuth direto) ──────────────────────────── */}
-          <div className={cn('p-5 rounded-2xl border bg-card flex items-start justify-between gap-4 transition-colors', metaConnected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center shrink-0 p-2 overflow-hidden">
-                <svg viewBox="0 0 24 24" fill="#1877F2" className="w-full h-full"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-sm">Meta Ads · Business Manager</p>
-                  {metaConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Ativo</span>}
+            {/* Sub-seção Business Manager — só aparece quando GTPRO está conectado */}
+            {gtproConnected && (
+              <div className="border-t border-border/60 px-5 py-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Manager</p>
+                      {metaConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Autenticado</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {metaConnected && metaAccountName
+                        ? `Conta ativa: ${metaAccountName}${metaAccount ? ` · ${metaAccount}` : ''}`
+                        : metaConnected
+                        ? 'Autenticado — selecione a conta de anúncio'
+                        : 'Conecte via OAuth do Facebook para ver atribuição no painel CRM → Meta Ads'}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                    {metaConnected ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={loadMetaAccounts} disabled={metaAccountsLoading}>
+                          {metaAccountsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trocar conta'}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleMetaDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                          <X className="h-4 w-4 mr-1" />Desconectar
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={handleMetaConnect} disabled={metaOAuthLoading}>
+                        {metaOAuthLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Aguarde…</> : 'Conectar com Meta'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {metaConnected && metaAccountName
-                    ? `Conta: ${metaAccountName}`
-                    : metaConnected
-                    ? 'Autenticado — selecione a conta de anúncio'
-                    : 'Conecte via OAuth para ver atribuição de campanhas no painel Meta Ads'}
-                </p>
 
                 {/* Seleção de conta de anúncio */}
                 {metaSelectOpen && metaAccounts.length > 0 && (
@@ -1162,39 +1180,14 @@ function ConfiguracoesContent() {
                         className={cn('w-full text-left px-3 py-2 rounded-lg border transition-colors text-xs', a.is_active ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/50')}
                       >
                         <span className="font-medium">{a.name}</span>
-                        <span className="text-muted-foreground ml-2">{a.ad_account_id}</span>
+                        <span className="text-muted-foreground ml-2 font-mono">{a.ad_account_id}</span>
                         {a.is_active && <span className="ml-2 text-primary text-[10px]">● Ativa</span>}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-              {metaConnected ? (
-                <>
-                  {!metaAccount && (
-                    <Button variant="outline" size="sm" onClick={loadMetaAccounts} disabled={metaAccountsLoading}>
-                      {metaAccountsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Selecionar conta'}
-                    </Button>
-                  )}
-                  {metaAccount && (
-                    <Button variant="outline" size="sm" onClick={loadMetaAccounts} disabled={metaAccountsLoading}>
-                      Trocar conta
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={handleMetaDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
-                    <X className="h-4 w-4 mr-1" />Desconectar
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" size="sm" onClick={handleMetaConnect} disabled={metaOAuthLoading || !gtproConnected}>
-                  {metaOAuthLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {!gtproConnected ? 'Conecte o GTPRO primeiro' : 'Conectar com Meta'}
-                </Button>
-              )}
-            </div>
+            )}
           </div>
 
           <div className="p-5 rounded-2xl border border-dashed border-border/50 flex items-center gap-4 opacity-50 select-none">
