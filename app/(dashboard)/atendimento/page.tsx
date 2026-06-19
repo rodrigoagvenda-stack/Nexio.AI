@@ -1490,10 +1490,10 @@ export default function AtendimentoPage() {
                 (() => { const conv = item.conv; return (
                 <div
                   key={conv.id}
-                  className={`group w-full text-left p-3 rounded-lg border transition-colors relative ${
+                  className={`group w-full text-left p-3 rounded-xl border transition-colors relative ${
                     selectedConversation?.id === conv.id
                       ? 'bg-muted border-border'
-                      : 'hover:bg-accent'
+                      : 'bg-card border-border/40 hover:bg-accent hover:border-border'
                   }`}
                 >
                   <button className="w-full text-left" onClick={() => setSelectedConversation(conv)}>
