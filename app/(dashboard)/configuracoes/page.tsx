@@ -257,7 +257,12 @@ function ConfiguracoesContent() {
 
   useEffect(() => {
     fetch('/api/integrations/gtpro').then(r => r.ok ? r.json() : null).then(d => {
-      if (d?.connected) setGtproConnected(true);
+      if (d?.connected) {
+        setGtproConnected(true);
+        fetch('/api/integrations/meta/accounts').then(r => r.ok ? r.json() : null).then(d2 => {
+          if (Array.isArray(d2)) setMetaAccounts(d2);
+        }).catch(() => {});
+      }
     }).catch(() => {});
   }, []);
 
@@ -471,6 +476,9 @@ function ConfiguracoesContent() {
       setGtproFormOpen(false);
       setGtproApiKey('');
       toast({ title: 'GTPRO configurado com sucesso!' });
+      fetch('/api/integrations/meta/accounts').then(r => r.ok ? r.json() : null).then(d2 => {
+        if (Array.isArray(d2)) setMetaAccounts(d2);
+      }).catch(() => {});
     } catch { toast({ title: 'Erro ao salvar GTPRO', variant: 'destructive' }); }
     finally { setGtproSaving(false); }
   };
@@ -479,6 +487,7 @@ function ConfiguracoesContent() {
     try {
       await fetch('/api/integrations/gtpro', { method: 'DELETE' });
       setGtproConnected(false);
+      setMetaAccounts([]);
       toast({ title: 'GTPRO desconectado' });
     } catch { toast({ title: 'Erro ao desconectar', variant: 'destructive' }); }
   };
@@ -1134,58 +1143,29 @@ function ConfiguracoesContent() {
               </div>
             </div>
 
-            {/* Sub-seção Business Manager — só aparece quando GTPRO está conectado */}
-            {gtproConnected && (
-              <div className="border-t border-border/60 px-5 py-4">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Manager</p>
-                      {metaConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Autenticado</span>}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {metaConnected && metaAccountName
-                        ? `Conta ativa: ${metaAccountName}${metaAccount ? ` · ${metaAccount}` : ''}`
-                        : metaConnected
-                        ? 'Autenticado — selecione a conta de anúncio'
-                        : 'Conecte via OAuth do Facebook para ver atribuição no painel CRM → Meta Ads'}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-                    {metaConnected ? (
-                      <>
-                        <Button variant="outline" size="sm" onClick={loadMetaAccounts} disabled={metaAccountsLoading}>
-                          {metaAccountsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Trocar conta'}
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={handleMetaDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
-                          <X className="h-4 w-4 mr-1" />Desconectar
-                        </Button>
-                      </>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={handleMetaConnect} disabled={metaOAuthLoading}>
-                        {metaOAuthLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Aguarde…</> : 'Conectar com Meta'}
-                      </Button>
-                    )}
-                  </div>
+            {/* Sub-seção contas acessíveis — só aparece quando GTPRO conectado e tem contas */}
+            {gtproConnected && metaAccounts.length > 0 && (
+              <div className="border-t border-border/60 px-5 py-3">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Contas de anúncio</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {metaAccounts.map(a => (
+                    <span
+                      key={a.id}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ring-1',
+                        a.is_active
+                          ? 'bg-emerald-500/10 ring-emerald-500/20 text-emerald-400'
+                          : 'bg-muted/40 ring-border text-muted-foreground'
+                      )}
+                    >
+                      {a.is_active && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+                      {a.name}
+                    </span>
+                  ))}
                 </div>
-
-                {/* Seleção de conta de anúncio */}
-                {metaSelectOpen && metaAccounts.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    <p className="text-xs font-medium">Selecione a conta de anúncio:</p>
-                    {metaAccounts.map(a => (
-                      <button
-                        key={a.id}
-                        onClick={() => handleMetaAccountSelect(a)}
-                        className={cn('w-full text-left px-3 py-2 rounded-lg border transition-colors text-xs', a.is_active ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/50')}
-                      >
-                        <span className="font-medium">{a.name}</span>
-                        <span className="text-muted-foreground ml-2 font-mono">{a.ad_account_id}</span>
-                        {a.is_active && <span className="ml-2 text-primary text-[10px]">● Ativa</span>}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Contas definidas no GTPRO ao gerar a API key. Para alterar, acesse <span className="font-medium">GTPRO → Configurações → API</span>.
+                </p>
               </div>
             )}
           </div>
