@@ -243,6 +243,8 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={loading}
+                    className="text-white placeholder:text-white/30"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
                   />
                 </div>
 
@@ -257,7 +259,8 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={loading}
-                      className="pr-10"
+                      className="pr-10 text-white placeholder:text-white/30"
+                      style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
                     />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
@@ -298,6 +301,8 @@ export default function LoginPage() {
                     onChange={(e) => setName(e.target.value)}
                     required
                     disabled={loading}
+                    className="text-white placeholder:text-white/30"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
                   />
                 </div>
 
@@ -311,6 +316,8 @@ export default function LoginPage() {
                     onChange={(e) => setSignupEmail(e.target.value)}
                     required
                     disabled={loading}
+                    className="text-white placeholder:text-white/30"
+                    style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
                   />
                 </div>
 
@@ -325,7 +332,8 @@ export default function LoginPage() {
                       onChange={(e) => setSignupPassword(e.target.value)}
                       required
                       disabled={loading}
-                      className="pr-10"
+                      className="pr-10 text-white placeholder:text-white/30"
+                      style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
                     />
                     <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
@@ -345,7 +353,8 @@ export default function LoginPage() {
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       disabled={loading}
-                      className="pr-10"
+                      className="pr-10 text-white placeholder:text-white/30"
+                      style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
                     />
                     <button type="button" onClick={() => setShowConfirm(!showConfirm)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#666' }}>
