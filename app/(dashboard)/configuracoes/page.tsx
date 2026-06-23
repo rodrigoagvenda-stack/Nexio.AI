@@ -16,7 +16,7 @@ import {
   User, Camera, CreditCard,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
   AlertCircle, Sparkles, X, Shield, Check, Bot, UserMinus,
-  ShieldCheck, Copy, CheckCheck, Volume2,
+  ShieldCheck, Copy, CheckCheck, Volume2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
@@ -213,6 +213,8 @@ function ConfiguracoesContent() {
   const [mfaDisabling, setMfaDisabling] = useState(false);
   const [mfaCopied, setMfaCopied] = useState(false);
   const [copiedAsaasUrl, setCopiedAsaasUrl] = useState(false);
+  const [asaasLogs, setAsaasLogs] = useState<any[] | null>(null);
+  const [loadingAsaasLogs, setLoadingAsaasLogs] = useState(false);
 
   useEffect(() => {
     const r = searchParams.get('checkout');
@@ -1005,22 +1007,68 @@ function ConfiguracoesContent() {
                       </div>
                     )}
                     {connected && (
-                      <div className="mt-2">
-                        <Label className="text-xs text-muted-foreground">URL do Webhook</Label>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Input readOnly value={company ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payment/${company.id}/asaas` : ''} className="h-7 text-[11px] font-mono bg-muted/20 cursor-text select-all" />
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">URL do Webhook</Label>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Input readOnly value={company ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payment/${company.id}/asaas` : ''} className="h-7 text-[11px] font-mono bg-muted/20 cursor-text select-all" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!company) return;
+                                navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/payment/${company.id}/asaas`);
+                                setCopiedAsaasUrl(true);
+                                setTimeout(() => setCopiedAsaasUrl(false), 2000);
+                              }}
+                              className="h-7 w-7 flex items-center justify-center shrink-0 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                            >
+                              {copiedAsaasUrl ? <CheckCheck className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                            </button>
+                          </div>
+                        </div>
+                        {/* Histórico de eventos do webhook */}
+                        <div>
                           <button
                             type="button"
-                            onClick={() => {
-                              if (!company) return;
-                              navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/payment/${company.id}/asaas`);
-                              setCopiedAsaasUrl(true);
-                              setTimeout(() => setCopiedAsaasUrl(false), 2000);
+                            onClick={async () => {
+                              if (asaasLogs !== null) { setAsaasLogs(null); return; }
+                              setLoadingAsaasLogs(true);
+                              try {
+                                const r = await fetch('/api/payment-integrations/events?platform=asaas');
+                                const d = await r.json();
+                                setAsaasLogs(d.events ?? []);
+                              } catch { setAsaasLogs([]); } finally { setLoadingAsaasLogs(false); }
                             }}
-                            className="h-7 w-7 flex items-center justify-center shrink-0 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                           >
-                            {copiedAsaasUrl ? <CheckCheck className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                            {loadingAsaasLogs ? <Loader2 className="h-3 w-3 animate-spin" /> : <ChevronRight className={cn('h-3 w-3 transition-transform', asaasLogs !== null && 'rotate-90')} />}
+                            Histórico de eventos ({asaasLogs !== null ? asaasLogs.length : '?'})
                           </button>
+                          {asaasLogs !== null && (
+                            <div className="mt-2 space-y-1 max-h-64 overflow-y-auto pr-1">
+                              {asaasLogs.length === 0 && (
+                                <p className="text-[11px] text-muted-foreground/60 italic">Nenhum evento recebido ainda. Gere um boleto no Asaas e aguarde.</p>
+                              )}
+                              {asaasLogs.map((ev, i) => {
+                                const statusColor = ev.status === 'ok' ? 'text-emerald-400' : ev.status === 'ignorado' ? 'text-yellow-400' : ev.status === 'sem_sequencia' ? 'text-orange-400' : 'text-red-400';
+                                const statusLabel = ev.status === 'ok' ? 'Enviado' : ev.status === 'ignorado' ? 'Ignorado' : ev.status === 'sem_sequencia' ? 'Sem sequência' : 'Erro';
+                                const date = ev.ts ? new Date(ev.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+                                return (
+                                  <div key={i} className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-[11px]">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className={cn('font-semibold', statusColor)}>{statusLabel}</span>
+                                      <span className="text-muted-foreground/60">{date}</span>
+                                    </div>
+                                    {ev.eventoEntrada && <div className="text-muted-foreground mt-0.5">Gatilho: <span className="font-mono">{ev.eventoEntrada}</span></div>}
+                                    {ev.email && <div className="text-muted-foreground">Email: {ev.email}</div>}
+                                    {ev.telefone && <div className="text-muted-foreground">Telefone: {ev.telefone}</div>}
+                                    {ev.mensagens_enviadas != null && <div className="text-muted-foreground">Mensagens: {ev.mensagens_enviadas}</div>}
+                                    {ev.erro && <div className="text-red-400 mt-0.5">{ev.erro}</div>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

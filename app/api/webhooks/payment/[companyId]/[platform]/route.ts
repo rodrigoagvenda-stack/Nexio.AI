@@ -224,10 +224,29 @@ export async function POST(
   if (platform === 'asaas') {
     const { access_token: asaasApiKey, webhook_token: savedToken } = integration.config ?? {}
 
+    // Helper para gravar evento no config.recent_events (últimos 30)
+    const logEvent = async (entry: Record<string, any>) => {
+      try {
+        const { data: cur } = await supabase
+          .from('payment_integrations')
+          .select('config')
+          .eq('company_id', companyId)
+          .eq('platform', 'asaas')
+          .maybeSingle()
+        const prev: any[] = Array.isArray(cur?.config?.recent_events) ? cur.config.recent_events : []
+        const recent = [{ ts: new Date().toISOString(), ...entry }, ...prev].slice(0, 30)
+        await supabase
+          .from('payment_integrations')
+          .update({ config: { ...(cur?.config ?? {}), recent_events: recent } })
+          .eq('company_id', companyId)
+          .eq('platform', 'asaas')
+      } catch {}
+    }
+
     // Valida token no header asaas-access-token
     const receivedToken = req.headers.get('asaas-access-token')
     if (!savedToken || receivedToken !== savedToken) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} token inválido`)
+      await logEvent({ status: 'erro', erro: 'Token inválido no header asaas-access-token', recebido: receivedToken?.slice(0, 8) + '…', esperado: savedToken?.slice(0, 8) + '…' })
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
     }
 
@@ -241,7 +260,7 @@ export async function POST(
     else if (event === 'PAYMENT_OVERDUE') eventoEntrada = 'asaas_boleto_vencido'
 
     if (!eventoEntrada) {
-      console.log(`[payment-webhook:asaas] company=${companyId} evento ignorado event=${event}`)
+      await logEvent({ status: 'ignorado', evento: event, billing_type: payment.billingType, motivo: 'evento não mapeado para nenhum gatilho' })
       return NextResponse.json({ received: true })
     }
 
@@ -252,7 +271,7 @@ export async function POST(
 
     const customerId = payment.customer
     if (!customerId) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} payment sem customer`)
+      await logEvent({ status: 'erro', evento: event, eventoEntrada, erro: 'payment sem campo customer', payment_id: payment.id })
       return NextResponse.json({ received: true })
     }
 
@@ -265,12 +284,15 @@ export async function POST(
     const rawPhone = customer?.mobilePhone ?? customer?.phone
     const value = payment.value
 
-    console.log(`[payment-webhook:asaas] company=${companyId} event=${event} customer=${customerId} email=${email}`)
+    if (!customerRes?.ok) {
+      await logEvent({ status: 'erro', evento: event, eventoEntrada, payment_id: payment.id, customer_id: customerId, erro: `Falha ao buscar cliente no Asaas (status ${customerRes?.status ?? 'sem resposta'})` })
+      return NextResponse.json({ received: true })
+    }
 
     // Busca lead por email ou telefone
     const lead = await findLead(companyId, email, rawPhone, supabase)
     if (!lead) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} lead não encontrado email=${email} phone=${rawPhone}`)
+      await logEvent({ status: 'erro', evento: event, eventoEntrada, payment_id: payment.id, customer_id: customerId, email, telefone: rawPhone, erro: 'Lead não encontrado — nenhum lead com esse e-mail ou telefone no Zaapply' })
       return NextResponse.json({ received: true })
     }
 
@@ -279,18 +301,17 @@ export async function POST(
       const updates: Record<string, any> = { status: 'Fechado' }
       if (value && !lead.project_value) updates.project_value = value
       await supabase.from('leads').update(updates).eq('id', lead.id)
-      console.log(`[payment-webhook:asaas] lead=${lead.id} movido para Fechado valor=${value}`)
     }
 
-    // Dispara sequência canvas em background
+    // Dispara sequência canvas em background + loga resultado
     runPaymentSequenceImmediate(companyId, lead.id, {
       platform: 'asaas',
       eventoEntrada,
       paymentId: payment.id,
       value,
     })
-      .then(r => console.log(`[payment-webhook:asaas] sequência sent=${r.sent} error=${r.error ?? 'ok'}`))
-      .catch(err => console.error(`[payment-webhook:asaas] sequência falhou:`, err.message))
+      .then(r => logEvent({ status: r.sent > 0 ? 'ok' : 'sem_sequencia', evento: event, eventoEntrada, payment_id: payment.id, lead_id: lead.id, email, mensagens_enviadas: r.sent, erro: r.error ?? null }))
+      .catch(err => logEvent({ status: 'erro', evento: event, eventoEntrada, payment_id: payment.id, lead_id: lead.id, erro: err.message }))
 
     return NextResponse.json({ received: true })
   }
