@@ -254,10 +254,12 @@ export async function POST(
     if (!event || !payment?.id) return NextResponse.json({ received: true })
 
     // Mapeia evento Asaas → eventoEntrada do canvas
+    // billingType pode vir "UNDEFINED" em assinaturas recorrentes — usa bankSlipUrl como fallback
+    const isBoleto = payment.billingType === 'BOLETO' || (payment.billingType === 'UNDEFINED' && !!payment.bankSlipUrl)
     let eventoEntrada: string | null = null
     if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') eventoEntrada = 'asaas_pago'
-    else if (event === 'PAYMENT_CREATED' && payment.billingType === 'BOLETO') eventoEntrada = 'asaas_boleto_gerado'
-    else if (event === 'PAYMENT_OVERDUE') eventoEntrada = 'asaas_boleto_vencido'
+    else if (event === 'PAYMENT_CREATED' && isBoleto) eventoEntrada = 'asaas_boleto_gerado'
+    else if (event === 'PAYMENT_OVERDUE' && isBoleto) eventoEntrada = 'asaas_boleto_vencido'
 
     if (!eventoEntrada) {
       await logEvent({ status: 'ignorado', evento: event, billing_type: payment.billingType, motivo: 'evento não mapeado para nenhum gatilho' })
