@@ -86,6 +86,8 @@ import {
   TrendingUp,
   BarChart2,
   ShieldAlert,
+  Library,
+  TestTube2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -4949,59 +4951,30 @@ function CanvasInner() {
             ))}
           </div>
 
-          {/* Conflict badge */}
-          {conflictCount >= 2 && (
-            <div className="relative group">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold cursor-default">
-                <AlertCircle className="w-3.5 h-3.5" />
-                {conflictCount} sequências ativas
-              </div>
-              <div className="absolute left-0 top-full mt-1.5 z-30 w-64 bg-card border border-border rounded-xl shadow-xl p-3 text-xs text-muted-foreground leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
-                Leads podem receber mensagens de múltiplas sequências simultaneamente. Considere ativar apenas uma por vez ou configurar regras de exclusão.
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right controls */}
         {mode === 'editor' && currentSeq && (
-          <div className="flex items-center gap-2">
-            {/* Templates */}
-            <button onClick={() => setTemplatesOpen(true)}
-              title="Templates"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
-              <LayoutTemplate className="w-3.5 h-3.5" />Templates
-            </button>
+          <div className="flex items-center gap-1.5">
+            {/* Conflict badge — compacto, com tooltip */}
+            {conflictCount >= 2 && (
+              <div className="relative group">
+                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold cursor-default">
+                  <AlertCircle className="w-3 h-3" />{conflictCount}
+                </div>
+                <div className="absolute right-0 top-full mt-1.5 z-30 w-64 bg-card border border-border rounded-xl shadow-xl p-3 text-xs text-muted-foreground leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
+                  {conflictCount} sequências ativas. Leads podem receber mensagens simultâneas — considere ativar apenas uma por vez.
+                </div>
+              </div>
+            )}
 
-            {/* Versions */}
-            <div className="relative flex items-center gap-1">
-              <button onClick={() => setVersionsOpen((v) => !v)}
-                title="Versões"
-                className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
-                  versionsOpen ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}>
-                <History className="w-3.5 h-3.5" />Versões
-              </button>
-              {versions.length >= 2 && (
-                <button onClick={() => setDiffOpen(true)}
-                  title="Comparar versões"
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
-                  <GitCompare className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {versionsOpen && (
-                <VersionsDropdown versions={versions} onRestore={restoreVersion} onClose={() => setVersionsOpen(false)} />
-              )}
-            </div>
-
-            {/* Anti-noshow force trigger */}
+            {/* Anti-noshow / Remarketing force trigger */}
             {activeTipo === 'anti_noshow' && (
               <button onClick={() => setNoshowCronTestOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20">
                 <Zap className="w-3.5 h-3.5" />Disparar agora
               </button>
             )}
-
-            {/* Remarketing force trigger */}
             {activeTipo === 'remarketing' && (
               <button onClick={() => setRemarketingTestOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20">
@@ -5009,7 +4982,51 @@ function CanvasInner() {
               </button>
             )}
 
-            {/* Test run */}
+            {/* Biblioteca — Templates + Versões em dropdown único */}
+            <div className="relative">
+              <button
+                onClick={() => setVersionsOpen((v) => !v)}
+                title="Biblioteca: Templates e Versões"
+                className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors border',
+                  versionsOpen ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground')}>
+                <Library className="w-3.5 h-3.5" />Biblioteca
+              </button>
+              {versionsOpen && (
+                <div className="absolute right-0 top-full mt-1.5 z-30 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                  <button
+                    onClick={() => { setTemplatesOpen(true); setVersionsOpen(false); }}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-left hover:bg-muted transition-colors">
+                    <LayoutTemplate className="w-3.5 h-3.5 text-muted-foreground" />Templates
+                  </button>
+                  <div className="h-px bg-border mx-2" />
+                  <div className="px-3 py-1.5 text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wide">Versões salvas</div>
+                  {versions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-3">Nenhuma versão salva</p>
+                  ) : (
+                    <div className="p-1 space-y-0.5 max-h-40 overflow-y-auto">
+                      {[...versions].reverse().map((v, i) => (
+                        <button key={v.ts} onClick={() => { restoreVersion(v); setVersionsOpen(false); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs text-foreground hover:bg-muted transition-colors">
+                          {formatVersionLabel(v, versions.length - 1 - i, versions.length)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {versions.length >= 2 && (
+                    <>
+                      <div className="h-px bg-border mx-2" />
+                      <button
+                        onClick={() => { setDiffOpen(true); setVersionsOpen(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-left hover:bg-muted transition-colors">
+                        <GitCompare className="w-3.5 h-3.5 text-muted-foreground" />Comparar versões
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Executar teste / Parar */}
             {testRunning ? (
               <button onClick={stopTest}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20">
@@ -5018,35 +5035,36 @@ function CanvasInner() {
             ) : (
               <button onClick={() => setTestModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border border-border bg-muted text-muted-foreground hover:bg-accent hover:text-foreground">
-                <FlaskConical className="w-3.5 h-3.5" />Executar teste
+                <FlaskConical className="w-3.5 h-3.5" />Testar
               </button>
             )}
 
-            <div className="w-px h-5 bg-border" />
+            <div className="w-px h-5 bg-border mx-0.5" />
 
-            {/* Staging mode toggle */}
+            {/* Staging — ícone compacto com tooltip */}
             <button
               onClick={toggleStaging}
               disabled={stagingLoading}
-              title={currentSeq.staging ? 'Modo staging ativo — desligar' : 'Ligar modo staging (testes)'}
-              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
+              title={currentSeq.staging ? 'Staging ativo — clique para desligar' : 'Ligar modo staging'}
+              className={cn('flex items-center justify-center w-7 h-7 rounded-lg transition-colors border',
                 currentSeq.staging
                   ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
                   : 'bg-muted border-border text-muted-foreground hover:bg-accent hover:text-foreground')}>
-              {stagingLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FlaskConical className="w-3.5 h-3.5" />}
-              {currentSeq.staging ? 'Staging' : 'Staging'}
+              {stagingLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube2 className="w-3.5 h-3.5" />}
             </button>
 
-            {/* Active toggle */}
+            {/* Ativo / Inativo */}
             <button onClick={toggleAtivo}
-              className={cn('flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
-                currentSeq.ativo ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground')}>
-              <span className={cn('w-2 h-2 rounded-full', currentSeq.ativo ? 'bg-primary' : 'bg-muted-foreground/40')} />
+              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
+                currentSeq.ativo ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground hover:bg-accent')}>
+              <span className={cn('w-1.5 h-1.5 rounded-full', currentSeq.ativo ? 'bg-primary' : 'bg-muted-foreground/40')} />
               {currentSeq.ativo ? 'Ativo' : 'Inativo'}
             </button>
+
+            {/* Salvar */}
             <button onClick={handleSave} disabled={saving}
               className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border',
-                saveOk ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-muted border-border text-foreground hover:bg-accent')}>
+                saveOk ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-primary border-primary text-primary-foreground hover:bg-primary/90')}>
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saveOk ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
               {saveOk ? 'Salvo!' : 'Salvar'}
             </button>
