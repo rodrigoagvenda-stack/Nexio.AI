@@ -103,37 +103,34 @@ export async function POST(request: NextRequest) {
         await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
       }
     } else {
-      const updateRes = await fetch(`${baseUrl}/customers/${customerId}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ cpfCnpj }),
-      })
-      if (!updateRes.ok) {
-        // 404 = cliente não existe mais na Asaas (ambiente trocado, cliente deletado, etc.)
-        // Limpa o ID stale e cria novo cliente
-        if (updateRes.status === 404) {
-          console.warn('[asaas/checkout] customer não encontrado na Asaas, recriando:', customerId)
-          await service.from('companies').update({ asaas_customer_id: null }).eq('id', company.id)
-          const custRes = await fetch(`${baseUrl}/customers`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              name: company.name || userData.name || 'Cliente',
-              email: userData.email,
-              cpfCnpj,
-              notificationDisabled: false,
-              externalReference: customerExtRef,
-            }),
-          })
-          const custData = await asaasJson(custRes, 'recreate-customer')
-          if (!custRes.ok) throw new Error(custData.errors?.[0]?.description || 'Erro ao recriar cliente no Asaas')
-          customerId = custData.id
-          await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
-        } else {
-          const updateErr = await asaasJson(updateRes, 'update-customer').catch(() => ({}))
-          console.error('[asaas/checkout] falha ao atualizar customer:', updateErr)
-          throw new Error(updateErr.errors?.[0]?.description || 'Erro ao atualizar cliente no Asaas')
-        }
+      // Verifica se o cliente foi soft-deleted no Asaas antes de tentar atualizar
+      const getRes = await fetch(`${baseUrl}/customers/${customerId}`, { headers })
+      const needsRecreate = !getRes.ok || (await getRes.json().catch(() => ({}))).deleted === true
+
+      if (needsRecreate) {
+        console.warn('[asaas/checkout] customer deletado ou não encontrado, recriando:', customerId)
+        await service.from('companies').update({ asaas_customer_id: null, asaas_subscription_id: null }).eq('id', company.id)
+        const custRes = await fetch(`${baseUrl}/customers`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            name: company.name || userData.name || 'Cliente',
+            email: userData.email,
+            cpfCnpj,
+            notificationDisabled: false,
+            externalReference: customerExtRef,
+          }),
+        })
+        const custData = await asaasJson(custRes, 'recreate-customer')
+        if (!custRes.ok) throw new Error(custData.errors?.[0]?.description || 'Erro ao recriar cliente no Asaas')
+        customerId = custData.id
+        await service.from('companies').update({ asaas_customer_id: customerId }).eq('id', company.id)
+      } else {
+        await fetch(`${baseUrl}/customers/${customerId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ cpfCnpj }),
+        })
       }
     }
 
