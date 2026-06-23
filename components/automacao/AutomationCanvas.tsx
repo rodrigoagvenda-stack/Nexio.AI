@@ -928,31 +928,34 @@ type AccentKey = keyof typeof ACCENTS;
 
 // ─── Node building blocks ───────────────────────────────────────────────────────
 
-// Exec state overlay badge
+// Exec state overlay badge — n8n style
 function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   if (!state || state === 'idle') return null;
   if (state === 'running') {
     return (
-      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center z-10">
-        <Loader2 className="w-3 h-3 text-primary-foreground animate-spin" />
+      <div className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-primary shadow-lg flex items-center justify-center z-10"
+        style={{ boxShadow: '0 0 0 2px #01573C40, 0 2px 8px rgba(1,87,60,0.5)' }}>
+        <Loader2 className="w-4 h-4 text-white animate-spin" />
       </div>
     );
   }
   if (state === 'success') {
     return (
-      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center z-10">
-        <CheckCircle2 className="w-3 h-3 text-white" />
+      <div className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-emerald-500 shadow-lg flex items-center justify-center z-10"
+        style={{ boxShadow: '0 0 0 2px #10b98140, 0 2px 8px rgba(16,185,129,0.4)' }}>
+        <CheckCircle2 className="w-4 h-4 text-white" />
       </div>
     );
   }
   if (state === 'error') {
     return (
-      <div className="absolute -top-2 -right-2 z-10 group">
-        <div className="w-5 h-5 rounded-full bg-destructive flex items-center justify-center cursor-default">
-          <X className="w-3 h-3 text-white" />
+      <div className="absolute -top-3 -right-3 z-10 group">
+        <div className="w-7 h-7 rounded-full bg-destructive shadow-lg flex items-center justify-center cursor-default"
+          style={{ boxShadow: '0 0 0 2px #ef444440, 0 2px 8px rgba(239,68,68,0.4)' }}>
+          <X className="w-4 h-4 text-white" />
         </div>
         {error && (
-          <div className="absolute right-0 top-6 z-20 w-52 bg-popover text-destructive text-[10px] leading-snug px-2.5 py-2 rounded-lg shadow-xl border border-border pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <div className="absolute right-0 top-8 z-20 w-56 bg-popover text-destructive text-[10px] leading-snug px-2.5 py-2 rounded-lg shadow-xl border border-border pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
             {error}
           </div>
         )}
@@ -961,8 +964,8 @@ function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   }
   if (state === 'skipped') {
     return (
-      <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-muted-foreground/50 flex items-center justify-center z-10">
-        <span className="text-[8px] text-white font-bold leading-none">–</span>
+      <div className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-muted-foreground/60 shadow-md flex items-center justify-center z-10">
+        <span className="text-[11px] text-white font-bold leading-none">⏭</span>
       </div>
     );
   }
@@ -4667,6 +4670,21 @@ function CanvasInner() {
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, _execState: undefined, _execError: undefined } as AutoNodeData })));
   }
 
+  function markEdgeTraversed(edgeId: string, success = true) {
+    setEdges((eds) => eds.map((e) =>
+      e.id === edgeId
+        ? { ...e, animated: true, style: { ...e.style, stroke: success ? '#01573C' : '#ef4444', strokeWidth: 2.5 } }
+        : e
+    ));
+  }
+
+  function clearAllExecEdges() {
+    setEdges((eds) => eds.map((e) => {
+      const { stroke: _s, strokeWidth: _sw, ...restStyle } = (e.style ?? {}) as any;
+      return { ...e, animated: false, style: Object.keys(restStyle).length ? restStyle : undefined };
+    }));
+  }
+
   function evaluateCondition(d: ConditionNodeData, reply: string): 'sim' | 'nao' {
     const val = (d.valor ?? '').toLowerCase().trim();
     const r = reply.toLowerCase().trim();
@@ -4735,6 +4753,8 @@ function CanvasInner() {
     setTestRunning(true);
     setTestWaitingReply(false);
     setNodeExecError(null);
+    clearAllExecStates();
+    clearAllExecEdges();
 
     // Find conversation for this phone (needed for reply polling)
     let conversaId: string | null = null;
@@ -4745,10 +4765,10 @@ function CanvasInner() {
     } catch {}
 
     // Build adjacency map
-    const edgeMap: Record<string, { targetId: string; sourceHandle?: string }[]> = {};
+    const edgeMap: Record<string, { targetId: string; sourceHandle?: string; edgeId: string }[]> = {};
     edges.forEach((e) => {
       if (!edgeMap[e.source]) edgeMap[e.source] = [];
-      edgeMap[e.source].push({ targetId: e.target, sourceHandle: e.sourceHandle ?? undefined });
+      edgeMap[e.source].push({ targetId: e.target, sourceHandle: e.sourceHandle ?? undefined, edgeId: e.id });
     });
     const nodeMap: Record<string, Node<AutoNodeData>> = {};
     nodes.forEach((n) => { nodeMap[n.id] = n; });
@@ -4762,7 +4782,7 @@ function CanvasInner() {
       if (visited.has(currentId)) break;
       visited.add(currentId);
 
-      const node = nodeMap[currentId];
+      const node: Node<AutoNodeData> | undefined = nodeMap[currentId];
       if (!node) break;
 
       const d = node.data;
@@ -4887,13 +4907,14 @@ function CanvasInner() {
         break;
       }
 
-      const outgoing = edgeMap[node.id] ?? [];
-      const hasHandles = outgoing.some((e) => e.sourceHandle);
+      const outgoing: { targetId: string; sourceHandle?: string; edgeId: string }[] = edgeMap[node.id] ?? [];
+      const hasHandles = outgoing.some((e: { targetId: string; sourceHandle?: string; edgeId: string }) => e.sourceHandle);
       const next = chosenHandle
         ? (hasHandles
-            ? outgoing.find((e) => e.sourceHandle === chosenHandle)
+            ? outgoing.find((e: { targetId: string; sourceHandle?: string; edgeId: string }) => e.sourceHandle === chosenHandle)
             : chosenHandle === 'nao' ? outgoing[outgoing.length - 1] : outgoing[0])
         : outgoing[0];
+      if (next?.edgeId) markEdgeTraversed(next.edgeId, chosenHandle !== 'nao');
       currentId = next?.targetId ?? null;
     }
 
@@ -4907,6 +4928,7 @@ function CanvasInner() {
     setTestWaitingReply(false);
     setNodeExecError(null);
     clearAllExecStates();
+    clearAllExecEdges();
   }
 
   function useTemplate(template: CanvasTemplate) {
