@@ -4209,6 +4209,8 @@ function CanvasInner() {
   const [nodeExecError, setNodeExecError] = useState<{ name: string; msg: string } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
+  const [seqDropdownOpen, setSeqDropdownOpen] = useState(false);
+
   // Versioning
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
@@ -4940,15 +4942,28 @@ function CanvasInner() {
             </button>
           </div>
           <div className="w-px h-5 bg-border" />
-          {/* Sequence tabs */}
-          <div className="flex items-center gap-1">
-            {SEQ_TABS.map((tab) => (
-              <button key={tab.tipo} onClick={() => setActiveTipo(tab.tipo)}
-                className={cn('px-3 py-1 rounded-lg text-sm font-medium transition-colors',
-                  activeTipo === tab.tipo ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-                {tab.label}
-              </button>
-            ))}
+          {/* Sequence dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setSeqDropdownOpen((v) => !v)}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                seqDropdownOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
+              {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label ?? 'Canvas'}
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', seqDropdownOpen && 'rotate-180')} />
+            </button>
+            {seqDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 z-30 w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                {SEQ_TABS.map((tab) => (
+                  <button key={tab.tipo}
+                    onClick={() => { setActiveTipo(tab.tipo); setSeqDropdownOpen(false); }}
+                    className={cn('flex items-center justify-between w-full px-3 py-2.5 text-sm text-left transition-colors',
+                      activeTipo === tab.tipo ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                    {tab.label}
+                    {activeTipo === tab.tipo && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
@@ -5063,8 +5078,10 @@ function CanvasInner() {
 
             {/* Salvar */}
             <button onClick={handleSave} disabled={saving}
-              className={cn('flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all border',
-                saveOk ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-primary border-primary text-primary-foreground hover:bg-primary/90')}>
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all active:translate-y-px disabled:opacity-60"
+              style={saveOk
+                ? { backgroundColor: '#0F3D2B', color: '#6ee7b7', boxShadow: '0 2px 0 0 #07261C' }
+                : { backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}>
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saveOk ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
               {saveOk ? 'Salvo!' : 'Salvar'}
             </button>
