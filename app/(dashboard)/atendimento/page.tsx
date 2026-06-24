@@ -1997,11 +1997,11 @@ export default function AtendimentoPage() {
 
       {/* Mobile Lead Info Sheet */}
       <Sheet open={mobileLeadInfoOpen} onOpenChange={setMobileLeadInfoOpen}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 lg:hidden rounded-t-2xl">
-          <SheetHeader className="px-4 pt-4 pb-2 border-b">
-            <SheetTitle className="text-sm">Informações do Lead</SheetTitle>
+        <SheetContent side="bottom" className="h-[90vh] p-0 lg:hidden rounded-t-2xl overflow-hidden flex flex-col">
+          <SheetHeader className="px-4 pt-4 pb-3 border-b shrink-0">
+            <SheetTitle className="text-base font-semibold">Informações do Lead</SheetTitle>
           </SheetHeader>
-          <div className="overflow-y-auto h-full pb-20">
+          <div className="flex-1 overflow-y-auto pb-24">
             {selectedConversation?.lead && (
               <LeadInfoSidebar
                 lead={selectedConversation.lead}
@@ -2010,7 +2010,7 @@ export default function AtendimentoPage() {
                 userId={user!.user_id}
                 chatId={selectedConversation.id}
                 tags={selectedConversation.etiquetas || []}
-                className="flex flex-col h-full overflow-hidden border-0 shadow-none rounded-none"
+                className="flex flex-col border-0 shadow-none rounded-none bg-transparent"
                 onLeadUpdate={(updatedLead) => {
                   setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);
                   fetchConversations();

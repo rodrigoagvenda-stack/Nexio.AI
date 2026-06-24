@@ -8,8 +8,15 @@ import { CookieBanner } from "@/components/lgpd/CookieBanner";
 export const metadata: Metadata = {
   title: "Zaapply — CRM Inteligente com IA",
   description: "Sistema completo de CRM com automação e inteligência artificial",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Zaapply",
+  },
   icons: {
     icon: "/favicon.svg",
+    apple: "/favicon.svg",
   },
 };
 
@@ -24,6 +31,11 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <head>
+        <meta name="theme-color" content="#01573C" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Zaapply" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
