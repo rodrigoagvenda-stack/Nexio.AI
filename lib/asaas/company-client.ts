@@ -199,6 +199,8 @@ export async function listPayments(
   if (params?.dateCreatedLte) qs.set('dateCreatedLte', params.dateCreatedLte)
   qs.set('limit', String(params?.limit ?? 100))
   qs.set('offset', String(params?.offset ?? 0))
+  // inclui campos de cliente para exibir nome no financeiro
+  qs.set('includeDeleted', 'false')
 
   const res = await companyAsaasRequest<{ data: AsaasPaymentListItem[]; totalCount: number; hasMore: boolean }>(
     companyId, 'GET', `/payments?${qs.toString()}`

@@ -50,33 +50,58 @@ async function fetchMercadoPagoCharges(cfg: any, dateGte?: string, statusFilter?
   try {
     const token = cfg?.access_token
     if (!token) return []
-    const qs = new URLSearchParams({ sort: 'date_created', criteria: 'desc', limit: '200' })
+
+    const qs = new URLSearchParams({ sort: 'date_created', criteria: 'desc', limit: '100' })
+
+    // MP exige begin_date + end_date juntos — sem range= separado
     if (dateGte) {
-      qs.set('range', 'date_created')
+      const endDate = new Date().toISOString().split('T')[0]
       qs.set('begin_date', `${dateGte}T00:00:00.000-03:00`)
+      qs.set('end_date', `${endDate}T23:59:59.999-03:00`)
     }
-    if (statusFilter && statusFilter !== 'all') qs.set('status', statusFilter)
+
+    // Filtra por status usando os valores nativos do MP, não os nossos normalizados
+    if (statusFilter && statusFilter !== 'all') {
+      const MP_STATUS_REVERSE: Record<string, string> = {
+        paid: 'approved',
+        pending: 'pending',
+        overdue: 'pending',
+        cancelled: 'cancelled',
+      }
+      const mpStatus = MP_STATUS_REVERSE[statusFilter]
+      if (mpStatus) qs.set('status', mpStatus)
+    }
+
     const res = await fetch(`https://api.mercadopago.com/v1/payments/search?${qs}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
-    if (!res.ok) return []
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error('[financeiro] MP API error:', res.status, errText)
+      return []
+    }
+
     const json = await res.json()
     return (json.results ?? []).map((p: any) => ({
       id: `mp_${p.id}`,
       platform: 'mercadopago' as const,
       external_id: String(p.id),
       amount: p.transaction_amount ?? 0,
-      description: p.description ?? null,
+      description: p.description ?? p.statement_descriptor ?? null,
       billing_type: p.payment_type_id ?? null,
       due_date: p.date_of_expiration ? p.date_of_expiration.split('T')[0] : null,
       status: MP_STATUS_MAP[p.status] ?? 'pending',
-      payment_url: p.init_point ?? null,
+      payment_url: p.point_of_interaction?.transaction_data?.ticket_url ?? null,
       invoice_url: null,
       created_at: p.date_created,
-      lead_name: p.payer?.email ?? p.payer?.identification?.number ?? null,
+      lead_name: p.payer?.first_name
+        ? `${p.payer.first_name} ${p.payer.last_name ?? ''}`.trim()
+        : (p.payer?.email ?? null),
     }))
-  } catch {
+  } catch (e: any) {
+    console.error('[financeiro] MP fetch error:', e?.message)
     return []
   }
 }
