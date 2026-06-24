@@ -14,6 +14,7 @@ import {
   Kanban,
   Zap,
   BarChart2,
+  Wallet,
 } from 'lucide-react';
 import { TrendingUpIcon } from '@/components/ui/trending-up';
 import { ChartPieIcon } from '@/components/ui/chart-pie';
@@ -414,6 +415,7 @@ export const Sidebar = memo(function Sidebar({
   const [flyout, setFlyout] = useState<FlyoutState | null>(null);
   const [hasUnseenChangelog, setHasUnseenChangelog] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [hasPaymentIntegration, setHasPaymentIntegration] = useState(false);
   const flyoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSoundRef = useRef<number>(0);
 
@@ -472,6 +474,17 @@ export const Sidebar = memo(function Sidebar({
       .gt('contagem_nao_lida', 0)
       .then(() => {});
   };
+
+  useEffect(() => {
+    if (!companyId) return;
+    fetch('/api/payment-integrations')
+      .then(r => r.json())
+      .then(d => {
+        const active = (d.integrations ?? []).some((i: any) => i.active);
+        setHasPaymentIntegration(active);
+      })
+      .catch(() => {});
+  }, [companyId]);
 
   useEffect(() => {
     const lastSeen = localStorage.getItem('zaapply_changelog_last_seen');
@@ -568,6 +581,7 @@ export const Sidebar = memo(function Sidebar({
           links: [
             ...section.links,
             ...(hasBriefing ? [{ href: '/briefing', label: 'Briefing', icon: FileTextIcon }] : []),
+            ...(hasPaymentIntegration ? [{ href: '/financeiro', label: 'Financeiro', icon: Wallet }] : []),
           ],
         };
       }
@@ -582,7 +596,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, gtproConnected]);
+  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, gtproConnected, hasPaymentIntegration]);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);

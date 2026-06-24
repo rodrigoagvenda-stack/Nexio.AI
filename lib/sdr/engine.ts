@@ -2415,7 +2415,7 @@ async function findOrCreateLead(
 
   const { data: rows } = await supabase
     .from('leads')
-    .select('id, notes, whatsapp')
+    .select('id, notes, whatsapp, contact_name')
     .eq('company_id', companyId)
     .in('whatsapp', variants)
     .order('id', { ascending: true })
@@ -2423,9 +2423,12 @@ async function findOrCreateLead(
 
   const existing = rows?.[0]
   if (existing) {
-    if (existing.whatsapp !== phone) {
-      supabase.from('leads').update({ whatsapp: phone }).eq('id', existing.id)
-        .then(() => {}, () => {})
+    const updates: Record<string, any> = {}
+    if (existing.whatsapp !== phone) updates.whatsapp = phone
+    // Atualiza nome se o lead foi criado sem nome e agora temos um
+    if (name && (existing as any).contact_name === 'Não identificado') updates.contact_name = name
+    if (Object.keys(updates).length > 0) {
+      supabase.from('leads').update(updates).eq('id', existing.id).then(() => {}, () => {})
     }
     // Aplica tag do criativo mesmo em lead já existente (pode ter vindo de outro anúncio)
     if (referral?.headline) {
@@ -2978,6 +2981,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       // Salva mensagem enviada pelo operador direto do WhatsApp na UI
       const outPhone = normalizePhone(body.chat?.phone || '')
       if (outPhone) {
+        const outContactName: string = body.chat?.wa_contactName || body.chat?.name || body.chat?.pushName || ''
         const outMsg = body.message as any
         const outMsgType = detectMessageType(body.message)
         const outText = outMsg?.text || outMsg?.conversation || outMsg?.extendedTextMessage?.text || outMsg?.body || ''
@@ -3003,7 +3007,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
               // Cria lead + conversa com a mesma lógica do fluxo inbound, sem passar pelo SDR.
               let newLeadId: number | null = null
               try {
-                const { id: lid } = await findOrCreateLead(companyId, outPhone, '', '', outSvc)
+                const { id: lid } = await findOrCreateLead(companyId, outPhone, outContactName, '', outSvc)
                 newLeadId = lid
               } catch (e: any) {
                 console.warn(`[SDR:${companyId}] fromMe: falha ao criar lead phone=${outPhone}:`, e?.message)
@@ -3017,7 +3021,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
                   company_id: companyId,
                   id_do_lead: newLeadId,
                   numero_de_telefone: outPhone,
-                  nome_do_contato: outPhone,
+                  nome_do_contato: outContactName || outPhone,
                   ultima_mensagem: dispText,
                   hora_da_ultima_mensagem: msgTs,
                   status_da_conversa: 'aberto',
