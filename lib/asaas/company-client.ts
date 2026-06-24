@@ -167,3 +167,41 @@ export async function getPaymentLink(
 ): Promise<{ invoiceUrl: string; bankSlipUrl?: string }> {
   return companyAsaasRequest(companyId, 'GET', `/payments/${paymentId}`)
 }
+
+export interface AsaasPaymentListItem {
+  id: string
+  customer: string
+  customerName?: string
+  billingType: string
+  status: string
+  value: number
+  dueDate: string
+  description?: string
+  invoiceUrl?: string
+  bankSlipUrl?: string
+  externalReference?: string
+  dateCreated: string
+}
+
+export async function listPayments(
+  companyId: number,
+  params?: {
+    status?: string
+    dateCreatedGte?: string
+    dateCreatedLte?: string
+    limit?: number
+    offset?: number
+  }
+): Promise<{ data: AsaasPaymentListItem[]; totalCount: number; hasMore: boolean }> {
+  const qs = new URLSearchParams()
+  if (params?.status && params.status !== 'all') qs.set('status', params.status.toUpperCase())
+  if (params?.dateCreatedGte) qs.set('dateCreatedGte', params.dateCreatedGte)
+  if (params?.dateCreatedLte) qs.set('dateCreatedLte', params.dateCreatedLte)
+  qs.set('limit', String(params?.limit ?? 100))
+  qs.set('offset', String(params?.offset ?? 0))
+
+  const res = await companyAsaasRequest<{ data: AsaasPaymentListItem[]; totalCount: number; hasMore: boolean }>(
+    companyId, 'GET', `/payments?${qs.toString()}`
+  )
+  return res
+}

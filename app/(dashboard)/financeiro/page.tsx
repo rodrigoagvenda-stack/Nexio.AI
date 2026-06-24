@@ -39,13 +39,8 @@ interface Charge {
   payment_url: string | null
   invoice_url: string | null
   created_at: string
-  lead_id: number | null
-  leads: {
-    id: number
-    company_name: string | null
-    contact_name: string | null
-    whatsapp: string | null
-  } | null
+  lead_name: string | null
+  external_reference: string | null
 }
 
 interface Stats {
@@ -95,7 +90,7 @@ export default function FinanceiroPage() {
       const params = new URLSearchParams({
         status: statusFilter,
         period: periodFilter,
-        platform: platformFilter,
+        platform: platformFilter ?? 'all',
       })
       const res = await fetch(`/api/financeiro/charges?${params}`)
       if (res.status === 404) {
@@ -274,8 +269,7 @@ export default function FinanceiroPage() {
                   </thead>
                   <tbody>
                     {charges.map((charge, i) => {
-                      const lead = charge.leads
-                      const leadName = lead?.contact_name || lead?.company_name || '—'
+                      const leadName = charge.lead_name || '—'
                       const statusInfo = STATUS_LABELS[charge.status] ?? { label: charge.status, color: 'text-muted-foreground' }
                       const link = charge.payment_url || charge.invoice_url
                       return (
@@ -343,8 +337,7 @@ export default function FinanceiroPage() {
             {/* Mobile cards */}
             <div className="md:hidden space-y-3 mt-2">
               {charges.map((charge) => {
-                const lead = charge.leads
-                const leadName = lead?.contact_name || lead?.company_name || '—'
+                const leadName = charge.lead_name || '—'
                 const statusInfo = STATUS_LABELS[charge.status] ?? { label: charge.status, color: 'text-muted-foreground' }
                 const link = charge.payment_url || charge.invoice_url
                 return (
