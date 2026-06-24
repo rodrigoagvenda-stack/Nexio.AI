@@ -43,5 +43,7 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ['business', 'productivity'],
     lang: 'pt-BR',
     dir: 'ltr',
+    // @ts-ignore — permissions válido no spec W3C mas não no type Next.js ainda
+    permissions: ['microphone'],
   }
 }
