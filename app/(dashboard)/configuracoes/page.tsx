@@ -216,6 +216,7 @@ function ConfiguracoesContent() {
   const [mfaDisabling, setMfaDisabling] = useState(false);
   const [mfaCopied, setMfaCopied] = useState(false);
   const [copiedAsaasUrl, setCopiedAsaasUrl] = useState(false);
+  const [copiedKiwifyUrl, setCopiedKiwifyUrl] = useState(false);
   const [asaasLogs, setAsaasLogs] = useState<any[] | null>(null);
   const [loadingAsaasLogs, setLoadingAsaasLogs] = useState(false);
 
@@ -961,10 +962,49 @@ function ConfiguracoesContent() {
                     {!connected && kiwifyFormOpen && (
                       <div className="mt-3 space-y-2">
                         <div>
-                          <Label className="text-xs">Token de Verificação</Label>
-                          <Input value={kiwifyToken} onChange={e => setKiwifyToken(e.target.value)} placeholder="Token gerado no painel Kiwify" className="h-8 text-xs mt-1 font-mono" />
+                          <Label className="text-xs">URL do Webhook (cole no painel Kiwify)</Label>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Input readOnly value={company ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payment/${company.id}/kiwify` : ''} className="h-8 text-xs font-mono bg-muted/30 cursor-text select-all" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!company) return;
+                                navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/payment/${company.id}/kiwify`);
+                                setCopiedKiwifyUrl(true);
+                                setTimeout(() => setCopiedKiwifyUrl(false), 2000);
+                              }}
+                              className="h-8 w-8 flex items-center justify-center shrink-0 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                            >
+                              {copiedKiwifyUrl ? <CheckCheck className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground/70 mt-1">Cole essa URL em Apps → Webhooks no painel da Kiwify ao criar o webhook.</p>
                         </div>
-                        <p className="text-[10px] text-muted-foreground/70">Obtenha em Apps → Webhooks no painel da Kiwify. Este token é gerado automaticamente ao criar o webhook.</p>
+                        <div>
+                          <Label className="text-xs">Token de Verificação</Label>
+                          <Input value={kiwifyToken} onChange={e => setKiwifyToken(e.target.value)} placeholder="Token gerado automaticamente pela Kiwify" className="h-8 text-xs mt-1 font-mono" />
+                          <p className="text-[10px] text-muted-foreground/70 mt-1">Após criar o webhook na Kiwify, copie o token gerado e cole aqui.</p>
+                        </div>
+                      </div>
+                    )}
+                    {connected && (
+                      <div className="mt-2">
+                        <Label className="text-xs text-muted-foreground">URL do Webhook</Label>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Input readOnly value={company ? `${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payment/${company.id}/kiwify` : ''} className="h-7 text-[11px] font-mono bg-muted/20 cursor-text select-all" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!company) return;
+                              navigator.clipboard.writeText(`${window.location.origin}/api/webhooks/payment/${company.id}/kiwify`);
+                              setCopiedKiwifyUrl(true);
+                              setTimeout(() => setCopiedKiwifyUrl(false), 2000);
+                            }}
+                            className="h-7 w-7 flex items-center justify-center shrink-0 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            {copiedKiwifyUrl ? <CheckCheck className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

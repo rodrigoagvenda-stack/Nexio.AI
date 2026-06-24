@@ -241,11 +241,33 @@ export async function POST(
 
     console.log(`[payment-webhook:kiwify] company=${companyId} order=${body.order_id} email=${email} produto="${productName}"`)
 
-    // Busca lead correspondente
-    const lead = await findLead(companyId, email, rawPhone, supabase)
+    // Busca lead correspondente ou cria automaticamente
+    let lead = await findLead(companyId, email, rawPhone, supabase)
     if (!lead) {
-      console.warn(`[payment-webhook:kiwify] company=${companyId} lead não encontrado email=${email} phone=${rawPhone}`)
-      return NextResponse.json({ received: true })
+      const customerName = body.Customer?.full_name || body.Customer?.name || 'Cliente Kiwify'
+      const normalizedPhone = rawPhone ? normalizePhone(rawPhone) : null
+      const { data: newLead, error: createErr } = await supabase
+        .from('leads')
+        .insert({
+          company_id: companyId,
+          contact_name: customerName,
+          company_name: 'Empresa',
+          email: email ?? null,
+          whatsapp: normalizedPhone,
+          status: 'Fechado',
+          import_source: 'Kiwify',
+          origem: 'kiwify',
+          project_value: value ?? null,
+          created_at: new Date().toISOString(),
+        })
+        .select('id, whatsapp, company_name, contact_name, project_value')
+        .single()
+      if (createErr || !newLead) {
+        console.warn(`[payment-webhook:kiwify] company=${companyId} falha ao criar lead: ${createErr?.message}`)
+        return NextResponse.json({ received: true })
+      }
+      lead = newLead
+      console.log(`[payment-webhook:kiwify] lead criado automaticamente id=${lead.id} nome="${customerName}"`)
     }
 
     // Move lead para Fechado + seta valor se não definido
