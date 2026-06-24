@@ -409,7 +409,7 @@ export default function DashboardPage() {
 
 
       {/* KPI Cards */}
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           title="Novos leads"
           value={novosLeads}
@@ -452,11 +452,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-3 items-stretch min-h-[380px]">
-        <div className="lg:col-span-2 h-full">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch min-h-[380px]">
+        <div className="lg:col-span-2 h-[280px] md:h-full">
           <PerformanceChart data={performanceData} />
         </div>
-        <div className="h-full">
+        <div className="h-[240px] md:h-full">
           <ConversionDonut
             fechados={fechados}
             emAndamento={radialEmAndamento}
@@ -467,11 +467,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Funnel + Recent Sales */}
-      <div className="grid gap-6 lg:grid-cols-3 items-start">
-        <div className="lg:col-span-2 h-auto md:h-[500px]">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-start">
+        <div className="lg:col-span-2">
           <SalesFunnelTabs stages={funnelStages} antiNoshowCounts={antiNoshowCounts} remarketingCount={remarketingCount} />
         </div>
-        <div className="h-auto md:h-[500px]">
+        <div className="overflow-hidden">
           <RecentSales />
         </div>
       </div>

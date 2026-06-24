@@ -544,13 +544,13 @@ function ConfiguracoesContent() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-none flex-nowrap -mx-4 px-4 md:mx-0 md:px-0">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              'px-4 py-2.5 text-sm font-medium transition-colors relative',
+              'px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0',
               tab === t
                 ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
@@ -813,7 +813,7 @@ function ConfiguracoesContent() {
       {tab === 'integracoes' && (
         <div className="space-y-4">
           <div className="p-6 rounded-2xl border border-border bg-card">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl bg-white/5 border border-border flex items-center justify-center mt-0.5 p-1 overflow-hidden shrink-0">
                   <img src="/logos/google-calendar.svg?v=4" className="w-full h-full object-contain" alt="Google Calendar" />
@@ -840,7 +840,7 @@ function ConfiguracoesContent() {
                     size="sm"
                     onClick={handleGoogleDisconnect}
                     disabled={disconnectingGoogle}
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0"
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0 self-start sm:self-auto"
                   >
                     {disconnectingGoogle ? <Loader2 className="h-4 w-4 animate-spin" /> : <><X className="h-4 w-4 mr-1" />Desconectar</>}
                   </Button>

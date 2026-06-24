@@ -1997,7 +1997,7 @@ export default function AtendimentoPage() {
 
       {/* Mobile Lead Info Sheet */}
       <Sheet open={mobileLeadInfoOpen} onOpenChange={setMobileLeadInfoOpen}>
-        <SheetContent side="bottom" className="h-[90vh] p-0 lg:hidden rounded-t-2xl overflow-hidden flex flex-col">
+        <SheetContent side="bottom" className="h-[90vh] p-0 lg:hidden !left-3 !right-3 !bottom-2 rounded-2xl overflow-hidden flex flex-col border-0">
           <SheetHeader className="px-4 pt-4 pb-3 border-b shrink-0">
             <SheetTitle className="text-base font-semibold">Informações do Lead</SheetTitle>
           </SheetHeader>

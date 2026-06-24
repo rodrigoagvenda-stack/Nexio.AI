@@ -82,7 +82,7 @@ export default function NovidadesPage() {
   const grouped = groupByMonth(filtered);
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
+    <div className="max-w-2xl mx-auto pb-20 px-4 md:px-0">
 
       {/* Header */}
       <div className="mb-8">

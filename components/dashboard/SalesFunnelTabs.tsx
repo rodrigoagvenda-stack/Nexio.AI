@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Bell, ArrowRight } from 'lucide-react';
@@ -47,6 +47,43 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 function HorizontalBars({ data }: { data: { name: string; quantidade: number }[] }) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <ChartContainer
+        config={chartConfig}
+        style={{ width: '100%', height: 200 }}
+      >
+        <BarChart
+          data={data}
+          margin={{ left: 4, right: 4, top: 8, bottom: 40 }}
+          barCategoryGap="25%"
+        >
+          <XAxis
+            dataKey="name"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fill: '#AAA', fontSize: 9, fontWeight: 500 }}
+            interval={0}
+            angle={-35}
+            textAnchor="end"
+            height={48}
+          />
+          <YAxis hide />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+          <Bar dataKey="quantidade" fill="var(--color-quantidade)" radius={4} />
+        </BarChart>
+      </ChartContainer>
+    );
+  }
+
   return (
     <ChartContainer
       config={chartConfig}

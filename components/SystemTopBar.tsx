@@ -150,9 +150,15 @@ export function SystemTopBar() {
     return null;
   }
 
+  const isAtendimento = pathname?.startsWith('/atendimento');
+
   return (
     <header
-      className="mx-4 mt-3 mb-1 h-[80px] rounded-xl flex items-center justify-between px-5 flex-shrink-0"
+      className={cn(
+        "mx-4 mt-3 mb-1 h-[80px] rounded-xl flex items-center justify-between px-5 flex-shrink-0",
+        isAtendimento && "hidden md:flex"
+      )}
+
       style={{
         background: 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
       }}
@@ -192,7 +198,7 @@ export function SystemTopBar() {
               )}
             </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[340px] p-0 overflow-hidden">
+          <DropdownMenuContent align="end" className="w-[min(340px,calc(100vw-24px))] p-0 overflow-hidden">
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-border">
               <div className="flex items-center justify-between mb-3">

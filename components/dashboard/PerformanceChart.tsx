@@ -30,7 +30,7 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col pb-4 px-2">
-          <div className="flex-1 min-h-[240px]">
+          <div className="h-[220px] md:flex-1 md:h-full md:min-h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} barCategoryGap="30%" barGap={3}>
                 <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />

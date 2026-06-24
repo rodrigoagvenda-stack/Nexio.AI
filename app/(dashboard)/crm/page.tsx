@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/lib/hooks/useUser';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -87,6 +87,19 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
   });
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [longPressed, setLongPressed] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = () => {
+    longPressTimer.current = setTimeout(() => {
+      setLongPressed(true);
+      longPressTimeout.current = setTimeout(() => setLongPressed(false), 3000);
+    }, 500);
+  };
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
   useEffect(() => {
     if (!lead.whatsapp) return;
     if (lead.whatsapp in photoCache) { setPhotoUrl(photoCache[lead.whatsapp]); return; }
@@ -127,9 +140,17 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
+    >
       <OrbitCard className="group hover:shadow-md transition-all duration-200 mb-3 bg-card">
-        <OrbitCardContent className="p-4 space-y-3 flex flex-col">
+        <OrbitCardContent className="p-4 space-y-3 flex flex-col min-h-[100px]">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: 'rgba(1,87,60,0.18)', flexShrink: 0 }}>
@@ -156,7 +177,8 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-accent rounded-md transition-opacity"
+                className="h-7 w-7 md:opacity-0 md:group-hover:opacity-100 hover:bg-accent rounded-md transition-opacity"
+                style={{ opacity: longPressed ? 1 : undefined }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -169,7 +191,8 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-destructive rounded-md transition-opacity"
+                className="h-7 w-7 md:opacity-0 md:group-hover:opacity-100 hover:bg-accent hover:text-destructive rounded-md transition-opacity"
+                style={{ opacity: longPressed ? 1 : undefined }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();

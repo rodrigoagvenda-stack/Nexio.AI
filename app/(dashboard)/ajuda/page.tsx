@@ -1659,7 +1659,7 @@ function AiChat() {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'fixed bottom-20 right-6 z-50 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:scale-105 active:scale-95',
+          'fixed bottom-28 md:bottom-20 right-6 z-50 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:scale-105 active:scale-95',
           open && 'hidden'
         )}
         style={{ width: 52, height: 52 }}
@@ -1671,7 +1671,7 @@ function AiChat() {
       {/* Chat window */}
       {open && (
         <div
-          className="fixed bottom-20 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
+          className="fixed bottom-28 md:bottom-20 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
           style={{ height: 540 }}
         >
           {/* Header */}

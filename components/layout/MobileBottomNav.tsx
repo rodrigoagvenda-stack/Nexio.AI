@@ -3,11 +3,12 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
-  LayoutDashboard, MessageCircle, Bell,
+  LayoutDashboard, Bell,
   MoreHorizontal, X, PieChart,
   Sparkles, HelpCircle, Settings, LogOut,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { BotMessageSquareIcon } from '@/components/ui/bot-message-square';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
@@ -112,15 +113,19 @@ export function MobileBottomNav() {
           <div className="relative flex flex-col items-center -mt-6">
             <button
               onClick={() => { setMoreOpen(false); navigate('/atendimento'); }}
-              className="flex items-center justify-center w-14 h-14 rounded-full transition-transform active:scale-95 shadow-lg"
+              className="flex items-center justify-center w-14 h-14 rounded-full transition-transform active:scale-95"
               style={{
-                background: isChat ? '#017a4e' : '#01573C',
-                boxShadow: '0 4px 20px rgba(1,87,60,0.55), 0 2px 0 0 #07261C',
+                background: '#141414',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.55), 0 2px 0 0 #0A0A0A, 0 0 0 1.5px rgba(255,255,255,0.08)',
               }}
             >
-              <MessageCircle className="h-6 w-6 text-white" />
+              <BotMessageSquareIcon
+                size={26}
+                loop
+                style={{ color: '#96F63C' }}
+              />
             </button>
-            <span className="mt-1.5 text-[10px] font-medium" style={{ color: isChat ? '#01573C' : '#666' }}>
+            <span className="mt-1.5 text-[10px] font-medium" style={{ color: isChat ? '#96F63C' : '#666' }}>
               Chat
             </span>
           </div>
