@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign } from 'lucide-react';
 import NextImage from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -28,6 +28,7 @@ import { EditMessageDialog } from '@/components/chat/EditMessageDialog';
 import { ScheduleMessageDialog } from '@/components/chat/ScheduleMessageDialog';
 import { QuickReplyMenu } from '@/components/chat/QuickReplyMenu';
 import { AssignChatDialog } from '@/components/chat/AssignChatDialog';
+import ChargeLeadModal from '@/components/crm/ChargeLeadModal';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import { LinkPreviewCard } from '@/components/chat/LinkPreviewCard';
 import { ExpandableMessage } from '@/components/chat/ExpandableMessage';
@@ -104,6 +105,7 @@ export default function AtendimentoPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [showChargeModal, setShowChargeModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [convTab, setConvTab] = useState<'minhas' | 'nao_atribuidas' | 'todas'>('minhas');
@@ -1898,6 +1900,19 @@ export default function AtendimentoPage() {
                     >
                       <Paperclip className="h-5 w-5" />
                     </Button>
+                    {selectedConversation?.id_do_lead && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowChargeModal(true)}
+                        disabled={loading}
+                        title="Gerar cobrança"
+                        className="text-muted-foreground hover:text-primary"
+                      >
+                        <DollarSign className="h-5 w-5" />
+                      </Button>
+                    )}
                     <Input
                       ref={inputRef}
                       placeholder="Digite uma mensagem..."
@@ -2149,6 +2164,19 @@ export default function AtendimentoPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {showChargeModal && selectedConversation?.id_do_lead && selectedConversation?.lead && (
+        <ChargeLeadModal
+          lead={{
+            id: selectedConversation.id_do_lead,
+            company_name: selectedConversation.lead.company_name ?? selectedConversation.nome_do_contato,
+            contact_name: selectedConversation.lead.contact_name ?? selectedConversation.nome_do_contato,
+            whatsapp: selectedConversation.numero_de_telefone,
+            email: selectedConversation.lead.email ?? null,
+          }}
+          onClose={() => setShowChargeModal(false)}
+        />
+      )}
     </div>
   );
 }

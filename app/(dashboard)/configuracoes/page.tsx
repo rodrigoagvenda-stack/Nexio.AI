@@ -165,6 +165,8 @@ function ConfiguracoesContent() {
 
   const [cpfCnpjPrompt, setCpfCnpjPrompt] = useState<string | null>(null); // null = closed; string = plan being purchased
   const [cpfCnpjInput, setCpfCnpjInput] = useState('');
+  const [checkoutFullName, setCheckoutFullName] = useState('');
+  const [checkoutPhone, setCheckoutPhone] = useState('');
   const [savingCpfCnpj, setSavingCpfCnpj] = useState(false);
 
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
@@ -378,11 +380,11 @@ function ConfiguracoesContent() {
     }
   };
 
-  const doCheckout = async (plan: string, cpfCnpj?: string, extra = 0) => {
+  const doCheckout = async (plan: string, cpfCnpj?: string, extra = 0, fullName?: string, mobilePhone?: string) => {
     setCheckoutLoading(plan);
     try {
       const doc = cpfCnpj || company?.asaas_cpf_cnpj || '';
-      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers: extra }) });
+      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers: extra, fullName, mobilePhone }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
       if (d.url) {
@@ -400,6 +402,8 @@ function ConfiguracoesContent() {
     if (!company?.asaas_cpf_cnpj) {
       setCpfCnpjPrompt(plan);
       setCpfCnpjInput('');
+      setCheckoutFullName(user?.name || '');
+      setCheckoutPhone('');
       setPendingExtra(extra);
       return;
     }
@@ -420,7 +424,7 @@ function ConfiguracoesContent() {
       const pending = cpfCnpjPrompt;
       setCpfCnpjPrompt(null);
       if (pending === '_extra_tokens_') handleBuyExtraTokens();
-      else doCheckout(pending!, doc, pendingExtra);
+      else doCheckout(pending!, doc, pendingExtra, checkoutFullName || undefined, checkoutPhone || undefined);
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar documento', variant: 'destructive' });
     } finally {
@@ -775,23 +779,42 @@ function ConfiguracoesContent() {
               {/* Prompt CPF/CNPJ */}
               {cpfCnpjPrompt && (
                 <div className="p-5 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
-                  <p className="text-sm font-semibold">Informe o CPF ou CNPJ da empresa</p>
-                  <p className="text-xs text-muted-foreground">Necessário para emissão de cobrança pelo Asaas.</p>
-                  <div className="flex gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">Dados para cobrança</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Necessário para emissão de boleto via Asaas.</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setCpfCnpjPrompt(null)} className="h-7 w-7 p-0 flex-shrink-0">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {!user?.name && (
+                      <Input
+                        value={checkoutFullName}
+                        onChange={e => setCheckoutFullName(e.target.value)}
+                        placeholder="Nome completo"
+                        className="text-sm h-10"
+                      />
+                    )}
+                    <Input
+                      value={checkoutPhone}
+                      onChange={e => setCheckoutPhone(e.target.value)}
+                      placeholder="WhatsApp (ex: 11 99999-9999)"
+                      className="text-sm h-10"
+                      type="tel"
+                    />
                     <Input
                       value={cpfCnpjInput}
                       onChange={e => setCpfCnpjInput(e.target.value)}
-                      placeholder="00.000.000/0001-00 ou 000.000.000-00"
-                      className="flex-1 font-mono text-sm h-10"
+                      placeholder="CPF ou CNPJ"
+                      className="font-mono text-sm h-10"
                       onKeyDown={e => e.key === 'Enter' && handleCpfCnpjSubmit()}
                     />
-                    <Button size="sm" onClick={handleCpfCnpjSubmit} disabled={savingCpfCnpj} className="h-10 px-4">
-                      {savingCpfCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar'}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setCpfCnpjPrompt(null)} className="h-10">
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
+                  <Button size="sm" onClick={handleCpfCnpjSubmit} disabled={savingCpfCnpj} className="w-full h-10">
+                    {savingCpfCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Gerar cobrança'}
+                  </Button>
                 </div>
               )}
 

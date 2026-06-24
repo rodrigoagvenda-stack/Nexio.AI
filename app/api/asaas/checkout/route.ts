@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const body = await request.json()
-    const { plan, cpfCnpj: cpfCnpjRaw, extraNumbers: extraNumbersRaw } = body as { plan: string; cpfCnpj?: string; extraNumbers?: number }
+    const { plan, cpfCnpj: cpfCnpjRaw, extraNumbers: extraNumbersRaw, fullName, mobilePhone } = body as { plan: string; cpfCnpj?: string; extraNumbers?: number; fullName?: string; mobilePhone?: string }
 
     const basePlanValue = PLAN_VALUES[plan]
     if (!basePlanValue) return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
@@ -69,6 +69,17 @@ export async function POST(request: NextRequest) {
       'access_token': apiKey,
     }
 
+    // Save extra profile data if provided (user may have signed up via Google with no phone)
+    const profileUpdates: Record<string, string> = {}
+    if (fullName?.trim()) profileUpdates.name = fullName.trim()
+    if (mobilePhone?.trim()) profileUpdates.phone = mobilePhone.replace(/\D/g, '')
+    if (Object.keys(profileUpdates).length) {
+      await service.from('users').update(profileUpdates).eq('auth_user_id', user.id)
+    }
+
+    const customerName = fullName?.trim() || userData.name || company.name || 'Cliente'
+    const customerPhone = mobilePhone?.replace(/\D/g, '') || undefined
+
     await service.from('companies').update({ asaas_cpf_cnpj: cpfCnpj }).eq('id', company.id)
 
     // ── 1. Garantir cliente no Asaas ──────────────────────────────────────────
@@ -89,9 +100,10 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            name: company.name || userData.name || 'Cliente',
+            name: customerName,
             email: userData.email,
             cpfCnpj,
+            ...(customerPhone ? { mobilePhone: customerPhone } : {}),
             notificationDisabled: false,
             externalReference: customerExtRef,
           }),
@@ -114,9 +126,10 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            name: company.name || userData.name || 'Cliente',
+            name: customerName,
             email: userData.email,
             cpfCnpj,
+            ...(customerPhone ? { mobilePhone: customerPhone } : {}),
             notificationDisabled: false,
             externalReference: customerExtRef,
           }),

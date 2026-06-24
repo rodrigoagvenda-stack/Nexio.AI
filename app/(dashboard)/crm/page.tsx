@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
 import { SimplePagination } from '@/components/ui/pagination-simple';
+import ChargeLeadModal from '@/components/crm/ChargeLeadModal';
 import {
   DndContext,
   closestCorners,
@@ -77,7 +78,7 @@ function fmtCompact(v: number): string {
 const photoCache: Record<string, string | null> = {}
 
 // 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
-const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: () => void; onDelete: () => void }) {
+const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: Lead; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: {
@@ -174,6 +175,21 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
               )}
             </div>
             <div className="flex gap-0.5 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 md:opacity-0 md:group-hover:opacity-100 hover:bg-accent hover:text-primary rounded-md transition-opacity"
+                style={{ opacity: longPressed ? 1 : undefined }}
+                title="Gerar cobrança"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onCharge();
+                }}
+              >
+                <DollarSign className="h-3 w-3" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -370,6 +386,7 @@ export default function CRMPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
+  const [chargingLead, setChargingLead] = useState<Lead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [priorityFilter, setPriorityFilter] = useState('Todas');
@@ -1164,6 +1181,7 @@ export default function CRMPage() {
                               lead={lead}
                               onEdit={() => handleOpenModal(lead)}
                               onDelete={() => setDeletingLead(lead)}
+                              onCharge={() => setChargingLead(lead)}
                             />
                           ))}
                         </SortableContext>
@@ -1801,6 +1819,14 @@ export default function CRMPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de cobrança */}
+      {chargingLead && (
+        <ChargeLeadModal
+          lead={chargingLead}
+          onClose={() => setChargingLead(null)}
+        />
+      )}
 
       {/* Alert Dialog para Delete */}
       <AlertDialog open={!!deletingLead} onOpenChange={() => setDeletingLead(null)}>

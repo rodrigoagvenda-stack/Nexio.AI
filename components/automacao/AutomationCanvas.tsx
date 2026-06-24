@@ -88,6 +88,9 @@ import {
   ShieldAlert,
   Library,
   TestTube2,
+  CreditCard,
+  Banknote,
+  Hourglass,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -360,6 +363,30 @@ interface SwitchNodeData extends Record<string, unknown> {
   _execError?: string;
 }
 
+interface GerarCobrancaNodeData extends Record<string, unknown> {
+  kind: 'gerar_cobranca';
+  label: string;
+  billingType: 'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'UNDEFINED';
+  value?: number;       // fixed amount (0 = dynamic from lead.project_value)
+  description?: string;
+  daysUntilDue: number; // days from now for due date
+  sendWhatsapp: boolean;
+  stepId: string;
+  customLabel?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
+interface AguardarPagamentoNodeData extends Record<string, unknown> {
+  kind: 'aguardar_pagamento';
+  label: string;
+  timeoutDays: number;  // days to wait before going to "vencido" branch
+  stepId: string;
+  customLabel?: string;
+  _execState?: ExecState;
+  _execError?: string;
+}
+
 type AutoNodeData =
   | TriggerNodeData
   | MessageNodeData
@@ -375,7 +402,9 @@ type AutoNodeData =
   | LeadScoreNodeData
   | ABTestNodeData
   | SchedulingNodeData
-  | PostConditionNodeData;
+  | PostConditionNodeData
+  | GerarCobrancaNodeData
+  | AguardarPagamentoNodeData;
 
 // ─── Google Maps URL parser ──────────────────────────────────────────────────────
 
@@ -767,6 +796,16 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
       nodes.push({ id: step.id, type: 'postConditionNode', position: { x, y },
         data: { kind: 'post_condition', label: 'Pós-Condição', mensagem: mensagemDisplay, tipo_mensagem: 'texto', blocos: pcBlocos, stepId: step.id, customLabel } satisfies PostConditionNodeData });
     }
+    else if (step.tipo_mensagem === 'gerar_cobranca') {
+      const gc = step.media_config as any ?? {};
+      nodes.push({ id: step.id, type: 'gerarCobrancaNode', position: { x, y },
+        data: { kind: 'gerar_cobranca', label: 'Gerar Cobrança', billingType: gc.billingType ?? 'PIX', value: gc.value ?? 0, description: gc.description ?? '', daysUntilDue: gc.daysUntilDue ?? 3, sendWhatsapp: gc.sendWhatsapp ?? true, stepId: step.id, customLabel } satisfies GerarCobrancaNodeData });
+    }
+    else if (step.tipo_mensagem === 'aguardar_pagamento') {
+      const ap = step.media_config as any ?? {};
+      nodes.push({ id: step.id, type: 'aguardarPagamentoNode', position: { x, y },
+        data: { kind: 'aguardar_pagamento', label: 'Aguardar Pagamento', timeoutDays: ap.timeoutDays ?? 7, stepId: step.id, customLabel } satisfies AguardarPagamentoNodeData });
+    }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
     else {
       const offset_unit: 'days' | 'hours' = (step.media_config as any)?.offset_unit ?? (sequenceTipo === 'anti_noshow' ? 'hours' : 'days');
@@ -904,6 +943,16 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
       const sd = d as SubFlowNodeData;
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'sub_flow' as any, ordem: idx + 1, condicao: '',
         media_config: { subSequenceId: sd.subSequenceId, subSequenceName: sd.subSequenceName ?? '' } };
+    }
+    if (d.kind === 'gerar_cobranca') {
+      const gc = d as GerarCobrancaNodeData;
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'gerar_cobranca' as any, ordem: idx + 1, condicao: '',
+        media_config: { billingType: gc.billingType, value: gc.value ?? 0, description: gc.description ?? '', daysUntilDue: gc.daysUntilDue ?? 3, sendWhatsapp: gc.sendWhatsapp ?? true } };
+    }
+    if (d.kind === 'aguardar_pagamento') {
+      const ap = d as AguardarPagamentoNodeData;
+      return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'aguardar_pagamento' as any, ordem: idx + 1, condicao: '',
+        media_config: { timeoutDays: ap.timeoutDays ?? 7 } };
     }
     return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'fim', ordem: idx + 1, condicao: '' };
   });
@@ -1651,6 +1700,47 @@ function PostConditionNode({ id, data, selected }: NodeProps) {
   );
 }
 
+function GerarCobrancaNode({ id, data, selected }: NodeProps) {
+  const d = data as GerarCobrancaNodeData;
+  const billingLabels = { PIX: 'PIX', BOLETO: 'Boleto', CREDIT_CARD: 'Cartão', UNDEFINED: 'Qualquer' };
+  return (
+    <NodeShell selected={selected} accent="emerald"
+      header={<NodeHeader icon={CreditCard} label="Gerar Cobrança" accent="emerald" meta={billingLabels[d.billingType] ?? 'PIX'} nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle type="source" position={Position.Right} className={HANDLE_CLS} />
+      <div className="flex flex-col gap-1">
+        {d.value ? (
+          <p className="text-sm font-semibold text-foreground/90">R$ {d.value.toFixed(2).replace('.', ',')}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground/60 italic">Valor do lead</p>
+        )}
+        <p className="text-xs text-muted-foreground/70">Vence em {d.daysUntilDue ?? 3}d {d.sendWhatsapp ? '· Envia WA' : ''}</p>
+      </div>
+    </NodeShell>
+  );
+}
+
+function AguardarPagamentoNode({ id, data, selected }: NodeProps) {
+  const d = data as AguardarPagamentoNodeData;
+  return (
+    <NodeShell selected={selected} accent="amber"
+      header={<NodeHeader icon={Hourglass} label="Aguardar Pagamento" accent="amber" nodeId={id} customLabel={d.customLabel} />}
+      execState={d._execState} execError={d._execError}>
+      <Handle type="target" position={Position.Left} className={HANDLE_CLS} />
+      <Handle id="pago" type="source" position={Position.Top} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-emerald-500/60 !border !border-emerald-500/40 !rounded-full" />
+      <Handle id="vencido" type="source" position={Position.Bottom} style={{ left: '75%' }} className="!w-2.5 !h-2.5 !bg-destructive/60 !border !border-destructive/40 !rounded-full" />
+      <div className="flex flex-col gap-0.5">
+        <p className="text-xs text-foreground/80">Timeout: {d.timeoutDays ?? 7} dias</p>
+        <div className="flex gap-3 mt-0.5">
+          <span className="text-[10px] text-emerald-500 font-medium">↑ Pago</span>
+          <span className="text-[10px] text-destructive/70 font-medium">↓ Vencido</span>
+        </div>
+      </div>
+    </NodeShell>
+  );
+}
+
 const nodeTypes = {
   triggerNode: TriggerNode,
   messageNode: MessageNode,
@@ -1667,6 +1757,8 @@ const nodeTypes = {
   abTestNode: ABTestNode,
   schedulingNode: SchedulingNode,
   postConditionNode: PostConditionNode,
+  gerarCobrancaNode: GerarCobrancaNode,
+  aguardarPagamentoNode: AguardarPagamentoNode,
 };
 
 const edgeTypes = {
@@ -3187,6 +3279,55 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
           </>
         )}
 
+        {d.kind === 'gerar_cobranca' && (
+          <>
+            <Field label="Tipo de cobrança">
+              <Select value={(d as GerarCobrancaNodeData).billingType ?? 'PIX'} onValueChange={(v) => onUpdate(node.id, { billingType: v })}>
+                <SelectTrigger className="h-9 text-sm rounded-xl border-[#212121] bg-[#141414]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="BOLETO">Boleto bancário</SelectItem>
+                  <SelectItem value="CREDIT_CARD">Cartão de crédito</SelectItem>
+                  <SelectItem value="UNDEFINED">Qualquer (escolha do cliente)</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Valor (R$)" hint="0 = usa o valor do projeto do lead">
+              <input type="number" min="0" step="0.01" placeholder="0.00 (do lead)"
+                value={(d as GerarCobrancaNodeData).value ?? 0}
+                onChange={(e) => onUpdate(node.id, { value: Number(e.target.value) || 0 })}
+                className="field-input" />
+            </Field>
+            <Field label="Vence em (dias)">
+              <input type="number" min="1" max="30" placeholder="3"
+                value={(d as GerarCobrancaNodeData).daysUntilDue ?? 3}
+                onChange={(e) => onUpdate(node.id, { daysUntilDue: Number(e.target.value) || 3 })}
+                className="field-input" />
+            </Field>
+            <Field label="Descrição (opcional)">
+              <input type="text" placeholder="Ex: Consultoria — pacote básico"
+                value={(d as GerarCobrancaNodeData).description ?? ''}
+                onChange={(e) => onUpdate(node.id, { description: e.target.value })}
+                className="field-input" />
+            </Field>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none px-1">
+              <input type="checkbox" checked={(d as GerarCobrancaNodeData).sendWhatsapp ?? true}
+                onChange={(e) => onUpdate(node.id, { sendWhatsapp: e.target.checked })}
+                className="rounded border-border" />
+              <span className="text-sm text-muted-foreground">Enviar link via WhatsApp ao lead</span>
+            </label>
+          </>
+        )}
+
+        {d.kind === 'aguardar_pagamento' && (
+          <Field label="Timeout (dias)" hint="Após esse período sem pagamento, segue pelo caminho Vencido">
+            <input type="number" min="1" max="30" placeholder="7"
+              value={(d as AguardarPagamentoNodeData).timeoutDays ?? 7}
+              onChange={(e) => onUpdate(node.id, { timeoutDays: Number(e.target.value) || 7 })}
+              className="field-input" />
+          </Field>
+        )}
+
         {/* ── Anotações (todos os nós exceto trigger) ── */}
         {d.kind !== 'trigger' && (
           <Field label="Anotações">
@@ -3224,7 +3365,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 // ─── Palette ────────────────────────────────────────────────────────────────────
 
-type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling' | 'post_condition';
+type PaletteKind = 'message' | 'wait' | 'wait_event' | 'sub_flow' | 'condition' | 'switch' | 'end' | 'goal' | 'sentiment' | 'webhook' | 'lead_score' | 'ab_test' | 'scheduling' | 'post_condition' | 'gerar_cobranca' | 'aguardar_pagamento';
 
 interface PaletteItem {
   label: string; desc: string; useCase: string; kind: PaletteKind;
@@ -3242,6 +3383,8 @@ const PALETTE_ITEMS: PaletteItem[] = [
   { label: 'Meta', desc: 'Marca o lead como convertido e registra a conversão no CRM.', useCase: 'Use quando o lead realizou a ação desejada — agendou, comprou ou respondeu positivamente.', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Agendar Call', desc: 'Envia blocos de mensagem e ativa o agente de agendamento que oferece horários disponíveis ao lead via WhatsApp.', useCase: 'Use quando quiser que o próprio fluxo feche uma reunião sem intervenção humana.', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Pós-Condição', desc: 'Aguarda o lead responder ou clicar num botão antes de disparar a mensagem. Sem interação genuína, o fluxo fica pausado neste ponto.', useCase: 'Use na saída "NÃO" de uma Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido de verdade.', kind: 'post_condition', icon: Zap, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Gerar Cobrança', desc: 'Cria um boleto, PIX ou link de pagamento no Asaas para o lead e envia o link via WhatsApp automaticamente.', useCase: 'Use quando quiser disparar uma cobrança diretamente do fluxo — ex: após o lead aceitar a proposta, gerar o boleto na hora.', kind: 'gerar_cobranca', icon: CreditCard, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Aguardar Pagamento', desc: 'Pausa o fluxo até o pagamento ser confirmado. Bifurca em "Pago" (topo) e "Vencido" (base) após o timeout.', useCase: 'Use depois de Gerar Cobrança para rotear automaticamente entre pós-venda (pago) e régua de cobrança (vencido).', kind: 'aguardar_pagamento', icon: Hourglass, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
 ];
 
 function PalettePanel({ onAdd, onClose }: { onAdd: (kind: PaletteKind) => void; onClose: () => void }) {
@@ -4204,6 +4347,7 @@ function CanvasInner() {
 
   const [mode, setMode] = useState<'editor' | 'execucoes'>('editor');
   const [activeTipo, setActiveTipo] = useState<SequenceTipo>('follow_geral');
+  const [activeSeqId, setActiveSeqId] = useState<string | null>(null);
   const [sequences, setSequences] = useState<FollowSequence[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -4211,8 +4355,11 @@ function CanvasInner() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nodeExecError, setNodeExecError] = useState<{ name: string; msg: string } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [newFlowName, setNewFlowName] = useState('');
+  const [newFlowModalOpen, setNewFlowModalOpen] = useState(false);
 
   const [seqDropdownOpen, setSeqDropdownOpen] = useState(false);
+  const [catDropdownOpen, setCatDropdownOpen] = useState(false);
 
   // Versioning
   const [versionsOpen, setVersionsOpen] = useState(false);
@@ -4237,7 +4384,8 @@ function CanvasInner() {
   // Conflict
   const conflictCount = sequences.filter((s) => s.ativo).length;
 
-  const currentSeq = sequences.find((s) => s.tipo === activeTipo) ?? null;
+  const seqsInCategory = sequences.filter((s) => s.tipo === activeTipo);
+  const currentSeq = sequences.find((s) => s.id === activeSeqId) ?? null;
 
   // Remarketing entry config (persisted in canvas_config.remarketing)
   const [remarketingCfg, setRemarketingCfg] = useState<RemarketingConfig>({
@@ -4263,12 +4411,22 @@ function CanvasInner() {
         const res = await fetch('/api/follow/sequences');
         if (!res.ok) throw new Error('fetch failed');
         const json = (await res.json()) as { sequences: FollowSequence[] };
-        setSequences(json.sequences ?? []);
+        const seqs = json.sequences ?? [];
+        setSequences(seqs);
+        // Auto-select first sequence in active category
+        const first = seqs.find((s) => s.tipo === activeTipo);
+        if (first) setActiveSeqId(first.id);
       } catch (err) { console.error('[AutomationCanvas]', err); }
       finally { setLoading(false); }
     }
     load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-select first sequence when category changes
+  useEffect(() => {
+    const first = sequences.find((s) => s.tipo === activeTipo);
+    setActiveSeqId(first?.id ?? null);
+  }, [activeTipo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!currentSeq) { setNodes([]); setEdges([]); return; }
@@ -4333,13 +4491,15 @@ function CanvasInner() {
     else if (kind === 'wait_event') data = { kind: 'wait_event', label: 'Aguardar Evento', event: 'reply', pattern: '', stepId: id } satisfies WaitEventNodeData;
     else if (kind === 'sub_flow') data = { kind: 'sub_flow', label: 'Sub-fluxo', subSequenceId: '', subSequenceName: '', stepId: id } satisfies SubFlowNodeData;
     else if (kind === 'post_condition') data = { kind: 'post_condition', label: 'Pós-Condição', mensagem: '', tipo_mensagem: 'texto', stepId: id } satisfies PostConditionNodeData;
+    else if (kind === 'gerar_cobranca') data = { kind: 'gerar_cobranca', label: 'Gerar Cobrança', billingType: 'PIX', value: 0, description: '', daysUntilDue: 3, sendWhatsapp: true, stepId: id } satisfies GerarCobrancaNodeData;
+    else if (kind === 'aguardar_pagamento') data = { kind: 'aguardar_pagamento', label: 'Aguardar Pagamento', timeoutDays: 7, stepId: id } satisfies AguardarPagamentoNodeData;
     else data = { kind: 'end', label: 'Encerrar', stepId: id } satisfies EndNodeData;
 
     const typeMap: Record<PaletteKind, string> = {
       message: 'messageNode', wait: 'waitNode', wait_event: 'waitEventNode', sub_flow: 'subFlowNode',
       condition: 'conditionNode', switch: 'switchNode', end: 'endNode',
       goal: 'goalNode', sentiment: 'sentimentNode', webhook: 'webhookNode', lead_score: 'leadScoreNode', ab_test: 'abTestNode', scheduling: 'schedulingNode',
-      post_condition: 'postConditionNode',
+      post_condition: 'postConditionNode', gerar_cobranca: 'gerarCobrancaNode', aguardar_pagamento: 'aguardarPagamentoNode',
     };
 
     const newNode: Node<AutoNodeData> = {
@@ -4413,17 +4573,39 @@ function CanvasInner() {
     finally { setStagingLoading(false); }
   }
 
-  async function createSequence() {
-    const labels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up Geral', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS', pagamento: 'Pagamento' };
+  async function createSequence(name?: string) {
+    const categoryLabels: Record<SequenceTipo, string> = { follow_geral: 'Follow-up', anti_noshow: 'Anti-Noshow', remarketing: 'Remarketing', trial_saas: 'Trial SaaS', pagamento: 'Pagamento' };
+    const count = seqsInCategory.length + 1;
+    const nome = name?.trim() || `${categoryLabels[activeTipo]} ${count}`;
     try {
       setLoading(true);
-      const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: labels[activeTipo], tipo: activeTipo, ativo: false, steps: [] }) });
+      const res = await fetch('/api/follow/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, tipo: activeTipo, ativo: false, steps: [] }) });
       if (!res.ok) throw new Error('post failed');
       const json = (await res.json()) as { sequence?: FollowSequence; sequences?: FollowSequence[] };
-      if (json.sequence) setSequences((seqs) => [...seqs, json.sequence!]);
-      else if (json.sequences) setSequences(json.sequences);
+      if (json.sequence) {
+        setSequences((seqs) => [...seqs, json.sequence!]);
+        setActiveSeqId(json.sequence!.id);
+      } else if (json.sequences) {
+        setSequences(json.sequences);
+        const newest = json.sequences.filter((s) => s.tipo === activeTipo).at(-1);
+        if (newest) setActiveSeqId(newest.id);
+      }
     } catch (err) { console.error('[AutomationCanvas] create', err); }
     finally { setLoading(false); }
+  }
+
+  async function deleteSequence(seqId: string) {
+    if (!window.confirm('Deletar este fluxo? Esta ação não pode ser desfeita.')) return;
+    try {
+      const res = await fetch(`/api/follow/sequences/${seqId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('delete failed');
+      setSequences((seqs) => {
+        const updated = seqs.filter((s) => s.id !== seqId);
+        const next = updated.find((s) => s.tipo === activeTipo);
+        setActiveSeqId(next?.id ?? null);
+        return updated;
+      });
+    } catch (err) { console.error('[AutomationCanvas] delete', err); }
   }
 
   async function handleSave() {
@@ -4964,20 +5146,20 @@ function CanvasInner() {
             </button>
           </div>
           <div className="w-px h-5 bg-border" />
-          {/* Sequence dropdown */}
+          {/* Category dropdown */}
           <div className="relative">
             <button
-              onClick={() => setSeqDropdownOpen((v) => !v)}
+              onClick={() => { setCatDropdownOpen((v) => !v); setSeqDropdownOpen(false); }}
               className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                seqDropdownOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
+                catDropdownOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
               {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label ?? 'Canvas'}
-              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', seqDropdownOpen && 'rotate-180')} />
+              <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', catDropdownOpen && 'rotate-180')} />
             </button>
-            {seqDropdownOpen && (
+            {catDropdownOpen && (
               <div className="absolute left-0 top-full mt-1.5 z-30 w-44 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                 {SEQ_TABS.map((tab) => (
                   <button key={tab.tipo}
-                    onClick={() => { setActiveTipo(tab.tipo); setSeqDropdownOpen(false); }}
+                    onClick={() => { setActiveTipo(tab.tipo); setCatDropdownOpen(false); }}
                     className={cn('flex items-center justify-between w-full px-3 py-2.5 text-sm text-left transition-colors',
                       activeTipo === tab.tipo ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                     {tab.label}
@@ -4987,6 +5169,50 @@ function CanvasInner() {
               </div>
             )}
           </div>
+
+          {/* Sequence selector within category */}
+          {seqsInCategory.length > 0 && (
+            <>
+              <span className="text-muted-foreground/40 text-sm">/</span>
+              <div className="relative">
+                <button
+                  onClick={() => { setSeqDropdownOpen((v) => !v); setCatDropdownOpen(false); }}
+                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors max-w-[160px]',
+                    seqDropdownOpen ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50')}>
+                  <span className="truncate">{currentSeq?.nome ?? 'Selecionar'}</span>
+                  <ChevronDown className={cn('w-3.5 h-3.5 flex-shrink-0 transition-transform', seqDropdownOpen && 'rotate-180')} />
+                </button>
+                {seqDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 z-30 w-52 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    {seqsInCategory.map((seq) => (
+                      <button key={seq.id}
+                        onClick={() => { setActiveSeqId(seq.id); setSeqDropdownOpen(false); }}
+                        className={cn('flex items-center justify-between w-full px-3 py-2.5 text-sm text-left transition-colors gap-2',
+                          seq.id === activeSeqId ? 'bg-muted text-foreground font-medium' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                        <span className="truncate flex-1">{seq.nome}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {seq.ativo && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                          {seq.id === activeSeqId && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSeqDropdownOpen(false); deleteSequence(seq.id); }}
+                              className="text-muted-foreground/40 hover:text-destructive transition-colors p-0.5 rounded">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                    <div className="h-px bg-border mx-2" />
+                    <button
+                      onClick={() => { setSeqDropdownOpen(false); setNewFlowName(''); setNewFlowModalOpen(true); }}
+                      className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left text-primary hover:bg-primary/10 transition-colors font-medium">
+                      <Plus className="w-3.5 h-3.5" />Novo fluxo
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
         </div>
 
@@ -5152,10 +5378,10 @@ function CanvasInner() {
                 </div>
               ) : !currentSeq ? (
                 <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <p className="text-muted-foreground text-sm">Nenhuma sequência encontrada para esta aba.</p>
-                  <button onClick={createSequence}
+                  <p className="text-muted-foreground text-sm">Nenhum fluxo nesta categoria.</p>
+                  <button onClick={() => { setNewFlowName(''); setNewFlowModalOpen(true); }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
-                    <Plus className="w-4 h-4" />Criar sequência
+                    <Plus className="w-4 h-4" />Criar primeiro fluxo
                   </button>
                 </div>
               ) : (
@@ -5285,6 +5511,44 @@ function CanvasInner() {
           onConfirm={confirmAtivo}
           onClose={() => setApprovalModalOpen(false)}
         />
+      )}
+
+      {/* New Flow Modal */}
+      {newFlowModalOpen && (
+        <ModalOverlay onClose={() => setNewFlowModalOpen(false)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-[360px] p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Novo fluxo — {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label}</p>
+              <button onClick={() => setNewFlowModalOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Nome do fluxo</label>
+              <input
+                autoFocus
+                className="field-input"
+                placeholder={`Ex: ${SEQ_TABS.find((t) => t.tipo === activeTipo)?.label} ${seqsInCategory.length + 1}`}
+                value={newFlowName}
+                onChange={(e) => setNewFlowName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { setNewFlowModalOpen(false); createSequence(newFlowName); }
+                  if (e.key === 'Escape') setNewFlowModalOpen(false);
+                }}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setNewFlowModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setNewFlowModalOpen(false); createSequence(newFlowName); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all active:translate-y-px"
+                style={{ backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}>
+                <Plus className="w-3.5 h-3.5" />Criar fluxo
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
       )}
 
       {/* Field input styles */}
