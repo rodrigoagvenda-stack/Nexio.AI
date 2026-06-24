@@ -108,13 +108,19 @@ export async function POST(
     .maybeSingle()
 
   if (!integration?.active) {
-    console.warn(`[payment-webhook:${platform}] company=${companyId} integração não encontrada ou inativa`)
-    // Retorna 200 para não causar reenvios da plataforma
+    console.warn(`[payment-webhook:${platform}] company=${companyId} integração não encontrada ou inativa — data=${JSON.stringify(integration)}`)
     return NextResponse.json({ received: true })
   }
 
-  const body = await req.json().catch(() => null)
+  console.log(`[payment-webhook:${platform}] company=${companyId} integração ativa, lendo body…`)
+
+  const body = await req.json().catch((err: any) => {
+    console.error(`[payment-webhook:${platform}] company=${companyId} body parse error:`, err?.message)
+    return null
+  })
   if (!body) return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
+
+  console.log(`[payment-webhook:${platform}] company=${companyId} body event=${body?.event ?? body?.type ?? '(sem event)'}`)
 
   // ─── MERCADO PAGO ───────────────────────────────────────────────────────────
   if (platform === 'mercadopago') {
@@ -245,13 +251,19 @@ export async function POST(
 
     // Valida token no header asaas-access-token
     const receivedToken = req.headers.get('asaas-access-token')
+    console.log(`[payment-webhook:asaas] company=${companyId} token_recebido=${receivedToken ? receivedToken.slice(0,8)+'…' : 'NENHUM'} token_salvo=${savedToken ? savedToken.slice(0,8)+'…' : 'NENHUM'}`)
     if (!savedToken || receivedToken !== savedToken) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} token INVÁLIDO — recebido="${receivedToken}" esperado="${savedToken}"`)
       await logEvent({ status: 'erro', erro: 'Token inválido no header asaas-access-token', recebido: receivedToken?.slice(0, 8) + '…', esperado: savedToken?.slice(0, 8) + '…' })
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
     }
 
     const { event, payment } = body ?? {}
-    if (!event || !payment?.id) return NextResponse.json({ received: true })
+    console.log(`[payment-webhook:asaas] company=${companyId} event=${event} payment_id=${payment?.id} customer=${payment?.customer}`)
+    if (!event || !payment?.id) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} body sem event ou payment.id — ignorando`)
+      return NextResponse.json({ received: true })
+    }
 
     // Mapeia evento Asaas → eventoEntrada do canvas
     // billingType pode vir "UNDEFINED" em assinaturas recorrentes — usa bankSlipUrl como fallback
@@ -261,7 +273,9 @@ export async function POST(
     else if (event === 'PAYMENT_CREATED' && isBoleto) eventoEntrada = 'asaas_boleto_gerado'
     else if (event === 'PAYMENT_OVERDUE' && isBoleto) eventoEntrada = 'asaas_boleto_vencido'
 
+    console.log(`[payment-webhook:asaas] company=${companyId} eventoEntrada=${eventoEntrada ?? 'null'} billingType=${payment.billingType} isBoleto=${isBoleto}`)
     if (!eventoEntrada) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} evento "${event}" não mapeado — ignorando`)
       await logEvent({ status: 'ignorado', evento: event, billing_type: payment.billingType, motivo: 'evento não mapeado para nenhum gatilho' })
       return NextResponse.json({ received: true })
     }
@@ -291,12 +305,16 @@ export async function POST(
       return NextResponse.json({ received: true })
     }
 
+    console.log(`[payment-webhook:asaas] company=${companyId} buscando lead email=${email} phone=${rawPhone}`)
     // Busca lead por email ou telefone
     const lead = await findLead(companyId, email, rawPhone, supabase)
     if (!lead) {
+      console.warn(`[payment-webhook:asaas] company=${companyId} lead NÃO ENCONTRADO email=${email} phone=${rawPhone}`)
       await logEvent({ status: 'erro', evento: event, eventoEntrada, payment_id: payment.id, customer_id: customerId, email, telefone: rawPhone, erro: 'Lead não encontrado — nenhum lead com esse e-mail ou telefone no Zaapply' })
       return NextResponse.json({ received: true })
     }
+    console.log(`[payment-webhook:asaas] company=${companyId} lead encontrado id=${lead.id} name="${lead.contact_name || lead.company_name}"`)
+
 
     // Pagamento confirmado: move lead para Fechado
     if (eventoEntrada === 'asaas_pago') {
