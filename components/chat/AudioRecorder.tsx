@@ -46,6 +46,20 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
 
   const startRecording = async () => {
     try {
+      // Checa estado da permissão antes de tentar — se 'prompt', o popup aparece automaticamente
+      if (navigator.permissions) {
+        const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (perm.state === 'denied') {
+          toast({
+            title: 'Microfone bloqueado',
+            description: 'Acesse Configurações do Android → Apps → Chrome → Permissões → Microfone → Permitir.',
+            variant: 'destructive',
+          });
+          onCancel();
+          return;
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
