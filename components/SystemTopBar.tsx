@@ -149,9 +149,11 @@ export function SystemTopBar() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const el = document.getElementById('main-scroll');
+    if (!el) return;
+    const onScroll = () => setScrolled(el.scrollTop > 10);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
   if (pathname?.includes('/configuracoes')) {
@@ -163,8 +165,8 @@ export function SystemTopBar() {
   return (
     <header
       className={cn(
-        "h-[72px] md:h-[80px] flex items-center justify-between px-5 flex-shrink-0 transition-all duration-300",
-        "mx-auto mt-3 mb-1 rounded-2xl w-[88%] md:w-[calc(100%-2rem)] md:mx-4",
+        "h-[88px] md:h-[80px] flex items-center justify-between px-5 flex-shrink-0 transition-all duration-300",
+        "mx-auto mt-3 mb-1 rounded-2xl w-[90%] md:w-[calc(100%-2rem)] md:mx-4",
         isAtendimento && "hidden md:flex"
       )}
       style={{

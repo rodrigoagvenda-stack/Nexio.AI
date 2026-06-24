@@ -153,7 +153,7 @@ export default async function DashboardLayout({
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
-        <main className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 pb-[120px] lg:pb-6 w-full">
+        <main id="main-scroll" className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 pb-[120px] lg:pb-6 w-full">
           {children}
         </main>
       </div>

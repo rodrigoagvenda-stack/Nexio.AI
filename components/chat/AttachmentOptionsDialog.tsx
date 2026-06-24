@@ -72,8 +72,8 @@ export function AttachmentOptionsDialog({
       <div
         className="fixed z-50 bg-background/95 backdrop-blur-sm shadow-2xl rounded-2xl border border-border/50"
         style={{
-          /* Mobile: colado à esquerda acima da toolbar */
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+          /* navbar (88px) + chat toolbar (56px) + gap (8px) */
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 160px)',
           left: '16px',
           minWidth: '200px',
           maxWidth: '260px',

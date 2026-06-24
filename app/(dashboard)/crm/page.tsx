@@ -1147,11 +1147,11 @@ export default function CRMPage() {
             placeholder="Buscar..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9 text-sm"
+            className="pl-9 h-9 text-sm bg-muted border-border"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36 h-9 text-sm">
+          <SelectTrigger className="w-36 h-9 text-sm bg-muted border-border">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -1162,7 +1162,7 @@ export default function CRMPage() {
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-32 h-9 text-sm">
+          <SelectTrigger className="w-32 h-9 text-sm bg-muted border-border">
             <SelectValue placeholder="Prioridade" />
           </SelectTrigger>
           <SelectContent>
@@ -1562,24 +1562,23 @@ export default function CRMPage() {
                   <div className="flex flex-col items-center gap-2 flex-shrink-0">
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200"
-                      style={
-                        i < currentStep
-                          ? { backgroundColor: '#96F63C', color: '#07261C' }
-                          : i === currentStep
-                          ? { backgroundColor: '#96F63C', color: '#07261C', boxShadow: '0 0 0 5px rgba(150,246,60,0.18)' }
-                          : { backgroundColor: '#1C1C1C', color: '#555', border: '1.5px solid #2A2A2A' }
-                      }
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200",
+                        i <= currentStep
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground border border-border"
+                      )}
+                      style={i === currentStep ? { boxShadow: '0 0 0 5px color-mix(in srgb, var(--primary) 18%, transparent)' } : undefined}
                     >
                       {i < currentStep ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
                     </div>
-                    <span className="text-[11px] font-semibold" style={{ color: i <= currentStep ? '#96F63C' : '#555' }}>
+                    <span className={cn("text-[11px] font-semibold", i <= currentStep ? "text-primary" : "text-muted-foreground")}>
                       {label}
                     </span>
                   </div>
                   {i < 2 && (
                     <div
-                      className="flex-1 h-[2px] mx-2 mt-4 rounded-full transition-colors"
-                      style={{ backgroundColor: i < currentStep ? '#96F63C' : '#1F1F1F' }}
+                      className={cn("flex-1 h-[2px] mx-2 mt-4 rounded-full transition-colors", i < currentStep ? "bg-primary" : "bg-border")}
                     />
                   )}
                 </div>
