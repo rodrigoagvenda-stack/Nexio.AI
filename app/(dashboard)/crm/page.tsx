@@ -1541,7 +1541,7 @@ export default function CRMPage() {
 
       {/* Modal Adicionar/Editar Lead */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50 bg-background mx-5 sm:mx-auto w-[calc(100vw-40px)] sm:w-auto">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 border-border/50 bg-background">
           {/* Header minimalista */}
           <div className="px-6 py-5 border-b border-border/50">
             <DialogTitle className="text-lg font-medium">

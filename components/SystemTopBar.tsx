@@ -146,15 +146,6 @@ export function SystemTopBar() {
   }, [company?.id, fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const el = document.getElementById('main-scroll');
-    if (!el) return;
-    const onScroll = () => setScrolled(el.scrollTop > 10);
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
 
   if (pathname?.includes('/configuracoes')) {
     return null;
@@ -170,11 +161,7 @@ export function SystemTopBar() {
         isAtendimento && "hidden md:flex"
       )}
       style={{
-        background: scrolled
-          ? 'linear-gradient(270deg, rgba(1,87,60,0.2) 0%, rgba(7,38,28,0.2) 100%)'
-          : 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
-        backdropFilter: scrolled ? 'blur(16px)' : 'none',
-        WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
+        background: 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
       }}
     >
       {/* Left: User info */}
