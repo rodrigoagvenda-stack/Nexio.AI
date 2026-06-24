@@ -2997,8 +2997,44 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
               .in('numero_de_telefone', phoneVariants(outPhone))
               .order('hora_da_ultima_mensagem', { ascending: false })
               .limit(1)
-            const conv = convRows?.[0] ?? null
-            if (!conv?.id) return
+            let conv = convRows?.[0] ?? null
+            if (!conv?.id) {
+              // Conversa ainda não existe — Bruno abordou um contato novo pelo celular.
+              // Cria lead + conversa com a mesma lógica do fluxo inbound, sem passar pelo SDR.
+              let newLeadId: number | null = null
+              try {
+                const { id: lid } = await findOrCreateLead(companyId, outPhone, '', '', outSvc)
+                newLeadId = lid
+              } catch (e: any) {
+                console.warn(`[SDR:${companyId}] fromMe: falha ao criar lead phone=${outPhone}:`, e?.message)
+              }
+              const msgTs = (body.message as any)?.timestamp
+                ? new Date(Number((body.message as any).timestamp) * 1000).toISOString()
+                : new Date().toISOString()
+              const { data: newConv, error: convErr } = await outSvc
+                .from('conversas_do_whatsapp')
+                .insert({
+                  company_id: companyId,
+                  id_do_lead: newLeadId,
+                  numero_de_telefone: outPhone,
+                  nome_do_contato: outPhone,
+                  ultima_mensagem: dispText,
+                  hora_da_ultima_mensagem: msgTs,
+                  status_da_conversa: 'aberto',
+                  contagem_nao_lida: 0,
+                })
+                .select('id, id_do_lead')
+                .single()
+              if (convErr || !newConv) {
+                console.warn(`[SDR:${companyId}] fromMe: falha ao criar conversa phone=${outPhone}:`, convErr?.message)
+                return
+              }
+              conv = newConv
+              console.log(`[SDR:${companyId}] fromMe: conversa criada conv=${conv.id} lead=${newLeadId} phone=${outPhone}`)
+            }
+            const outMsgTs = (body.message as any)?.timestamp
+              ? new Date(Number((body.message as any).timestamp) * 1000).toISOString()
+              : new Date().toISOString()
             await outSvc.from('mensagens_do_whatsapp').insert({
               id_da_conversacao: conv.id,
               id_do_lead: conv.id_do_lead ?? null,
@@ -3009,11 +3045,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
               sender_type: 'human',
               status: 'delivered',
               url_da_midia: outMediaUrl ?? null,
-              carimbo_de_data_e_hora: new Date().toISOString(),
+              carimbo_de_data_e_hora: outMsgTs,
               whatsapp_message_id: body.message.id || null,
             })
             await outSvc.from('conversas_do_whatsapp')
-              .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: new Date().toISOString() })
+              .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: outMsgTs })
               .eq('id', conv.id)
             console.log(`[SDR:${companyId}] fromMe salvo — outbound conv=${conv.id} tipo=${outMsgType}`)
 

@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+
 import { useRouter, usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState, useCallback } from 'react';
@@ -155,10 +156,10 @@ export function SystemTopBar() {
   return (
     <header
       className={cn(
-        "mx-4 mt-3 mb-1 h-[80px] rounded-xl flex items-center justify-between px-5 flex-shrink-0",
+        "h-[72px] md:h-[80px] flex items-center justify-between px-5 flex-shrink-0",
+        "md:mx-4 md:mt-3 md:mb-1 md:rounded-xl",
         isAtendimento && "hidden md:flex"
       )}
-
       style={{
         background: 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
       }}
@@ -184,115 +185,128 @@ export function SystemTopBar() {
       {/* Right: Notifications + Settings */}
       <div className="flex items-center gap-0.5 flex-shrink-0">
         {/* Notifications */}
-        <DropdownMenu open={notifOpen} onOpenChange={(open) => { setNotifOpen(open); if (open) fetchNotifications(); }}>
-          <DropdownMenuTrigger asChild>
-            <div className="relative h-10 w-10 flex items-center justify-center rounded-full cursor-pointer text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span
-                  className="absolute top-1 right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1"
-                  style={{ backgroundColor: '#ef4444', lineHeight: 1 }}
-                >
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8} className="w-[min(340px,calc(100vw-40px))] p-0 overflow-hidden sm:translate-x-0 -translate-x-[calc(50vw-20px-170px)]">
-            {/* Header */}
-            <div className="px-4 pt-4 pb-3 border-b border-border">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">Notificações</h3>
-                {unreadCount > 0 && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">
-                    {unreadCount} nova{unreadCount !== 1 ? 's' : ''}
-                  </span>
+        <div className="relative">
+          <div
+            className="relative h-10 w-10 flex items-center justify-center rounded-full cursor-pointer text-white/70 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+            onClick={() => { setNotifOpen(v => !v); if (!notifOpen) fetchNotifications(); }}
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span
+                className="absolute top-1 right-1 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1"
+                style={{ backgroundColor: '#ef4444', lineHeight: 1 }}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </div>
+
+          {notifOpen && (
+            <>
+              {/* Backdrop */}
+              <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+              {/* Panel — mobile: centrado com margens; desktop: alinhado à direita */}
+              <div className="fixed z-50 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col
+                left-5 right-5 top-[84px]
+                sm:left-auto sm:right-4 sm:w-[340px] sm:top-[90px]"
+                style={{ maxHeight: 'calc(100dvh - 100px)' }}
+              >
+                {/* Header */}
+                <div className="px-4 pt-4 pb-3 border-b border-border flex-shrink-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm">Notificações</h3>
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">
+                        {unreadCount} nova{unreadCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    {(['todas', 'mensagens', 'sistema'] as NotifTab[]).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={cn(
+                          'flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors capitalize',
+                          activeTab === tab
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                        )}
+                      >
+                        {tab === 'todas' ? 'Todas' : tab === 'mensagens' ? 'Mensagens' : 'Sistema'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* List */}
+                <div className="overflow-y-auto flex-1">
+                  {(() => {
+                    const filtered = notifications.filter(n =>
+                      activeTab === 'todas' ? true :
+                      activeTab === 'mensagens' ? n.type === 'message' :
+                      n.type === 'system'
+                    );
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="py-10 text-center text-sm text-muted-foreground/60">
+                          Nenhuma notificação
+                        </div>
+                      );
+                    }
+                    return filtered.map((notif) => (
+                      <button
+                        key={notif.id}
+                        className={cn(
+                          'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors border-b border-border/40 last:border-0',
+                          !notif.read && 'bg-primary/5'
+                        )}
+                        onClick={() => markAsRead(notif)}
+                      >
+                        {notif.type === 'message' ? (
+                          <Avatar className="flex-shrink-0 w-8 h-8 mt-0.5">
+                            <AvatarImage src={notif.photo ?? undefined} />
+                            <AvatarFallback className="bg-primary/15 text-primary text-[11px] font-bold">
+                              {notif.title.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5 bg-muted text-muted-foreground">
+                            ⚙
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
+                            <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
+                              {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: ptBR })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-0.5">{notif.message}</p>
+                        </div>
+                        {!notif.read && (
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-2" />
+                        )}
+                      </button>
+                    ));
+                  })()}
+                </div>
+
+                {/* Footer */}
+                {notifications.length > 0 && (
+                  <div className="border-t border-border p-2 flex-shrink-0">
+                    <button
+                      onClick={() => { router.push('/atendimento'); setNotifOpen(false); }}
+                      className="w-full py-2 text-xs text-primary font-medium hover:bg-accent/50 rounded-lg transition-colors"
+                    >
+                      Ver todas as mensagens
+                    </button>
+                  </div>
                 )}
               </div>
-              <div className="flex gap-1">
-                {(['todas', 'mensagens', 'sistema'] as NotifTab[]).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      'flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors capitalize',
-                      activeTab === tab
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                    )}
-                  >
-                    {tab === 'todas' ? 'Todas' : tab === 'mensagens' ? 'Mensagens' : 'Sistema'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* List */}
-            <div className="max-h-[380px] overflow-y-auto">
-              {(() => {
-                const filtered = notifications.filter(n =>
-                  activeTab === 'todas' ? true :
-                  activeTab === 'mensagens' ? n.type === 'message' :
-                  n.type === 'system'
-                );
-                if (filtered.length === 0) {
-                  return (
-                    <div className="py-10 text-center text-sm text-muted-foreground/60">
-                      Nenhuma notificação
-                    </div>
-                  );
-                }
-                return filtered.map((notif) => (
-                  <button
-                    key={notif.id}
-                    className={cn(
-                      'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors border-b border-border/40 last:border-0',
-                      !notif.read && 'bg-primary/5'
-                    )}
-                    onClick={() => markAsRead(notif)}
-                  >
-                    {notif.type === 'message' ? (
-                      <Avatar className="flex-shrink-0 w-8 h-8 mt-0.5">
-                        <AvatarImage src={notif.photo ?? undefined} />
-                        <AvatarFallback className="bg-primary/15 text-primary text-[11px] font-bold">
-                          {notif.title.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5 bg-muted text-muted-foreground">
-                        ⚙
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-foreground truncate">{notif.title}</p>
-                        <span className="text-[10px] text-muted-foreground/60 flex-shrink-0">
-                          {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: ptBR })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-0.5">{notif.message}</p>
-                    </div>
-                    {!notif.read && (
-                      <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-2" />
-                    )}
-                  </button>
-                ));
-              })()}
-            </div>
-
-            {/* Footer */}
-            {notifications.length > 0 && (
-              <div className="border-t border-border p-2">
-                <button
-                  onClick={() => { router.push('/atendimento'); setNotifOpen(false); }}
-                  className="w-full py-2 text-xs text-primary font-medium hover:bg-accent/50 rounded-lg transition-colors"
-                >
-                  Ver todas as mensagens
-                </button>
-              </div>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </>
+          )}
+        </div>
 
         {/* Settings */}
         <DropdownMenu>

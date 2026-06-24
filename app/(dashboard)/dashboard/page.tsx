@@ -453,10 +453,10 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch min-h-[380px]">
-        <div className="lg:col-span-2 h-[280px] md:h-full">
+        <div className="lg:col-span-2 h-[320px] md:h-full">
           <PerformanceChart data={performanceData} />
         </div>
-        <div className="h-[240px] md:h-full">
+        <div className="h-[300px] md:h-full">
           <ConversionDonut
             fechados={fechados}
             emAndamento={radialEmAndamento}

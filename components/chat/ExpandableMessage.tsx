@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 
-const LINE_THRESHOLD = 3;   // número de quebras de linha
-const CHAR_THRESHOLD = 280; // caracteres sem quebra de linha
+const LINE_THRESHOLD = 15;
+const CHAR_THRESHOLD = 800;
 
 interface Props {
   children: React.ReactNode;
@@ -29,9 +29,9 @@ export function ExpandableMessage({ children, text }: Props) {
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-        className="text-xs font-medium mt-1.5 opacity-60 hover:opacity-100 transition-opacity"
+        className="text-[11px] font-medium text-primary/70 hover:text-primary transition-colors mt-0.5"
       >
-        {expanded ? '↑ Ler menos' : '↓ Ler mais'}
+        {expanded ? 'ver menos' : '... ver mais'}
       </button>
     </div>
   );

@@ -45,17 +45,17 @@ export const BotMessageSquareIcon = forwardRef<
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (isControlledRef.current) onMouseEnter?.(e);
-      else controls.start("animate");
+      else if (!loop) controls.start("animate");
     },
-    [controls, onMouseEnter]
+    [controls, onMouseEnter, loop]
   );
 
   const handleMouseLeave = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (isControlledRef.current) onMouseLeave?.(e);
-      else controls.start("normal");
+      else if (!loop) controls.start("normal");
     },
-    [controls, onMouseLeave]
+    [controls, onMouseLeave, loop]
   );
 
   return (

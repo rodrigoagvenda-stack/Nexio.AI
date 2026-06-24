@@ -270,6 +270,102 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
   );
 });
 
+const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: Lead; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [longPressed, setLongPressed] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTouchStart = () => {
+    longPressTimer.current = setTimeout(() => {
+      setLongPressed(true);
+      longPressTimeout.current = setTimeout(() => setLongPressed(false), 3000);
+    }, 500);
+  };
+  const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
+
+  useEffect(() => {
+    if (!lead.whatsapp) return;
+    if (lead.whatsapp in photoCache) { setPhotoUrl(photoCache[lead.whatsapp]); return; }
+    fetch(`/api/chat/contact-photo?phone=${encodeURIComponent(lead.whatsapp)}&leadId=${lead.id}`)
+      .then(r => r.json())
+      .then(d => { photoCache[lead.whatsapp!] = d.photo ?? null; setPhotoUrl(d.photo ?? null); })
+      .catch(() => {});
+  }, [lead.whatsapp]);
+
+  const getPriorityColor = (priority: string) => {
+    const map: Record<string, string> = {
+      'Alta': 'bg-red-500/10 text-red-600 dark:text-red-400',
+      'Média': 'bg-primary/10 text-primary',
+      'Baixa': 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
+    };
+    return map[priority] || map['Baixa'];
+  };
+
+  const getInitials = (name: string) =>
+    name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+
+  return (
+    <OrbitCard
+      className="hover:shadow-md transition-shadow bg-card"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
+    >
+      <OrbitCardContent className="p-3 space-y-2">
+        <div className="flex items-start gap-2.5">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: 'rgba(1,87,60,0.18)' }}>
+            {photoUrl
+              ? <img src={photoUrl} alt={lead.contact_name || lead.company_name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              : <span className="text-[10px] font-bold" style={{ color: '#34B270' }}>{getInitials(lead.contact_name || lead.company_name)}</span>
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-sm leading-tight truncate">{lead.company_name}</h4>
+            {lead.contact_name && <p className="text-xs text-muted-foreground truncate">{lead.contact_name}</p>}
+          </div>
+          <div className="flex gap-0.5 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit()}>
+              <Pencil className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost" size="icon"
+              className="h-6 w-6 text-destructive transition-opacity"
+              style={{ opacity: longPressed ? 1 : 0, pointerEvents: longPressed ? 'auto' : 'none' }}
+              onClick={() => onDelete()}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1 items-center">
+          {lead.priority && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${getPriorityColor(lead.priority)}`}>{lead.priority}</span>
+          )}
+          {lead.nivel_interesse && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400">{lead.nivel_interesse}</span>
+          )}
+          {lead.segment && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-green-500/10 text-green-600 dark:text-green-400">{lead.segment}</span>
+          )}
+          {(lead.lead_tags as any[])?.map((lt: any) => {
+            const tag = lt.tags;
+            if (!tag) return null;
+            return (
+              <span key={lt.tag_id} className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ backgroundColor: `${tag.tag_color}22`, color: tag.tag_color }}>
+                {tag.tag_name}
+              </span>
+            );
+          })}
+          {lead.project_value && lead.project_value > 0 && (
+            <span className="text-[10px] text-primary font-medium ml-auto">{fmtCompact(lead.project_value)}</span>
+          )}
+        </div>
+      </OrbitCardContent>
+    </OrbitCard>
+  );
+});
+
 // 🚀 PERFORMANCE: Componente memoizado para evitar re-renders
 const DroppableColumn = memo(function DroppableColumn({
   id,
@@ -392,8 +488,6 @@ export default function CRMPage() {
   const [priorityFilter, setPriorityFilter] = useState('Todas');
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<string | number | null>(null);
-  const [mobileColumnPages, setMobileColumnPages] = useState<Record<string, number>>({});
-  const MOBILE_PAGE_SIZE = 6;
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -1234,76 +1328,33 @@ export default function CRMPage() {
             </DragOverlay>
           </DndContext>
 
-        {/* Mobile Kanban - Horizontal snap scroll */}
-        <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none' }}>
+        {/* Mobile Kanban - Horizontal snap scroll, scroll vertical em cada coluna */}
+        <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none', height: 'calc(100dvh - 280px)' }}>
           {columns.filter(c => c.id !== 'Triagem' && c.id !== 'Outbound').map((column) => {
             const colLeads = getLeadsByStatus(column.id);
-            const page = mobileColumnPages[column.id] || 0;
-            const totalPages = Math.ceil(colLeads.length / MOBILE_PAGE_SIZE);
-            const pageLeads = colLeads.slice(page * MOBILE_PAGE_SIZE, (page + 1) * MOBILE_PAGE_SIZE);
-
             return (
-              <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col gap-2">
+              <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col rounded-xl bg-muted/40 p-2 gap-2">
                 {/* Column header */}
-                <div className="flex items-center justify-between px-1 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{column.title}</span>
-                    <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded-full">{colLeads.length}</span>
-                  </div>
+                <div className="flex items-center gap-2 px-1 py-1 flex-shrink-0">
+                  <span className="text-sm font-semibold">{column.title}</span>
+                  <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded-full">{colLeads.length}</span>
                 </div>
-
-                {/* Cards */}
-                {colLeads.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">
-                    Sem leads
-                  </div>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      {pageLeads.map((lead) => (
-                        <OrbitCard key={lead.id} className="hover:shadow-md transition-shadow">
-                          <OrbitCardContent className="p-3">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <h4 className="font-semibold text-sm flex-1 leading-tight">{lead.company_name}</h4>
-                              <div className="flex gap-0.5 flex-shrink-0">
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenModal(lead)}>
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setDeletingLead(lead)}>
-                                  <Trash2 className="h-3 w-3 text-red-500" />
-                                </Button>
-                              </div>
-                            </div>
-                            {lead.contact_name && <p className="text-xs text-muted-foreground">{lead.contact_name}</p>}
-                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${lead.priority === 'Alta' ? 'bg-red-500/20 text-red-600' : lead.priority === 'Média' ? 'bg-primary/20 text-primary' : 'bg-gray-500/20 text-gray-600'}`}>{lead.priority}</span>
-                              {lead.project_value && lead.project_value > 0 && (
-                                <span className="text-[10px] font-medium text-primary">R$ {lead.project_value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
-                              )}
-                            </div>
-                          </OrbitCardContent>
-                        </OrbitCard>
-                      ))}
+                {/* Cards — scroll vertical */}
+                <div className="overflow-y-auto flex-1 space-y-2 pb-1" style={{ scrollbarWidth: 'none' }}>
+                  {colLeads.length === 0 ? (
+                    <div className="flex items-center justify-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">
+                      Sem leads
                     </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-center gap-2 pt-1">
-                        <button
-                          disabled={page === 0}
-                          onClick={() => setMobileColumnPages(p => ({ ...p, [column.id]: page - 1 }))}
-                          className="text-xs px-2 py-1 rounded bg-accent disabled:opacity-30"
-                        >‹</button>
-                        <span className="text-xs text-muted-foreground">{page + 1}/{totalPages}</span>
-                        <button
-                          disabled={page >= totalPages - 1}
-                          onClick={() => setMobileColumnPages(p => ({ ...p, [column.id]: page + 1 }))}
-                          className="text-xs px-2 py-1 rounded bg-accent disabled:opacity-30"
-                        >›</button>
-                      </div>
-                    )}
-                  </>
-                )}
+                  ) : colLeads.map((lead) => (
+                    <MobileLeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onEdit={() => handleOpenModal(lead)}
+                      onDelete={() => setDeletingLead(lead)}
+                      onCharge={() => setChargingLead(lead)}
+                    />
+                  ))}
+                </div>
               </div>
             );
           })}
@@ -1478,20 +1529,8 @@ export default function CRMPage() {
                       {lead.status}
                     </span>
                     <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenModal(lead)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenModal(lead)}>
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeletingLead(lead)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
