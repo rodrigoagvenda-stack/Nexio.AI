@@ -198,7 +198,7 @@ export function SystemTopBar() {
               )}
             </div>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[min(340px,calc(100vw-24px))] p-0 overflow-hidden">
+          <DropdownMenuContent align="end" sideOffset={8} className="w-[min(340px,calc(100vw-40px))] p-0 overflow-hidden sm:translate-x-0 -translate-x-[calc(50vw-20px-170px)]">
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-border">
               <div className="flex items-center justify-between mb-3">

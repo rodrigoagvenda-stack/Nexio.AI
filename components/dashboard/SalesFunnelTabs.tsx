@@ -46,6 +46,20 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+function getInitials(label: string): string {
+  return label.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 3);
+}
+
+function MobileBarTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-card border border-border rounded-lg px-3 py-1.5 shadow-xl text-xs font-medium">
+      <p className="text-foreground">{payload[0]?.payload?.fullName}</p>
+      <p className="text-primary">{payload[0]?.value} lead{payload[0]?.value !== 1 ? 's' : ''}</p>
+    </div>
+  );
+}
+
 function HorizontalBars({ data }: { data: { name: string; quantidade: number }[] }) {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -56,28 +70,27 @@ function HorizontalBars({ data }: { data: { name: string; quantidade: number }[]
   }, []);
 
   if (isMobile) {
+    const mobileData = data.map(d => ({ ...d, shortName: getInitials(d.name), fullName: d.name }));
     return (
       <ChartContainer
         config={chartConfig}
-        style={{ width: '100%', height: 200 }}
+        style={{ width: '100%', height: 180 }}
       >
         <BarChart
-          data={data}
-          margin={{ left: 4, right: 4, top: 8, bottom: 40 }}
+          data={mobileData}
+          margin={{ left: 4, right: 4, top: 8, bottom: 20 }}
           barCategoryGap="25%"
         >
           <XAxis
-            dataKey="name"
+            dataKey="shortName"
             tickLine={false}
             axisLine={false}
-            tick={{ fill: '#AAA', fontSize: 9, fontWeight: 500 }}
+            tick={{ fill: '#AAA', fontSize: 11, fontWeight: 600 }}
             interval={0}
-            angle={-35}
-            textAnchor="end"
-            height={48}
+            height={28}
           />
           <YAxis hide />
-          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+          <ChartTooltip cursor={false} content={<MobileBarTooltip />} />
           <Bar dataKey="quantidade" fill="var(--color-quantidade)" radius={4} />
         </BarChart>
       </ChartContainer>

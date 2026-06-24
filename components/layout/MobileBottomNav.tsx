@@ -54,7 +54,7 @@ export function MobileBottomNav() {
 
       {/* Mais drawer */}
       {moreOpen && (
-        <div className="fixed bottom-[88px] left-4 right-4 z-50 md:hidden rounded-2xl overflow-hidden shadow-2xl border border-white/8"
+        <div className="fixed bottom-[88px] left-4 right-4 z-[60] md:hidden rounded-2xl overflow-hidden shadow-2xl border border-white/8"
           style={{ background: '#1A1A1A' }}>
           <div className="p-2">
             {moreItems.map((item) => {

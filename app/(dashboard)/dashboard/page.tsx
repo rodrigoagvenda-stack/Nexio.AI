@@ -385,7 +385,7 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground mt-1">{formattedDate}</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-center">
           <div className="flex items-center rounded-full p-1" style={{ backgroundColor: '#141414' }}>
             {PERIODS.map(period => (
               <button

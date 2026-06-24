@@ -1609,7 +1609,7 @@ export default function AtendimentoPage() {
         </div>
 
         {/* Área de Chat */}
-        <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden rounded-none md:rounded-lg border-0 md:border ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
+        <Card className={`col-span-12 ${selectedConversation ? (isSidebarOpen ? 'md:col-span-8 lg:col-span-6' : 'md:col-span-8 lg:col-span-9') : 'lg:col-span-6'} flex flex-col overflow-hidden rounded-2xl md:rounded-lg border-0 md:border ${!selectedConversation ? 'hidden lg:flex' : 'flex'} transition-all duration-300`}>
           {selectedConversation ? (
             <>
               {/* Header da Conversa */}
@@ -1748,7 +1748,7 @@ export default function AtendimentoPage() {
                       onForward={() => setForwardDialog({ open: true, messageId: msg.id })}
                       onPin={() => handlePinMessage(msg.id, !msg.is_pinned)}
                       onDelete={msg.direcao === 'outbound' ? () => setDeleteDialog({ open: true, messageId: msg.id }) : undefined}
-                      className="max-w-[65%]"
+                      className="max-w-[85%] sm:max-w-[65%]"
                     >
                         <div
                           className={`w-full rounded-2xl p-3 cursor-pointer ${

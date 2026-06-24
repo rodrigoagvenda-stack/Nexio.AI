@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface CompanyFull {
   id: number;
@@ -595,6 +596,12 @@ function ConfiguracoesContent() {
               {user?.department && <p className="text-xs text-muted-foreground mt-1">{user.department}</p>}
             </div>
             <p className="text-[11px] text-muted-foreground">JPG, PNG ou WEBP · máx 5MB</p>
+            <div className="w-full pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Tema</span>
+                <ThemeToggle />
+              </div>
+            </div>
           </div>
 
           {/* Form col */}

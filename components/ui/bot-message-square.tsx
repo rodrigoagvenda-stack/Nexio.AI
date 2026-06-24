@@ -2,7 +2,7 @@
 
 import { motion, useAnimation } from "framer-motion";
 import type { HTMLAttributes } from "react";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -13,14 +13,26 @@ export interface BotMessageSquareHandle {
 
 interface BotMessageSquareProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;
+  loop?: boolean;
 }
 
 export const BotMessageSquareIcon = forwardRef<
   BotMessageSquareHandle,
   BotMessageSquareProps
->(({ className, onMouseEnter, onMouseLeave, size = 28, ...props }, ref) => {
+>(({ className, onMouseEnter, onMouseLeave, size = 28, loop, ...props }, ref) => {
   const controls = useAnimation();
   const isControlledRef = useRef(false);
+
+  useEffect(() => {
+    if (!loop) return;
+    controls.start({
+      rotate: [0, -3, 3, -2, 0],
+      y: [0, 1.5, -1.5, 0],
+      scale: [1, 1.04, 1],
+      transition: { duration: 1.8, ease: "easeInOut", repeat: Infinity, repeatDelay: 2.5 },
+    });
+    return () => { controls.stop(); };
+  }, [loop, controls]);
 
   useImperativeHandle(ref, () => {
     isControlledRef.current = true;
