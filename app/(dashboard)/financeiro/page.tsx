@@ -80,6 +80,7 @@ export default function FinanceiroPage() {
   const [noIntegration, setNoIntegration] = useState(false)
   const [charges, setCharges] = useState<Charge[]>([])
   const [stats, setStats] = useState<Stats>({ received: 0, pending: 0, overdue: 0, total: 0 })
+  const [platformErrors, setPlatformErrors] = useState<{ platform: string; error: string }[]>([])
   const [statusFilter, setStatusFilter] = useState('all')
   const [periodFilter, setPeriodFilter] = useState('30')
   const [platformFilter, setPlatformFilter] = useState('all')
@@ -101,6 +102,7 @@ export default function FinanceiroPage() {
       if (json.error) throw new Error(json.error)
       setCharges(json.charges)
       setStats(json.stats)
+      setPlatformErrors(json.platformErrors ?? [])
     } catch (e: any) {
       toast({ title: 'Erro ao carregar cobranças', description: e.message, variant: 'destructive' })
     } finally {
@@ -234,6 +236,18 @@ export default function FinanceiroPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Erros por plataforma */}
+        {platformErrors.length > 0 && (
+          <div className="mt-3 space-y-1">
+            {platformErrors.map(({ platform, error }) => (
+              <div key={platform} className="flex items-center gap-2 text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span><strong>{PLATFORM_LABELS[platform] ?? platform}:</strong> {error}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* List */}

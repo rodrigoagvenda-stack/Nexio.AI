@@ -167,20 +167,37 @@ export async function GET(req: NextRequest) {
   }
 
   // Busca em paralelo apenas nas plataformas ativas (e filtradas)
-  const fetches: Promise<any[]>[] = []
+  type PlatformResult = { platform: string; charges: any[]; error?: string }
+  const fetches: Promise<PlatformResult>[] = []
+
   for (const integration of integrations) {
     if (platformFilter !== 'all' && integration.platform !== platformFilter) continue
-    if (integration.platform === 'asaas') {
-      fetches.push(fetchAsaasCharges(context.companyId, integration.config, dateGte, statusFilter))
-    } else if (integration.platform === 'mercadopago') {
-      fetches.push(fetchMercadoPagoCharges(integration.config, dateGte, statusFilter))
-    } else if (integration.platform === 'kiwify') {
-      fetches.push(fetchKiwifyCharges(context.companyId, supabase, dateGte, statusFilter))
+    const p = integration.platform
+
+    if (p === 'asaas') {
+      fetches.push(
+        fetchAsaasCharges(context.companyId, integration.config, dateGte, statusFilter)
+          .then(charges => ({ platform: p, charges }))
+          .catch(e => ({ platform: p, charges: [], error: e?.message ?? 'Erro Asaas' }))
+      )
+    } else if (p === 'mercadopago') {
+      fetches.push(
+        fetchMercadoPagoCharges(integration.config, dateGte, statusFilter)
+          .then(charges => ({ platform: p, charges }))
+          .catch(e => ({ platform: p, charges: [], error: e?.message ?? 'Erro Mercado Pago' }))
+      )
+    } else if (p === 'kiwify') {
+      fetches.push(
+        fetchKiwifyCharges(context.companyId, supabase, dateGte, statusFilter)
+          .then(charges => ({ platform: p, charges }))
+          .catch(e => ({ platform: p, charges: [], error: e?.message ?? 'Erro Kiwify' }))
+      )
     }
   }
 
   const results = await Promise.all(fetches)
-  const all = results.flat().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  const platformErrors = results.filter(r => r.error).map(r => ({ platform: r.platform, error: r.error }))
+  const all = results.flatMap(r => r.charges).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   const filtered = statusFilter === 'all' ? all : all.filter(c => c.status === statusFilter)
 
@@ -191,5 +208,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     charges: filtered,
     stats: { received, pending, overdue, total: filtered.length },
+    platformErrors,
   })
 }
