@@ -155,7 +155,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
         <CardContent className="flex-1 pt-4 md:pt-6 px-4 md:px-6 flex flex-col">
           {/* Tabs */}
           <div className="mb-5 flex-shrink-0">
-            <div className="flex items-center rounded-full p-1 w-fit" style={{ backgroundColor: '#141414' }}>
+            <div className="flex items-center rounded-full p-1 w-fit bg-muted">
               {(Object.keys(TAB_LABELS) as TabValue[]).map(t => (
                 <button
                   key={t}
@@ -163,7 +163,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                   className="px-4 py-1.5 text-xs rounded-full transition-all duration-150 whitespace-nowrap"
                   style={activeTab === t
                     ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
-                    : { color: '#888', background: 'transparent', fontWeight: 500 }
+                    : { color: 'var(--muted-foreground)', background: 'transparent', fontWeight: 500 }
                   }
                 >
                   {TAB_LABELS[t]}

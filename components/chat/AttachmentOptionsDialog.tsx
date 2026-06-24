@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   FileText,
   Image,
@@ -11,17 +10,8 @@ import {
   BarChart3,
   Calendar,
   Smile,
-  X,
+  DollarSign,
 } from 'lucide-react';
-
-interface AttachmentOption {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  bgColor: string;
-  onClick: () => void;
-}
 
 interface AttachmentOptionsSheetProps {
   open: boolean;
@@ -35,6 +25,8 @@ interface AttachmentOptionsSheetProps {
   onSelectPoll: () => void;
   onSelectEvent: () => void;
   onSelectSticker: () => void;
+  onSelectCharge?: () => void;
+  hasLead?: boolean;
 }
 
 export function AttachmentOptionsDialog({
@@ -49,146 +41,65 @@ export function AttachmentOptionsDialog({
   onSelectPoll,
   onSelectEvent,
   onSelectSticker,
+  onSelectCharge,
+  hasLead,
 }: AttachmentOptionsSheetProps) {
-  const options: AttachmentOption[] = [
-    {
-      id: 'document',
-      label: 'Documento',
-      icon: <FileText className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-green-500',
-      onClick: () => {
-        onSelectDocument();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'photos-videos',
-      label: 'Fotos e vídeos',
-      icon: <Image className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-pink-500',
-      onClick: () => {
-        onSelectImage();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'camera',
-      label: 'Câmera',
-      icon: <Camera className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-red-500',
-      onClick: () => {
-        onSelectCamera();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'audio',
-      label: 'Áudio',
-      icon: <Mic className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-green-500',
-      onClick: () => {
-        onSelectAudio();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'contact',
-      label: 'Contato',
-      icon: <User className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-blue-500',
-      onClick: () => {
-        onSelectContact();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'poll',
-      label: 'Enquete',
-      icon: <BarChart3 className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-green-500',
-      onClick: () => {
-        onSelectPoll();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'event',
-      label: 'Evento',
-      icon: <Calendar className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-indigo-500',
-      onClick: () => {
-        onSelectEvent();
-        onOpenChange(false);
-      },
-    },
-    {
-      id: 'sticker',
-      label: 'Nova figurinha',
-      icon: <Smile className="h-5 w-5" />,
-      color: 'text-white',
-      bgColor: 'bg-teal-500',
-      onClick: () => {
-        onSelectSticker();
-        onOpenChange(false);
-      },
-    },
-  ];
-
   if (!open) return null;
+
+  const close = () => onOpenChange(false);
+
+  const options = [
+    { id: 'document', label: 'Documento', icon: <FileText className="h-5 w-5 text-green-500" />, onClick: () => { onSelectDocument(); close(); } },
+    { id: 'photos-videos', label: 'Fotos e vídeos', icon: <Image className="h-5 w-5 text-pink-500" />, onClick: () => { onSelectImage(); close(); } },
+    { id: 'camera', label: 'Câmera', icon: <Camera className="h-5 w-5 text-red-500" />, onClick: () => { onSelectCamera(); close(); } },
+    { id: 'audio', label: 'Áudio', icon: <Mic className="h-5 w-5 text-green-500" />, onClick: () => { onSelectAudio(); close(); } },
+    { id: 'contact', label: 'Contato', icon: <User className="h-5 w-5 text-blue-500" />, onClick: () => { onSelectContact(); close(); } },
+    { id: 'poll', label: 'Enquete', icon: <BarChart3 className="h-5 w-5 text-green-500" />, onClick: () => { onSelectPoll(); close(); } },
+    { id: 'event', label: 'Evento', icon: <Calendar className="h-5 w-5 text-indigo-500" />, onClick: () => { onSelectEvent(); close(); } },
+    { id: 'sticker', label: 'Nova figurinha', icon: <Smile className="h-5 w-5 text-teal-500" />, onClick: () => { onSelectSticker(); close(); } },
+    ...(hasLead && onSelectCharge ? [{ id: 'charge', label: 'Gerar cobrança', icon: <DollarSign className="h-5 w-5 text-amber-500" />, onClick: () => { onSelectCharge(); close(); } }] : []),
+  ];
 
   return (
     <>
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200"
-        onClick={() => onOpenChange(false)}
+        onClick={close}
       />
 
-      {/* Sheet - posicionado em cima do botão de anexo */}
+      {/* Menu — mobile: acima do botão grampo, desktop: posição fixa próxima ao botão */}
       <div
-        className="fixed bottom-20 left-[575px] z-50 bg-background/95 backdrop-blur-sm shadow-2xl w-auto min-w-[200px] max-w-[280px]"
+        className="fixed z-50 bg-background/95 backdrop-blur-sm shadow-2xl rounded-2xl border border-border/50"
         style={{
-          borderRadius: '8px',
-          animation: 'slideUpFadeIn 300ms ease-out',
+          /* Mobile: colado à esquerda acima da toolbar */
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+          left: '16px',
+          minWidth: '200px',
+          maxWidth: '260px',
+          animation: 'slideUpFadeIn 200ms ease-out',
         }}
       >
         <style jsx>{`
           @keyframes slideUpFadeIn {
-            from {
-              opacity: 0;
-              transform: translateY(20px) scale(0.95);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0) scale(1);
+            from { opacity: 0; transform: translateY(12px) scale(0.96); }
+            to   { opacity: 1; transform: translateY(0)   scale(1);    }
+          }
+          @media (min-width: 640px) {
+            .attachment-menu {
+              left: auto;
+              bottom: 80px;
             }
           }
         `}</style>
-        <div className="p-2 space-y-1">
+        <div className="p-2 space-y-0.5">
           {options.map((option) => (
             <button
               key={option.id}
               onClick={option.onClick}
-              className="w-full flex items-center gap-3 p-2 hover:bg-accent/50 transition-all duration-200 rounded-lg"
+              className="w-full flex items-center gap-3 p-2.5 hover:bg-accent/60 transition-colors rounded-xl"
             >
-              <div className={`flex-shrink-0`}>
-                {/* Renderizar ícone com cor direta */}
-                {option.id === 'document' && <FileText className="h-5 w-5 text-green-500" />}
-                {option.id === 'photos-videos' && <Image className="h-5 w-5 text-pink-500" />}
-                {option.id === 'camera' && <Camera className="h-5 w-5 text-red-500" />}
-                {option.id === 'audio' && <Mic className="h-5 w-5 text-green-500" />}
-                {option.id === 'contact' && <User className="h-5 w-5 text-blue-500" />}
-                {option.id === 'poll' && <BarChart3 className="h-5 w-5 text-green-500" />}
-                {option.id === 'event' && <Calendar className="h-5 w-5 text-indigo-500" />}
-                {option.id === 'sticker' && <Smile className="h-5 w-5 text-teal-500" />}
-              </div>
+              <div className="flex-shrink-0">{option.icon}</div>
               <span className="text-sm font-medium whitespace-nowrap">{option.label}</span>
             </button>
           ))}

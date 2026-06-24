@@ -386,7 +386,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-center">
-          <div className="flex items-center rounded-full p-1" style={{ backgroundColor: '#141414' }}>
+          <div className="flex items-center rounded-full p-1 bg-muted">
             {PERIODS.map(period => (
               <button
                 key={period}
@@ -394,7 +394,7 @@ export default function DashboardPage() {
                 className="px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-150 whitespace-nowrap"
                 style={selectedPeriod === period
                   ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
-                  : { color: '#888', background: 'transparent' }
+                  : { color: 'var(--muted-foreground)', background: 'transparent' }
                 }
               >
                 {PERIOD_LABELS[period]}

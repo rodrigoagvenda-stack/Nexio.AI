@@ -272,17 +272,6 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
 
 const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: Lead; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [longPressed, setLongPressed] = useState(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTouchStart = () => {
-    longPressTimer.current = setTimeout(() => {
-      setLongPressed(true);
-      longPressTimeout.current = setTimeout(() => setLongPressed(false), 3000);
-    }, 500);
-  };
-  const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
 
   useEffect(() => {
     if (!lead.whatsapp) return;
@@ -306,12 +295,7 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
     name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
 
   return (
-    <OrbitCard
-      className="hover:shadow-md transition-shadow bg-card"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchMove={handleTouchEnd}
-    >
+    <OrbitCard className="hover:shadow-md transition-shadow">
       <OrbitCardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2.5">
           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: 'rgba(1,87,60,0.18)' }}>
@@ -330,8 +314,7 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
             </Button>
             <Button
               variant="ghost" size="icon"
-              className="h-6 w-6 text-destructive transition-opacity"
-              style={{ opacity: longPressed ? 1 : 0, pointerEvents: longPressed ? 'auto' : 'none' }}
+              className="h-6 w-6 text-destructive"
               onClick={() => onDelete()}
             >
               <Trash2 className="h-3 w-3" />
@@ -1532,6 +1515,9 @@ export default function CRMPage() {
                       <Button variant="ghost" size="sm" onClick={() => handleOpenModal(lead)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setDeletingLead(lead)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </OrbitCardContent>
@@ -1809,7 +1795,7 @@ export default function CRMPage() {
                     <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
                     <textarea
                       id="notes"
-                      className="w-full min-h-[80px] px-3 py-2.5 rounded-xl border border-[#212121] bg-[#141414] text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-[#96F63C]/40 placeholder:text-muted-foreground"
+                      className="w-full min-h-[80px] px-3 py-2.5 rounded-xl border border-input bg-background text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground"
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       placeholder="Adicione observações sobre este lead..."
@@ -1990,7 +1976,7 @@ function LeadSequenceTimeline({ leadId }: { leadId: number }) {
           const sent = seq.steps.filter((s) => s.disparado).length
           const total = seq.steps.length
           return (
-            <div key={seq.sequenceId} className="rounded-xl p-3 space-y-3" style={{ backgroundColor: '#0E0E0E', border: '1px solid #1A1A1A' }}>
+            <div key={seq.sequenceId} className="rounded-xl p-3 space-y-3 bg-muted border border-border/50">
               {/* Header da sequência */}
               <div className="flex items-center gap-2.5">
                 <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', TIPO_COLOR[seq.sequenceTipo] ?? 'bg-muted text-muted-foreground')}>
@@ -2014,9 +2000,9 @@ function LeadSequenceTimeline({ leadId }: { leadId: number }) {
                           ? step.status === 'failed'
                             ? 'bg-red-500/20 text-red-400'
                             : 'bg-emerald-500/20 text-emerald-400'
-                          : 'text-muted-foreground'
+                          : 'bg-muted-foreground/10 text-muted-foreground'
                       )}
-                      style={!step.disparado ? { backgroundColor: '#1A1A1A' } : undefined}
+                      style={!step.disparado ? undefined : undefined}
                     >
                       {step.disparado
                         ? step.status === 'failed'

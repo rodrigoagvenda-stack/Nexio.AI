@@ -1908,7 +1908,7 @@ export default function AtendimentoPage() {
                         onClick={() => setShowChargeModal(true)}
                         disabled={loading}
                         title="Gerar cobrança"
-                        className="text-muted-foreground hover:text-primary"
+                        className="hidden sm:flex text-muted-foreground hover:text-primary"
                       >
                         <DollarSign className="h-5 w-5" />
                       </Button>
@@ -2053,6 +2053,8 @@ export default function AtendimentoPage() {
         onSelectPoll={() => toast({ title: 'Enquete em breve' })}
         onSelectEvent={() => toast({ title: 'Evento em breve' })}
         onSelectSticker={() => toast({ title: 'Figurinha em breve' })}
+        hasLead={!!selectedConversation?.id_do_lead}
+        onSelectCharge={() => setShowChargeModal(true)}
       />
 
       {/* Delete Message Dialog */}

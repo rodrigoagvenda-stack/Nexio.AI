@@ -78,9 +78,16 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error accessing microphone:', error);
-      toast({ title: 'Não foi possível acessar o microfone', variant: 'destructive' });
+      const isPermission = error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError';
+      toast({
+        title: 'Não foi possível acessar o microfone',
+        description: isPermission
+          ? 'Permissão negada. Acesse as configurações do navegador e permita o microfone.'
+          : 'Verifique se o dispositivo possui microfone disponível.',
+        variant: 'destructive',
+      });
       onCancel();
     }
   };

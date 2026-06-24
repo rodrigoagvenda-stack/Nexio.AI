@@ -12,7 +12,7 @@ const OrbitCard = React.forwardRef<HTMLDivElement, OrbitCardProps>(
       <div
         ref={ref}
         className={cn(
-          "relative overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]",
+          "relative overflow-hidden rounded-xl border border-border/40 bg-card dark:bg-white/[0.03] dark:border-white/[0.08]",
           blur && "backdrop-blur-xl",
           className
         )}

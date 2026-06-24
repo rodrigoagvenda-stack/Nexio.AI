@@ -14,7 +14,7 @@ import {
 
 import { useRouter, usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -146,6 +146,13 @@ export function SystemTopBar() {
   }, [company?.id, fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   if (pathname?.includes('/configuracoes')) {
     return null;
@@ -156,12 +163,16 @@ export function SystemTopBar() {
   return (
     <header
       className={cn(
-        "h-[72px] md:h-[80px] flex items-center justify-between px-5 flex-shrink-0",
-        "md:mx-4 md:mt-3 md:mb-1 md:rounded-xl",
+        "h-[72px] md:h-[80px] flex items-center justify-between px-5 flex-shrink-0 transition-all duration-300",
+        "mx-auto mt-3 mb-1 rounded-2xl w-[88%] md:w-[calc(100%-2rem)] md:mx-4",
         isAtendimento && "hidden md:flex"
       )}
       style={{
-        background: 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
+        background: scrolled
+          ? 'linear-gradient(270deg, rgba(1,87,60,0.2) 0%, rgba(7,38,28,0.2) 100%)'
+          : 'linear-gradient(270deg, #01573C 0%, #07261C 100%)',
+        backdropFilter: scrolled ? 'blur(16px)' : 'none',
+        WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
       }}
     >
       {/* Left: User info */}

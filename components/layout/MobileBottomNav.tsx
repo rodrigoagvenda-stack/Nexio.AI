@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, Bell,
   MoreHorizontal, X, PieChart,
@@ -14,6 +14,15 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains('dark'));
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
 
   const isCrm = pathname?.startsWith('/crm');
   const isDashboard = pathname === '/dashboard' || pathname?.startsWith('/dashboard/');
@@ -90,8 +99,7 @@ export function MobileBottomNav() {
 
       {/* Bottom bar */}
       <nav className="fixed bottom-4 left-4 right-4 z-50 md:hidden">
-        <div className="relative flex items-end justify-around px-2 py-3 rounded-2xl border border-white/8 shadow-2xl"
-          style={{ background: '#141414' }}>
+        <div className="relative flex items-end justify-around px-2 py-3 rounded-2xl border border-border/40 shadow-2xl bg-card">
 
           {/* CRM */}
           <NavBtn
@@ -115,17 +123,19 @@ export function MobileBottomNav() {
               onClick={() => { setMoreOpen(false); navigate('/atendimento'); }}
               className="flex items-center justify-center w-14 h-14 rounded-full transition-transform active:scale-95"
               style={{
-                background: '#141414',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.55), 0 2px 0 0 #0A0A0A, 0 0 0 1.5px rgba(255,255,255,0.08)',
+                background: isDark ? '#141414' : '#141414',
+                boxShadow: isDark
+                  ? '0 4px 20px rgba(0,0,0,0.55), 0 2px 0 0 #0A0A0A, 0 0 0 1.5px rgba(255,255,255,0.08)'
+                  : '0 4px 20px rgba(0,0,0,0.25), 0 2px 0 0 #333, 0 0 0 1.5px rgba(0,0,0,0.10)',
               }}
             >
               <BotMessageSquareIcon
                 size={26}
                 loop
-                style={{ color: '#96F63C' }}
+                style={{ color: isDark ? '#96F63C' : '#fff' }}
               />
             </button>
-            <span className="mt-1.5 text-[10px] font-medium" style={{ color: isChat ? '#96F63C' : '#666' }}>
+            <span className="mt-1.5 text-[10px] font-medium" style={{ color: isChat ? '#01573C' : 'var(--muted-foreground)' }}>
               Chat
             </span>
           </div>
@@ -147,9 +157,9 @@ export function MobileBottomNav() {
               style={{ background: (isMore || moreOpen) ? '#01573C20' : 'transparent' }}>
               {moreOpen
                 ? <X className="h-5 w-5" style={{ color: '#01573C' }} />
-                : <MoreHorizontal className="h-5 w-5" style={{ color: (isMore || moreOpen) ? '#01573C' : '#666' }} />}
+                : <MoreHorizontal className="h-5 w-5" style={{ color: (isMore || moreOpen) ? '#01573C' : 'var(--muted-foreground)' }} />}
             </div>
-            <span className="text-[10px] font-medium" style={{ color: (isMore || moreOpen) ? '#01573C' : '#666' }}>
+            <span className="text-[10px] font-medium" style={{ color: (isMore || moreOpen) ? '#01573C' : 'var(--muted-foreground)' }}>
               Mais
             </span>
           </button>
@@ -175,9 +185,9 @@ function NavBtn({
     >
       <div className="flex items-center justify-center w-9 h-9 rounded-xl transition-colors"
         style={{ background: active ? '#01573C20' : 'transparent' }}>
-        <Icon className="h-5 w-5" style={{ color: active ? '#01573C' : '#666' }} />
+        <Icon className="h-5 w-5" style={{ color: active ? '#01573C' : 'var(--muted-foreground)' }} />
       </div>
-      <span className="text-[10px] font-medium" style={{ color: active ? '#01573C' : '#666' }}>
+      <span className="text-[10px] font-medium" style={{ color: active ? '#01573C' : 'var(--muted-foreground)' }}>
         {label}
       </span>
     </button>
