@@ -51,6 +51,10 @@ async function fetchMercadoPagoCharges(cfg: any, dateGte?: string, statusFilter?
     const token = cfg?.access_token
     if (!token) return []
 
+    if (token.startsWith('TEST-')) {
+      throw new Error('Token de teste detectado. Vá em Configurações → Integrações → Mercado Pago e substitua pelo token de produção (APP_USR-...).')
+    }
+
     const qs = new URLSearchParams({ sort: 'date_created', criteria: 'desc', limit: '100' })
 
     // MP exige begin_date + end_date juntos — sem range= separado
