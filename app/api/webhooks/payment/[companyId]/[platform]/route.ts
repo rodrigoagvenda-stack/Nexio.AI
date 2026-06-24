@@ -65,7 +65,7 @@ async function findLead(companyId: number, email?: string, phone?: string, supab
   if (email) {
     const { data } = await supabase
       .from('leads')
-      .select('id, whatsapp, company_name, contact_name')
+      .select('id, whatsapp, company_name, contact_name, project_value')
       .eq('company_id', companyId)
       .eq('email', email)
       .maybeSingle()
@@ -75,13 +75,50 @@ async function findLead(companyId: number, email?: string, phone?: string, supab
     const normalized = normalizePhone(phone)
     const { data } = await supabase
       .from('leads')
-      .select('id, whatsapp, company_name, contact_name')
+      .select('id, whatsapp, company_name, contact_name, project_value')
       .eq('company_id', companyId)
       .eq('whatsapp', normalized)
       .maybeSingle()
     if (data) return data
   }
   return null
+}
+
+// ─── Helper: cria lead a partir de dados do cliente Asaas ────────────────────
+async function createLeadFromAsaasCustomer(
+  companyId: number,
+  customer: Record<string, any>,
+  value: number | undefined,
+  initialStatus: string,
+  supabase: any
+): Promise<{ id: string; whatsapp: string | null; company_name: string; contact_name: string | null; project_value: number } | null> {
+  const name = customer.name || 'Cliente Asaas'
+  const email = customer.email || null
+  const rawPhone = customer.mobilePhone || customer.phone || null
+  const whatsapp = rawPhone ? normalizePhone(rawPhone) : null
+
+  const { data, error } = await supabase
+    .from('leads')
+    .insert({
+      company_id: companyId,
+      company_name: name,
+      contact_name: name,
+      email,
+      whatsapp,
+      status: initialStatus,
+      origin: 'Asaas',
+      project_value: value ?? 0,
+    })
+    .select('id, whatsapp, company_name, contact_name, project_value')
+    .single()
+
+  if (error) {
+    console.error(`[payment-webhook:asaas] erro ao criar lead:`, error.message)
+    return null
+  }
+
+  console.log(`[payment-webhook:asaas] lead criado automaticamente id=${data.id} name="${name}" email=${email} whatsapp=${whatsapp}`)
+  return data
 }
 
 export async function POST(
@@ -306,17 +343,25 @@ export async function POST(
     }
 
     console.log(`[payment-webhook:asaas] company=${companyId} buscando lead email=${email} phone=${rawPhone}`)
-    // Busca lead por email ou telefone
-    const lead = await findLead(companyId, email, rawPhone, supabase)
+    // Busca lead por email ou telefone — se não encontrar, cria automaticamente
+    let lead = await findLead(companyId, email, rawPhone, supabase)
+
     if (!lead) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} lead NÃO ENCONTRADO email=${email} phone=${rawPhone}`)
-      await logEvent({ status: 'erro', evento: event, eventoEntrada, payment_id: payment.id, customer_id: customerId, email, telefone: rawPhone, erro: 'Lead não encontrado — nenhum lead com esse e-mail ou telefone no Zaapply' })
-      return NextResponse.json({ received: true })
+      console.warn(`[payment-webhook:asaas] company=${companyId} lead não encontrado email=${email} phone=${rawPhone} — criando automaticamente`)
+      const initialStatus = eventoEntrada === 'asaas_pago' ? 'Fechado' : 'Lead novo'
+      lead = await createLeadFromAsaasCustomer(companyId, customer, value, initialStatus, supabase)
+
+      if (!lead) {
+        await logEvent({ status: 'erro', evento: event, eventoEntrada, payment_id: payment.id, customer_id: customerId, email, telefone: rawPhone, erro: 'Falha ao criar lead automaticamente' })
+        return NextResponse.json({ received: true })
+      }
+
+      await logEvent({ status: 'lead_criado', evento: event, eventoEntrada, payment_id: payment.id, customer_id: customerId, email, telefone: rawPhone, lead_id: lead.id })
+    } else {
+      console.log(`[payment-webhook:asaas] company=${companyId} lead encontrado id=${lead.id} name="${lead.contact_name || lead.company_name}"`)
     }
-    console.log(`[payment-webhook:asaas] company=${companyId} lead encontrado id=${lead.id} name="${lead.contact_name || lead.company_name}"`)
 
-
-    // Pagamento confirmado: move lead para Fechado
+    // Pagamento confirmado: move lead para Fechado (se ainda não estiver)
     if (eventoEntrada === 'asaas_pago') {
       const updates: Record<string, any> = { status: 'Fechado' }
       if (value && !lead.project_value) updates.project_value = value
