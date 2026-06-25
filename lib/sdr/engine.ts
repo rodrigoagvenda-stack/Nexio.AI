@@ -2981,8 +2981,35 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       // Salva mensagem enviada pelo operador direto do WhatsApp na UI
       const outPhone = normalizePhone(body.chat?.phone || '')
       if (outPhone) {
-        const outContactName: string = body.chat?.wa_contactName || body.chat?.name || body.chat?.pushName || ''
         const outMsg = body.message as any
+
+        // Mensagem editada pelo operador: atualiza em vez de inserir
+        if (outMsg?.messageType === 'editedMessage' || outMsg?.editedMessage) {
+          const edited = outMsg?.editedMessage
+          const originalMsgId: string = edited?.key?.id ?? ''
+          const newText: string = edited?.message?.conversation
+            || edited?.message?.extendedTextMessage?.text
+            || edited?.message?.text
+            || ''
+          if (originalMsgId && newText) {
+            const editSvc = createServiceClient()
+            const { data: existingOut } = await editSvc
+              .from('mensagens_do_whatsapp')
+              .select('id')
+              .eq('whatsapp_message_id', originalMsgId)
+              .eq('company_id', companyId)
+              .maybeSingle()
+            if (existingOut?.id) {
+              await editSvc.from('mensagens_do_whatsapp')
+                .update({ texto_da_mensagem: newText, is_edited: true, edited_at: new Date().toISOString() })
+                .eq('id', existingOut.id)
+              console.log(`[SDR:${companyId}] fromMe editedMessage atualizado — db_id=${existingOut.id}`)
+            }
+          }
+          return true
+        }
+
+        const outContactName: string = body.chat?.wa_contactName || body.chat?.name || body.chat?.pushName || ''
         const outMsgType = detectMessageType(body.message)
         const outText = outMsg?.text || outMsg?.conversation || outMsg?.extendedTextMessage?.text || outMsg?.body || ''
         const outMediaUrl: string | undefined = outMsg?.url || outMsg?.mediaUrl || outMsg?.media?.url || undefined
@@ -3109,6 +3136,34 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     const msg = body.message as any
     const msgType = detectMessageType(body.message)
     const isMedia = msgType === 'audio' || msgType === 'image' || msgType === 'document' || msgType === 'video'
+
+    // Mensagem editada: uazapi envia messageType="editedMessage" com msg.editedMessage.key.id (original) e novo texto
+    if (msg?.messageType === 'editedMessage' || msg?.editedMessage) {
+      const edited = msg?.editedMessage
+      const originalMsgId: string = edited?.key?.id ?? ''
+      const newText: string = edited?.message?.conversation
+        || edited?.message?.extendedTextMessage?.text
+        || edited?.message?.text
+        || ''
+      console.log(`[SDR:${companyId}] editedMessage — originalId="${originalMsgId}" newText="${newText.slice(0, 80)}"`)
+      if (originalMsgId && newText) {
+        const { data: existingMsg } = await supabase
+          .from('mensagens_do_whatsapp')
+          .select('id')
+          .eq('whatsapp_message_id', originalMsgId)
+          .eq('company_id', companyId)
+          .maybeSingle()
+        if (existingMsg?.id) {
+          await supabase.from('mensagens_do_whatsapp')
+            .update({ texto_da_mensagem: newText, is_edited: true, edited_at: new Date().toISOString() })
+            .eq('id', existingMsg.id)
+          console.log(`[SDR:${companyId}] mensagem atualizada (editedMessage) — db_id=${existingMsg.id}`)
+        } else {
+          console.warn(`[SDR:${companyId}] editedMessage: originalMsgId=${originalMsgId} não encontrado no DB`)
+        }
+      }
+      return true
+    }
 
     // vote pode ser array de objetos {name, localId} (UAZapi) ou array de strings
     const voteText: string = Array.isArray(msg?.vote)
