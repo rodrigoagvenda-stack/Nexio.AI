@@ -31,6 +31,7 @@ import { SlidersHorizontalIcon } from '@/components/ui/sliders-horizontal'
 import { FilePenLineIcon } from '@/components/ui/file-pen-line'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
+import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect'
 
 // ── Niche icons ────────────────────────────────────────────────────────────
 
@@ -80,6 +81,10 @@ interface SdrConfig {
   google_calendar_id: string; flow_id: string | null
   inbox_mode: 'suporte' | 'vendas'
   event_title_template: string
+  whatsapp_provider: 'uazapi' | 'meta'
+  meta_wa_phone_number_id: string | null
+  meta_wa_waba_id: string | null
+  meta_wa_token: string | null
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -2166,6 +2171,8 @@ export default function SdrConfigPage() {
     conhecimento_ativo: true, objecoes_ativo: false,
     google_calendar_id: '', flow_id: null, inbox_mode: 'suporte',
     event_title_template: '',
+    whatsapp_provider: 'uazapi',
+    meta_wa_phone_number_id: null, meta_wa_waba_id: null, meta_wa_token: null,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -2600,6 +2607,47 @@ export default function SdrConfigPage() {
                   {/* ── Integrações ── */}
                   {activeTab === 'integracoes' && (
                     <div className="space-y-5">
+
+                      {/* ── WhatsApp via Meta Cloud API (CoEx) ── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Wifi className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">WhatsApp — Meta Cloud API</p>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium ml-auto">Oficial</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Conecte via CoEx — número permanece ativo no WhatsApp Business App e na API simultaneamente.
+                        </p>
+                        <MetaWhatsAppConnect
+                          connected={config.whatsapp_provider === 'meta' && !!config.meta_wa_phone_number_id}
+                          phoneNumber={config.meta_wa_phone_number_id}
+                          onConnected={(phoneNumberId, wabaId, token, phone) => {
+                            setConfig((p) => ({
+                              ...p,
+                              whatsapp_provider: 'meta',
+                              meta_wa_phone_number_id: phoneNumberId,
+                              meta_wa_waba_id: wabaId,
+                              meta_wa_token: token,
+                              instance_phone: phone,
+                              instance_status: 'connected',
+                            }))
+                          }}
+                          onDisconnect={async () => {
+                            await fetch('/api/meta/whatsapp/connect', { method: 'DELETE' })
+                            setConfig((p) => ({
+                              ...p,
+                              whatsapp_provider: 'uazapi',
+                              meta_wa_phone_number_id: null,
+                              meta_wa_waba_id: null,
+                              meta_wa_token: null,
+                            }))
+                            toast({ title: 'Meta WhatsApp desconectado' })
+                          }}
+                        />
+                      </div>
+
+                      <div className="border-t border-border" />
+
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
