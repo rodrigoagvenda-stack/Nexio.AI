@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, CheckCircle2, X, Wifi } from 'lucide-react'
@@ -19,41 +19,33 @@ interface Props {
   onDisconnect: () => void
 }
 
+const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
+
 export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
-  const [sdkReady, setSdkReady] = useState(false)
+  const sdkRef = useRef(false)
 
   useEffect(() => {
-    function initFB() {
-      window.FB.init({
-        appId: process.env.NEXT_PUBLIC_META_APP_ID!,
-        autoLogAppEvents: true,
-        xfbml: true,
-        version: 'v21.0',
-      })
-      setSdkReady(true)
+    function onSDKLoad() {
+      window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
+      sdkRef.current = true
     }
 
-    // Se o SDK já carregou, chama init diretamente
     if (window.FB) {
-      initFB()
-      return
-    }
-
-    // Senão, aguarda o script chamar fbAsyncInit
-    window.fbAsyncInit = initFB
-
-    if (!document.getElementById('facebook-jssdk')) {
-      const script = document.createElement('script')
-      script.id = 'facebook-jssdk'
-      script.src = 'https://connect.facebook.net/pt_BR/sdk.js'
-      script.async = true
-      script.defer = true
-      document.body.appendChild(script)
+      // SDK já presente — inicializa agora
+      onSDKLoad()
+    } else {
+      window.fbAsyncInit = onSDKLoad
+      if (!document.getElementById('facebook-jssdk')) {
+        const s = document.createElement('script')
+        s.id = 'facebook-jssdk'
+        s.src = 'https://connect.facebook.net/pt_BR/sdk.js'
+        s.async = true
+        document.body.appendChild(s)
+      }
     }
   }, [])
 
-  // Recebe mensagem de sessão do Embedded Signup via postMessage
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') return
@@ -61,10 +53,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
         if (data?.type === 'WA_EMBEDDED_SIGNUP' && data?.event === 'FINISH') {
           const { phone_number_id, waba_id } = data.data ?? {}
-          if (phone_number_id && waba_id) {
-            // Já temos phone_number_id e waba_id — agora pedimos o token via backend
-            handleFinish(phone_number_id, waba_id)
-          }
+          if (phone_number_id && waba_id) handleFinish(phone_number_id, waba_id)
         }
       } catch {}
     }
@@ -74,7 +63,6 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
 
   async function handleFinish(phoneNumberId: string, wabaId: string) {
     try {
-      // Pega o token de curta duração do FB e troca por longa duração no backend
       window.FB.getLoginStatus(async (response: any) => {
         const shortToken = response?.authResponse?.accessToken
         if (!shortToken) {
@@ -82,7 +70,6 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           setLoading(false)
           return
         }
-
         const res = await fetch('/api/meta/whatsapp/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -105,10 +92,12 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   }
 
   function launch() {
-    if (!sdkReady || !window.FB) {
-      toast({ title: 'SDK Meta ainda carregando, tente novamente', variant: 'destructive' })
+    if (!window.FB) {
+      toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
       return
     }
+    // Garante FB.init() antes do login, independente do estado do sdkRef
+    window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
     setLoading(true)
     window.FB.login(
       (response: any) => {
@@ -116,17 +105,12 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           setLoading(false)
           toast({ title: 'Login Meta cancelado', variant: 'destructive' })
         }
-        // Resultado chega via postMessage (handleMessage acima)
       },
       {
         config_id: process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID,
         response_type: 'code',
         override_default_response_type: true,
-        extras: {
-          setup: {},
-          featureType: 'coex',
-          sessionInfoVersion: '3',
-        },
+        extras: { setup: {}, featureType: 'coex', sessionInfoVersion: '3' },
       }
     )
   }
@@ -151,14 +135,11 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   return (
     <Button
       onClick={launch}
-      disabled={loading || !sdkReady}
+      disabled={loading}
       className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white"
       size="sm"
     >
-      {loading
-        ? <Loader2 className="h-4 w-4 animate-spin" />
-        : <Wifi className="h-4 w-4" />
-      }
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
       {loading ? 'Conectando...' : 'Conectar via Meta (CoEx)'}
     </Button>
   )
