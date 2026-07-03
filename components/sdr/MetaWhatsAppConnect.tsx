@@ -24,11 +24,13 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   const [sdkReady, setSdkReady] = useState(false)
 
   useEffect(() => {
-    if (document.getElementById('facebook-jssdk')) {
+    // Se FB já inicializado, pronto
+    if (window.FB) {
       setSdkReady(true)
       return
     }
 
+    // fbAsyncInit é chamado pelo SDK depois que o script carrega
     window.fbAsyncInit = function () {
       window.FB.init({
         appId: process.env.NEXT_PUBLIC_META_APP_ID!,
@@ -39,12 +41,15 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
       setSdkReady(true)
     }
 
-    const script = document.createElement('script')
-    script.id = 'facebook-jssdk'
-    script.src = 'https://connect.facebook.net/pt_BR/sdk.js'
-    script.async = true
-    script.defer = true
-    document.body.appendChild(script)
+    // Só adiciona o script se ainda não existe
+    if (!document.getElementById('facebook-jssdk')) {
+      const script = document.createElement('script')
+      script.id = 'facebook-jssdk'
+      script.src = 'https://connect.facebook.net/pt_BR/sdk.js'
+      script.async = true
+      script.defer = true
+      document.body.appendChild(script)
+    }
   }, [])
 
   // Recebe mensagem de sessão do Embedded Signup via postMessage
