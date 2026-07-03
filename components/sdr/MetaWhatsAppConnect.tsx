@@ -19,7 +19,7 @@ interface Props {
   onDisconnect: () => void
 }
 
-const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID ?? '155015019356201'
+const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
 
 export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
