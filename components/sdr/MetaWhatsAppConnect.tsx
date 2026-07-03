@@ -24,14 +24,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   const [sdkReady, setSdkReady] = useState(false)
 
   useEffect(() => {
-    // Se FB já inicializado, pronto
-    if (window.FB) {
-      setSdkReady(true)
-      return
-    }
-
-    // fbAsyncInit é chamado pelo SDK depois que o script carrega
-    window.fbAsyncInit = function () {
+    function initFB() {
       window.FB.init({
         appId: process.env.NEXT_PUBLIC_META_APP_ID!,
         autoLogAppEvents: true,
@@ -41,7 +34,15 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
       setSdkReady(true)
     }
 
-    // Só adiciona o script se ainda não existe
+    // Se o SDK já carregou, chama init diretamente
+    if (window.FB) {
+      initFB()
+      return
+    }
+
+    // Senão, aguarda o script chamar fbAsyncInit
+    window.fbAsyncInit = initFB
+
     if (!document.getElementById('facebook-jssdk')) {
       const script = document.createElement('script')
       script.id = 'facebook-jssdk'
