@@ -19,7 +19,7 @@ interface Props {
   onDisconnect: () => void
 }
 
-const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
+const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID ?? '155015019356201'
 
 export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
@@ -97,6 +97,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
       return
     }
     // Garante FB.init() antes do login, independente do estado do sdkRef
+    console.log('[MetaConnect] launch — FB_APP_ID:', FB_APP_ID)
     window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
     setLoading(true)
     window.FB.login(
