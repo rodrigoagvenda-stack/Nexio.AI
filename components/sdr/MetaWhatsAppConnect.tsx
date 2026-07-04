@@ -20,19 +20,20 @@ interface Props {
 }
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
+const CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID!
 
 export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
-  const sdkRef = useRef(false)
+  // Armazena o code do FB.login (expira em 30s) e os dados do postMessage
+  // CoEx: postMessage chega ANTES do FB.login callback — precisamos sincronizar os dois
+  const codeRef = useRef<string | null>(null)
+  const pendingRef = useRef<{ phoneNumberId?: string; wabaId: string; coex: boolean } | null>(null)
 
   useEffect(() => {
     function onSDKLoad() {
       window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
-      sdkRef.current = true
     }
-
     if (window.FB) {
-      // SDK já presente — inicializa agora
       onSDKLoad()
     } else {
       window.fbAsyncInit = onSDKLoad
@@ -48,43 +49,65 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
-      if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') return
+      if (!event.origin.endsWith('facebook.com')) return
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-        if (data?.type === 'WA_EMBEDDED_SIGNUP' && data?.event === 'FINISH') {
+        if (data?.type !== 'WA_EMBEDDED_SIGNUP') return
+        console.log('[MetaConnect] WA_EMBEDDED_SIGNUP event:', data.event, JSON.stringify(data.data))
+
+        if (data.event === 'FINISH') {
+          // Fluxo padrão Cloud API — traz phone_number_id + waba_id
           const { phone_number_id, waba_id } = data.data ?? {}
-          if (phone_number_id && waba_id) handleFinish(phone_number_id, waba_id)
+          if (!phone_number_id || !waba_id) return
+          if (codeRef.current) {
+            submit(codeRef.current, phone_number_id, waba_id, false)
+          } else {
+            pendingRef.current = { phoneNumberId: phone_number_id, wabaId: waba_id, coex: false }
+          }
+        } else if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+          // Fluxo CoEx — só traz waba_id, sem phone_number_id
+          const { waba_id } = data.data ?? {}
+          if (!waba_id) return
+          if (codeRef.current) {
+            submit(codeRef.current, undefined, waba_id, true)
+          } else {
+            pendingRef.current = { wabaId: waba_id, coex: true }
+          }
+        } else if (data.event === 'CANCEL') {
+          const isErr = !!data.data?.error_code
+          console.log('[MetaConnect] CANCEL —', isErr
+            ? `erro ${data.data.error_code}: ${data.data.error_message}`
+            : `step: ${data.data?.current_step}`)
+          toast({
+            title: isErr ? `Erro Meta: ${data.data.error_message}` : 'Conexão cancelada',
+            variant: 'destructive',
+          })
+          setLoading(false)
         }
-      } catch {}
+      } catch (e) {
+        console.error('[MetaConnect] postMessage parse error:', e)
+      }
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
   }, [])
 
-  async function handleFinish(phoneNumberId: string, wabaId: string) {
+  async function submit(code: string, phoneNumberId: string | undefined, wabaId: string, coex: boolean) {
     try {
-      window.FB.getLoginStatus(async (response: any) => {
-        const shortToken = response?.authResponse?.accessToken
-        if (!shortToken) {
-          toast({ title: 'Erro ao obter token Meta', variant: 'destructive' })
-          setLoading(false)
-          return
-        }
-        const res = await fetch('/api/meta/whatsapp/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shortToken, phoneNumberId, wabaId }),
-        })
-        const json = await res.json()
-        if (!res.ok) {
-          toast({ title: json.error ?? 'Erro ao conectar', variant: 'destructive' })
-          setLoading(false)
-          return
-        }
-        onConnected(phoneNumberId, wabaId, json.token, json.phone ?? phoneNumberId)
-        toast({ title: 'WhatsApp conectado via Meta (CoEx) ✅' })
-        setLoading(false)
+      const res = await fetch('/api/meta/whatsapp/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, phoneNumberId, wabaId, coex }),
       })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: json.error ?? 'Erro ao conectar', variant: 'destructive' })
+        setLoading(false)
+        return
+      }
+      onConnected(json.phoneNumberId ?? phoneNumberId ?? '', wabaId, json.token, json.phone ?? wabaId)
+      toast({ title: 'WhatsApp conectado via Meta ✅' })
+      setLoading(false)
     } catch (e: any) {
       toast({ title: e?.message ?? 'Erro ao conectar', variant: 'destructive' })
       setLoading(false)
@@ -96,22 +119,39 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
       toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
       return
     }
-    // Garante FB.init() antes do login, independente do estado do sdkRef
-    console.log('[MetaConnect] launch — FB_APP_ID:', FB_APP_ID)
+    console.log('[MetaConnect] launch — APP_ID:', FB_APP_ID, 'CONFIG_ID:', CONFIG_ID)
     window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
+    codeRef.current = null
+    pendingRef.current = null
     setLoading(true)
+
     window.FB.login(
       (response: any) => {
-        if (!response?.authResponse) {
+        console.log('[MetaConnect] FB.login callback — code:', response?.authResponse?.code ? 'recebido' : 'ausente')
+        if (response?.authResponse?.code) {
+          const code = response.authResponse.code
+          codeRef.current = code
+          // Se o postMessage já chegou antes do callback, dispara agora
+          if (pendingRef.current) {
+            const { phoneNumberId, wabaId, coex } = pendingRef.current
+            pendingRef.current = null
+            submit(code, phoneNumberId, wabaId, coex)
+          }
+          // Senão aguarda o postMessage chegar
+        } else {
           setLoading(false)
           toast({ title: 'Login Meta cancelado', variant: 'destructive' })
         }
       },
       {
-        config_id: process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID,
+        config_id: CONFIG_ID,
         response_type: 'code',
         override_default_response_type: true,
-        extras: { setup: {}, featureType: 'coex', sessionInfoVersion: '3' },
+        extras: {
+          version: 'v3',
+          setup: {},
+          featureType: 'whatsapp_business_app_onboarding',
+        },
       }
     )
   }
