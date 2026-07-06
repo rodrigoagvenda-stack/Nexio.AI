@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
+  try {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
 
@@ -113,6 +114,10 @@ export async function POST(req: NextRequest) {
 
   console.log(`[meta/connect] empresa ${context.companyId} conectada — wabaId=${finalWabaId} phone=${phone}`)
   return NextResponse.json({ ok: true, phone, token: longToken, phoneNumberId: finalPhoneNumberId, wabaId: finalWabaId })
+  } catch (e: any) {
+    console.error('[meta/connect] unhandled error:', e)
+    return NextResponse.json({ error: e?.message ?? 'Erro interno' }, { status: 500 })
+  }
 }
 
 export async function DELETE(req: NextRequest) {

@@ -161,15 +161,15 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
             pendingRef.current = null
             submit(code, phoneNumberId, wabaId, coex)
           } else {
-            // Code expira em 30s — se FINISH não chegar, tenta auto-discover via /me/businesses
+            // FINISH event chega em <2s se vier — espera 5s e auto-discover (code expira em 30s)
             codeTimeoutRef.current = setTimeout(() => {
-              console.warn('[MetaConnect] FINISH não chegou em 30s — tentando auto-discover WABA')
+              console.warn('[MetaConnect] FINISH não chegou em 5s — tentando auto-discover WABA')
               if (codeRef.current) {
                 submit(codeRef.current, undefined, '', true)
               } else {
                 reset('Fluxo incompleto. Tente novamente.')
               }
-            }, 30_000)
+            }, 5_000)
           }
         } else {
           console.log('[MetaConnect] sem code — status:', response?.status, '| authResponse:', JSON.stringify(response?.authResponse))
