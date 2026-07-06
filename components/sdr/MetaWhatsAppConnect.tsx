@@ -24,14 +24,15 @@ const CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID!
 
 export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
-  // Armazena o code do FB.login (expira em 30s) e os dados do postMessage
-  // CoEx: postMessage chega ANTES do FB.login callback — precisamos sincronizar os dois
   const codeRef = useRef<string | null>(null)
   const pendingRef = useRef<{ phoneNumberId?: string; wabaId: string; coex: boolean } | null>(null)
+  const globalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const codeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     function onSDKLoad() {
       window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
+      console.log('[MetaConnect] SDK init — APP_ID:', FB_APP_ID)
     }
     if (window.FB) {
       onSDKLoad()
@@ -47,42 +48,54 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
     }
   }, [])
 
+  function reset(msg?: string) {
+    if (globalTimeoutRef.current) clearTimeout(globalTimeoutRef.current)
+    if (codeTimeoutRef.current) clearTimeout(codeTimeoutRef.current)
+    codeRef.current = null
+    pendingRef.current = null
+    setLoading(false)
+    if (msg) toast({ title: msg, variant: 'destructive' })
+  }
+
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (!event.origin.endsWith('facebook.com')) return
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
         if (data?.type !== 'WA_EMBEDDED_SIGNUP') return
-        console.log('[MetaConnect] WA_EMBEDDED_SIGNUP event:', data.event, JSON.stringify(data.data))
+
+        console.log('[MetaConnect] postMessage ▶', data.event, JSON.stringify(data.data ?? {}))
 
         if (data.event === 'FINISH') {
-          // Fluxo padrão Cloud API — traz phone_number_id + waba_id
           const { phone_number_id, waba_id } = data.data ?? {}
-          if (!phone_number_id || !waba_id) return
+          console.log('[MetaConnect] FINISH — phone_number_id:', phone_number_id, '| waba_id:', waba_id)
+          if (!phone_number_id || !waba_id) { console.warn('[MetaConnect] FINISH sem ids'); return }
           if (codeRef.current) {
+            if (codeTimeoutRef.current) clearTimeout(codeTimeoutRef.current)
             submit(codeRef.current, phone_number_id, waba_id, false)
           } else {
             pendingRef.current = { phoneNumberId: phone_number_id, wabaId: waba_id, coex: false }
+            console.log('[MetaConnect] FINISH salvo — aguardando code')
           }
         } else if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
-          // Fluxo CoEx — só traz waba_id, sem phone_number_id
           const { waba_id } = data.data ?? {}
-          if (!waba_id) return
+          console.log('[MetaConnect] FINISH_COEX — waba_id:', waba_id)
+          if (!waba_id) { console.warn('[MetaConnect] FINISH_COEX sem waba_id'); return }
           if (codeRef.current) {
+            if (codeTimeoutRef.current) clearTimeout(codeTimeoutRef.current)
             submit(codeRef.current, undefined, waba_id, true)
           } else {
             pendingRef.current = { wabaId: waba_id, coex: true }
+            console.log('[MetaConnect] FINISH_COEX salvo — aguardando code')
           }
         } else if (data.event === 'CANCEL') {
           const isErr = !!data.data?.error_code
           console.log('[MetaConnect] CANCEL —', isErr
             ? `erro ${data.data.error_code}: ${data.data.error_message}`
             : `step: ${data.data?.current_step}`)
-          toast({
-            title: isErr ? `Erro Meta: ${data.data.error_message}` : 'Conexão cancelada',
-            variant: 'destructive',
-          })
-          setLoading(false)
+          reset(isErr ? `Erro Meta: ${data.data.error_message}` : 'Conexão cancelada')
+        } else {
+          console.log('[MetaConnect] evento desconhecido:', data.event)
         }
       } catch (e) {
         console.error('[MetaConnect] postMessage parse error:', e)
@@ -93,6 +106,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   }, [])
 
   async function submit(code: string, phoneNumberId: string | undefined, wabaId: string, coex: boolean) {
+    console.log('[MetaConnect] submit → /api/meta/whatsapp/connect | coex:', coex, '| wabaId:', wabaId, '| phoneNumberId:', phoneNumberId)
     try {
       const res = await fetch('/api/meta/whatsapp/connect', {
         method: 'POST',
@@ -100,17 +114,17 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
         body: JSON.stringify({ code, phoneNumberId, wabaId, coex }),
       })
       const json = await res.json()
+      console.log('[MetaConnect] backend response', res.status, JSON.stringify(json))
       if (!res.ok) {
-        toast({ title: json.error ?? 'Erro ao conectar', variant: 'destructive' })
-        setLoading(false)
+        reset(json.error ?? 'Erro ao conectar')
         return
       }
       onConnected(json.phoneNumberId ?? phoneNumberId ?? '', wabaId, json.token, json.phone ?? wabaId)
       toast({ title: 'WhatsApp conectado via Meta ✅' })
-      setLoading(false)
+      reset()
     } catch (e: any) {
-      toast({ title: e?.message ?? 'Erro ao conectar', variant: 'destructive' })
-      setLoading(false)
+      console.error('[MetaConnect] submit error:', e)
+      reset(e?.message ?? 'Erro ao conectar')
     }
   }
 
@@ -119,28 +133,43 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
       toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
       return
     }
-    console.log('[MetaConnect] launch — APP_ID:', FB_APP_ID, 'CONFIG_ID:', CONFIG_ID)
+    console.log('[MetaConnect] launch — APP_ID:', FB_APP_ID, '| CONFIG_ID:', CONFIG_ID)
     window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
     codeRef.current = null
     pendingRef.current = null
     setLoading(true)
 
+    // Timeout global: popup fechado sem evento — reseta após 3 minutos
+    globalTimeoutRef.current = setTimeout(() => {
+      console.warn('[MetaConnect] timeout global — nenhum evento em 3 min')
+      reset('Tempo esgotado. Tente novamente.')
+    }, 180_000)
+
     window.FB.login(
       (response: any) => {
-        console.log('[MetaConnect] FB.login callback — code:', response?.authResponse?.code ? 'recebido' : 'ausente')
+        if (globalTimeoutRef.current) clearTimeout(globalTimeoutRef.current)
+        console.log('[MetaConnect] FB.login callback — status:', response?.status,
+          '| authResponse:', JSON.stringify(response?.authResponse ?? null))
+
         if (response?.authResponse?.code) {
           const code = response.authResponse.code
           codeRef.current = code
-          // Se o postMessage já chegou antes do callback, dispara agora
+          console.log('[MetaConnect] code recebido — aguardando FINISH postMessage')
+
           if (pendingRef.current) {
             const { phoneNumberId, wabaId, coex } = pendingRef.current
             pendingRef.current = null
             submit(code, phoneNumberId, wabaId, coex)
+          } else {
+            // Code expira em 30s — se FINISH não chegar, cancela
+            codeTimeoutRef.current = setTimeout(() => {
+              console.warn('[MetaConnect] code expirado sem FINISH event')
+              reset('Fluxo incompleto. O FINISH event não chegou em 30s.')
+            }, 30_000)
           }
-          // Senão aguarda o postMessage chegar
         } else {
-          setLoading(false)
-          toast({ title: 'Login Meta cancelado', variant: 'destructive' })
+          console.log('[MetaConnect] sem code — status:', response?.status, '| authResponse:', JSON.stringify(response?.authResponse))
+          reset('Login Meta cancelado ou incompleto')
         }
       },
       {
