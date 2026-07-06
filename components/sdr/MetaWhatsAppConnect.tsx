@@ -184,6 +184,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           version: 'v3',
           setup: {},
           featureType: 'whatsapp_business_app_onboarding',
+          sessionInfoVersion: 3,
         },
       }
     )

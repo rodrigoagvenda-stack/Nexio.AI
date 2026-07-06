@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const tokenJson = await tokenRes.json()
   if (!tokenRes.ok || !tokenJson.access_token) {
     console.error('[meta/connect] token exchange error:', tokenJson)
-    return NextResponse.json({ error: 'Falha ao trocar code por token Meta' }, { status: 502 })
+    return NextResponse.json({ error: 'Falha ao trocar code por token Meta' }, { status: 400 })
   }
   const longToken: string = tokenJson.access_token
 
