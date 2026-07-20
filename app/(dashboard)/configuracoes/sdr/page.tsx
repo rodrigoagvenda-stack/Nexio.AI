@@ -21,6 +21,7 @@ import {
   Monitor, Wand2, Smile, Activity, Leaf, Stethoscope,
   Heart, BarChart2, ShoppingCart, GraduationCap,
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
+  Copy, ExternalLink, TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 import { BotMessageSquareIcon } from '@/components/ui/bot-message-square'
@@ -85,6 +86,8 @@ interface SdrConfig {
   meta_wa_phone_number_id: string | null
   meta_wa_waba_id: string | null
   meta_wa_token: string | null
+  meta_pixel_id: string | null
+  meta_pixel_token: string | null
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -2173,6 +2176,7 @@ export default function SdrConfigPage() {
     event_title_template: '',
     whatsapp_provider: 'uazapi',
     meta_wa_phone_number_id: null, meta_wa_waba_id: null, meta_wa_token: null,
+    meta_pixel_id: null, meta_pixel_token: null,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -2180,6 +2184,14 @@ export default function SdrConfigPage() {
   // Shared niche selection across KnowledgeBuilders
   const [sharedNicheId, setSharedNicheId] = useState('')
   const [identNicheOpen, setIdentNicheOpen] = useState(false)
+
+  // Tracking links state
+  const [trackingLinks, setTrackingLinks] = useState<{ id: number; slug: string; phone: string; mensagem?: string; utm_campaign?: string; utm_source?: string; utm_medium?: string; utm_content?: string; cliques: number; criado_em: string }[]>([])
+  const [trackingLinksLoaded, setTrackingLinksLoaded] = useState(false)
+  const [newLink, setNewLink] = useState({ phone: '', mensagem: '', utm_campaign: '', utm_source: '', utm_medium: '' })
+  const [creatingLink, setCreatingLink] = useState(false)
+  const [pixelDraft, setPixelDraft] = useState({ id: '', token: '' })
+  const [savingPixel, setSavingPixel] = useState(false)
 
   const loadConfig = useCallback(async () => {
     try {
@@ -2204,6 +2216,12 @@ export default function SdrConfigPage() {
           flow_id: data.config.flow_id ?? null,
           inbox_mode: data.config.inbox_mode ?? 'suporte',
           event_title_template: data.config.event_title_template ?? '',
+          whatsapp_provider: data.config.whatsapp_provider ?? 'uazapi',
+          meta_wa_phone_number_id: data.config.meta_wa_phone_number_id ?? null,
+          meta_wa_waba_id: data.config.meta_wa_waba_id ?? null,
+          meta_wa_token: data.config.meta_wa_token ?? null,
+          meta_pixel_id: data.config.meta_pixel_id ?? null,
+          meta_pixel_token: data.config.meta_pixel_token ?? null,
         })
         if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
         if (!data.config.flow_id) setSetupMode('choosing')
@@ -2253,6 +2271,53 @@ export default function SdrConfigPage() {
       toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' })
     } finally { setSaving(false) }
   }
+
+  const loadTrackingLinks = async () => {
+    const res = await fetch('/api/sdr/tracking-links')
+    if (res.ok) { const d = await res.json(); setTrackingLinks(d.links ?? []) }
+    setTrackingLinksLoaded(true)
+  }
+
+  const handleCreateLink = async () => {
+    if (!newLink.phone) return
+    setCreatingLink(true)
+    try {
+      const res = await fetch('/api/sdr/tracking-links', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newLink),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error)
+      setNewLink({ phone: '', mensagem: '', utm_campaign: '', utm_source: '', utm_medium: '' })
+      await loadTrackingLinks()
+      toast({ title: 'Link criado!' })
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao criar link', variant: 'destructive' })
+    } finally { setCreatingLink(false) }
+  }
+
+  const handleDeleteLink = async (id: number) => {
+    await fetch(`/api/sdr/tracking-links?id=${id}`, { method: 'DELETE' })
+    setTrackingLinks((prev) => prev.filter((l) => l.id !== id))
+  }
+
+  const handleSavePixel = async () => {
+    setSavingPixel(true)
+    try {
+      const res = await fetch('/api/sdr/config', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meta_pixel_id: pixelDraft.id, meta_pixel_token: pixelDraft.token }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      setConfig((p) => ({ ...p, meta_pixel_id: pixelDraft.id || null, meta_pixel_token: pixelDraft.token || null }))
+      setPixelDraft({ id: '', token: '' })
+      toast({ title: 'Pixel configurado!' })
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar pixel', variant: 'destructive' })
+    } finally { setSavingPixel(false) }
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.zaapply.com.br'
 
   const isConnected = config.instance_status === 'connected'
   const isConnecting = config.instance_status === 'connecting'
@@ -2674,6 +2739,149 @@ export default function SdrConfigPage() {
                           value={config.event_title_template}
                           onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
                         />
+                      </div>
+
+                      <div className="border-t border-border" />
+
+                      {/* ── Meta Pixel — Conversions API ── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">Meta Pixel — Conversions API</p>
+                          {config.meta_pixel_id && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium ml-auto">Configurado</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Dispara eventos de conversão server-side quando um lead é fechado — inclui <code className="bg-muted px-1 rounded">ctwa_clid</code> para atribuição precisa de anúncios CTWA.
+                        </p>
+                        {config.meta_pixel_id ? (
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium">Pixel <code className="bg-muted px-1 rounded">{config.meta_pixel_id}</code> ativo</p>
+                              <p className="text-[10px] text-muted-foreground">Token configurado · evento Purchase disparado ao fechar conversa</p>
+                            </div>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:text-destructive"
+                              onClick={() => { setPixelDraft({ id: config.meta_pixel_id ?? '', token: '' }); setConfig((p) => ({ ...p, meta_pixel_id: null, meta_pixel_token: null })) }}>
+                              Alterar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <p className="text-[11px] text-muted-foreground mb-1">Pixel ID</p>
+                                <Input placeholder="1234567890123456" value={pixelDraft.id}
+                                  onChange={(e) => setPixelDraft((p) => ({ ...p, id: e.target.value }))} className="h-8 text-sm" />
+                              </div>
+                              <div>
+                                <p className="text-[11px] text-muted-foreground mb-1">Access Token</p>
+                                <Input type="password" placeholder="EAAxxxxx..." value={pixelDraft.token}
+                                  onChange={(e) => setPixelDraft((p) => ({ ...p, token: e.target.value }))} className="h-8 text-sm" />
+                              </div>
+                            </div>
+                            <Button size="sm" className="h-8 text-xs" disabled={!pixelDraft.id || !pixelDraft.token || savingPixel}
+                              onClick={handleSavePixel}>
+                              {savingPixel ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                              Salvar Pixel
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-border" />
+
+                      {/* ── Links Rastreados ── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">Links Rastreados</p>
+                          <Button variant="ghost" size="sm" className="h-6 text-[11px] ml-auto px-2"
+                            onClick={() => { if (!trackingLinksLoaded) loadTrackingLinks(); else loadTrackingLinks() }}>
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Atualizar
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Crie URLs curtas que capturam UTM antes de redirecionar para o WhatsApp. Compartilhe em anúncios e bio.
+                        </p>
+
+                        {/* Form novo link */}
+                        <div className="space-y-2 mb-4 p-3 rounded-lg bg-muted/30 border border-border">
+                          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Novo link</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-[11px] text-muted-foreground mb-1">Telefone (com DDI)</p>
+                              <Input placeholder="5511999999999" value={newLink.phone}
+                                onChange={(e) => setNewLink((p) => ({ ...p, phone: e.target.value }))} className="h-8 text-sm" />
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-muted-foreground mb-1">Campanha</p>
+                              <Input placeholder="black-friday" value={newLink.utm_campaign}
+                                onChange={(e) => setNewLink((p) => ({ ...p, utm_campaign: e.target.value }))} className="h-8 text-sm" />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-[11px] text-muted-foreground mb-1">Fonte</p>
+                              <Input placeholder="instagram" value={newLink.utm_source}
+                                onChange={(e) => setNewLink((p) => ({ ...p, utm_source: e.target.value }))} className="h-8 text-sm" />
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-muted-foreground mb-1">Mídia</p>
+                              <Input placeholder="stories" value={newLink.utm_medium}
+                                onChange={(e) => setNewLink((p) => ({ ...p, utm_medium: e.target.value }))} className="h-8 text-sm" />
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[11px] text-muted-foreground mb-1">Mensagem pré-preenchida (opcional)</p>
+                            <Input placeholder="Oi! Vi seu anúncio e quero saber mais..." value={newLink.mensagem}
+                              onChange={(e) => setNewLink((p) => ({ ...p, mensagem: e.target.value }))} className="h-8 text-sm" />
+                          </div>
+                          <Button size="sm" className="h-8 text-xs w-full" disabled={!newLink.phone || creatingLink}
+                            onClick={handleCreateLink}>
+                            {creatingLink ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
+                            Gerar link
+                          </Button>
+                        </div>
+
+                        {/* Lista de links */}
+                        {!trackingLinksLoaded ? (
+                          <Button variant="outline" size="sm" className="w-full h-8 text-xs" onClick={loadTrackingLinks}>
+                            Carregar links existentes
+                          </Button>
+                        ) : trackingLinks.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">Nenhum link criado ainda.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {trackingLinks.map((link) => {
+                              const url = `${appUrl}/api/track/${link.slug}`
+                              return (
+                                <div key={link.id} className="flex items-center gap-2 p-2.5 rounded-lg border border-border bg-background text-xs">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <code className="text-primary font-medium truncate">/track/{link.slug}</code>
+                                      {link.utm_campaign && <span className="text-muted-foreground truncate">· {link.utm_campaign}</span>}
+                                    </div>
+                                    <p className="text-muted-foreground">{link.cliques} clique{link.cliques !== 1 ? 's' : ''} · +{link.phone}</p>
+                                  </div>
+                                  <button className="p-1.5 rounded hover:bg-muted transition-colors"
+                                    onClick={() => { navigator.clipboard.writeText(url); toast({ title: 'Link copiado!' }) }}>
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded hover:bg-muted transition-colors">
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                  <button className="p-1.5 rounded hover:bg-destructive/10 text-destructive transition-colors"
+                                    onClick={() => handleDeleteLink(link.id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

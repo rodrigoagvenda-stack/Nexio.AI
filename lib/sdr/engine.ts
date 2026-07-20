@@ -3325,8 +3325,19 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
               nome_do_contato: senderName || phone,
               ultima_mensagem: '',
               hora_da_ultima_mensagem: new Date().toISOString(),
+              ultima_mensagem_inbound_at: new Date().toISOString(),
+              window_expires_at: new Date(Date.now() + (referralData?.ctwaClid ? 72 : 24) * 3600000).toISOString(),
+              window_type: referralData?.ctwaClid ? 'ctwa' : 'regular',
               status_da_conversa: 'aberto',
               contagem_nao_lida: 0,
+              ...(referralData ? { lead_source: {
+                type: 'ctwa',
+                ctwa_clid: referralData.ctwaClid,
+                source_id: referralData.sourceId,
+                headline: referralData.headline,
+                source_url: referralData.sourceUrl,
+                captured_at: new Date().toISOString(),
+              }} : {}),
             })
             .select('id, id_do_lead')
             .single()
@@ -3395,11 +3406,30 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         } else {
           console.log(`[SDR:${companyId}] pre-save OK — conv=${conv.id} tipo=${tipoPreSave} texto="${dispText.slice(0, 60)}"`)
         }
+        const now = new Date()
+        // Janela de conversa: CTWA = 72h, regular = 24h (novo modelo Meta out/2026)
+        const isCtwa = !!referralData?.ctwaClid
+        const windowExpires = new Date(now.getTime() + (isCtwa ? 72 : 24) * 60 * 60 * 1000)
+
+        // lead_source: captura atribuição CTWA ou mantém o que já existe
+        const leadSource = referralData ? {
+          type: 'ctwa',
+          ctwa_clid: referralData.ctwaClid,
+          source_id: referralData.sourceId,
+          headline: referralData.headline,
+          source_url: referralData.sourceUrl,
+          captured_at: now.toISOString(),
+        } : undefined
+
         await imm.from('conversas_do_whatsapp')
           .update({
             ultima_mensagem: dispText,
-            hora_da_ultima_mensagem: new Date().toISOString(),
+            hora_da_ultima_mensagem: now.toISOString(),
+            ultima_mensagem_inbound_at: now.toISOString(),
+            window_expires_at: windowExpires.toISOString(),
+            window_type: isCtwa ? 'ctwa' : 'regular',
             contagem_nao_lida: ((conv as any).contagem_nao_lida ?? 0) + 1,
+            ...(leadSource ? { lead_source: leadSource } : {}),
           })
           .eq('id', conv.id)
       } catch (e: any) {

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image, ChevronDown, ChevronUp, Copy, Check, Save } from 'lucide-react';
+import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image, ChevronDown, ChevronUp, Copy, Check, Save, Megaphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { ChatNotesTab } from './ChatNotesTab';
@@ -21,6 +21,18 @@ import { TagsManager } from './TagsManager';
 import { AgendaTab } from './AgendaTab';
 import { MidiaTab } from './MidiaTab';
 import type { Lead } from '@/types/database.types';
+
+type LeadSource = {
+  type?: string;
+  ctwa_clid?: string;
+  source_id?: string;
+  headline?: string;
+  source_url?: string;
+  utm_campaign?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  captured_at?: string;
+}
 
 interface LeadInfoSidebarProps {
   lead: Lead;
@@ -30,6 +42,9 @@ interface LeadInfoSidebarProps {
   chatId?: number;
   tags?: string[];
   className?: string;
+  leadSource?: LeadSource | null;
+  windowExpiresAt?: string | null;
+  windowType?: 'ctwa' | 'regular' | null;
   onLeadUpdate?: (updatedLead: Lead) => void;
   onTagsUpdate?: (tags: string[]) => void;
 }
@@ -42,6 +57,9 @@ export function LeadInfoSidebar({
   chatId,
   tags = [],
   className,
+  leadSource,
+  windowExpiresAt,
+  windowType,
   onLeadUpdate,
   onTagsUpdate,
 }: LeadInfoSidebarProps) {
@@ -338,6 +356,76 @@ export function LeadInfoSidebar({
                     {tags.map((tag) => (
                       <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Origem do lead */}
+              {leadSource && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Origem</p>
+                    {windowType === 'ctwa' && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto text-purple-500 border-purple-500/40">CTWA</Badge>
+                    )}
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-xs">
+                    {leadSource.headline && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">Anúncio</p>
+                        <p className="font-medium leading-snug">{leadSource.headline}</p>
+                      </div>
+                    )}
+                    {(leadSource.utm_campaign || leadSource.utm_source) && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {leadSource.utm_campaign && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground mb-0.5">Campanha</p>
+                            <p className="font-medium truncate">{leadSource.utm_campaign}</p>
+                          </div>
+                        )}
+                        {leadSource.utm_source && (
+                          <div>
+                            <p className="text-[10px] text-muted-foreground mb-0.5">Fonte</p>
+                            <p className="font-medium truncate">{leadSource.utm_source}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {leadSource.utm_medium && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">Mídia</p>
+                        <p className="font-medium">{leadSource.utm_medium}</p>
+                      </div>
+                    )}
+                    {leadSource.source_url && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">URL do anúncio</p>
+                        <a href={leadSource.source_url} target="_blank" rel="noopener noreferrer"
+                          className="text-primary hover:underline truncate block max-w-full">
+                          {leadSource.source_url.replace(/^https?:\/\//, '')}
+                        </a>
+                      </div>
+                    )}
+                    {leadSource.ctwa_clid && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground mb-0.5">CTWA CLID</p>
+                        <p className="font-mono text-[10px] text-muted-foreground truncate">{leadSource.ctwa_clid.slice(0, 24)}…</p>
+                      </div>
+                    )}
+                    {windowExpiresAt && (() => {
+                      const diff = new Date(windowExpiresAt).getTime() - Date.now()
+                      if (diff <= 0) return <p className="text-muted-foreground">Janela de conversa encerrada</p>
+                      const h = Math.floor(diff / 3600000)
+                      const timeStr = h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h restantes` : `${h}h restantes na janela`
+                      return (
+                        <div>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">Janela gratuita</p>
+                          <p className={windowType === 'ctwa' ? 'text-purple-500 font-medium' : 'text-emerald-500 font-medium'}>{timeStr}</p>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}

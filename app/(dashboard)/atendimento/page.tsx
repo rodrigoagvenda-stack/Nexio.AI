@@ -47,6 +47,17 @@ function fmtConvTime(iso: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
+function fmtWindowBadge(expiresAt: string | null | undefined, type: string | null | undefined): { label: string; style: string } | null {
+  if (!expiresAt) return null
+  const diff = new Date(expiresAt).getTime() - Date.now()
+  if (diff <= 0) return { label: '○ Fora da janela', style: 'text-muted-foreground border-muted-foreground/30' }
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const timeStr = h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : h > 0 ? `${h}h` : `${m}min`
+  if (type === 'ctwa') return { label: `● CTWA · ${timeStr}`, style: 'text-purple-500 border-purple-500/40 bg-purple-500/5' }
+  return { label: `● Janela · ${timeStr}`, style: 'text-emerald-500 border-emerald-500/40 bg-emerald-500/5' }
+}
+
 function fmtDateLabel(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -72,6 +83,19 @@ interface Conversation {
   assigned_to?: number | null;
   agente_pausado?: boolean;
   whatsapp_photo_url?: string;
+  window_expires_at?: string | null;
+  window_type?: 'ctwa' | 'regular' | null;
+  lead_source?: {
+    type: string;
+    ctwa_clid?: string;
+    source_id?: string;
+    headline?: string;
+    source_url?: string;
+    utm_campaign?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    captured_at?: string;
+  } | null;
 }
 
 interface Message {
@@ -1536,6 +1560,14 @@ export default function AtendimentoPage() {
                         {conv.ultima_mensagem}
                       </p>
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        {(() => {
+                          const wb = fmtWindowBadge(conv.window_expires_at, conv.window_type)
+                          return wb ? (
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${wb.style}`}>
+                              {wb.label}
+                            </Badge>
+                          ) : null
+                        })()}
                         {conv.assigned_to && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/50 text-primary">
                             <UserCircle2 className="h-2.5 w-2.5 mr-0.5" />
@@ -1971,6 +2003,9 @@ export default function AtendimentoPage() {
               userId={user!.user_id}
               chatId={selectedConversation.id}
               tags={selectedConversation.etiquetas || []}
+              leadSource={selectedConversation.lead_source}
+              windowExpiresAt={selectedConversation.window_expires_at}
+              windowType={selectedConversation.window_type}
               onLeadUpdate={(updatedLead) => {
                 // Atualizar o lead na conversa selecionada
                 setSelectedConversation((prev) =>
@@ -2025,6 +2060,9 @@ export default function AtendimentoPage() {
                 userId={user!.user_id}
                 chatId={selectedConversation.id}
                 tags={selectedConversation.etiquetas || []}
+                leadSource={selectedConversation.lead_source}
+                windowExpiresAt={selectedConversation.window_expires_at}
+                windowType={selectedConversation.window_type}
                 className="flex flex-col border-0 shadow-none rounded-none bg-transparent"
                 onLeadUpdate={(updatedLead) => {
                   setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);

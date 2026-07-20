@@ -53,6 +53,12 @@ export async function GET() {
         flow_id: flow?.id ?? null,
         inbox_mode: flow?.inbox_mode ?? 'suporte',
         event_title_template: flow?.event_title_template ?? null,
+        whatsapp_provider: config.whatsapp_provider ?? 'uazapi',
+        meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
+        meta_wa_waba_id: config.meta_wa_waba_id ?? null,
+        meta_wa_token: config.meta_wa_token ? '••••••••' : null,
+        meta_pixel_id: config.meta_pixel_id ?? null,
+        meta_pixel_token: config.meta_pixel_token ? '••••••••' : null,
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -94,6 +100,8 @@ export async function PUT(request: NextRequest) {
       objecoes_ativo,
       inbox_mode,
       event_title_template,
+      meta_pixel_id,
+      meta_pixel_token,
     } = body
 
     const service = createServiceClient()
@@ -118,6 +126,10 @@ export async function PUT(request: NextRequest) {
     if (uazapi_instance_name !== undefined) configUpdates.uazapi_instance_name = uazapi_instance_name
     if (uazapi_instance_url !== undefined) configUpdates.uazapi_instance_url = uazapi_instance_url
     if (google_calendar_id !== undefined) configUpdates.google_calendar_id = google_calendar_id
+    if (meta_pixel_id !== undefined) configUpdates.meta_pixel_id = meta_pixel_id || null
+    if (meta_pixel_token && !meta_pixel_token.startsWith('••')) {
+      configUpdates.meta_pixel_token = meta_pixel_token
+    }
 
     if (uazapi_token && !uazapi_token.startsWith('••')) {
       configUpdates.uazapi_token = encrypt(uazapi_token)
