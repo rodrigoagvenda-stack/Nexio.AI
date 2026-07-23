@@ -38,7 +38,7 @@ export default function TermosPage() {
           <li>Atendimento e chat com leads em tempo real</li>
           <li>Automação de follow-up, anti-noshow e remarketing</li>
           <li>Relatórios e métricas de desempenho comercial</li>
-          <li>Integração com WhatsApp via API (UAZapi)</li>
+          <li>Integração com WhatsApp via Meta Cloud API (oficial)</li>
           <li>Captação e qualificação automática de leads</li>
         </ul>
         <p>

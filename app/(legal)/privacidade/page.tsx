@@ -114,7 +114,7 @@ export default function PrivacidadePage() {
           rows={[
             ['Supabase (EUA)', 'Banco de dados e autenticação', 'Todos os dados da plataforma'],
             ['OpenAI (EUA)', 'Geração de respostas de IA, transcrição de áudio e análise de imagens', 'Mensagens, áudios e imagens de conversas'],
-            ['UAZapi (Brasil)', 'Envio e recebimento de mensagens WhatsApp', 'Número de telefone e conteúdo das mensagens'],
+            ['Meta Platforms (EUA)', 'Envio e recebimento de mensagens WhatsApp via Meta Cloud API', 'Número de telefone e conteúdo das mensagens'],
             ['Asaas (Brasil)', 'Processamento de pagamentos e cobranças', 'Dados de faturamento e assinatura'],
             ['Vercel (EUA)', 'Hospedagem e entrega da aplicação web', 'Dados de navegação e logs de acesso'],
           ]}
