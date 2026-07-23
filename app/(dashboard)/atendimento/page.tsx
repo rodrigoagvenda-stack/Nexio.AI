@@ -32,6 +32,7 @@ import ChargeLeadModal from '@/components/crm/ChargeLeadModal';
 import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import { LinkPreviewCard } from '@/components/chat/LinkPreviewCard';
 import { ExpandableMessage } from '@/components/chat/ExpandableMessage';
+import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect';
 import type { Lead } from '@/types/database.types';
 
 const atendimentoPhotoCache = new Map<string, string | null>()
@@ -161,6 +162,7 @@ export default function AtendimentoPage() {
   const [waConnecting, setWaConnecting] = useState(false);
   const [waLoading, setWaLoading] = useState(true);
   const [waInstanceName, setWaInstanceName] = useState<string | null>(null);
+  const [waProvider, setWaProvider] = useState<'uazapi' | 'meta'>('uazapi');
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -182,6 +184,7 @@ export default function AtendimentoPage() {
       setWaQrcode(data.qrcode ?? null);
       setWaPairingCode(data.pairingCode ?? null);
       setWaInstanceName(data.instanceName ?? null);
+      setWaProvider(data.provider ?? 'uazapi');
     } catch {} finally {
       setWaLoading(false);
     }
@@ -226,7 +229,7 @@ export default function AtendimentoPage() {
   // Auto-connect: só dispara depois da verificação inicial confirmar desconectado
   useEffect(() => {
     if (waLoading) return;
-    if (waStatus === 'disconnected' && company?.id && !waConnecting) {
+    if (waStatus === 'disconnected' && company?.id && !waConnecting && waProvider === 'uazapi') {
       handleWaConnect();
     }
   }, [waLoading]);
@@ -1332,7 +1335,58 @@ export default function AtendimentoPage() {
     );
   }
 
-  // ── Tela de conexão WhatsApp (estilo WhatsApp Web) ────────────────────────
+  // ── Tela Meta CoEx ─────────────────────────────────────────────────────────
+  if (waStatus !== 'connected' && waProvider === 'meta') {
+    return (
+      <div className="h-full w-full flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-background p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center gap-3 px-6 py-4 bg-[#1877F2]/5 border-b border-[#1877F2]/10">
+              <div className="w-9 h-9 rounded-xl bg-[#1877F2] flex items-center justify-center shrink-0">
+                <Wifi className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-base font-semibold">Meta Cloud API</h1>
+                <p className="text-xs text-muted-foreground">WhatsApp Business oficial</p>
+              </div>
+              <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-semibold border border-emerald-500/20">OFICIAL</span>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-5">
+              <ul className="space-y-3">
+                {[
+                  'Número nunca é banido — API oficial Meta',
+                  'CoEx: WhatsApp Business App + nuvem simultaneamente',
+                  'Sem QR Code — autenticação via Facebook Business',
+                  'Janela de 72h para leads de anúncios (Click-to-WhatsApp)',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-white text-[9px] font-bold leading-none">✓</span>
+                    </div>
+                    <span className="text-sm text-foreground/80">{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <MetaWhatsAppConnect
+                connected={false}
+                onConnected={(_phoneNumberId, _wabaId, _token, phone) => {
+                  setWaStatus('connected');
+                  setWaPhone(phone);
+                }}
+                onDisconnect={() => {}}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tela de conexão WhatsApp via uazapi (QR Code) ─────────────────────────
   if (waStatus !== 'connected') {
     return (
       <div className="h-full w-full flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-background">
@@ -1342,8 +1396,8 @@ export default function AtendimentoPage() {
               {/* Lado esquerdo — instruções */}
               <div className="flex-1 p-8 flex flex-col gap-6">
                 <div>
-                  <h1 className="text-2xl font-light text-foreground mb-1">Use o WhatsApp no computador</h1>
-                  <p className="text-sm text-muted-foreground">Conecte seu número para começar a atender conversas</p>
+                  <h1 className="text-2xl font-light text-foreground mb-1">Conectar WhatsApp</h1>
+                  <p className="text-sm text-muted-foreground">Escaneie o QR code para começar a atender</p>
                 </div>
                 <ol className="space-y-4">
                   {[

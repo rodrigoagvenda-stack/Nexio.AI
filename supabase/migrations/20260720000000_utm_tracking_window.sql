@@ -35,7 +35,7 @@ ALTER TABLE tracking_links ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "tracking_links_company_isolation" ON tracking_links
   USING (company_id = (
-    SELECT company_id FROM users WHERE id = auth.uid() LIMIT 1
+    SELECT company_id FROM users WHERE auth_user_id = auth.uid() LIMIT 1
   ));
 
 -- Tabela de cliques nos links rastreados (para atribuição quando lead chegar no WA)

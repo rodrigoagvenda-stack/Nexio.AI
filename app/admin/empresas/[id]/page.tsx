@@ -573,7 +573,7 @@ export default function EmpresaDetailPage() {
             </div>
 
             {/* Features */}
-            <div className="p-5">
+            <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">Trial SaaS</p>
@@ -582,6 +582,16 @@ export default function EmpresaDetailPage() {
                 <Switch
                   checked={company.trial_enabled ?? false}
                   onCheckedChange={(v) => setCompany({ ...company, trial_enabled: v })}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                <div>
+                  <p className="text-sm font-medium">API Não Oficial (uazapi)</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Permite usar uazapi em vez da Meta Cloud API</p>
+                </div>
+                <Switch
+                  checked={company.allow_uazapi ?? true}
+                  onCheckedChange={(v) => setCompany({ ...company, allow_uazapi: v })}
                 />
               </div>
             </div>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 
-// GET /api/sdr/status — consulta status da instância uazapi em tempo real
+// GET /api/sdr/status — consulta status da instância em tempo real
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -18,14 +18,35 @@ export async function GET() {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const service = createServiceClient()
-    const { data: config } = await service
-      .from('sdr_configs')
-      .select('uazapi_instance_url, uazapi_token, uazapi_instance_name, instance_status, instance_phone')
-      .eq('company_id', userData.company_id)
-      .single()
+    const [{ data: config }, { data: companyData }] = await Promise.all([
+      service
+        .from('sdr_configs')
+        .select('uazapi_instance_url, uazapi_token, uazapi_instance_name, instance_status, instance_phone, whatsapp_provider, meta_wa_phone_number_id')
+        .eq('company_id', userData.company_id)
+        .single(),
+      service
+        .from('companies')
+        .select('allow_uazapi')
+        .eq('id', userData.company_id)
+        .single(),
+    ])
 
+    const allowUazapi = companyData?.allow_uazapi ?? true
+
+    // ── Provider Meta Cloud API (ou uazapi desabilitado pelo admin) ──────────
+    if (config?.whatsapp_provider === 'meta' || !allowUazapi) {
+      const metaConnected = !!config.meta_wa_phone_number_id
+      return NextResponse.json({
+        status: metaConnected ? 'connected' : 'disconnected',
+        phone: config.meta_wa_phone_number_id ?? null,
+        provider: 'meta',
+        allowUazapi,
+      })
+    }
+
+    // ── Provider uazapi ──────────────────────────────────────────────────────
     if (!config?.uazapi_token || !config?.uazapi_instance_url) {
-      return NextResponse.json({ status: 'disconnected', phone: null })
+      return NextResponse.json({ status: 'disconnected', phone: null, provider: 'uazapi', allowUazapi })
     }
 
     // Suporta token plain text (novo) e formato legado criptografado
@@ -35,7 +56,7 @@ export async function GET() {
         const { decrypt } = await import('@/lib/crypto')
         token = decrypt(token)
       } catch {
-        return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
+        return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null, provider: 'uazapi', allowUazapi })
       }
     }
 
@@ -56,7 +77,7 @@ export async function GET() {
           instance_phone: null,
         }).eq('company_id', userData.company_id)
       }
-      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null })
+      return NextResponse.json({ status: 'disconnected', phone: null, qrcode: null, pairingCode: null, provider: 'uazapi', allowUazapi })
     }
 
     if (liveStatus.status !== config.instance_status || liveStatus.phone !== config.instance_phone) {
@@ -78,6 +99,8 @@ export async function GET() {
       qrcode,
       pairingCode: liveStatus.pairingCode ?? null,
       instanceName: config.uazapi_instance_name ?? null,
+      provider: 'uazapi',
+      allowUazapi,
     })
   } catch (err: any) {
     console.error('[SDR status]', err)
