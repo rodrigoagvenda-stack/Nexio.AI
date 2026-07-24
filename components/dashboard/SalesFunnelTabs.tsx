@@ -23,6 +23,8 @@ interface SalesFunnelTabsProps {
   stages: FunnelStage[];
   antiNoshowCounts: Record<string, number>;
   remarketingCount?: number;
+  showAntiNoshow?: boolean;
+  showRemarketing?: boolean;
 }
 
 const NOSHOW_STAGES = [
@@ -132,7 +134,7 @@ const TAB_LABELS: Record<TabValue, string> = {
   remarketing: 'Remarketing',
 };
 
-export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0 }: SalesFunnelTabsProps) {
+export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0, showAntiNoshow = true, showRemarketing = true }: SalesFunnelTabsProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('vendas');
 
   const salesData = stages.map(s => ({ name: s.label, quantidade: s.count }));
@@ -143,6 +145,12 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
 
   const hasAntiNoshow = noshowData.some(d => d.quantidade > 0);
   const hasRemarketing = remarketingCount > 0;
+
+  const visibleTabs = (Object.keys(TAB_LABELS) as TabValue[]).filter(t => {
+    if (t === 'noshow' && !showAntiNoshow) return false;
+    if (t === 'remarketing' && !showRemarketing) return false;
+    return true;
+  });
 
   return (
     <motion.div
@@ -156,7 +164,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
           {/* Tabs */}
           <div className="mb-5 flex-shrink-0">
             <div className="flex items-center rounded-full p-1 w-fit bg-muted">
-              {(Object.keys(TAB_LABELS) as TabValue[]).map(t => (
+              {visibleTabs.map(t => (
                 <button
                   key={t}
                   onClick={() => setActiveTab(t)}

@@ -1,4 +1,5 @@
 import { Sidebar } from '@/components/layout/Sidebar';
+import { FeaturesProvider } from '@/components/layout/FeaturesProvider';
 import { SystemTopBar } from '@/components/SystemTopBar';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { ZaapliLoader } from '@/components/brand/ZaapliLoader';
@@ -47,7 +48,7 @@ export default async function DashboardLayout({
   const [{ data: companyData }, { data: briefingConfig }, { data: sdrCfg }] = await Promise.all([
     supabase
       .from('companies')
-      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit')
+      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit, features')
       .eq('id', userData?.company_id || 0)
       .single(),
     supabase
@@ -124,6 +125,7 @@ export default async function DashboardLayout({
   const userRole = userData?.role || 'closer';
   const brandLogoUrl = briefingConfig?.logo_url || null;
   const gtproConnected = !!sdrCfg?.gtpro_api_key;
+  const features = (companyData?.features ?? {}) as Record<string, boolean>;
 
   return (
     <PostHogProvider
@@ -131,6 +133,7 @@ export default async function DashboardLayout({
       companyId={userData?.company_id}
       planType={companyData?.plan_type ?? undefined}
     >
+    <FeaturesProvider features={features}>
     <div className="flex h-screen bg-background">
       <TrialGuard trialExpired={trialExpiredForGuard} />
       <ZaapliLoader minDuration={900} />
@@ -150,6 +153,7 @@ export default async function DashboardLayout({
         tokensUsed={tokensUsed}
         tokensLimit={tokensLimit}
         gtproConnected={gtproConnected}
+        features={features}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <SystemTopBar />
@@ -160,6 +164,7 @@ export default async function DashboardLayout({
       <MobileBottomNav />
       <DashboardTour />
     </div>
+    </FeaturesProvider>
     </PostHogProvider>
   );
 }

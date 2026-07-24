@@ -15,6 +15,7 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
+import { useFeatures } from '@/components/layout/FeaturesProvider';
 
 interface DateRange {
   from: Date | undefined;
@@ -102,6 +103,7 @@ const PERIODS: FilterPeriod[] = ['today', 'week', 'month', 'year', 'custom'];
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const features = useFeatures();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
@@ -469,7 +471,13 @@ export default function DashboardPage() {
       {/* Funnel + Recent Sales */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-start">
         <div className="lg:col-span-2">
-          <SalesFunnelTabs stages={funnelStages} antiNoshowCounts={antiNoshowCounts} remarketingCount={remarketingCount} />
+          <SalesFunnelTabs
+            stages={funnelStages}
+            antiNoshowCounts={antiNoshowCounts}
+            remarketingCount={remarketingCount}
+            showAntiNoshow={!!features.anti_noshow}
+            showRemarketing={!!features.remarketing}
+          />
         </div>
         <div className="overflow-hidden">
           <RecentSales />

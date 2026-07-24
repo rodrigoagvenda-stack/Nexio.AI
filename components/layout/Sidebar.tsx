@@ -52,6 +52,7 @@ interface SidebarProps {
   tokensUsed?: number;
   tokensLimit?: number;
   gtproConnected?: boolean;
+  features?: Record<string, boolean>;
 }
 
 function playNotifSound() {
@@ -398,6 +399,7 @@ export const Sidebar = memo(function Sidebar({
   tokensUsed = 0,
   tokensLimit = 0,
   gtproConnected = false,
+  features = {},
 }: SidebarProps) {
   const trialDaysLeft = useMemo(() => {
     if (!isTrial || !trialEndsAt) return null;
@@ -558,10 +560,19 @@ export const Sidebar = memo(function Sidebar({
           return { ...link, unreadCount: unreadMsgCount };
         }
         if (link.href === '/crm') {
-          const metaChild = gtproConnected
+          const metaChild = gtproConnected && features.meta_ads
             ? [{ href: '/crm/meta', label: 'Meta Ads', icon: BarChart2 }]
             : [];
           return { ...link, children: [...(link.children ?? []), ...metaChild] };
+        }
+        if (link.href === '/automacoes') {
+          const children = (link.children ?? []).filter(child => {
+            if (child.href === '/configuracoes/follow' && !features.canvas) return false;
+            if (child.href === '/configuracoes/agenda' && !features.agenda) return false;
+            if (child.href === '/configuracoes/metricas' && !features.metricas) return false;
+            return true;
+          });
+          return { ...link, children };
         }
         if (link.children) {
           return { ...link, children: link.children };
@@ -581,7 +592,7 @@ export const Sidebar = memo(function Sidebar({
           links: [
             ...section.links,
             ...(hasBriefing ? [{ href: '/briefing', label: 'Briefing', icon: FileTextIcon }] : []),
-            ...(hasPaymentIntegration ? [{ href: '/financeiro', label: 'Financeiro', icon: Wallet }] : []),
+            ...(hasPaymentIntegration && features.financeiro ? [{ href: '/financeiro', label: 'Financeiro', icon: Wallet }] : []),
           ],
         };
       }
@@ -596,7 +607,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, gtproConnected, hasPaymentIntegration]);
+  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, gtproConnected, hasPaymentIntegration, features]);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);

@@ -33,6 +33,7 @@ export interface Company {
   agente_ativo?: boolean;
   trial_enabled?: boolean;
   allow_uazapi?: boolean;
+  features?: Record<string, boolean>;
   created_at: string;
   updated_at: string;
 }

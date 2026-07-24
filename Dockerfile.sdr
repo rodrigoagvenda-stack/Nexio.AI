@@ -1,0 +1,36 @@
+# Dockerfile para zaapply-sdr — SDR Worker standalone (sem Next.js)
+# Este container roda apenas o worker que processa a fila sdr_jobs.
+# Tem ciclo de deploy independente do zaapply-app.
+
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json* ./
+# Instala todas as deps (incluindo devDeps para ter o tsx)
+RUN npm ci
+
+# ── Runner ────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 sdrworker
+
+# Apenas o que o worker precisa — sem public/, .next/, app/, components/
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY lib/ ./lib/
+COPY scripts/ ./scripts/
+
+USER sdrworker
+
+ENV NODE_ENV=production
+# Heap menor — worker não serve HTTP, não precisa de memória de Next.js
+ENV NODE_OPTIONS="--max-old-space-size=512"
+
+# 🔒 Secrets injetados via env vars do EasyPanel:
+# NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SDR_WEBHOOK_SECRET
+# OPENAI_API_KEY (global), REDIS_URL (se usar redis)
+
+CMD ["node_modules/.bin/tsx", "scripts/sdr-worker.ts"]

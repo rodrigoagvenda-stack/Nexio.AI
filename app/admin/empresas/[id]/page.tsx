@@ -595,6 +595,34 @@ export default function EmpresaDetailPage() {
                 />
               </div>
             </div>
+
+            {/* Feature flags */}
+            <div className="p-5 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feature Flags</p>
+              {([
+                { key: 'canvas',      label: 'Canvas de Automação',    desc: 'Editor visual de fluxos de automação' },
+                { key: 'agenda',      label: 'Agenda',                 desc: 'Módulo de agendamento' },
+                { key: 'metricas',    label: 'Métricas',               desc: 'Relatórios e análises avançadas' },
+                { key: 'financeiro',  label: 'Financeiro',             desc: 'Gestão financeira e cobranças' },
+                { key: 'meta_ads',    label: 'Meta Ads',               desc: 'Atribuição de campanhas via WhatsApp' },
+                { key: 'anti_noshow', label: 'Anti Noshow',            desc: 'Motor de reconfirmação automática' },
+                { key: 'remarketing', label: 'Remarketing',            desc: 'Reativação de leads perdidos' },
+                { key: 'follow_up',   label: 'Follow-up',             desc: 'Sequências automáticas de follow-up' },
+              ] as { key: string; label: string; desc: string }[]).map(({ key, label, desc }) => (
+                <div key={key} className="flex items-center justify-between py-1.5">
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>
+                  </div>
+                  <Switch
+                    checked={!!(company.features?.[key])}
+                    onCheckedChange={(v) =>
+                      setCompany({ ...company, features: { ...(company.features ?? {}), [key]: v } })
+                    }
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Asaas — cobrança */}
