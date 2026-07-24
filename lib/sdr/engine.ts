@@ -2297,9 +2297,22 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     await bufferMessage(companyId, phone, bufferedMsg, supabase)
 
-    // Aguarda 30s (nó "Espera" do N8N — batching de mensagens do lead)
-    await new Promise((r) => setTimeout(r, 30_000))
-    await processSdrMessage(companyId, phone)
+    // Persiste job — zaapply-sdr processa após 30s de inatividade
+    const { error: jobErr } = await supabase.from('sdr_jobs').upsert(
+      {
+        company_id: companyId,
+        phone,
+        status: 'PENDING',
+        last_message_at: new Date().toISOString(),
+        attempts: 0,
+      },
+      { onConflict: 'company_id,phone', ignoreDuplicates: false }
+    )
+    if (jobErr) {
+      console.error(`[SDR:${companyId}] ERRO ao criar job:`, jobErr.message)
+    } else {
+      console.log(`[SDR:${companyId}] job criado — phone=${phone}`)
+    }
 
     return true
   } catch (err: any) {
