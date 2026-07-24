@@ -186,8 +186,8 @@ function NavItemLinkComp({
       className={cn(
         'relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
         isActive
-          ? 'bg-[#191919]/80 text-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-[#191919]/40',
+          ? 'bg-accent dark:bg-[#191919]/80 text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/60 dark:hover:bg-[#191919]/40',
         isCollapsed && 'justify-center px-2'
       )}
       title={isCollapsed ? link.label : undefined}
@@ -233,8 +233,8 @@ function NavItemFlyoutComp({
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-100 select-none',
         isParentActive
-          ? 'bg-[#191919]/80 text-foreground'
-          : 'text-muted-foreground hover:text-foreground hover:bg-[#191919]/40',
+          ? 'bg-accent dark:bg-[#191919]/80 text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/60 dark:hover:bg-[#191919]/40',
         isCollapsed && 'justify-center px-2'
       )}
       title={isCollapsed ? link.label : undefined}
@@ -267,8 +267,8 @@ function FlyoutChildLink({
       className={cn(
         'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-100',
         isActive
-          ? 'bg-[#191919]/80 text-foreground font-medium'
-          : 'text-muted-foreground hover:text-foreground hover:bg-[#191919]/40'
+          ? 'bg-accent dark:bg-[#191919]/80 text-foreground font-medium'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/60 dark:hover:bg-[#191919]/40'
       )}
     >
       <Icon ref={iconRef} size={14} className="flex-shrink-0" />
