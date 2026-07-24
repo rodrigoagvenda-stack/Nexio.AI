@@ -10,11 +10,9 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { getRedis } from '@/lib/sdr/redis'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
-import { runTrialSaasImmediate } from '@/lib/sdr/follow'
-import { createUazapiClient, normalizePhone, detectMessageType, sendRichStep, type UazapiWebhookMessage } from './uazapi'
+import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -43,17 +41,8 @@ import {
   checkAndSendQuotaAlerts,
 } from '@/lib/billing/usage'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
-import { writeSystemLog } from '@/lib/system-log'
-import { gtproCreateLead } from '@/lib/meta/gtpro'
 
 // ─── Tipos ───────────────────────────────────────────────────
-
-interface MetaReferral {
-  sourceId?: string
-  headline?: string
-  ctwaClid?: string
-  sourceUrl?: string
-}
 
 interface SdrContext {
   companyId: number
@@ -76,7 +65,6 @@ interface SdrContext {
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
   eventTitleTemplate: string | null
-  productsBlock: string | null
 }
 
 interface BufferedMessage {
@@ -87,10 +75,6 @@ interface BufferedMessage {
   mediaUrl?: string
   senderName?: string
   senderPhoto?: string
-  replyToText?: string
-  replyToSender?: string
-  replyToQuotedId?: string
-  referral?: MetaReferral
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -112,14 +96,7 @@ function pushUsage(
   })
 }
 
-// ─── Prompt Injection Security v2.1 (porta completa do N8N) ─────────────────
-
-const INJECTION_CONFIG = {
-  HIGH_ENTROPY_THRESHOLD: 4.5,
-  CRITICAL_CONFIDENCE: 0.9,
-  BLOCK_CONFIDENCE: 0.75,
-  SUSPICIOUS_CONFIDENCE: 0.4,
-}
+// ─── Prompt Injection Security (espelha Prompt Injection Security1 do N8N) ───
 
 const CRITICAL_PATTERNS = [
   // Direct Override - English
@@ -134,7 +111,8 @@ const CRITICAL_PATTERNS = [
   /you\s+are\s+now\s+(a\s+)?(jailbreak|hacker|admin|developer|god|root|system)/i,
   /(pretend|act|behave|roleplay)\s+(like|as|to\s+be)\s+(a\s+)?(hacker|admin|system|developer)/i,
   /from\s+now\s+on\s+you\s+(are|will\s+be|should\s+act)/i,
-  // Role Change - Portuguese (padrão genérico "você é uma X" removido — falso positivo em conversa normal)
+  // Role Change - Portuguese
+  /(você|vc)\s+(é|sera|deve\s+ser)\s+(um[a]?|uma)\s+.{1,30}/i,
   /(agora|partir\s+de\s+agora)\s+você\s+(é|sera)/i,
   /(atue|aja|comporte|interprete)\s+como\s+(um[a]?|uma)/i,
   /finja\s+(ser|que\s+(é|voce\s+é))\s+(um[a]?|uma)/i,
@@ -192,17 +170,9 @@ const SUSPICIOUS_PATTERNS = [
   /if\s+you\s+were\s+(not\s+)?(an\s+ai|constrained|limited)/i,
 ]
 
-interface InjectionResult {
-  isInjection: boolean
-  confidence: number
-  classification: 'SAFE' | 'SUSPICIOUS_CONTENT' | 'HIGH_RISK_INJECTION' | 'CRITICAL_INJECTION'
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  shouldBlock: boolean
-  evidence?: string
-  attackVector: string
-  detectedKeywords: string[]
-  structuralFlags: string[]
-}
+const HIGH_ENTROPY_THRESHOLD = 4.5
+const BLOCK_CONFIDENCE = 0.75
+const SUSPICIOUS_CONFIDENCE = 0.4
 
 function calcEntropy(text: string): number {
   if (!text.length) return 0
@@ -216,47 +186,35 @@ function calcEntropy(text: string): number {
   return Math.round(e * 100) / 100
 }
 
-function analyzeInjection(text: string): InjectionResult {
-  const safe: InjectionResult = {
-    isInjection: false, confidence: 0, classification: 'SAFE', riskLevel: 'LOW',
-    shouldBlock: false, attackVector: 'NONE', detectedKeywords: [], structuralFlags: [],
-  }
-  if (!text) return safe
+function isPromptInjection(text: string): boolean {
+  if (!text) return false
 
-  // LAYER 1: critical patterns — bloqueio imediato, confiança 0.95
+  // LAYER 1: critical patterns — bloqueio imediato (espelha CRITICAL_PATTERNS do n8n)
   for (const p of CRITICAL_PATTERNS) {
-    const match = p.exec(text)
-    if (match) return {
-      isInjection: true, confidence: 0.95, classification: 'CRITICAL_INJECTION',
-      riskLevel: 'CRITICAL', shouldBlock: true, evidence: match[0],
-      attackVector: 'SYNTAX', detectedKeywords: [], structuralFlags: [],
-    }
+    if (p.test(text)) return true
   }
 
   // LAYER 2: keyword scoring
   const lower = text.toLowerCase()
   let keywordScore = 0
-  const detectedKeywords: string[] = []
   for (const kw of HIGH_RISK_KEYWORDS) {
-    if (lower.includes(kw.toLowerCase())) { keywordScore += 0.3; detectedKeywords.push(kw) }
+    if (lower.includes(kw.toLowerCase())) keywordScore += 0.3
   }
 
   // LAYER 3: structural scoring
   let structuralScore = 0
-  const structuralFlags: string[] = []
-  if (text.length > 4000) { structuralScore += 0.3; structuralFlags.push('EXCESSIVE_LENGTH') }
+  if (text.length > 4000) structuralScore += 0.3
   const specialRatio = (text.match(/[^a-zA-Z0-9\sÀ-ÿ]/g) ?? []).length / text.length
-  if (specialRatio > 0.4) { structuralScore += 0.3; structuralFlags.push('HIGH_SPECIAL_CHARS') }
-  if ((text.match(/[{}]/g) ?? []).length > 10) { structuralScore += 0.3; structuralFlags.push('EXCESSIVE_BRACES') }
-  if ((text.match(/[<>]/g) ?? []).length > 6) { structuralScore += 0.2; structuralFlags.push('EXCESSIVE_BRACKETS') }
-  if ((text.match(/[|&;`$]/g) ?? []).length > 3) { structuralScore += 0.4; structuralFlags.push('COMMAND_CHARS') }
+  if (specialRatio > 0.4) structuralScore += 0.3
+  if ((text.match(/[{}]/g) ?? []).length > 10) structuralScore += 0.3
+  if ((text.match(/[<>]/g) ?? []).length > 6) structuralScore += 0.2
+  if ((text.match(/[|&;`$]/g) ?? []).length > 3) structuralScore += 0.4
 
   // LAYER 4: entropy scoring
   const entropy = calcEntropy(text)
-  const entropyScore = entropy > INJECTION_CONFIG.HIGH_ENTROPY_THRESHOLD
-    ? Math.min((entropy - INJECTION_CONFIG.HIGH_ENTROPY_THRESHOLD) * 0.2, 0.4)
+  const entropyScore = entropy > HIGH_ENTROPY_THRESHOLD
+    ? Math.min((entropy - HIGH_ENTROPY_THRESHOLD) * 0.2, 0.4)
     : 0
-  if (entropyScore > 0) structuralFlags.push('HIGH_ENTROPY')
 
   // LAYER 5: suspicious patterns
   let suspiciousScore = 0
@@ -264,85 +222,66 @@ function analyzeInjection(text: string): InjectionResult {
     if (p.test(text)) suspiciousScore += 0.2
   }
 
-  // LAYER 6: context (hidden chars + scripts misturados + padrões repetitivos)
+  // LAYER 6: context
   let contextScore = 0
-  if (/[​-‏⁠﻿]/.test(text)) { contextScore += 0.4; structuralFlags.push('HIDDEN_CHARACTERS') }
-  if (/[一-鿿]/.test(text) && /[a-zA-Z]/.test(text)) { contextScore += 0.2; structuralFlags.push('MULTIPLE_SCRIPTS') }
-  const charFreq: Record<string, number> = {}
-  for (const c of text) charFreq[c] = (charFreq[c] ?? 0) + 1
-  const maxFreq = Math.max(...Object.values(charFreq))
-  if (maxFreq > text.length * 0.3) { contextScore += 0.3; structuralFlags.push('REPETITIVE_PATTERNS') }
+  if (/[​-‏⁠﻿]/.test(text)) contextScore += 0.4 // hidden chars
 
   const total = Math.min(keywordScore + structuralScore + entropyScore + suspiciousScore + contextScore, 0.98)
+  return total >= BLOCK_CONFIDENCE
+}
 
-  let classification: InjectionResult['classification'] = 'SAFE'
-  let riskLevel: InjectionResult['riskLevel'] = 'LOW'
-  if (total >= INJECTION_CONFIG.CRITICAL_CONFIDENCE) { classification = 'CRITICAL_INJECTION'; riskLevel = 'CRITICAL' }
-  else if (total >= INJECTION_CONFIG.BLOCK_CONFIDENCE) { classification = 'HIGH_RISK_INJECTION'; riskLevel = 'HIGH' }
-  else if (total >= INJECTION_CONFIG.SUSPICIOUS_CONFIDENCE) { classification = 'SUSPICIOUS_CONTENT'; riskLevel = 'MEDIUM' }
+// ─── Buffer (Supabase) ────────────────────────────────────────
 
-  let attackVector = 'BEHAVIORAL_PATTERN'
-  if (keywordScore > structuralScore && keywordScore > entropyScore) attackVector = 'SEMANTIC_MANIPULATION'
-  else if (structuralScore > keywordScore && structuralScore > entropyScore) attackVector = 'STRUCTURAL_EXPLOITATION'
-  else if (entropyScore > 0.2) attackVector = 'OBFUSCATION_ATTACK'
+async function bufferMessage(
+  companyId: number,
+  phone: string,
+  message: BufferedMessage,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  const expiresAt = new Date(Date.now() + 30_000).toISOString()
+  const { data: existing } = await supabase
+    .from('sdr_message_buffer')
+    .select('messages')
+    .eq('company_id', companyId)
+    .eq('phone', phone)
+    .single()
 
-  return {
-    isInjection: total >= INJECTION_CONFIG.SUSPICIOUS_CONFIDENCE,
-    confidence: total,
-    classification,
-    riskLevel,
-    shouldBlock: total >= INJECTION_CONFIG.BLOCK_CONFIDENCE,
-    attackVector,
-    detectedKeywords,
-    structuralFlags,
+  if (existing) {
+    const messages = [...(existing.messages as BufferedMessage[]), message]
+    await supabase
+      .from('sdr_message_buffer')
+      .update({ messages, expires_at: expiresAt })
+      .eq('company_id', companyId)
+      .eq('phone', phone)
+  } else {
+    await supabase.from('sdr_message_buffer').insert({
+      company_id: companyId,
+      phone,
+      messages: [message],
+      expires_at: expiresAt,
+    })
   }
 }
 
-// ─── Buffer (Redis) ────────────────────────────────────────────
-// Replica o fluxo N8N: RPUSH na lista, lock via SET NX para garantir
-// que apenas um handler aguarda os 30s de batching por lead.
+async function drainBuffer(
+  companyId: number,
+  phone: string,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<BufferedMessage[]> {
+  const { data } = await supabase
+    .from('sdr_message_buffer')
+    .select('messages')
+    .eq('company_id', companyId)
+    .eq('phone', phone)
+    .single()
 
-function redisKeys(companyId: number, phone: string) {
-  const base = `sdr:${companyId}:${phone}`
-  return { buf: `${base}:buf`, lock: `${base}:lock` }
-}
+  await supabase
+    .from('sdr_message_buffer')
+    .delete()
+    .eq('company_id', companyId)
+    .eq('phone', phone)
 
-async function bufferMessage(companyId: number, phone: string, message: BufferedMessage): Promise<void> {
-  const redis = getRedis()
-  const { buf } = redisKeys(companyId, phone)
-  try {
-    const len = await redis.rpush(buf, JSON.stringify(message))
-    await redis.expire(buf, 120)
-    console.log(`[SDR:${companyId}] bufferMessage OK — key=${buf} len=${len}`)
-  } catch (e: any) {
-    console.error(`[SDR:${companyId}] bufferMessage FALHOU — Redis indisponível? err=${e?.message}`)
-    throw e
-  }
-}
-
-async function drainBuffer(companyId: number, phone: string): Promise<BufferedMessage[]> {
-  const redis = getRedis()
-  const { buf } = redisKeys(companyId, phone)
-  try {
-    const items = await redis.lrange(buf, 0, -1)
-    console.log(`[SDR:${companyId}] drainBuffer — key=${buf} items=${items.length}`)
-    if (items.length > 0) await redis.del(buf)
-    return items.map((s: string) => {
-      try { return JSON.parse(s) as BufferedMessage } catch { return null }
-    }).filter(Boolean) as BufferedMessage[]
-  } catch (e: any) {
-    console.error(`[SDR:${companyId}] drainBuffer FALHOU — err=${e?.message}`)
-    return []
-  }
-}
-
-async function isDuplicateMessage(companyId: number, phone: string, messageId: string): Promise<boolean> {
-  const redis = getRedis()
-  const { buf } = redisKeys(companyId, phone)
-  const items = await redis.lrange(buf, 0, -1)
-  return items.some((s: string) => {
-    try { return (JSON.parse(s) as BufferedMessage).messageId === messageId } catch { return false }
-  })
+  return (data?.messages as BufferedMessage[]) ?? []
 }
 
 // ─── RAG — Busca vetorial no Supabase ─────────────────────────
@@ -392,7 +331,7 @@ async function getHistory(
 ): Promise<ChatMsg[]> {
   const { data } = await supabase
     .from('mensagens_do_whatsapp')
-    .select('texto_da_mensagem, sender_type, tipo_de_mensagem, url_da_midia')
+    .select('texto_da_mensagem, sender_type')
     .eq('id_do_lead', leadId)
     .eq('company_id', companyId)
     .order('carimbo_de_data_e_hora', { ascending: false })
@@ -402,21 +341,10 @@ async function getHistory(
   return data
     .reverse()
     .filter((m) => m.texto_da_mensagem)
-    .map((m) => {
-      let content = m.texto_da_mensagem ?? ''
-      // Para menu/button, anexa as opções no histórico para o SDR ter contexto completo
-      if ((m.tipo_de_mensagem === 'menu' || m.tipo_de_mensagem === 'button') && m.url_da_midia) {
-        try {
-          const parsed = JSON.parse(m.url_da_midia)
-          const choices: string[] = parsed.choices ?? []
-          if (choices.length) content += '\n[Opções enviadas: ' + choices.join(' / ') + ']'
-        } catch {}
-      }
-      return {
-        role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-        content,
-      }
-    })
+    .map((m) => ({
+      role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: m.texto_da_mensagem ?? '',
+    }))
 }
 
 // ─── Loop genérico de sub-agente (espelha AI Agent node do N8N) ──
@@ -923,11 +851,8 @@ async function runAgenteAgendamento(
     hour: '2-digit', minute: '2-digit',
   })
 
-  const nomeEmpresa = ctx.persona?.nome_empresa ?? ctx.prompt?.slice(0, 40) ?? 'nossa empresa'
-  const systemPrompt = `Você é um assistente de agendamento comercial de ${nomeEmpresa}. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
+  const systemPrompt = `Você é um assistente de agendamento comercial da Nexio.AI. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
 Data e hora atual: ${now}
-Nome do lead: ${ctx.leadName || 'Lead'}
-Objetivo da call: Demonstração de ${nomeEmpresa}
 
 FLUXO DE AGENDAMENTO:
 0. VERIFIQUE O HISTÓRICO ANTES DE QUALQUER AÇÃO:
@@ -951,15 +876,13 @@ FLUXO DE AGENDAMENTO:
      → Retorno vazio = dia livre, todos os horários entre 9h e 18h disponíveis
      → Retorno com eventos = considere apenas horários não conflitantes
      → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
-4.5. COLETA DE EMAIL — ÚNICO DADO NECESSÁRIO:
-   - O nome do lead já está no contexto (use o campo "Nome do lead" acima).
-   - O objetivo da call já está no contexto (use o campo "Objetivo da call" acima).
-   - Você SÓ precisa do email do lead para enviar o convite do Google Calendar.
-   - Verifique o histórico: o lead já forneceu o email explicitamente?
+4.5. ⛔ COLETA OBRIGATÓRIA — NUNCA PULE ESTE PASSO:
+   - Você DEVE ter nome completo, email E objetivo da call do lead.
+   - Verifique o histórico: o lead já forneceu os três itens explicitamente?
      → Se SIM: prossiga para o passo 5.
-     → Se NÃO: pergunte APENAS: "Para enviar o convite, pode me passar seu e-mail? 😊"
-   - PARE e aguarde a resposta. NÃO avance sem o email.
-   - ⚠️ PENALIDADE: Chamar "Agendar_gcal" sem email é uma falha crítica. Nunca faça isso.
+     → Se NÃO: pergunte em UMA mensagem: "Para enviar o convite, preciso do seu nome completo, e-mail e qual o objetivo da call 😊"
+   - PARE e aguarde a resposta. NÃO avance sem ter os três dados.
+   - ⚠️ PENALIDADE: Chamar "Agendar_gcal" sem email e nome_completo é uma falha crítica. Nunca faça isso.
 5. Confirmar: "[Nome], [dia da semana] [data] às [hora], confirma?"
 6. "Agendar_gcal" → criar evento com Meet ativado, passando email e nome_completo coletados
 7. "Reuniao_marcada" → atualizar CRM
@@ -979,17 +902,14 @@ APÓS AGENDAR, envie APENAS isso:
 Qualquer coisa é só me chamar 👍"
 
 REGRAS:
-- 🚫 PROIBIDO: Jamais chame "Agendar_gcal" sem ter o email do lead. O nome e objetivo já estão no contexto — não pergunte sobre eles.
+- 🚫 PROIBIDO: Jamais chame "Agendar_gcal" sem ter email E nome_completo fornecidos pelo lead. Sem esses dados = não agenda, ponto final.
 - ⚠️ CRÍTICO: Se o lead já informou o horário, é PROIBIDO sugerir outras opções. Vá direto para o passo 4.5.
-- 🚫 PROIBIDO: NUNCA ofereça horários para hoje (mesmo dia que aparece em "Data e hora atual" acima). Comece sempre pelo PRÓXIMO dia útil.
-- 🚫 PROIBIDO: NUNCA sugira horários que já passaram. O "Consultar_gcal" pode devolver slots de hoje — ignore qualquer slot com hora anterior à hora atual.
-- 🚫 PROIBIDO: Não invente disponibilidade. Sempre chame "Consultar_gcal" antes de sugerir horários.
 - NUNCA use travessão (—) em nenhuma mensagem. Use vírgula ou ponto.
 - Máximo 3 linhas por bloco de mensagem.
 - Chame "Consultar_gcal" apenas UMA vez por interação.
-- Retorno vazio do "Consultar_gcal" = calendário livre ou todos os slots passaram, vá para o próximo dia útil.
+- Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta.
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data.
-- Seg a Sex, 9h às 18h. Nunca agende para o mesmo dia da conversa.
+- Seg a Sex, 9h às 18h, nunca no mesmo dia.
 - Fuso: America/Sao_Paulo (UTC-3).
 - Nunca repita informações já confirmadas pelo lead.
 - O link do Meet deve ser enviado automaticamente, sem o lead precisar pedir.
@@ -1068,7 +988,7 @@ REGRAS:
         parameters: {
           type: 'object',
           properties: {
-            data_hora_iso: { type: 'string', description: 'Data e hora no fuso Brasília, formato YYYY-MM-DDTHH:MM:SS sem sufixo de timezone (ex: 2026-05-28T14:00:00)' },
+            data_hora_iso: { type: 'string' },
             meet_url: { type: 'string' },
             event_id: { type: 'string' },
             acao: { type: 'string', enum: ['agendar', 'remarcar', 'cancelar'] },
@@ -1097,10 +1017,8 @@ REGRAS:
         const date = new Date(args.data)
         if (isNaN(date.getTime())) return 'ERRO_CALENDARIO: data inválida'
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
-        // Filtra slots disponíveis E que ainda não passaram (previne sugestão de horários no passado)
-        const nowTs = Date.now()
-        const available = slots.filter((s) => s.available && s.start.getTime() > nowTs)
-        if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio, fim de semana ou todos os horários já passaram).'
+        const available = slots.filter((s) => s.available)
+        if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio ou fim de semana).'
         return `Horários livres (9h–18h): ${available.map((s) =>
           s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
         ).join(', ')}`
@@ -1117,18 +1035,6 @@ REGRAS:
         if (!args.nome_completo || args.nome_completo.trim().split(' ').length < 2) {
           return 'BLOQUEADO: Você precisa coletar o nome completo do lead antes de agendar. Pergunte agora: "Para enviar o convite, pode me informar seu nome completo e e-mail?"'
         }
-        // Cancela evento anterior se existir (reagendamento sem duplicata)
-        if (ctx.calendarId) {
-          const { data: leadData } = await supabase
-            .from('leads')
-            .select('calendar_event_id')
-            .eq('id', ctx.leadId)
-            .single()
-          if (leadData?.calendar_event_id) {
-            try { await cancelEvent(ctx.calendarId, leadData.calendar_event_id, ctx.companyId) } catch {}
-          }
-        }
-
         const start = parseBrazilDateTime(args.data_hora)
         const nomeCompleto: string = args.nome_completo
         const resolvedTitle = ctx.eventTitleTemplate
@@ -1140,7 +1046,7 @@ REGRAS:
           title: resolvedTitle,
           description: `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start,
-          durationMinutes: args.duracao_minutos ?? 30,
+          durationMinutes: args.duracao_minutos ?? 60,
           attendeeEmail: args.email,
           attendeeName: nomeCompleto,
         })
@@ -1174,15 +1080,12 @@ REGRAS:
         updates.calendar_event_id = null
       } else if (args.data_hora_iso) {
         updates.call_de_venda = true
-        // Normaliza para UTC — GPT frequentemente passa horário BRT com Z (ex: "14:00Z" = 11:00 BRT)
-        updates.call_agendada_para = parseBrazilDateTime(args.data_hora_iso.replace(/Z$/, '')).toISOString()
+        updates.call_agendada_para = args.data_hora_iso
         updates.meet_url = args.meet_url ?? null
         updates.call_status = 'agendada'
         if (args.event_id) updates.calendar_event_id = args.event_id
       }
       await supabase.from('leads').update(updates).eq('id', ctx.leadId)
-      // Limpa flag de agendamento via canvas (harmless se não houver)
-      getRedis().del(`canvas:sched:${ctx.companyId}:${ctx.leadPhone}`).catch(() => {})
       return JSON.stringify({ salvo: true, acao: args.acao })
     },
   }
@@ -1202,341 +1105,6 @@ REGRAS:
 }
 
 
-// ─── Disparo imediato de step por estágio ──────────────────────
-
-async function dispararSequenciaEstagio(
-  estagio: string,
-  ctx: SdrContext,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<void> {
-  const phoneVars = phoneVariants(ctx.leadPhone)
-
-  console.log(`[trial:dispatch] iniciando — estagio="${estagio}" phone=${ctx.leadPhone} company=${ctx.companyId}`)
-
-  const { data: trial } = await supabase.from('saas_trials')
-    .select('id, nome, whatsapp, trial_days, criado_em, status, estagio, respondeu')
-    .eq('company_id', ctx.companyId)
-    .in('whatsapp', phoneVars)
-    .eq('status', 'ativo')
-    .maybeSingle()
-
-  console.log(`[trial:dispatch] trial=${trial ? `id=${trial.id} nome=${trial.nome}` : 'NÃO ENCONTRADO'}`)
-
-  // Modo teste: verifica se phone é o número de teste configurado na empresa
-  let isTestMode = false
-  if (!trial) {
-    const { data: testCfg } = await supabase.from('trial_configs')
-      .select('test_mode, test_phone')
-      .eq('company_id', ctx.companyId)
-      .maybeSingle()
-    const testPhone = testCfg?.test_phone ? normalizePhone(testCfg.test_phone) : null
-    isTestMode = !!(testCfg?.test_mode && testPhone && phoneVars.includes(testPhone))
-    console.log(`[trial:dispatch] test_mode=${isTestMode} testPhone=${testPhone}`)
-    if (!isTestMode) return
-  }
-
-  const { data: sequences } = await supabase.from('follow_sequences')
-    .select('id')
-    .eq('company_id', ctx.companyId)
-    .eq('tipo', 'trial_saas')
-    .eq('ativo', true)
-
-  console.log(`[trial:dispatch] sequencias ativas=${sequences?.length ?? 0}`)
-
-  // Mock para modo teste (sem trial real)
-  const trialData = trial ?? {
-    id: 0,
-    nome: 'Lead Teste',
-    status: 'trial_ativo',
-    criado_em: new Date().toISOString(),
-    trial_days: 14,
-    estagio,
-  }
-
-  const uazapi = createUazapiClient(ctx.uazapiUrl, ctx.uazapiToken)
-
-  for (const seq of sequences ?? []) {
-    const { data: steps } = await supabase.from('follow_steps')
-      .select('*')
-      .eq('sequence_id', seq.id)
-      .eq('condicao_estagio', estagio)
-      .order('dia_offset', { ascending: true })
-      .order('ordem', { ascending: true })
-
-    console.log(`[trial:dispatch] seq=${seq.id} steps com estagio="${estagio}"=${steps?.length ?? 0}`)
-
-    for (const step of steps ?? []) {
-      // Em modo teste não verifica execuções anteriores — sempre re-dispara
-      if (!isTestMode) {
-        const { data: jaEnviado } = await supabase.from('follow_executions')
-          .select('id').eq('trial_id', trial!.id).eq('step_id', step.id).maybeSingle()
-        if (jaEnviado) continue
-      }
-
-      const tipo = step.tipo_mensagem ?? 'text'
-      const pool: string[] = step.pool_mensagens?.filter(Boolean) ?? []
-      const textoRaw = pool.length ? pool[Math.floor(Math.random() * pool.length)] : (step.mensagem ?? '')
-      const texto = textoRaw
-        .replace(/\{nome\}/gi, trialData.nome)
-        .replace(/\{primeiro_nome\}/gi, trialData.nome.split(' ')[0])
-        .replace(/\{status\}/gi, trialData.status)
-        .replace(/\{data_call\}/gi, '')
-
-      try {
-        // Simula digitação antes de cada mensagem
-        const typingMs = 1500 + Math.floor(Math.random() * 2000)
-        await uazapi.sendPresence(ctx.leadPhone, 'composing', typingMs)
-        await new Promise((r) => setTimeout(r, typingMs))
-        await sendRichStep(uazapi, ctx.leadPhone, tipo, texto, step.media_config ?? undefined)
-
-        if (!isTestMode) {
-          await supabase.from('follow_executions').insert({
-            trial_id: trialData.id,
-            sequence_id: seq.id,
-            step_id: step.id,
-            company_id: ctx.companyId,
-            status: 'sent',
-          })
-        }
-
-        // Salva na conversa de atendimento
-        if (ctx.conversationId) {
-          const mc = step.media_config
-          let urlMidia: string | null = null
-          if (tipo === 'menu' && mc?.choices?.length)
-            urlMidia = JSON.stringify({ menuType: mc.menuType ?? 'button', choices: mc.choices, button_actions: mc.button_actions ?? {} })
-          else if (tipo === 'carousel' && mc?.carousel?.length)
-            urlMidia = JSON.stringify(mc.carousel)
-          else if (['image', 'video', 'audio', 'ptt', 'document'].includes(tipo) && mc?.file)
-            urlMidia = mc.file
-
-          await supabase.from('mensagens_do_whatsapp').insert({
-            id_da_conversacao: ctx.conversationId,
-            id_do_lead: ctx.leadId ?? null,
-            company_id: ctx.companyId,
-            texto_da_mensagem: texto || mc?.text || `[${tipo}]`,
-            tipo_de_mensagem: tipo,
-            url_da_midia: urlMidia,
-            direcao: 'outbound',
-            sender_type: 'ai',
-            status: 'sent',
-            nome_do_agente: 'Trial SaaS',
-            carimbo_de_data_e_hora: new Date().toISOString(),
-          })
-        }
-
-        // Controle de SDR por step
-        console.log(`[trial:dispatch] step ${step.id} sdr_ativo=${JSON.stringify(step.sdr_ativo)} conv=${ctx.conversationId}`)
-        if (step.sdr_ativo !== null && step.sdr_ativo !== undefined && ctx.conversationId) {
-          const { error: sdrErr } = await supabase.from('conversas_do_whatsapp')
-            .update({ agente_pausado: !step.sdr_ativo })
-            .eq('id', ctx.conversationId)
-          console.log(`[trial:dispatch] SDR ${step.sdr_ativo ? 'ativado' : 'pausado'} conv=${ctx.conversationId} err=${sdrErr?.message ?? 'ok'}`)
-
-          if (step.sdr_ativo === true) {
-            const dias = Math.floor((Date.now() - new Date(trialData.criado_em).getTime()) / 86_400_000)
-            const contexto = `[Trial SaaS] Lead em período de teste (D${dias}/${trialData.trial_days}). Estágio: ${estagio}. SDR reativado pela sequência de resposta imediata.`
-            await supabase.from('leads')
-              .update({ notes: contexto, updated_at: new Date().toISOString() })
-              .eq('id', ctx.leadId)
-          }
-        }
-
-        console.log(`[SDR:${ctx.companyId}] dispararSequenciaEstagio: step ${step.id} disparado trial=${trialData.id} estagio=${estagio}${isTestMode ? ' [TEST]' : ''}`)
-        // Pausa entre mensagens da sequência
-        await new Promise((r) => setTimeout(r, 2000))
-      } catch (err: any) {
-        console.error(`[SDR:${ctx.companyId}] dispararSequenciaEstagio ERRO step ${step.id}: ${err.message}`)
-        if (isTestMode) continue
-        await supabase.from('follow_executions').insert({
-          trial_id: trialData.id, sequence_id: seq.id, step_id: step.id,
-          company_id: ctx.companyId, status: 'failed',
-        })
-      }
-    }
-  }
-}
-
-// ─── Button Actions ────────────────────────────────────────────
-
-async function executeButtonActions(
-  text: string,
-  ctx: SdrContext,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<void> {
-  if (!text.trim() || !ctx.leadId) return
-
-  // Find recent outbound menu messages for this lead (newest first, limit 5)
-  // Primary: by id_do_lead; fallback: by conversationId (handles lead ID mismatch edge cases)
-  let menuMsgs: { url_da_midia: string | null }[] | null = null
-
-  const { data: byLead, error: byLeadErr } = await supabase
-    .from('mensagens_do_whatsapp')
-    .select('url_da_midia')
-    .eq('id_do_lead', ctx.leadId)
-    .eq('company_id', ctx.companyId)
-    .eq('direcao', 'outbound')
-    .in('tipo_de_mensagem', ['menu', 'button'])
-    .order('carimbo_de_data_e_hora', { ascending: false })
-    .limit(5)
-
-  if (byLeadErr) console.error(`[trial:btn] byLead ERRO: ${byLeadErr.message}`)
-  console.log(`[trial:btn] byLead lead=#${ctx.leadId}: ${byLead?.length ?? 0} resultados`)
-
-  if (byLead?.length) {
-    menuMsgs = byLead
-  } else if (ctx.conversationId) {
-    const { data: byConv, error: byConvErr } = await supabase
-      .from('mensagens_do_whatsapp')
-      .select('url_da_midia')
-      .eq('id_da_conversacao', ctx.conversationId)
-      .eq('company_id', ctx.companyId)
-      .eq('direcao', 'outbound')
-      .in('tipo_de_mensagem', ['menu', 'button'])
-      .order('carimbo_de_data_e_hora', { ascending: false })
-      .limit(5)
-    if (byConvErr) console.error(`[trial:btn] byConv ERRO: ${byConvErr.message}`)
-    console.log(`[trial:btn] byConv conv=${ctx.conversationId}: ${byConv?.length ?? 0} resultados`)
-    if (byConv?.length) {
-      menuMsgs = byConv
-    }
-  }
-
-  console.log(`[trial:btn] menus encontrados=${menuMsgs?.length ?? 0} lead=#${ctx.leadId} conv=${ctx.conversationId}`)
-  if (!menuMsgs?.length) return
-
-  const normalizedText = text.trim().toLowerCase()
-  console.log(`[trial:btn] texto inbound="${normalizedText}"`)
-
-  for (const msg of menuMsgs) {
-    if (!msg.url_da_midia) { console.log(`[trial:btn] msg sem url_da_midia — pulando`); continue }
-    let parsed: { choices?: string[]; button_actions?: Record<string, any> }
-    try { parsed = JSON.parse(msg.url_da_midia) } catch { console.log(`[trial:btn] parse error em url_da_midia`); continue }
-
-    const choices: string[] = parsed.choices ?? []
-    const actions: Record<string, any> = parsed.button_actions ?? {}
-    console.log(`[trial:btn] choices=${JSON.stringify(choices)} button_actions_keys=${JSON.stringify(Object.keys(actions))}`)
-
-    const matchedChoice = choices.find(
-      (c) => c.trim().toLowerCase() === normalizedText
-        || normalizedText.includes(c.trim().toLowerCase())
-    )
-    console.log(`[trial:btn] matchedChoice=${matchedChoice ?? 'null'}`)
-    if (!matchedChoice) continue
-
-    // Botão reconhecido — atualiza estagio + respondeu no trial.
-    // Primeiro tenta por telefone (produção); fallback = trial ativo mais recente da empresa (modo teste).
-    ;(async () => {
-      try {
-        const phoneVarsBtn = phoneVariants(ctx.leadPhone)
-        let trialId: number | null = null
-
-        const { data: byPhone } = await supabase.from('saas_trials')
-          .select('id')
-          .eq('company_id', ctx.companyId)
-          .in('whatsapp', phoneVarsBtn)
-          .eq('status', 'ativo')
-          .order('criado_em', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        trialId = byPhone?.id ?? null
-
-        if (!trialId) {
-          const { data: recent } = await supabase.from('saas_trials')
-            .select('id')
-            .eq('company_id', ctx.companyId)
-            .eq('status', 'ativo')
-            .order('criado_em', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-          trialId = recent?.id ?? null
-        }
-
-        if (trialId) {
-          await supabase.from('saas_trials')
-            .update({ respondeu: true, estagio: matchedChoice })
-            .eq('id', trialId)
-          await supabase.from('follow_logs')
-            .update({ respondeu: true })
-            .eq('trial_id', trialId)
-            .neq('respondeu', true)
-          console.log(`[trial:btn] respondeu=true estagio="${matchedChoice}" trial=${trialId}`)
-          // Dispara próximo step do ramo imediatamente — sem esperar o cron
-          runTrialSaasImmediate(ctx.companyId, trialId)
-            .then(r => console.log(`[trial:btn] imediato sent=${r.sent} error=${r.error ?? 'ok'}`))
-            .catch(err => console.error(`[trial:btn] imediato falhou: ${err.message}`))
-        } else {
-          console.log(`[trial:btn] nenhum trial ativo encontrado para company=${ctx.companyId}`)
-        }
-      } catch (e: any) {
-        console.error(`[trial:btn] ERRO ao atualizar trial:`, e?.message)
-      }
-    })()
-
-    if (!parsed.button_actions) { console.log(`[trial:btn] button_actions ausente no JSON — menu sem feature`); continue }
-
-    const action = actions[matchedChoice]
-    console.log(`[trial:btn] action=${JSON.stringify(action ?? null)}`)
-    if (!action) break
-
-    console.log(`[trial:btn] executando action "${matchedChoice}" → ${JSON.stringify(action)}`)
-
-    if (action.status) {
-      await supabase.from('leads')
-        .update({ status: action.status, updated_at: new Date().toISOString() })
-        .eq('id', ctx.leadId)
-      console.log(`[SDR:${ctx.companyId}] ButtonAction: lead #${ctx.leadId} status → "${action.status}"`)
-    }
-
-    if (action.schedule_days != null) {
-      // Delete executions so sequence can re-fire; set updated_at so steps fire in N days
-      await supabase.from('follow_executions').delete().eq('lead_id', ctx.leadId)
-      const newUpdatedAt = new Date(Date.now() - action.schedule_days * 86_400_000).toISOString()
-      await supabase.from('leads')
-        .update({ updated_at: newUpdatedAt })
-        .eq('id', ctx.leadId)
-      console.log(`[SDR:${ctx.companyId}] ButtonAction: lead #${ctx.leadId} reagendado em ${action.schedule_days} dias`)
-    }
-
-    if (action.stop_sequence) {
-      await supabase.from('follow_sequences')
-        .update({ ativo: false })
-        .eq('company_id', ctx.companyId)
-        .ilike('nome', `%[Lead #${ctx.leadId}]%`)
-      console.log(`[SDR:${ctx.companyId}] ButtonAction: sequência parada para lead #${ctx.leadId}`)
-    }
-
-    if (action.estagio) {
-      const phoneVars = phoneVariants(ctx.leadPhone)
-      const { data: updatedByPhone } = await supabase.from('saas_trials')
-        .update({ estagio: action.estagio })
-        .eq('company_id', ctx.companyId)
-        .in('whatsapp', phoneVars)
-        .eq('status', 'ativo')
-        .select('id')
-      // Fallback modo teste: atualiza via conversa se não achou por telefone
-      if (!updatedByPhone?.length && ctx.conversationId) {
-        const { data: tLog } = await supabase.from('follow_logs')
-          .select('trial_id').eq('company_id', ctx.companyId)
-          .not('trial_id', 'is', null).order('enviado_em', { ascending: false })
-          .limit(1).maybeSingle()
-        if (tLog?.trial_id) {
-          await supabase.from('saas_trials')
-            .update({ estagio: action.estagio })
-            .eq('id', tLog.trial_id).eq('status', 'ativo')
-        }
-      }
-      console.log(`[SDR:${ctx.companyId}] ButtonAction: trial estagio → "${action.estagio}" para ${ctx.leadPhone}`)
-
-      if (action.trigger_immediate) {
-        await dispararSequenciaEstagio(action.estagio, ctx, supabase)
-      }
-    }
-
-    break // only apply actions from the most recent matching menu
-  }
-}
-
 // ─── Orquestrador Principal ─────────────────────────────────────
 
 interface AgentPersona {
@@ -1550,8 +1118,6 @@ interface AgentPersona {
   formas_pagamento?: string
   valor_minimo_pedido?: string
   pedido_tipo?: string
-  link_catalogo?: string
-  link_pedido?: string
 }
 
 function parsePersona(prompt: string): AgentPersona | null {
@@ -1592,19 +1158,13 @@ ${steps.join('\n')}
 
 Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma informação. Todo seu conhecimento vem exclusivamente dos retornos das tools.
 
-Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para formular a resposta. REGRAS DE USO DO CONHECIMENTO:
-- Se o documento contiver scripts marcados com "Responda APENAS", "PASSO X" ou frases exatas entre aspas: COPIE o script exatamente como escrito. NÃO parafraseie, NÃO misture passos, NÃO adicione informação extra.
-- Se o documento contiver apenas informações gerais (FAQ, specs, preços): formule uma resposta natural e humana baseada no conteúdo.
-- NUNCA copie títulos de seção, headers em maiúsculas, ou marcadores internos como "=== SEÇÃO ===" — apenas o texto da resposta.
-- NUNCA pule etapas do fluxo — se o passo diz perguntar algo antes de continuar, pergunte e PARE.
+Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para FORMULAR uma resposta natural e humana ao lead. NUNCA copie headers, checklists, títulos ou estruturas internas dos documentos. Responda como um atendente, direto, natural, baseado no que as tools retornaram.
 
 REGRAS DE MENSAGEM (CRÍTICO):
 - Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
 - Máximo 1 a 2 frases por bloco.
 - NUNCA junte tudo em um parágrafo só. Sempre quebre em blocos.
 - NUNCA use travessão (—). Use vírgula ou ponto.
-- NUNCA diga que o lead "recebeu" uma mensagem, ou que você "viu que ele recebeu" algo. O lead ENVIOU a mensagem para você — se precisar referenciar o contexto, diga "vi que você enviou" ou "pelo que você compartilhou". Na maioria dos casos, simplesmente redirecione sem mencionar o conteúdo anterior.
-- Se o lead enviar mensagem fora do contexto do negócio (promoção de terceiros, sorteio, spam, conteúdo irrelevante), redirecione diretamente para o foco da empresa sem explicar nem citar o que foi enviado.
 
 Exemplo CORRETO:
 Olá, Rodrigo! Tudo bem por aqui, e com você?
@@ -1625,13 +1185,10 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
     if (persona.produto)           lines.push(`Produto/serviço: ${persona.produto}.`)
     if (persona.restricoes)        lines.push(`Nunca diga: ${persona.restricoes}.`)
     if (persona.horario)           lines.push(`Horário de atendimento: ${persona.horario}.`)
-    if (persona.area_entrega)        lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
-    if (persona.formas_pagamento)    lines.push(`Formas de pagamento aceitas: ${persona.formas_pagamento}.`)
+    if (persona.area_entrega)      lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
+    if (persona.formas_pagamento)  lines.push(`Formas de pagamento aceitas: ${persona.formas_pagamento}.`)
     if (persona.valor_minimo_pedido) lines.push(`Valor mínimo do pedido: ${persona.valor_minimo_pedido}.`)
-    if (persona.pedido_tipo)         lines.push(`Como o pedido é finalizado: ${persona.pedido_tipo}.`)
-    if (persona.link_catalogo)       lines.push(`Cardápio/catálogo: ${persona.link_catalogo}.`)
-    if (persona.link_pedido)         lines.push(`Link para pedido online: ${persona.link_pedido}.`)
-    if (ctx.productsBlock)           lines.push(`\nITENS DO CARDÁPIO:\n${ctx.productsBlock}`)
+    if (persona.pedido_tipo)       lines.push(`Como o pedido é finalizado: ${persona.pedido_tipo}.`)
     if (lines.length > 0) companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${lines.join('\n')}`
   } else if (ctx.prompt) {
     companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
@@ -1640,7 +1197,7 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   // ── Camada 3 (FIXO condicional): agendamento — exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
-1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de data e hora de reunião/call (ex: "[Nome], [dia] [data] às [hora] — confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" — NÃO processe mais nada, NÃO chame outras tools. ATENÇÃO: perguntas sobre produto, preço, links ou qualquer outro assunto NÃO acionam esta regra, mesmo que o lead responda "sim".
+1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] — confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" — NÃO processe mais nada, NÃO chame outras tools.
 2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE "Agente_de_Agendamento" — sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
 Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.`
     : ''
@@ -1648,7 +1205,7 @@ Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela respo
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
 }
 
-// Mapa de nome-display → nome-função (OpenAI: ^[a-zA-Z0-9_-]+$)
+// Mapa de nome-display (n8n) → nome-função (OpenAI: ^[a-zA-Z0-9_-]+$)
 const TOOL_NAME_MAP: Record<string, string> = {
   'Think1':                          'Think1',
   'Play_conhecimento':               'Play_conhecimento',
@@ -1659,8 +1216,6 @@ const TOOL_NAME_MAP: Record<string, string> = {
   'Memory_long':                     'Memory_long',
   'Agente de Agendamento':           'Agente_de_Agendamento',
   'Pausar_conversa':                 'Pausar_conversa',
-  'Definir_valor_projeto':           'Definir_valor_projeto',
-  'Atribuir_tag':                    'Atribuir_tag',
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
@@ -1778,39 +1333,6 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     })
   }
 
-  // Define valor do projeto quando o lead demonstrar interesse em produto específico
-  tools.push({
-    type: 'function',
-    function: {
-      name: TOOL_NAME_MAP['Definir_valor_projeto'],
-      description: 'Define o valor do projeto/venda do lead com base no produto identificado. Use quando o lead demonstrar interesse claro em um produto específico e você souber o valor dele.',
-      parameters: {
-        type: 'object',
-        properties: {
-          valor: { type: 'number', description: 'Valor em reais sem formatação (ex: 1500)' },
-          produto: { type: 'string', description: 'Nome do produto ou serviço identificado' },
-        },
-        required: ['valor'],
-      },
-    },
-  })
-
-  // Atribui tag ao lead com base no perfil identificado na conversa
-  tools.push({
-    type: 'function',
-    function: {
-      name: TOOL_NAME_MAP['Atribuir_tag'],
-      description: 'Atribui uma tag ao lead com base no perfil ou comportamento identificado. Use apenas tags que existam na lista de tags da empresa.',
-      parameters: {
-        type: 'object',
-        properties: {
-          tag_name: { type: 'string', description: 'Nome exato da tag a atribuir (deve ser uma das tags disponíveis)' },
-        },
-        required: ['tag_name'],
-      },
-    },
-  })
-
   // Sempre disponível — pausa o bot nesta conversa e sinaliza necessidade de atendimento humano
   tools.push({
     type: 'function',
@@ -1828,62 +1350,6 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
   })
 
   return tools
-}
-
-// ─── Tool: define project_value do lead ──────────────────────────────────────
-async function runDefinirValorProjeto(
-  valor: number,
-  produto: string | undefined,
-  ctx: SdrContext,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<string> {
-  if (!ctx.leadId || !valor || valor <= 0) return 'Valor inválido ou lead não identificado'
-
-  const { error } = await supabase
-    .from('leads')
-    .update({ project_value: valor })
-    .eq('id', ctx.leadId)
-
-  if (error) {
-    console.error(`[SDR:${ctx.companyId}] Definir_valor_projeto erro:`, error.message)
-    return `Erro ao definir valor: ${error.message}`
-  }
-
-  console.log(`[SDR:${ctx.companyId}] lead=${ctx.leadId} project_value=${valor}${produto ? ` produto="${produto}"` : ''}`)
-  return `Valor do projeto definido: R$ ${valor}${produto ? ` (${produto})` : ''}`
-}
-
-// ─── Tool: atribui tag ao lead ───────────────────────────────────────────────
-async function runAtribuirTag(
-  tagName: string,
-  ctx: SdrContext,
-  supabase: ReturnType<typeof createServiceClient>
-): Promise<string> {
-  if (!ctx.leadId || !tagName?.trim()) return 'Tag ou lead não identificado'
-
-  const { data: tag } = await supabase
-    .from('tags')
-    .select('id')
-    .eq('company_id', ctx.companyId)
-    .eq('tag_name', tagName.trim())
-    .maybeSingle()
-
-  if (!tag) return `Tag "${tagName}" não encontrada. Use uma das tags disponíveis da empresa.`
-
-  const { error } = await supabase
-    .from('lead_tags')
-    .upsert(
-      { lead_id: ctx.leadId, tag_id: tag.id },
-      { onConflict: 'lead_id,tag_id', ignoreDuplicates: true }
-    )
-
-  if (error) {
-    console.error(`[SDR:${ctx.companyId}] Atribuir_tag erro:`, error.message)
-    return `Erro ao atribuir tag: ${error.message}`
-  }
-
-  console.log(`[SDR:${ctx.companyId}] lead=${ctx.leadId} tag="${tagName}" (id=${tag.id}) atribuída`)
-  return `Tag "${tagName}" atribuída ao lead com sucesso`
 }
 
 async function runOrchestrator(
@@ -1914,15 +1380,6 @@ CONTEXTO DO CRM:
     ...history,
     { role: 'user', content: userInput },
   ]
-
-  console.log(`[SDR:${ctx.companyId}] ══════════════ SYSTEM PROMPT COMPLETO ══════════════\n${systemMsg}\n══════════════════════════════════════════════════════`)
-  console.log(`[SDR:${ctx.companyId}] ══════════════ HISTÓRICO COMPLETO (${history.length} msgs) ══════════════`)
-  history.forEach((m, i) => {
-    const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-    console.log(`  [hist:${i}] ${m.role}:\n${content}`)
-  })
-  console.log(`[SDR:${ctx.companyId}] ══════════════════════════════════════════════════════`)
-  console.log(`[SDR:${ctx.companyId}] ══════════════ INPUT DO LEAD ══════════════\n${userInput}\n══════════════════════════════════════════════════════`)
 
   // ── Detecção determinística de estados de agendamento ────────────────────
   const AFFIRMATIONS = /^(sim|s|pode|ok|certo|confirmo|isso|quero|tá bom|ta bom|claro|ótimo|otimo|perfeito|combinado|vai|fechado|fecha|topo|top)\.?\s*$/i
@@ -2024,7 +1481,6 @@ CONTEXTO DO CRM:
     temperature: 0.1,
   })
   pushUsage(acc, response, 'orchestrator')
-  console.log(`[SDR:${ctx.companyId}] ══ OPENAI RESP inicial | finish_reason=${response.choices[0]?.finish_reason} | tool_calls=${response.choices[0]?.message?.tool_calls?.length ?? 0}`)
 
   let iterations = 0
   while (response.choices[0]?.finish_reason === 'tool_calls' && iterations < 30) {
@@ -2041,7 +1497,7 @@ CONTEXTO DO CRM:
       let args: Record<string, any> = {}
       try { args = JSON.parse((toolCall as any).function.arguments) } catch { /* ok */ }
 
-      console.log(`[SDR:${ctx.companyId}] ══ TOOL CALL [iter:${iterations}] → ${fn}\nARGS: ${JSON.stringify(args, null, 2)}`)
+      console.log(`[SDR:${ctx.companyId}] → tool: ${fn} | args: ${JSON.stringify(args).slice(0, 200)}`)
 
       let result = ''
 
@@ -2066,10 +1522,6 @@ CONTEXTO DO CRM:
       } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
-      } else if (fn === 'Definir_valor_projeto') {
-        result = await runDefinirValorProjeto(args.valor, args.produto, ctx, supabase)
-      } else if (fn === 'Atribuir_tag') {
-        result = await runAtribuirTag(args.tag_name, ctx, supabase)
       } else if (fn === 'Pausar_conversa') {
         // Pausa o bot nesta conversa — atendimento humano irá assumir
         if (ctx.conversationId) {
@@ -2089,7 +1541,7 @@ CONTEXTO DO CRM:
         }
       }
 
-      console.log(`[SDR:${ctx.companyId}] ══ TOOL RESULT [iter:${iterations}] ← ${fn}\nRESULT: ${result}`)
+      console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
 
       toolResults.push({
         role: 'tool',
@@ -2109,12 +1561,9 @@ CONTEXTO DO CRM:
       temperature: 0.1,
     })
     pushUsage(acc, response, 'orchestrator_loop')
-    console.log(`[SDR:${ctx.companyId}] ══ OPENAI RESP loop[${iterations}] | finish_reason=${response.choices[0]?.finish_reason} | tool_calls=${response.choices[0]?.message?.tool_calls?.length ?? 0}`)
   }
 
-  const finalContent = response.choices[0]?.message?.content ?? ''
-  console.log(`[SDR:${ctx.companyId}] ══════════════ RESPOSTA FINAL DO MODELO ══════════════\n${finalContent}\n══════════════════════════════════════════════════════`)
-  return finalContent
+  return response.choices[0]?.message?.content ?? ''
 }
 
 // ─── Conversa e mensagens ──────────────────────────────────────
@@ -2125,16 +1574,12 @@ async function ensureConversation(
   inboxMode: 'vendas' | 'suporte' = 'suporte'
 ): Promise<string> {
   // Seleciona apenas id — não depende de colunas opcionais (instance_name pode não existir)
-  // Usa phoneVariants para encontrar conversa mesmo se o número foi armazenado em formato diferente
-  const phoneVars = phoneVariants(ctx.leadPhone)
-  const { data: existingRows, error: selectError } = await supabase
+  const { data: existing, error: selectError } = await supabase
     .from('conversas_do_whatsapp')
     .select('id')
     .eq('company_id', ctx.companyId)
-    .in('numero_de_telefone', phoneVars)
-    .order('hora_da_ultima_mensagem', { ascending: false })
-    .limit(1)
-  const existing = existingRows?.[0] ?? null
+    .eq('numero_de_telefone', ctx.leadPhone)
+    .maybeSingle()
 
   if (selectError) {
     console.error(`[SDR:${ctx.companyId}] ensureConversation SELECT error:`, selectError.message)
@@ -2230,95 +1675,34 @@ async function saveInbound(
   supabase: ReturnType<typeof createServiceClient>,
   tipo = 'text',
   mediaUrl?: string,
-  messageId?: string,
-  replyToText?: string,
-  replyToSender?: string,
-  replyToQuotedId?: string
+  messageId?: string
 ): Promise<void> {
-  if (!conversationId) {
-    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
-    return
-  }
-
-  // Para áudio: usa a transcrição se disponível (text = enrichedContent), senão placeholder
   const displayText =
-    tipo === 'audio' ? (text && text !== '🎵 Áudio' ? `🎵 ${text}` : '🎵 Áudio') :
+    tipo === 'audio' ? '🎵 Áudio' :
     tipo === 'image' ? '📷 Imagem' :
     tipo === 'document' ? '📄 Documento' :
     tipo === 'video' ? '🎥 Vídeo' :
     text
 
-  // Se a mensagem já foi pré-salva (immediate save antes do buffer), apenas atualiza
-  if (messageId) {
-    const { data: existing } = await supabase
-      .from('mensagens_do_whatsapp')
-      .select('id')
-      .eq('whatsapp_message_id', messageId)
-      .eq('company_id', ctx.companyId)
-      .maybeSingle()
-    if (existing?.id) {
-      await supabase.from('mensagens_do_whatsapp')
-        .update({ texto_da_mensagem: displayText, url_da_midia: mediaUrl ?? null, id_do_lead: ctx.leadId })
-        .eq('id', existing.id)
-      await supabase.from('conversas_do_whatsapp')
-        .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
-        .eq('id', conversationId)
-      return
-    }
+  if (!conversationId) {
+    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
+    return
   }
 
-  const tipoFinal = tipo === 'unknown' ? 'text' : tipo
-
-  // Resolve quoted message pelo ID, com fallback para o menu/button outbound mais recente
-  let finalReplyText = replyToText ?? null
-  let finalReplySender = replyToSender ?? null
-  if (!finalReplyText && replyToQuotedId) {
-    const { data: qm } = await supabase
-      .from('mensagens_do_whatsapp')
-      .select('texto_da_mensagem, sender_type, nome_do_agente')
-      .eq('whatsapp_message_id', replyToQuotedId)
-      .eq('company_id', ctx.companyId)
-      .maybeSingle()
-    if (qm?.texto_da_mensagem) {
-      finalReplyText = qm.texto_da_mensagem
-      finalReplySender = qm.sender_type === 'ai' ? (qm.nome_do_agente ?? 'IA') : 'Lead'
-    } else {
-      // Fallback: último menu/button outbound da conversa
-      const { data: lastMenu } = await supabase
-        .from('mensagens_do_whatsapp')
-        .select('texto_da_mensagem, nome_do_agente')
-        .eq('id_da_conversacao', conversationId)
-        .eq('company_id', ctx.companyId)
-        .eq('direcao', 'outbound')
-        .in('tipo_de_mensagem', ['menu', 'button'])
-        .order('carimbo_de_data_e_hora', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (lastMenu?.texto_da_mensagem) {
-        finalReplyText = lastMenu.texto_da_mensagem
-        finalReplySender = lastMenu.nome_do_agente ?? 'IA'
-      }
-    }
-  }
-
-  console.log(`[SDR:${ctx.companyId}] saveInbound — conv=${conversationId} tipo=${tipoFinal} direcao=inbound texto="${displayText.slice(0, 60)}"`)
   const { error } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,
     texto_da_mensagem: displayText,
-    tipo_de_mensagem: tipoFinal,
+    tipo_de_mensagem: tipo,
     direcao: 'inbound',
     sender_type: 'human',
     status: 'delivered',
     url_da_midia: mediaUrl ?? null,
     carimbo_de_data_e_hora: new Date().toISOString(),
     whatsapp_message_id: messageId || null,
-    reply_to_text: finalReplyText,
-    reply_to_sender: finalReplySender,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveInbound INSERT error:`, error.message)
-  else console.log(`[SDR:${ctx.companyId}] saveInbound OK — conv=${conversationId}`)
 
   await supabase
     .from('conversas_do_whatsapp')
@@ -2359,107 +1743,21 @@ async function saveOutbound(
 
 // ─── Lead ──────────────────────────────────────────────────────
 
-/**
- * Builds all plausible phone format variants for a normalized Brazilian number.
- * Ensures leads are found regardless of how their phone was originally stored.
- * Normalized = 5577981680532 (13 digits); without-9 = 557781680532 (12 digits).
- */
-function phoneVariants(phone: string): string[] {
-  const variants: string[] = [phone]
-  const push = (v: string) => { if (!variants.includes(v)) variants.push(v) }
-  if (phone.startsWith('55')) {
-    if (phone.length === 13) {
-      push(phone.slice(0, 4) + phone.slice(5))
-      push('+' + phone)
-      push('+' + phone.slice(0, 4) + phone.slice(5))
-    } else if (phone.length === 12) {
-      push(phone.slice(0, 4) + '9' + phone.slice(4))
-      push('+' + phone)
-      push('+' + phone.slice(0, 4) + '9' + phone.slice(4))
-    } else {
-      push('+' + phone)
-    }
-  }
-  return variants
-}
-
-async function applyMetaTag(
-  companyId: number,
-  leadId: number,
-  headline: string,
-  supabase: ReturnType<typeof createServiceClient>
-) {
-  try {
-    // Busca ou cria tag com o headline do criativo (cor azul Meta)
-    const { data: existing } = await supabase
-      .from('tags')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('tag_name', headline)
-      .maybeSingle()
-
-    let tagId = existing?.id
-    if (!tagId) {
-      const { data: created } = await supabase
-        .from('tags')
-        .insert({ company_id: companyId, tag_name: headline, tag_color: '#1877F2' })
-        .select('id')
-        .single()
-      tagId = created?.id
-    }
-
-    if (tagId) {
-      await supabase
-        .from('lead_tags')
-        .upsert({ lead_id: leadId, tag_id: tagId, company_id: companyId }, { onConflict: 'lead_id,tag_id' })
-    }
-  } catch (err: any) {
-    console.warn(`[SDR] applyMetaTag lead=${leadId}:`, err.message)
-  }
-}
-
 async function findOrCreateLead(
   companyId: number,
   phone: string,
   name: string,
   companyName: string,
-  supabase: ReturnType<typeof createServiceClient>,
-  referral?: MetaReferral
+  supabase: ReturnType<typeof createServiceClient>
 ): Promise<{ id: number; notes: string }> {
-  const variants = phoneVariants(phone)
-
-  const { data: rows } = await supabase
+  const { data: existing } = await supabase
     .from('leads')
-    .select('id, notes, whatsapp, contact_name')
+    .select('id, notes')
     .eq('company_id', companyId)
-    .in('whatsapp', variants)
-    .order('id', { ascending: true })
-    .limit(1)
+    .eq('whatsapp', phone)
+    .maybeSingle()
 
-  const existing = rows?.[0]
-  if (existing) {
-    const updates: Record<string, any> = {}
-    if (existing.whatsapp !== phone) updates.whatsapp = phone
-    // Atualiza nome se o lead foi criado sem nome e agora temos um
-    if (name && (existing as any).contact_name === 'Não identificado') updates.contact_name = name
-    if (Object.keys(updates).length > 0) {
-      supabase.from('leads').update(updates).eq('id', existing.id).then(() => {}, () => {})
-    }
-    // Aplica tag do criativo mesmo em lead já existente (pode ter vindo de outro anúncio)
-    if (referral?.headline) {
-      applyMetaTag(companyId, existing.id, referral.headline, supabase)
-    }
-    return { id: existing.id, notes: existing.notes ?? '' }
-  }
-
-  const isMetaAd = !!referral?.ctwaClid || !!referral?.sourceId
-  const metaAttribution = referral ? {
-    ad_id: referral.sourceId ?? null,
-    headline: referral.headline ?? null,
-    ctwa_clid: referral.ctwaClid ?? null,
-    source_url: referral.sourceUrl ?? null,
-    captured_at: new Date().toISOString(),
-  } : null
+  if (existing) return { id: existing.id, notes: existing.notes ?? '' }
 
   const { data: created, error: insertError } = await supabase
     .from('leads')
@@ -2469,9 +1767,8 @@ async function findOrCreateLead(
       whatsapp: phone,
       contact_name: name || 'Não identificado',
       status: 'Lead novo',
-      import_source: isMetaAd ? 'Meta Ads' : 'WhatsApp',
+      import_source: 'WhatsApp',
       origem: 'inbound',
-      ...(metaAttribution ? { meta_attribution: metaAttribution } : {}),
       created_at: new Date().toISOString(),
     })
     .select('id')
@@ -2479,10 +1776,6 @@ async function findOrCreateLead(
 
   if (insertError || !created?.id) {
     throw new Error(`findOrCreateLead: falha ao criar lead — ${insertError?.message ?? 'id nulo'}`)
-  }
-
-  if (referral?.headline) {
-    applyMetaTag(companyId, created.id, referral.headline, supabase)
   }
 
   return { id: created.id, notes: '' }
@@ -2609,10 +1902,7 @@ async function loadSdrConfig(
 
   const decryptIfNeeded = (val: string | null | undefined): string => {
     if (!val) return ''
-    if (val.startsWith('plain:')) return val.slice(6)
-    // Formato cifrado: iv(32hex):authTag(32hex):cipher — checa antes de chamar decrypt
-    const parts = val.split(':')
-    if (parts.length === 3 && parts[0].length === 32 && parts[1].length === 32) {
+    if (val.includes(':') && val.split(':').length === 3) {
       try { return decrypt(val) } catch { return '' }
     }
     return val
@@ -2749,15 +2039,11 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (!quotaCheck.allowed) {
       await pauseTenant(companyId, supabase)
       await log(companyId, 'quota_exceeded', { usedThisMonth: quotaCheck.usedThisMonth, quota: quotaCheck.quota }, supabase, phone)
-      writeSystemLog('sdr', 'warning', companyId, `Cota excedida — agente pausado`, { usedThisMonth: quotaCheck.usedThisMonth, quota: quotaCheck.quota, phone })
       return
     }
 
-    const bufferedMessages = await drainBuffer(companyId, phone)
-    if (bufferedMessages.length === 0) {
-      console.warn(`[SDR:${companyId}] processSdrMessage: drainBuffer vazio para phone=${phone} — mensagem perdida no Redis`)
-      return
-    }
+    const bufferedMessages = await drainBuffer(companyId, phone, supabase)
+    if (bufferedMessages.length === 0) return
 
     // Nó "Switch" (15s) — se a última mensagem chegou há menos de 15s, aguarda
     // o tempo restante antes de prosseguir (garante que o lead terminou de digitar)
@@ -2781,52 +2067,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // Usa push_name do webhook (nó "Dados do Chat" → "None da pessoa" no N8N)
     const senderName = bufferedMessages[0]?.senderName || bufferedMessages[0]?.content?.split(' ')[0] || ''
-    // Referral vem da primeira mensagem do buffer (click-to-WhatsApp)
-    const referralFromBuffer: MetaReferral | undefined = bufferedMessages[0]?.referral
-
-    const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase, referralFromBuffer)
-
-    // Se lead veio de Meta Ads e empresa tem GTPRO configurado, registra lead no GTPRO
-    if (referralFromBuffer?.ctwaClid || referralFromBuffer?.sourceId) {
-      ;(async () => {
-        try {
-          const { data: sdrcfg } = await supabase
-            .from('sdr_configs')
-            .select('gtpro_api_key')
-            .eq('company_id', companyId)
-            .maybeSingle()
-          const gtproKey = sdrcfg?.gtpro_api_key
-          if (!gtproKey) return
-          const gtproId = await gtproCreateLead(gtproKey, {
-            name: senderName || undefined,
-            phone,
-            fbclid: referralFromBuffer.ctwaClid,
-            utm_campaign: referralFromBuffer.sourceId,
-            utm_source: 'whatsapp',
-            metadata: { headline: referralFromBuffer.headline, source_url: referralFromBuffer.sourceUrl },
-          })
-          if (!gtproId) return
-          const { data: cur } = await supabase.from('leads').select('meta_attribution').eq('id', leadId).single()
-          const existing = (cur?.meta_attribution as Record<string, any>) ?? {}
-          await supabase.from('leads')
-            .update({ meta_attribution: { ...existing, gtpro_lead_id: gtproId } })
-            .eq('id', leadId)
-        } catch (err: any) {
-          console.warn(`[SDR:${companyId}] gtpro createLead falhou:`, err.message)
-        }
-      })()
-    }
-
-    // Busca produtos ativos da empresa para injetar no contexto
-    const { data: products } = await supabase
-      .from('sdr_products')
-      .select('numero, nome, descricao, preco')
-      .eq('company_id', companyId)
-      .eq('ativo', true)
-      .order('numero')
-    const productsBlock = products && products.length > 0
-      ? products.map((p: any) => `#${p.numero} ${p.nome}${p.descricao ? ` — ${p.descricao}` : ''}${p.preco ? ` — R$ ${Number(p.preco).toFixed(2)}` : ''}`).join('\n')
-      : null
+    const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase)
 
     const ctx: SdrContext = {
       companyId,
@@ -2849,7 +2090,6 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       conhecimentoAtivo: cfg.conhecimentoAtivo,
       objecoesAtivo: cfg.objecoesAtivo,
       eventTitleTemplate: cfg.eventTitleTemplate,
-      productsBlock,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
@@ -2868,59 +2108,23 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
     // SEMPRE salva, mesmo quando pausado — garante histórico no chat e contexto ao reativar
     for (const em of enrichedMessages) {
-      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId, em.replyToText, em.replyToSender, em.replyToQuotedId)
+      await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
     }
 
-    // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
-    const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
-    console.log(`[SDR:${companyId}] combinedText="${combinedText.slice(0, 80)}" leadId=${leadId}`)
-
-    // ── Button Actions — executa ANTES da verificação de pausa ───────────────
-    // Botões devem disparar sequências/estagios mesmo quando SDR está pausado
-    console.log(`[SDR:${companyId}] chamando executeButtonActions texto="${combinedText.trim().slice(0, 60)}"`)
-    await executeButtonActions(combinedText.trim(), ctx, supabase)
-
-    // Verifica se agente está pausado nesta conversa (só APÓS salvar mensagens e executar button_actions)
+    // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
     const { data: conv } = await supabase
       .from('conversas_do_whatsapp')
       .select('agente_pausado')
       .eq('id', conversationId)
       .single()
 
-    console.log(`[SDR:${companyId}] agente_pausado=${conv?.agente_pausado} conv=${conversationId} lead=#${leadId}`)
-
     if (conv?.agente_pausado) {
-      console.log(`[SDR:${companyId}] RETORNO ANTECIPADO — agente pausado, não processa SDR`)
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
       return
     }
 
-    // ── Canvas scheduling: lead aguarda agendamento via canvas node ──────────
-    const schedKey = `canvas:sched:${companyId}:${phone}`
-    const schedRaw = await getRedis().get(schedKey).catch(() => null)
-    if (schedRaw) {
-      console.log(`[SDR:${companyId}] canvas:sched ativo para ${phone} — roteando para agente de agendamento`)
-      const history = await getHistory(leadId, companyId, supabase)
-      const acc: UsageAcc = []
-      const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
-      const schedResponse = await runAgenteAgendamento(combinedText, ctx, openai, supabase, acc, history)
-      if (schedResponse) {
-        const paragraphs = schedResponse.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
-        await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
-      }
-      recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
-      return
-    }
-
-    // ── Auto-transição de status ──────────────────────────────────────────────
-    const { data: currentLead } = await supabase
-      .from('leads').select('status').eq('id', ctx.leadId).single()
-    if (currentLead?.status === 'Remarketing') {
-      await supabase.from('leads')
-        .update({ status: 'Em contato', updated_at: new Date().toISOString() })
-        .eq('id', ctx.leadId)
-      console.log(`[SDR:${companyId}] Auto-transição: lead #${ctx.leadId} Remarketing → Em contato`)
-    }
+    // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
+    const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
 
     const history = await getHistory(leadId, companyId, supabase)
 
@@ -2942,14 +2146,9 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       .map((p) => p.trim())
       .filter(Boolean)
 
-    console.log(`[SDR:${companyId}] ══════════════ ENVIANDO PARA LEAD (${paragraphs.length} bloco(s)) ══════════════`)
-    paragraphs.forEach((p, i) => console.log(`  [bloco:${i + 1}] ${p}`))
-    console.log(`[SDR:${companyId}] ══════════════════════════════════════════════════════`)
     await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
-    console.log(`[SDR:${companyId}] ✓ mensagem enviada para ${phone}`)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
-    writeSystemLog('sdr', 'info', companyId, `Resposta enviada para ${phone} (${paragraphs.length} bloco${paragraphs.length !== 1 ? 's' : ''})`, { phone, leadId, flowId: cfg.flowId, preview: paragraphs[0]?.slice(0, 120) })
 
     // ── Salvar usage_logs e enviar alertas (fire-and-forget) ──
     recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
@@ -2957,7 +2156,6 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
   } catch (err: any) {
     console.error('[SDR Engine] Erro:', err)
     await log(companyId, 'error', {}, supabase, phone, undefined, err?.message ?? 'Erro desconhecido')
-    writeSystemLog('sdr', 'error', companyId, `Erro no agente SDR: ${err?.message ?? 'Erro desconhecido'}`, { phone }, err?.stack?.slice(0, 1000))
   }
 }
 
@@ -2997,151 +2195,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     if (body.message?.fromMe) {
-      // Salva mensagem enviada pelo operador direto do WhatsApp na UI
-      const outPhone = normalizePhone(body.chat?.phone || '')
-      if (outPhone) {
-        const outMsg = body.message as any
-
-        // Mensagem editada pelo operador: atualiza em vez de inserir
-        if (outMsg?.messageType === 'editedMessage' || outMsg?.editedMessage) {
-          const edited = outMsg?.editedMessage
-          const originalMsgId: string = edited?.key?.id ?? ''
-          const newText: string = edited?.message?.conversation
-            || edited?.message?.extendedTextMessage?.text
-            || edited?.message?.text
-            || ''
-          if (originalMsgId && newText) {
-            const editSvc = createServiceClient()
-            const { data: existingOut } = await editSvc
-              .from('mensagens_do_whatsapp')
-              .select('id')
-              .eq('whatsapp_message_id', originalMsgId)
-              .eq('company_id', companyId)
-              .maybeSingle()
-            if (existingOut?.id) {
-              await editSvc.from('mensagens_do_whatsapp')
-                .update({ texto_da_mensagem: newText, is_edited: true, edited_at: new Date().toISOString() })
-                .eq('id', existingOut.id)
-              console.log(`[SDR:${companyId}] fromMe editedMessage atualizado — db_id=${existingOut.id}`)
-            }
-          }
-          return true
-        }
-
-        const outContactName: string = body.chat?.wa_contactName || body.chat?.name || body.chat?.pushName || ''
-        const outMsgType = detectMessageType(body.message)
-        const outText = outMsg?.text || outMsg?.conversation || outMsg?.extendedTextMessage?.text || outMsg?.body || ''
-        const outMediaUrl: string | undefined = outMsg?.url || outMsg?.mediaUrl || outMsg?.media?.url || undefined
-        const dispText = outMsgType === 'audio' ? '🎵 Áudio'
-          : outMsgType === 'image' ? '📷 Imagem'
-          : outMsgType === 'video' ? '🎥 Vídeo'
-          : outMsgType === 'document' ? '📄 Documento'
-          : outText || ''
-        ;(async () => {
-          try {
-            const outSvc = createServiceClient()
-            const { data: convRows } = await outSvc
-              .from('conversas_do_whatsapp')
-              .select('id, id_do_lead')
-              .eq('company_id', companyId)
-              .in('numero_de_telefone', phoneVariants(outPhone))
-              .order('hora_da_ultima_mensagem', { ascending: false })
-              .limit(1)
-            let conv = convRows?.[0] ?? null
-            if (!conv?.id) {
-              // Conversa ainda não existe — Bruno abordou um contato novo pelo celular.
-              // Cria lead + conversa com a mesma lógica do fluxo inbound, sem passar pelo SDR.
-              let newLeadId: number | null = null
-              try {
-                const { id: lid } = await findOrCreateLead(companyId, outPhone, outContactName, '', outSvc)
-                newLeadId = lid
-              } catch (e: any) {
-                console.warn(`[SDR:${companyId}] fromMe: falha ao criar lead phone=${outPhone}:`, e?.message)
-              }
-              const msgTs = (body.message as any)?.timestamp
-                ? new Date(Number((body.message as any).timestamp) * 1000).toISOString()
-                : new Date().toISOString()
-              const { data: newConv, error: convErr } = await outSvc
-                .from('conversas_do_whatsapp')
-                .insert({
-                  company_id: companyId,
-                  id_do_lead: newLeadId,
-                  numero_de_telefone: outPhone,
-                  nome_do_contato: outContactName || outPhone,
-                  ultima_mensagem: dispText,
-                  hora_da_ultima_mensagem: msgTs,
-                  status_da_conversa: 'aberto',
-                  contagem_nao_lida: 0,
-                })
-                .select('id, id_do_lead')
-                .single()
-              if (convErr || !newConv) {
-                console.warn(`[SDR:${companyId}] fromMe: falha ao criar conversa phone=${outPhone}:`, convErr?.message)
-                return
-              }
-              conv = newConv
-              console.log(`[SDR:${companyId}] fromMe: conversa criada conv=${conv.id} lead=${newLeadId} phone=${outPhone}`)
-            }
-            const outMsgTs = (body.message as any)?.timestamp
-              ? new Date(Number((body.message as any).timestamp) * 1000).toISOString()
-              : new Date().toISOString()
-            await outSvc.from('mensagens_do_whatsapp').insert({
-              id_da_conversacao: conv.id,
-              id_do_lead: conv.id_do_lead ?? null,
-              company_id: companyId,
-              texto_da_mensagem: dispText,
-              tipo_de_mensagem: outMsgType === 'unknown' ? 'text' : outMsgType,
-              direcao: 'outbound',
-              sender_type: 'human',
-              status: 'delivered',
-              url_da_midia: outMediaUrl ?? null,
-              carimbo_de_data_e_hora: outMsgTs,
-              whatsapp_message_id: body.message.id || null,
-            })
-            await outSvc.from('conversas_do_whatsapp')
-              .update({ ultima_mensagem: dispText, hora_da_ultima_mensagem: outMsgTs })
-              .eq('id', conv.id)
-            console.log(`[SDR:${companyId}] fromMe salvo — outbound conv=${conv.id} tipo=${outMsgType}`)
-
-            // Download e upload de mídia outbound (fromMe) → preview no chat
-            const outIsMedia = ['audio', 'ptt', 'image', 'video', 'document'].includes(outMsgType)
-            const outMessageId = body.message.id || null
-            if (outIsMedia && outMessageId) {
-              try {
-                const uazapiOut = createUazapiClient(
-                  body.BaseUrl ?? 'https://nexioai.uazapi.com',
-                  body.token ?? ''
-                )
-                const { base64Data, mimetype } = await uazapiOut.downloadMedia(outMessageId)
-                const ext = mimetype?.split('/')?.[1]?.split(';')?.[0] ?? (
-                  outMsgType === 'audio' || outMsgType === 'ptt' ? 'ogg' :
-                  outMsgType === 'image' ? 'jpg' :
-                  outMsgType === 'video' ? 'mp4' : 'bin'
-                )
-                const filePath = `${companyId}/whatsapp/outbound/${outMessageId}.${ext}`
-                const buffer = Buffer.from(base64Data, 'base64')
-                const { error: uploadErr } = await outSvc.storage
-                  .from('whatsapp-media')
-                  .upload(filePath, buffer, { contentType: mimetype || 'application/octet-stream', upsert: true })
-                if (!uploadErr) {
-                  const { data: urlData } = outSvc.storage.from('whatsapp-media').getPublicUrl(filePath)
-                  if (urlData?.publicUrl) {
-                    await outSvc.from('mensagens_do_whatsapp')
-                      .update({ url_da_midia: urlData.publicUrl })
-                      .eq('whatsapp_message_id', outMessageId)
-                      .eq('company_id', companyId)
-                    console.log(`[SDR:${companyId}] fromMe media salva — ${outMsgType} → ${filePath}`)
-                  }
-                }
-              } catch (e: any) {
-                console.error(`[SDR:${companyId}] fromMe media error:`, e?.message)
-              }
-            }
-          } catch (e: any) {
-            console.error(`[SDR:${companyId}] fromMe save error:`, e?.message)
-          }
-        })()
-      }
+      console.log(`[SDR:${companyId}] ignorado — fromMe=true`)
       return false
     }
 
@@ -3156,58 +2210,12 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     const msgType = detectMessageType(body.message)
     const isMedia = msgType === 'audio' || msgType === 'image' || msgType === 'document' || msgType === 'video'
 
-    // Mensagem editada: uazapi envia messageType="editedMessage" com msg.editedMessage.key.id (original) e novo texto
-    if (msg?.messageType === 'editedMessage' || msg?.editedMessage) {
-      const edited = msg?.editedMessage
-      const originalMsgId: string = edited?.key?.id ?? ''
-      const newText: string = edited?.message?.conversation
-        || edited?.message?.extendedTextMessage?.text
-        || edited?.message?.text
-        || ''
-      console.log(`[SDR:${companyId}] editedMessage — originalId="${originalMsgId}" newText="${newText.slice(0, 80)}"`)
-      if (originalMsgId && newText) {
-        const { data: existingMsg } = await supabase
-          .from('mensagens_do_whatsapp')
-          .select('id')
-          .eq('whatsapp_message_id', originalMsgId)
-          .eq('company_id', companyId)
-          .maybeSingle()
-        if (existingMsg?.id) {
-          await supabase.from('mensagens_do_whatsapp')
-            .update({ texto_da_mensagem: newText, is_edited: true, edited_at: new Date().toISOString() })
-            .eq('id', existingMsg.id)
-          console.log(`[SDR:${companyId}] mensagem atualizada (editedMessage) — db_id=${existingMsg.id}`)
-        } else {
-          console.warn(`[SDR:${companyId}] editedMessage: originalMsgId=${originalMsgId} não encontrado no DB`)
-        }
-      }
-      return true
-    }
-
-    // vote pode ser array de objetos {name, localId} (UAZapi) ou array de strings
-    const voteText: string = Array.isArray(msg?.vote)
-      ? (typeof msg.vote[0] === 'string' ? msg.vote[0] : (msg.vote[0]?.name ?? ''))
-      : (typeof msg?.vote === 'string' ? msg.vote : '')
-
     const text = msg?.text
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || (typeof msg?.content === 'string' ? msg.content : '')                         // botão/lista selecionada (uazapi)
-      || msg?.buttonsResponseMessage?.selectedDisplayText                               // resposta de botão interativo
-      || msg?.listResponseMessage?.title                                                // resposta de lista
-      || msg?.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson        // botão nativo
-      || voteText                                                                       // enquete/poll
-      || body.chat?.wa_lastMessageTextVote
+      || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
       || ''
-
-    // Log para button responses e tipos especiais
-    if (msgType === 'unknown' || msg?.buttonsResponseMessage || msg?.listResponseMessage) {
-      console.log(`[SDR:${companyId}] msg especial — msgType="${msgType}" text="${text}" campos:`, Object.keys(msg ?? {}))
-      if (msg?.quoted !== undefined) {
-        console.log(`[SDR:${companyId}] quoted:`, JSON.stringify(msg.quoted).slice(0, 300))
-      }
-    }
 
     // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
     if (!text.trim() && !isMedia) {
@@ -3225,41 +2233,45 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — tipo="${msgType}" texto="${(text || placeholder).slice(0, 80)}"`)
 
-    if (text) {
-      const injection = analyzeInjection(text)
-      if (injection.isInjection) {
-        if (injection.shouldBlock) {
-          const uazapiBlock = createUazapiClient(
-            body.BaseUrl ?? 'https://nexioai.uazapi.com',
-            body.token ?? ''
-          )
-          await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
-          await log(companyId, 'injection_blocked', { text, classification: injection.classification, confidence: injection.confidence }, supabase, body.chat.phone)
-          writeSystemLog('sdr', 'critical', companyId, `Injeção de prompt bloqueada — contato banido [${injection.classification} conf=${injection.confidence}]`, { phone: body.chat.phone, text: text.slice(0, 200), attackVector: injection.attackVector })
-          sendInjectionAlertEmail({
-            pushName: body.message?.senderName || body.chat?.wa_contactName || 'Desconhecido',
-            senderNumber: normalizePhone(body.chat.phone),
-            instanceName: body.instanceName ?? '',
-            originalMessage: text,
-            classification: injection.classification,
-            riskLevel: injection.riskLevel,
-            confidence: injection.confidence,
-            evidence: injection.evidence ?? injection.detectedKeywords.slice(0, 3).join(', '),
-            timestamp: new Date().toISOString(),
-          }).catch(() => {})
-          return false
-        }
-        // Suspeito mas abaixo do threshold de bloqueio — só loga, não bane
-        await log(companyId, 'injection_suspicious', { text, classification: injection.classification, confidence: injection.confidence, flags: injection.structuralFlags }, supabase, body.chat.phone)
-        writeSystemLog('sdr', 'warn', companyId, `Conteúdo suspeito detectado [${injection.classification} conf=${injection.confidence}]`, { phone: body.chat.phone, attackVector: injection.attackVector })
-      }
+    if (text && isPromptInjection(text)) {
+      const uazapiBlock = createUazapiClient(
+        body.BaseUrl ?? 'https://nexioai.uazapi.com',
+        body.token ?? ''
+      )
+      // Nó "Bloquear contato1" — bloqueia o número na instância
+      await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
+      await log(companyId, 'injection_blocked', { text }, supabase, body.chat.phone)
+
+      // Nó "Enviar mensagem para o ADM1" — alerta via email (fire-and-forget)
+      sendInjectionAlertEmail({
+        pushName: body.message?.senderName || body.chat?.wa_contactName || 'Desconhecido',
+        senderNumber: normalizePhone(body.chat.phone),
+        instanceName: body.instanceName ?? '',
+        originalMessage: text,
+        classification: 'DIRECT_OVERRIDE',
+        riskLevel: 'CRITICAL',
+        confidence: 0.95,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {})
+
+      return false
     }
 
     const phone = normalizePhone(body.chat.phone)
     const messageId = body.message.id ?? body.message.messageid
 
-    // Deduplicação por messageId (verifica na fila Redis)
-    if (await isDuplicateMessage(companyId, phone, messageId)) return false
+    // Deduplicação por messageId
+    const { data: dup } = await supabase
+      .from('sdr_message_buffer')
+      .select('messages')
+      .eq('company_id', companyId)
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (dup?.messages) {
+      const msgs = dup.messages as BufferedMessage[]
+      if (msgs.some((m) => m.messageId === messageId)) return false
+    }
 
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
     const senderPhoto: string | undefined = body.chat?.image || body.chat?.imagePreview || undefined
@@ -3273,27 +2285,6 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
     }
 
-    // msg.quoted pode ser string (ID da mensagem citada) ou objeto — guardamos o ID para resolver depois
-    const quotedRaw = msg?.quoted
-    const replyToQuotedId: string | undefined = typeof quotedRaw === 'string' ? quotedRaw
-      : typeof quotedRaw === 'object' && quotedRaw !== null
-        ? (quotedRaw.text || quotedRaw.conversation || quotedRaw.body ? undefined : quotedRaw.id)
-        : undefined
-    const replyToTextDirect: string | undefined = typeof quotedRaw === 'object' && quotedRaw !== null
-      ? (quotedRaw.text || quotedRaw.conversation || quotedRaw.body || undefined)
-      : undefined
-    const replyToSenderDirect: string | undefined = typeof quotedRaw === 'object' && quotedRaw !== null
-      ? (quotedRaw.senderName || quotedRaw.sender || undefined)
-      : undefined
-
-    const rawReferral = body.message?.referral
-    const referralData: MetaReferral | undefined = rawReferral ? {
-      sourceId: rawReferral.sourceId,
-      headline: rawReferral.headline,
-      ctwaClid: rawReferral.ctwaClid,
-      sourceUrl: rawReferral.sourceUrl,
-    } : undefined
-
     const bufferedMsg: BufferedMessage = {
       content: text || placeholder,
       type: msgType,
@@ -3302,261 +2293,13 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       mediaUrl,
       senderName,
       senderPhoto,
-      replyToText: replyToTextDirect,
-      replyToSender: replyToSenderDirect,
-      replyToQuotedId,
-      referral: referralData,
     }
 
-    await bufferMessage(companyId, phone, bufferedMsg)
+    await bufferMessage(companyId, phone, bufferedMsg, supabase)
 
-    // Pré-salva a mensagem imediatamente na conversa existente (antes do buffer de 30s)
-    // Garante que aparece no painel de atendimento sem esperar o processamento da IA
-    ;(async () => {
-      try {
-        const imm = createServiceClient()
-        const phoneVarsImm = phoneVariants(phone)
-        const { data: convRows } = await imm
-          .from('conversas_do_whatsapp')
-          .select('id, id_do_lead, contagem_nao_lida')
-          .eq('company_id', companyId)
-          .in('numero_de_telefone', phoneVarsImm)
-          .order('hora_da_ultima_mensagem', { ascending: false })
-          .limit(1)
-        let conv = convRows?.[0] ?? null
-        if (!conv?.id) {
-          // Cria lead + conversa para novos contatos independente de agente_ativo
-          // (desligar SDR = não responder automaticamente, não = ignorar mensagens)
-          let newLeadId: number | null = null
-          try {
-            const { id: lid } = await findOrCreateLead(companyId, phone, senderName, '', imm, referralData)
-            newLeadId = lid
-          } catch (e: any) {
-            console.warn(`[SDR:${companyId}] pre-save: falha ao criar lead phone=${phone}:`, e?.message)
-          }
-
-          const { data: newConv, error: convErr } = await imm
-            .from('conversas_do_whatsapp')
-            .insert({
-              company_id: companyId,
-              id_do_lead: newLeadId,
-              numero_de_telefone: phone,
-              nome_do_contato: senderName || phone,
-              ultima_mensagem: '',
-              hora_da_ultima_mensagem: new Date().toISOString(),
-              ultima_mensagem_inbound_at: new Date().toISOString(),
-              window_expires_at: new Date(Date.now() + (referralData?.ctwaClid ? 72 : 24) * 3600000).toISOString(),
-              window_type: referralData?.ctwaClid ? 'ctwa' : 'regular',
-              status_da_conversa: 'aberto',
-              contagem_nao_lida: 0,
-              ...(referralData ? { lead_source: {
-                type: 'ctwa',
-                ctwa_clid: referralData.ctwaClid,
-                source_id: referralData.sourceId,
-                headline: referralData.headline,
-                source_url: referralData.sourceUrl,
-                captured_at: new Date().toISOString(),
-              }} : {}),
-            })
-            .select('id, id_do_lead')
-            .single()
-          if (convErr) {
-            console.warn(`[SDR:${companyId}] pre-save: falha ao criar conversa phone=${phone}:`, convErr.message)
-            return
-          }
-          conv = newConv
-        }
-        const dispText = msgType === 'audio' ? '🎵 Áudio'
-          : msgType === 'image' ? '📷 Imagem'
-          : msgType === 'video' ? '🎥 Vídeo'
-          : msgType === 'document' ? '📄 Documento'
-          : text || ''
-        const tipoPreSave = msgType === 'unknown' ? 'text' : msgType
-
-        // Resolve quoted message pelo ID, com fallback para o menu/button outbound mais recente
-        let resolvedReplyText = replyToTextDirect ?? null
-        let resolvedReplySender = replyToSenderDirect ?? null
-        if (!resolvedReplyText && replyToQuotedId) {
-          const { data: qm } = await imm
-            .from('mensagens_do_whatsapp')
-            .select('texto_da_mensagem, sender_type, nome_do_agente')
-            .eq('whatsapp_message_id', replyToQuotedId)
-            .eq('company_id', companyId)
-            .maybeSingle()
-          if (qm?.texto_da_mensagem) {
-            resolvedReplyText = qm.texto_da_mensagem
-            resolvedReplySender = qm.sender_type === 'ai' ? (qm.nome_do_agente ?? 'IA') : 'Lead'
-          } else {
-            // Fallback: último menu/button outbound da conversa
-            const { data: lastMenu } = await imm
-              .from('mensagens_do_whatsapp')
-              .select('texto_da_mensagem, nome_do_agente')
-              .eq('id_da_conversacao', conv.id)
-              .eq('company_id', companyId)
-              .eq('direcao', 'outbound')
-              .in('tipo_de_mensagem', ['menu', 'button'])
-              .order('carimbo_de_data_e_hora', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-            if (lastMenu?.texto_da_mensagem) {
-              resolvedReplyText = lastMenu.texto_da_mensagem
-              resolvedReplySender = lastMenu.nome_do_agente ?? 'IA'
-            }
-          }
-        }
-
-        const { error: presaveErr } = await imm.from('mensagens_do_whatsapp').insert({
-          id_da_conversacao: conv.id,
-          id_do_lead: conv.id_do_lead ?? null,
-          company_id: companyId,
-          texto_da_mensagem: dispText,
-          tipo_de_mensagem: tipoPreSave,
-          direcao: 'inbound',
-          sender_type: 'human',
-          status: 'delivered',
-          url_da_midia: mediaUrl ?? null,
-          carimbo_de_data_e_hora: new Date().toISOString(),
-          whatsapp_message_id: messageId || null,
-          reply_to_text: resolvedReplyText,
-          reply_to_sender: resolvedReplySender,
-        })
-        if (presaveErr) {
-          console.error(`[SDR:${companyId}] pre-save INSERT error conv=${conv.id}:`, presaveErr.message)
-        } else {
-          console.log(`[SDR:${companyId}] pre-save OK — conv=${conv.id} tipo=${tipoPreSave} texto="${dispText.slice(0, 60)}"`)
-        }
-        const now = new Date()
-        // Janela de conversa: CTWA = 72h, regular = 24h (novo modelo Meta out/2026)
-        const isCtwa = !!referralData?.ctwaClid
-        const windowExpires = new Date(now.getTime() + (isCtwa ? 72 : 24) * 60 * 60 * 1000)
-
-        // lead_source: captura atribuição CTWA ou mantém o que já existe
-        const leadSource = referralData ? {
-          type: 'ctwa',
-          ctwa_clid: referralData.ctwaClid,
-          source_id: referralData.sourceId,
-          headline: referralData.headline,
-          source_url: referralData.sourceUrl,
-          captured_at: now.toISOString(),
-        } : undefined
-
-        await imm.from('conversas_do_whatsapp')
-          .update({
-            ultima_mensagem: dispText,
-            hora_da_ultima_mensagem: now.toISOString(),
-            ultima_mensagem_inbound_at: now.toISOString(),
-            window_expires_at: windowExpires.toISOString(),
-            window_type: isCtwa ? 'ctwa' : 'regular',
-            contagem_nao_lida: ((conv as any).contagem_nao_lida ?? 0) + 1,
-            ...(leadSource ? { lead_source: leadSource } : {}),
-          })
-          .eq('id', conv.id)
-      } catch (e: any) {
-        console.error(`[SDR:${companyId}] pre-save exception:`, e?.message ?? e)
-      }
-    })()
-
-    // Download e upload de mídia inbound → salva URL pra preview no chat (fire-and-forget)
-    if (isMedia && messageId) {
-      ;(async () => {
-        try {
-          const uazapiMedia = createUazapiClient(
-            body.BaseUrl ?? 'https://nexioai.uazapi.com',
-            body.token ?? ''
-          )
-          const { base64Data, mimetype } = await uazapiMedia.downloadMedia(messageId)
-          const ext = mimetype?.split('/')?.[1]?.split(';')?.[0] ?? (
-            msgType === 'audio' ? 'ogg' :
-            msgType === 'image' ? 'jpg' :
-            msgType === 'video' ? 'mp4' : 'bin'
-          )
-          const filePath = `${companyId}/whatsapp/inbound/${messageId}.${ext}`
-          const buffer = Buffer.from(base64Data, 'base64')
-          const mediaStore = createServiceClient()
-          const { error: uploadErr } = await mediaStore.storage
-            .from('whatsapp-media')
-            .upload(filePath, buffer, { contentType: mimetype || 'application/octet-stream', upsert: true })
-          if (uploadErr) {
-            console.error(`[SDR:${companyId}] media upload error:`, uploadErr.message)
-            return
-          }
-          const { data: urlData } = mediaStore.storage.from('whatsapp-media').getPublicUrl(filePath)
-          if (!urlData?.publicUrl) return
-          await mediaStore.from('mensagens_do_whatsapp')
-            .update({ url_da_midia: urlData.publicUrl })
-            .eq('whatsapp_message_id', messageId)
-            .eq('company_id', companyId)
-          console.log(`[SDR:${companyId}] media inbound salva — ${msgType} → ${filePath}`)
-        } catch (e: any) {
-          console.error(`[SDR:${companyId}] media download/upload error:`, e?.message)
-        }
-      })()
-    }
-
-    // Marca follow_logs como respondido + saas_trials.respondeu (fire-and-forget)
-    ;(async () => {
-      try {
-        const svc = createServiceClient()
-        const phoneVarsResp = phoneVariants(phone)
-
-        // follow_logs para leads normais
-        const { data: leadRows } = await svc
-          .from('leads')
-          .select('id')
-          .eq('company_id', companyId)
-          .in('whatsapp', phoneVarsResp)
-          .order('id', { ascending: true })
-          .limit(1)
-        const lead = leadRows?.[0] ?? null
-        if (lead?.id) {
-          await svc
-            .from('follow_logs')
-            .update({ respondeu: true })
-            .eq('company_id', companyId)
-            .eq('lead_id', lead.id)
-            .neq('respondeu', true)
-        }
-
-        // saas_trials.respondeu para leads de trial + follow_logs dos trials
-        const { data: trialRows } = await svc
-          .from('saas_trials')
-          .update({ respondeu: true })
-          .eq('company_id', companyId)
-          .in('whatsapp', phoneVarsResp)
-          .eq('respondeu', false)
-          .select('id')
-        if (trialRows?.length) {
-          const trialIds = trialRows.map((t: any) => t.id)
-          await svc
-            .from('follow_logs')
-            .update({ respondeu: true })
-            .eq('company_id', companyId)
-            .in('trial_id', trialIds)
-            .neq('respondeu', true)
-        }
-      } catch { /* best-effort */ }
-    })()
-
-    // Persiste job no banco — worker processa após 30s de inatividade
-    const jobSupabase = createServiceClient()
-    const { error: jobErr } = await jobSupabase.from('sdr_jobs').upsert(
-      {
-        company_id: companyId,
-        phone,
-        status: 'PENDING',
-        last_message_at: new Date().toISOString(),
-        attempts: 0,
-      },
-      {
-        onConflict: 'company_id,phone',
-        ignoreDuplicates: false,
-      }
-    )
-    if (jobErr) {
-      console.error(`[SDR:${companyId}] ERRO ao criar job — worker não vai processar:`, jobErr.message)
-    } else {
-      console.log(`[SDR:${companyId}] job criado/atualizado — phone=${phone}`)
-    }
+    // Aguarda 30s (nó "Espera" do N8N — batching de mensagens do lead)
+    await new Promise((r) => setTimeout(r, 30_000))
+    await processSdrMessage(companyId, phone)
 
     return true
   } catch (err: any) {
@@ -3567,19 +2310,10 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
 export async function resolveCompanyByInstance(instanceName: string): Promise<number | null> {
   const supabase = createServiceClient()
-
-  const { data: co } = await supabase
+  const { data } = await supabase
     .from('companies')
     .select('id')
     .eq('whatsapp_instance_name', instanceName)
     .maybeSingle()
-  if (co?.id) return co.id
-
-  // Fallback: sdr_configs.uazapi_instance_name (onde o admin salva a instância)
-  const { data: cfg } = await supabase
-    .from('sdr_configs')
-    .select('company_id')
-    .eq('uazapi_instance_name', instanceName)
-    .maybeSingle()
-  return cfg?.company_id ?? null
+  return data?.id ?? null
 }
