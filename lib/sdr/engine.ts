@@ -1915,6 +1915,15 @@ CONTEXTO DO CRM:
     { role: 'user', content: userInput },
   ]
 
+  console.log(`[SDR:${ctx.companyId}] ══════════════ SYSTEM PROMPT COMPLETO ══════════════\n${systemMsg}\n══════════════════════════════════════════════════════`)
+  console.log(`[SDR:${ctx.companyId}] ══════════════ HISTÓRICO COMPLETO (${history.length} msgs) ══════════════`)
+  history.forEach((m, i) => {
+    const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+    console.log(`  [hist:${i}] ${m.role}:\n${content}`)
+  })
+  console.log(`[SDR:${ctx.companyId}] ══════════════════════════════════════════════════════`)
+  console.log(`[SDR:${ctx.companyId}] ══════════════ INPUT DO LEAD ══════════════\n${userInput}\n══════════════════════════════════════════════════════`)
+
   // ── Detecção determinística de estados de agendamento ────────────────────
   const AFFIRMATIONS = /^(sim|s|pode|ok|certo|confirmo|isso|quero|tá bom|ta bom|claro|ótimo|otimo|perfeito|combinado|vai|fechado|fecha|topo|top)\.?\s*$/i
   const EMAIL_PATTERN = /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/
@@ -2015,6 +2024,7 @@ CONTEXTO DO CRM:
     temperature: 0.1,
   })
   pushUsage(acc, response, 'orchestrator')
+  console.log(`[SDR:${ctx.companyId}] ══ OPENAI RESP inicial | finish_reason=${response.choices[0]?.finish_reason} | tool_calls=${response.choices[0]?.message?.tool_calls?.length ?? 0}`)
 
   let iterations = 0
   while (response.choices[0]?.finish_reason === 'tool_calls' && iterations < 30) {
@@ -2031,7 +2041,7 @@ CONTEXTO DO CRM:
       let args: Record<string, any> = {}
       try { args = JSON.parse((toolCall as any).function.arguments) } catch { /* ok */ }
 
-      console.log(`[SDR:${ctx.companyId}] → tool: ${fn} | args: ${JSON.stringify(args).slice(0, 200)}`)
+      console.log(`[SDR:${ctx.companyId}] ══ TOOL CALL [iter:${iterations}] → ${fn}\nARGS: ${JSON.stringify(args, null, 2)}`)
 
       let result = ''
 
@@ -2079,7 +2089,7 @@ CONTEXTO DO CRM:
         }
       }
 
-      console.log(`[SDR:${ctx.companyId}] ← tool: ${fn} | resultado: ${result.slice(0, 150)}`)
+      console.log(`[SDR:${ctx.companyId}] ══ TOOL RESULT [iter:${iterations}] ← ${fn}\nRESULT: ${result}`)
 
       toolResults.push({
         role: 'tool',
@@ -2099,9 +2109,12 @@ CONTEXTO DO CRM:
       temperature: 0.1,
     })
     pushUsage(acc, response, 'orchestrator_loop')
+    console.log(`[SDR:${ctx.companyId}] ══ OPENAI RESP loop[${iterations}] | finish_reason=${response.choices[0]?.finish_reason} | tool_calls=${response.choices[0]?.message?.tool_calls?.length ?? 0}`)
   }
 
-  return response.choices[0]?.message?.content ?? ''
+  const finalContent = response.choices[0]?.message?.content ?? ''
+  console.log(`[SDR:${ctx.companyId}] ══════════════ RESPOSTA FINAL DO MODELO ══════════════\n${finalContent}\n══════════════════════════════════════════════════════`)
+  return finalContent
 }
 
 // ─── Conversa e mensagens ──────────────────────────────────────
@@ -2929,7 +2942,11 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       .map((p) => p.trim())
       .filter(Boolean)
 
+    console.log(`[SDR:${companyId}] ══════════════ ENVIANDO PARA LEAD (${paragraphs.length} bloco(s)) ══════════════`)
+    paragraphs.forEach((p, i) => console.log(`  [bloco:${i + 1}] ${p}`))
+    console.log(`[SDR:${companyId}] ══════════════════════════════════════════════════════`)
     await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
+    console.log(`[SDR:${companyId}] ✓ mensagem enviada para ${phone}`)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
     writeSystemLog('sdr', 'info', companyId, `Resposta enviada para ${phone} (${paragraphs.length} bloco${paragraphs.length !== 1 ? 's' : ''})`, { phone, leadId, flowId: cfg.flowId, preview: paragraphs[0]?.slice(0, 120) })
