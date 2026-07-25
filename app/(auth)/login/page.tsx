@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,9 +38,12 @@ const SLIDES = [
 ];
 
 const SLIDE_INTERVAL = 4000;
+const SIGNUP_COOLDOWN_MS = 15_000;
+
+type Step = 'login' | 'signup' | 'forgot';
 
 export default function LoginPage() {
-  const [tab, setTab] = useState<'login' | 'signup'>('login');
+  const [tab, setTab] = useState<Step>('login');
 
   // login fields
   const [email, setEmail] = useState('');
@@ -55,11 +58,17 @@ export default function LoginPage() {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // forgot password field
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [slideIdx, setSlideIdx] = useState(0);
 
-  // auto-advance slides
+  // rate limit signup: timestamp da última tentativa
+  const lastSignupAttempt = useRef<number>(0);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setSlideIdx(i => (i + 1) % SLIDES.length);
@@ -79,8 +88,9 @@ export default function LoginPage() {
         const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2';
         window.location.href = needsMfa ? '/mfa' : '/dashboard';
       }
-    } catch (error: any) {
-      toast({ title: error.message || 'Email ou senha incorretos', variant: 'destructive' });
+    } catch {
+      // Nunca expor error.message ao usuário — evita enumeração de email
+      toast({ title: 'Email ou senha incorretos', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -88,14 +98,24 @@ export default function LoginPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Rate limit client-side: 15s entre tentativas
+    const now = Date.now();
+    if (now - lastSignupAttempt.current < SIGNUP_COOLDOWN_MS) {
+      toast({ title: 'Aguarde alguns segundos antes de tentar novamente', variant: 'destructive' });
+      return;
+    }
+
     if (signupPassword !== confirmPassword) {
       toast({ title: 'As senhas não coincidem', variant: 'destructive' });
       return;
     }
-    if (signupPassword.length < 6) {
-      toast({ title: 'A senha deve ter pelo menos 6 caracteres', variant: 'destructive' });
+    if (signupPassword.length < 8) {
+      toast({ title: 'A senha deve ter pelo menos 8 caracteres', variant: 'destructive' });
       return;
     }
+
+    lastSignupAttempt.current = now;
     setLoading(true);
     try {
       const supabase = createClient();
@@ -108,8 +128,26 @@ export default function LoginPage() {
       toast({ title: 'Conta criada! Verifique seu e-mail para confirmar o acesso.' });
       setTab('login');
       setEmail(signupEmail);
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao criar conta', variant: 'destructive' });
+    } catch {
+      // Mensagem genérica — evita enumerar se email já existe
+      toast({ title: 'Não foi possível criar a conta. Tente novamente.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
+      });
+      // Sempre mostrar sucesso — não revelar se email existe
+      setForgotSent(true);
+    } catch {
+      setForgotSent(true);
     } finally {
       setLoading(false);
     }
@@ -124,8 +162,8 @@ export default function LoginPage() {
         options: { redirectTo: `${window.location.origin}/api/auth/callback` },
       });
       if (error) throw error;
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao entrar com Google', variant: 'destructive' });
+    } catch {
+      toast({ title: 'Erro ao entrar com Google. Tente novamente.', variant: 'destructive' });
       setGoogleLoading(false);
     }
   };
@@ -133,8 +171,12 @@ export default function LoginPage() {
   const slide = SLIDES[slideIdx];
   const SlideIcon = slide.icon;
 
-  const heading = tab === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta';
-  const subheading = tab === 'login' ? 'Entre na sua conta para continuar' : 'Preencha os dados para começar';
+  const heading = tab === 'login' ? 'Bem-vindo de volta' : tab === 'signup' ? 'Crie sua conta' : 'Recuperar senha';
+  const subheading = tab === 'login'
+    ? 'Entre na sua conta para continuar'
+    : tab === 'signup'
+    ? 'Preencha os dados para começar'
+    : 'Enviaremos um link para redefinir sua senha';
 
   return (
     <div className="flex min-h-svh" style={{ backgroundColor: '#080808' }}>
@@ -194,41 +236,46 @@ export default function LoginPage() {
               <p className="text-sm mt-1.5" style={{ color: '#888' }}>{subheading}</p>
             </div>
 
-            {/* tabs */}
-            <div className="flex rounded-full p-1" style={{ backgroundColor: '#141414' }}>
-              {(['login', 'signup'] as const).map((t) => (
+            {/* tabs (escondidas no forgot) */}
+            {tab !== 'forgot' && (
+              <div className="flex rounded-full p-1" style={{ backgroundColor: '#141414' }}>
+                {(['login', 'signup'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className="flex-1 py-2 text-sm rounded-full font-semibold transition-all duration-150"
+                    style={tab === t
+                      ? { backgroundColor: '#0F3D2B', color: '#fff' }
+                      : { color: '#666', background: 'transparent' }
+                    }
+                  >
+                    {t === 'login' ? 'Entrar' : 'Criar conta'}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Google — somente login/signup */}
+            {tab !== 'forgot' && (
+              <>
                 <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className="flex-1 py-2 text-sm rounded-full font-semibold transition-all duration-150"
-                  style={tab === t
-                    ? { backgroundColor: '#0F3D2B', color: '#fff' }
-                    : { color: '#666', background: 'transparent' }
-                  }
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={googleLoading}
+                  className="flex items-center justify-center gap-2.5 w-full rounded-full font-semibold text-sm transition-transform active:translate-y-px"
+                  style={{ height: 44, backgroundColor: '#141414', color: '#D8D8D8', boxShadow: '0 2px 0 0 #1F1F1F', border: '1px solid #212121' }}
                 >
-                  {t === 'login' ? 'Entrar' : 'Criar conta'}
+                  {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                  Continuar com Google
                 </button>
-              ))}
-            </div>
 
-            {/* Google */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={googleLoading}
-              className="flex items-center justify-center gap-2.5 w-full rounded-full font-semibold text-sm transition-transform active:translate-y-px"
-              style={{ height: 44, backgroundColor: '#141414', color: '#D8D8D8', boxShadow: '0 2px 0 0 #1F1F1F', border: '1px solid #212121' }}
-            >
-              {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
-              Continuar com Google
-            </button>
-
-            {/* divider */}
-            <div className="relative flex items-center gap-3">
-              <div className="flex-1 h-px" style={{ backgroundColor: '#1F1F1F' }} />
-              <span className="text-xs" style={{ color: '#555' }}>ou continue com email</span>
-              <div className="flex-1 h-px" style={{ backgroundColor: '#1F1F1F' }} />
-            </div>
+                <div className="relative flex items-center gap-3">
+                  <div className="flex-1 h-px" style={{ backgroundColor: '#1F1F1F' }} />
+                  <span className="text-xs" style={{ color: '#555' }}>ou continue com email</span>
+                  <div className="flex-1 h-px" style={{ backgroundColor: '#1F1F1F' }} />
+                </div>
+              </>
+            )}
 
             {/* ── Form login ── */}
             {tab === 'login' && (
@@ -249,7 +296,17 @@ export default function LoginPage() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#CCC' }}>Senha</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-sm font-medium" style={{ color: '#CCC' }}>Senha</Label>
+                    <button
+                      type="button"
+                      onClick={() => { setForgotEmail(email); setForgotSent(false); setTab('forgot'); }}
+                      className="text-xs underline underline-offset-2 transition-colors"
+                      style={{ color: '#666' }}
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
                   <div className="relative">
                     <Input
                       id="password"
@@ -327,7 +384,7 @@ export default function LoginPage() {
                     <Input
                       id="signup-password"
                       type={showSignupPassword ? 'text' : 'password'}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       required
@@ -380,6 +437,60 @@ export default function LoginPage() {
                   </button>
                 </p>
               </form>
+            )}
+
+            {/* ── Form esqueci senha ── */}
+            {tab === 'forgot' && (
+              forgotSent ? (
+                <div className="flex flex-col gap-4 text-center">
+                  <p className="text-sm" style={{ color: '#AAA' }}>
+                    Se este email estiver cadastrado, você receberá um link de redefinição em instantes.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setTab('login'); setForgotSent(false); }}
+                    className="text-sm underline underline-offset-2 transition-colors"
+                    style={{ color: '#888' }}
+                  >
+                    Voltar para login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="forgot-email" className="text-sm font-medium" style={{ color: '#CCC' }}>Email da conta</Label>
+                    <Input
+                      id="forgot-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="text-white placeholder:text-white/30"
+                      style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', color: '#fff' }}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex items-center justify-center gap-2 w-full rounded-full font-bold text-sm mt-1 transition-transform active:translate-y-px disabled:opacity-60"
+                    style={{ height: 44, backgroundColor: '#01573C', color: '#D8D8D8', boxShadow: '0 2px 0 0 #07261C' }}
+                  >
+                    {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando…</> : 'Enviar link de redefinição'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTab('login')}
+                    className="text-sm underline underline-offset-2 transition-colors text-center"
+                    style={{ color: '#666' }}
+                  >
+                    Voltar para login
+                  </button>
+                </form>
+              )
             )}
           </div>
         </div>

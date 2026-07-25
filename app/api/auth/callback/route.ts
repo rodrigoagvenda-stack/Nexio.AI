@@ -1,6 +1,18 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+// Rotas internas permitidas para redirect — previne open redirect
+function safeRedirect(base: string, next: string): string {
+  try {
+    const url = new URL(next, base)
+    if (url.origin !== base) return `${base}/dashboard`
+  } catch {
+    // next não é URL válida — trata como path
+  }
+  if (!next.startsWith('/') || next.startsWith('//')) return `${base}/dashboard`
+  return `${base}${next}`
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -20,10 +32,9 @@ export async function GET(request: Request) {
 
     if (!error && user) {
       const base = getBase()
-
       const service = createServiceClient()
 
-      // 1. Verifica por auth_user_id (fluxo normal)
+      // 1. Usuário já tem registro por auth_user_id — fluxo normal
       const { data: existing } = await service
         .from('users')
         .select('id, company_id')
@@ -31,32 +42,30 @@ export async function GET(request: Request) {
         .maybeSingle()
 
       if (existing?.company_id) {
-        return NextResponse.redirect(`${base}${next}`)
+        return NextResponse.redirect(safeRedirect(base, next))
       }
 
-      // 2. Verifica se já existe company com este email (Google OAuth sem users record)
-      const { data: existingCompany } = await service
-        .from('companies')
-        .select('id')
+      // 2. Verifica se existe convite — registro em users com este email mas sem auth_user_id
+      // Isso cobre o caso onde o admin pré-criou o usuário no painel
+      const { data: invited } = await service
+        .from('users')
+        .select('id, company_id, role')
         .eq('email', user.email ?? '')
+        .is('auth_user_id', null)
         .maybeSingle()
 
-      if (existingCompany) {
-        // Vincula auth_user_id à company existente e vai direto pro dashboard
+      if (invited) {
+        // Vincula o auth_user_id ao convite existente — mantém role definida pelo admin
         const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || ''
-        await service.from('users').upsert({
+        await service.from('users').update({
           auth_user_id: user.id,
-          user_id: user.id,
-          company_id: existingCompany.id,
           name: displayName,
-          email: user.email ?? '',
-          role: 'admin',
           is_active: true,
-        }, { onConflict: 'auth_user_id' })
-        return NextResponse.redirect(`${base}${next}`)
+        }).eq('id', invited.id)
+        return NextResponse.redirect(safeRedirect(base, next))
       }
 
-      // 3. Usuário realmente novo → onboarding
+      // 3. Usuário realmente novo — sem convite, sem registro → onboarding
       return NextResponse.redirect(`${base}/onboarding`)
     }
   }

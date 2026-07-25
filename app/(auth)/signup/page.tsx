@@ -36,8 +36,8 @@ export default function SignupPage() {
       toast({ title: 'As senhas não coincidem', variant: 'destructive' });
       return;
     }
-    if (password.length < 6) {
-      toast({ title: 'Senha deve ter ao menos 6 caracteres', variant: 'destructive' });
+    if (password.length < 8) {
+      toast({ title: 'Senha deve ter ao menos 8 caracteres', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -53,8 +53,8 @@ export default function SignupPage() {
       });
       if (error) throw error;
       setDone(true);
-    } catch (error: any) {
-      toast({ title: error.message || 'Erro ao criar conta', variant: 'destructive' });
+    } catch {
+      toast({ title: 'Não foi possível criar a conta. Tente novamente.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -171,7 +171,7 @@ export default function SignupPage() {
                         <Input
                           id="password"
                           type={showPassword ? 'text' : 'password'}
-                          placeholder="Mínimo 6 caracteres"
+                          placeholder="Mínimo 8 caracteres"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
