@@ -45,34 +45,49 @@ async function embedAll(chunks: string[], openai: OpenAI): Promise<number[][]> {
   return res.data.map((d) => d.embedding)
 }
 
+const MAX_CHUNK_CHARS = 1100 // ~300 tokens — um assunto por chunk
+
 function chunkText(text: string): string[] {
-  // Structured templates: split by === section headers and [TIPO] script blocks
-  if (/\n=== /.test(text)) {
+  const trimmed = text.trimStart()
+  const isStructured = /\n=== |\n\[/.test(text) || trimmed.startsWith('[') || trimmed.startsWith('===')
+
+  if (isStructured) {
+    // Split nos marcadores de seção: === TÍTULO === ou [TIPO]
     const parts = text.split(/\n(?====|\[)/).map((s) => s.trim()).filter((s) => s.length > 30)
     const chunks: string[] = []
+
     for (const part of parts) {
-      if (part.length <= 4000) {
+      if (part.length <= MAX_CHUNK_CHARS) {
         chunks.push(part)
-      } else {
-        // Oversized section: split by blank lines
-        const paras = part.split(/\n\n+/)
-        let current = ''
-        for (const p of paras) {
-          if (current && current.length + p.length + 2 > 4000) {
-            chunks.push(current.trim())
-            current = p
-          } else {
-            current = current ? current + '\n\n' + p : p
-          }
-        }
-        if (current.trim()) chunks.push(current.trim())
+        continue
       }
+
+      // Seção grande: extrai o título e divide por parágrafos mantendo o título prefixado
+      const firstNewline = part.indexOf('\n')
+      const title = firstNewline > -1 ? part.slice(0, firstNewline).trim() : ''
+      const body = firstNewline > -1 ? part.slice(firstNewline + 1) : part
+
+      const paras = body.split(/\n\n+/)
+      let current = title // sempre começa com o título da seção
+
+      for (const para of paras) {
+        const addition = current === title ? '\n' + para : '\n\n' + para
+        if (current.length + addition.length > MAX_CHUNK_CHARS) {
+          if (current !== title) chunks.push(current.trim())
+          // Próximo sub-chunk: prefixar título com "(cont.)" para manter contexto no embedding
+          current = title ? `${title} (cont.)\n${para}` : para
+        } else {
+          current += addition
+        }
+      }
+      if (current.trim() && current.trim() !== title) chunks.push(current.trim())
     }
+
     return chunks.filter((c) => c.length > 50)
   }
 
-  // PDFs / plain text: character-based fallback
-  const CHUNK_SIZE = 1000
+  // PDFs / plain text: fallback por tamanho com overlap mínimo
+  const CHUNK_SIZE = 1100
   const CHUNK_OVERLAP = 100
   const chunks: string[] = []
   let start = 0
