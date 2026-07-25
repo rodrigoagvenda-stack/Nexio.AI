@@ -312,7 +312,7 @@ export async function POST(
     const receivedToken = req.headers.get('asaas-access-token')
     console.log(`[payment-webhook:asaas] company=${companyId} token_recebido=${receivedToken ? receivedToken.slice(0,8)+'…' : 'NENHUM'} token_salvo=${savedToken ? savedToken.slice(0,8)+'…' : 'NENHUM'}`)
     if (!savedToken || receivedToken !== savedToken) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} token INVÁLIDO — recebido="${receivedToken}" esperado="${savedToken}"`)
+      console.warn(`[payment-webhook:asaas] company=${companyId} token INVÁLIDO — recebido="${receivedToken?.slice(0, 8)}…" esperado="${savedToken?.slice(0, 8)}…"`)
       await logEvent({ status: 'erro', erro: 'Token inválido no header asaas-access-token', recebido: receivedToken?.slice(0, 8) + '…', esperado: savedToken?.slice(0, 8) + '…' })
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
     }

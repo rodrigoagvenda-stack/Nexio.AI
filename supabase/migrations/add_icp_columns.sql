@@ -66,7 +66,7 @@ ALTER TABLE icp_configuration ENABLE ROW LEVEL SECURITY;
 
 -- Adicionar políticas RLS
 DROP POLICY IF EXISTS "service_role_all_icp_config" ON icp_configuration;
-CREATE POLICY "service_role_all_icp_config" ON icp_configuration FOR ALL USING (true);
+CREATE POLICY "service_role_all_icp_config" ON icp_configuration FOR ALL TO service_role USING (true);
 
 DROP POLICY IF EXISTS "users_own_icp_config" ON icp_configuration;
 CREATE POLICY "users_own_icp_config" ON icp_configuration

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 // GET — verificação do webhook pela Meta
-// Meta envia hub.mode=subscribe, hub.challenge e hub.verify_token
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const mode = searchParams.get('hub.mode')
@@ -23,17 +23,30 @@ export async function GET(req: NextRequest) {
 
 // POST — recebe eventos da Meta (mensagens, status, etc.)
 export async function POST(req: NextRequest) {
+  const rawBody = await req.text()
+
+  // Valida assinatura HMAC-SHA256 da Meta
+  const appSecret = process.env.META_APP_SECRET
+  if (appSecret) {
+    const sig = req.headers.get('x-hub-signature-256') ?? ''
+    const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
+    if (!sig || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      console.warn('[meta-webhook] assinatura inválida — rejeitado')
+      return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
+    }
+  } else {
+    console.warn('[meta-webhook] META_APP_SECRET não configurado — validação HMAC desabilitada')
+  }
+
   let body: any
   try {
-    body = await req.json()
+    body = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
   console.log('[meta-webhook] evento recebido:', JSON.stringify(body).slice(0, 500))
 
-  // Confirma recebimento imediatamente (Meta exige 200 em < 20s)
-  // Processamento assíncrono a implementar quando integração estiver completa
   const entries = body?.entry ?? []
   for (const entry of entries) {
     for (const change of entry.changes ?? []) {
@@ -43,7 +56,8 @@ export async function POST(req: NextRequest) {
       const statuses: any[] = value?.statuses ?? []
 
       for (const msg of messages) {
-        console.log(`[meta-webhook] mensagem recebida — phoneNumberId=${phoneNumberId} from=${msg.from} type=${msg.type} text=${msg.text?.body ?? ''}`)
+        // Nunca logar conteúdo da mensagem em produção (LGPD)
+        console.log(`[meta-webhook] mensagem recebida — phoneNumberId=${phoneNumberId} from=${msg.from?.slice(0, 4)}**** type=${msg.type}`)
       }
 
       for (const status of statuses) {
