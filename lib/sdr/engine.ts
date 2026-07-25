@@ -2126,7 +2126,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
     const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
 
-    const history = await getHistory(leadId, companyId, supabase)
+    const history = await getHistory(leadId, companyId, supabase, 20)
 
     await log(companyId, 'message_received', { messages: bufferedMessages, flowId: cfg.flowId }, supabase, phone, leadId)
 
@@ -2146,7 +2146,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       .map((p) => p.trim())
       .filter(Boolean)
 
+    console.log(`[SDR:${companyId}] → enviando ${paragraphs.length} bloco(s) para ${phone}:`)
+    paragraphs.forEach((p, i) => console.log(`  [${i + 1}] ${p}`))
     await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
+    console.log(`[SDR:${companyId}] ✓ enviado para ${phone}`)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
 
