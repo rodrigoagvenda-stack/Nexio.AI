@@ -1,25 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * GET /api/chats/assignments
  * Listar histórico de atribuições
  */
 export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
     const chatId = searchParams.get('chatId');
     const assignedTo = searchParams.get('assignedTo');
     const limit = searchParams.get('limit') || '50';
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
 
     let query = supabase
       .from('chat_assignments')
@@ -30,7 +26,7 @@ export async function GET(request: NextRequest) {
         assigned_from_user:users!chat_assignments_assigned_from_fkey(id, name),
         assigned_by_user:users!chat_assignments_assigned_by_fkey(id, name)
       `)
-      .eq('company_id', parseInt(companyId))
+      .eq('company_id', context.companyId)
       .order('created_at', { ascending: false })
       .limit(parseInt(limit));
 

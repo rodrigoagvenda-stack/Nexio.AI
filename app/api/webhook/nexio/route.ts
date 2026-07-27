@@ -19,12 +19,11 @@ export async function POST(request: NextRequest) {
   const secretQuery = request.nextUrl.searchParams.get('secret')
   const receivedSecret = secretHeader ?? secretQuery
   const expectedSecret = process.env.NEXIO_WEBHOOK_SECRET
-  const secretBlocked = !!expectedSecret && receivedSecret !== expectedSecret
-  console.log(`[nexio-webhook] recebido — secretBlocked=${secretBlocked} viaQuery=${!!secretQuery}`)
-  if (secretBlocked) {
-    console.log(`[nexio-webhook] auth falhou`)
+  if (!expectedSecret || receivedSecret !== expectedSecret) {
+    console.log(`[nexio-webhook] auth falhou — secret inválido ou não configurado`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  console.log(`[nexio-webhook] recebido — auth OK viaQuery=${!!secretQuery}`)
 
   let body: UazapiWebhookMessage
   try {

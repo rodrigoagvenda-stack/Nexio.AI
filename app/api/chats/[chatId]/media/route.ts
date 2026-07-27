@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
+  const { context, error: authError } = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const { chatId } = params;
     const { searchParams } = new URL(req.url);
-    const companyId = searchParams.get('companyId');
     const type = searchParams.get('type'); // image, video, audio, document
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'Company ID é obrigatório' },
-        { status: 400 }
-      );
-    }
 
     const supabase = await createClient();
 
@@ -25,7 +21,7 @@ export async function GET(
       .from('mensagens_do_whatsapp')
       .select('*')
       .eq('id_da_conversacao', chatId)
-      .eq('company_id', companyId)
+      .eq('company_id', context.companyId)
       .not('url_da_midia', 'is', null)
       .order('carimbo_de_data_e_hora', { ascending: false });
 

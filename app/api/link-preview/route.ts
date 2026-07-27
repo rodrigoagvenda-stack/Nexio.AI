@@ -1,8 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { rateLimit } from '@/lib/rate-limit';
+
+const PRIVATE_IP = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|fc00:|fd)/i;
+
+function isPrivateUrl(rawUrl: string): boolean {
+  try {
+    const { hostname } = new URL(rawUrl);
+    return PRIVATE_IP.test(hostname);
+  } catch {
+    return true;
+  }
+}
 
 export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
+  const rl = rateLimit({ key: `link-preview:${ip}`, limit: 30, windowMs: 60_000 });
+  if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+
   const url = request.nextUrl.searchParams.get('url');
   if (!url) return NextResponse.json({ error: 'URL inválida' }, { status: 400 });
+
+  if (isPrivateUrl(url)) {
+    return NextResponse.json({ error: 'URL não permitida' }, { status: 400 });
+  }
 
   const domain = (() => {
     try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }

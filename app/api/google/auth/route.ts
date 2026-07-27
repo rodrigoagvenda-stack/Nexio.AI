@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getPlatformConfig } from '@/lib/platform-config';
+import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request);
@@ -15,6 +16,8 @@ export async function GET(request: NextRequest) {
     `${appUrl}/api/google/callback`
   );
 
+  const csrfToken = crypto.randomBytes(16).toString('hex');
+
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
@@ -23,8 +26,16 @@ export async function GET(request: NextRequest) {
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/userinfo.email',
     ],
-    state: String(context.companyId),
+    state: `${csrfToken}:${context.companyId}`,
   });
 
-  return NextResponse.redirect(url);
+  const response = NextResponse.redirect(url);
+  response.cookies.set('google_oauth_csrf', csrfToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 300,
+    path: '/',
+  });
+  return response;
 }

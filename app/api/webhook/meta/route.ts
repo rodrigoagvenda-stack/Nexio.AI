@@ -27,15 +27,15 @@ export async function POST(req: NextRequest) {
 
   // Valida assinatura HMAC-SHA256 da Meta
   const appSecret = process.env.META_APP_SECRET
-  if (appSecret) {
-    const sig = req.headers.get('x-hub-signature-256') ?? ''
-    const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
-    if (!sig || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-      console.warn('[meta-webhook] assinatura inválida — rejeitado')
-      return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
-    }
-  } else {
-    console.warn('[meta-webhook] META_APP_SECRET não configurado — validação HMAC desabilitada')
+  if (!appSecret) {
+    console.error('[meta-webhook] META_APP_SECRET não configurado — webhook rejeitado')
+    return NextResponse.json({ error: 'Webhook não configurado' }, { status: 500 })
+  }
+  const sig = req.headers.get('x-hub-signature-256') ?? ''
+  const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
+  if (!sig || sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    console.warn('[meta-webhook] assinatura inválida — rejeitado')
+    return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
   }
 
   let body: any

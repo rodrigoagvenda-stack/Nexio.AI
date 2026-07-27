@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const auth = request.headers.get('authorization')
   const querySecret = request.nextUrl.searchParams.get('secret')
   const provided = auth === `Bearer ${secret}` || querySecret === secret
-  if (secret && !provided) {
+  if (!secret || !provided) {
     return NextResponse.json({ error: 'Unauthorized — passe ?secret=CRON_SECRET na URL' }, { status: 401 })
   }
 

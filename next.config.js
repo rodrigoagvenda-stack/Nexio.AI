@@ -55,13 +55,30 @@ const nextConfig = {
     return config;
   },
   async headers() {
+    const appOrigin = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br';
+    const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    const supabaseWss = supabaseUrl.replace(/^https/, 'wss');
+
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      `img-src 'self' data: blob: https: ${supabaseUrl}`,
+      "font-src 'self' data:",
+      `connect-src 'self' ${supabaseUrl} ${supabaseWss} https://api.mercadopago.com https://api.asaas.com https://sandbox.asaas.com https://sentry.io`,
+      "media-src 'self' blob: https:",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+    ].join('; ');
+
     return [
       {
         source: '/:path*',
         headers: [
           // CORS
           { key: 'Access-Control-Allow-Credentials', value: 'true' },
-          { key: 'Access-Control-Allow-Origin', value: process.env.NEXT_PUBLIC_APP_URL || 'https://zaapply.com.br' },
+          { key: 'Access-Control-Allow-Origin', value: appOrigin },
           { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
           // Security headers
@@ -70,6 +87,7 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          { key: 'Content-Security-Policy', value: csp },
         ],
       },
     ]

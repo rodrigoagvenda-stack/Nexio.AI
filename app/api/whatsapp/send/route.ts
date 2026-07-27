@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth/require-auth'
+import { rateLimit } from '@/lib/rate-limit'
 import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
 
 export async function POST(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request)
+  if (authError) return authError
+
+  const rl = rateLimit({ key: `wa-send:${context.companyId}`, limit: 60, windowMs: 60_000 })
+  if (!rl.success) return NextResponse.json({ success: false, message: 'Muitas requisições' }, { status: 429 })
+
   try {
     const body = await request.json()
-    const { conversationId, phoneNumber, message, companyId, userId, messageType, mediaUrl, caption, filename, replyId, replyToText, replyToSender } = body
+    const { conversationId, phoneNumber, message, messageType, mediaUrl, caption, filename, replyId, replyToText, replyToSender } = body
+    const companyId = context.companyId
 
-    if (!conversationId || !phoneNumber || !companyId) {
+    if (!conversationId || !phoneNumber) {
       return NextResponse.json({ success: false, message: 'Dados obrigatórios faltando' }, { status: 400 })
     }
 
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
       tipo_de_mensagem: type,
       direcao: 'outbound',
       sender_type: 'human',
-      sender_user_id: userId,
+      sender_user_id: context.userId,
       status: 'sent',
       carimbo_de_data_e_hora: new Date().toISOString(),
       url_da_midia: mediaUrl || null,

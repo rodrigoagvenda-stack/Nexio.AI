@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getPlatformConfig } from '@/lib/platform-config';
+import crypto from 'crypto';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const state = searchParams.get('state'); // company_id
+  const state = searchParams.get('state');
   const error = searchParams.get('error');
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -14,8 +15,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
   }
 
+  // Validar CSRF token — state = "{csrfToken}:{companyId}"
+  const colonIdx = state.indexOf(':');
+  const csrfToken = colonIdx > 0 ? state.slice(0, colonIdx) : '';
+  const companyIdStr = colonIdx > 0 ? state.slice(colonIdx + 1) : state;
+
+  const expectedCsrf = request.cookies.get('google_oauth_csrf')?.value ?? '';
+  const csrfValid = expectedCsrf.length > 0 &&
+    csrfToken.length > 0 &&
+    crypto.timingSafeEqual(Buffer.from(csrfToken.padEnd(64)), Buffer.from(expectedCsrf.padEnd(64)));
+
+  if (!csrfValid) {
+    console.warn('[google/callback] CSRF token inválido — possível ataque CSRF');
+    return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
+  }
+
   try {
-    const companyId = parseInt(state);
+    const companyId = parseInt(companyIdStr);
     if (!companyId) throw new Error('company_id inválido');
 
     const { google } = await import('googleapis')
@@ -52,9 +68,13 @@ export async function GET(request: NextRequest) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id' });
 
-    return NextResponse.redirect(`${appUrl}/configuracoes?google=success`);
+    const successResponse = NextResponse.redirect(`${appUrl}/configuracoes?google=success`);
+    successResponse.cookies.delete('google_oauth_csrf');
+    return successResponse;
   } catch (err: any) {
     console.error('[google/callback]', err);
-    return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
+    const errResponse = NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
+    errResponse.cookies.delete('google_oauth_csrf');
+    return errResponse;
   }
 }

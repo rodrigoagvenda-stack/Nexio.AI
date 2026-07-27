@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Verificar autenticação (qualquer usuário autenticado pode criar logs)
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -87,9 +86,19 @@ export async function POST(request: NextRequest) {
     const serviceSupabase = createServiceClient();
     const body = await request.json();
 
-    // Adicionar user_id ao log
+    // company_id sempre da sessão — nunca do body para evitar log injection entre empresas
+    const { data: dbUser } = await serviceSupabase
+      .from('users')
+      .select('company_id')
+      .eq('auth_user_id', user.id)
+      .single();
+
     const logData = {
-      ...body,
+      type: body.type,
+      severity: body.severity,
+      message: body.message,
+      metadata: body.metadata,
+      company_id: dbUser?.company_id ?? null,
       user_id: user.id,
     };
 

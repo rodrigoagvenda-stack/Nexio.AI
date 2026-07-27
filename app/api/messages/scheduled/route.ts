@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(req: NextRequest) {
+  const { context, error: authError } = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
-    const companyId = searchParams.get('companyId');
     const chatId = searchParams.get('chatId');
     const leadId = searchParams.get('leadId');
     const status = searchParams.get('status') || 'pending';
 
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'Company ID é obrigatório' },
-        { status: 400 }
-      );
-    }
-
+    const { createClient } = await import('@/lib/supabase/server');
     const supabase = await createClient();
 
     let query = supabase
@@ -36,7 +32,7 @@ export async function GET(req: NextRequest) {
           name
         )
       `)
-      .eq('company_id', companyId)
+      .eq('company_id', context.companyId)
       .eq('status', status)
       .order('scheduled_for', { ascending: true });
 

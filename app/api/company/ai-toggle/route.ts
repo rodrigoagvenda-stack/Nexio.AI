@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function PATCH(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
+  if (!['admin', 'company_admin', 'manager'].includes(context.role)) {
+    return NextResponse.json({ success: false, message: 'Apenas administradores podem alterar este recurso' }, { status: 403 });
+  }
+
   try {
-    const supabase = await createClient();
-    const serviceSupabase = createServiceClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { is_active } = body;
 
@@ -24,24 +21,12 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Buscar company_id do usuário
-    const { data: userData, error: userError } = await serviceSupabase
-      .from('users')
-      .select('company_id')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (userError || !userData?.company_id) {
-      return NextResponse.json(
-        { success: false, message: 'Empresa não encontrada' },
-        { status: 404 }
-      );
-    }
+    const serviceSupabase = createServiceClient();
 
     const { data, error } = await serviceSupabase
       .from('companies')
       .update({ is_active })
-      .eq('id', userData.company_id)
+      .eq('id', context.companyId)
       .select('id, is_active')
       .single();
 

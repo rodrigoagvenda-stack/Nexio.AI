@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUAZapiConfig, uazapiRequest } from '@/lib/utils/uazapi';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
-  try {
-    const { companyId, phone, mediaUrl, mediaType, caption } = await req.json();
+  const { context, error: authError } = await requireAuth(req);
+  if (authError) return authError;
 
-    if (!companyId || !phone || !mediaUrl) {
+  const rl = rateLimit({ key: `wa-send:${context.companyId}`, limit: 60, windowMs: 60_000 });
+  if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 });
+
+  try {
+    const { phone, mediaUrl, mediaType, caption } = await req.json();
+
+    if (!phone || !mediaUrl) {
       return NextResponse.json(
-        { error: 'companyId, phone e mediaUrl são obrigatórios' },
+        { error: 'phone e mediaUrl são obrigatórios' },
         { status: 400 }
       );
     }
 
-    const config = await getUAZapiConfig(companyId);
+    const config = await getUAZapiConfig(context.companyId);
     if (!config) {
       return NextResponse.json(
         { error: 'Configuração UAZapi não encontrada' },
