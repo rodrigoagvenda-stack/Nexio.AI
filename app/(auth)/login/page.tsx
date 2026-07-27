@@ -122,10 +122,13 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
-        options: { data: { full_name: name } },
+        options: {
+          data: { full_name: name },
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        },
       });
       if (error) throw error;
-      toast({ title: 'Conta criada! Verifique seu e-mail para confirmar o acesso.' });
+      toast({ title: 'Se este email não estiver cadastrado, você receberá um link de confirmação em instantes.' });
       setTab('login');
       setEmail(signupEmail);
     } catch {
