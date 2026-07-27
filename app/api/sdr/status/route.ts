@@ -31,7 +31,7 @@ export async function GET() {
         .single(),
     ])
 
-    const allowUazapi = companyData?.allow_uazapi ?? true
+    const allowUazapi = companyData?.allow_uazapi ?? false
 
     // ── Provider Meta Cloud API (ou uazapi desabilitado pelo admin) ──────────
     if (config?.whatsapp_provider === 'meta' || !allowUazapi) {
