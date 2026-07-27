@@ -244,13 +244,13 @@ function StepPronto({ companyName }: { companyName: string }) {
           {companyName ? `Bem-vindo, ${companyName.split(' ')[0]}!` : 'Tudo pronto!'}
         </h1>
         <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
-          Seu workspace está configurado. O próximo passo é conectar seu WhatsApp — nosso guia vai te mostrar como.
+          Seu workspace está configurado. O próximo passo é ativar seu número oficial do WhatsApp.
         </p>
       </div>
 
       <div className="space-y-3">
         {[
-          { step: '1', label: 'Conectar seu WhatsApp', desc: 'Escaneie o QR Code em Configurações → Integrações' },
+          { step: '1', label: 'Ativar seu número oficial', desc: 'Conecte via API oficial Meta em Configurações → Integrações' },
           { step: '2', label: 'Configurar o Agente SDR', desc: 'Adicione sua base de conhecimento e tom de voz' },
           { step: '3', label: 'Adicionar seus leads', desc: 'Importe uma planilha ou cadastre manualmente no CRM' },
         ].map(item => (
