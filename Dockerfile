@@ -31,7 +31,7 @@ ENV NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID=$NEXT_PUBLIC_META_EMBEDDED_SIGNUP
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Keep heap below container physical RAM to avoid OOM kills
-RUN NODE_OPTIONS="--max-old-space-size=1536" npm run build
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 # Debug: listar o que foi gerado
 RUN ls -la .next/ || echo ".next not found" && \
