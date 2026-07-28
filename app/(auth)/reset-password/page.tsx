@@ -19,7 +19,7 @@ export default function ResetPasswordPage() {
   // Supabase envia o token no hash — o client SDK troca automaticamente por sessão
   useEffect(() => {
     const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any) => {
       if (event === 'PASSWORD_RECOVERY') {
         setSessionReady(true);
       }

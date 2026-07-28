@@ -6,10 +6,8 @@ import { requireAuth } from '@/lib/auth/require-auth';
  * PUT /api/templates/[id]
  * Atualizar template existente
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
@@ -95,10 +93,8 @@ export async function PUT(
  * DELETE /api/templates/[id]
  * Deletar template
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
@@ -154,10 +150,8 @@ export async function DELETE(
  * PATCH /api/templates/[id]/increment-usage
  * Incrementar contador de uso do template
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 

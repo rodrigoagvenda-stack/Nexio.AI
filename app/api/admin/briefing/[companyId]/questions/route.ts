@@ -9,13 +9,11 @@ async function checkAdmin(supabase: any) {
 }
 
 // GET: Listar perguntas da empresa
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { companyId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ companyId: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
-    if (!await checkAdmin(supabase)) {
+    if (!(await checkAdmin(supabase))) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
@@ -35,13 +33,11 @@ export async function GET(
 }
 
 // POST: Criar nova pergunta
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { companyId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ companyId: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
-    if (!await checkAdmin(supabase)) {
+    if (!(await checkAdmin(supabase))) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
@@ -77,13 +73,11 @@ export async function POST(
 }
 
 // PATCH: Reordenar perguntas (recebe array de { id, order_index })
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { companyId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ companyId: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
-    if (!await checkAdmin(supabase)) {
+    if (!(await checkAdmin(supabase))) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 

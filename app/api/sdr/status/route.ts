@@ -35,10 +35,10 @@ export async function GET() {
 
     // ── Provider Meta Cloud API (ou uazapi desabilitado pelo admin) ──────────
     if (config?.whatsapp_provider === 'meta' || !allowUazapi) {
-      const metaConnected = !!config.meta_wa_phone_number_id
+      const metaConnected = !!config?.meta_wa_phone_number_id
       return NextResponse.json({
         status: metaConnected ? 'connected' : 'disconnected',
-        phone: config.meta_wa_phone_number_id ?? null,
+        phone: config?.meta_wa_phone_number_id ?? null,
         provider: 'meta',
         allowUazapi,
       })

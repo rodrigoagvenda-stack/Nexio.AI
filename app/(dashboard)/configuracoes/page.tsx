@@ -225,7 +225,7 @@ function ConfiguracoesContent() {
     if (r === 'success') toast({ title: '🎉 Assinatura ativada!' });
     if (r === 'cancelled') toast({ title: 'Pagamento cancelado.', variant: 'destructive' });
     const m = searchParams.get('meta');
-    if (m === 'connected') { setMetaConnected(true); toast({ title: 'Meta Ads conectado com sucesso!' }); }
+    if (m === 'connected') { toast({ title: 'Meta Ads conectado com sucesso!' }); }
     if (m === 'denied') toast({ title: 'Conexão com Meta cancelada.', variant: 'destructive' });
     if (m === 'expired') toast({ title: 'Sessão OAuth expirada. Tente novamente.', variant: 'destructive' });
     if (m === 'error') toast({ title: 'Erro ao conectar com Meta. Tente novamente.', variant: 'destructive' });
@@ -269,7 +269,7 @@ function ConfiguracoesContent() {
 
 
   useEffect(() => {
-    createClient().auth.mfa.listFactors().then(({ data }) => {
+    createClient().auth.mfa.listFactors().then(({ data }: { data: any }) => {
       setMfaFactor(data?.totp?.[0] ?? null);
       setMfaLoading(false);
     });

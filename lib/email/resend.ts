@@ -344,7 +344,7 @@ export async function sendSuporteNotificacaoEmail({
   const { data, error } = await client.emails.send({
     from: 'Zaapply Sistema <noreply@zaapply.com.br>',
     to: ['suporte@zaapply.com.br'],
-    reply_to: email,
+    replyTo: email,
     subject: `[${protocolo}] ${assunto}`,
     html: zaapplyHtml({
       heading: `Novo ticket: ${assunto}`,
@@ -405,7 +405,7 @@ export async function sendContatoNotificacaoEmail({
   const { data, error } = await client.emails.send({
     from: 'Zaapply Site <noreply@zaapply.com.br>',
     to: ['rodrigo@zaapply.com.br', 'contato@zaapply.com.br'],
-    reply_to: email,
+    replyTo: email,
     subject: `Novo lead — ${nome}${empresa ? ` (${empresa})` : ''}`,
     html: zaapplyHtml({
       heading: 'Novo lead comercial',

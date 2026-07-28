@@ -6,10 +6,8 @@ export const runtime = 'nodejs'
 export const maxDuration = 120
 
 // GET /api/sdr/flows/:id/objections — info da base de objeções atual
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -37,10 +35,8 @@ export async function GET(
 }
 
 // POST /api/sdr/flows/:id/objections — upload PDF base de objeções
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

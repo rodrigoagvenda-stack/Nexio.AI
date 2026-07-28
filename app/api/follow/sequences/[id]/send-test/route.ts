@@ -21,10 +21,8 @@ function safeDecrypt(value: string | null | undefined): string {
  * Body: { stepId: string, phone: string, dryRun?: boolean }
  * Envia uma mensagem de teste via uazapi para um step específico da sequência.
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request)
   if (authError) return authError
 

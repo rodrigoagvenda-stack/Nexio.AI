@@ -20,7 +20,7 @@ function cacheGet(key: string): string | null | undefined {
   return e.value
 }
 function cacheSet(key: string, value: string | null) {
-  if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value)
+  if (cache.size >= MAX_ENTRIES) cache.delete(cache.keys().next().value!)
   cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL })
 }
 

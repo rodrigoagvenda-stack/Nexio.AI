@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { chatId: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ chatId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(req);
   if (authError) return authError;
 

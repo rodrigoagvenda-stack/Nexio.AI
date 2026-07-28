@@ -75,6 +75,11 @@ export type StepTipoMensagem =
   | 'location'
   | 'sticker'
   | 'agendamento'
+  | 'sentiment'
+  | 'goal'
+  | 'sub_flow'
+  | 'wait_event'
+  | 'pos_condicao'
 
 export interface ButtonAction {
   status?: string         // mover lead para este status
@@ -96,6 +101,13 @@ export interface StepMediaConfig {
   address?: string
   latitude?: number
   longitude?: number
+  blocos?: any[] | null
+  duracao?: number
+  mensagemInicial?: string
+  subSequenceId?: string
+  event?: string
+  pattern?: string
+  offset_unit?: 'days' | 'hours' | 'minutes'
 }
 
 export interface UazapiWebhookMessage {
@@ -111,6 +123,9 @@ export interface UazapiWebhookMessage {
     wa_lastMessageType: string
     wa_contactName: string
     wa_name: string
+    id?: string
+    image?: string
+    imagePreview?: string
   }
   message: {
     id: string

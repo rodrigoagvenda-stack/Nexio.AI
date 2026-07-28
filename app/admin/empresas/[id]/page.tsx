@@ -541,7 +541,7 @@ export default function EmpresaDetailPage() {
                     onClick={() => {
                       const d = new Date();
                       d.setDate(d.getDate() + 7);
-                      setCompany({ ...company, plan_type: 'trial', plan_price: 0, subscription_expires_at: d.toISOString() });
+                      setCompany({ ...company, plan_type: 'trial' as any, plan_price: 0, subscription_expires_at: d.toISOString() });
                     }}
                   >
                     <Calendar className="h-3 w-3" />+7d Trial

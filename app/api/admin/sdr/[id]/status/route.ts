@@ -4,7 +4,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 import { decrypt } from '@/lib/crypto'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin(req)
   if (error) return error
 

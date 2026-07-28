@@ -89,7 +89,7 @@ const TEMPLATE_VARS = [
 ]
 
 function VarPicker({ textareaRef, value, onChange }: {
-  textareaRef: React.RefObject<HTMLTextAreaElement>
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
   value: string
   onChange: (v: string) => void
 }) {

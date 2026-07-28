@@ -11,11 +11,12 @@ async function checkAdmin(supabase: any) {
 // PATCH: Editar pergunta
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { companyId: string; questionId: string } }
+  props: { params: Promise<{ companyId: string; questionId: string }> }
 ) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
-    if (!await checkAdmin(supabase)) {
+    if (!(await checkAdmin(supabase))) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 
@@ -42,11 +43,12 @@ export async function PATCH(
 // DELETE: Remover pergunta
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { companyId: string; questionId: string } }
+  props: { params: Promise<{ companyId: string; questionId: string }> }
 ) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
-    if (!await checkAdmin(supabase)) {
+    if (!(await checkAdmin(supabase))) {
       return NextResponse.json({ success: false, message: 'Acesso negado' }, { status: 403 });
     }
 

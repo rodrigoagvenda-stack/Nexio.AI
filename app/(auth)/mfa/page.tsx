@@ -17,7 +17,7 @@ export default function MFAPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.mfa.listFactors().then(({ data }) => {
+    supabase.auth.mfa.listFactors().then(({ data }: { data: any }) => {
       const totp = data?.totp?.[0];
       if (totp) {
         setFactorId(totp.id);

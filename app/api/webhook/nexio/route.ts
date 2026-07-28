@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = webhookBodySchema.safeParse(await request.json())
     if (!parsed.success) return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
-    body = parsed.data as UazapiWebhookMessage
+    body = parsed.data as unknown as UazapiWebhookMessage
   } catch {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }

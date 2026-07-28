@@ -123,8 +123,9 @@ async function createLeadFromAsaasCustomer(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { companyId: string; platform: string } }
+  props: { params: Promise<{ companyId: string; platform: string }> }
 ) {
+  const params = await props.params;
   const { companyId: companyIdStr, platform } = params
   const companyId = Number(companyIdStr)
 

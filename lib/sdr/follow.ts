@@ -416,7 +416,7 @@ async function checkRetry(
 async function openCircuit(sequenceId: string, companyId: number, supabase: Supabase): Promise<void> {
   await syslog({
     type: 'follow_up',
-    severity: 'warn',
+    severity: 'warning',
     message: `Circuit breaker aberto — sequência ${sequenceId} pausada por 30 min`,
     company_id: companyId,
     payload: { sequenceId },
@@ -883,7 +883,7 @@ async function processFollowGeral(
             .eq('company_id', company.id)
             .eq('lead_id', lead.id)
             .neq('respondeu', true)
-            .then(() => {}).catch(() => {})
+            .then(undefined, () => {})
 
           const retryStatus = await checkRetry(lead.id, step.id, supabase)
           if (retryStatus === 'dlq') { await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'dlq', supabase); continue }
@@ -1263,7 +1263,7 @@ async function processAntiNoshow(
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
           if (!replyMsg) continue
-          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(() => {}).catch(() => {})
+          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(undefined, () => {})
         }
 
         const phone = normalizePhone(lead.whatsapp)
@@ -1450,7 +1450,7 @@ async function processRemarketing(
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
           if (!replyMsg) continue
-          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(() => {}).catch(() => {})
+          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(undefined, () => {})
         }
 
         // ── Retry / DLQ ──
@@ -1596,7 +1596,7 @@ async function processFollowProposta(
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
           if (!replyMsg) continue
-          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(() => {}).catch(() => {})
+          supabase.from('follow_logs').update({ respondeu: true }).eq('company_id', company.id).eq('lead_id', lead.id).neq('respondeu', true).then(undefined, () => {})
         } else {
           if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
         }

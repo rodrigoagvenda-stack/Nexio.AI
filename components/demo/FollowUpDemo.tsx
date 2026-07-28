@@ -195,7 +195,7 @@ function Edge({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: numb
 
 // ── Canvas top bar ────────────────────────────────────────────────────────────
 function CanvasTopBar({ saved, saveRef, onSave, highlightSave }: {
-  saved?: boolean; saveRef?: React.RefObject<HTMLButtonElement>; onSave?: () => void; highlightSave?: boolean
+  saved?: boolean; saveRef?: React.RefObject<HTMLButtonElement | null>; onSave?: () => void; highlightSave?: boolean
 }) {
   return (
     <div className="flex items-center justify-between px-4 bg-card border-b border-border flex-shrink-0 gap-4" style={{ height: 48 }}>
@@ -305,7 +305,7 @@ function FakePalette({ highlightKind, onSelect }: { highlightKind?: string; onSe
 
 // ── Config panel ──────────────────────────────────────────────────────────────
 function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
-  msgText: string; msgRef?: React.RefObject<HTMLDivElement>; onMsgClick?: () => void
+  msgText: string; msgRef?: React.RefObject<HTMLDivElement | null>; onMsgClick?: () => void
 }) {
   return (
     <div className="w-72 bg-card border-l border-border h-full flex flex-col flex-shrink-0">
@@ -375,7 +375,7 @@ const META: Record<Scene, string> = {
 const MSG = 'Olá {nome}, seja bem-vindo! Estou aqui para te ajudar com qualquer dúvida sobre a nossa solução. 😊'
 
 // ── Add node button with ref for hotspot ──────────────────────────────────────
-function AddBtn({ btnRef, onClick }: { btnRef: React.RefObject<HTMLButtonElement>; onClick: () => void }) {
+function AddBtn({ btnRef, onClick }: { btnRef: React.RefObject<HTMLButtonElement | null>; onClick: () => void }) {
   return (
     <button ref={btnRef} onClick={onClick}
       className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-md text-muted-foreground">

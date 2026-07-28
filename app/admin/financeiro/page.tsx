@@ -47,7 +47,7 @@ export default async function FinanceiroPage() {
   return (
     <FinanceiroContent
       subscriptions={subscriptions ?? []}
-      tokenCharges={tokenCharges ?? []}
+      tokenCharges={(tokenCharges ?? []) as any}
       stats={{
         mrr,
         activeSubs: activeSubs.length,

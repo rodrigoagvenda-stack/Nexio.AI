@@ -1373,7 +1373,7 @@ CONTEXTO DO CRM:
 - Data/hora: ${now}`
 
   const TOOLS = buildOrchestratorTools(ctx)
-  console.log(`[SDR:${ctx.companyId}] tools disponíveis: [${TOOLS.map(t => t.function.name).join(', ')}]`)
+  console.log(`[SDR:${ctx.companyId}] tools disponíveis: [${TOOLS.map(t => (t as OpenAI.Chat.ChatCompletionFunctionTool).function?.name ?? '?').join(', ')}]`)
 
   const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemMsg },

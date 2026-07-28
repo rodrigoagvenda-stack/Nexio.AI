@@ -6,10 +6,8 @@ import { syslog } from '@/lib/logger'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { companyId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ companyId: string }> }) {
+  const params = await props.params;
   const webhookToken = request.headers.get('x-webhook-token')
   const expectedToken = process.env.SDR_WEBHOOK_SECRET
   console.log(`[webhook] recebido — companyId=${params.companyId} tokenOk=${!!expectedToken && webhookToken === expectedToken}`)

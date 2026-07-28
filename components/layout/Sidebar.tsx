@@ -432,8 +432,8 @@ export const Sidebar = memo(function Sidebar({
       .select('contagem_nao_lida')
       .eq('company_id', companyId)
       .gt('contagem_nao_lida', 0)
-      .then(({ data }) => {
-        const total = (data ?? []).reduce((s, c) => s + (c.contagem_nao_lida ?? 0), 0);
+      .then(({ data }: { data: any }) => {
+        const total = (data ?? []).reduce((s: number, c: any) => s + (c.contagem_nao_lida ?? 0), 0);
         setUnreadMsgCount(total);
       });
 
@@ -445,7 +445,7 @@ export const Sidebar = memo(function Sidebar({
         schema: 'public',
         table: 'conversas_do_whatsapp',
         filter: `company_id=eq.${companyId}`,
-      }, (payload) => {
+      }, (payload: any) => {
         const prev = (payload.old as any)?.contagem_nao_lida ?? 0;
         const next = (payload.new as any)?.contagem_nao_lida ?? 0;
         if (next > prev) {

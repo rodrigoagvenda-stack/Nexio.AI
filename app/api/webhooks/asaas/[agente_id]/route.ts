@@ -2,10 +2,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { agente_id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ agente_id: string }> }) {
+  const params = await props.params;
   // ── Rate limiting ─────────────────────────────────────────────────────────
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
   const rl = rateLimit({ key: `asaas-agente:${ip}`, limit: 120, windowMs: 60_000 })

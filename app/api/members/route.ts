@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
       severity: 'info',
       message: `Novo membro convidado: ${name} (${email})`,
       payload: { user_id: authUser.id, role, invite_sent: true },
-    }).catch(() => {});
+    }).then(undefined, () => {});
 
     return NextResponse.json({
       success: true,

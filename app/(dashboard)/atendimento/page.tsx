@@ -290,7 +290,7 @@ export default function AtendimentoPage() {
           table: 'mensagens_do_whatsapp',
           filter: `id_da_conversacao=eq.${selectedConversation.id}`,
         },
-        (payload) => {
+        (payload: any) => {
           setMessages((prev) => {
             const newMessage = payload.new as Message;
             const existsReal = prev.some(msg =>
@@ -324,7 +324,7 @@ export default function AtendimentoPage() {
           table: 'mensagens_do_whatsapp',
           filter: `id_da_conversacao=eq.${selectedConversation.id}`,
         },
-        (payload) => {
+        (payload: any) => {
           const updated = payload.new as Message;
           setMessages((prev) =>
             prev.map((msg) => typeof msg.id === 'number' && msg.id === updated.id ? { ...msg, ...updated } : msg)

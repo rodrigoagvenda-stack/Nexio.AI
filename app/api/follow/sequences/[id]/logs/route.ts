@@ -13,7 +13,8 @@ const TIPO_LABEL: Record<string, string> = {
   end: 'Fim',
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 

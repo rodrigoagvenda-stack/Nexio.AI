@@ -3,10 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 // Editar agendamento
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(req);
   if (authError) return authError;
 
@@ -80,10 +78,8 @@ export async function PUT(
 }
 
 // Cancelar agendamento
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(req);
   if (authError) return authError;
 

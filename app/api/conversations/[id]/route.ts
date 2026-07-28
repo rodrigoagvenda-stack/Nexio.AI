@@ -3,10 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
 // PATCH /api/conversations/:id — atualiza status da conversa; dispara CAPI se fechado/ganho
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -96,10 +94,8 @@ export async function PATCH(
 }
 
 // DELETE /api/conversations/:id — apaga conversa e todas as mensagens
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

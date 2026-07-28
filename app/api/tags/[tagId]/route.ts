@@ -3,10 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 // PATCH - Update a tag
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { tagId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ tagId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
@@ -62,10 +60,8 @@ export async function PATCH(
 }
 
 // DELETE - Delete a tag
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { tagId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ tagId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 

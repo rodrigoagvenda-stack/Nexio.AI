@@ -285,7 +285,7 @@ export default function OnboardingPage() {
 
   // Fetch user email on mount
   useState(() => {
-    createClient().auth.getUser().then(({ data }) => {
+    createClient().auth.getUser().then(({ data }: { data: any }) => {
       if (data.user?.email) setUserEmail(data.user.email);
     });
   });

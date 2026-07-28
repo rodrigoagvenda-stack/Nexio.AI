@@ -11,10 +11,8 @@ import { runTrialSaasImmediate } from '@/lib/sdr/follow'
 import { syslog } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown'
   const rl = rateLimit({ key: `trial-webhook:${ip}`, limit: 10, windowMs: 60_000 })
   if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 })

@@ -3,10 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
 // PATCH /api/support/ticket/[id] — user marks ticket as resolved
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error } = await requireAuth(req)
   if (error) return error
 

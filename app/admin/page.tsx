@@ -41,7 +41,8 @@ function getDateRange(period: string, from?: string, to?: string) {
 
 type SearchParams = { period?: string; from?: string; to?: string };
 
-export default async function AdminDashboardPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function AdminDashboardPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   const supabase = createServiceClient();
   const period = searchParams.period || 'month';
   const { start, end } = getDateRange(period, searchParams.from, searchParams.to);

@@ -26,10 +26,8 @@ export interface QuestionnaireAnswers {
   obj_produto: string      // Dúvidas sobre produto com scripts exatos
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

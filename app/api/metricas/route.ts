@@ -150,10 +150,11 @@ export async function GET(request: NextRequest) {
     const leadTipoMap: Record<number, string> = {}
     const leadSeqIdMap: Record<number, string> = {}
     for (const ex of execs ?? []) {
-      const seq = (ex as any).follow_sequences
-      if (ex.lead_id && seq?.tipo) {
-        leadTipoMap[ex.lead_id] = seq.tipo
-        if (ex.sequence_id) leadSeqIdMap[ex.lead_id] = ex.sequence_id
+      const exAny = ex as any
+      const seq = exAny.follow_sequences
+      if (exAny.lead_id && seq?.tipo) {
+        leadTipoMap[exAny.lead_id] = seq.tipo
+        if (ex.sequence_id) leadSeqIdMap[exAny.lead_id] = ex.sequence_id
       }
     }
 

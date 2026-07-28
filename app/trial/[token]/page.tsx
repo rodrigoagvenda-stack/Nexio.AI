@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, use } from 'react';
 import Image from 'next/image'
 
 function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -23,7 +23,8 @@ function PhoneInput({ value, onChange }: { value: string; onChange: (v: string) 
   )
 }
 
-export default function TrialFormPage({ params }: { params: { token: string } }) {
+export default function TrialFormPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')

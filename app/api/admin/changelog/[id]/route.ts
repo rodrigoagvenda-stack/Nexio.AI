@@ -4,10 +4,8 @@ import { requireAdmin } from '@/lib/auth/require-auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin(req)
   if (error) return error
 
@@ -35,10 +33,8 @@ export async function PATCH(
   return NextResponse.json({ changelog: data })
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin(req)
   if (error) return error
 

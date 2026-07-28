@@ -6,10 +6,8 @@ export const runtime = 'nodejs'
 export const maxDuration = 120
 
 // GET /api/sdr/flows/:id/knowledge — info da base de conhecimento atual
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -37,10 +35,8 @@ export async function GET(
 }
 
 // POST /api/sdr/flows/:id/knowledge — upload PDF base de conhecimento
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

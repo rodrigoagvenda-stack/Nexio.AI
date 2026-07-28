@@ -5,10 +5,8 @@ import { sendSuporteConfirmacaoEmail } from '@/lib/email/resend'
 
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin(req)
   if (error) return error
 
@@ -38,8 +36,7 @@ export async function PATCH(
     await service
       .from('support_ticket_messages')
       .insert({ ticket_id: params.id, sender_type: 'support', content: resposta })
-      .then(() => {})
-      .catch(() => {})
+      .then(undefined, () => {})
   }
 
   // Send email notification when admin responds

@@ -13,7 +13,7 @@ export function useUser() {
     const supabase = createClient();
 
     // Get initial user (validates token server-side, more reliable than getSession)
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: any }) => {
       setAuthUser(user ?? null);
       if (user) {
         fetchUserAndCompany(user.id);
@@ -25,7 +25,7 @@ export function useUser() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setAuthUser(session?.user ?? null);
       if (session?.user) {
         fetchUserAndCompany(session.user.id);

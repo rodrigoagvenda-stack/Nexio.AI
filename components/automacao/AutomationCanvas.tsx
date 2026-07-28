@@ -107,8 +107,9 @@ interface FollowStep {
   mensagem: string | null;
   tipo_mensagem: string;
   ordem: number;
-  condicao: string;
+  condicao: string | null;
   media_config?: { file?: string; text?: string; docName?: string; [k: string]: any } | null;
+  sdr_ativo?: boolean | null;
 }
 
 // Canvas (PT) ↔ uazapi (EN) tipo mapping
@@ -210,7 +211,7 @@ interface MessageNodeData extends Record<string, unknown> {
   // Controle de IA: null = sem mudança, true = ativar, false = pausar
   sdr_ativo?: boolean | null;
   // Unidade do dia_offset: 'days' (padrão) ou 'hours'. Para anti_noshow sempre 'hours'.
-  offset_unit?: 'days' | 'hours';
+  offset_unit?: 'days' | 'hours' | 'minutes';
   _execState?: ExecState;
   _execError?: string;
 }
@@ -752,7 +753,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
       let operador: ConditionNodeData['operador'] = mc.operador ?? 'eq';
       let valor = mc.valor ?? '';
       if (!mc.variavel) {
-        try { const p = JSON.parse(step.condicao); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
+        try { const p = JSON.parse(step.condicao ?? ''); if (p?.variavel) { variavel = p.variavel; operador = p.operador; valor = p.valor; } } catch {}
       }
       // When variavel is 'custom', restore the custom variable name from media_config.customVariavel
       const condicaoCanvas = variavel === 'custom' ? (mc.customVariavel || step.condicao || '') : (step.condicao || 'Respondeu?');
@@ -1025,7 +1026,7 @@ function NodeShell({ children, selected, accent = 'primary', header, execState, 
   children: React.ReactNode;
   selected?: boolean;
   accent?: AccentKey;
-  header: React.ReactNode;
+  header?: React.ReactNode;
   execState?: ExecState;
   execError?: string;
   leadCount?: number;

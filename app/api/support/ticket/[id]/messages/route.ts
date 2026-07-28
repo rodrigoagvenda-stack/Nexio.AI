@@ -5,10 +5,8 @@ import { requireAuth } from '@/lib/auth/require-auth'
 export const dynamic = 'force-dynamic'
 
 // GET — list messages for a ticket
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error } = await requireAuth(req)
   if (error) return error
 
@@ -58,10 +56,8 @@ export async function GET(
 }
 
 // POST — user sends a reply
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { context, error } = await requireAuth(req)
   if (error) return error
 

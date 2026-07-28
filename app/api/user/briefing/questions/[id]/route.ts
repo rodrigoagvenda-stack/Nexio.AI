@@ -13,10 +13,8 @@ async function getCompanyId() {
   return data?.company_id ?? null;
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const companyId = await getCompanyId();
     if (!companyId) return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
@@ -40,10 +38,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const companyId = await getCompanyId();
     if (!companyId) return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });

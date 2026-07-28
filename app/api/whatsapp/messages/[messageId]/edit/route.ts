@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
 
-export async function PATCH(req: NextRequest, { params }: { params: { messageId: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ messageId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
 

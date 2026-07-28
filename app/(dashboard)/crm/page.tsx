@@ -1561,7 +1561,6 @@ export default function CRMPage() {
                 <div key={i} className="flex items-start flex-1 last:flex-none">
                   <div className="flex flex-col items-center gap-2 flex-shrink-0">
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200"
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200",
                         i <= currentStep

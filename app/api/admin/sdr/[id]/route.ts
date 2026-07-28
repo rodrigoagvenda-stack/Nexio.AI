@@ -3,7 +3,8 @@ import { requireAdmin } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin(req)
   if (error) return error
 
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   })
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { error } = await requireAdmin(req)
   if (error) return error
 

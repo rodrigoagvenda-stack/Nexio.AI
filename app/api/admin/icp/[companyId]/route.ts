@@ -25,10 +25,8 @@ async function verifyAdmin(supabase: any) {
   return { user, adminUser, serviceSupabase };
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { companyId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ companyId: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
     const auth = await verifyAdmin(supabase);
@@ -54,10 +52,8 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { companyId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ companyId: string }> }) {
+  const params = await props.params;
   try {
     const supabase = await createClient();
     const auth = await verifyAdmin(supabase);

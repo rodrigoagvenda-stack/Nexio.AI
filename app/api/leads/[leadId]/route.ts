@@ -3,10 +3,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireAuth, validateCompanyAccess } from '@/lib/auth/require-auth';
 import { gtproConvertLead } from '@/lib/meta/gtpro';
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { leadId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ leadId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
@@ -130,10 +128,8 @@ export async function PATCH(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { leadId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ leadId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 

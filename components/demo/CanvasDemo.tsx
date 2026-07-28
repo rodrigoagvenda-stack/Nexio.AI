@@ -227,7 +227,7 @@ function SequenceList({ highlightFirst, onOpen }: { highlightFirst: boolean; onO
 const MSG = 'Ola {nome}! Que otimo ter voce conosco. Posso te ajudar com alguma duvida sobre a plataforma?'
 
 function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
-  msgText: string; msgRef?: React.RefObject<HTMLDivElement>; onMsgClick?: () => void
+  msgText: string; msgRef?: React.RefObject<HTMLDivElement | null>; onMsgClick?: () => void
 }) {
   return (
     <div className="w-72 bg-card border-l border-border h-full flex flex-col flex-shrink-0">
@@ -277,7 +277,7 @@ function FakeConfigPanel({ msgText, msgRef, onMsgClick }: {
 
 // ── Top bar ───────────────────────────────────────────────────────────────────
 function CanvasTopBar({ saved, saveRef, onSave, highlightSave }: {
-  saved?: boolean; saveRef?: React.RefObject<HTMLButtonElement>; onSave?: () => void; highlightSave?: boolean
+  saved?: boolean; saveRef?: React.RefObject<HTMLButtonElement | null>; onSave?: () => void; highlightSave?: boolean
 }) {
   return (
     <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-card flex-shrink-0">

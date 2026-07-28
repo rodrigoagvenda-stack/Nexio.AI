@@ -3,10 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 // PATCH - Update a note
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { noteId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ noteId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
@@ -60,10 +58,8 @@ export async function PATCH(
 }
 
 // DELETE - Delete a note
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { noteId: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ noteId: string }> }) {
+  const params = await props.params;
   const { context, error: authError } = await requireAuth(request);
   if (authError) return authError;
 
