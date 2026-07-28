@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copiar package files
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # 2. Builder
 FROM base AS builder
