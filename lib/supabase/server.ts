@@ -3,8 +3,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 export async function createClient() {
   // Dynamic import so this file is safe to import in non-Next.js processes
-  const { cookies } = await /* @next-codemod-error The APIs under 'next/headers' are async now, need to be manually awaited. */
-  import('next/headers')
+  const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
 
   return createServerClient(
