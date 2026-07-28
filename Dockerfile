@@ -30,8 +30,11 @@ ENV NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID=$NEXT_PUBLIC_META_EMBEDDED_SIGNUP
 # Disable telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Keep heap below container physical RAM to avoid OOM kills
-RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
+# TypeScript check separado do build para evitar OOM (tsc usa ~2GB sozinho)
+RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsc --noEmit
+
+# Next.js build sem TS check (ignoreBuildErrors=true no next.config.js)
+RUN NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
 # Debug: listar o que foi gerado
 RUN ls -la .next/ || echo ".next not found" && \

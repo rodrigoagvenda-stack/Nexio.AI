@@ -7,6 +7,9 @@ const nextConfig = {
   // Impede webpack de bundlar esses pacotes no chunk do servidor.
   // Ficam como require() nativo em runtime — carregados só quando chamados.
   serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'openai', 'googleapis'],
+  // tsc --noEmit roda como etapa separada no Dockerfile com 3072MB.
+  // Erros de tipo bloqueiam o build via tsc, nao via next build (que causa OOM).
+  typescript: { ignoreBuildErrors: true },
   images: {
     remotePatterns: [
       {
