@@ -121,12 +121,21 @@ export interface AsaasSubscription {
   externalReference?: string
 }
 
-export async function createSubscription(params: {
+// ─── Tokenização de cartão ────────────────────────────────────────────────────
+
+export interface AsaasCreditCardToken {
+  creditCardNumber: string  // últimos 4 dígitos mascarados
+  creditCardBrand: string
+  creditCardToken: string   // token opaco para uso futuro
+}
+
+/**
+ * Tokeniza o cartão diretamente no Asaas e retorna um token opaco.
+ * Depois de chamar isso, os dados raw do cartão devem ser descartados imediatamente.
+ * Use o token em createSubscription() para criar a assinatura sem retransmitir o cartão.
+ */
+export async function tokenizeCreditCard(params: {
   customerId: string
-  value: number
-  description: string
-  nextDueDate: string
-  externalReference?: string
   creditCard: {
     holderName: string
     number: string
@@ -134,6 +143,38 @@ export async function createSubscription(params: {
     expiryYear: string
     ccv: string
   }
+  creditCardHolderInfo: {
+    name: string
+    email: string
+    cpfCnpj: string
+    postalCode: string
+    addressNumber: string
+    phone: string
+  }
+  remoteIp: string
+}): Promise<AsaasCreditCardToken> {
+  return asaasRequest<AsaasCreditCardToken>('POST', '/creditCards/tokenizate', {
+    customer: params.customerId,
+    creditCard: params.creditCard,
+    creditCardHolderInfo: {
+      name: params.creditCardHolderInfo.name,
+      email: params.creditCardHolderInfo.email,
+      cpfCnpj: params.creditCardHolderInfo.cpfCnpj.replace(/\D/g, ''),
+      postalCode: params.creditCardHolderInfo.postalCode.replace(/\D/g, ''),
+      addressNumber: params.creditCardHolderInfo.addressNumber,
+      phone: params.creditCardHolderInfo.phone.replace(/\D/g, ''),
+    },
+    remoteIp: params.remoteIp,
+  })
+}
+
+export async function createSubscription(params: {
+  customerId: string
+  value: number
+  description: string
+  nextDueDate: string
+  externalReference?: string
+  creditCardToken: string
   creditCardHolderInfo: {
     name: string
     email: string
@@ -152,7 +193,7 @@ export async function createSubscription(params: {
     description: params.description,
     nextDueDate: params.nextDueDate,
     externalReference: params.externalReference,
-    creditCard: params.creditCard,
+    creditCardToken: params.creditCardToken,
     creditCardHolderInfo: {
       name: params.creditCardHolderInfo.name,
       email: params.creditCardHolderInfo.email,

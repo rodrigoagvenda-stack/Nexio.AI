@@ -16,6 +16,7 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
   createOrGetCustomer,
+  tokenizeCreditCard,
   createSubscription,
   cancelSubscription,
 } from '@/lib/asaas/client'
@@ -73,16 +74,24 @@ export async function POST(request: NextRequest) {
       await cancelSubscription(company.asaas_subscription_id).catch(() => {})
     }
 
-    // 3. Criar nova assinatura
+    // 3. Tokenizar cartão primeiro — dados raw descartados após essa chamada
     const forwardedFor = request.headers.get('x-forwarded-for') ?? '127.0.0.1'
     const remoteIp = forwardedFor.split(',')[0].trim()
 
+    const { creditCardToken } = await tokenizeCreditCard({
+      customerId: customer.id,
+      creditCard,
+      creditCardHolderInfo: holderInfo,
+      remoteIp,
+    })
+
+    // 3b. Criar assinatura usando apenas o token — sem repassar número/CVV
     const subscription = await createSubscription({
       customerId: customer.id,
       value: PLAN_PRICES[plan],
       description: `Zaapply ${plan.charAt(0).toUpperCase() + plan.slice(1)} — mensal`,
       nextDueDate: todayISO(),
-      creditCard,
+      creditCardToken,
       creditCardHolderInfo: holderInfo,
       remoteIp,
     })
