@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * PUT /api/templates/[id]
@@ -9,18 +10,15 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
     const templateId = parseInt(params.id);
     const body = await request.json();
-    const { companyId, name, content, shortcut, category, isActive } = body;
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const { name, content, shortcut, category, isActive } = body;
+    const companyId = context.companyId;
 
     // Verificar se template existe e pertence à empresa
     const { data: existingTemplate } = await supabase
@@ -101,25 +99,20 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
     const templateId = parseInt(params.id);
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const companyId = context.companyId;
 
     // Verificar se template existe e pertence à empresa
     const { data: existingTemplate } = await supabase
       .from('message_templates')
       .select('id')
       .eq('id', templateId)
-      .eq('company_id', parseInt(companyId))
+      .eq('company_id', companyId)
       .single();
 
     if (!existingTemplate) {
@@ -134,7 +127,7 @@ export async function DELETE(
       .from('message_templates')
       .delete()
       .eq('id', templateId)
-      .eq('company_id', parseInt(companyId));
+      .eq('company_id', companyId);
 
     if (error) {
       console.error('Error deleting template:', error);
@@ -165,18 +158,13 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
     const templateId = parseInt(params.id);
-    const body = await request.json();
-    const { companyId } = body;
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const companyId = context.companyId;
 
     // Incrementar usage_count (buscar valor atual e incrementar)
     const { data: currentTemplate } = await supabase

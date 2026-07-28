@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { rateLimit } from '@/lib/rate-limit'
 
 const SYSTEM_PROMPT = `Você é Zaia, assistente de suporte do Zaapply — CRM com WhatsApp e SDR por IA para times de vendas.
 
@@ -52,6 +53,10 @@ PROBLEMAS COMUNS:
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
+    const rl = rateLimit({ key: `help-chat:${ip}`, limit: 30, windowMs: 60_000 })
+    if (!rl.success) return NextResponse.json({ error: 'Muitas requisições' }, { status: 429 })
+
     const { message, history } = await request.json()
     if (!message) return NextResponse.json({ error: 'Mensagem obrigatória' }, { status: 400 })
 

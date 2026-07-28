@@ -26,9 +26,20 @@ export async function POST(req: NextRequest) {
   if (file.size > MAX_SIZE)
     return NextResponse.json({ error: 'Arquivo muito grande. Máximo 5 MB.' }, { status: 400 })
 
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  // Validar magic bytes — rejeita arquivo malicioso com MIME falsificado
+  const isImage = (
+    (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) || // JPEG
+    (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) || // PNG
+    (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) || // GIF
+    (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) // WebP
+  )
+  if (!isImage)
+    return NextResponse.json({ error: 'Formato inválido. Use JPG, PNG, WebP ou GIF.' }, { status: 400 })
+
   const ext = file.name.split('.').pop() || 'png'
   const filePath = `ticket-attachments/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
 
   const service = createServiceClient()
   const { error: uploadError } = await service.storage

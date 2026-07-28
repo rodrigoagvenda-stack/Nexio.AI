@@ -53,10 +53,9 @@ export async function POST(request: NextRequest) {
     const cfg = await getPlatformConfig()
     const expectedToken = cfg.asaas_webhook_token
 
-    if (expectedToken && incomingToken !== expectedToken) {
-      console.warn('[webhook/billing] token inválido:', incomingToken.slice(0, 8) + '...')
-      // Retorna 200 — token inválido não deve pausar a fila
-      return NextResponse.json({ received: true, warning: 'token_invalido' })
+    if (!expectedToken || incomingToken !== expectedToken) {
+      console.warn('[webhook/billing] token inválido ou não configurado')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   } catch (err: any) {
     console.error('[webhook/billing] erro ao validar token:', err.message)

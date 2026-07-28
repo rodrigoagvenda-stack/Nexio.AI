@@ -13,12 +13,16 @@ export async function POST(request: NextRequest) {
     // company_id sempre do usuário autenticado — nunca do body (previne IDOR)
     const { data: userData } = await supabase
       .from('users')
-      .select('company_id')
+      .select('company_id, role')
       .eq('auth_user_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ success: false, message: 'Empresa não encontrada' }, { status: 403 });
+    }
+
+    if (!['admin', 'company_admin', 'manager'].includes(userData.role ?? '')) {
+      return NextResponse.json({ success: false, message: 'Apenas administradores podem alterar limites' }, { status: 403 });
     }
 
     const body = await request.json();

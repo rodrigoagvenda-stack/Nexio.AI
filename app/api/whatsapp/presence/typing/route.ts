@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
+import { requireAuth } from '@/lib/auth/require-auth'
 
 export async function POST(req: NextRequest) {
-  try {
-    const { phoneNumber, companyId } = await req.json()
+  const { context, error: authError } = await requireAuth(req)
+  if (authError) return authError
 
-    if (!phoneNumber || !companyId) {
-      return NextResponse.json({ success: false, message: 'phoneNumber e companyId são obrigatórios' }, { status: 400 })
+  try {
+    const { phoneNumber } = await req.json()
+
+    if (!phoneNumber) {
+      return NextResponse.json({ success: false, message: 'phoneNumber é obrigatório' }, { status: 400 })
     }
 
-    const uazapi = await getUazapiForCompany(Number(companyId))
+    const uazapi = await getUazapiForCompany(Number(context.companyId))
     await uazapi.sendPresence(phoneNumber, 'composing', 3000)
 
     return NextResponse.json({ success: true, message: 'Status de digitando enviado' })

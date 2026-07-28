@@ -89,13 +89,20 @@ export async function POST(request: NextRequest) {
     // company_id sempre da sessão — nunca do body para evitar log injection entre empresas
     const { data: dbUser } = await serviceSupabase
       .from('users')
-      .select('company_id')
+      .select('company_id, role')
       .eq('auth_user_id', user.id)
       .single();
 
+    // Usuários comuns só podem registrar severidade info/warning — não podem forjar erros críticos
+    const ADMIN_ROLES = ['admin', 'company_admin', 'manager'];
+    const allowedSeverities: string[] = ADMIN_ROLES.includes(dbUser?.role ?? '')
+      ? ['debug', 'info', 'warning', 'error', 'critical']
+      : ['debug', 'info', 'warning'];
+    const severity = allowedSeverities.includes(body.severity) ? body.severity : 'info';
+
     const logData = {
       type: body.type,
-      severity: body.severity,
+      severity,
       message: body.message,
       metadata: body.metadata,
       company_id: dbUser?.company_id ?? null,

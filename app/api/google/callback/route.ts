@@ -34,6 +34,18 @@ export async function GET(request: NextRequest) {
     const companyId = parseInt(companyIdStr);
     if (!companyId) throw new Error('company_id inválido');
 
+    // Validar que o companyId do state pertence ao usuário autenticado
+    const { createClient: createSupa } = await import('@/lib/supabase/server');
+    const supabaseCheck = await createSupa();
+    const { data: { user: sessionUser } } = await supabaseCheck.auth.getUser();
+    if (sessionUser) {
+      const { data: userRow } = await supabaseCheck.from('users').select('company_id').eq('auth_user_id', sessionUser.id).single();
+      if (userRow && userRow.company_id !== companyId) {
+        console.warn('[google/callback] companyId do state não bate com sessão — possível IDOR');
+        return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
+      }
+    }
+
     const { google } = await import('googleapis')
     const cfg = await getPlatformConfig();
     const oauth2Client = new google.auth.OAuth2(

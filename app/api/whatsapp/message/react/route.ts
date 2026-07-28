@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUAZapiConfig, uazapiRequest } from '@/lib/utils/uazapi';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function POST(req: NextRequest) {
-  try {
-    const { companyId, messageId, emoji } = await req.json();
+  const { context, error: authError } = await requireAuth(req);
+  if (authError) return authError;
 
-    if (!companyId || !messageId || !emoji) {
+  try {
+    const { messageId, emoji } = await req.json();
+
+    if (!messageId || !emoji) {
       return NextResponse.json(
-        { error: 'companyId, messageId e emoji são obrigatórios' },
+        { error: 'messageId e emoji são obrigatórios' },
         { status: 400 }
       );
     }
 
-    const config = await getUAZapiConfig(companyId);
+    const config = await getUAZapiConfig(context.companyId);
     if (!config) {
       return NextResponse.json(
         { error: 'Configuração UAZapi não encontrada' },

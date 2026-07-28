@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 // Editar agendamento
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { context, error: authError } = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const { id } = params;
-    const { content, scheduledFor, companyId } = await req.json();
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'Company ID é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const { content, scheduledFor } = await req.json();
+    const companyId = context.companyId;
 
     // Validar se data é futura
     if (scheduledFor) {
@@ -86,17 +84,12 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { context, error: authError } = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const { id } = params;
-    const { searchParams } = new URL(req.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'Company ID é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const companyId = context.companyId;
 
     const supabase = await createClient();
 

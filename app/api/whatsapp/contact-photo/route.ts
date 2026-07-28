@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
-// Chamado ao receber mensagem inbound com imagePreview
+const PRIVATE_IP = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|fc00:|fd)/i;
+
+function isPrivateUrl(rawUrl: string): boolean {
+  try { const { hostname } = new URL(rawUrl); return PRIVATE_IP.test(hostname); }
+  catch { return true; }
+}
+
+// Chamado internamente pelo webhook handler — protegido pelo mesmo secret
 // Body: { sender_pn, owner, image_preview_url }
-// sender_pn = "557781680532@s.whatsapp.net" (telefone do contato)
-// owner     = "559992225748" (telefone da instância/empresa)
 export async function POST(request: NextRequest) {
+  // Endpoint interno — requer NEXIO_WEBHOOK_SECRET via header
+  const expectedSecret = process.env.NEXIO_WEBHOOK_SECRET
+  const receivedSecret = request.headers.get('x-webhook-secret') ?? request.nextUrl.searchParams.get('secret')
+  if (!expectedSecret || receivedSecret !== expectedSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { sender_pn, owner, image_preview_url } = await request.json();
 
@@ -42,8 +54,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, photo_url: conv.whatsapp_photo_url, cached: true });
     }
 
+    if (isPrivateUrl(image_preview_url)) {
+      return NextResponse.json({ success: false, message: 'URL não permitida' }, { status: 400 });
+    }
+
     // Baixar a imagem do WhatsApp
     const response = await fetch(image_preview_url, {
+      signal: AbortSignal.timeout(8000),
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible)' },
     });
 

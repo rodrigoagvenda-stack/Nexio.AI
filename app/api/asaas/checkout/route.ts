@@ -30,10 +30,14 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('company_id, name, email')
+      .select('company_id, name, email, role')
       .eq('auth_user_id', user.id)
       .single()
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+
+    if (!['admin', 'company_admin'].includes(userData.role ?? '')) {
+      return NextResponse.json({ error: 'Apenas administradores podem iniciar assinatura' }, { status: 403 })
+    }
 
     const body = await request.json()
     const { plan, cpfCnpj: cpfCnpjRaw, extraNumbers: extraNumbersRaw, fullName, mobilePhone } = body as { plan: string; cpfCnpj?: string; extraNumbers?: number; fullName?: string; mobilePhone?: string }

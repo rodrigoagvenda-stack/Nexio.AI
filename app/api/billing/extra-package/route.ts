@@ -6,9 +6,17 @@
  * é inserido em extra_packages automaticamente.
  *
  * Body:
- *   tokens   number  — quantidade de tokens do pacote (ex: 100000, 500000)
- *   amount   number  — valor em BRL (ex: 15.00)
+ *   tokens   number  — quantidade de tokens do pacote (deve corresponder a um pacote válido)
+ * Valor é calculado server-side; nunca aceito do cliente.
  */
+
+// Tabela de preços server-side — nunca confiar no amount do cliente
+const TOKEN_PRICE_MAP: Record<number, number> = {
+  1_000_000:  97,
+  5_000_000: 420,
+ 10_000_000: 750,
+ 20_000_000: 1300,
+}
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
@@ -41,10 +49,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { tokens, amount } = body
+    const { tokens } = body
 
-    if (!tokens || tokens < 1 || !amount || amount <= 0) {
-      return NextResponse.json({ success: false, message: 'tokens e amount são obrigatórios' }, { status: 400 })
+    const amount = TOKEN_PRICE_MAP[tokens as number]
+    if (!amount) {
+      return NextResponse.json({ success: false, message: `Pacote inválido. Opções: ${Object.keys(TOKEN_PRICE_MAP).join(', ')} tokens` }, { status: 400 })
     }
 
     const supabase = createServiceClient()

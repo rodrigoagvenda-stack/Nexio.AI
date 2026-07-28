@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 // PATCH - Update a tag
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { tagId: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { tagId } = params;
     const body = await request.json();
-    const { companyId, tagName, tagColor } = body;
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const { tagName, tagColor } = body;
+    const companyId = context.companyId;
 
     const supabase = await createClient();
 
@@ -28,7 +26,7 @@ export async function PATCH(
       .from('tags')
       .update(updateData)
       .eq('id', tagId)
-      .eq('company_id', companyId) // 🔒 Security
+      .eq('company_id', companyId)
       .select()
       .single();
 
@@ -68,17 +66,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { tagId: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { tagId } = params;
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const companyId = context.companyId;
 
     const supabase = await createClient();
 
@@ -87,7 +80,7 @@ export async function DELETE(
       .from('tags')
       .delete()
       .eq('id', tagId)
-      .eq('company_id', companyId); // 🔒 Security
+      .eq('company_id', companyId);
 
     if (error) throw error;
 

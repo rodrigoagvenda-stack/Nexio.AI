@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireAdmin } from '@/lib/auth/require-auth'
 import { invalidateSystemConfigCache } from '@/lib/sdr/system-config'
 
 export const dynamic = 'force-dynamic'
 
 const ALLOWED_KEYS = ['GROQ_API_KEY', 'OPENAI_API_KEY']
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { error: authError } = await requireAdmin(request)
+  if (authError) return authError
+
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('system_config')
@@ -21,6 +25,9 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
+  const { error: authError } = await requireAdmin(request)
+  if (authError) return authError
+
   let body: { key: string; value: string }
   try {
     body = await request.json()

@@ -1,28 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * GET /api/chats/team
  * Listar membros da equipe com estatísticas de atendimento
  */
 export async function GET(request: NextRequest) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const supabase = await createClient();
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const companyId = context.companyId;
 
     // Buscar todos os usuários da empresa
     const { data: users, error: usersError } = await supabase
       .from('users')
       .select('id, name, email, is_active')
-      .eq('company_id', parseInt(companyId))
+      .eq('company_id', companyId)
       .eq('is_active', true)
       .order('name');
 

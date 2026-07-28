@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 // PATCH - Update a note
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { noteId: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { noteId } = params;
     const body = await request.json();
-    const { companyId, noteText, isPinned } = body;
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const { noteText, isPinned } = body;
+    const companyId = context.companyId;
 
     const supabase = await createClient();
 
@@ -66,17 +64,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { noteId: string } }
 ) {
+  const { context, error: authError } = await requireAuth(request);
+  if (authError) return authError;
+
   try {
     const { noteId } = params;
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get('companyId');
-
-    if (!companyId) {
-      return NextResponse.json(
-        { success: false, message: 'companyId é obrigatório' },
-        { status: 400 }
-      );
-    }
+    const companyId = context.companyId;
 
     const supabase = await createClient();
 
@@ -84,7 +77,7 @@ export async function DELETE(
       .from('chat_notes')
       .delete()
       .eq('id', noteId)
-      .eq('company_id', companyId); // 🔒 Security
+      .eq('company_id', companyId);
 
     if (error) throw error;
 

@@ -2,8 +2,9 @@ import { writeHeapSnapshot } from 'v8'
 import { NextResponse } from 'next/server'
 
 export async function GET(req: Request) {
-  const secret = req.headers.get('authorization')?.replace('Bearer ', '')
-  if (secret !== process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET
+  const provided = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!cronSecret || provided !== cronSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
