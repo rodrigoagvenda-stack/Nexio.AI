@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     let openaiKey: string | null = null
     if (process.env.OPENAI_API_KEY) {
       openaiKey = process.env.OPENAI_API_KEY
-    } else if (cfg.openai_key) {
+    } else if (cfg?.openai_key) {
       openaiKey = decrypt(cfg.openai_key)
     } else {
       const { data: rows } = await service
