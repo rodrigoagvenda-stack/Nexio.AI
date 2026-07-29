@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
@@ -43,10 +43,10 @@ export async function GET(req: NextRequest) {
         const uazapi = createUazapiClient(cfg.uazapi_instance_url, token)
         const { status } = await uazapi.getStatus()
         const healthy = status === 'connected'
-        log.push(`📡 WhatsApp health: status="${status}" → ${healthy ? '✅ conectado' : '❌ DESCONECTADO — cron pula esta empresa!'}`)
+        log.push(`📡 WhatsApp health: status="${status}" → ${healthy ? '✅ conectado' : '❌ DESCONECTADO : cron pula esta empresa!'}`)
         if (!healthy) log.push('   → Reconecte o WhatsApp em Configurações › WhatsApp para o anti-noshow funcionar')
       } catch (e: any) {
-        log.push(`📡 WhatsApp health: ❌ erro ao checar (${e.message}) — cron vai tentar mesmo assim (fail-open)`)
+        log.push(`📡 WhatsApp health: ❌ erro ao checar (${e.message}) : cron vai tentar mesmo assim (fail-open)`)
       }
     }
 
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     log.push(`\n📋 Sequências anti_noshow: ${sequences?.length ?? 0} encontradas`)
     if (!sequences?.length) {
-      log.push('❌ Nenhuma sequência anti_noshow — engine não processa esta empresa')
+      log.push('❌ Nenhuma sequência anti_noshow : engine não processa esta empresa')
       log.push('   → Crie uma sequência do tipo "anti_noshow" nas automações')
     }
 

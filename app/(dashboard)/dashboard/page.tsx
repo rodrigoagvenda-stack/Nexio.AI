@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -182,7 +182,7 @@ export default function DashboardPage() {
     });
   }, [leads, currentRange]);
 
-  // Leads not closed/lost — state atual do pipeline (independe do período)
+  // Leads not closed/lost : state atual do pipeline (independe do período)
   const activeLeads = useMemo(() =>
     leads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido'),
     [leads]

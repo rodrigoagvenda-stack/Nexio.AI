@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { runFollowUp } from '@/lib/sdr/follow'
 import { syslog } from '@/lib/logger'
 
@@ -38,7 +38,7 @@ async function handler(request: Request) {
   }
 }
 
-// GET /api/cron/follow-up — Vercel Cron
+// GET /api/cron/follow-up : Vercel Cron
 export const GET = handler
-// POST /api/cron/follow-up — Supabase Edge Function relay
+// POST /api/cron/follow-up : Supabase Edge Function relay
 export const POST = handler

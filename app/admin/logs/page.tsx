@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -313,7 +313,7 @@ export default function LogsDashboardPage() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Logs do Sistema</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Eventos em tempo real — agentes SDR, webhooks e erros</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Eventos em tempo real : agentes SDR, webhooks e erros</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {newCount > 0 && (
@@ -432,7 +432,7 @@ export default function LogsDashboardPage() {
         </div>
       </div>
 
-      {/* Log list — fills remaining height */}
+      {/* Log list : fills remaining height */}
       <div className="flex-1 min-h-0 border border-border/50 rounded-lg overflow-hidden flex flex-col bg-card">
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground gap-2">

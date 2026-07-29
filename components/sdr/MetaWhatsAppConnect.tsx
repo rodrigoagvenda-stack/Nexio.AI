@@ -84,7 +84,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           }
         } else if (data.event === 'CANCEL') {
           const isErr = !!data.data?.error_code
-          console.log('[MetaConnect] CANCEL —', isErr
+          console.log('[MetaConnect] CANCEL :', isErr
             ? `erro ${data.data.error_code}: ${data.data.error_message}`
             : `step: ${data.data?.current_step}`)
           reset(isErr ? `Erro Meta: ${data.data.error_message}` : 'Conexão cancelada')

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import posthog from 'posthog-js';
 
@@ -14,8 +14,8 @@ export function initPostHog() {
     api_host: host,
     capture_pageview: false,     // manual control
     capture_pageleave: true,
-    persistence: 'localStorage', // sem cookies — LGPD simplificada
-    autocapture: false,          // não capturar cliques cegos — só eventos explícitos
+    persistence: 'localStorage', // sem cookies : LGPD simplificada
+    autocapture: false,          // não capturar cliques cegos : só eventos explícitos
   });
 
   initialized = true;

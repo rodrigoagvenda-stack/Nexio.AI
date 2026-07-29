@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       )
       const numbersJson = await numbersRes.json()
       const numbers: any[] = numbersJson.data ?? []
-      console.log(`[meta/connect] WABA ${wabaId} — números:`, numbers.map((n: any) => n.display_phone_number))
+      console.log(`[meta/connect] WABA ${wabaId} : números:`, numbers.map((n: any) => n.display_phone_number))
       if (numbers.length > 0) {
         finalPhoneNumberId = numbers[0].id
         phone = numbers[0].display_phone_number ?? numbers[0].id
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao salvar configuração' }, { status: 500 })
     }
 
-    console.log(`[meta/connect] empresa ${context.companyId} conectada — wabaId=${wabaId} phone=${phone}`)
+    console.log(`[meta/connect] empresa ${context.companyId} conectada : wabaId=${wabaId} phone=${phone}`)
     return NextResponse.json({ ok: true, phone, token: longToken, phoneNumberId: finalPhoneNumberId, wabaId })
   } catch (e: any) {
     console.error('[meta/connect] unhandled error:', e)

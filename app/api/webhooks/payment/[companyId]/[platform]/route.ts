@@ -1,4 +1,4 @@
-/**
+﻿/**
  * POST /api/webhooks/payment/[companyId]/[platform]
  *
  * Recebe eventos de pagamento confirmado do Mercado Pago e Kiwify.
@@ -146,7 +146,7 @@ export async function POST(
     .maybeSingle()
 
   if (!integration?.active) {
-    console.warn(`[payment-webhook:${platform}] company=${companyId} integração não encontrada ou inativa — data=${JSON.stringify(integration)}`)
+    console.warn(`[payment-webhook:${platform}] company=${companyId} integração não encontrada ou inativa : data=${JSON.stringify(integration)}`)
     return NextResponse.json({ received: true })
   }
 
@@ -185,7 +185,7 @@ export async function POST(
 
     // Processa apenas pagamentos aprovados
     if (payment.status !== 'approved') {
-      console.log(`[payment-webhook:mp] company=${companyId} pagamento status=${payment.status} — ignorado`)
+      console.log(`[payment-webhook:mp] company=${companyId} pagamento status=${payment.status} : ignorado`)
       return NextResponse.json({ received: true })
     }
 
@@ -231,7 +231,7 @@ export async function POST(
 
     // Processa apenas vendas confirmadas
     if (body.order_status !== 'paid') {
-      console.log(`[payment-webhook:kiwify] company=${companyId} status=${body.order_status} — ignorado`)
+      console.log(`[payment-webhook:kiwify] company=${companyId} status=${body.order_status} : ignorado`)
       return NextResponse.json({ received: true })
     }
 
@@ -313,7 +313,7 @@ export async function POST(
     const receivedToken = req.headers.get('asaas-access-token')
     console.log(`[payment-webhook:asaas] company=${companyId} token_recebido=${receivedToken ? receivedToken.slice(0,8)+'…' : 'NENHUM'} token_salvo=${savedToken ? savedToken.slice(0,8)+'…' : 'NENHUM'}`)
     if (!savedToken || receivedToken !== savedToken) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} token INVÁLIDO — recebido="${receivedToken?.slice(0, 8)}…" esperado="${savedToken?.slice(0, 8)}…"`)
+      console.warn(`[payment-webhook:asaas] company=${companyId} token INVÁLIDO : recebido="${receivedToken?.slice(0, 8)}…" esperado="${savedToken?.slice(0, 8)}…"`)
       await logEvent({ status: 'erro', erro: 'Token inválido no header asaas-access-token', recebido: receivedToken?.slice(0, 8) + '…', esperado: savedToken?.slice(0, 8) + '…' })
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
     }
@@ -321,12 +321,12 @@ export async function POST(
     const { event, payment } = body ?? {}
     console.log(`[payment-webhook:asaas] company=${companyId} event=${event} payment_id=${payment?.id} customer=${payment?.customer}`)
     if (!event || !payment?.id) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} body sem event ou payment.id — ignorando`)
+      console.warn(`[payment-webhook:asaas] company=${companyId} body sem event ou payment.id : ignorando`)
       return NextResponse.json({ received: true })
     }
 
     // Mapeia evento Asaas → eventoEntrada do canvas
-    // billingType pode vir "UNDEFINED" em assinaturas recorrentes — usa bankSlipUrl como fallback
+    // billingType pode vir "UNDEFINED" em assinaturas recorrentes : usa bankSlipUrl como fallback
     const isBoleto = payment.billingType === 'BOLETO' || (payment.billingType === 'UNDEFINED' && !!payment.bankSlipUrl)
     let eventoEntrada: string | null = null
     if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') eventoEntrada = 'asaas_pago'
@@ -335,7 +335,7 @@ export async function POST(
 
     console.log(`[payment-webhook:asaas] company=${companyId} eventoEntrada=${eventoEntrada ?? 'null'} billingType=${payment.billingType} isBoleto=${isBoleto}`)
     if (!eventoEntrada) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} evento "${event}" não mapeado — ignorando`)
+      console.warn(`[payment-webhook:asaas] company=${companyId} evento "${event}" não mapeado : ignorando`)
       await logEvent({ status: 'ignorado', evento: event, billing_type: payment.billingType, motivo: 'evento não mapeado para nenhum gatilho' })
       return NextResponse.json({ received: true })
     }
@@ -366,11 +366,11 @@ export async function POST(
     }
 
     console.log(`[payment-webhook:asaas] company=${companyId} buscando lead email=${email} phone=${rawPhone}`)
-    // Busca lead por email ou telefone — se não encontrar, cria automaticamente
+    // Busca lead por email ou telefone : se não encontrar, cria automaticamente
     let lead = await findLead(companyId, email, rawPhone, supabase)
 
     if (!lead) {
-      console.warn(`[payment-webhook:asaas] company=${companyId} lead não encontrado email=${email} phone=${rawPhone} — criando automaticamente`)
+      console.warn(`[payment-webhook:asaas] company=${companyId} lead não encontrado email=${email} phone=${rawPhone} : criando automaticamente`)
       const initialStatus = eventoEntrada === 'asaas_pago' ? 'Fechado' : 'Lead novo'
       lead = await createLeadFromAsaasCustomer(companyId, customer, value, initialStatus, supabase)
 

@@ -1,5 +1,5 @@
-/**
- * Motor 2 — Follow-up AntNoshow
+﻿/**
+ * Motor 2 : Follow-up AntNoshow
  *
  * Dispara lembretes pré/pós-call para leads com reunião agendada.
  * Janelas: 24h_antes | 2h_antes | 15min_antes | 5min_apos

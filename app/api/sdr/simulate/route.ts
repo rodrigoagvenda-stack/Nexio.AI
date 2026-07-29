@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
@@ -81,10 +81,10 @@ export async function POST(request: NextRequest) {
       }
     }
     const modeInstruction = mode === 'outbound'
-      ? '\n\n=== MODO OUTBOUND ===\nVocê está abordando ativamente o lead — ele não chegou até você. Seja mais direto na apresentação do valor antes de fazer perguntas. Contextualize por que está entrando em contato.'
+      ? '\n\n=== MODO OUTBOUND ===\nVocê está abordando ativamente o lead : ele não chegou até você. Seja mais direto na apresentação do valor antes de fazer perguntas. Contextualize por que está entrando em contato.'
       : ''
     const correctionInstruction = correctionHint
-      ? `\n\nCORREÇÃO OBRIGATÓRIA: Na resposta anterior você cometeu este erro — "${correctionHint}". Corrija isso agora sem mencionar que está corrigindo.`
+      ? `\n\nCORREÇÃO OBRIGATÓRIA: Na resposta anterior você cometeu este erro : "${correctionHint}". Corrija isso agora sem mencionar que está corrigindo.`
       : ''
     const formatInstruction = `
 
@@ -94,9 +94,9 @@ FORMATO OBRIGATÓRIO: Responda em JSON assim:
 Cada item = uma mensagem separada enviada em sequência no WhatsApp.
 Máximo 3 linhas por mensagem. Tipicamente 2 a 4 mensagens por resposta.
 Você PODE incluir marcadores de mídia quando fizer sentido para o contexto:
-- "[FOTO]" — para simular envio de imagem (antes/depois, resultado, catálogo)
-- "[AUDIO]" — para simular mensagem de voz
-- "[PDF: nome.pdf]" — para simular envio de documento
+- "[FOTO]" : para simular envio de imagem (antes/depois, resultado, catálogo)
+- "[AUDIO]" : para simular mensagem de voz
+- "[PDF: nome.pdf]" : para simular envio de documento
 Nunca quebre uma frase lógica entre duas mensagens.`
 
     const systemPrompt = basePrompt + correctionsBlock + modeInstruction + correctionInstruction + formatInstruction
@@ -135,7 +135,7 @@ Nunca quebre uma frase lógica entre duas mensagens.`
 
     // ── Gera feedback da IA ───────────────────────────────────────────────
     const feedbackPrompt = `Você é um especialista em SDR e vendas consultivas pelo WhatsApp.
-Avalie APENAS esta resposta específica do agente — o que ele fez NESTA mensagem.
+Avalie APENAS esta resposta específica do agente : o que ele fez NESTA mensagem.
 
 Nicho: ${niche.label}
 Modo: ${mode === 'inbound' ? 'Inbound' : 'Outbound'}
@@ -143,17 +143,17 @@ Mensagem do lead: "${userMessage}"
 Resposta do agente: "${sdrResponse}"
 
 REGRAS ESTRITAS DE AVALIAÇÃO:
-1. Avalie SOMENTE o que o agente fez nesta resposta — não antecipe próximos passos
+1. Avalie SOMENTE o que o agente fez nesta resposta : não antecipe próximos passos
 2. Não penalize o agente por não ter feito algo que ainda não era necessário neste momento
 3. "melhorar" deve ser null se a resposta está correta e adequada para este momento da conversa
 4. Só preencha "melhorar" se houver um erro concreto e específico NESTA resposta (gênero errado, tom inadequado, informação incorreta, pergunta fechada quando deveria ser aberta, etc.)
-5. Não diga "poderia ter feito X" — só aponte erros reais que ocorreram
+5. Não diga "poderia ter feito X" : só aponte erros reais que ocorreram
 
 Responda em JSON:
 {
   "score": <1 a 10>,
-  "positivo": "<o que o agente fez bem nesta mensagem — 1 frase curta>",
-  "melhorar": "<erro concreto e específico nesta mensagem — 1 frase curta — ou null se não há erro>"
+  "positivo": "<o que o agente fez bem nesta mensagem : 1 frase curta>",
+  "melhorar": "<erro concreto e específico nesta mensagem : 1 frase curta : ou null se não há erro>"
 }`
 
     const feedbackRes = await openai.chat.completions.create({
@@ -186,7 +186,7 @@ Responda em JSON:
 
 ${fullConv}
 
-ALERTAS possíveis — retorne NO MÁXIMO UM, apenas se for evidente:
+ALERTAS possíveis : retorne NO MÁXIMO UM, apenas se for evidente:
 - "sem_cta": Lead qualificado e interessado, agente não ofereceu próximo passo após 3+ trocas
 - "repeticao": Agente fez agora uma pergunta idêntica a uma já feita antes
 - "oportunidade_perdida": Lead sinalizou urgência ou decisão e agente ignorou

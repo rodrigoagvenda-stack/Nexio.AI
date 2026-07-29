@@ -1,5 +1,5 @@
-/**
- * UAZapi Admin Client — operações administrativas (criar/deletar instâncias).
+﻿/**
+ * UAZapi Admin Client : operações administrativas (criar/deletar instâncias).
  * Lê credenciais de platform_config (DB) com fallback para env vars.
  */
 

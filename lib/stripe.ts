@@ -1,6 +1,6 @@
-import Stripe from 'stripe';
+﻿import Stripe from 'stripe';
 
-// Lazy initialization — evita erro durante build quando env vars não estão disponíveis
+// Lazy initialization : evita erro durante build quando env vars não estão disponíveis
 let _stripe: Stripe | null = null;
 
 export function getStripe(): Stripe {

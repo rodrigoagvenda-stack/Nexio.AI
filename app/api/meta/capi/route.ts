@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
 
-// POST /api/meta/capi — dispara evento de conversão para o Pixel via Conversions API
+// POST /api/meta/capi : dispara evento de conversão para o Pixel via Conversions API
 export async function POST(req: NextRequest) {
   try {
     const { context, error: authError } = await requireAuth(req)
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falha no CAPI', detail: json?.error?.message }, { status: 400 })
     }
 
-    console.log(`[CAPI] evento ${eventName} enviado — conversa=${conversaId} pixel=${config.meta_pixel_id}`)
+    console.log(`[CAPI] evento ${eventName} enviado : conversa=${conversaId} pixel=${config.meta_pixel_id}`)
     return NextResponse.json({ ok: true, events_received: json.events_received })
   } catch (e: any) {
     console.error('[CAPI] erro:', e)

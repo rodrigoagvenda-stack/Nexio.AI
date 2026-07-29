@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createUazapiClient, sendRichStep, normalizePhone, StepTipoMensagem, StepMediaConfig } from '@/lib/sdr/uazapi'
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Step não encontrado nesta sequência' }, { status: 404 })
     }
 
-    // dry run — simular sem enviar
+    // dry run : simular sem enviar
     if (dryRun) {
       return NextResponse.json({
         success: true,
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 
     if (!uazapiToken) {
       // log extra antes do early return
-      console.log(`[send-test] token vazio — abortando`)
+      console.log(`[send-test] token vazio : abortando`)
       return NextResponse.json(
         { error: 'Instância uazapi não configurada. Configure em Agente SDR.' },
         { status: 400 }
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 
     const mensagem = substituir(mensagemRaw)
 
-    // Typing delay before first message — ~30ms per char, capped at 4s
+    // Typing delay before first message : ~30ms per char, capped at 4s
     const typingMs = (text: string) => Math.min(600 + text.length * 28, 4000) + Math.floor(Math.random() * 600)
     const humanSend = async (phone: string, t: typeof tipo, text: string, m?: typeof media) => {
       const ms = typingMs(text)

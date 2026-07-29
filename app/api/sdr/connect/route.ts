@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 import { createInstance } from '@/lib/uazapi-admin'
 
 const BASE_URL = (process.env.UAZAPI_BASE_URL || 'https://nexioai.uazapi.com').replace(/\/$/, '')
 
-// POST /api/sdr/connect — inicia conexão. QR code vem de GET /api/sdr/status.
+// POST /api/sdr/connect : inicia conexão. QR code vem de GET /api/sdr/status.
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -78,10 +78,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não foi possível iniciar a conexão WhatsApp. Tente novamente em instantes ou contate o suporte.' }, { status: 500 })
     }
 
-    // Token armazenado como plain text — tenta descriptografar legado se necessário
+    // Token armazenado como plain text : tenta descriptografar legado se necessário
     let token: string = config.uazapi_token
     if (token.includes(':') && token.split(':').length === 3) {
-      // Formato legado criptografado — tenta decrypt, se falhar limpa e pede reconexão
+      // Formato legado criptografado : tenta decrypt, se falhar limpa e pede reconexão
       try {
         const { decrypt } = await import('@/lib/crypto')
         token = decrypt(config.uazapi_token)
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
           instance_status: 'disconnected',
         }).eq('company_id', companyId)
         return NextResponse.json({
-          error: 'Token legado inválido — foi resetado. Clique em conectar novamente.',
+          error: 'Token legado inválido : foi resetado. Clique em conectar novamente.',
         }, { status: 503 })
       }
     }
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       console.error(`[SDR connect] ERRO ao configurar webhook:`, err.message)
     })
 
-    // Inicia conexão — se a instância foi deletada (inatividade/incidente), recria no mesmo request
+    // Inicia conexão : se a instância foi deletada (inatividade/incidente), recria no mesmo request
     try {
       await client.connect(body.phone)
     } catch (uazErr: any) {
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/sdr/connect — desconecta a instância WhatsApp
+// DELETE /api/sdr/connect : desconecta a instância WhatsApp
 export async function DELETE() {
   try {
     const supabase = await createClient()

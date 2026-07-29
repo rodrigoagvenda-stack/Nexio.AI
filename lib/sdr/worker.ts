@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { processSdrMessage } from '@/lib/sdr/engine'
 
 const BUFFER_SECONDS = 30
@@ -20,7 +20,7 @@ export function startSdrWorker() {
   }, POLL_INTERVAL_MS)
 
   interval.unref()
-  console.log('[sdr-worker] iniciado — poll a cada 5s, buffer=30s')
+  console.log('[sdr-worker] iniciado : poll a cada 5s, buffer=30s')
 }
 
 async function recoverInterruptedJobs() {
@@ -64,7 +64,7 @@ async function processNextJobs() {
   }
 
   if (!jobs || jobs.length === 0) {
-    // silencioso — log só quando encontrar jobs para não poluir
+    // silencioso : log só quando encontrar jobs para não poluir
     return
   }
 
@@ -81,7 +81,7 @@ async function processJob(job: {
 }) {
   const supabase = createServiceClient()
 
-  // Optimistic lock — só processa se ainda estiver PENDING
+  // Optimistic lock : só processa se ainda estiver PENDING
   const { error: lockErr } = await supabase
     .from('sdr_jobs')
     .update({ status: 'PROCESSING', started_at: new Date().toISOString(), attempts: job.attempts + 1 })
@@ -93,7 +93,7 @@ async function processJob(job: {
     return
   }
 
-  console.log(`[sdr-worker] job #${job.id} PROCESSING — company=${job.company_id} phone=${job.phone} attempt=${job.attempts + 1}`)
+  console.log(`[sdr-worker] job #${job.id} PROCESSING : company=${job.company_id} phone=${job.phone} attempt=${job.attempts + 1}`)
 
   try {
     await processSdrMessage(job.company_id, job.phone)

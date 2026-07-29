@@ -300,7 +300,7 @@ function ScreenSDRActive() {
       <div className="grid grid-cols-2 gap-2">
         {[
           { label: 'Leads atendidos', value: '0' },
-          { label: 'Taxa de resposta', value: '—' },
+          { label: 'Taxa de resposta', value: ':' },
           { label: 'Agendamentos', value: '0' },
           { label: 'Em andamento', value: '0' },
         ].map(({ label, value }) => (

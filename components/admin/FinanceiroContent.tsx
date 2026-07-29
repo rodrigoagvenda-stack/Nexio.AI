@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -252,7 +252,7 @@ export function FinanceiroContent({ subscriptions, tokenCharges, stats }: Props)
                     {dateBR(c.created_at)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {c.confirmed_at ? dateBR(c.confirmed_at) : '—'}
+                    {c.confirmed_at ? dateBR(c.confirmed_at) : ':'}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {dateBR(c.valid_until)}

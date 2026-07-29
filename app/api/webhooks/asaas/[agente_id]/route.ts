@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ agen
     return NextResponse.json({ received: true, warning: 'rate_limit' })
   }
 
-  // ── Parse do payload antecipado — falha antes de qualquer DB call ─────────
+  // ── Parse do payload antecipado : falha antes de qualquer DB call ─────────
   let payload: any
   try {
     payload = await request.json()
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ agen
     return NextResponse.json({ received: true, warning: 'payload_invalido' })
   }
 
-  // serviceClient — webhook não tem sessão de usuário, precisa de service role
+  // serviceClient : webhook não tem sessão de usuário, precisa de service role
   const supabase = createServiceClient()
 
   try {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ agen
 
     if (agenteError || !agente) {
       console.warn('[webhook/agente] agente não encontrado ou inativo:', params.agente_id)
-      // Retorna 200 — non-2xx pausa a fila Asaas após 15 falhas
+      // Retorna 200 : non-2xx pausa a fila Asaas após 15 falhas
       return NextResponse.json({ received: true, warning: 'agente_nao_encontrado' })
     }
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ agen
     return NextResponse.json({ received: true, event })
   } catch (error: any) {
     console.error('[webhook/agente] erro ao processar:', error)
-    // Sempre 200 — erros internos não devem pausar a fila Asaas
+    // Sempre 200 : erros internos não devem pausar a fila Asaas
     return NextResponse.json({ received: true, warning: error.message ?? 'erro_interno' })
   }
 }

@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 
-// GET /api/sdr/status — consulta status da instância em tempo real
+// GET /api/sdr/status : consulta status da instância em tempo real
 export async function GET() {
   try {
     const supabase = await createClient()

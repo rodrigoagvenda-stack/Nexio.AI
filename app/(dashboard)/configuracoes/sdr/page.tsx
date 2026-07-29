@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -167,7 +167,7 @@ const _PLACEHOLDER = [
   {
     key: 'descricao_produto',
     question: 'Como você descreveria o que vende ou oferece?',
-    hint: 'Seja específico — isso aparece quando o agente apresenta seu negócio ao cliente.',
+    hint: 'Seja específico : isso aparece quando o agente apresenta seu negócio ao cliente.',
     placeholder: 'Ex: sistema de gestão com controle de vendas, estoque e financeiro em um único lugar',
     type: 'textarea',
   },
@@ -274,7 +274,7 @@ const _PLACEHOLDER = [
   },
   {
     key: 'pedido_tipo',
-    question: 'Como o cliente finaliza o pedido — pelo WhatsApp ou por um link?',
+    question: 'Como o cliente finaliza o pedido : pelo WhatsApp ou por um link?',
     hint: 'Digite "whatsapp" para o agente coletar o pedido na conversa, ou "link" para redirecionar para o link de pedido.',
     placeholder: 'whatsapp  ou  link',
     type: 'text',
@@ -463,51 +463,51 @@ interface QBlockDef {
 
 const GUIA_CONHECIMENTO = `Você é um especialista em SDR e criação de system prompts para agentes de WhatsApp.
 
-Abaixo estão as informações do meu negócio. Com base nelas, responda cada um dos 10 blocos com o máximo de detalhe e especificidade. Os scripts devem estar em linguagem natural de WhatsApp — curtos, diretos, sem markdown. Não seja genérico.
+Abaixo estão as informações do meu negócio. Com base nelas, responda cada um dos 10 blocos com o máximo de detalhe e especificidade. Os scripts devem estar em linguagem natural de WhatsApp : curtos, diretos, sem markdown. Não seja genérico.
 
 Meu negócio: [Nome da empresa]
 Meu produto/serviço: [O que você vende]
 Nome do agente: [Nome do agente]
 
 ────────────────────────────
-BLOCO 1 — Identidade do Agente
+BLOCO 1 : Identidade do Agente
 Quem é o agente, qual o nome, empresa, função e tom de comunicação?
 [Preencha aqui]
 
-BLOCO 2 — Produto / Serviço
-O que o agente vende? Inclua tudo: o que está incluído, preço, condições, links, diferenciais. Isso é contexto interno — o agente usa para raciocinar, não para citar diretamente.
+BLOCO 2 : Produto / Serviço
+O que o agente vende? Inclua tudo: o que está incluído, preço, condições, links, diferenciais. Isso é contexto interno : o agente usa para raciocinar, não para citar diretamente.
 [Preencha aqui]
 
-BLOCO 3 — O que NÃO existe
+BLOCO 3 : O que NÃO existe
 O que o agente NUNCA deve mencionar, oferecer ou inventar? Liste funcionalidades, planos, descontos ou condições que não existem.
 [Preencha aqui]
 
-BLOCO 4 — Abordagem de Vendas
+BLOCO 4 : Abordagem de Vendas
 Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto? Inclua a estratégia e exemplos de perguntas de diagnóstico.
 [Preencha aqui]
 
-BLOCO 5 — Qualificação
+BLOCO 5 : Qualificação
 Quais perguntas qualificam o lead? Em que ordem? O que descarta (sem verba, sem perfil, não é o decisor)?
 [Preencha aqui]
 
-BLOCO 6 — Próximo Passo
+BLOCO 6 : Próximo Passo
 Qual a ação final? Quando acionar, como apresentar, qual o link e o que fazer se o lead recusar?
 [Preencha aqui]
 
-BLOCO 7 — Lead Sem Perfil
+BLOCO 7 : Lead Sem Perfil
 Quando o lead não tem perfil, como encerrar com elegância? Inclua scripts para cada situação de descarte.
 [Preencha aqui]
 
-BLOCO 8 — Preços e Condições
+BLOCO 8 : Preços e Condições
 Como funciona o investimento? O que revelar, quando e como? Há parcelamento, desconto ou teste grátis?
 [Preencha aqui]
 
-BLOCO 9 — Como o Lead Chega
+BLOCO 9 : Como o Lead Chega
 De onde vêm os leads (anúncio, indicação, orgânico)? O que costumam dizer na primeira mensagem?
 [Preencha aqui]
 
-BLOCO 10 — Regras Absolutas
-Quais são as regras que o agente NUNCA pode quebrar? Seja específico — cada regra deve ser clara e inviolável.
+BLOCO 10 : Regras Absolutas
+Quais são as regras que o agente NUNCA pode quebrar? Seja específico : cada regra deve ser clara e inviolável.
 [Preencha aqui]
 ────────────────────────────
 
@@ -522,17 +522,17 @@ Meu produto/serviço: [O que você vende]
 Preço: [Valor e condições de pagamento]
 
 ────────────────────────────
-BLOCO 1 — Objeções de Preço e Valor
+BLOCO 1 : Objeções de Preço e Valor
 Para cada objeção de preço, informe: gatilhos → script exato → o que nunca dizer → condicional (se houver).
 Inclua pelo menos: "Tá caro", "Não tenho dinheiro agora", "Vou pensar", "Não sei se vale a pena".
 [Preencha aqui]
 
-BLOCO 2 — Objeções de Tempo, Indecisão e Concorrência
+BLOCO 2 : Objeções de Tempo, Indecisão e Concorrência
 Para cada objeção, informe: gatilhos → script exato → condicional (se houver).
 Inclua pelo menos: "Não tenho tempo", "Preciso pensar", "Já uso outro", "Vou esperar".
 [Preencha aqui]
 
-BLOCO 3 — Dúvidas sobre o Produto
+BLOCO 3 : Dúvidas sobre o Produto
 Para cada dúvida frequente, informe: gatilho → resposta exata e direta.
 Inclua as perguntas mais comuns que seus leads fazem sobre o produto/serviço.
 [Preencha aqui]
@@ -581,14 +581,14 @@ function DicaDeOuro() {
           className="w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 text-xs font-medium transition-colors"
         >
           {copiedConhecimento ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-          {copiedConhecimento ? 'Copiado!' : 'Copiar guia — Conhecimento'}
+          {copiedConhecimento ? 'Copiado!' : 'Copiar guia : Conhecimento'}
         </button>
         <button
           onClick={() => copy(GUIA_OBJECOES, 'objecoes')}
           className="w-full h-9 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background hover:bg-muted/50 px-3 text-xs font-medium transition-colors"
         >
           {copiedObjecoes ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> : <ShieldAlert className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-          {copiedObjecoes ? 'Copiado!' : 'Copiar guia — Objeções'}
+          {copiedObjecoes ? 'Copiado!' : 'Copiar guia : Objeções'}
         </button>
       </div>
     </div>
@@ -600,30 +600,30 @@ const Q_BLOCKS: QBlockDef[] = [
   {
     key: 'identidade', tipo: 'conhecimento', label: '1. Identidade do Agente', required: true,
     question: 'Quem é o agente e qual é o papel dele nessa conversa?',
-    hint: 'Nome, empresa e posição. Deixe claro se é especialista, SDR ou atendente — isso define o tom inteiro da conversa.',
+    hint: 'Nome, empresa e posição. Deixe claro se é especialista, SDR ou atendente : isso define o tom inteiro da conversa.',
     placeholder: 'Descreva o nome, empresa, função e tom do agente...',
-    example: 'Você é Ana Voss, especialista comercial da Play Ads — agência de tráfego pago para e-commerces de moda.\n\nVocê não é uma assistente. Você é uma especialista que qualifica leads e agenda calls com o time.\n\nTom: direto, caloroso e consultivo. Nunca frio, nunca rude. Você acredita no produto porque viu o resultado na prática.\n\nNunca diga "posso ajudar?" — você já está ajudando.',
+    example: 'Você é Ana Voss, especialista comercial da Play Ads : agência de tráfego pago para e-commerces de moda.\n\nVocê não é uma assistente. Você é uma especialista que qualifica leads e agenda calls com o time.\n\nTom: direto, caloroso e consultivo. Nunca frio, nunca rude. Você acredita no produto porque viu o resultado na prática.\n\nNunca diga "posso ajudar?" : você já está ajudando.',
   },
   {
     key: 'produto_contexto', tipo: 'conhecimento', label: '2. Produto / Serviço', required: true,
-    question: 'O que você vende? (contexto interno — o agente usa para entender, nunca cita diretamente)',
+    question: 'O que você vende? (contexto interno : o agente usa para entender, nunca cita diretamente)',
     hint: 'Detalhe o produto: o que inclui, preço, condições, links. Isso é contexto para o agente raciocinar, não um script para falar.',
     placeholder: 'Descreva o produto com o máximo de detalhe: o que inclui, preço, links, condições...',
-    example: 'Produto: Tocli — sistema de gestão para pequenos negócios.\n\nO que inclui: controle de vendas, estoque, financeiro, emissão de nota fiscal e relatórios. Tudo integrado em um só lugar.\n\nPreço: R$49,90/mês. Sem contrato, cancela quando quiser.\n\nTeste grátis: 7 dias sem cartão de crédito.\nLink do teste: tocli.com.br/testegratis7dias\nPlaylist de tutoriais: tocli.com.br/youtube\n\nDiferencial: o único do mercado que integra NF-e diretamente no fluxo de venda, sem precisar de contador para emitir.',
+    example: 'Produto: Tocli : sistema de gestão para pequenos negócios.\n\nO que inclui: controle de vendas, estoque, financeiro, emissão de nota fiscal e relatórios. Tudo integrado em um só lugar.\n\nPreço: R$49,90/mês. Sem contrato, cancela quando quiser.\n\nTeste grátis: 7 dias sem cartão de crédito.\nLink do teste: tocli.com.br/testegratis7dias\nPlaylist de tutoriais: tocli.com.br/youtube\n\nDiferencial: o único do mercado que integra NF-e diretamente no fluxo de venda, sem precisar de contador para emitir.',
   },
   {
     key: 'nao_oferece', tipo: 'conhecimento', label: '3. O que NÃO existe', required: true,
     question: 'O que você NÃO tem, NÃO oferece e o agente jamais deve mencionar ou inventar?',
     hint: 'Crucial. Evita que o agente invente aulas gratuitas, descontos, funcionalidades ou condições que não existem.',
     placeholder: 'Liste tudo que NÃO existe: funcionalidades, planos, descontos, condições...',
-    example: 'NAO existe:\n- Plano anual ou desconto por antecipação\n- Módulo de RH ou folha de pagamento\n- Integração com marketplaces (Mercado Livre, Shopee)\n- Suporte por telefone — só chat e email\n- Garantia de resultado ou promessa de aumento de vendas\n- Versão gratuita permanente (só o teste de 7 dias)\n- Desconto por indicação\n\nSe o lead perguntar algo que não existe, responda: "Ainda não temos isso, mas está no nosso roadmap. O que você tem hoje funciona assim: [redirecione para o que existe]."',
+    example: 'NAO existe:\n- Plano anual ou desconto por antecipação\n- Módulo de RH ou folha de pagamento\n- Integração com marketplaces (Mercado Livre, Shopee)\n- Suporte por telefone : só chat e email\n- Garantia de resultado ou promessa de aumento de vendas\n- Versão gratuita permanente (só o teste de 7 dias)\n- Desconto por indicação\n\nSe o lead perguntar algo que não existe, responda: "Ainda não temos isso, mas está no nosso roadmap. O que você tem hoje funciona assim: [redirecione para o que existe]."',
   },
   {
     key: 'abordagem', tipo: 'conhecimento', label: '4. Abordagem de Vendas', required: true,
     question: 'Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto?',
     hint: 'Defina a estratégia. "Vai na dor antes de falar de solução", "Qualifica e depois apresenta", "Oferece teste direto". Isso molda o fluxo inteiro.',
     placeholder: 'Descreva a estratégia de abordagem: quando falar de dor, quando apresentar, quando oferecer...',
-    example: 'Estratégia: vai na dor antes de falar de produto.\n\nNunca abra com benefícios. Primeiro entenda o cenário do lead.\n\nPerguntas de diagnóstico (use uma por vez):\n- "Hoje você controla o estoque de cabeça ou tem algum sistema?"\n- "Quando você fecha o mês, sabe exatamente quanto lucrou?"\n- "Já perdeu venda por não saber que o produto estava em falta?"\n\nDepois que o lead expor a dor, posicione o produto como solução direta para aquele problema específico. Nunca genérico — sempre específico para o que ele disse.\n\nSó fale de preço depois de gerar valor.',
+    example: 'Estratégia: vai na dor antes de falar de produto.\n\nNunca abra com benefícios. Primeiro entenda o cenário do lead.\n\nPerguntas de diagnóstico (use uma por vez):\n- "Hoje você controla o estoque de cabeça ou tem algum sistema?"\n- "Quando você fecha o mês, sabe exatamente quanto lucrou?"\n- "Já perdeu venda por não saber que o produto estava em falta?"\n\nDepois que o lead expor a dor, posicione o produto como solução direta para aquele problema específico. Nunca genérico : sempre específico para o que ele disse.\n\nSó fale de preço depois de gerar valor.',
   },
   {
     key: 'qualificacao', tipo: 'conhecimento', label: '5. Qualificação', required: true,
@@ -644,28 +644,28 @@ const Q_BLOCKS: QBlockDef[] = [
     question: 'Quando o lead não tem perfil, como encerrar com elegância?',
     hint: 'Defina o que descarta e o script de encerramento. Nunca seja rude, nunca force, nunca invista mais tempo.',
     placeholder: 'Descreva como encerrar quando o lead não tem perfil, com scripts para cada situação...',
-    example: 'Encerramento por situação:\n\nSem verba / produto muito caro:\n"Entendo! O Tocli foi pensado para quem já tem um volume de vendas rodando e quer organizar. Quando o negócio crescer um pouco mais, pode me chamar que avaliamos juntos."\n\nNao é o decisor:\n"Faz sentido. Prefiro não tomar seu tempo sem a pessoa que decide. Quando puder trazer o dono ou sócio, me chama aqui."\n\nJa usa concorrente e está satisfeito:\n"Ótimo! Se um dia sentir que precisa de algo que o sistema atual não tem — especialmente na parte fiscal — me lembra, beleza?"\n\nApós encerrar: nunca envie mais mensagens. Encerrou, encerrou.',
+    example: 'Encerramento por situação:\n\nSem verba / produto muito caro:\n"Entendo! O Tocli foi pensado para quem já tem um volume de vendas rodando e quer organizar. Quando o negócio crescer um pouco mais, pode me chamar que avaliamos juntos."\n\nNao é o decisor:\n"Faz sentido. Prefiro não tomar seu tempo sem a pessoa que decide. Quando puder trazer o dono ou sócio, me chama aqui."\n\nJa usa concorrente e está satisfeito:\n"Ótimo! Se um dia sentir que precisa de algo que o sistema atual não tem : especialmente na parte fiscal : me lembra, beleza?"\n\nApós encerrar: nunca envie mais mensagens. Encerrou, encerrou.',
   },
   {
     key: 'precos', tipo: 'conhecimento', label: '8. Preços e Condições',
     question: 'Como funciona o investimento? O que revelar, quando e como?',
     hint: 'Se não deve revelar preço antes da call, diga isso. Se tem teste grátis, inclua link. Se tem parcelamento, inclua condições.',
     placeholder: 'Descreva quando e como falar de preço, e quais condições existem...',
-    example: 'Preço: R$49,90/mês. Sem contrato, sem fidelidade.\n\nQuando revelar: pode revelar desde o início se perguntarem. Não tem call ou gatekeeping de preço.\n\nScript ao revelar:\n"São R$49,90 por mês. Mas o teste é grátis por 7 dias, sem cartão — você testa primeiro e decide depois se vale."\n\nSe perguntar se tem desconto:\n"No momento o preço é esse. Mas o teste grátis já dá pra você sentir o valor antes de pagar qualquer coisa."\n\nNao diga "é barato" ou "é acessível" — deixe o lead tirar essa conclusão.',
+    example: 'Preço: R$49,90/mês. Sem contrato, sem fidelidade.\n\nQuando revelar: pode revelar desde o início se perguntarem. Não tem call ou gatekeeping de preço.\n\nScript ao revelar:\n"São R$49,90 por mês. Mas o teste é grátis por 7 dias, sem cartão : você testa primeiro e decide depois se vale."\n\nSe perguntar se tem desconto:\n"No momento o preço é esse. Mas o teste grátis já dá pra você sentir o valor antes de pagar qualquer coisa."\n\nNao diga "é barato" ou "é acessível" : deixe o lead tirar essa conclusão.',
   },
   {
     key: 'chegada', tipo: 'conhecimento', label: '9. Como o Lead Chega',
     question: 'Como os leads chegam e o que costumam dizer na primeira mensagem?',
     hint: 'Canal (anúncio, indicação, orgânico) e frases típicas. Ajuda o agente a reconhecer o contexto e adaptar o tom.',
     placeholder: 'Descreva de onde vêm os leads e o que costumam dizer ao entrar em contato...',
-    example: 'Canais de entrada:\n- 70%: anúncios no Meta (Facebook/Instagram) — já viram o produto no anúncio\n- 20%: indicação — chegam mais qualificados e diretos\n- 10%: orgânico (Instagram ou pesquisa) — mais curiosos, menos urgentes\n\nPrimeiras mensagens mais comuns:\n- "Vi o anúncio, quero saber mais"\n- "Quanto custa?"\n- "Tem pra restaurante?"\n- "Funciona pra quem tem loja no Instagram?"\n- "Oi" (lead frio — qualifique antes de avançar)\n\nAdapte o tom conforme a entrada: lead de anúncio já tem contexto, não repita o que o anúncio disse.',
+    example: 'Canais de entrada:\n- 70%: anúncios no Meta (Facebook/Instagram) : já viram o produto no anúncio\n- 20%: indicação : chegam mais qualificados e diretos\n- 10%: orgânico (Instagram ou pesquisa) : mais curiosos, menos urgentes\n\nPrimeiras mensagens mais comuns:\n- "Vi o anúncio, quero saber mais"\n- "Quanto custa?"\n- "Tem pra restaurante?"\n- "Funciona pra quem tem loja no Instagram?"\n- "Oi" (lead frio : qualifique antes de avançar)\n\nAdapte o tom conforme a entrada: lead de anúncio já tem contexto, não repita o que o anúncio disse.',
   },
   {
     key: 'regras', tipo: 'conhecimento', label: '10. Regras Absolutas',
     question: 'Quais são as regras que o agente NUNCA pode quebrar?',
     hint: 'Seja específico. "Nunca revelar preço antes da call", "nunca agendar sem qualificação", "nunca inventar funcionalidade". Cada regra quebrada custa uma venda.',
     placeholder: 'Liste todas as regras invioláveis do agente...',
-    example: 'REGRAS ABSOLUTAS — nenhuma pode ser quebrada:\n\n1. Uma pergunta por mensagem. Nunca duas juntas.\n2. Nunca inventar funcionalidade, plano, desconto ou condição que não existe.\n3. Nunca enviar bloco de texto longo. Máximo 3 linhas por mensagem.\n4. Nunca usar markdown (negrito, listas com traço, etc). WhatsApp não renderiza.\n5. Nunca pressionar o lead após a segunda recusa. Encerre com elegância.\n6. Nunca fingir ser humano se perguntarem diretamente se é IA.\n7. Nunca falar de concorrente — nem para comparar.\n8. Nunca prometer prazo de entrega, resultado ou garantia que não existe.\n9. Só oferecer o link do teste após qualificação completa.\n10. Se não souber a resposta, diga: "Deixa eu confirmar isso pra você" e encerre a mensagem — não invente.',
+    example: 'REGRAS ABSOLUTAS : nenhuma pode ser quebrada:\n\n1. Uma pergunta por mensagem. Nunca duas juntas.\n2. Nunca inventar funcionalidade, plano, desconto ou condição que não existe.\n3. Nunca enviar bloco de texto longo. Máximo 3 linhas por mensagem.\n4. Nunca usar markdown (negrito, listas com traço, etc). WhatsApp não renderiza.\n5. Nunca pressionar o lead após a segunda recusa. Encerre com elegância.\n6. Nunca fingir ser humano se perguntarem diretamente se é IA.\n7. Nunca falar de concorrente : nem para comparar.\n8. Nunca prometer prazo de entrega, resultado ou garantia que não existe.\n9. Só oferecer o link do teste após qualificação completa.\n10. Se não souber a resposta, diga: "Deixa eu confirmar isso pra você" e encerre a mensagem : não invente.',
   },
   // ── Objeções ──────────────────────────────────────────────────────────────
   {
@@ -673,21 +673,21 @@ const Q_BLOCKS: QBlockDef[] = [
     question: 'Objeções de preço/valor: para cada uma, informe gatilho + script exato + o que nunca dizer',
     hint: 'Formato: Gatilhos → Script correto (exato, como vai ser enviado) → Nunca dizer. Inclua condicional se houver.',
     placeholder: 'Liste as objeções de preço com gatilhos, script e o que nunca dizer...',
-    example: 'Gatilhos: "Ta caro" / "E muito caro" / "Nao tenho dinheiro"\nScript:\n"Entendo!\nSao R$49,90 por mes, menos de R$2 por dia.\nMas o teste e gratis, sem cartao. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupacao, mas sao apenas R$49,90..." — soa defensivo.\n\n---\n\nGatilhos: "Quanto custa?" / "Qual o valor?" / "Qual o preco?"\nScript:\n"O Tocli custa R$49,90 por mes.\nVoce pode testar de graca por 7 dias, sem precisar de cartao.\nQuer que eu envie o link do teste?"\nSe lead disser SIM:\n"Aqui esta o link: tocli.com.br/testegratis7dias\nQualquer duvida pode me chamar aqui!"',
+    example: 'Gatilhos: "Ta caro" / "E muito caro" / "Nao tenho dinheiro"\nScript:\n"Entendo!\nSao R$49,90 por mes, menos de R$2 por dia.\nMas o teste e gratis, sem cartao. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupacao, mas sao apenas R$49,90..." : soa defensivo.\n\n---\n\nGatilhos: "Quanto custa?" / "Qual o valor?" / "Qual o preco?"\nScript:\n"O Tocli custa R$49,90 por mes.\nVoce pode testar de graca por 7 dias, sem precisar de cartao.\nQuer que eu envie o link do teste?"\nSe lead disser SIM:\n"Aqui esta o link: tocli.com.br/testegratis7dias\nQualquer duvida pode me chamar aqui!"',
   },
   {
     key: 'obj_tempo', tipo: 'objecoes', label: '2. Objeções de Tempo e Decisão', required: true,
     question: 'Objeções de tempo, indecisão e concorrência: gatilho + script + condicional',
     hint: 'Inclua "Preciso pensar", "Não tenho tempo", "Já uso outra coisa", "Vou pensar". Inclua o que fazer se recusar duas vezes.',
     placeholder: 'Liste objeções de tempo, indecisão e concorrência com scripts...',
-    example: 'Gatilhos: "Preciso pensar" / "Vou pensar" / "Deixa eu ver"\nScript:\n"Claro, sem pressao!\nO teste fica disponivel quando voce quiser — sao 7 dias gratis.\nPosso te mandar o link pra voce salvar?"\nSe recusar o link: "Tudo bem! Quando decidir, me chama aqui."\nNao insista.\n\n---\n\nGatilhos: "Nao tenho tempo agora" / "To ocupado"\nScript:\n"Sem problema!\nO teste fica aqui esperando. Quando tiver 10 minutinhos, da pra configurar tranquilo.\nDeixo o link: tocli.com.br/testegratis7dias"\n\n---\n\nGatilhos: "Ja uso outro sistema" / "Ja tenho"\nScript:\n"Entendi! Qual voce usa hoje?"\n[espere resposta]\nSe for concorrente direto: "Faz sentido. Se um dia sentir falta de [funcionalidade diferencial], me lembra."\nNao fale mal do concorrente.',
+    example: 'Gatilhos: "Preciso pensar" / "Vou pensar" / "Deixa eu ver"\nScript:\n"Claro, sem pressao!\nO teste fica disponivel quando voce quiser : sao 7 dias gratis.\nPosso te mandar o link pra voce salvar?"\nSe recusar o link: "Tudo bem! Quando decidir, me chama aqui."\nNao insista.\n\n---\n\nGatilhos: "Nao tenho tempo agora" / "To ocupado"\nScript:\n"Sem problema!\nO teste fica aqui esperando. Quando tiver 10 minutinhos, da pra configurar tranquilo.\nDeixo o link: tocli.com.br/testegratis7dias"\n\n---\n\nGatilhos: "Ja uso outro sistema" / "Ja tenho"\nScript:\n"Entendi! Qual voce usa hoje?"\n[espere resposta]\nSe for concorrente direto: "Faz sentido. Se um dia sentir falta de [funcionalidade diferencial], me lembra."\nNao fale mal do concorrente.',
   },
   {
     key: 'obj_produto', tipo: 'objecoes', label: '3. Dúvidas sobre o Produto', required: true,
     question: 'Perguntas frequentes sobre o produto/serviço: para cada uma, informe gatilho + resposta exata',
     hint: 'Perguntas do tipo "tem X?", "funciona para Y?", "como funciona?". Scripts curtos e diretos.',
     placeholder: 'Liste as dúvidas mais comuns sobre o produto com respostas exatas...',
-    example: 'Gatilhos: "Tem contrato?" / "Precisa fidelidade?" / "Prende?"\nScript:\n"Nao tem contrato nenhum.\nE mensal, cancela quando quiser. Sem burocracia."\n\n---\n\nGatilhos: "E dificil de usar?" / "Precisa de treinamento?"\nScript:\n"E bem simples.\nA maioria dos clientes configura sozinho em menos de 15 minutos.\nNo teste voce ja consegue ver como funciona na pratica."\n\n---\n\nGatilhos: "Tem app?" / "Funciona no celular?"\nScript:\n"Funciona sim, direto pelo celular.\nNao precisa instalar nada — abre no navegador e ja usa."\n\n---\n\nGatilhos: "Funciona pra restaurante?" / "Serve pra [nicho especifico]?"\nScript:\n"Funciona sim para [nicho].\nVarios clientes do segmento ja usam — o controle de estoque e o financeiro sao os modulos mais usados por eles.\nQuer testar pra ver se encaixa no seu?"\nSempre termine com uma pergunta ou call-to-action.',
+    example: 'Gatilhos: "Tem contrato?" / "Precisa fidelidade?" / "Prende?"\nScript:\n"Nao tem contrato nenhum.\nE mensal, cancela quando quiser. Sem burocracia."\n\n---\n\nGatilhos: "E dificil de usar?" / "Precisa de treinamento?"\nScript:\n"E bem simples.\nA maioria dos clientes configura sozinho em menos de 15 minutos.\nNo teste voce ja consegue ver como funciona na pratica."\n\n---\n\nGatilhos: "Tem app?" / "Funciona no celular?"\nScript:\n"Funciona sim, direto pelo celular.\nNao precisa instalar nada : abre no navegador e ja usa."\n\n---\n\nGatilhos: "Funciona pra restaurante?" / "Serve pra [nicho especifico]?"\nScript:\n"Funciona sim para [nicho].\nVarios clientes do segmento ja usam : o controle de estoque e o financeiro sao os modulos mais usados por eles.\nQuer testar pra ver se encaixa no seu?"\nSempre termine com uma pergunta ou call-to-action.',
   },
 ]
 
@@ -711,7 +711,7 @@ function QuestionnaireWizard({
   const [showExample, setShowExample] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Filtra blocos pelo tipo — conhecimento mostra blocos 1-10, objeções mostra blocos 11-13
+  // Filtra blocos pelo tipo : conhecimento mostra blocos 1-10, objeções mostra blocos 11-13
   const visibleBlocks = Q_BLOCKS.filter(b => b.tipo === type)
   const current = visibleBlocks[step]
   const total = visibleBlocks.length
@@ -775,7 +775,7 @@ function QuestionnaireWizard({
       {step === 0 && (
         <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>A efetividade do agente depende diretamente da qualidade das suas respostas. Detalhes específicos geram scripts melhores — respostas genéricas geram um agente genérico.</span>
+          <span>A efetividade do agente depende diretamente da qualidade das suas respostas. Detalhes específicos geram scripts melhores : respostas genéricas geram um agente genérico.</span>
         </div>
       )}
       {/* Progress bar */}
@@ -975,8 +975,8 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
                 <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <p className="text-xs text-amber-700 dark:text-amber-400">
                   {isConhecimento
-                    ? 'Sem base — o agente pode alucinar em perguntas sobre o negócio'
-                    : 'Sem base — o agente não saberá tratar objeções de preço ou indecisão'}
+                    ? 'Sem base : o agente pode alucinar em perguntas sobre o negócio'
+                    : 'Sem base : o agente não saberá tratar objeções de preço ou indecisão'}
                 </p>
               </div>
             )}
@@ -1235,7 +1235,7 @@ function CatalogManager() {
     <div className="space-y-3">
       <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
         <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-        Cadastre os itens do cardápio. O agente usa a lista para identificar pedidos por número — ex: "quero o item 30".
+        Cadastre os itens do cardápio. O agente usa a lista para identificar pedidos por número : ex: "quero o item 30".
       </div>
 
       {products.length === 0 && !adding && (
@@ -1289,12 +1289,12 @@ interface SimAlert { type: string; message: string; severity: 'warning' | 'criti
 interface SimTurn { userMsg: string; sdrMsgs: string[]; feedback: SimFeedback; alert?: SimAlert | null; ts: string; isAuto?: boolean }
 
 const LEAD_PERSONAS: Record<LeadPersona, { label: string; emoji: string; hint: string }> = {
-  default:    { label: 'Livre',            emoji: '💬', hint: 'Digite como quiser — você controla' },
+  default:    { label: 'Livre',            emoji: '💬', hint: 'Digite como quiser : você controla' },
   cold:       { label: 'Lead Frio',        emoji: '🧊', hint: 'Seja cético, sem urgência, curioso mas desconfiado' },
   price:      { label: 'Objeção de Preço', emoji: '💰', hint: 'Pergunte o preço logo de cara, compare com concorrentes' },
-  urgent:     { label: 'Lead Urgente',     emoji: '⚡', hint: 'Você precisa resolver hoje — seja direto e impaciente' },
+  urgent:     { label: 'Lead Urgente',     emoji: '⚡', hint: 'Você precisa resolver hoje : seja direto e impaciente' },
   indecisive: { label: 'Indeciso',         emoji: '🤔', hint: 'Use "vou pensar", "não sei ainda", peça garantias' },
-  closing:    { label: 'Quase Fechando',   emoji: '🎯', hint: 'Você já quer — só falta confirmar detalhes finais' },
+  closing:    { label: 'Quase Fechando',   emoji: '🎯', hint: 'Você já quer : só falta confirmar detalhes finais' },
 }
 
 type SdrMsgType = 'text' | 'image' | 'audio' | 'doc'
@@ -1495,7 +1495,7 @@ function QuickOnboarding({ onComplete }: {
       <h2 className="text-xl font-bold mb-1">{steps[step].title}</h2>
       <p className="text-sm text-muted-foreground mb-6">{steps[step].desc}</p>
 
-      {/* Step 0 — Nicho */}
+      {/* Step 0 : Nicho */}
       {step === 0 && (
         <div className="grid grid-cols-2 gap-2">
           {NICHES.filter((n) => n.id !== 'monte-o-seu').map((n) => (
@@ -1510,7 +1510,7 @@ function QuickOnboarding({ onComplete }: {
         </div>
       )}
 
-      {/* Step 1 — Agente + empresa */}
+      {/* Step 1 : Agente + empresa */}
       {step === 1 && (
         <div className="space-y-4">
           <div>
@@ -1524,7 +1524,7 @@ function QuickOnboarding({ onComplete }: {
         </div>
       )}
 
-      {/* Step 2 — Tom */}
+      {/* Step 2 : Tom */}
       {step === 2 && (
         <div className="grid grid-cols-2 gap-2">
           {TOM_OPTIONS.map((t) => (
@@ -1538,7 +1538,7 @@ function QuickOnboarding({ onComplete }: {
         </div>
       )}
 
-      {/* Step 3 — Produto + Preço */}
+      {/* Step 3 : Produto + Preço */}
       {step === 3 && (
         <div className="space-y-4">
           <div>
@@ -1554,7 +1554,7 @@ function QuickOnboarding({ onComplete }: {
         </div>
       )}
 
-      {/* Step 4 — Localização + horário */}
+      {/* Step 4 : Localização + horário */}
       {step === 4 && (
         <div className="space-y-4">
           <div>
@@ -1563,7 +1563,7 @@ function QuickOnboarding({ onComplete }: {
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Endereço (opcional)</label>
-            <Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Ex: Rua das Flores, 123 — São Paulo/SP" />
+            <Input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Ex: Rua das Flores, 123 : São Paulo/SP" />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Link de agendamento (opcional)</label>
@@ -1741,7 +1741,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       }
 
       setAppliedIndices((prev) => new Set(prev).add(index))
-      toast({ title: '✓ Correção aplicada — resposta regenerada' })
+      toast({ title: '✓ Correção aplicada : resposta regenerada' })
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao aplicar correção', variant: 'destructive' })
     } finally { setApplyingIndex(null) }
@@ -1921,7 +1921,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
       {showAutoPanel && (
         <div className="border-b border-border/60 bg-muted/20 px-4 py-3 space-y-3">
           <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary" /> Simulação Automática — IA joga o lead
+            <Sparkles className="w-3.5 h-3.5 text-primary" /> Simulação Automática : IA joga o lead
           </p>
           <div className="flex gap-2 flex-wrap">
             {(Object.entries(LEAD_PERSONAS) as [LeadPersona, typeof LEAD_PERSONAS.default][])
@@ -1974,7 +1974,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
         {turns.map((turn, i) => (
           <div key={i} className="space-y-1">
-            {/* Lead message — right */}
+            {/* Lead message : right */}
             <div className="flex justify-end">
               <div className="max-w-[75%]">
                 <div className="rounded-2xl rounded-tr-none bg-emerald-600 text-white px-3 py-2 text-sm whitespace-pre-wrap shadow-sm">
@@ -1984,7 +1984,7 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
               </div>
             </div>
 
-            {/* SDR messages — left, one bubble per message */}
+            {/* SDR messages : left, one bubble per message */}
             <div className="flex items-end gap-2">
               <div className={cn(
                 "w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mb-4",
@@ -2349,7 +2349,7 @@ export default function SdrConfigPage() {
               <Settings className="w-5 h-5 text-muted-foreground" />
             </div>
             <p className="font-semibold text-sm">Avançado</p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Controle total — templates, base de conhecimento, integrações e simulador.</p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Controle total : templates, base de conhecimento, integrações e simulador.</p>
             <p className="text-[11px] text-muted-foreground font-medium mt-3">Para usuários experientes →</p>
           </button>
         </div>
@@ -2570,7 +2570,7 @@ export default function SdrConfigPage() {
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Modo de atendimento</p>
                       <div className="grid grid-cols-2 gap-3">
                         {([
-                          { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado — qualquer atendente pode pegar', icon: MessageSquare },
+                          { value: 'suporte', label: 'Suporte', desc: 'Inbox compartilhado : qualquer atendente pode pegar', icon: MessageSquare },
                           { value: 'vendas', label: 'Vendas', desc: 'Distribui automaticamente entre os atendentes (round-robin)', icon: Zap },
                         ] as const).map((opt) => {
                           const selected = config.inbox_mode === opt.value
@@ -2677,11 +2677,11 @@ export default function SdrConfigPage() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Wifi className="w-3.5 h-3.5 text-muted-foreground" />
-                          <p className="text-sm font-semibold">WhatsApp — Meta Cloud API</p>
+                          <p className="text-sm font-semibold">WhatsApp : Meta Cloud API</p>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium ml-auto">Oficial</span>
                         </div>
                         <p className="text-xs text-muted-foreground mb-3">
-                          Conecte via CoEx — número permanece ativo no WhatsApp Business App e na API simultaneamente.
+                          Conecte via CoEx : número permanece ativo no WhatsApp Business App e na API simultaneamente.
                         </p>
                         <MetaWhatsAppConnect
                           connected={config.whatsapp_provider === 'meta' && !!config.meta_wa_phone_number_id}
@@ -2735,7 +2735,7 @@ export default function SdrConfigPage() {
                         </div>
                         <p className="text-xs text-muted-foreground mb-2">Nome do evento criado no Google Calendar. Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para incluir o nome do lead.</p>
                         <Input
-                          placeholder="Ex: Call de vendas — {nome}"
+                          placeholder="Ex: Call de vendas : {nome}"
                           value={config.event_title_template}
                           onChange={(e) => setConfig((p) => ({ ...p, event_title_template: e.target.value }))}
                         />
@@ -2743,17 +2743,17 @@ export default function SdrConfigPage() {
 
                       <div className="border-t border-border" />
 
-                      {/* ── Meta Pixel — Conversions API ── */}
+                      {/* ── Meta Pixel : Conversions API ── */}
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-                          <p className="text-sm font-semibold">Meta Pixel — Conversions API</p>
+                          <p className="text-sm font-semibold">Meta Pixel : Conversions API</p>
                           {config.meta_pixel_id && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium ml-auto">Configurado</span>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground mb-3">
-                          Dispara eventos de conversão server-side quando um lead é fechado — inclui <code className="bg-muted px-1 rounded">ctwa_clid</code> para atribuição precisa de anúncios CTWA.
+                          Dispara eventos de conversão server-side quando um lead é fechado : inclui <code className="bg-muted px-1 rounded">ctwa_clid</code> para atribuição precisa de anúncios CTWA.
                         </p>
                         {config.meta_pixel_id ? (
                           <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border">
@@ -2897,10 +2897,10 @@ export default function SdrConfigPage() {
             </div>
           )}
 
-          {/* ── Conhecimento — split panel ── */}
+          {/* ── Conhecimento : split panel ── */}
           {activeTab === 'conhecimento' && (
             <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[560px]">
-              {/* Left — KB config */}
+              {/* Left : KB config */}
               <div className="w-[360px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -2938,7 +2938,7 @@ export default function SdrConfigPage() {
                 <DicaDeOuro />
               </div>
 
-              {/* Right — Simulator */}
+              {/* Right : Simulator */}
               <div className="flex-1 min-w-0 rounded-xl border border-border overflow-hidden">
                 <SimulatorChat
                   nicheId={sharedNicheId}

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ message
 
     if (updateError) throw updateError
 
-    // Try to set is_edited / edited_at — non-fatal if columns don't exist yet
+    // Try to set is_edited / edited_at : non-fatal if columns don't exist yet
     try {
       await supabase
         .from('mensagens_do_whatsapp')

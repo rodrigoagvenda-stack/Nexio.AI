@@ -1,6 +1,6 @@
-/**
- * GET  /api/trial/config  — retorna config da empresa (incluindo webhook URL)
- * POST /api/trial/config  — cria ou atualiza configuração de trial
+﻿/**
+ * GET  /api/trial/config  : retorna config da empresa (incluindo webhook URL)
+ * POST /api/trial/config  : cria ou atualiza configuração de trial
  */
 
 import { NextRequest, NextResponse } from 'next/server'

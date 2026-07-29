@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+﻿import { NextRequest } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
@@ -91,7 +91,7 @@ async function sdrRespond(
   mode: string
 ): Promise<string[]> {
   const modeNote = mode === 'outbound' ? '\n\n=== MODO OUTBOUND ===' : ''
-  const fmt = '\n\nFORMATO OBRIGATÓRIO — responda em JSON assim: {"messages": ["msg1", "msg2"]}\nMáximo 3 linhas por mensagem.'
+  const fmt = '\n\nFORMATO OBRIGATÓRIO : responda em JSON assim: {"messages": ["msg1", "msg2"]}\nMáximo 3 linhas por mensagem.'
   const allMessages: OpenAI.ChatCompletionMessageParam[] = [
     { role: 'system', content: sdrSystemPrompt + modeNote + fmt },
     ...history,
@@ -127,7 +127,7 @@ REGRAS ESTRITAS:
 1. Avalie SOMENTE o que o agente fez nesta resposta
 2. "melhorar" deve ser null se a resposta está correta e adequada para este momento
 3. Só preencha "melhorar" se houver erro concreto e específico (gênero errado, tom inadequado, informação incorreta, pergunta fechada quando deveria ser aberta)
-4. Não diga "poderia ter feito X" — só aponte erros reais que ocorreram
+4. Não diga "poderia ter feito X" : só aponte erros reais que ocorreram
 
 Responda em JSON: {"score": 1-10, "positivo": "1 frase", "melhorar": "1 frase com erro real ou null"}`,
     }],
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
   const personaBase = LEAD_PERSONA_PROMPTS[persona] ?? LEAD_PERSONA_PROMPTS.cold
   const leadSystemPrompt = `${personaBase}
 
-Negócio: ${variables.nome_empresa ?? 'empresa'} — ${niche.label}
+Negócio: ${variables.nome_empresa ?? 'empresa'} : ${niche.label}
 Responda APENAS em JSON: {"message": "sua mensagem"}`
 
   const maxRounds = Math.min(Math.max(rounds, 2), 6)

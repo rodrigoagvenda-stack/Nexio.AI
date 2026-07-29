@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const service = createServiceClient()
 
-    // Fetch sequences first, then steps — embedding follow_steps(*) only works with FK declared
+    // Fetch sequences first, then steps : embedding follow_steps(*) only works with FK declared
     const { data: seqList, error } = await service
       .from('follow_sequences')
       .select('*')

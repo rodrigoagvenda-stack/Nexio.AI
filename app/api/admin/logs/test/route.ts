@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { error } = await service.from('system_logs').insert({
       type: 'system',
       severity: 'info',
-      message: 'Log de teste — sistema de logs funcionando corretamente.',
+      message: 'Log de teste : sistema de logs funcionando corretamente.',
       payload: { triggered_by: 'admin_test', admin_user_id: user.id },
     })
 

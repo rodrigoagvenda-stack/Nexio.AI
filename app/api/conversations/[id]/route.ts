@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
-// PATCH /api/conversations/:id — atualiza status da conversa; dispara CAPI se fechado/ganho
+// PATCH /api/conversations/:id : atualiza status da conversa; dispara CAPI se fechado/ganho
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
               }),
             }
           )
-          console.log(`[CAPI] Purchase disparado — conversa=${convId}`)
+          console.log(`[CAPI] Purchase disparado : conversa=${convId}`)
         } catch (e: any) {
           console.warn('[CAPI] falha ao disparar evento:', e?.message)
         }
@@ -93,7 +93,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   }
 }
 
-// DELETE /api/conversations/:id — apaga conversa e todas as mensagens
+// DELETE /api/conversations/:id : apaga conversa e todas as mensagens
 export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {

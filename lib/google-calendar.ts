@@ -1,5 +1,5 @@
-/**
- * Google Calendar integration — cria eventos com Meet para agendamento de calls.
+﻿/**
+ * Google Calendar integration : cria eventos com Meet para agendamento de calls.
  * Suporta OAuth2 por empresa (google_integrations) e service account fallback.
  *
  * googleapis é importado dinamicamente (lazy) para não inflar o bundle de startup (~190 MB).

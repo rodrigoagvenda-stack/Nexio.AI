@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ text: null, count: 0 })
   }
 
-  // Fetch inbound messages (id only) — count via data.length
+  // Fetch inbound messages (id only) : count via data.length
   const { data: inboundRows, error: inboundErr } = await service
     .from('mensagens_do_whatsapp')
     .select('id')
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
       console.log(`[poll] nova mensagem detectada! texto="${latest?.texto_da_mensagem?.slice(0, 60)}"`)
       if (!latest?.texto_da_mensagem) {
-        // Newest row has no text yet (pre-save before saveInbound) — keep polling at same baseline
+        // Newest row has no text yet (pre-save before saveInbound) : keep polling at same baseline
         return NextResponse.json({ text: null, count: baselineCount })
       }
       return NextResponse.json({ text: latest.texto_da_mensagem, count: current })
@@ -67,6 +67,6 @@ export async function GET(request: NextRequest) {
   }
 
   // Init mode
-  console.log(`[poll] init mode — retornando count=${current}`)
+  console.log(`[poll] init mode : retornando count=${current}`)
   return NextResponse.json({ text: null, count: current })
 }

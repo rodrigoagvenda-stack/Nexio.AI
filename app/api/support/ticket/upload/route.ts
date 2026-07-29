@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const buffer = Buffer.from(await file.arrayBuffer())
 
-  // Validar magic bytes — rejeita arquivo malicioso com MIME falsificado
+  // Validar magic bytes : rejeita arquivo malicioso com MIME falsificado
   const isImage = (
     (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) || // JPEG
     (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) || // PNG

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { handleWebhook, resolveCompanyByInstance } from '@/lib/sdr/engine'
 import { writeSystemLog } from '@/lib/system-log'
@@ -11,19 +11,19 @@ const webhookBodySchema = z.object({
 export const runtime = 'nodejs'
 export const maxDuration = 10
 
-// POST /api/webhook/nexio — webhook principal da uazapi
+// POST /api/webhook/nexio : webhook principal da uazapi
 // company_id é resolvido pelo instanceName (campo companies.whatsapp_instance_name)
 export async function POST(request: NextRequest) {
-  // uazapi não envia headers customizados — aceita secret via header OU query param
+  // uazapi não envia headers customizados : aceita secret via header OU query param
   const secretHeader = request.headers.get('x-webhook-secret')
   const secretQuery = request.nextUrl.searchParams.get('secret')
   const receivedSecret = secretHeader ?? secretQuery
   const expectedSecret = process.env.NEXIO_WEBHOOK_SECRET
   if (!expectedSecret || receivedSecret !== expectedSecret) {
-    console.log(`[nexio-webhook] auth falhou — secret inválido ou não configurado`)
+    console.log(`[nexio-webhook] auth falhou : secret inválido ou não configurado`)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  console.log(`[nexio-webhook] recebido — auth OK viaQuery=${!!secretQuery}`)
+  console.log(`[nexio-webhook] recebido : auth OK viaQuery=${!!secretQuery}`)
 
   let body: UazapiWebhookMessage
   try {

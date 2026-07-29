@@ -6,11 +6,11 @@
  * é inserido em extra_packages automaticamente.
  *
  * Body:
- *   tokens   number  — quantidade de tokens do pacote (deve corresponder a um pacote válido)
+ *   tokens   number  : quantidade de tokens do pacote (deve corresponder a um pacote válido)
  * Valor é calculado server-side; nunca aceito do cliente.
  */
 
-// Tabela de preços server-side — nunca confiar no amount do cliente
+// Tabela de preços server-side : nunca confiar no amount do cliente
 const TOKEN_PRICE_MAP: Record<number, number> = {
   1_000_000:  97,
   5_000_000: 420,
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     const charge = await createPixCharge({
       customerId: customer.id,
       value: amount,
-      description: `Zaapply — ${(tokens as number).toLocaleString('pt-BR')} tokens extras`,
+      description: `Zaapply : ${(tokens as number).toLocaleString('pt-BR')} tokens extras`,
       dueDate: todayISO(),
     })
 

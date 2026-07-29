@@ -1,11 +1,11 @@
-/**
- * Sprint 1 — Confiabilidade
+﻿/**
+ * Sprint 1 : Confiabilidade
  *
  * Primitivos usados por todos os motores de follow-up:
- *   - Exactly-once lock (Redis SET NX EX) — evita disparo duplo em crons paralelos
- *   - Circuit breaker por sequência — pausa automaticamente se erros > 20% em 30 min
- *   - Retry com backoff exponencial — 15 min → 30 min → 1 h → DLQ (3 tentativas)
- *   - Health check uazapi — ignora empresa com WhatsApp desconectado (cache 2 min)
+ *   - Exactly-once lock (Redis SET NX EX) : evita disparo duplo em crons paralelos
+ *   - Circuit breaker por sequência : pausa automaticamente se erros > 20% em 30 min
+ *   - Retry com backoff exponencial : 15 min → 30 min → 1 h → DLQ (3 tentativas)
+ *   - Health check uazapi : ignora empresa com WhatsApp desconectado (cache 2 min)
  */
 
 import { getRedis } from './redis'
@@ -25,7 +25,7 @@ export async function acquireSendLock(key: string, ttlSec = 300): Promise<boolea
     const result = await redis.set(key, '1', 'EX', ttlSec, 'NX')
     return result === 'OK'
   } catch {
-    return true // fail open — Redis indisponível não bloqueia o envio
+    return true // fail open : Redis indisponível não bloqueia o envio
   }
 }
 

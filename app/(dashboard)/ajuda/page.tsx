@@ -777,12 +777,11 @@ Para verificar o número de atendentes ativos e o limite do seu plano, acesse **
 • Agente SDR com IA 24/7
 • Atendimento via chat
 • CRM Kanban
-• Canvas:  Follow-up automático
+• Métricas e relatórios
 • 1 número WhatsApp
 
 ## Zaapply Growth:  R$ 497/mês
 • Tudo do Start, mais:
-• Canvas:  Anti-Noshow e Remarketing
 • Google Calendar integrado
 • 2 números WhatsApp`,
       },

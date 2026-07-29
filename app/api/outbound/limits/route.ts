@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
     }
 
-    // company_id sempre do usuário autenticado — nunca do body (previne IDOR)
+    // company_id sempre do usuário autenticado : nunca do body (previne IDOR)
     const { data: userData } = await supabase
       .from('users')
       .select('company_id, role')

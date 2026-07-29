@@ -1,5 +1,5 @@
-/**
- * Cliente GTPRO — proxy para Meta Ads (CAPI + Marketing API)
+﻿/**
+ * Cliente GTPRO : proxy para Meta Ads (CAPI + Marketing API)
  * Usa a API Key da empresa armazenada em sdr_configs.gtpro_api_key
  */
 

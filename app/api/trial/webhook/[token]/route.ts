@@ -1,4 +1,4 @@
-/**
+﻿/**
  * POST /api/trial/webhook/[token]
  * Endpoint público para cadastros de trial SaaS.
  * Cada empresa configura seu próprio token em trial_configs.
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ token: s
 
   const testMode = cfg.test_mode === true && !!cfg.test_phone
   const whatsapp = testMode ? normalizePhone(cfg.test_phone!) : normalizePhone(body.whatsapp)
-  if (testMode) console.log(`[trial:webhook] MODO TESTE — redirecionando para ${whatsapp}`)
+  if (testMode) console.log(`[trial:webhook] MODO TESTE : redirecionando para ${whatsapp}`)
   const trialDays = cfg.trial_days_default ?? 7
 
   // Upsert into saas_trials
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ token: s
     return NextResponse.json({ success: false, message: 'Erro ao processar cadastro.' }, { status: 500 })
   }
 
-  // Dispara primeiro step em background — não bloqueia a resposta HTTP
+  // Dispara primeiro step em background : não bloqueia a resposta HTTP
   console.log(`[trial:webhook] disparando imediato trial=${trial.id} company=${cfg.company_id}`)
   runTrialSaasImmediate(cfg.company_id, trial.id)
     .then(r => console.log(`[trial:webhook] imediato sent=${r.sent} error=${r.error ?? 'ok'}`))

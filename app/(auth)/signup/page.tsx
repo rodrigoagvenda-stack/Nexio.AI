@@ -77,7 +77,7 @@ export default function SignupPage() {
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
-      {/* Left — formulário */}
+      {/* Left : formulário */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
         {/* Logo */}
         <div className="flex justify-center md:justify-start">
@@ -227,7 +227,7 @@ export default function SignupPage() {
         </p>
       </div>
 
-      {/* Right — hero */}
+      {/* Right : hero */}
       <div className="relative hidden lg:flex items-center justify-center bg-muted">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 to-primary/50" />
         <div className="relative z-10 text-center px-12 select-none">

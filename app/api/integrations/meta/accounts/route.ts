@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -14,7 +14,7 @@ async function getGtproKey(companyId: number) {
   return data?.gtpro_api_key ?? null
 }
 
-// GET — lista contas de anúncio conectadas
+// GET : lista contas de anúncio conectadas
 export async function GET(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(await res.json(), { status: res.status })
 }
 
-// PATCH — define conta ativa { id }
+// PATCH : define conta ativa { id }
 export async function PATCH(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError

@@ -503,7 +503,7 @@ export default function OutboundPage() {
   const noshowTotal = noshowData.reduce((acc, d) => acc + d.quantidade, 0);
 
   const enviadas_hoje = limits.mensagens_enviadas_hoje ?? 0;
-  const taxa = limits.taxa_resposta !== undefined ? `${Number(limits.taxa_resposta).toFixed(1)}%` : '—';
+  const taxa = limits.taxa_resposta !== undefined ? `${Number(limits.taxa_resposta).toFixed(1)}%` : ':';
 
   // Meeting stats
   const now = new Date();
@@ -681,7 +681,7 @@ export default function OutboundPage() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {leadPhone && <span className="mr-2">{leadPhone}</span>}
-                              Criada em {campaign.created_at ? formatDateTime(campaign.created_at) : '—'}
+                              Criada em {campaign.created_at ? formatDateTime(campaign.created_at) : ':'}
                               {enviadas > 0 && <span className="ml-2 text-muted-foreground/60">· {enviadas} tentativa{enviadas > 1 ? 's' : ''}</span>}
                             </p>
                           </div>
@@ -747,7 +747,7 @@ export default function OutboundPage() {
                                 <div>
                                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">{label}</p>
                                   <p className={`text-xs font-medium ${value ? color : 'text-muted-foreground/40'}`}>
-                                    {value ?? '—'}
+                                    {value ?? ':'}
                                   </p>
                                   {extra}
                                 </div>
@@ -998,10 +998,10 @@ export default function OutboundPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: Repeat2,   label: 'Reengajados',      value: '—', color: '#22c55e' },
-              { icon: Send,      label: 'Mensagens enviadas', value: '—', color: '#15803d' },
-              { icon: Target,    label: 'Taxa de resposta',  value: '—', color: '#4ade80' },
-              { icon: BarChart3, label: 'Convertidos',       value: '—', color: '#14532d' },
+              { icon: Repeat2,   label: 'Reengajados',      value: ':', color: '#22c55e' },
+              { icon: Send,      label: 'Mensagens enviadas', value: ':', color: '#15803d' },
+              { icon: Target,    label: 'Taxa de resposta',  value: ':', color: '#4ade80' },
+              { icon: BarChart3, label: 'Convertidos',       value: ':', color: '#14532d' },
             ].map((item) => {
               const Icon = item.icon;
               return (

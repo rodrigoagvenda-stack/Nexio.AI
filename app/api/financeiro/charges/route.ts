@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 import { listPayments } from '@/lib/asaas/company-client'
@@ -57,7 +57,7 @@ async function fetchMercadoPagoCharges(cfg: any, dateGte?: string, statusFilter?
 
     const qs = new URLSearchParams({ sort: 'date_created', criteria: 'desc', limit: '100' })
 
-    // MP exige begin_date + end_date juntos — sem range= separado
+    // MP exige begin_date + end_date juntos : sem range= separado
     if (dateGte) {
       const endDate = new Date().toISOString().split('T')[0]
       qs.set('begin_date', `${dateGte}T00:00:00.000-03:00`)
@@ -111,7 +111,7 @@ async function fetchMercadoPagoCharges(cfg: any, dateGte?: string, statusFilter?
 }
 
 async function fetchKiwifyCharges(companyId: number, supabase: any, dateGte?: string, statusFilter?: string) {
-  // Kiwify não tem API de listagem pública — usa lead_charges populado pelos webhooks
+  // Kiwify não tem API de listagem pública : usa lead_charges populado pelos webhooks
   let query = supabase
     .from('lead_charges')
     .select('id, platform, external_id, amount, description, billing_type, due_date, status, payment_url, invoice_url, created_at, leads(contact_name, company_name)')

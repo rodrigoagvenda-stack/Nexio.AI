@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getPlanByPriceId, PLANS } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       if (!companyId) break;
 
       await service.from('companies').update({ is_active: false }).eq('id', companyId);
-      console.log(`[Stripe] Empresa ${companyId} bloqueada — pagamento falhou`);
+      console.log(`[Stripe] Empresa ${companyId} bloqueada : pagamento falhou`);
       break;
     }
 

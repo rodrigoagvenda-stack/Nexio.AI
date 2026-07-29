@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { normalizePhone } from '@/lib/sdr/uazapi'
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
       ? await svc.from('leads').select('id, contact_name, whatsapp, status').in('id', coldLeadIds)
       : { data: [] as any[] }
     const coldLeads = (coldLeadsRaw ?? []).map((l: any) => ({
-      id: l.id, nome: l.contact_name ?? '—', whatsapp: l.whatsapp ?? '', status: l.status,
+      id: l.id, nome: l.contact_name ?? ':', whatsapp: l.whatsapp ?? '', status: l.status,
       total_msgs: leadLogMap[l.id]?.total ?? 0,
     }))
 
@@ -293,7 +293,7 @@ export async function GET(request: NextRequest) {
     // ── Últimas execuções (follow_logs + trial_execs) ─────────────────────────
     const followExecs = (logs ?? []).slice(0, 150).map((l: any) => ({
       id: l.id, tipo: l.tipo, label: TIPO_LABELS[l.tipo] ?? l.tipo,
-      lead_name: l.leads?.contact_name ?? '—', lead_status: l.leads?.status ?? '—',
+      lead_name: l.leads?.contact_name ?? ':', lead_status: l.leads?.status ?? ':',
       lead_whatsapp: l.leads?.whatsapp ?? '',
       mensagem: (l.mensagem ?? '').slice(0, 100),
       enviado_em: l.enviado_em, respondeu: l.respondeu ?? false,
@@ -312,7 +312,7 @@ export async function GET(request: NextRequest) {
       const trial = trialNameMap[e.trial_id]
       return {
         id: e.id, tipo: 'trial_saas', label: 'Trial SaaS',
-        lead_name: trial?.nome ?? '—', lead_status: 'trial_ativo',
+        lead_name: trial?.nome ?? ':', lead_status: 'trial_ativo',
         lead_whatsapp: trial?.whatsapp ?? '',
         mensagem: (e.follow_steps?.mensagem ?? '').slice(0, 100),
         enviado_em: e.disparado_em, respondeu: trial?.respondeu ?? false, resposta: null,
@@ -356,7 +356,7 @@ export async function GET(request: NextRequest) {
         total: remarketingLeads?.length ?? 0,
         responderam: remarketingResponderam ?? 0,
         lista: (remarketingLeads ?? []).map((l: any) => ({
-          id: l.id, nome: l.contact_name ?? '—', whatsapp: l.whatsapp ?? '',
+          id: l.id, nome: l.contact_name ?? ':', whatsapp: l.whatsapp ?? '',
           status: l.status, updated_at: l.updated_at,
         })),
       },
@@ -365,7 +365,7 @@ export async function GET(request: NextRequest) {
         responderam: antiNoshowLogs.filter((l: any) => l.respondeu).length,
         taxa_resposta: antiNoshowLogs.length > 0 ? Math.round((antiNoshowLogs.filter((l: any) => l.respondeu).length / antiNoshowLogs.length) * 100) : 0,
         lista: antiNoshowLogs.slice(0, 30).map((l: any) => ({
-          lead_name: l.leads?.contact_name ?? '—', lead_whatsapp: l.leads?.whatsapp ?? '',
+          lead_name: l.leads?.contact_name ?? ':', lead_whatsapp: l.leads?.whatsapp ?? '',
           mensagem: (l.mensagem ?? '').slice(0, 80), enviado_em: l.enviado_em, respondeu: l.respondeu ?? false,
         })),
       },
@@ -374,7 +374,7 @@ export async function GET(request: NextRequest) {
         responderam: followPropostaLogs.filter((l: any) => l.respondeu).length,
         taxa_resposta: followPropostaLogs.length > 0 ? Math.round((followPropostaLogs.filter((l: any) => l.respondeu).length / followPropostaLogs.length) * 100) : 0,
         lista: followPropostaLogs.slice(0, 30).map((l: any) => ({
-          lead_name: l.leads?.contact_name ?? '—', lead_whatsapp: l.leads?.whatsapp ?? '',
+          lead_name: l.leads?.contact_name ?? ':', lead_whatsapp: l.leads?.whatsapp ?? '',
           mensagem: (l.mensagem ?? '').slice(0, 80), enviado_em: l.enviado_em, respondeu: l.respondeu ?? false,
         })),
       },

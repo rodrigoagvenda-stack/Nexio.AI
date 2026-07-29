@@ -1,5 +1,5 @@
-/**
- * Billing — token tracking e controle de franquia
+﻿/**
+ * Billing : token tracking e controle de franquia
  *
  * Fluxo por requisição do SDR:
  *   1. checkTenantQuota      → allowed | via extra_package | blocked
@@ -182,7 +182,7 @@ export async function recordUsage(
           p_company_id: tenantId,
           p_tokens: entry.totalTokens,
         })
-      } catch { /* best-effort — RPC pode não existir em ambientes antigos */ }
+      } catch { /* best-effort : RPC pode não existir em ambientes antigos */ }
     }
 
     // Debitar pacote extra (até esgotar o saldo disponível)

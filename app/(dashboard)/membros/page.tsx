@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -355,7 +355,7 @@ export default function MembrosPage() {
 
                     {/* Department */}
                     <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
-                      {member.department || '—'}
+                      {member.department || ':'}
                     </td>
 
                     {/* Last login */}

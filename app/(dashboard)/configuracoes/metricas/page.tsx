@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay } from 'date-fns';
@@ -101,7 +101,7 @@ function fmtNum(n: number) {
 }
 
 function fmtRelTime(iso: string): string {
-  if (!iso) return '—';
+  if (!iso) return ':';
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 60) return 'agora';
   if (diff < 3600) return `${Math.floor(diff / 60)}min`;
@@ -110,7 +110,7 @@ function fmtRelTime(iso: string): string {
 }
 
 function fmtDate(iso: string): string {
-  if (!iso) return '—';
+  if (!iso) return ':';
   return new Date(iso).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -302,7 +302,7 @@ function BarChartDay({ data }: { data: MetricasData['por_dia'] }) {
               />
             </div>
 
-            {/* date label — show every Nth */}
+            {/* date label : show every Nth */}
             {(i === 0 || i === Math.floor(data.length / 2) || i === data.length - 1) && (
               <span className="text-[9px] text-muted-foreground/70 truncate max-w-full">
                 {fmtDate(d.data)}
@@ -350,7 +350,7 @@ function PorTipoTable({ data }: { data: MetricasData['por_tipo'] }) {
                 {fmtNum(t.enviados)}
               </td>
               <td className="py-3 px-4 text-right text-red-400 dark:text-red-500">
-                {t.falhas > 0 ? fmtNum(t.falhas) : <span className="text-muted-foreground/30">—</span>}
+                {t.falhas > 0 ? fmtNum(t.falhas) : <span className="text-muted-foreground/30">:</span>}
               </td>
               <td className="py-3 px-4 text-right text-emerald-600 dark:text-emerald-400">
                 {fmtNum(t.responderam)}

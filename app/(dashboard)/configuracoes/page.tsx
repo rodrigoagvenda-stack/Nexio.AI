@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -39,7 +39,7 @@ interface GoogleStatus { connected: boolean; email: string | null }
 const PLANS = {
   basic:   { name: 'Basic',          price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
   trial:   { name: 'Trial',          price: 0,   tokens: 5_000_000,  icon: Zap,        desc: 'Período de teste gratuito' },
-  starter: { name: 'Zaapply Start',  price: 297, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + follow-up automático' },
+  starter: { name: 'Zaapply Start',  price: 297, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + CRM Kanban + 1 número WhatsApp' },
   pro:     { name: 'Zaapply Growth', price: 497, tokens: 15_000_000, icon: Rocket,     desc: 'Tudo do Start + Google Calendar + 2 números WhatsApp' },
 } as const;
 
@@ -591,7 +591,7 @@ function ConfiguracoesContent() {
             </div>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
             <div className="text-center">
-              <p className="font-semibold">{user?.name || '—'}</p>
+              <p className="font-semibold">{user?.name || ':'}</p>
               <p className="text-sm text-muted-foreground">{user?.email}</p>
               {user?.department && <p className="text-xs text-muted-foreground mt-1">{user.department}</p>}
             </div>
@@ -737,7 +737,7 @@ function ConfiguracoesContent() {
                     </div>
                     <Progress value={tokensPct} className={cn('h-1.5', tokensPct > 90 ? '[&>div]:bg-red-500' : '')} />
                     {tokensPct > 90 && (
-                      <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" />Quase no limite — considere fazer upgrade</p>
+                      <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" />Quase no limite : considere fazer upgrade</p>
                     )}
                   </div>
                 )}
@@ -1165,7 +1165,7 @@ function ConfiguracoesContent() {
 
           {/* ── GTPRO · Meta Ads (API key + BM OAuth unificados) ── */}
           <div className={cn('rounded-2xl border bg-card transition-colors', gtproConnected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
-            {/* Linha principal — GTPRO API key */}
+            {/* Linha principal : GTPRO API key */}
             <div className="p-5 flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center shrink-0 p-2 overflow-hidden">

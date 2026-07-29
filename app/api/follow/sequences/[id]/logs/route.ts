@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
@@ -62,18 +62,18 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         l?.company_name ||
         l?.email ||
         l?.whatsapp ||
-        (row.lead_id ? `Lead ${row.lead_id}` : '—')
+        (row.lead_id ? `Lead ${row.lead_id}` : ':')
 
       const tipoLabel = s ? (TIPO_LABEL[s.tipo_mensagem] ?? s.tipo_mensagem ?? 'Passo') : 'Passo'
       const ordem = s?.ordem != null ? `#${s.ordem}` : ''
       const dia = s?.dia_offset != null ? ` · Dia ${s.dia_offset}` : ''
-      const preview = s?.mensagem ? ` — "${String(s.mensagem).slice(0, 30)}${String(s.mensagem).length > 30 ? '…' : ''}"` : ''
+      const preview = s?.mensagem ? ` : "${String(s.mensagem).slice(0, 30)}${String(s.mensagem).length > 30 ? '…' : ''}"` : ''
 
       const stepLabel = s
         ? `${tipoLabel} ${ordem}${dia}${preview}`
         : row.step_id
           ? `Passo ${String(row.step_id).slice(0, 8)}…`
-          : '—'
+          : ':'
 
       return {
         id: String(row.id),

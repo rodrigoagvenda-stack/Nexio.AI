@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
       id: l.id,
       tipo: l.tipo,
       lead_id: l.lead_id,
-      lead_name: l.leads?.contact_name ?? '—',
-      lead_status: l.leads?.status ?? '—',
+      lead_name: l.leads?.contact_name ?? ':',
+      lead_status: l.leads?.status ?? ':',
       mensagem: l.mensagem?.slice(0, 80) + (l.mensagem?.length > 80 ? '…' : ''),
       enviado_em: l.enviado_em,
       respondeu: l.respondeu ?? false,

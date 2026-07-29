@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { getPlatformConfig } from '@/lib/platform-config';
 import crypto from 'crypto';
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
   }
 
-  // Validar CSRF token — state = "{csrfToken}:{companyId}"
+  // Validar CSRF token : state = "{csrfToken}:{companyId}"
   const colonIdx = state.indexOf(':');
   const csrfToken = colonIdx > 0 ? state.slice(0, colonIdx) : '';
   const companyIdStr = colonIdx > 0 ? state.slice(colonIdx + 1) : state;
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     crypto.timingSafeEqual(Buffer.from(csrfToken.padEnd(64)), Buffer.from(expectedCsrf.padEnd(64)));
 
   if (!csrfValid) {
-    console.warn('[google/callback] CSRF token inválido — possível ataque CSRF');
+    console.warn('[google/callback] CSRF token inválido : possível ataque CSRF');
     return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
   }
 
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     if (sessionUser) {
       const { data: userRow } = await supabaseCheck.from('users').select('company_id').eq('auth_user_id', sessionUser.id).single();
       if (userRow && userRow.company_id !== companyId) {
-        console.warn('[google/callback] companyId do state não bate com sessão — possível IDOR');
+        console.warn('[google/callback] companyId do state não bate com sessão : possível IDOR');
         return NextResponse.redirect(`${appUrl}/configuracoes?google=error`);
       }
     }

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -184,7 +184,7 @@ export default function BriefPage() {
   // Question Screens
   return (
     <div className="min-h-screen bg-background">
-      {/* Fixed Logo — hidden on last step */}
+      {/* Fixed Logo : hidden on last step */}
       {currentStep < totalSteps - 1 && (
         <div className="fixed top-6 left-6 z-50">
           <h1 className="text-2xl font-bold">

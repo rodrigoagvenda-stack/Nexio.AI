@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
@@ -482,7 +482,7 @@ export default function BriefingPublicPage() {
               </>
             )}
 
-            {/* SELECT / RADIO — escolha única, avança automático */}
+            {/* SELECT / RADIO : escolha única, avança automático */}
             {(q.question_type === 'select' || q.question_type === 'radio') && q.options && (
               <div className="space-y-3">
                 {q.options.map((opt, idx) => {
@@ -509,7 +509,7 @@ export default function BriefingPublicPage() {
               </div>
             )}
 
-            {/* MULTISELECT / CHECKBOX — múltipla escolha */}
+            {/* MULTISELECT / CHECKBOX : múltipla escolha */}
             {(q.question_type === 'multiselect' || q.question_type === 'checkbox') && q.options && (
               <>
                 <div className="space-y-3">

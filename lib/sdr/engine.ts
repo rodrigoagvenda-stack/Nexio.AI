@@ -1,12 +1,12 @@
-/**
- * SDR Engine — Orquestrador multi-agente fiel ao fluxo N8N.
+﻿/**
+ * SDR Engine : Orquestrador multi-agente fiel ao fluxo N8N.
  *
  * Arquitetura:
  *   Orquestrador (GPT-4.1) →
  *     Think | RAG Conhecimento | RAG Objeções |
  *     Agente Pipeline | Agente Segmentação |
  *     Agente Outbound | Memory Expert |
- *     Agente Agendamento (Google Calendar — opcional)
+ *     Agente Agendamento (Google Calendar : opcional)
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
@@ -24,7 +24,7 @@ import {
 } from '@/lib/google-calendar'
 import type OpenAI from 'openai'  // type-only: apagado em compile-time, sem impacto no bundle
 
-// Cache de clientes OpenAI por chave — evita criar nova instância (e conexões HTTP) a cada mensagem
+// Cache de clientes OpenAI por chave : evita criar nova instância (e conexões HTTP) a cada mensagem
 const _openaiCache = new Map<string, OpenAI>()
 async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
   if (!_openaiCache.has(apiKey)) {
@@ -189,7 +189,7 @@ function calcEntropy(text: string): number {
 function isPromptInjection(text: string): boolean {
   if (!text) return false
 
-  // LAYER 1: critical patterns — bloqueio imediato (espelha CRITICAL_PATTERNS do n8n)
+  // LAYER 1: critical patterns : bloqueio imediato (espelha CRITICAL_PATTERNS do n8n)
   for (const p of CRITICAL_PATTERNS) {
     if (p.test(text)) return true
   }
@@ -284,7 +284,7 @@ async function drainBuffer(
   return (data?.messages as BufferedMessage[]) ?? []
 }
 
-// ─── RAG — Busca vetorial no Supabase ─────────────────────────
+// ─── RAG : Busca vetorial no Supabase ─────────────────────────
 
 async function searchDocuments(
   query: string,
@@ -294,7 +294,7 @@ async function searchDocuments(
   vectorTable?: string | null
 ): Promise<string> {
   const table = vectorTable ?? 'documents'
-  console.log(`[SDR:${companyId}] RAG search — table="${table}" query="${query.slice(0, 60)}"`)
+  console.log(`[SDR:${companyId}] RAG search : table="${table}" query="${query.slice(0, 60)}"`)
   try {
     const embRes = await openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -412,7 +412,7 @@ function extractEmailFromHistory(history: ChatMsg[]): string | undefined {
   return undefined
 }
 
-/** Extrai datetime confirmado de mensagens como "quinta-feira, 08/05 às 9h — confirma?" */
+/** Extrai datetime confirmado de mensagens como "quinta-feira, 08/05 às 9h : confirma?" */
 function parseConfirmedDateTime(text: string): Date | null {
   const m = text.match(/(\d{2})\/(\d{2})\s+às\s+(\d{1,2})(?:h(\d{2})?|:(\d{2}))/)
   if (!m) return null
@@ -595,18 +595,18 @@ async function runAgenteOutbound(
 
 ⚠️ ATENÇÃO: Você TEM tools disponíveis. Use-as OBRIGATORIAMENTE. NUNCA responda sem usar as tools.
 
-PASSO 1 — USE AGORA a tool "Buscar_origem_lead_no_supabase" passando whatsapp e company_id:
+PASSO 1 : USE AGORA a tool "Buscar_origem_lead_no_supabase" passando whatsapp e company_id:
 - Se status = "Outbound" → lead veio de abordagem ativa, vá para PASSO 2
 - Se diferente → lead inbound, vá direto para o RETORNO FINAL com origem = "inbound"
 - Verifique a coluna "briefing_preenchido":
   - true → lead já preencheu o briefing
   - false → briefing ainda não preenchido
 
-PASSO 2 — USE AGORA a tool "Buscar_mensagem_enviada_outbound" passando lead_id e company_id:
+PASSO 2 : USE AGORA a tool "Buscar_mensagem_enviada_outbound" passando lead_id e company_id:
 - Retorna a mensagem que foi enviada ao lead
 - OBRIGATÓRIO se lead for outbound
 
-PASSO 3 — USE AGORA a tool "Salvar_resposta_e_score_do_lead" passando lead_id e company_id com:
+PASSO 3 : USE AGORA a tool "Salvar_resposta_e_score_do_lead" passando lead_id e company_id com:
 - respondeu: true
 - respondeu_em: data/hora atual
 - mensagem_recebida: mensagem que o lead enviou
@@ -616,12 +616,12 @@ PASSO 3 — USE AGORA a tool "Salvar_resposta_e_score_do_lead" passando lead_id 
   - 7-9: demonstrou interesse, fez perguntas relevantes
   - 10: pediu proposta, quer agendar
 
-VALIDAÇÃO — Antes de retornar confirme:
+VALIDAÇÃO : Antes de retornar confirme:
 ✅ Usei "Buscar_origem_lead_no_supabase"? Se não → use agora
 ✅ Se outbound, usei "Buscar_mensagem_enviada_outbound"? Se não → use agora
 ✅ Usei "Salvar_resposta_e_score_do_lead"? Se não → use agora
 
-RETORNO FINAL — somente após usar todas as tools:
+RETORNO FINAL : somente após usar todas as tools:
 {
   "origem": "outbound | inbound",
   "mensagem_enviada": "texto ou null",
@@ -751,7 +751,7 @@ REGRAS DO RESUMO (resumo_ia):
 - Use bullet points
 - Inclua: interesse demonstrado, objeções, próximos passos, informações relevantes
 - Priorize informações novas sobre antigas
-- Seja direto — o SDR precisa entender em 30 segundos
+- Seja direto : o SDR precisa entender em 30 segundos
 
 NÍVEL DE INTERESSE (use exatamente assim):
 - "Quente 🔥"
@@ -832,7 +832,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
   )
 }
 
-/** Agente de Agendamento — Google Calendar + Meet */
+/** Agente de Agendamento : Google Calendar + Meet */
 async function runAgenteAgendamento(
   message: string,
   ctx: SdrContext,
@@ -876,7 +876,7 @@ FLUXO DE AGENDAMENTO:
      → Retorno vazio = dia livre, todos os horários entre 9h e 18h disponíveis
      → Retorno com eventos = considere apenas horários não conflitantes
      → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
-4.5. ⛔ COLETA OBRIGATÓRIA — NUNCA PULE ESTE PASSO:
+4.5. ⛔ COLETA OBRIGATÓRIA : NUNCA PULE ESTE PASSO:
    - Você DEVE ter nome completo, email E objetivo da call do lead.
    - Verifique o histórico: o lead já forneceu os três itens explicitamente?
      → Se SIM: prossiga para o passo 5.
@@ -904,7 +904,7 @@ Qualquer coisa é só me chamar 👍"
 REGRAS:
 - 🚫 PROIBIDO: Jamais chame "Agendar_gcal" sem ter email E nome_completo fornecidos pelo lead. Sem esses dados = não agenda, ponto final.
 - ⚠️ CRÍTICO: Se o lead já informou o horário, é PROIBIDO sugerir outras opções. Vá direto para o passo 4.5.
-- NUNCA use travessão (—) em nenhuma mensagem. Use vírgula ou ponto.
+- NUNCA use travessão (:) em nenhuma mensagem. Use vírgula ou ponto.
 - Máximo 3 linhas por bloco de mensagem.
 - Chame "Consultar_gcal" apenas UMA vez por interação.
 - Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta.
@@ -1039,7 +1039,7 @@ REGRAS:
         const nomeCompleto: string = args.nome_completo
         const resolvedTitle = ctx.eventTitleTemplate
           ? ctx.eventTitleTemplate.replace('{nome}', nomeCompleto)
-          : `Call de venda — ${nomeCompleto}`
+          : `Call de venda : ${nomeCompleto}`
         const event = await createEventWithMeet({
           calendarId: ctx.calendarId!,
           companyId: ctx.companyId,
@@ -1096,7 +1096,7 @@ REGRAS:
     tools, handlers, openai, 'gpt-4.1', acc, 'agendamento', 10, history,
     (toolName, result) => {
       if (toolName === 'Consultar_gcal' && result.startsWith('ERRO_CALENDARIO')) {
-        console.error(`[SDR:${ctx.companyId}] Consultar_gcal abortou — retornando erro ao lead`)
+        console.error(`[SDR:${ctx.companyId}] Consultar_gcal abortou : retornando erro ao lead`)
         return `Desculpe, ${ctx.leadName}, tive um problema técnico pra acessar o calendário agora. Pode tentar novamente em instantes? 🙏`
       }
       return null
@@ -1164,7 +1164,7 @@ REGRAS DE MENSAGEM (CRÍTICO):
 - Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
 - Máximo 1 a 2 frases por bloco.
 - NUNCA junte tudo em um parágrafo só. Sempre quebre em blocos.
-- NUNCA use travessão (—). Use vírgula ou ponto.
+- NUNCA use travessão (:). Use vírgula ou ponto.
 
 Exemplo CORRETO:
 Olá, Rodrigo! Tudo bem por aqui, e com você?
@@ -1194,11 +1194,11 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
     companyBlock = `\n\nCONTEXTO DA EMPRESA:\n${ctx.prompt}`
   }
 
-  // ── Camada 3 (FIXO condicional): agendamento — exato do AI Agent2 ─
+  // ── Camada 3 (FIXO condicional): agendamento : exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
-1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] — confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" — NÃO processe mais nada, NÃO chame outras tools.
-2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE "Agente_de_Agendamento" — sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
+1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
+2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
 Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.`
     : ''
 
@@ -1333,7 +1333,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     })
   }
 
-  // Sempre disponível — pausa o bot nesta conversa e sinaliza necessidade de atendimento humano
+  // Sempre disponível : pausa o bot nesta conversa e sinaliza necessidade de atendimento humano
   tools.push({
     type: 'function',
     function: {
@@ -1391,7 +1391,7 @@ CONTEXTO DO CRM:
     ctx.calendarId &&
     lastAssistant &&
     typeof lastAssistant.content === 'string' &&
-    /—\s*confirma\?/i.test(lastAssistant.content) &&
+    /:\s*confirma\?/i.test(lastAssistant.content) &&
     AFFIRMATIONS.test(userInput.trim())
 
   // State 2: agente pediu email/nome e lead acabou de enviar (mensagem contém @)
@@ -1418,10 +1418,10 @@ CONTEXTO DO CRM:
     if (confirmedDt) {
       const existingEmail = extractEmailFromHistory(history)
       if (!existingEmail) {
-        console.log(`[SDR:${ctx.companyId}] confirmação detectada — solicitando email/nome antes de criar evento`)
+        console.log(`[SDR:${ctx.companyId}] confirmação detectada : solicitando email/nome antes de criar evento`)
         return `Ótimo, ${ctx.leadName}! ✅ Antes de confirmar, preciso do seu nome completo e e-mail para enviar o convite da reunião 😊`
       }
-      // Já tem email — cria o evento direto abaixo em Short-circuit 2
+      // Já tem email : cria o evento direto abaixo em Short-circuit 2
     }
   }
 
@@ -1432,18 +1432,18 @@ CONTEXTO DO CRM:
     // Nome = input sem o email e sem pontuação, ou leadName como fallback
     const leadName = userInput.replace(EMAIL_PATTERN, '').replace(/[,\-;\s]+/g, ' ').trim() || ctx.leadName
 
-    // Busca a última mensagem "— confirma?" no histórico para recuperar o datetime
+    // Busca a última mensagem ": confirma?" no histórico para recuperar o datetime
     const confirmaMsg = [...history].reverse().find(
-      (m) => m.role === 'assistant' && /—\s*confirma\?/i.test(m.content as string)
+      (m) => m.role === 'assistant' && /:\s*confirma\?/i.test(m.content as string)
     )
     const confirmedDt = confirmaMsg ? parseConfirmedDateTime(confirmaMsg.content as string) : null
 
     if (leadEmail && confirmedDt) {
-      console.log(`[SDR:${ctx.companyId}] email coletado — criando evento para ${leadEmail} em ${confirmedDt.toISOString()}`)
+      console.log(`[SDR:${ctx.companyId}] email coletado : criando evento para ${leadEmail} em ${confirmedDt.toISOString()}`)
       try {
         const title = ctx.eventTitleTemplate
           ? ctx.eventTitleTemplate.replace('{nome}', leadName)
-          : `Call de venda — ${leadName}`
+          : `Call de venda : ${leadName}`
         const event = await createEventWithMeet({
           calendarId: ctx.calendarId,
           companyId: ctx.companyId,
@@ -1501,7 +1501,7 @@ CONTEXTO DO CRM:
 
       let result = ''
 
-      // Nomes sanitizados (OpenAI ^[a-zA-Z0-9_-]+$) — mapeados via TOOL_NAME_MAP
+      // Nomes sanitizados (OpenAI ^[a-zA-Z0-9_-]+$) : mapeados via TOOL_NAME_MAP
       if (fn === 'Think1') {
         result = `Pensamento registrado: ${args.thought}`
       } else if (fn === 'Play_conhecimento') {
@@ -1523,7 +1523,7 @@ CONTEXTO DO CRM:
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
       } else if (fn === 'Pausar_conversa') {
-        // Pausa o bot nesta conversa — atendimento humano irá assumir
+        // Pausa o bot nesta conversa : atendimento humano irá assumir
         if (ctx.conversationId) {
           const { error } = await supabase
             .from('conversas_do_whatsapp')
@@ -1537,7 +1537,7 @@ CONTEXTO DO CRM:
             result = `Conversa pausada com sucesso. Motivo: ${args.motivo ?? 'handoff'}. Atendente humano será notificado.`
           }
         } else {
-          result = 'conversationId não disponível — handoff não executado'
+          result = 'conversationId não disponível : handoff não executado'
         }
       }
 
@@ -1573,7 +1573,7 @@ async function ensureConversation(
   supabase: ReturnType<typeof createServiceClient>,
   inboxMode: 'vendas' | 'suporte' = 'suporte'
 ): Promise<string> {
-  // Seleciona apenas id — não depende de colunas opcionais (instance_name pode não existir)
+  // Seleciona apenas id : não depende de colunas opcionais (instance_name pode não existir)
   const { data: existing, error: selectError } = await supabase
     .from('conversas_do_whatsapp')
     .select('id')
@@ -1685,7 +1685,7 @@ async function saveInbound(
     text
 
   if (!conversationId) {
-    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado — conversationId vazio`)
+    console.error(`[SDR:${ctx.companyId}] saveInbound ignorado : conversationId vazio`)
     return
   }
 
@@ -1717,7 +1717,7 @@ async function saveOutbound(
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<void> {
   if (!conversationId) {
-    console.error(`[SDR:${ctx.companyId}] saveOutbound ignorado — conversationId vazio`)
+    console.error(`[SDR:${ctx.companyId}] saveOutbound ignorado : conversationId vazio`)
     return
   }
 
@@ -1775,7 +1775,7 @@ async function findOrCreateLead(
     .single()
 
   if (insertError || !created?.id) {
-    throw new Error(`findOrCreateLead: falha ao criar lead — ${insertError?.message ?? 'id nulo'}`)
+    throw new Error(`findOrCreateLead: falha ao criar lead : ${insertError?.message ?? 'id nulo'}`)
   }
 
   return { id: created.id, notes: '' }
@@ -1884,7 +1884,7 @@ async function loadSdrConfig(
     return null
   }
 
-  // Verifica agente_ativo na tabela companies (fonte de verdade — igual ao N8N)
+  // Verifica agente_ativo na tabela companies (fonte de verdade : igual ao N8N)
   const { data: company } = await supabase
     .from('companies')
     .select('agente_ativo, is_active')
@@ -1917,7 +1917,7 @@ async function loadSdrConfig(
   if (!resolvedOpenAIKey) {
     console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: OpenAI key não encontrada (empresa nem global)`)
   } else {
-    console.log(`[SDR:${companyId}] OpenAI key resolvida — termina em ...${resolvedOpenAIKey.slice(-4)}`)
+    console.log(`[SDR:${companyId}] OpenAI key resolvida : termina em ...${resolvedOpenAIKey.slice(-4)}`)
   }
   if (!config.uazapi_token) {
     console.warn(`[SDR:${companyId}] loadSdrConfig → AVISO: uazapi_token vazio no sdr_configs`)
@@ -1930,7 +1930,7 @@ async function loadSdrConfig(
   const resolvedObjecoesAtivo = flow?.objecoes_ativo ?? config.objecoes_ativo ?? false
 
   console.log(
-    `[SDR:${companyId}] config resolvida — flow="${flow?.id ?? 'nenhum'}" ` +
+    `[SDR:${companyId}] config resolvida : flow="${flow?.id ?? 'nenhum'}" ` +
     `prompt=${resolvedPrompt.length}chars ` +
     `conhecimentoAtivo=${resolvedConhecimentoAtivo} table="${resolvedVectorConhecimento ?? 'documents(default)'}" ` +
     `objecoesAtivo=${resolvedObjecoesAtivo} table="${resolvedVectorObjecoes ?? 'off'}"`
@@ -2032,7 +2032,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       await log(companyId, 'agent_disabled', {}, supabase, phone)
       return
     }
-    console.log(`[SDR:${companyId}] processando mensagem de ${phone} — agente="${cfg.agent_type}" flow="${cfg.flowId ?? 'default'}")`)
+    console.log(`[SDR:${companyId}] processando mensagem de ${phone} : agente="${cfg.agent_type}" flow="${cfg.flowId ?? 'default'}")`)
 
     // ── Verificar franquia antes de processar ──────────────────
     const quotaCheck = await checkTenantQuota(companyId, supabase)
@@ -2045,7 +2045,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const bufferedMessages = await drainBuffer(companyId, phone, supabase)
     if (bufferedMessages.length === 0) return
 
-    // Nó "Switch" (15s) — se a última mensagem chegou há menos de 15s, aguarda
+    // Nó "Switch" (15s) : se a última mensagem chegou há menos de 15s, aguarda
     // o tempo restante antes de prosseguir (garante que o lead terminou de digitar)
     const lastMsg = bufferedMessages[bufferedMessages.length - 1]
     const lastMsgAge = Date.now() - new Date(lastMsg.timestamp).getTime()
@@ -2106,7 +2106,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     }
 
     // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
-    // SEMPRE salva, mesmo quando pausado — garante histórico no chat e contexto ao reativar
+    // SEMPRE salva, mesmo quando pausado : garante histórico no chat e contexto ao reativar
     for (const em of enrichedMessages) {
       await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
     }
@@ -2130,7 +2130,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     await log(companyId, 'message_received', { messages: bufferedMessages, flowId: cfg.flowId }, supabase, phone, leadId)
 
-    // ── Acumulador de usage — passado por referência a todos os agentes ──
+    // ── Acumulador de usage : passado por referência a todos os agentes ──
     const acc: UsageAcc = []
 
     // Usa conteúdo enriquecido (transcrição/descrição) para o orquestrador
@@ -2168,7 +2168,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
   try {
     // Evento de conexão/desconexão da instância UAZapi
     const eventType = (body as any).EventType ?? (body as any).event ?? ''
-    console.log(`[SDR:${companyId}] webhook recebido — EventType="${eventType}"`)
+    console.log(`[SDR:${companyId}] webhook recebido : EventType="${eventType}"`)
 
     if (typeof eventType === 'string' && eventType.toLowerCase().includes('connect')) {
       const rawStatus = (body as any).status ?? (body as any).state ?? (body as any).instance?.status
@@ -2177,7 +2177,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         s === 'open' || s === 'connected' || s === 'authenticated' ? 'connected' :
         s === 'close' || s === 'disconnected' || s === 'logout' ? 'disconnected' :
         null
-      console.log(`[SDR:${companyId}] evento de conexão — status="${s}" → normalized="${normalized}"`)
+      console.log(`[SDR:${companyId}] evento de conexão : status="${s}" → normalized="${normalized}"`)
       if (normalized) {
         await supabase.from('sdr_configs').update({
           instance_status: normalized,
@@ -2188,24 +2188,24 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     if (eventType && eventType.toLowerCase() !== 'messages') {
-      console.log(`[SDR:${companyId}] ignorado — EventType="${eventType}" não é messages`)
+      console.log(`[SDR:${companyId}] ignorado : EventType="${eventType}" não é messages`)
       return false
     }
 
     if (!body.message) {
-      console.log(`[SDR:${companyId}] ignorado — body.message ausente`)
+      console.log(`[SDR:${companyId}] ignorado : body.message ausente`)
       return false
     }
 
     if (body.message?.fromMe) {
-      console.log(`[SDR:${companyId}] ignorado — fromMe=true`)
+      console.log(`[SDR:${companyId}] ignorado : fromMe=true`)
       return false
     }
 
     // Ignora mensagens de grupos (wa_chatid termina em @g.us ou phone vazio)
     const chatId = body.chat?.wa_chatid ?? body.chat?.id ?? ''
     if (chatId.endsWith('@g.us') || !body.chat?.phone) {
-      console.log(`[SDR:${companyId}] ignorado — mensagem de grupo ou phone vazio`)
+      console.log(`[SDR:${companyId}] ignorado : mensagem de grupo ou phone vazio`)
       return false
     }
 
@@ -2220,9 +2220,9 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
       || ''
 
-    // Mensagens de mídia sem texto são válidas — serão enriquecidas (transcrição/vision) em processSdrMessage
+    // Mensagens de mídia sem texto são válidas : serão enriquecidas (transcrição/vision) em processSdrMessage
     if (!text.trim() && !isMedia) {
-      console.warn(`[SDR:${companyId}] ignorado — texto vazio e não é mídia. Campos:`, Object.keys(msg ?? {}))
+      console.warn(`[SDR:${companyId}] ignorado : texto vazio e não é mídia. Campos:`, Object.keys(msg ?? {}))
       return false
     }
 
@@ -2234,18 +2234,18 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       : msgType === 'document' ? '📄 Documento'
       : msgType === 'video' ? '🎥 Vídeo' : ''
 
-    console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} — tipo="${msgType}" texto="${(text || placeholder).slice(0, 80)}"`)
+    console.log(`[SDR:${companyId}] mensagem de ${body.chat?.phone} : tipo="${msgType}" texto="${(text || placeholder).slice(0, 80)}"`)
 
     if (text && isPromptInjection(text)) {
       const uazapiBlock = createUazapiClient(
         body.BaseUrl ?? 'https://nexioai.uazapi.com',
         body.token ?? ''
       )
-      // Nó "Bloquear contato1" — bloqueia o número na instância
+      // Nó "Bloquear contato1" : bloqueia o número na instância
       await uazapiBlock.blockContact(normalizePhone(body.chat.phone)).catch(() => {})
       await log(companyId, 'injection_blocked', { text }, supabase, body.chat.phone)
 
-      // Nó "Enviar mensagem para o ADM1" — alerta via email (fire-and-forget)
+      // Nó "Enviar mensagem para o ADM1" : alerta via email (fire-and-forget)
       sendInjectionAlertEmail({
         pushName: body.message?.senderName || body.chat?.wa_contactName || 'Desconhecido',
         senderNumber: normalizePhone(body.chat.phone),
@@ -2279,7 +2279,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
     const senderPhoto: string | undefined = body.chat?.image || body.chat?.imagePreview || undefined
 
-    // Nó "Visualizar mensagem" — marca mensagem como lida (igual ao N8N)
+    // Nó "Visualizar mensagem" : marca mensagem como lida (igual ao N8N)
     if (messageId) {
       const uazapiMark = createUazapiClient(
         body.BaseUrl ?? 'https://nexioai.uazapi.com',
@@ -2300,7 +2300,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     await bufferMessage(companyId, phone, bufferedMsg, supabase)
 
-    // Persiste job — zaapply-sdr processa após 30s de inatividade
+    // Persiste job : zaapply-sdr processa após 30s de inatividade
     const { error: jobErr } = await supabase.from('sdr_jobs').upsert(
       {
         company_id: companyId,
@@ -2314,7 +2314,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     if (jobErr) {
       console.error(`[SDR:${companyId}] ERRO ao criar job:`, jobErr.message)
     } else {
-      console.log(`[SDR:${companyId}] job criado — phone=${phone}`)
+      console.log(`[SDR:${companyId}] job criado : phone=${phone}`)
     }
 
     return true

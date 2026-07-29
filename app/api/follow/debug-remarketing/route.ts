@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
         .order('ordem')
 
       if (!steps?.length) {
-        log.push('    ⚠️ SEM PASSOS — engine pula esta sequência')
+        log.push('    ⚠️ SEM PASSOS : engine pula esta sequência')
         continue
       }
 

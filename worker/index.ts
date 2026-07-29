@@ -1,7 +1,7 @@
-/**
- * Job queue worker — runs as a separate Node.js process.
+﻿/**
+ * Job queue worker : runs as a separate Node.js process.
  * Polls Supabase `jobs` table every 5s, processes `process_knowledge` jobs.
- * Never imports Next.js or React — zero overlap with the web server process.
+ * Never imports Next.js or React : zero overlap with the web server process.
  */
 
 import crypto from 'crypto'
@@ -166,7 +166,7 @@ async function tick() {
         status: 'done',
         updated_at: new Date().toISOString(),
       }).eq('id', job.id)
-      console.log(`[worker] job ${job.id} concluído — ${result.chunks} chunks`)
+      console.log(`[worker] job ${job.id} concluído : ${result.chunks} chunks`)
     } else {
       throw new Error(`Tipo de job desconhecido: ${job.type}`)
     }
@@ -181,7 +181,7 @@ async function tick() {
 }
 
 async function run() {
-  console.log('[worker] iniciado — polling a cada 5s')
+  console.log('[worker] iniciado : polling a cada 5s')
   while (true) {
     try {
       await tick()

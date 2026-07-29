@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
-// GET /api/sdr/tracking-links — lista links rastreados da empresa
+// GET /api/sdr/tracking-links : lista links rastreados da empresa
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -28,7 +28,7 @@ export async function GET() {
   }
 }
 
-// POST /api/sdr/tracking-links — cria novo link rastreado
+// POST /api/sdr/tracking-links : cria novo link rastreado
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/sdr/tracking-links?id=123 — apaga link rastreado
+// DELETE /api/sdr/tracking-links?id=123 : apaga link rastreado
 export async function DELETE(req: NextRequest) {
   try {
     const supabase = await createClient()

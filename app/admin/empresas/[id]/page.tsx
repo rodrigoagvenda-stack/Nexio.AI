@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -496,7 +496,7 @@ export default function EmpresaDetailPage() {
         {/* ── Direita (2/5) ──────────────────────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Plano + Assinatura + Features — tudo em um card */}
+          {/* Plano + Assinatura + Features : tudo em um card */}
           <div className="border border-border/50 rounded-xl bg-card divide-y divide-border/50">
 
             {/* Plano */}
@@ -625,7 +625,7 @@ export default function EmpresaDetailPage() {
             </div>
           </div>
 
-          {/* Asaas — cobrança */}
+          {/* Asaas : cobrança */}
           <div className="border border-border/50 rounded-xl bg-card p-5 space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cobrança (Asaas)</p>
 

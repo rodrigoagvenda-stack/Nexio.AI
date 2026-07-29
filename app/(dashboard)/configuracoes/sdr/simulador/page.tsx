@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, useCallback, KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils/cn';
@@ -484,7 +484,7 @@ export default function SimuladorSDRPage() {
 
   function handleNicheSelect(id: string) {
     setSelectedNicheId(id);
-    // Preserve existing variables but don't clear — let user fill in
+    // Preserve existing variables but don't clear : let user fill in
   }
 
   function handleChangeVar(key: VariableKey, value: string) {

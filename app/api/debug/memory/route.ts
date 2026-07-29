@@ -1,4 +1,4 @@
-import { getHeapStatistics, getHeapSpaceStatistics } from 'v8'
+﻿import { getHeapStatistics, getHeapSpaceStatistics } from 'v8'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
@@ -13,14 +13,14 @@ export async function GET(request: NextRequest) {
   const querySecret = request.nextUrl.searchParams.get('secret')
   const provided = auth === `Bearer ${secret}` || querySecret === secret
   if (!secret || !provided) {
-    return NextResponse.json({ error: 'Unauthorized — passe ?secret=CRON_SECRET na URL' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized : passe ?secret=CRON_SECRET na URL' }, { status: 401 })
   }
 
   const mem = process.memoryUsage()
   const v8stats = getHeapStatistics()
   const rawSpaces = getHeapSpaceStatistics()
 
-  // Conta módulos carregados via require.cache (CJS — Next.js ESM pode ser 0)
+  // Conta módulos carregados via require.cache (CJS : Next.js ESM pode ser 0)
   const moduleCount = Object.keys(require.cache ?? {}).length
   const loadedPackages = Object.keys(require.cache ?? {})
     .filter(k => k.includes('node_modules'))
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     .slice(0, 30)
     .map(([name, files]) => ({ name, files }))
 
-  // Espacos de heap V8 — chave para identificar o culpado:
+  // Espacos de heap V8 : chave para identificar o culpado:
   // code_space alto = código JS compilado (googleapis, pdfjs, etc)
   // old_space alto   = objetos retidos (Maps, caches, closures)
   // large_object_space alto = buffers/arrays grandes

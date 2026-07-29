@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Follow-up Engine v2
  *
  * 4 tipos: follow_geral | anti_noshow | remarketing | follow_proposta
@@ -10,7 +10,7 @@
  * - Rate limit: 30 disparos / hora / empresa
  * - Pool de mensagens: pick aleatório
  * - Contexto SDR: inclui system_prompt da empresa quando usar_contexto_sdr=true
- * - Credenciais: sdr_configs (decrypt) → platform_config (global) — sem process.env
+ * - Credenciais: sdr_configs (decrypt) → platform_config (global) : sem process.env
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
@@ -25,7 +25,7 @@ import {
   isUazapiHealthy, isFatigued, recordFatigue, getBestSendHour,
 } from './reliability'
 
-/** Mesma lógica de engine.ts — variações de formato do número BR */
+/** Mesma lógica de engine.ts : variações de formato do número BR */
 function phoneVariants(phone: string): string[] {
   const variants: string[] = [phone]
   const push = (v: string) => { if (!variants.includes(v)) variants.push(v) }
@@ -139,7 +139,7 @@ function isBusinessHours(): boolean {
 
 /**
  * Parseia timestamps do banco como BRT quando não têm timezone explícito.
- * O Supabase pode devolver "2026-05-26T15:30:00" sem offset — o lead entrou
+ * O Supabase pode devolver "2026-05-26T15:30:00" sem offset : o lead entrou
  * o horário em BRT, então devemos tratá-lo como BRT, não UTC.
  */
 function parseBrt(ts: string): Date {
@@ -347,7 +347,7 @@ async function isStepReachableFromGraph(
   for (const pred of predecessors) {
     if (!firedIds.has(pred.srcId)) continue  // predecessor not yet fired
 
-    // If edge has a branch handle, the source is a branching node — evaluate
+    // If edge has a branch handle, the source is a branching node : evaluate
     if (pred.handle) {
       const srcStep = steps.find(s => s.id === pred.srcId)
       if (!srcStep) continue
@@ -417,7 +417,7 @@ async function openCircuit(sequenceId: string, companyId: number, supabase: Supa
   await syslog({
     type: 'follow_up',
     severity: 'warning',
-    message: `Circuit breaker aberto — sequência ${sequenceId} pausada por 30 min`,
+    message: `Circuit breaker aberto : sequência ${sequenceId} pausada por 30 min`,
     company_id: companyId,
     payload: { sequenceId },
   })
@@ -506,20 +506,20 @@ async function gerarMensagemIA(
 
   if (isRemarketing && lead.resumo_ia) {
     const angulo = tentativa === 1
-      ? 'valor — reforce o benefício principal da solução com base no que o lead demonstrou interesse'
+      ? 'valor : reforce o benefício principal da solução com base no que o lead demonstrou interesse'
       : tentativa === 2
-      ? 'prova social — mencione resultados reais ou casos similares ao perfil do lead (use o que souber do contexto, sem inventar)'
-      : 'encerramento — última tentativa, crie senso de escassez ou deixe a porta aberta de forma respeitosa'
+      ? 'prova social : mencione resultados reais ou casos similares ao perfil do lead (use o que souber do contexto, sem inventar)'
+      : 'encerramento : última tentativa, crie senso de escassez ou deixe a porta aberta de forma respeitosa'
 
     systemParts.push(`
-CONTEXTO DE REMARKETING — TENTATIVA #${tentativa}:
+CONTEXTO DE REMARKETING : TENTATIVA #${tentativa}:
 Antes de escrever, analise internamente o resumo do lead e identifique:
 1. Temperatura: quente (alto interesse, quase fechou), morno (interesse mas hesitante) ou frio (pouco engajamento)
 2. Última objeção ou barreira mencionada (preço, timing, dúvida técnica, etc.)
 
 REGRAS PARA ESTA MENSAGEM:
 - Ângulo desta tentativa: ${angulo}
-- Se identificou uma objeção clara, endereçe-a diretamente — não ignore
+- Se identificou uma objeção clara, endereçe-a diretamente : não ignore
 - Leads quentes: tom de urgência/FOMO sutil. Leads mornos: reforço de valor. Leads frios: reengajamento leve sem pressão
 - NÃO mencione que é um follow-up ou tentativa de remarketing
 - NÃO repita o mesmo ângulo das tentativas anteriores`)
@@ -557,7 +557,7 @@ async function enviarMensagem(
   try {
     await uazapi.sendPresence(phone, presenceType, typingMs)
   } catch {
-    // presence não-crítico — falha silenciosa, continua o envio
+    // presence não-crítico : falha silenciosa, continua o envio
   }
   await new Promise((r) => setTimeout(r, typingMs))
   await sendRichStep(uazapi, phone, tipo, text, media ?? undefined)
@@ -588,7 +588,7 @@ async function gravarMensagemFollow(
 ): Promise<void> {
   let convId: number | null = null
 
-  console.log(`[follow] gravarMensagem — lead=${leadId} phone=${phone} tipo=${tipoMensagem}`)
+  console.log(`[follow] gravarMensagem : lead=${leadId} phone=${phone} tipo=${tipoMensagem}`)
 
   const { data: byLead } = await supabase
     .from('conversas_do_whatsapp')
@@ -600,7 +600,7 @@ async function gravarMensagemFollow(
 
   if (byLead?.[0]?.id) {
     convId = byLead[0].id
-    console.log(`[follow] conversa encontrada por id_do_lead — conv=${convId}`)
+    console.log(`[follow] conversa encontrada por id_do_lead : conv=${convId}`)
   } else {
     // Usa phoneVariants: encontra a conversa mesmo se o número foi armazenado em formato diferente
     const phoneVars = phoneVariants(phone)
@@ -614,9 +614,9 @@ async function gravarMensagemFollow(
 
     if (byPhone?.[0]?.id) {
       convId = byPhone[0].id
-      console.log(`[follow] conversa encontrada por telefone — conv=${convId}`)
+      console.log(`[follow] conversa encontrada por telefone : conv=${convId}`)
     } else {
-      console.warn(`[follow] conversa não encontrada para lead=${leadId} phone=${phone} variants=${JSON.stringify(phoneVariants(phone))} — criando nova`)
+      console.warn(`[follow] conversa não encontrada para lead=${leadId} phone=${phone} variants=${JSON.stringify(phoneVariants(phone))} : criando nova`)
       const { data: leadData } = await supabase
         .from('leads')
         .select('contact_name')
@@ -655,7 +655,7 @@ async function gravarMensagemFollow(
   const displayText = text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
 
   if (!convId) {
-    console.error(`[follow] ERRO: convId null para lead=${leadId} phone=${phone} — mensagem não salva`)
+    console.error(`[follow] ERRO: convId null para lead=${leadId} phone=${phone} : mensagem não salva`)
     return
   }
 
@@ -678,7 +678,7 @@ async function gravarMensagemFollow(
     return
   }
 
-  console.log(`[follow] mensagem salva — lead=${leadId} conv=${convId} tipo=${tipoMensagem}`)
+  console.log(`[follow] mensagem salva : lead=${leadId} conv=${convId} tipo=${tipoMensagem}`)
 
   if (convId) {
     await supabase
@@ -804,7 +804,7 @@ async function processFollowGeral(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
-    // Staging mode — skip real sends (dry-run only)
+    // Staging mode : skip real sends (dry-run only)
     const isStaging = sequence.staging === true
 
     const expiraDias = (sequence.canvas_config as any)?.expira_em_dias ?? 0
@@ -849,7 +849,7 @@ async function processFollowGeral(
 
         if (leadFired.has(step.id)) continue  // already dispatched
 
-        // ── Non-blocking node types — execute immediately, no timing anchor needed ──
+        // ── Non-blocking node types : execute immediately, no timing anchor needed ──
         if ((step.tipo_mensagem as string) === 'fim') {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           leadFired.add(step.id)
@@ -874,7 +874,7 @@ async function processFollowGeral(
             .eq('direcao', 'inbound')
             .limit(1)
             .maybeSingle()
-          if (!replyMsg) continue  // sem interação — tenta no próximo ciclo CRON
+          if (!replyMsg) continue  // sem interação : tenta no próximo ciclo CRON
 
           // Marca follow_logs como respondido para contabilizar nas métricas
           supabase
@@ -916,7 +916,7 @@ async function processFollowGeral(
                 await gravarMensagemFollow(lead.id, company.id, phone, bloco, 'follow_geral', supabase, 'text', null)
               }
             } else {
-              console.log(`[follow][staging] skip send pos_condicao — lead=${lead.id} msg="${texto.slice(0, 80)}"`)
+              console.log(`[follow][staging] skip send pos_condicao : lead=${lead.id} msg="${texto.slice(0, 80)}"`)
             }
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
             leadFired.add(step.id)
@@ -996,7 +996,7 @@ async function processFollowGeral(
         const lockKey = sendLockKey(company.id, lead.id, step.id)
         if (!(await acquireSendLock(lockKey))) continue
 
-        // ── Sentiment step — classifica última mensagem via IA, armazena em Redis ──
+        // ── Sentiment step : classifica última mensagem via IA, armazena em Redis ──
         if (tipo === 'sentiment') {
           try {
             const { data: lastMsg } = await supabase
@@ -1030,7 +1030,7 @@ async function processFollowGeral(
           continue
         }
 
-        // ── Goal step — marca lead como convertido, sem envio ──
+        // ── Goal step : marca lead como convertido, sem envio ──
         if (tipo === 'goal') {
           try {
             const targetStatus = step.condicao || 'Convertido'
@@ -1045,7 +1045,7 @@ async function processFollowGeral(
           continue
         }
 
-        // ── Sub-flow step — enrola lead na sequência referenciada ──
+        // ── Sub-flow step : enrola lead na sequência referenciada ──
         if (tipo === 'sub_flow') {
           try {
             const subSeqId = (media as any)?.subSequenceId as string | undefined
@@ -1053,12 +1053,12 @@ async function processFollowGeral(
               const { data: subSeq } = await supabase
                 .from('follow_sequences').select('id, ativo').eq('id', subSeqId).maybeSingle()
               if (subSeq?.ativo) {
-                // Mark first step of sub-sequence as pending by NOT recording any execution —
+                // Mark first step of sub-sequence as pending by NOT recording any execution :
                 // the sub-sequence cron will pick it up naturally since no executions exist yet.
                 // We only record this enrollment step as sent.
                 await syslog({
                   type: 'follow_up', severity: 'info',
-                  message: `Sub-flow enrollment — lead=${lead.id} → sequence=${subSeqId}`,
+                  message: `Sub-flow enrollment : lead=${lead.id} → sequence=${subSeqId}`,
                   company_id: company.id,
                   payload: { leadId: lead.id, subSeqId },
                 })
@@ -1073,7 +1073,7 @@ async function processFollowGeral(
           continue
         }
 
-        // ── WaitEvent step — gating: avança só se lead respondeu com padrão desde última execução ──
+        // ── WaitEvent step : gating: avança só se lead respondeu com padrão desde última execução ──
         if (tipo === 'wait_event') {
           const event = (media as any)?.event as string | undefined
           const pattern = (media as any)?.pattern as string | undefined
@@ -1160,7 +1160,7 @@ async function processFollowGeral(
         try {
           if (isStaging) {
             // Staging: log intent without sending real WhatsApp message
-            console.log(`[follow][staging] skip send — lead=${lead.id} seq=${sequence.id} step=${step.id} tipo=${tipo} msg="${texto.slice(0, 80)}"`)
+            console.log(`[follow][staging] skip send : lead=${lead.id} seq=${sequence.id} step=${step.id} tipo=${tipo} msg="${texto.slice(0, 80)}"`)
           } else {
             await enviarMensagem(phone, texto, company, tipo, media)
             await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
@@ -1368,7 +1368,7 @@ async function processRemarketing(
     const statusFiltros: string[] = rmCfg?.statusFiltros?.length ? rmCfg.statusFiltros : ['Remarketing']
     const diasInativo = rmCfg?.diasInativo ?? 0
 
-    // Extrai lead_id específico do nome (ex: "Remarketing — João [Lead #62]")
+    // Extrai lead_id específico do nome (ex: "Remarketing : João [Lead #62]")
     const leadIdMatch = sequence.nome?.match(/\[Lead #(\d+)\]/)
     const targetLeadId = leadIdMatch ? parseInt(leadIdMatch[1]) : null
 
@@ -1404,7 +1404,7 @@ async function processRemarketing(
       rmFiredByLead.get(ex.lead_id)!.add(ex.step_id)
     }
 
-    // Controla leads que já tiveram um step disparado nesta execução — evita disparar N steps de uma vez
+    // Controla leads que já tiveram um step disparado nesta execução : evita disparar N steps de uma vez
     const firedThisRun = new Set<number>()
 
     for (const step of steps as FollowStep[]) {
@@ -1429,7 +1429,7 @@ async function processRemarketing(
 
         if (!force && rmLeadFired.has(step.id)) continue
 
-        // ── End / Condition nodes — execute immediately, no timing anchor needed ──
+        // ── End / Condition nodes : execute immediately, no timing anchor needed ──
         if ((step.tipo_mensagem as string) === 'fim') {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           rmLeadFired.add(step.id)
@@ -1560,7 +1560,7 @@ async function processFollowProposta(
 ): Promise<number> {
   let sent = 0
 
-  // Leads que tiveram call realizada e são Interessado/Negociando — proposta enviada, sem resposta
+  // Leads que tiveram call realizada e são Interessado/Negociando : proposta enviada, sem resposta
   const { data: leads } = await supabase
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status')
@@ -1591,7 +1591,7 @@ async function processFollowProposta(
         if (await isCircuitOpen(sequence.id)) continue
         if (await isFatigued(company.id, lead.id)) continue
 
-        // Pós-Condição: gate de interação — exige resposta; inverte lógica do leadJaRespondeuDesde
+        // Pós-Condição: gate de interação : exige resposta; inverte lógica do leadJaRespondeuDesde
         if ((step.tipo_mensagem as string) === 'pos_condicao') {
           const { data: replyMsg } = await supabase
             .from('mensagens_do_whatsapp').select('id').eq('id_do_lead', lead.id).eq('direcao', 'inbound').limit(1).maybeSingle()
@@ -1704,7 +1704,7 @@ async function processTrialSaas(
     .maybeSingle()
   const testMode = trialCfg?.test_mode === true && !!trialCfg?.test_phone
   const testPhone = testMode ? normalizePhone(trialCfg!.test_phone!) : null
-  if (testMode) console.log(`[follow:trial] MODO TESTE ativo — redirecionando para ${testPhone}`)
+  if (testMode) console.log(`[follow:trial] MODO TESTE ativo : redirecionando para ${testPhone}`)
 
   let trialsQuery = supabase
     .from('saas_trials')
@@ -1723,7 +1723,7 @@ async function processTrialSaas(
       .order('ordem', { ascending: true })
     if (!steps?.length) continue
 
-    // Usa BRT (UTC-3) — canvas configura horários em BRT, servidor roda em UTC
+    // Usa BRT (UTC-3) : canvas configura horários em BRT, servidor roda em UTC
     const nowBRT = new Date(now - 3 * 3_600_000)
     const nowMinutes = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes()
     const firedThisRunTrial = new Set<number>()
@@ -1751,13 +1751,13 @@ async function processTrialSaas(
       let firedThisRunCount = 0
 
       for (const step of steps as FollowStep[]) {
-        // Só 1 step por trial por rodada — webhook dispara step1 e para; cron avança 1 por vez
+        // Só 1 step por trial por rodada : webhook dispara step1 e para; cron avança 1 por vez
         if (firedThisRunTrial.has(trial.id)) { firedThisRunCount++; continue }
 
         if (!(await withinRateLimit(company.id, supabase))) return sent
         if (await stepJaDisparadoTrial(trial.id, step.id, supabase)) {
           confirmedDispatched.add(step.id)
-          continue  // já enviado — silencioso
+          continue  // já enviado : silencioso
         }
 
         // ── Retry / DLQ ──
@@ -1771,7 +1771,7 @@ async function processTrialSaas(
         const trialCircuitKey = `${sequence.id}:${trial.id}`
         if (await isCircuitOpen(trialCircuitKey)) { console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → circuit open (falhas consecutivas)`); continue }
 
-        // Nós de controle (condicao/fim) — só disparam após todos os steps de mensagem anteriores concluírem
+        // Nós de controle (condicao/fim) : só disparam após todos os steps de mensagem anteriores concluírem
         if ((step.tipo_mensagem as string) === 'fim' || (step.tipo_mensagem as string) === 'condicao') {
           const priorMsgSteps = (steps as FollowStep[]).filter(
             s => s.ordem < step.ordem &&
@@ -1786,14 +1786,14 @@ async function processTrialSaas(
             continue
           }
           // Condição baseada em estagio (custom): aguarda resposta do lead antes de avaliar.
-          // Só avalia se estagio for uma das choices válidas do botão predecessor — não qualquer valor não-nulo.
+          // Só avalia se estagio for uma das choices válidas do botão predecessor : não qualquer valor não-nulo.
           if ((step.tipo_mensagem as string) === 'condicao') {
             const cfg = step.media_config as any
             if (cfg?.variavel === 'custom') {
               const validChoices: string[] = Array.isArray(cfg.buttonChoices) ? cfg.buttonChoices : []
               // Com choices salvas: verifica se o estagio é uma opção válida do botão.
               // Sem choices (canvas não re-salvo): verifica apenas se estagio não é null.
-              // Trials sempre iniciam com estagio=null — setado somente via clique de botão.
+              // Trials sempre iniciam com estagio=null : setado somente via clique de botão.
               const estagioValido = validChoices.length > 0
                 ? validChoices.includes(trial.estagio ?? '')
                 : !!trial.estagio
@@ -1806,7 +1806,7 @@ async function processTrialSaas(
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'sent', supabase)
           confirmedDispatched.add(step.id)
           console.log(`[trial] #${trial.id} nó-controle ${step.id.slice(0,8)} ✓ processado`)
-          continue  // nós de controle não contam como disparo — não bloqueia próximos steps
+          continue  // nós de controle não contam como disparo : não bloqueia próximos steps
         }
 
         const trialUnit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
@@ -1829,7 +1829,7 @@ async function processTrialSaas(
         }
 
         // D0 com horário definido: valida expiração apenas para steps universais (sem ramo específico).
-        // Steps de ramo (condicao_estagio definido) não expiram — disparam assim que a condição avaliar,
+        // Steps de ramo (condicao_estagio definido) não expiram : disparam assim que a condição avaliar,
         // mesmo que o horário configurado já tenha passado.
         if (!immediate && trialUnit === 'days' && step.dia_offset === 0 && stepMinutes > 0 && !step.condicao_estagio) {
           if (signupMinsInDay >= stepMinutes) {
@@ -1848,14 +1848,14 @@ async function processTrialSaas(
           }
         }
 
-        // Checa condição do step — steps pulados por condição contam como "concluídos"
+        // Checa condição do step : steps pulados por condição contam como "concluídos"
         // para que nós fim/condicao subsequentes (merge) não fiquem travados
         const condicao = step.condicao ?? 'sempre'
         if (condicao === 'respondeu' && !trial.respondeu) { confirmedDispatched.add(step.id); continue }
         if (condicao === 'sem_resposta' && trial.respondeu) { confirmedDispatched.add(step.id); continue }
 
         // Roteamento por estágio (qual botão o lead clicou)
-        // condicao_estagio pode ser "Valor" (igual) ou "!Valor" (diferente — ramo Não da condição)
+        // condicao_estagio pode ser "Valor" (igual) ou "!Valor" (diferente : ramo Não da condição)
         if (step.condicao_estagio) {
           // Step de ramo só dispara DEPOIS que a condição predecessor foi avaliada.
           // Sem isso, estagio com valor inicial do trial (ex: "teste_gratis_7_dias") dispararia o ramo Não.
@@ -1863,7 +1863,7 @@ async function processTrialSaas(
             .filter(s => s.ordem < step.ordem && (s.tipo_mensagem as string) === 'condicao')
             .sort((a, b) => b.ordem - a.ordem)[0]
           if (condPred && !confirmedDispatched.has(condPred.id)) {
-            // Condição ainda não avaliada — aguarda sem marcar como concluído
+            // Condição ainda não avaliada : aguarda sem marcar como concluído
             continue
           }
 
@@ -1911,7 +1911,7 @@ async function processTrialSaas(
         const tipo = step.tipo_mensagem ?? 'text'
         const textoRaw = pickMessage(step).trim()
         if (!textoRaw && tipo === 'text') {
-          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO (mensagem vazia — verifique o node no canvas)`)
+          console.log(`[trial] #${trial.id} step=${step.id.slice(0,8)} → PULADO (mensagem vazia : verifique o node no canvas)`)
           await registrarExecucaoTrial(trial.id, sequence.id, step.id, company.id, 'skipped', supabase)
           confirmedDispatched.add(step.id)
           continue
@@ -2118,7 +2118,7 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
         const byTipo = (tipo: SequenceTipo) =>
           sequences.filter((s: any) => s.tipo === tipo) as FollowSequence[]
 
-        // trial_saas roda sempre — cada step tem horário próprio configurado no canvas
+        // trial_saas roda sempre : cada step tem horário próprio configurado no canvas
         // follow_geral/remarketing/proposta só rodam em horário comercial
         const trialPromise = processTrialSaas(company, byTipo('trial_saas'), supabase)
         const otherPromises = businessHours
@@ -2181,7 +2181,7 @@ function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   return value
 }
 
-/** Roda anti-noshow para todas as empresas ativas — usado pelo cron a cada 15 min */
+/** Roda anti-noshow para todas as empresas ativas : usado pelo cron a cada 15 min */
 export async function runAntNoshowAll(): Promise<{ processed: number; sent: number; errors: string[] }> {
   const supabase = createServiceClient()
   const platformCfg = await getPlatformConfig()
@@ -2207,7 +2207,7 @@ export async function runAntNoshowAll(): Promise<{ processed: number; sent: numb
       }
       if (!company.uazapi_token) { errors.push(`Empresa ${cfg.company_id}: token WhatsApp vazio`); continue }
       if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) {
-        errors.push(`Empresa ${cfg.company_id}: WhatsApp desconectado — anti-noshow pulado`)
+        errors.push(`Empresa ${cfg.company_id}: WhatsApp desconectado : anti-noshow pulado`)
         continue
       }
 
@@ -2310,7 +2310,7 @@ export async function runRemarketingForCompany(companyId: number, skipDelay = fa
   return { sent }
 }
 
-/** Dispara imediatamente o trial recém-criado — usado pelo webhook após upsert */
+/** Dispara imediatamente o trial recém-criado : usado pelo webhook após upsert */
 export async function runTrialSaasImmediate(companyId: number, trialId: number): Promise<{ sent: number; error?: string }> {
   const supabase = createServiceClient()
   const platformCfg = await getPlatformConfig()
@@ -2382,7 +2382,7 @@ export async function runPaymentSequenceImmediate(
   }
 
   // Sequências do tipo "pagamento" ativas para esta empresa
-  // Busca todas e filtra em JS — precisa checar tanto canvas_config.eventoEntrada
+  // Busca todas e filtra em JS : precisa checar tanto canvas_config.eventoEntrada
   // (trigger principal) quanto canvas_config.extraTriggers[*].eventoEntrada
   const { data: allSeqs } = await supabase
     .from('follow_sequences')
@@ -2419,7 +2419,7 @@ export async function runPaymentSequenceImmediate(
     if (!steps?.length) continue
 
     for (const step of steps) {
-      // Skip nós de espera — modo imediato envia tudo na sequência
+      // Skip nós de espera : modo imediato envia tudo na sequência
       if (!step.mensagem && !step.media_config) continue
 
       try {

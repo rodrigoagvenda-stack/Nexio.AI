@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
-// PATCH /api/support/ticket/[id] — user marks ticket as resolved
+// PATCH /api/support/ticket/[id] : user marks ticket as resolved
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { context, error } = await requireAuth(req)

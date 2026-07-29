@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { runAntNoshowAll } from '@/lib/sdr/follow'
 
 export const runtime = 'nodejs'
@@ -10,7 +10,7 @@ function checkAuth(request: Request): boolean {
   return !!cronSecret && authHeader === `Bearer ${cronSecret}`
 }
 
-// GET /api/cron/antnoshow — Vercel Cron a cada 15 min
+// GET /api/cron/antnoshow : Vercel Cron a cada 15 min
 export async function GET(request: Request) {
   if (!checkAuth(request)) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   try {
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/cron/antnoshow — disparo manual (autenticação CRON_SECRET)
+// POST /api/cron/antnoshow : disparo manual (autenticação CRON_SECRET)
 export async function POST(request: Request) {
   if (!checkAuth(request)) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   try {

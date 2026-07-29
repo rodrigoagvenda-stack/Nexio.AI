@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -173,7 +173,7 @@ export default function AtendimentoPage() {
     try {
       const res = await fetch('/api/sdr/status');
       if (res.status === 401) {
-        // Sessão expirada — redireciona para login
+        // Sessão expirada : redireciona para login
         window.location.href = '/login';
         return;
       }
@@ -1080,7 +1080,7 @@ export default function AtendimentoPage() {
   const tabFilteredConversations = conversations.filter((conv) => {
     if (convTab === 'minhas') return conv.assigned_to === user?.id;
     if (convTab === 'nao_atribuidas') return conv.assigned_to == null;
-    return true; // 'todas' — admin/manager only
+    return true; // 'todas' : admin/manager only
   });
 
   const filteredConversations = tabFilteredConversations.filter((conv) =>
@@ -1142,7 +1142,7 @@ export default function AtendimentoPage() {
   };
 
   const renderMessageContent = (msg: Message) => {
-    // Evento de sistema — chip centralizado (ex: disparo de teste de sequência)
+    // Evento de sistema : chip centralizado (ex: disparo de teste de sequência)
     if (msg.tipo_de_mensagem === 'system') {
       return (
         <div className="flex items-center gap-2 py-0.5">
@@ -1152,7 +1152,7 @@ export default function AtendimentoPage() {
       );
     }
 
-    // Mensagem apagada — estilo WhatsApp
+    // Mensagem apagada : estilo WhatsApp
     if (msg.is_deleted) {
       return (
         <p className="text-sm italic opacity-60 flex items-center gap-1.5">
@@ -1164,7 +1164,7 @@ export default function AtendimentoPage() {
       );
     }
 
-    // Áudio/PTT — com ou sem URL
+    // Áudio/PTT : com ou sem URL
     if (msg.tipo_de_mensagem === 'audio' || msg.tipo_de_mensagem === 'ptt') {
       if (msg.url_da_midia) {
         return <WhatsAppAudioPlayer src={msg.url_da_midia} isOutbound={msg.direcao === 'outbound'} />;
@@ -1188,7 +1188,7 @@ export default function AtendimentoPage() {
       );
     }
 
-    // Menu/button — antes do bloco url_da_midia porque url_da_midia carrega o JSON de choices
+    // Menu/button : antes do bloco url_da_midia porque url_da_midia carrega o JSON de choices
     if (msg.tipo_de_mensagem === 'menu' || msg.tipo_de_mensagem === 'button') {
       let menuData: { menuType?: string; choices?: any[] } = {};
       try { menuData = JSON.parse(msg.url_da_midia ?? ''); } catch {}
@@ -1393,7 +1393,7 @@ export default function AtendimentoPage() {
         <div className="w-full max-w-2xl mx-4">
           <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
             <div className="flex flex-col md:flex-row">
-              {/* Lado esquerdo — instruções */}
+              {/* Lado esquerdo : instruções */}
               <div className="flex-1 p-8 flex flex-col gap-6">
                 <div>
                   <h1 className="text-2xl font-light text-foreground mb-1">Conectar WhatsApp</h1>
@@ -1421,7 +1421,7 @@ export default function AtendimentoPage() {
                 </button>
               </div>
 
-              {/* Lado direito — QR Code */}
+              {/* Lado direito : QR Code */}
               <div className="flex items-center justify-center p-8 bg-muted/30 border-t md:border-t-0 md:border-l border-border min-h-[260px]">
                 {waQrcode ? (
                   <div className="flex flex-col items-center gap-3">
@@ -2216,7 +2216,7 @@ export default function AtendimentoPage() {
         />
       )}
 
-      {/* AlertDialog — Desconectar WhatsApp */}
+      {/* AlertDialog : Desconectar WhatsApp */}
       <AlertDialog open={disconnectConfirmOpen} onOpenChange={setDisconnectConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2237,7 +2237,7 @@ export default function AtendimentoPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* AlertDialog — Apagar conversa */}
+      {/* AlertDialog : Apagar conversa */}
       <AlertDialog open={deleteConvDialog.open} onOpenChange={(open) => !open && setDeleteConvDialog({ open: false, conv: null })}>
         <AlertDialogContent>
           <AlertDialogHeader>

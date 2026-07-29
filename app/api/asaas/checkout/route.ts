@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     let subscriptionId: string | undefined = subSearchData.data?.[0]?.id
 
     if (subscriptionId) {
-      // Assinatura já existe no Asaas — salva no banco se não estava
+      // Assinatura já existe no Asaas : salva no banco se não estava
       await service.from('companies').update({
         asaas_subscription_id: subscriptionId,
         plan_type: plan,

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 
 const store = new Map<string, { count: number; resetAt: number }>();
 
@@ -11,7 +11,7 @@ setInterval(() => {
 }, 5 * 60 * 1000).unref();
 
 /**
- * Interface key-based: uso direto sem middleware — retorna { success: boolean }
+ * Interface key-based: uso direto sem middleware : retorna { success: boolean }
  * Exemplo: rateLimit({ key: `rota:${ip}`, limit: 10, windowMs: 60_000 })
  */
 export function rateLimit(options: { key: string; limit: number; windowMs: number }): { success: boolean };

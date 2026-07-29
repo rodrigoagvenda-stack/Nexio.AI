@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+﻿import { createServiceClient } from '@/lib/supabase/server'
 
 type Severity = 'info' | 'warning' | 'error' | 'critical'
 type LogType = 'sdr' | 'follow_up' | 'billing' | 'webhook' | 'error' | 'system'
@@ -11,7 +11,7 @@ export function writeSystemLog(
   payload?: Record<string, unknown>,
   stackTrace?: string,
 ): void {
-  // Fire-and-forget — never throws, never blocks the main flow
+  // Fire-and-forget : never throws, never blocks the main flow
   ;(async () => {
     try {
       const supabase = createServiceClient()

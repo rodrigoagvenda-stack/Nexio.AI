@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -16,7 +16,7 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
-  // Supabase envia o token no hash — o client SDK troca automaticamente por sessão
+  // Supabase envia o token no hash : o client SDK troca automaticamente por sessão
   useEffect(() => {
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any) => {

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 import type OpenAI from 'openai'
@@ -51,7 +51,7 @@ ${sdrMsg ? `\nResposta com erro: "${sdrMsg}"` : ''}
 
 Escreva UMA instrução clara e concreta para o agente corrigir esse comportamento.
 Máximo 3 linhas. Use formato de regra direta ("Sempre X", "Nunca Y", "Quando Z, faça W").
-Não explique o motivo — só diga o que fazer.`
+Não explique o motivo : só diga o que fazer.`
 
     const res = await openai.chat.completions.create({
       model: 'gpt-4.1-mini',
@@ -62,7 +62,7 @@ Não explique o motivo — só diga o que fazer.`
 
     const instruction = res.choices[0]?.message?.content?.trim() ?? correction
 
-    const correctionText = `=== CORREÇÃO DE COMPORTAMENTO ===\n${instruction}\n\n[Identificada em simulação — aplicar imediatamente]`
+    const correctionText = `=== CORREÇÃO DE COMPORTAMENTO ===\n${instruction}\n\n[Identificada em simulação : aplicar imediatamente]`
 
     // Embed the correction chunk
     const embRes = await openai.embeddings.create({
@@ -72,7 +72,7 @@ Não explique o motivo — só diga o que fazer.`
     const embedding = embRes.data[0]?.embedding
     if (!embedding) throw new Error('Falha ao gerar embedding')
 
-    // INSERT only — does not delete existing chunks
+    // INSERT only : does not delete existing chunks
     const { error: insertError } = await service.from('documents').insert({
       company_id: userData.company_id,
       content: correctionText,

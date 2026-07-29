@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
-// PATCH /api/conversations/:id/agent — pausar/ativar agente por conversa
+// PATCH /api/conversations/:id/agent : pausar/ativar agente por conversa
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {

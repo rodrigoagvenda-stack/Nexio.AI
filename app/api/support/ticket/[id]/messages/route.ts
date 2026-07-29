@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
 export const dynamic = 'force-dynamic'
 
-// GET — list messages for a ticket
+// GET : list messages for a ticket
 export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { context, error } = await requireAuth(req)
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   return NextResponse.json({ messages })
 }
 
-// POST — user sends a reply
+// POST : user sends a reply
 export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { context, error } = await requireAuth(req)

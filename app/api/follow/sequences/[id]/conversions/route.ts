@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 
@@ -59,8 +59,8 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 
   const conversions = (goalExecs ?? []).map((exec) => ({
     lead_id: exec.lead_id,
-    lead_name: leadMap[exec.lead_id]?.contact_name ?? '—',
-    lead_status: leadMap[exec.lead_id]?.status ?? '—',
+    lead_name: leadMap[exec.lead_id]?.contact_name ?? ':',
+    lead_status: leadMap[exec.lead_id]?.status ?? ':',
     whatsapp: leadMap[exec.lead_id]?.whatsapp ?? null,
     goal_label: stepMap[exec.step_id]?.condicao || 'Convertido',
     goal_ordem: stepMap[exec.step_id]?.ordem ?? 0,

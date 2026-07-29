@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+﻿import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
@@ -41,7 +41,7 @@ export function decrypt(encryptedData: string): string {
 
   const key = getKey();
   if (!key) {
-    // ENCRYPTION_KEY removida mas dado foi criptografado — não consegue ler
+    // ENCRYPTION_KEY removida mas dado foi criptografado : não consegue ler
     throw new Error('ENCRYPTION_KEY necessária para descriptografar este valor');
   }
 

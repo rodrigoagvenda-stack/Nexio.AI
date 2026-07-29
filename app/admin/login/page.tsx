@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -32,7 +32,7 @@ export default function AdminLoginPage() {
 
         if (!adminUser) {
           await supabase.auth.signOut();
-          throw new Error('Acesso negado — conta sem permissão de administrador');
+          throw new Error('Acesso negado : conta sem permissão de administrador');
         }
 
         window.location.href = '/admin';

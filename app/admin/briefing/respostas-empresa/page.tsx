@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -143,7 +143,7 @@ export default function RespostasEmpresaPage() {
                             {key.replace(/_/g, ' ')}
                           </p>
                           <p className="text-sm text-foreground">
-                            {Array.isArray(value) ? value.join(', ') : String(value || '—')}
+                            {Array.isArray(value) ? value.join(', ') : String(value || ':')}
                           </p>
                         </div>
                       ))}

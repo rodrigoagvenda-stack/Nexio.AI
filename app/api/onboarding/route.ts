@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
 import { sendWelcomeEmail } from '@/lib/email/resend'
 
-// POST /api/onboarding — cria company + user para novos usuários
+// POST /api/onboarding : cria company + user para novos usuários
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    // 1. Cria a empresa — novas contas sempre iniciam em trial de 7 dias (sem SDR/Canvas)
+    // 1. Cria a empresa : novas contas sempre iniciam em trial de 7 dias (sem SDR/Canvas)
     let companyId: number
 
     const { data: company, error: companyErr } = await service
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       companyId = company!.id
     }
 
-    // 2. Cria o usuário — user_id é NOT NULL, usa o auth UUID
+    // 2. Cria o usuário : user_id é NOT NULL, usa o auth UUID
     const { error: userErr } = await service
       .from('users')
       .upsert({

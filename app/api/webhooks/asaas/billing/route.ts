@@ -1,4 +1,4 @@
-/**
+﻿/**
  * POST /api/webhooks/asaas/billing
  *
  * Webhook único configurado no painel Asaas para eventos de billing.
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
   const rl = rateLimit({ key: `asaas-billing:${ip}`, limit: 120, windowMs: 60_000 })
   if (!rl.success) {
-    // Retorna 200 mesmo em rate limit — não queremos pausar a fila Asaas
+    // Retorna 200 mesmo em rate limit : não queremos pausar a fila Asaas
     console.warn('[webhook/billing] rate limit excedido:', ip)
     return NextResponse.json({ received: true, warning: 'rate_limit' })
   }
@@ -94,10 +94,10 @@ export async function POST(request: NextRequest) {
 
   if (idempotencyError) {
     if (idempotencyError.code === '23505') {
-      // Evento duplicado — já processado, retorna 200 silenciosamente
+      // Evento duplicado : já processado, retorna 200 silenciosamente
       return NextResponse.json({ received: true, duplicate: true })
     }
-    // Falha na tabela de idempotência — loga mas continua (não bloquear o processamento)
+    // Falha na tabela de idempotência : loga mas continua (não bloquear o processamento)
     console.warn('[webhook/billing] idempotency insert falhou:', idempotencyError.message)
   }
 
@@ -113,25 +113,25 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ received: true, warning: 'status_nao_confirmado' })
         }
       } catch (verifyErr: any) {
-        // Falha ao verificar na API — loga e processa com payload do webhook
+        // Falha ao verificar na API : loga e processa com payload do webhook
         console.warn('[webhook/billing] falha ao verificar pagamento na API:', verifyErr.message)
       }
 
       if (confirmedPayment.subscription) {
         await handleSubscriptionPayment(confirmedPayment, supabase)
-        await syslog({ type: 'billing', severity: 'info', message: `Pagamento confirmado — assinatura ${confirmedPayment.subscription}`, payload: { event, paymentId: confirmedPayment.id, value: confirmedPayment.value } })
+        await syslog({ type: 'billing', severity: 'info', message: `Pagamento confirmado : assinatura ${confirmedPayment.subscription}`, payload: { event, paymentId: confirmedPayment.id, value: confirmedPayment.value } })
       } else {
         await handleExtraPackagePayment(confirmedPayment, supabase)
-        await syslog({ type: 'billing', severity: 'info', message: `Cobrança avulsa confirmada — ${confirmedPayment.id}`, payload: { event, paymentId: confirmedPayment.id, value: confirmedPayment.value } })
+        await syslog({ type: 'billing', severity: 'info', message: `Cobrança avulsa confirmada : ${confirmedPayment.id}`, payload: { event, paymentId: confirmedPayment.id, value: confirmedPayment.value } })
       }
 
     } else if (event === 'PAYMENT_REFUNDED') {
       await handleSubscriptionRefunded(payment, supabase)
-      await syslog({ type: 'billing', severity: 'warning', message: `Pagamento estornado — ${payment.id}`, payload: { event, paymentId: payment.id } })
+      await syslog({ type: 'billing', severity: 'warning', message: `Pagamento estornado : ${payment.id}`, payload: { event, paymentId: payment.id } })
 
     } else if (event === 'SUBSCRIPTION_DELETED') {
       await handleSubscriptionDeleted(payment, supabase)
-      await syslog({ type: 'billing', severity: 'warning', message: `Assinatura cancelada — ${payment.subscription}`, payload: { event, paymentId: payment.id } })
+      await syslog({ type: 'billing', severity: 'warning', message: `Assinatura cancelada : ${payment.subscription}`, payload: { event, paymentId: payment.id } })
 
     } else {
       await syslog({ type: 'billing', severity: 'info', message: `Evento Asaas recebido: ${event}`, payload: { event, paymentId: payment.id } })
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
   } catch (err: any) {
     console.error('[webhook/billing]', event, err)
     await syslog({ type: 'billing', severity: 'error', message: `Webhook billing falhou: ${err.message}`, payload: { event, error: err.message, stack: err.stack?.slice(0, 500) } })
-    // Sempre 200 — erros internos não devem pausar a fila Asaas
+    // Sempre 200 : erros internos não devem pausar a fila Asaas
     return NextResponse.json({ received: true, warning: err.message })
   }
 }
@@ -232,7 +232,7 @@ async function handleSubscriptionRefunded(
 ) {
   if (!payment.subscription) return
 
-  // Revoga acesso imediatamente — expiry no passado + desativa agente
+  // Revoga acesso imediatamente : expiry no passado + desativa agente
   await supabase.from('companies').update({
     is_active: false,
     agente_ativo: false,
@@ -261,11 +261,11 @@ async function handleApiKeyEvent(event: string) {
 
   const severity = severityMap[event] ?? 'warning'
   const message = {
-    'ACCESS_TOKEN_EXPIRING_SOON': 'Chave de API Asaas expirando em breve — rotacione antes de expirar.',
-    'ACCESS_TOKEN_DISABLED':      'Chave de API Asaas DESABILITADA por inatividade — reabilite no painel imediatamente.',
-    'ACCESS_TOKEN_EXPIRED':       'Chave de API Asaas EXPIRADA — gere uma nova chave e atualize as configurações AGORA.',
+    'ACCESS_TOKEN_EXPIRING_SOON': 'Chave de API Asaas expirando em breve : rotacione antes de expirar.',
+    'ACCESS_TOKEN_DISABLED':      'Chave de API Asaas DESABILITADA por inatividade : reabilite no painel imediatamente.',
+    'ACCESS_TOKEN_EXPIRED':       'Chave de API Asaas EXPIRADA : gere uma nova chave e atualize as configurações AGORA.',
   }[event] ?? `Evento de chave de API Asaas: ${event}`
 
-  console.error(`[webhook/billing] ATENÇÃO — ${event}:`, message)
+  console.error(`[webhook/billing] ATENÇÃO : ${event}:`, message)
   await syslog({ type: 'billing', severity, message, payload: { event } })
 }

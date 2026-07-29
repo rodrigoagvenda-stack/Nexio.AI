@@ -1,4 +1,4 @@
-import type { TourStep } from '@/components/onboarding/GuidedTour';
+﻿import type { TourStep } from '@/components/onboarding/GuidedTour';
 
 export const DASHBOARD_TOUR_STEPS: TourStep[] = [
   {
@@ -33,7 +33,7 @@ export const DASHBOARD_TOUR_STEPS: TourStep[] = [
     id: 'tokens-usage',
     target: '[data-tour="tokens-card"]',
     title: 'Uso de tokens de IA',
-    description: 'Cada resposta do agente SDR consome tokens. Acompanhe o uso aqui — quando chegar perto do limite, você recebe um aviso.',
+    description: 'Cada resposta do agente SDR consome tokens. Acompanhe o uso aqui : quando chegar perto do limite, você recebe um aviso.',
     placement: 'top',
   },
 ];

@@ -1136,7 +1136,7 @@ function NodeHeader({ icon: Icon, label, accent = 'primary', meta, nodeId, custo
             </div>
             {customLabel && (
               <p className="text-[11px] font-medium text-foreground/80 leading-snug truncate mt-0.5 flex items-center gap-1">
-                <span>—</span>
+                <span>:</span>
                 <span>{customLabel}</span>
                 <PenLine className="w-2.5 h-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors shrink-0 cursor-text" />
               </p>
@@ -3518,7 +3518,7 @@ function ExecutionsView({ sequenceId, tipo }: { sequenceId: string | null; tipo:
   }, [sequenceId, tab]);
 
   function formatTs(ts: string | null): string {
-    if (!ts) return '—';
+    if (!ts) return ':';
     try {
       const d = new Date(ts);
       const now = new Date();

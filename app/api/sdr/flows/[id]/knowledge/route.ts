@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { processKnowledgePdf } from '@/lib/sdr/rag'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
-// GET /api/sdr/flows/:id/knowledge — info da base de conhecimento atual
+// GET /api/sdr/flows/:id/knowledge : info da base de conhecimento atual
 export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
@@ -34,7 +34,7 @@ export async function GET(_request: NextRequest, props: { params: Promise<{ id: 
   }
 }
 
-// POST /api/sdr/flows/:id/knowledge — upload PDF base de conhecimento
+// POST /api/sdr/flows/:id/knowledge : upload PDF base de conhecimento
 export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {

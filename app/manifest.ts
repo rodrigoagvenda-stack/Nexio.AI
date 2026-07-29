@@ -1,4 +1,4 @@
-import type { MetadataRoute } from 'next'
+﻿import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -35,7 +35,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/favicon.svg',
         sizes: '375x667',
         type: 'image/svg+xml',
-        // @ts-ignore — form_factor é válido mas não está no type ainda
+        // @ts-ignore : form_factor é válido mas não está no type ainda
         form_factor: 'narrow',
         label: 'Zaapply CRM',
       },
@@ -43,7 +43,7 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ['business', 'productivity'],
     lang: 'pt-BR',
     dir: 'ltr',
-    // @ts-ignore — permissions válido no spec W3C mas não no type Next.js ainda
+    // @ts-ignore : permissions válido no spec W3C mas não no type Next.js ainda
     permissions: ['microphone'],
   }
 }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * lib/asaas/client.ts
  * Wrapper para a API ASAAS v3.
  * Credenciais lidas do banco via getPlatformConfig (admin → Configurações).
@@ -31,14 +31,14 @@ async function asaasRequest<T = any>(
     cache: 'no-store',
   })
 
-  // 429 — rate limit: aguarda retry-after e tenta mais uma vez
+  // 429 : rate limit: aguarda retry-after e tenta mais uma vez
   if (res.status === 429 && _retries > 0) {
     const retryAfter = parseInt(res.headers.get('retry-after') || '5', 10)
     await new Promise(resolve => setTimeout(resolve, retryAfter * 1000))
     return asaasRequest<T>(method, path, body, _retries - 1)
   }
 
-  // Parse seguro — Asaas retorna HTML quando a chave é inválida ou a URL está errada
+  // Parse seguro : Asaas retorna HTML quando a chave é inválida ou a URL está errada
   const text = await res.text()
   let data: any
   try {

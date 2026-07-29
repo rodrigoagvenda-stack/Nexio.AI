@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -53,7 +53,7 @@ export default function MFAPage() {
     }
   };
 
-  // Signs out before redirecting — prevents bypassing MFA by clicking the link
+  // Signs out before redirecting : prevents bypassing MFA by clicking the link
   const handleContactSupport = async () => {
     setSupportLoading(true);
     await createClient().auth.signOut();
@@ -120,7 +120,7 @@ export default function MFAPage() {
           Google Authenticator · Authy · 1Password · Microsoft Authenticator
         </p>
 
-        {/* Support — signs out first to prevent MFA bypass */}
+        {/* Support : signs out first to prevent MFA bypass */}
         <div className="text-center space-y-1 pt-2 border-t border-border/50">
           <p className="text-xs text-muted-foreground">Perdeu acesso ao autenticador?</p>
           <button

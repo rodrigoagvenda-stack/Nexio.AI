@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireAuth, validateCompanyAccess } from '@/lib/auth/require-auth';
 import { gtproConvertLead } from '@/lib/meta/gtpro';
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ lea
 
       if (!existing) {
         const nome = lead?.contact_name
-          ? `Remarketing — ${lead.contact_name} [Lead #${leadId}]`
+          ? `Remarketing : ${lead.contact_name} [Lead #${leadId}]`
           : `Remarketing [Lead #${leadId}]`;
 
         // Próxima hora cheia como horário padrão

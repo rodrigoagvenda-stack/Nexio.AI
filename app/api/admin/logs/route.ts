@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
           success: true,
           data: [],
           table_missing: true,
-          message: 'Tabela system_logs não encontrada — execute a migration 20260504000000_system_logs.sql no Supabase.',
+          message: 'Tabela system_logs não encontrada : execute a migration 20260504000000_system_logs.sql no Supabase.',
         });
       }
       throw error;
@@ -86,14 +86,14 @@ export async function POST(request: NextRequest) {
     const serviceSupabase = createServiceClient();
     const body = await request.json();
 
-    // company_id sempre da sessão — nunca do body para evitar log injection entre empresas
+    // company_id sempre da sessão : nunca do body para evitar log injection entre empresas
     const { data: dbUser } = await serviceSupabase
       .from('users')
       .select('company_id, role')
       .eq('auth_user_id', user.id)
       .single();
 
-    // Usuários comuns só podem registrar severidade info/warning — não podem forjar erros críticos
+    // Usuários comuns só podem registrar severidade info/warning : não podem forjar erros críticos
     const ADMIN_ROLES = ['admin', 'company_admin', 'manager'];
     const allowedSeverities: string[] = ADMIN_ROLES.includes(dbUser?.role ?? '')
       ? ['debug', 'info', 'warning', 'error', 'critical']

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendLgpdConfirmacaoEmail, sendLgpdAlertaDpoEmail } from '@/lib/email/resend';
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Dispara emails em paralelo — não bloqueia a resposta se falhar
+  // Dispara emails em paralelo : não bloqueia a resposta se falhar
   void Promise.all([
     sendLgpdConfirmacaoEmail({ to: emailNorm, nome: nomeTrimmed, tipo, protocolo }),
     sendLgpdAlertaDpoEmail({ nome: nomeTrimmed, email: emailNorm, tipo, mensagem: mensagemTrimmed, protocolo }),

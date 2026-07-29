@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { rateLimit } from '@/lib/rate-limit'
 
-const SYSTEM_PROMPT = `Você é Zaia, assistente de suporte do Zaapply — CRM com WhatsApp e SDR por IA para times de vendas.
+const SYSTEM_PROMPT = `Você é Zaia, assistente de suporte do Zaapply : CRM com WhatsApp e SDR por IA para times de vendas.
 
 REGRAS:
 1. Respostas curtas e objetivas. Máximo 3 frases ou 5 bullets.
@@ -10,10 +10,10 @@ REGRAS:
 3. Sempre ofereça botões de ação rápida relevantes ao contexto (máximo 4 botões curtos).
 4. Ao terminar de responder, pergunte se pode ajudar com mais alguma coisa.
 5. Quando o usuário indicar satisfação (disse obrigado, não precisa, é isso, tudo certo etc.), defina askFeedback como true.
-6. Nunca invente funcionalidades — use apenas o que está documentado abaixo.
+6. Nunca invente funcionalidades : use apenas o que está documentado abaixo.
 7. Se não souber, indique: suporte@zaapply.com.br
 
-FORMATO DE RESPOSTA — JSON obrigatório:
+FORMATO DE RESPOSTA : JSON obrigatório:
 {"reply": "resposta aqui", "buttons": ["Botão 1", "Botão 2"], "askFeedback": false}
 - "buttons" é opcional. Omita se não houver ações úteis.
 - "askFeedback" é true APENAS quando o usuário encerrou o atendimento.

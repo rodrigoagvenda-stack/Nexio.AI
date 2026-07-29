@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -89,7 +89,7 @@ export default function LoginPage() {
         window.location.href = needsMfa ? '/mfa' : '/dashboard';
       }
     } catch {
-      // Nunca expor error.message ao usuário — evita enumeração de email
+      // Nunca expor error.message ao usuário : evita enumeração de email
       toast({ title: 'Email ou senha incorretos', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -132,7 +132,7 @@ export default function LoginPage() {
       setTab('login');
       setEmail(signupEmail);
     } catch {
-      // Mensagem genérica — evita enumerar se email já existe
+      // Mensagem genérica : evita enumerar se email já existe
       toast({ title: 'Não foi possível criar a conta. Tente novamente.', variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -147,7 +147,7 @@ export default function LoginPage() {
       await supabase.auth.resetPasswordForEmail(forgotEmail, {
         redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
       });
-      // Sempre mostrar sucesso — não revelar se email existe
+      // Sempre mostrar sucesso : não revelar se email existe
       setForgotSent(true);
     } catch {
       setForgotSent(true);
@@ -258,7 +258,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Google — somente login/signup */}
+            {/* Google : somente login/signup */}
             {tab !== 'forgot' && (
               <>
                 <button

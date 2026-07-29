@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export type AuthContext = {
@@ -12,7 +12,7 @@ export type AdminContext = {
   adminRole: 'super_admin' | 'admin' | 'support';
 };
 
-// Para rotas do dashboard — garante usuário autenticado e retorna company_id
+// Para rotas do dashboard : garante usuário autenticado e retorna company_id
 export async function requireAuth(request: NextRequest): Promise<
   { context: AuthContext; error: null } | { context: null; error: NextResponse }
 > {
@@ -49,7 +49,7 @@ export async function requireAuth(request: NextRequest): Promise<
   };
 }
 
-// Para rotas admin — garante que é admin ativo
+// Para rotas admin : garante que é admin ativo
 export async function requireAdmin(request: NextRequest): Promise<
   { context: AdminContext; error: null } | { context: null; error: NextResponse }
 > {

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -283,7 +283,7 @@ export default function FinanceiroPage() {
                   </thead>
                   <tbody>
                     {charges.map((charge, i) => {
-                      const leadName = charge.lead_name || '—'
+                      const leadName = charge.lead_name || ':'
                       const statusInfo = STATUS_LABELS[charge.status] ?? { label: charge.status, color: 'text-muted-foreground' }
                       const link = charge.payment_url || charge.invoice_url
                       return (
@@ -295,18 +295,18 @@ export default function FinanceiroPage() {
                         >
                           <td className="px-4 py-3 font-medium truncate max-w-[140px]">{leadName}</td>
                           <td className="px-4 py-3 text-muted-foreground truncate max-w-[180px]">
-                            {charge.description || '—'}
+                            {charge.description || ':'}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {PLATFORM_LABELS[charge.platform] || charge.platform}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
-                            {BILLING_LABELS[charge.billing_type ?? ''] || charge.billing_type || '—'}
+                            {BILLING_LABELS[charge.billing_type ?? ''] || charge.billing_type || ':'}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {charge.due_date
                               ? format(new Date(charge.due_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
-                              : '—'}
+                              : ':'}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold">{fmt(charge.amount)}</td>
                           <td className="px-4 py-3 text-center">
@@ -351,7 +351,7 @@ export default function FinanceiroPage() {
             {/* Mobile cards */}
             <div className="md:hidden space-y-3 mt-2">
               {charges.map((charge) => {
-                const leadName = charge.lead_name || '—'
+                const leadName = charge.lead_name || ':'
                 const statusInfo = STATUS_LABELS[charge.status] ?? { label: charge.status, color: 'text-muted-foreground' }
                 const link = charge.payment_url || charge.invoice_url
                 return (
@@ -359,7 +359,7 @@ export default function FinanceiroPage() {
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="min-w-0">
                         <p className="font-semibold text-sm truncate">{leadName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{charge.description || '—'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{charge.description || ':'}</p>
                       </div>
                       <span className={cn('text-xs font-medium flex-shrink-0', statusInfo.color)}>
                         {statusInfo.label}
@@ -369,7 +369,7 @@ export default function FinanceiroPage() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span>{PLATFORM_LABELS[charge.platform] || charge.platform}</span>
                         <span>•</span>
-                        <span>{BILLING_LABELS[charge.billing_type ?? ''] || '—'}</span>
+                        <span>{BILLING_LABELS[charge.billing_type ?? ''] || ':'}</span>
                         {charge.due_date && (
                           <>
                             <span>•</span>

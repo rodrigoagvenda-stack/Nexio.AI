@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
-// Cache com TTL (30 min) e limite de tamanho — evita crescimento ilimitado
+// Cache com TTL (30 min) e limite de tamanho : evita crescimento ilimitado
 const CACHE_TTL = 30 * 60 * 1000
 const MAX_ENTRIES = 5_000
 
@@ -62,12 +62,12 @@ export async function GET(request: NextRequest) {
     if (conv?.whatsapp_photo_url) {
       const url = conv.whatsapp_photo_url
       // URL do Supabase Storage = permanente, retorna direto
-      // URL CDN WhatsApp (pps.whatsapp.net) = expira — ignora e re-busca da uazapi
+      // URL CDN WhatsApp (pps.whatsapp.net) = expira : ignora e re-busca da uazapi
       if (!url.includes('pps.whatsapp.net') && !url.includes('static.whatsapp.net')) {
         cacheSet(cacheKey, url)
         return NextResponse.json({ photo: url })
       }
-      // URL expirada no banco — limpa e busca fresh da uazapi
+      // URL expirada no banco : limpa e busca fresh da uazapi
       if (convId) {
         service.from('conversas_do_whatsapp').update({ whatsapp_photo_url: null }).eq('id', Number(convId)).then(() => {})
       }
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       data?.chat?.image ||
       null
 
-    // URL do uazapi expira — faz upload pro Supabase Storage para persistência permanente
+    // URL do uazapi expira : faz upload pro Supabase Storage para persistência permanente
     if (photo && convId) {
       ;(async () => {
         try {

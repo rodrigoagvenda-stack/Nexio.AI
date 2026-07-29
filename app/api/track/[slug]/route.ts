@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
-// GET /api/track/:slug — captura UTMs e redireciona para WhatsApp
+// GET /api/track/:slug : captura UTMs e redireciona para WhatsApp
 export async function GET(_req: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
   const { slug } = params

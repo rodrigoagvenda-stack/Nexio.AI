@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 
 const PRIVATE_IP = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|::1|fc00:|fd)/i;
@@ -8,10 +8,10 @@ function isPrivateUrl(rawUrl: string): boolean {
   catch { return true; }
 }
 
-// Chamado internamente pelo webhook handler — protegido pelo mesmo secret
+// Chamado internamente pelo webhook handler : protegido pelo mesmo secret
 // Body: { sender_pn, owner, image_preview_url }
 export async function POST(request: NextRequest) {
-  // Endpoint interno — requer NEXIO_WEBHOOK_SECRET via header
+  // Endpoint interno : requer NEXIO_WEBHOOK_SECRET via header
   const expectedSecret = process.env.NEXIO_WEBHOOK_SECRET
   const receivedSecret = request.headers.get('x-webhook-secret') ?? request.nextUrl.searchParams.get('secret')
   if (!expectedSecret || receivedSecret !== expectedSecret) {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Já tem foto salva — não re-faz upload
+    // Já tem foto salva : não re-faz upload
     if (conv.whatsapp_photo_url) {
       return NextResponse.json({ success: true, photo_url: conv.whatsapp_photo_url, cached: true });
     }

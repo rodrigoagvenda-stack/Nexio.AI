@@ -1,7 +1,7 @@
-/**
+﻿/**
  * POST /api/trial/test
  * Dispara imediatamente os steps do dia informado para o número de teste.
- * Não cria trial nem grava execuções — é um disparo direto para validação.
+ * Não cria trial nem grava execuções : é um disparo direto para validação.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -44,7 +44,7 @@ async function aplicarSdrAtivo(
   supabase: any, companyId: number, phone: string, sdrAtivo: boolean
 ): Promise<void> {
   const phoneVars = phoneVariants(phone)
-  console.log(`[trial:test] aplicarSdrAtivo — phone=${phone} sdr_ativo=${sdrAtivo}`)
+  console.log(`[trial:test] aplicarSdrAtivo : phone=${phone} sdr_ativo=${sdrAtivo}`)
 
   const { data: conv } = await supabase
     .from('conversas_do_whatsapp')
@@ -56,7 +56,7 @@ async function aplicarSdrAtivo(
     .maybeSingle()
 
   if (!conv?.id) {
-    console.warn(`[trial:test] aplicarSdrAtivo — conversa não encontrada para phone=${phone}`)
+    console.warn(`[trial:test] aplicarSdrAtivo : conversa não encontrada para phone=${phone}`)
     return
   }
 
@@ -66,7 +66,7 @@ async function aplicarSdrAtivo(
     .eq('id', conv.id)
 
   if (updateErr) console.error(`[trial:test] erro ao atualizar agente_pausado:`, updateErr.message)
-  else console.log(`[trial:test] agente_pausado=${!sdrAtivo} aplicado — conv=${conv.id}`)
+  else console.log(`[trial:test] agente_pausado=${!sdrAtivo} aplicado : conv=${conv.id}`)
 
   if (sdrAtivo === true) {
     const contexto = `[Trial SaaS - Teste] SDR reativado via teste. Estágio: não definido. Contexto de teste.`
@@ -82,7 +82,7 @@ async function aplicarSdrAtivo(
       await supabase.from('leads')
         .update({ notes: contexto, updated_at: new Date().toISOString() })
         .eq('id', lead.id)
-      console.log(`[trial:test] contexto SDR injetado — lead=${lead.id}`)
+      console.log(`[trial:test] contexto SDR injetado : lead=${lead.id}`)
     }
   }
 }
@@ -92,7 +92,7 @@ async function gravarMensagemTeste(
   text: string, tipoMensagem: StepTipoMensagem, media?: StepMediaConfig
 ): Promise<void> {
   const phoneVars = phoneVariants(phone)
-  console.log(`[trial:test] gravarMensagem — phone=${phone} tipo=${tipoMensagem} variants=${JSON.stringify(phoneVars)}`)
+  console.log(`[trial:test] gravarMensagem : phone=${phone} tipo=${tipoMensagem} variants=${JSON.stringify(phoneVars)}`)
 
   const { data: byPhone, error: searchErr } = await supabase
     .from('conversas_do_whatsapp').select('id')
@@ -100,12 +100,12 @@ async function gravarMensagemTeste(
     .order('hora_da_ultima_mensagem', { ascending: false }).limit(1)
 
   if (searchErr) console.error(`[trial:test] erro ao buscar conversa:`, searchErr.message)
-  console.log(`[trial:test] busca conversa — resultado:`, byPhone)
+  console.log(`[trial:test] busca conversa : resultado:`, byPhone)
 
   let convId: number | null = byPhone?.[0]?.id ?? null
 
   if (!convId) {
-    console.log(`[trial:test] conversa não encontrada — criando nova para phone=${phone}`)
+    console.log(`[trial:test] conversa não encontrada : criando nova para phone=${phone}`)
     const { data: newConv, error: convErr } = await supabase
       .from('conversas_do_whatsapp').insert({
         company_id: companyId, numero_de_telefone: phone,
@@ -115,12 +115,12 @@ async function gravarMensagemTeste(
       }).select('id').single()
     if (convErr) console.error(`[trial:test] erro ao criar conversa:`, convErr.message)
     convId = newConv?.id ?? null
-    console.log(`[trial:test] conversa criada — id=${convId}`)
+    console.log(`[trial:test] conversa criada : id=${convId}`)
   } else {
-    console.log(`[trial:test] conversa encontrada — id=${convId}`)
+    console.log(`[trial:test] conversa encontrada : id=${convId}`)
   }
 
-  if (!convId) { console.error(`[trial:test] convId null — mensagem não salva`); return }
+  if (!convId) { console.error(`[trial:test] convId null : mensagem não salva`); return }
 
   // Busca lead pelo telefone para setar id_do_lead (necessário para executeButtonActions encontrar o menu correto)
   const { data: leadData } = await supabase
@@ -128,7 +128,7 @@ async function gravarMensagemTeste(
     .eq('company_id', companyId).in('whatsapp', phoneVars)
     .order('created_at', { ascending: false }).limit(1).maybeSingle()
   const leadId: number | null = leadData?.id ?? null
-  console.log(`[trial:test] lead encontrado — id=${leadId}`)
+  console.log(`[trial:test] lead encontrado : id=${leadId}`)
 
   let urlMidia: string | null = null
   if (tipoMensagem === 'menu' && media?.choices?.length)
@@ -149,7 +149,7 @@ async function gravarMensagemTeste(
     carimbo_de_data_e_hora: new Date().toISOString(),
   })
   if (msgErr) console.error(`[trial:test] erro ao inserir mensagem:`, msgErr.message)
-  else console.log(`[trial:test] mensagem salva — conv=${convId} lead=${leadId} tipo=${tipoMensagem}`)
+  else console.log(`[trial:test] mensagem salva : conv=${convId} lead=${leadId} tipo=${tipoMensagem}`)
 
   await supabase.from('conversas_do_whatsapp')
     .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })

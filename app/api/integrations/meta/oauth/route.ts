@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 
 const GTPRO_BASE   = process.env.GTPRO_API_URL ?? 'https://gtpro.vendai.pro'
 const ZAAPPLY_BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.zaapply.com.br'
 
-// GET — inicia OAuth via GTPRO, retorna { url } para o cliente redirecionar
+// GET : inicia OAuth via GTPRO, retorna { url } para o cliente redirecionar
 export async function GET(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError

@@ -36,7 +36,7 @@ export default function TermosPage() {
           <li>Gestão de leads e pipeline de vendas</li>
           <li>SDR automatizado com inteligência artificial via WhatsApp</li>
           <li>Atendimento e chat com leads em tempo real</li>
-          <li>Automação de follow-up, anti-noshow e remarketing</li>
+          <li>Agente SDR com IA para qualificação de leads</li>
           <li>Relatórios e métricas de desempenho comercial</li>
           <li>Integração com WhatsApp via Meta Cloud API (oficial)</li>
           <li>Captação e qualificação automática de leads</li>

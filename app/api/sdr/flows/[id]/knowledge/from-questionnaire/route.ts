@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { IMUTABLE_BLOCKS, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
@@ -19,7 +19,7 @@ export interface QuestionnaireAnswers {
   sem_perfil: string       // Como encerrar com lead sem perfil
   precos: string           // Investimento, quando revelar, condições
   chegada: string          // Como leads chegam e o que dizem
-  regras: string           // Regras absolutas — nunca fazer/dizer
+  regras: string           // Regras absolutas : nunca fazer/dizer
   // Objeções
   obj_preco: string        // Objeções de preço com gatilho + script + nunca dizer
   obj_tempo: string        // Objeções de tempo/decisão + condicional
@@ -114,7 +114,7 @@ async function generateConhecimento(
 
   const systemInstruction = `Você é um especialista em SDR e escrita de system prompts para agentes de WhatsApp.
 Sua tarefa é escrever a seção dinâmica de um system prompt de SDR com base nas informações do negócio.
-Escreva APENAS as seções pedidas — os blocos imutáveis de comportamento são gerados automaticamente pelo sistema.
+Escreva APENAS as seções pedidas : os blocos imutáveis de comportamento são gerados automaticamente pelo sistema.
 Use linguagem clara, direta e natural. Scripts devem estar entre aspas. Máximo 3 linhas por mensagem.
 O resultado deve ser no nível de qualidade de um prompt de produção profissional.`
 
@@ -127,25 +127,25 @@ Agente: ${variables.nome_agente ?? '[nome_agente]'}
 [IDENTIDADE DO AGENTE]
 ${answers.identidade}
 
-[PRODUTO/SERVIÇO — contexto interno]
+[PRODUTO/SERVIÇO : contexto interno]
 ${answers.produto_contexto}
 
-[O QUE NÃO EXISTE — nunca mencionar ou inventar]
+[O QUE NÃO EXISTE : nunca mencionar ou inventar]
 ${answers.nao_oferece}
 
 [ABORDAGEM DE VENDAS]
 ${answers.abordagem}
 
-[QUALIFICAÇÃO — perguntas em ordem + o que descarta]
+[QUALIFICAÇÃO : perguntas em ordem + o que descarta]
 ${answers.qualificacao}
 
-[PRÓXIMO PASSO — ação final, link, condição para acionar]
+[PRÓXIMO PASSO : ação final, link, condição para acionar]
 ${answers.proximo_passo}
 
-[LEAD SEM PERFIL — como encerrar]
-${answers.sem_perfil || 'Não informado — use encerramento cordial padrão'}
+[LEAD SEM PERFIL : como encerrar]
+${answers.sem_perfil || 'Não informado : use encerramento cordial padrão'}
 
-[PREÇOS E CONDIÇÕES — o que revelar e quando]
+[PREÇOS E CONDIÇÕES : o que revelar e quando]
 ${answers.precos || 'Não informado'}
 
 [COMO O LEAD CHEGA]
@@ -158,7 +158,7 @@ ${answers.regras || 'Não informado'}
 Responda em JSON com estas chaves:
 
 {
-  "identidade": "Declaração de identidade do agente. Quem é, qual papel, tom. Ex: 'Você é [Nome], especialista comercial da [Empresa]. Você não é um assistente — você é um especialista que qualifica leads e [objetivo]. Tom: direto, caloroso e consultivo.'",
+  "identidade": "Declaração de identidade do agente. Quem é, qual papel, tom. Ex: 'Você é [Nome], especialista comercial da [Empresa]. Você não é um assistente : você é um especialista que qualifica leads e [objetivo]. Tom: direto, caloroso e consultivo.'",
 
   "o_que_nao_existe": "Lista explícita do que o agente nunca deve mencionar, oferecer ou inventar. Formato: 'NUNCA mencione ou invente: [item1], [item2], [item3]...'",
 
@@ -166,15 +166,15 @@ Responda em JSON com estas chaves:
 
   "qualificacao": "Checklist de qualificação no formato:\nCHECKLIST DE QUALIFICAÇÃO\nUse o raciocínio interno para verificar o que já foi coletado.\nNUNCA repita uma pergunta já respondida.\n[ ] [item1] coletado?\n[ ] [item2] identificado?\n...\nColete UMA informação por vez, na ordem acima.",
 
-  "fluxo": "Fluxo de conversa completo no formato:\nPasso 1 — [nome] (gatilho: lead entrou em contato):\n'[mensagem exata entre aspas]'\n\nPasso 2 — [nome] (gatilho: lead respondeu):\n'[mensagem exata entre aspas]'\n\nPasso 3A — Lead com perfil:\n'[mensagem exata]'\n[condição adicional se houver]\n\nPasso 3B — Lead hesita:\n'[mensagem exata]'\n\n=== REGRAS DE AVANÇO ===\n- Se lead já [contexto] → [ação]\n- Nunca volte etapa já passada\n- Nunca avance sem resposta\nNÃO inclua o passo de fechamento/envio de link aqui — ele vai no campo fechamento.",
+  "fluxo": "Fluxo de conversa completo no formato:\nPasso 1 : [nome] (gatilho: lead entrou em contato):\n'[mensagem exata entre aspas]'\n\nPasso 2 : [nome] (gatilho: lead respondeu):\n'[mensagem exata entre aspas]'\n\nPasso 3A : Lead com perfil:\n'[mensagem exata]'\n[condição adicional se houver]\n\nPasso 3B : Lead hesita:\n'[mensagem exata]'\n\n=== REGRAS DE AVANÇO ===\n- Se lead já [contexto] → [ação]\n- Nunca volte etapa já passada\n- Nunca avance sem resposta\nNÃO inclua o passo de fechamento/envio de link aqui : ele vai no campo fechamento.",
 
   "sem_perfil": "Scripts de encerramento por falta de perfil. Formato:\n[MOTIVO DO ENCERRAMENTO]\n'[script exato]'",
 
-  "regras_absolutas": "Regras no formato:\nREGRAS ABSOLUTAS — NUNCA QUEBRAR\n- [regra 1]\n- [regra 2]\n...",
+  "regras_absolutas": "Regras no formato:\nREGRAS ABSOLUTAS : NUNCA QUEBRAR\n- [regra 1]\n- [regra 2]\n...",
 
   "precos": "Bloco de preços no formato:\n[PREÇOS E PLANOS]\nGatilhos: \"Quanto custa?\" / \"Qual o valor?\" / \"Tem outros planos?\"\n[Descreva os planos com valores exatos, condições de revelação e regras. Se não informado, omita este bloco.]",
 
-  "fechamento": "Passo de fechamento com o link exato. Formato obrigatório:\n=== FECHAMENTO ===\nGatilhos: \"quero me inscrever\" / \"como faço para garantir\" / \"qual o link\" / [intenção clara de compra]\n'[mensagem de fechamento]'\n[link EXATO copiado literalmente do campo PRÓXIMO PASSO — nunca altere um caractere da URL]\nATENÇÃO: copie os links EXATAMENTE como fornecidos. Não resuma, não parafraseie, não omita nenhuma URL.",
+  "fechamento": "Passo de fechamento com o link exato. Formato obrigatório:\n=== FECHAMENTO ===\nGatilhos: \"quero me inscrever\" / \"como faço para garantir\" / \"qual o link\" / [intenção clara de compra]\n'[mensagem de fechamento]'\n[link EXATO copiado literalmente do campo PRÓXIMO PASSO : nunca altere um caractere da URL]\nATENÇÃO: copie os links EXATAMENTE como fornecidos. Não resuma, não parafraseie, não omita nenhuma URL.",
 
   "objetivo_final": "3-5 bullet points: '- [objetivo]'"
 }
@@ -220,8 +220,8 @@ IMPORTANTE: Scripts devem ser realistas, específicos e prontos para uso em What
   const vars = variables
   const interp = (s: string) => interpolate(s, vars)
 
-  // Monta a seção dinâmica — os blocos imutáveis são embedados depois, intocados
-  return `=== AGENTE ${vars.nome_agente ?? '{{nome_agente}}'} — ${vars.nome_empresa ?? '{{nome_empresa}}'} ===
+  // Monta a seção dinâmica : os blocos imutáveis são embedados depois, intocados
+  return `=== AGENTE ${vars.nome_agente ?? '{{nome_agente}}'} : ${vars.nome_empresa ?? '{{nome_empresa}}'} ===
 
 ## IDENTIDADE
 ${generated.identidade}
@@ -248,7 +248,7 @@ ${generated.sem_perfil}
 ${generated.precos ? generated.precos + '\n' : ''}${generated.regras_absolutas}
 
 === FOLLOW-UP ===
-Prazo: 24h se lead demonstrou interesse mas não avançou — usar apenas UMA VEZ.
+Prazo: 24h se lead demonstrou interesse mas não avançou : usar apenas UMA VEZ.
 Mensagem: "Oi 😊 Ainda pensando? Qualquer dúvida tô aqui."
 Regra: Nunca insistir mais de uma vez.
 ${interp(blocks.COMPORTAMENTOS_PROIBIDOS_BASE)}
@@ -268,7 +268,7 @@ async function generateObjecoes(
   const blocks = IMUTABLE_BLOCKS
 
   const systemInstruction = `Você é um especialista em SDR e escrita de scripts de objeções para WhatsApp.
-Escreva scripts de objeção IMUTÁVEIS — o agente deve copiar e enviar EXATAMENTE como escrito.
+Escreva scripts de objeção IMUTÁVEIS : o agente deve copiar e enviar EXATAMENTE como escrito.
 Cada script: máximo 3 linhas, linguagem natural de WhatsApp, valide antes de redirecionar.
 O formato deve ser rigoroso: gatilhos, script correto, o que nunca dizer, condicionais.`
 
@@ -289,22 +289,22 @@ ${answers.obj_produto}
 === FORMATO OBRIGATÓRIO PARA CADA SCRIPT ===
 "[NOME DA OBJEÇÃO EM CAPS]"
 Gatilhos: "frase gatilho 1" / "frase gatilho 2" / "frase gatilho 3"
-✅ CORRETO — envie EXATAMENTE assim:
+✅ CORRETO : envie EXATAMENTE assim:
 "[linha 1]
 [linha 2]
 [linha 3]"
-❌ ERRADO — NUNCA envie assim:
+❌ ERRADO : NUNCA envie assim:
 "[exemplo de paráfrase proibida]"
 [Se houver condicional: Se lead [condição] → envie EXATAMENTE assim: "[script de continuação]"]
 
 === O QUE ESCREVER ===
-1. Scripts baseados nas objeções reais informadas acima — mantenha os gatilhos e scripts exatos fornecidos
+1. Scripts baseados nas objeções reais informadas acima : mantenha os gatilhos e scripts exatos fornecidos
 2. Acrescente estas objeções padrão se não estiverem cobertas:
-   - [VOU PENSAR] — com urgência real, sem pressão
-   - [CARO / MUITO CARO] — valide, contextualize valor, redirecione para teste/ação
-   - [NÃO TENHO TEMPO] — valide, ofereça facilitar
-   - [JÁ USO OUTRA COISA] — investigue sem rebater
-   - [NÃO SEI SE PRECISO] — normalize, redirecione para teste/ação sem pressão
+   - [VOU PENSAR] : com urgência real, sem pressão
+   - [CARO / MUITO CARO] : valide, contextualize valor, redirecione para teste/ação
+   - [NÃO TENHO TEMPO] : valide, ofereça facilitar
+   - [JÁ USO OUTRA COISA] : investigue sem rebater
+   - [NÃO SEI SE PRECISO] : normalize, redirecione para teste/ação sem pressão
 3. Se recusar 2x → script de encerramento cordial
 
 Responda em JSON: { "scripts": "todos os scripts no formato acima, um após o outro" }`

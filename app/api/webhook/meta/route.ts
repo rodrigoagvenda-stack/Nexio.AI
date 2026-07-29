@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// GET — verificação do webhook pela Meta
+// GET : verificação do webhook pela Meta
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const mode = searchParams.get('hub.mode')
@@ -17,24 +17,24 @@ export async function GET(req: NextRequest) {
     return new NextResponse(challenge, { status: 200 })
   }
 
-  console.warn('[meta-webhook] verificação falhou — token inválido')
+  console.warn('[meta-webhook] verificação falhou : token inválido')
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
-// POST — recebe eventos da Meta (mensagens, status, etc.)
+// POST : recebe eventos da Meta (mensagens, status, etc.)
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
   // Valida assinatura HMAC-SHA256 da Meta
   const appSecret = process.env.META_APP_SECRET
   if (!appSecret) {
-    console.error('[meta-webhook] META_APP_SECRET não configurado — webhook rejeitado')
+    console.error('[meta-webhook] META_APP_SECRET não configurado : webhook rejeitado')
     return NextResponse.json({ error: 'Webhook não configurado' }, { status: 500 })
   }
   const sig = req.headers.get('x-hub-signature-256') ?? ''
   const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
   if (!sig || sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-    console.warn('[meta-webhook] assinatura inválida — rejeitado')
+    console.warn('[meta-webhook] assinatura inválida : rejeitado')
     return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
   }
 
@@ -57,11 +57,11 @@ export async function POST(req: NextRequest) {
 
       for (const msg of messages) {
         // Nunca logar conteúdo da mensagem em produção (LGPD)
-        console.log(`[meta-webhook] mensagem recebida — phoneNumberId=${phoneNumberId} from=${msg.from?.slice(0, 4)}**** type=${msg.type}`)
+        console.log(`[meta-webhook] mensagem recebida : phoneNumberId=${phoneNumberId} from=${msg.from?.slice(0, 4)}**** type=${msg.type}`)
       }
 
       for (const status of statuses) {
-        console.log(`[meta-webhook] status atualizado — id=${status.id} status=${status.status}`)
+        console.log(`[meta-webhook] status atualizado : id=${status.id} status=${status.status}`)
       }
     }
   }

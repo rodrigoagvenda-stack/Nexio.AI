@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+﻿import { Resend } from 'resend';
 
 export async function sendInjectionAlertEmail({
   pushName,
@@ -90,8 +90,8 @@ export async function sendTokenAlertEmail({
   const color = percent >= 95 ? '#ef4444' : '#f59e0b';
   const label = percent >= 95 ? 'crítico' : 'atenção';
   const subject = percent >= 95
-    ? `⚠️ ${companyName} — 95% da franquia de tokens consumida`
-    : `ℹ️ ${companyName} — 80% da franquia de tokens consumida`;
+    ? `⚠️ ${companyName} : 95% da franquia de tokens consumida`
+    : `ℹ️ ${companyName} : 80% da franquia de tokens consumida`;
 
   const { data, error } = await client.emails.send({
     from: 'Zaapply <noreply@zaapply.com.br>',
@@ -100,7 +100,7 @@ export async function sendTokenAlertEmail({
     html: `<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f5f5f5;">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:40px auto;background:#fff;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1);">
         <tr><td style="padding:32px 40px 16px;">
-          <h1 style="margin:0;color:#111;font-size:22px;font-weight:700;">Alerta de consumo — ${label}</h1>
+          <h1 style="margin:0;color:#111;font-size:22px;font-weight:700;">Alerta de consumo : ${label}</h1>
         </td></tr>
         <tr><td style="padding:0 40px 32px;">
           <p style="color:#444;font-size:15px;line-height:1.6;">
@@ -125,7 +125,7 @@ export async function sendTokenAlertEmail({
             : '<p style="color:#666;font-size:14px;">Monitore o consumo para evitar a pausa automática do agente ao atingir 100%.</p>'}
         </td></tr>
         <tr><td style="padding:16px 40px;background:#f9f9f9;border-top:1px solid #eee;border-radius:0 0 8px 8px;">
-          <p style="margin:0;color:#999;font-size:12px;">Email automático — não responda.</p>
+          <p style="margin:0;color:#999;font-size:12px;">Email automático : não responda.</p>
         </td></tr>
       </table>
     </body></html>`,
@@ -311,9 +311,9 @@ export async function sendLgpdAlertaDpoEmail({
   const { data, error } = await client.emails.send({
     from: 'Zaapply Sistema <noreply@zaapply.com.br>',
     to: ['privacidade@zaapply.com.br'],
-    subject: `[LGPD] Nova solicitação: ${tipoLabel} — ${protocolo}`,
+    subject: `[LGPD] Nova solicitação: ${tipoLabel} : ${protocolo}`,
     html: zaapplyHtml({
-      heading: `Nova solicitação LGPD — ${tipoLabel}`,
+      heading: `Nova solicitação LGPD : ${tipoLabel}`,
       body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Uma nova solicitação LGPD foi registrada. Prazo legal: <strong style="color:#15803d;">15 dias úteis</strong> (Art. 19, LGPD).</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Protocolo', protocolo, true, true)}${_tr('Solicitante', nome, false)}${_tr('E-mail', `<a href="mailto:${email}" style="color:#15803d;">${email}</a>`, true)}${_tr('Tipo', tipoLabel, false)}${mensagem ? _tr('Mensagem adicional', mensagem, true) : ''}</table>`,
       footer: 'Zaapply · Sistema interno · LGPD',
     }),
@@ -406,7 +406,7 @@ export async function sendContatoNotificacaoEmail({
     from: 'Zaapply Site <noreply@zaapply.com.br>',
     to: ['rodrigo@zaapply.com.br', 'contato@zaapply.com.br'],
     replyTo: email,
-    subject: `Novo lead — ${nome}${empresa ? ` (${empresa})` : ''}`,
+    subject: `Novo lead : ${nome}${empresa ? ` (${empresa})` : ''}`,
     html: zaapplyHtml({
       heading: 'Novo lead comercial',
       body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Um novo contato chegou pelo formulário do site. Responda este email para falar diretamente com o lead.</p><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;">${_tr('Nome', nome, true)}${_tr('E-mail', `<a href="mailto:${email}" style="color:#15803d;">${email}</a>`, false)}${empresa ? _tr('Empresa', empresa, true) : ''}${_tr('Mensagem', `<span style="line-height:1.6;white-space:pre-wrap;">${mensagem}</span>`, !empresa)}</table>`,
@@ -434,7 +434,7 @@ export async function sendWelcomeEmail({
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'
   const bodyText = isTrial
-    ? `A empresa <strong style="font-weight:600;">${companyName}</strong> foi criada com sucesso. Você tem <strong style="font-weight:600;">7 dias grátis</strong> para explorar o CRM e o WhatsApp — sem cartão de crédito.`
+    ? `A empresa <strong style="font-weight:600;">${companyName}</strong> foi criada com sucesso. Você tem <strong style="font-weight:600;">7 dias grátis</strong> para explorar o CRM e o WhatsApp : sem cartão de crédito.`
     : `A empresa <strong style="font-weight:600;">${companyName}</strong> foi criada. Tudo pronto para começar a vender.`
 
   const html = `<!DOCTYPE html>
@@ -519,7 +519,7 @@ export async function sendWelcomeEmail({
                         </td>
                         <td style="vertical-align:middle;">
                           <p style="margin:0;font-family:'Montserrat',Arial,sans-serif;font-size:15px;font-weight:400;color:#1a1a1a;line-height:1.55;">
-                            Dúvidas? Acesse a <strong style="font-weight:600;">Central de Ajuda</strong> ou abra um chamado — nossa equipe responde em até 24 horas úteis.
+                            Dúvidas? Acesse a <strong style="font-weight:600;">Central de Ajuda</strong> ou abra um chamado : nossa equipe responde em até 24 horas úteis.
                           </p>
                         </td>
                       </tr>
@@ -575,7 +575,7 @@ export async function sendContatoConfirmacaoEmail({
   const { data, error } = await client.emails.send({
     from: 'Zaapply <contato@zaapply.com.br>',
     to: [email],
-    subject: 'Recebemos seu contato — Zaapply',
+    subject: 'Recebemos seu contato : Zaapply',
     html: zaapplyHtml({
       heading: 'Boa, recebemos sua mensagem!',
       body: `<p style="margin:0 0 20px;color:#444444;font-size:15px;line-height:1.7;">Olá, <strong style="color:#111111;">${nome}</strong>! Ficamos felizes com seu interesse no Zaapply. Nossa equipe entrará em contato em breve pelo email informado.</p><p style="margin:0;color:#6b7280;font-size:14px;line-height:1.7;">Enquanto isso, conheça mais sobre a plataforma em <a href="https://zaapply.com.br" style="color:#15803d;font-weight:600;">zaapply.com.br</a>.</p>`,

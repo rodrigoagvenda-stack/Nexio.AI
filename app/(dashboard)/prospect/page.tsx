@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -167,7 +167,7 @@ export default function ProspectAIPage() {
         setCurrentAction(PROGRESS_MESSAGES[msgIndexRef.current]);
       }, 4000);
 
-      // Disparar extração — recebe sessionId imediatamente
+      // Disparar extração : recebe sessionId imediatamente
       const response = await fetch('/api/extraction/prospect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,7 +204,7 @@ export default function ProspectAIPage() {
         setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
       }, 5 * 60 * 1000);
 
-      // Polling direto no Supabase a cada 3s — sem passar pela API
+      // Polling direto no Supabase a cada 3s : sem passar pela API
       const supabase = createClient();
       pollingRef.current = setInterval(async () => {
         const { data: sessionRow, error } = await supabase

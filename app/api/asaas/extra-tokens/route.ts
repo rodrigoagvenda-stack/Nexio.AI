@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         billingType: 'UNDEFINED',
         value: amount,
         dueDate: today,
-        description: `Zaapli — ${(tokensToGrant / 1_000_000).toFixed(1)}M tokens extras`,
+        description: `Zaapli : ${(tokensToGrant / 1_000_000).toFixed(1)}M tokens extras`,
       }),
     })
     const payData = await payRes.json()

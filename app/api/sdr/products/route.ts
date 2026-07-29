@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 async function getCompanyId(): Promise<number | null> {
@@ -9,7 +9,7 @@ async function getCompanyId(): Promise<number | null> {
   return data?.company_id ?? null
 }
 
-// GET /api/sdr/products — lista produtos da empresa
+// GET /api/sdr/products : lista produtos da empresa
 export async function GET() {
   try {
     const companyId = await getCompanyId()
@@ -29,7 +29,7 @@ export async function GET() {
   }
 }
 
-// POST /api/sdr/products — cria produto
+// POST /api/sdr/products : cria produto
 export async function POST(request: NextRequest) {
   try {
     const companyId = await getCompanyId()
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/sdr/products — atualiza produto (id no body)
+// PUT /api/sdr/products : atualiza produto (id no body)
 export async function PUT(request: NextRequest) {
   try {
     const companyId = await getCompanyId()
@@ -84,7 +84,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/sdr/products — remove produto (id no body)
+// DELETE /api/sdr/products : remove produto (id no body)
 export async function DELETE(request: NextRequest) {
   try {
     const companyId = await getCompanyId()

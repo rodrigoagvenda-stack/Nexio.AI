@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@/lib/hooks/useUser';
@@ -88,7 +88,7 @@ function NotifItem({
       )}
       onClick={() => !notif.read && onRead(notif.id)}
     >
-      {/* Avatar — ícone do tipo sobre Z da marca */}
+      {/* Avatar : ícone do tipo sobre Z da marca */}
       <div className="relative flex-shrink-0 mt-0.5">
         <div className={cn('w-9 h-9 rounded-full flex items-center justify-center', bg)}>
           <Icon className={cn('h-4 w-4', color)} />

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       await cancelSubscription(company.asaas_subscription_id).catch(() => {})
     }
 
-    // 3. Tokenizar cartão primeiro — dados raw descartados após essa chamada
+    // 3. Tokenizar cartão primeiro : dados raw descartados após essa chamada
     const forwardedFor = request.headers.get('x-forwarded-for') ?? '127.0.0.1'
     const remoteIp = forwardedFor.split(',')[0].trim()
 
@@ -84,11 +84,11 @@ export async function POST(request: NextRequest) {
       remoteIp,
     })
 
-    // 3b. Criar assinatura usando apenas o token — sem repassar número/CVV
+    // 3b. Criar assinatura usando apenas o token : sem repassar número/CVV
     const subscription = await createSubscription({
       customerId: customer.id,
       value: PLAN_PRICES[plan],
-      description: `Zaapply ${plan.charAt(0).toUpperCase() + plan.slice(1)} — mensal`,
+      description: `Zaapply ${plan.charAt(0).toUpperCase() + plan.slice(1)} : mensal`,
       nextDueDate: todayISO(),
       creditCardToken,
       creditCardHolderInfo: holderInfo,

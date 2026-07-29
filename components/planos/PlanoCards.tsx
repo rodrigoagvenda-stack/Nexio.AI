@@ -36,12 +36,11 @@ const PLANS = [
     name: 'Zaapply Start',
     basePrice: 297,
     popular: false,
-    canvas: 'Follow-up automático',
     highlights: [
       'Agente SDR com IA',
       'Atendimento via chat',
       'CRM Kanban',
-      'Canvas: Follow-up automático',
+      'Métricas e relatórios',
       '1 número WhatsApp',
     ],
   },
@@ -50,10 +49,8 @@ const PLANS = [
     name: 'Zaapply Growth',
     basePrice: 497,
     popular: true,
-    canvas: 'Follow-up · Anti-Noshow · Remarketing',
     highlights: [
       'Tudo do Start',
-      'Canvas: Anti-Noshow e Remarketing',
       'Google Calendar integrado',
       '2 números WhatsApp',
     ],
@@ -71,9 +68,6 @@ const FEATURES: Feature[] = [
   { label: 'Briefing com IA',       group: 'Core',        starter: true,    growth: true    },
   { label: 'Suporte',               group: 'Core',        starter: 'Igual', growth: 'Igual' },
   { label: 'Números WhatsApp',      group: 'Core',        starter: '1',     growth: '2'     },
-  { label: 'Follow-up automático',  group: 'Canvas',      starter: true,    growth: true    },
-  { label: 'Anti-Noshow',           group: 'Canvas',      starter: false,   growth: true    },
-  { label: 'Remarketing',           group: 'Canvas',      starter: false,   growth: true    },
   { label: 'Google Calendar',       group: 'Integrações', starter: false,   growth: true    },
 ];
 
@@ -81,7 +75,6 @@ const ALL_INCLUDE = [
   'Métricas e relatórios completos',
   'Briefing com IA',
   'Suporte igual para todos',
-  'Canvas de automação',
   'CRM Kanban',
   'Atendimento via chat',
 ];

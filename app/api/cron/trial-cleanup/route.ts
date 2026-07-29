@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
 import { decrypt } from '@/lib/crypto'
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
       results.push({ company_id: cfg.company_id, status: 'disconnected' })
     } catch (err: any) {
-      // Falha ao desconectar não bloqueia as demais — marca no banco de qualquer forma
+      // Falha ao desconectar não bloqueia as demais : marca no banco de qualquer forma
       await supabase
         .from('sdr_configs')
         .update({ instance_status: 'disconnected', instance_phone: null })

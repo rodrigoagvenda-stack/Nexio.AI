@@ -1,5 +1,5 @@
-/**
- * Cliente uazapi — abstrai todas as chamadas HTTP para a API da uazapi.
+﻿/**
+ * Cliente uazapi : abstrai todas as chamadas HTTP para a API da uazapi.
  * Cada instância recebe sua própria URL base + token (isolamento por empresa).
  */
 
@@ -339,7 +339,7 @@ function normalizeStatus(raw: unknown): 'connected' | 'connecting' | 'disconnect
 }
 
 function normalizeInstanceResponse(raw: any) {
-  // instance.status tem prioridade — raw.status pode ser um objeto { connected, loggedIn, jid }
+  // instance.status tem prioridade : raw.status pode ser um objeto { connected, loggedIn, jid }
   const statusStr =
     raw?.instance?.status ||
     raw?.state ||

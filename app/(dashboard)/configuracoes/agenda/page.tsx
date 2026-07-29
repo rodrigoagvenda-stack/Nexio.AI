@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -220,7 +220,7 @@ function EventDetail({ event, onClose }: { event: AgendaEvent; onClose: () => vo
         </div>
 
         <div className={cn('px-3 py-2 rounded-xl border text-xs font-medium', cfg.badgeClass)}>
-          Agendado para {event.horario} — {event.dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+          Agendado para {event.horario} : {event.dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
         </div>
       </div>
     </div>
@@ -353,8 +353,8 @@ function TrialDetail({ trial, onClose }: { trial: TrialCompany; onClose: () => v
 
         <div className={cn('px-3 py-2 rounded-xl border text-xs font-medium', badgeColor)}>
           {expired
-            ? `Expirado em ${trial.trial_ends_at ? new Date(trial.trial_ends_at).toLocaleDateString('pt-BR') : '—'}`
-            : `Trial ativo — ${days ?? 7}d restantes`}
+            ? `Expirado em ${trial.trial_ends_at ? new Date(trial.trial_ends_at).toLocaleDateString('pt-BR') : ':'}`
+            : `Trial ativo : ${days ?? 7}d restantes`}
         </div>
       </div>
     </div>
@@ -450,7 +450,7 @@ function TrialCalendar({ monday, sunday, today, weekOffset, setWeekOffset }: {
                 {loading ? (
                   <div className="h-12 rounded-lg bg-muted animate-pulse" />
                 ) : dayTrials.length === 0 ? (
-                  <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40">—</div>
+                  <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40">:</div>
                 ) : dayTrials.map(t => {
                   const d = trialDaysLeft(t.trial_ends_at)
                   const isExpired = d !== null && d <= 0
@@ -698,7 +698,7 @@ export default function AgendaPage() {
                   >
                     {dayEvents.length === 0 ? (
                       <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/40 text-center">
-                        —
+                        :
                       </div>
                     ) : (
                       dayEvents

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
 
     console.log('[INVITE] Usuário criado na tabela com sucesso');
 
-    // 5. Logs — fire-and-forget, não bloqueia o retorno
+    // 5. Logs : fire-and-forget, não bloqueia o retorno
     supabaseService.from('system_logs').insert({
       company_id: companyId,
       type: 'user_action',

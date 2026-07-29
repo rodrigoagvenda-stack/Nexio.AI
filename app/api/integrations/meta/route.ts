@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -14,7 +14,7 @@ async function getGtproKey(companyId: number) {
   return data?.gtpro_api_key ?? null
 }
 
-// GET — status da conexão Meta (proxied via GTPRO)
+// GET : status da conexão Meta (proxied via GTPRO)
 export async function GET(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(await res.json())
 }
 
-// DELETE — desconecta Meta (proxied via GTPRO)
+// DELETE : desconecta Meta (proxied via GTPRO)
 export async function DELETE(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
 
-// GET /api/sdr/config — lê config SDR da empresa do usuário logado
+// GET /api/sdr/config : lê config SDR da empresa do usuário logado
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -69,7 +69,7 @@ export async function GET() {
   }
 }
 
-// PUT /api/sdr/config — cria ou atualiza config SDR da empresa
+// PUT /api/sdr/config : cria ou atualiza config SDR da empresa
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient()

@@ -1,5 +1,5 @@
-/**
- * RAG — Upload de PDF/texto, chunking, embeddings e inserção na tabela `documents`.
+﻿/**
+ * RAG : Upload de PDF/texto, chunking, embeddings e inserção na tabela `documents`.
  *
  * Módulos pesados são lazy:
  *   - OpenAI: await import('openai') dentro de cada função (não no topo do módulo)
@@ -11,7 +11,7 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { decrypt } from '@/lib/crypto'
 import type OpenAI from 'openai'  // type-only: apagado em compile-time, sem impacto no bundle
 
-// Cache compartilhado por API key — evita criar instâncias duplicadas entre chamadas
+// Cache compartilhado por API key : evita criar instâncias duplicadas entre chamadas
 const _openaiCache = new Map<string, OpenAI>()
 async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
   if (!_openaiCache.has(apiKey)) {
@@ -30,7 +30,7 @@ async function resolveOpenAIKey(companyId: number): Promise<string> {
     const { data: cfg } = await supabase
       .from('sdr_configs').select('openai_key').eq('company_id', companyId).single()
     if (cfg?.openai_key) return decrypt(cfg.openai_key)
-  } catch { /* ignora — tenta platform_config */ }
+  } catch { /* ignora : tenta platform_config */ }
 
   const platform = await getPlatformConfig()
   if (platform.openai_api_key) return platform.openai_api_key
@@ -45,7 +45,7 @@ async function embedAll(chunks: string[], openai: OpenAI): Promise<number[][]> {
   return res.data.map((d) => d.embedding)
 }
 
-const MAX_CHUNK_CHARS = 1100 // ~300 tokens — um assunto por chunk
+const MAX_CHUNK_CHARS = 1100 // ~300 tokens : um assunto por chunk
 
 function chunkText(text: string): string[] {
   const trimmed = text.trimStart()
@@ -127,7 +127,7 @@ export async function processKnowledgePdf(params: {
   const openaiKey = await resolveOpenAIKey(companyId)
   const openai = await getOpenAIClient(openaiKey)
 
-  // Lazy import — pdf-parse/pdfjs-dist só carregam para uploads de PDF
+  // Lazy import : pdf-parse/pdfjs-dist só carregam para uploads de PDF
   const { extractTextFromPdf } = await import('@/lib/pdf-extractor')
   const rawText = await extractTextFromPdf(fileBuffer)
   if (!rawText.trim()) throw new Error('PDF sem texto extraível')

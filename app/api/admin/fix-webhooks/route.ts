@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/require-auth'
 import { createUazapiClient } from '@/lib/sdr/uazapi'
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         try {
           const { decrypt } = await import('@/lib/crypto')
           token = decrypt(token)
-        } catch { /* token legado inválido — pula */ }
+        } catch { /* token legado inválido : pula */ }
       }
 
       const client = createUazapiClient(cfg.uazapi_instance_url, token)

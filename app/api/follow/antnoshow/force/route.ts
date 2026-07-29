@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { runAntNoshowForCompany } from '@/lib/sdr/follow'
 
@@ -7,7 +7,7 @@ export const maxDuration = 300
 
 // POST /api/follow/antnoshow/force
 // Força o anti-noshow usando 100% os nodes do canvas, ignorando janela de tempo.
-// Body: { horasAlvo?: number } — se informado, filtra steps com dia_offset próximo desse valor.
+// Body: { horasAlvo?: number } : se informado, filtra steps com dia_offset próximo desse valor.
 //   Ex: -24 = nodes de 24h antes | -2 = 2h antes | -0.25 = 15min antes | 0.083 = 5min depois
 export async function POST(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request)

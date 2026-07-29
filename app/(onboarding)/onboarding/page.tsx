@@ -31,7 +31,7 @@ const PLANS = [
     price: 0,
     desc: 'Acesso completo por 7 dias, sem cartão de crédito',
     icon: Gift,
-    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Canvas → Follow-up'],
+    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Métricas e relatórios'],
   },
   {
     id: 'starter',
@@ -39,7 +39,7 @@ const PLANS = [
     price: 297,
     desc: 'SDR + atendimento + CRM + automações, 1 número WhatsApp',
     icon: TrendingUp,
-    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Canvas: Follow-up automático', '1 número WhatsApp'],
+    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Métricas e relatórios', '1 número WhatsApp'],
   },
   {
     id: 'pro',
@@ -48,7 +48,7 @@ const PLANS = [
     desc: 'Tudo do Start + Google Calendar + 2 números WhatsApp',
     icon: Rocket,
     popular: true,
-    features: ['Tudo do Start', 'Anti-Noshow e Remarketing', 'Google Calendar integrado', '2 números WhatsApp'],
+    features: ['Tudo do Start', 'Google Calendar integrado', '2 números WhatsApp'],
   },
 ];
 
