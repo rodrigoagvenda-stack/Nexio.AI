@@ -278,7 +278,7 @@ export async function validateSdr(params: {
 }): Promise<ValidationResult> {
   const { builtPrompt, openaiKey, nichoId, agentType, persona, conhecimentoAtivo, objecoesAtivo } = params
 
-  // Camada 1: estrutural
+  // Camada 1: estrutural (nunca bloqueia — só adiciona gaps informativos)
   const structuralChecks = runStructuralChecks({
     nichoId,
     agentType,
@@ -291,39 +291,26 @@ export async function validateSdr(params: {
     .filter((c) => !c.filled)
     .map((c) => ({
       id: `struct_${c.field}`,
-      scenario: `Campo obrigatório: ${c.label}`,
+      scenario: `Campo ausente: ${c.label}`,
       severity: c.severity,
-      what_fails: `Sem "${c.label}", o SDR responde com placeholder vazio ou falha ao executar o fluxo.`,
+      what_fails: `"${c.label}" não preenchido na persona — se o template referenciar esse campo, o SDR responderá com placeholder vazio.`,
       tab_wizard: c.tab_wizard,
-      suggestion: `Preencha o campo "${c.label}" na aba ${c.tab_wizard === 'identidade' ? 'Identidade' : c.tab_wizard === 'conhecimento' ? 'Conhecimento' : 'Integrações'}.`,
+      suggestion: `Preencha "${c.label}" na aba ${c.tab_wizard === 'identidade' ? 'Identidade' : c.tab_wizard === 'conhecimento' ? 'Conhecimento' : 'Integrações'} (ou confirme que está na base de conhecimento).`,
     }))
 
-  // Se há gaps críticos estruturais, não vale gastar tokens no LLM
-  const hasCriticalStructural = structuralGaps.some((g) => g.severity === 'critica')
-  if (hasCriticalStructural) {
-    return {
-      score: 0,
-      ready: false,
-      covered: structuralChecks.filter((c) => c.filled).map((c) => c.field),
-      gaps: structuralGaps,
-    }
-  }
-
-  // Camada 2: semântica
+  // Camada 2: semântica — sempre roda independente dos gaps estruturais
   try {
     const semantic = await runSemanticValidation(builtPrompt, openaiKey, agentType)
 
-    const allGaps: ValidationGap[] = [...structuralGaps, ...semantic.gaps]
-
-    // Score final: penaliza gaps estruturais primeiro, depois semânticos
-    const structuralPenalty = structuralGaps.filter((g) => g.severity === 'alta').length * 10
-    const finalScore = Math.max(0, semantic.score - structuralPenalty)
+    // Gaps estruturais críticos reduzem o score em 10 pts cada; altos em 5 pts
+    const penalty = structuralGaps.reduce((acc, g) => acc + (g.severity === 'critica' ? 10 : 5), 0)
+    const finalScore = Math.max(0, semantic.score - penalty)
 
     return {
       score: finalScore,
-      ready: finalScore >= 75 && !hasCriticalStructural,
+      ready: finalScore >= 75,
       covered: semantic.covered,
-      gaps: allGaps,
+      gaps: [...semantic.gaps, ...structuralGaps],
     }
   } catch (err: any) {
     return {
