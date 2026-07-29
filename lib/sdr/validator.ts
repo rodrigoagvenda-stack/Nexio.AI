@@ -45,52 +45,41 @@ Comportamento correto: SDR responde com o valor real, não com placeholder vazio
 Comportamento errado: Resposta diz "[preco]" ou "entre em contato" sem dar um número.
 
 [C3 - CRÍTICO] CTA claro para quando o lead quer avançar: "Quero testar", "Como faço para contratar?"
-Comportamento correto: SDR tem link de teste, link de pedido ou link de agendamento para enviar.
-Comportamento errado: SDR não tem um próximo passo claro após o interesse do lead.
+Comportamento correto: SDR tem próximo passo claro — instrução de agendamento, processo de contratação ou link — para enviar imediatamente.
+Comportamento errado: SDR não tem um próximo passo definido após o interesse do lead.
 
 [A4 - ALTA] Objeção de preço: "Tá caro", "Não tenho esse dinheiro agora"
 Comportamento correto: SDR reencuadra o valor, menciona teste grátis ou parcelas, não desiste.
 Comportamento errado: SDR repete o preço sem reencuadrar ou capitula.
 Fonte: LAER framework (Listen, Acknowledge, Explore, Respond) — sdrplaybook.online
 
-[A5 - ALTA] Lead some após receber proposta/link (ghost recovery)
-Comportamento correto: SDR tem follow-up não invasivo em 24h, com mensagem natural, não robótica.
-Comportamento errado: SDR não tem follow-up ou insiste de forma invasiva.
-Fonte: SDR Playbook — "one follow-up maximum"; dante-ai.com — 90-day failure rate
-
-[A6 - ALTA] Pedido de prova ou garantia: "Tem depoimento?", "Como sei que funciona?", "Me mostra algum caso"
+[A5 - ALTA] Pedido de prova ou garantia: "Tem depoimento?", "Como sei que funciona?", "Me mostra algum caso"
 Comportamento correto: SDR tem cases, depoimentos ou direciona para trial gratuito.
 Comportamento errado: SDR não tem social proof e não oferece alternativa.
 Fonte: Moonscale — "Damaged Trust: early negative experiences harm credibility"
 
-[A7 - ALTA] Lead quer fechar proativamente antes do SDR oferecer CTA
+[A6 - ALTA] Lead quer fechar proativamente antes do SDR oferecer CTA
 Exemplo: "Quero fechar", "Vamos começar", "Como faço para assinar?"
-Comportamento correto: SDR reconhece o interesse e envia o link correto imediatamente.
+Comportamento correto: SDR reconhece o interesse e encaminha o próximo passo imediatamente.
 Comportamento errado: SDR continua qualificando ou ignora o sinal de compra.
 Fonte: mkt4edu.com — "schedules meeting and forwards qualified lead with context"
 
-[M8 - MÉDIA] Objeção de timing: "Preciso pensar", "Me dá um tempo", "Próximo mês vejo"
-Comportamento correto: SDR valida, deixa porta aberta, agenda follow-up sem pressão.
+[M7 - MÉDIA] Objeção de timing: "Preciso pensar", "Me dá um tempo", "Próximo mês vejo"
+Comportamento correto: SDR valida, deixa porta aberta, encaminha sem pressão.
 Comportamento errado: SDR insiste imediatamente ou perde o lead sem script de continuação.
 Fonte: BANT Timing — "Is there a real deadline or a polite no?" — sdrplaybook.online
 
-[M9 - MÉDIA] Objeção de autoridade: "Preciso consultar meu sócio", "Não decido sozinho"
+[M8 - MÉDIA] Objeção de autoridade: "Preciso consultar meu sócio", "Não decido sozinho"
 Comportamento correto: SDR entende, envolve o decisor, não pressiona mas não desiste.
 Comportamento errado: SDR aceita passivamente sem estratégia para manter o lead.
 Fonte: BANT Authority — "Are you talking to a decision-maker?" — sdrplaybook.online
 
-[M10 - MÉDIA] Comparação com concorrente: "Vi no sistema X que tem isso também"
+[M9 - MÉDIA] Comparação com concorrente: "Vi no sistema X que tem isso também"
 Comportamento correto: SDR sabe diferenciar sem denigrir o concorrente, tem repositório de diferenciais.
 Comportamento errado: SDR não tem resposta e perde o lead por falta de posicionamento.
 Fonte: Moonscale — "Insufficient Product Expertise" failure category
 
-[M11 - MÉDIA] No-show recovery (somente se agendamento está ativo)
-Exemplo: lead confirmou horário mas não apareceu
-Comportamento correto: SDR tem script específico para reativar lead após no-show sem julgamento.
-Comportamento errado: SDR não tem script e o lead some definitivamente.
-Fonte: mkt4edu.com — "resumes paused conversations without missing a beat"
-
-[M12 - MÉDIA] Encerramento limpo após confirmação do lead
+[M10 - MÉDIA] Encerramento limpo após confirmação do lead
 Exemplo: lead diz "Ok", "Obrigado", "Recebi"
 Comportamento correto: SDR envia resposta curta de encerramento e PARA de enviar mensagens.
 Comportamento errado: SDR continua enviando conteúdo após a confirmação do lead.
@@ -145,11 +134,6 @@ interface WizardConfig {
   objecoesAtivo: boolean
 }
 
-const SCHEDULING_NICHES = new Set([
-  'clinica-estetica', 'odontologia', 'psicologia', 'fisioterapia',
-  'nutricao', 'clinica-medica', 'consultoria', 'educacao', 'academia',
-])
-
 const PRODUCT_LINK_NICHES = new Set(['saas', 'ecommerce', 'restaurante', 'generico'])
 
 export function runStructuralChecks(cfg: WizardConfig): StructuralCheck[] {
@@ -185,20 +169,6 @@ export function runStructuralChecks(cfg: WizardConfig): StructuralCheck[] {
     },
   ]
 
-  // CTA: pelo menos um link de conversão
-  const hasCtaLink =
-    !!p.link_teste?.trim() ||
-    !!p.link_pedido?.trim() ||
-    !!p.link_agendamento?.trim()
-
-  checks.push({
-    field: 'link_cta',
-    filled: hasCtaLink,
-    label: 'Link de conversão (teste, pedido ou agendamento)',
-    severity: 'critica',
-    tab_wizard: 'conhecimento',
-  })
-
   // Preço: obrigatório para nichos de produto/SaaS
   if (PRODUCT_LINK_NICHES.has(cfg.nichoId)) {
     checks.push({
@@ -207,21 +177,6 @@ export function runStructuralChecks(cfg: WizardConfig): StructuralCheck[] {
       label: 'Preço do produto/serviço',
       severity: 'alta',
       tab_wizard: 'conhecimento',
-    })
-  }
-
-  // Agendamento: link obrigatório se niche usa agenda ou agent_type inclui agendamento
-  const needsScheduling =
-    cfg.agentType === 'atendimento_venda_agendamento' ||
-    SCHEDULING_NICHES.has(cfg.nichoId)
-
-  if (needsScheduling) {
-    checks.push({
-      field: 'link_agendamento',
-      filled: !!p.link_agendamento?.trim(),
-      label: 'Link de agendamento',
-      severity: 'alta',
-      tab_wizard: 'integracoes',
     })
   }
 
@@ -239,8 +194,8 @@ export async function runSemanticValidation(
   const client = new OpenAIClass({ apiKey: openaiKey })
 
   const agendaNote = agentType === 'atendimento_venda_agendamento'
-    ? '\nObs: este agente tem agendamento ativo — o cenário M11 (no-show recovery) é obrigatório.'
-    : '\nObs: este agente NÃO tem agendamento — ignore o cenário M11 na análise.'
+    ? '\nObs: este agente tem agendamento ativo — o SDR agenda diretamente via integração de calendário, sem necessidade de link externo.'
+    : ''
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',

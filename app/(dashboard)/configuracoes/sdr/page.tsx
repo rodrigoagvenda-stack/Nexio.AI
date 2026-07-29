@@ -33,6 +33,7 @@ import { FilePenLineIcon } from '@/components/ui/file-pen-line'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect'
+import { SdrDiagnosticoWidget } from '@/components/ui/sdr-diagnostico-widget'
 
 // ── Niche icons ────────────────────────────────────────────────────────────
 
@@ -3004,93 +3005,12 @@ export default function SdrConfigPage() {
 
     </div>
 
-    {/* ── Validation Modal ─────────────────────────────────────────────── */}
+    {/* ── Validation Widget ────────────────────────────────────────────── */}
     {showValidationModal && validationResult && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
-
-          {/* Header */}
-          <div className="p-6 border-b border-border shrink-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Diagnóstico do SDR</p>
-                <h2 className="text-lg font-bold leading-tight">
-                  {validationResult.score >= 75 ? 'SDR pronto para ativar' : 'Ajustes recomendados'}
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {validationResult.covered.length} cenário{validationResult.covered.length !== 1 ? 's' : ''} coberto{validationResult.covered.length !== 1 ? 's' : ''}
-                  {validationResult.gaps.length > 0 && ` · ${validationResult.gaps.length} lacuna${validationResult.gaps.length !== 1 ? 's' : ''} encontrada${validationResult.gaps.length !== 1 ? 's' : ''}`}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-3xl font-black tabular-nums" style={{ color: validationResult.score >= 75 ? 'hsl(var(--primary))' : validationResult.score >= 50 ? '#f59e0b' : '#ef4444' }}>
-                  {validationResult.score}
-                </p>
-                <p className="text-[10px] text-muted-foreground font-medium">/100</p>
-              </div>
-            </div>
-
-            <div className="mt-4 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${validationResult.score}%`,
-                  backgroundColor: validationResult.score >= 75 ? 'hsl(var(--primary))' : validationResult.score >= 50 ? '#f59e0b' : '#ef4444',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Gaps list */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-3">
-            {validationResult.gaps.length === 0 ? (
-              <div className="text-center py-6 text-muted-foreground text-sm">Nenhuma lacuna encontrada.</div>
-            ) : (
-              validationResult.gaps.map((gap) => (
-                <div
-                  key={gap.id}
-                  className="rounded-xl border p-4 space-y-1.5"
-                  style={{
-                    borderColor: gap.severity === 'critica' ? '#ef444430' : gap.severity === 'alta' ? '#f59e0b30' : 'hsl(var(--border))',
-                    backgroundColor: gap.severity === 'critica' ? '#ef444408' : gap.severity === 'alta' ? '#f59e0b08' : 'transparent',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      'text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md',
-                      gap.severity === 'critica' ? 'bg-red-500/15 text-red-500' :
-                      gap.severity === 'alta' ? 'bg-amber-500/15 text-amber-500' :
-                      'bg-muted text-muted-foreground'
-                    )}>
-                      {gap.severity === 'critica' ? 'Crítico' : gap.severity === 'alta' ? 'Alto' : 'Médio'}
-                    </span>
-                    <p className="text-sm font-medium leading-tight">{gap.scenario}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{gap.what_fails}</p>
-                  <div className="flex items-start gap-1.5 pt-0.5">
-                    <AlertCircle className="w-3 h-3 text-primary shrink-0 mt-0.5" />
-                    <p className="text-xs text-foreground/80 leading-relaxed">{gap.suggestion}</p>
-                  </div>
-                </div>
-              ))
-            )}
-
-            {validationResult.error && (
-              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
-                Erro na análise: {validationResult.error}
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="p-6 border-t border-border shrink-0">
-            <Button className="w-full" onClick={() => setShowValidationModal(false)}>
-              Fechar
-            </Button>
-          </div>
-
-        </div>
-      </div>
+      <SdrDiagnosticoWidget
+        result={validationResult}
+        onClose={() => setShowValidationModal(false)}
+      />
     )}
 
     </>
