@@ -2256,11 +2256,7 @@ export default function SdrConfigPage() {
     if (niche) setPersona('produto', niche.label)
   }
 
-  const handleActivationToggle = async (newValue: boolean) => {
-    if (!newValue) {
-      setConfig((p) => ({ ...p, agente_ativo: false }))
-      return
-    }
+  const handleDiagnosticar = async () => {
     setValidating(true)
     try {
       const res = await fetch('/api/sdr/validate', {
@@ -2275,12 +2271,9 @@ export default function SdrConfigPage() {
       })
       const data = await res.json()
       setValidationResult(data)
-      // Sempre mostra o modal — passou ou não
       setShowValidationModal(true)
     } catch (err: any) {
-      toast({ title: 'Erro na validação', description: err?.message ?? 'Não foi possível analisar o SDR.', variant: 'destructive' })
-      // fail-open: ativa mesmo assim
-      setConfig((p) => ({ ...p, agente_ativo: true }))
+      toast({ title: 'Erro na análise', description: err?.message ?? 'Não foi possível analisar o SDR.', variant: 'destructive' })
     } finally {
       setValidating(false)
     }
@@ -2529,18 +2522,24 @@ export default function SdrConfigPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-3 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={validating}
+            onClick={handleDiagnosticar}
+            className="gap-1.5 hidden sm:flex"
+          >
+            {validating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5" />}
+            {validating ? 'Analisando…' : 'Diagnosticar SDR'}
+          </Button>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground hidden sm:inline">
-              {validating ? 'Verificando…' : config.agente_ativo ? 'Desativar' : 'Ativar'}
+              {config.agente_ativo ? 'Desativar' : 'Ativar'}
             </span>
-            {validating ? (
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-            ) : (
-              <Switch
-                checked={config.agente_ativo}
-                onCheckedChange={handleActivationToggle}
-              />
-            )}
+            <Switch
+              checked={config.agente_ativo}
+              onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))}
+            />
           </div>
           <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -3082,39 +3081,10 @@ export default function SdrConfigPage() {
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-border shrink-0 flex gap-3">
-            {validationResult.score >= 75 ? (
-              <>
-                <Button variant="outline" className="flex-1" onClick={() => setShowValidationModal(false)}>
-                  Ver detalhes
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    setConfig((p) => ({ ...p, agente_ativo: true }))
-                    setShowValidationModal(false)
-                  }}
-                >
-                  Confirmar ativacao
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" className="flex-1" onClick={() => setShowValidationModal(false)}>
-                  Corrigir primeiro
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 text-muted-foreground"
-                  onClick={() => {
-                    setConfig((p) => ({ ...p, agente_ativo: true }))
-                    setShowValidationModal(false)
-                  }}
-                >
-                  Ativar mesmo assim
-                </Button>
-              </>
-            )}
+          <div className="p-6 border-t border-border shrink-0">
+            <Button className="w-full" onClick={() => setShowValidationModal(false)}>
+              Fechar
+            </Button>
           </div>
 
         </div>
