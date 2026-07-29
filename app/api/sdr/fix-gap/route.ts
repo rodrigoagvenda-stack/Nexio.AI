@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
       .eq('company_id', userData.company_id)
       .single()
 
-    if (!cfg?.flow_id) {
+    // flow_id só é necessário para embedar — dry_run só gera script, não precisa
+    if (!dry_run && !fix_text_override && !cfg?.flow_id) {
       return NextResponse.json({ error: 'Fluxo SDR não encontrado. Configure o agente primeiro.' }, { status: 400 })
     }
 
@@ -60,12 +61,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Chave OpenAI não configurada' }, { status: 400 })
     }
 
-    const empresaNome = persona?.empresa ?? persona?.nome_empresa ?? 'sua empresa'
-    const produto = persona?.produto ?? 'seu produto/serviço'
     const tableType: 'conhecimento' | 'objecoes' =
       gap.source === 'Base de Objeções' ? 'objecoes' : 'conhecimento'
 
-    // Gera o script via GPT
+    // Se fix_text_override está presente: pula GPT e vai direto ao embed
+    const overrideText = (fix_text_override as string | undefined)?.trim()
+    if (overrideText) {
+      if (!cfg?.flow_id) {
+        return NextResponse.json({ error: 'Fluxo SDR não encontrado. Configure o agente primeiro.' }, { status: 400 })
+      }
+      const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
+      await processKnowledgeText({
+        companyId: userData.company_id,
+        flowId: cfg.flow_id,
+        filename: `diagnostico_fix_${gap.id}_${Date.now()}.txt`,
+        text: `=== ${label} ===\nCenário: ${gap.scenario}\n\n${overrideText}`,
+        tableType,
+      })
+      return NextResponse.json({ ok: true, fix_text: overrideText, insert_in: tableType })
+    }
+
+    // Gera o script via GPT (dry_run ou geração inicial)
+    const empresaNome = persona?.empresa ?? persona?.nome_empresa ?? 'sua empresa'
+    const produto = persona?.produto ?? 'seu produto/serviço'
+
     const systemPrompt = `Você é um especialista em scripts de vendas para WhatsApp no mercado brasileiro.
 Gere um script específico e pronto para uso que resolva a lacuna identificada no agente SDR.
 
@@ -106,13 +125,17 @@ Gere o script que deve ser adicionado na ${gap.source}.`
       return NextResponse.json({ error: 'Não foi possível gerar o script.' }, { status: 500 })
     }
 
-    // dry_run: só retorna o script sem embedar (passo 1 — usuário edita antes de aplicar)
+    // dry_run: retorna script para o usuário editar antes de aplicar
     if (dry_run) {
       return NextResponse.json({ ok: true, fix_text: fixText, insert_in: tableType })
     }
 
-    // fix_text_override: usa o texto editado pelo usuário ao invés do gerado
-    const textToEmbed = (fix_text_override as string | undefined)?.trim() || fixText
+    // Embed direto (sem override) — flow_id obrigatório
+    if (!cfg?.flow_id) {
+      return NextResponse.json({ error: 'Fluxo SDR não encontrado. Configure o agente primeiro.' }, { status: 400 })
+    }
+
+    const textToEmbed = fixText
 
     // Embeda na base correta — INSERT puro, não apaga nada existente
     const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
