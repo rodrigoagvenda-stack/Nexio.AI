@@ -98,6 +98,11 @@ CRITÉRIOS:
 - Variáveis com placeholder como [preco], [link_teste] em vez de valores reais = NÃO coberto para o cenário C2.
 - Para C1 (pedido vago): verifique se o FLUXO INBOUND faz qualificação antes de revelar preço ou planos.
 
+REGRAS ABSOLUTAS PARA AS SUGESTÕES:
+- NUNCA invente valores específicos como preços (ex: "R$ 297", "R$ 99"), links ou datas.
+- Nas sugestões, diga apenas o que o usuário deve fazer (ex: "preencha o valor real do produto na aba Conhecimento"), nunca o valor em si.
+- Baseie a análise EXCLUSIVAMENTE no texto do prompt fornecido. Não use conhecimento externo sobre o produto ou empresa.
+
 ${MANDATORY_SCENARIOS}
 
 Retorne SOMENTE um JSON válido neste formato exato:

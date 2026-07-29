@@ -39,7 +39,7 @@ function statusLabel(score: number) {
 }
 
 export function SdrDiagnosticoWidget({ result, onClose }: Props) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
 
   const total = result.covered.length + result.gaps.length
   const color = scoreColor(result.score)
