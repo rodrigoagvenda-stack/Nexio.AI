@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Wand2,
-  Copy,
   Check,
   Loader2,
   BookOpen,
@@ -248,11 +247,14 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
   const [open, setOpen] = useState(false)
   const [loadingFix, setLoadingFix] = useState(false)
   const [fixText, setFixText] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [fixApplied, setFixApplied] = useState(false)
+  const [fixError, setFixError] = useState<string | null>(null)
 
   const handleGenerateFix = async (e: React.MouseEvent) => {
     e.stopPropagation()
     setLoadingFix(true)
+    setFixError(null)
+    setFixApplied(false)
     try {
       const res = await fetch('/api/sdr/fix-gap', {
         method: 'POST',
@@ -262,19 +264,12 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setFixText(data.fix_text)
-    } catch {
-      setFixText('Erro ao gerar correção. Tente novamente.')
+      setFixApplied(true)
+    } catch (err: any) {
+      setFixError(err?.message ?? 'Erro ao gerar correção. Tente novamente.')
     } finally {
       setLoadingFix(false)
     }
-  }
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!fixText) return
-    navigator.clipboard.writeText(fixText)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   const handleNavigate = (e: React.MouseEvent) => {
@@ -348,31 +343,48 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
 
               {/* Fix preview */}
               {fixText && (
-                <div className="bg-neutral-900 dark:bg-neutral-800 rounded-lg px-3 py-2.5 mt-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-bold text-[#01573C] uppercase tracking-wide">Script gerado</span>
-                    <button
-                      onClick={handleCopy}
-                      className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-neutral-200 transition-colors"
-                    >
-                      {copied ? <Check size={10} /> : <Copy size={10} />}
-                      {copied ? 'Copiado' : 'Copiar'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap font-mono">{fixText}</p>
+                <div className={`rounded-lg px-3 py-2.5 mt-1 ${fixApplied ? 'bg-[#01573C]/10 border border-[#01573C]/30' : 'bg-neutral-900 dark:bg-neutral-800'}`}>
+                  {fixApplied && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Check size={12} style={{ color: '#01573C' }} />
+                      <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#01573C' }}>
+                        Adicionado à {gap.source}
+                      </span>
+                    </div>
+                  )}
+                  <p className={`text-xs leading-relaxed whitespace-pre-wrap font-mono ${fixApplied ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-200'}`}>
+                    {fixText}
+                  </p>
                 </div>
+              )}
+
+              {fixError && (
+                <p className="text-xs text-red-500 mt-1">{fixError}</p>
               )}
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-1">
-                <button
-                  onClick={handleGenerateFix}
-                  disabled={loadingFix}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
-                >
-                  {loadingFix ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                  {loadingFix ? 'Gerando...' : fixText ? 'Gerar novamente' : 'Gerar correção'}
-                </button>
+                {!fixApplied && (
+                  <button
+                    onClick={handleGenerateFix}
+                    disabled={loadingFix}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
+                  >
+                    {loadingFix ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                    {loadingFix ? 'Aplicando...' : 'Gerar e aplicar correção'}
+                  </button>
+                )}
+
+                {fixApplied && (
+                  <button
+                    onClick={handleGenerateFix}
+                    disabled={loadingFix}
+                    className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
+                  >
+                    <Wand2 size={11} />
+                    Gerar novamente
+                  </button>
+                )}
 
                 {onNavigate && (
                   <button
@@ -380,7 +392,7 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
                     className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border-[1.5px] border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
                   >
                     <BookOpen size={12} />
-                    Ir para {gap.source === 'Identidade do Agente' ? 'Identidade' : gap.source === 'Base de Objeções' ? 'Objeções' : 'Conhecimento'}
+                    Ver em {gap.source === 'Identidade do Agente' ? 'Identidade' : gap.source === 'Base de Objeções' ? 'Objeções' : 'Conhecimento'}
                   </button>
                 )}
               </div>
