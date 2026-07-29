@@ -30,22 +30,25 @@ export async function POST(req: NextRequest) {
 
     const service = createServiceClient()
 
-    // Busca flow_id e openai_key da empresa
-    const { data: cfg, error: cfgError } = await service
+    // Busca openai_key em sdr_configs
+    const { data: cfg } = await service
       .from('sdr_configs')
-      .select('flow_id, openai_key')
+      .select('openai_key')
       .eq('company_id', userData.company_id)
       .single()
 
-    console.log('[fix-gap] company_id:', userData.company_id)
-    console.log('[fix-gap] cfg:', JSON.stringify({ flow_id: cfg?.flow_id ?? null, has_openai_key: !!cfg?.openai_key }))
-    console.log('[fix-gap] cfgError:', cfgError?.message ?? null)
-    console.log('[fix-gap] dry_run:', dry_run, '| has override:', !!fix_text_override)
+    // Busca o flow ativo da empresa (mesma lógica do config route)
+    const { data: flowRow } = await service
+      .from('sdr_flows')
+      .select('id')
+      .eq('company_id', userData.company_id)
+      .eq('ativo', true)
+      .limit(1)
+      .single()
 
-    // flow_id só é necessário para embedar — dry_run só gera script, não precisa
-    if (!dry_run && !fix_text_override && !cfg?.flow_id) {
-      return NextResponse.json({ error: 'Fluxo SDR não encontrado. Configure o agente primeiro.' }, { status: 400 })
-    }
+    const flowId = flowRow?.id ?? null
+
+    console.log('[fix-gap] company_id:', userData.company_id, '| flow_id:', flowId, '| dry_run:', dry_run, '| has override:', !!fix_text_override)
 
     // Resolve OpenAI key (mesma cadeia do worker)
     let openaiKey: string | null = null
@@ -72,14 +75,13 @@ export async function POST(req: NextRequest) {
     // Se fix_text_override está presente: pula GPT e vai direto ao embed
     const overrideText = (fix_text_override as string | undefined)?.trim()
     if (overrideText) {
-      console.log('[fix-gap] override path — flow_id:', cfg?.flow_id ?? 'MISSING')
-      if (!cfg?.flow_id) {
-        return NextResponse.json({ error: `[debug] cfg=${JSON.stringify(cfg)} cfgError=${cfgError?.message}` }, { status: 400 })
+      if (!flowId) {
+        return NextResponse.json({ error: 'Nenhum fluxo SDR ativo encontrado. Ative o agente primeiro.' }, { status: 400 })
       }
       const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
       await processKnowledgeText({
         companyId: userData.company_id,
-        flowId: cfg.flow_id,
+        flowId,
         filename: `diagnostico_fix_${gap.id}_${Date.now()}.txt`,
         text: `=== ${label} ===\nCenário: ${gap.scenario}\n\n${overrideText}`,
         tableType,
@@ -136,20 +138,18 @@ Gere o script que deve ser adicionado na ${gap.source}.`
       return NextResponse.json({ ok: true, fix_text: fixText, insert_in: tableType })
     }
 
-    // Embed direto (sem override) — flow_id obrigatório
-    if (!cfg?.flow_id) {
-      return NextResponse.json({ error: 'Fluxo SDR não encontrado. Configure o agente primeiro.' }, { status: 400 })
+    // Embed direto (sem override) — flow ativo obrigatório
+    if (!flowId) {
+      return NextResponse.json({ error: 'Nenhum fluxo SDR ativo encontrado. Ative o agente primeiro.' }, { status: 400 })
     }
-
-    const textToEmbed = fixText
 
     // Embeda na base correta — INSERT puro, não apaga nada existente
     const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
-    const docText = `=== ${label} ===\nCenário: ${gap.scenario}\n\n${textToEmbed}`
+    const docText = `=== ${label} ===\nCenário: ${gap.scenario}\n\n${fixText}`
 
     await processKnowledgeText({
       companyId: userData.company_id,
-      flowId: cfg.flow_id,
+      flowId,
       filename: `diagnostico_fix_${gap.id}_${Date.now()}.txt`,
       text: docText,
       tableType,
@@ -157,7 +157,7 @@ Gere o script que deve ser adicionado na ${gap.source}.`
 
     return NextResponse.json({ ok: true, fix_text: fixText, insert_in: tableType })
   } catch (err: any) {
-    console.error('[sdr/fix-gap]', err)
+    console.error('[sdr/fix-gap] erro:', err)
     return NextResponse.json({ error: err?.message ?? 'Erro interno' }, { status: 500 })
   }
 }
