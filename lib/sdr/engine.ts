@@ -523,8 +523,8 @@ async function runAgenteSegmentacao(
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
 1. Use "Buscar_nincho" passando o whatsapp do lead
-2. Use "Think" para raciocinar sobre o nicho correto
-3. Use "Atualizar_nincho" para salvar o segmento
+2. Use "Think" para raciocinar: a mensagem do lead revela explicitamente o tipo de negócio ou setor em que atua? Ex: "tenho uma padaria", "sou advogado", "trabalho com estética". Objeções, perguntas sobre preço, saudações e dúvidas genéricas NÃO revelam segmento.
+3. SOMENTE se a mensagem contiver informação real de segmento: use "Atualizar_nincho". Caso contrário, retorne imediatamente {"atualizado": false, "segmento": ""}.
 
 NICHOS DISPONÍVEIS (use exatamente um deles):
 E-commerce, Saúde/Medicina, Educação, Alimentação, Beleza/Estética, Imobiliária, Advocacia, Consultoria, Tecnologia, Moda/Fashion, Arquitetura, Auto Escola, Restaurante, Academia, Farmácia, Padaria, Supermercado, Floricultura, Hotel/Pousada, Oficina Mecânica, Pet Shop, Outros
