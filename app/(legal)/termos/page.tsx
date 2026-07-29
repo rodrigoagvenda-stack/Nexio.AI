@@ -2,7 +2,7 @@
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Zaapply — Termos de Serviço',
+  title: 'Zaapply: Termos de Serviço',
   description: 'Leia os termos e condições para uso da plataforma Zaapply.',
 }
 
@@ -291,7 +291,7 @@ export default function TermosPage() {
 
       <Section id="contato" title="13. Contato e Suporte">
         <InfoBox>
-          <strong>Zaapply — Suporte e Atendimento</strong><br />
+          <strong>Zaapply: Suporte e Atendimento</strong><br />
           E-mail:{' '}
           <a href="mailto:suporte@zaapply.com.br" className="text-primary underline underline-offset-4">
             suporte@zaapply.com.br

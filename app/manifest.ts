@@ -37,7 +37,7 @@ export default function manifest(): MetadataRoute.Manifest {
         type: 'image/svg+xml',
         // @ts-ignore — form_factor é válido mas não está no type ainda
         form_factor: 'narrow',
-        label: 'Zaapply — CRM',
+        label: 'Zaapply CRM',
       },
     ],
     categories: ['business', 'productivity'],

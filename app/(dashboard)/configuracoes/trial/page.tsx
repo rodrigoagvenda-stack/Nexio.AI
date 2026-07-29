@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -259,7 +259,7 @@ function AudioRecorder({ onUpload, current }: { onUpload: (url: string) => void;
   )
 }
 
-// ─── Chat Preview — estilo idêntico ao SimulatorChat do SDR ─────────────────
+// ─── Chat Preview: estilo idêntico ao SimulatorChat do SDR ─────────────────
 
 function ChatPreview({ step }: { step: TrialStep }) {
   const { tipo_mensagem: tipo, mensagem, media_config: media } = step
@@ -605,7 +605,7 @@ function MediaEditor({ tipo, config, onChange }: { tipo: StepTipo; config: Media
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Endereço (aparece no WhatsApp)</Label>
-            <Input value={config.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} className="h-9 text-sm" placeholder="Ex: Av. Paulista, 1000 — São Paulo, SP" />
+            <Input value={config.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} className="h-9 text-sm" placeholder="Ex: Av. Paulista, 1000: São Paulo, SP" />
           </div>
         </div>
       </div>
@@ -1042,7 +1042,7 @@ function ConfigContent() {
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
                     </Button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground/60">Compartilhe este link — o formulário já está pronto para uso.</p>
+                  <p className="text-[11px] text-muted-foreground/60">Compartilhe este link: o formulário já está pronto para uso.</p>
                 </div>
               ) : null
             })()}
@@ -1076,7 +1076,7 @@ function ConfigContent() {
           <p className="text-sm font-semibold">Modo Teste</p>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          Quando ativo, todos os disparos do trial são redirecionados para o número abaixo — nenhum cliente real é impactado.
+          Quando ativo, todos os disparos do trial são redirecionados para o número abaixo: nenhum cliente real é impactado.
         </p>
         <div className="rounded-lg border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -1099,7 +1099,7 @@ function ConfigContent() {
                 />
               </div>
               <p className="text-xs text-amber-500 font-medium">
-                ⚠ Modo teste ativo — disparos reais estão pausados
+                ⚠ Modo teste ativo: disparos reais estão pausados
               </p>
               <div className="pt-2 space-y-2 border-t border-border">
                 <Label className="text-xs text-muted-foreground">Simular dia do trial</Label>

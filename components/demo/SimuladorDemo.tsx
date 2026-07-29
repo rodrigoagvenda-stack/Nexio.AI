@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -145,11 +145,11 @@ const SCENES: Scene[] = ['start', 'mode_select', 'lead_msg', 'agent_typing', 'ag
 const META: Record<Scene, string> = {
   start:         'Clique em "Iniciar simulacao" para testar seu prompt antes de ativar com leads reais',
   mode_select:   'Escolha o modo: Basico (perguntas prontas) ou Avancado (voce digita como o lead)',
-  lead_msg:      'Modo Avancado — voce simula o lead. Escreva uma mensagem como se fosse seu cliente',
+  lead_msg:      'Modo Avancado: voce simula o lead. Escreva uma mensagem como se fosse seu cliente',
   agent_typing:  'Agente processando a mensagem com base na sua configuracao...',
-  agent_replied: 'Resposta gerada — avalie se esta alinhada com seu produto e tom de voz',
+  agent_replied: 'Resposta gerada: avalie se esta alinhada com seu produto e tom de voz',
   evaluation:    'Avaliador analisa a qualidade da resposta e sugere melhorias no prompt',
-  done:          'Simulacao concluida — ajuste o prompt conforme sugestoes e teste novamente',
+  done:          'Simulacao concluida: ajuste o prompt conforme sugestoes e teste novamente',
 }
 
 export function SimuladorDemo() {
@@ -208,7 +208,7 @@ export function SimuladorDemo() {
           ))}
         </div>
 
-        {/* Main area — dual panel */}
+        {/* Main area: dual panel */}
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
 
           {/* Mode bar */}
@@ -280,7 +280,7 @@ export function SimuladorDemo() {
                   </button>
                 </Hotspot>
               </div>
-              <p className="text-xs text-muted-foreground max-w-xs">No modo Avancado voce escreve como o lead — ideal para testar objecoes e cenarios especificos</p>
+              <p className="text-xs text-muted-foreground max-w-xs">No modo Avancado voce escreve como o lead: ideal para testar objecoes e cenarios especificos</p>
             </div>
           )}
 

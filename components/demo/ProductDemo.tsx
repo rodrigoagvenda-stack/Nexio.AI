@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -58,7 +58,7 @@ function FakeQR({ size = 200 }: { size?: number }) {
   )
 }
 
-// ── Portal tooltip — renders into document.body, position:fixed, never clipped ─
+// ── Portal tooltip: renders into document.body, position:fixed, never clipped ─
 type TooltipSide = 'top' | 'right' | 'bottom' | 'left'
 
 function PortalTooltip({
@@ -72,7 +72,7 @@ function PortalTooltip({
   const [mounted, setMounted] = useState(false)
   const [style, setStyle]     = useState<React.CSSProperties | null>(null)
 
-  // Mount guard — document.body only exists on the client
+  // Mount guard: document.body only exists on the client
   useEffect(() => { setMounted(true) }, [])
 
   // Measure anchor position whenever label/side change (scene transitions)
@@ -105,7 +105,7 @@ function PortalTooltip({
   )
 }
 
-// ── Hotspot wrapper — glow ring + portal tooltip ───────────────────────────────
+// ── Hotspot wrapper: glow ring + portal tooltip ───────────────────────────────
 function Hotspot({
   children, label, onClick, side = 'top', minW = 240,
 }: {
@@ -194,7 +194,7 @@ function FakeSidebar({ active, navHotspot, onNav }: {
       {navHotspot && (
         <PortalTooltip
           anchorRef={hotspotBtnRef}
-          label="Agora configure o Agente SDR — clique em Automações"
+          label="Agora configure o Agente SDR: clique em Automações"
           side="right"
           minW={260}
         />
@@ -247,7 +247,7 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
       <div className="w-full max-w-2xl">
         <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border">
           <div className="flex">
-            {/* Left — instructions */}
+            {/* Left: instructions */}
             <div className="flex-1 p-8 flex flex-col gap-6">
               <div>
                 <h1 className="text-2xl font-light text-foreground mb-1">Use o WhatsApp no computador</h1>
@@ -289,7 +289,7 @@ function ScreenAtendimento({ qrState, onGerarQR, onScanQR }: {
               </div>
             </div>
 
-            {/* Right — QR area */}
+            {/* Right: QR area */}
             <div className="flex items-center justify-center p-8 bg-muted/30 border-l border-border rounded-r-2xl min-h-[300px] min-w-[260px]">
               {qrState === 'idle' && (
                 <div className="w-[200px] h-[200px] bg-muted rounded-xl" />
@@ -361,7 +361,7 @@ type SdrHotspot =
   | null
 
 const TAB_TOOLTIP: Record<string, string> = {
-  identidade:   'Configure a persona do agente — nome, tom de voz e produto',
+  identidade:   'Configure a persona do agente: nome, tom de voz e produto',
   conhecimento: 'Adicione a base de conhecimento e de objeções',
   integracoes:  'Conecte o Google Calendar para agendar reuniões',
   geral:        'Volte ao Geral para ativar o agente SDR',
@@ -542,7 +542,7 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                   <p className="text-xs font-medium text-muted-foreground mb-2">Modo de atendimento</p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { v: 'suporte', l: 'Suporte', d: 'Inbox compartilhado — qualquer atendente pode pegar' },
+                      { v: 'suporte', l: 'Suporte', d: 'Inbox compartilhado: qualquer atendente pode pegar' },
                       { v: 'vendas',  l: 'Vendas',  d: 'Distribui automaticamente entre os atendentes (round-robin)' },
                     ].map(({ v, l, d }) => (
                       <div key={v} className={cn('p-3 rounded-xl border text-left', v === 'suporte' ? 'border-primary bg-primary/5' : 'border-border')}>
@@ -669,7 +669,7 @@ function ScreenSDR({ activeTab, selectedTipo, agenteAtivo, hotspot, onHotspot }:
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">Use <code className="bg-muted px-1 rounded">{'{'+'nome'+'}'}</code> para incluir o nome do lead.</p>
                   <div className="h-9 px-3 rounded-lg border border-input bg-background text-sm flex items-center text-foreground">
-                    Call de vendas — {'{'+'nome'+'}'}
+                    Call de vendas: {'{'+'nome'+'}'}
                   </div>
                 </div>
               </div>

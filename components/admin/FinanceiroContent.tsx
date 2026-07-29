@@ -52,20 +52,20 @@ const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const dateBR = (s: string | null) =>
-  s ? new Date(s).toLocaleDateString('pt-BR') : '—';
+  s ? new Date(s).toLocaleDateString('pt-BR') : '-';
 
 const tkFmt = (n: number) =>
   n >= 1_000_000 ? `${n / 1_000_000}M` : `${n / 1_000}K`;
 
 const PLAN_LABELS: Record<string, string> = {
-  basic: 'Basic', starter: 'Starter', pro: 'Pro', scale: 'Scale',
+  basic: 'Basic', trial: 'Trial', starter: 'Zaapply Start', pro: 'Zaapply Growth',
 };
 
 const PLAN_COLORS: Record<string, string> = {
   basic:   'bg-gray-100 text-gray-600',
+  trial:   'bg-gray-100 text-gray-600',
   starter: 'bg-blue-100 text-blue-700',
   pro:     'bg-purple-100 text-purple-700',
-  scale:   'bg-amber-100 text-amber-700',
 };
 
 function StatusBadge({ expires }: { expires: string | null }) {
@@ -193,18 +193,18 @@ export function FinanceiroContent({ subscriptions, tokenCharges, stats }: Props)
                   </TableCell>
                   <TableCell>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PLAN_COLORS[s.plan_type ?? 'basic'] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {PLAN_LABELS[s.plan_type ?? ''] ?? s.plan_type ?? '—'}
+                      {PLAN_LABELS[s.plan_type ?? ''] ?? s.plan_type ?? 'Desconhecido'}
                     </span>
                   </TableCell>
                   <TableCell className="font-semibold text-[#369E47]">
-                    {brl(({ starter: 1600, pro: 2000, scale: 2600 } as Record<string, number>)[s.plan_type ?? ''] ?? 0)}
+                    {brl(({ starter: 297, pro: 497 } as Record<string, number>)[s.plan_type ?? ''] ?? 0)}
                   </TableCell>
                   <TableCell className="text-sm">{dateBR(s.subscription_start_date)}</TableCell>
                   <TableCell className="text-sm">{dateBR(s.subscription_expires_at)}</TableCell>
                   <TableCell><StatusBadge expires={s.subscription_expires_at} /></TableCell>
                   <TableCell>
                     <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                      {s.asaas_subscription_id?.slice(0, 16) ?? '—'}…
+                      {s.asaas_subscription_id?.slice(0, 16) ?? '-'}…
                     </code>
                   </TableCell>
                 </TableRow>
@@ -239,7 +239,7 @@ export function FinanceiroContent({ subscriptions, tokenCharges, stats }: Props)
               ) : tokenCharges.map(c => (
                 <TableRow key={c.id}>
                   <TableCell className="font-medium text-sm">
-                    {c.company?.name ?? '—'}
+                    {c.company?.name ?? '-'}
                   </TableCell>
                   <TableCell>
                     <span className="font-semibold text-purple-600">

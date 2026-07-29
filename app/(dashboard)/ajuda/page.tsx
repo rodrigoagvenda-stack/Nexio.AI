@@ -15,61 +15,61 @@ import {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface HelpItem { question: string; answer: string }
-interface HelpSection { id: string; title: string; icon: LucideIcon; description: string; items: HelpItem[] }
+interface HelpItem { question:  string; answer:  string }
+interface HelpSection { id:  string; title:  string; icon:  LucideIcon; description:  string; items:  HelpItem[] }
 interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
+  role:  'user' | 'assistant';
+  content:  string;
   buttons?: string[];
   askFeedback?: boolean;
-  timestamp: number;
+  timestamp:  number;
   isError?: boolean;
 }
 
 // ── Content ───────────────────────────────────────────────────────────────────
 
-const sections: HelpSection[] = [
+const sections:  HelpSection[] = [
   {
-    id: 'visao-geral',
-    title: 'Visão Geral',
-    icon: Home,
-    description: 'Introdução à plataforma e primeiros passos',
-    items: [
+    id:  'visao-geral',
+    title:  'Visão Geral',
+    icon:  Home,
+    description:  'Introdução à plataforma e primeiros passos',
+    items:  [
       {
-        question: 'O que é o Zaapply?',
+        question:  'O que é o Zaapply?',
         answer:
-`O Zaapply é uma plataforma de CRM e automação de vendas com IA nativa integrada ao WhatsApp. Todo o fluxo — desde captar o lead até fechar a venda — acontece em um único ambiente.
+`O Zaapply é uma plataforma de CRM e automação de vendas com IA nativa integrada ao WhatsApp. Todo o fluxo: desde captar o lead até fechar a venda: acontece em um único ambiente.
 
 ## Módulos principais
-• **Dashboard** — KPIs em tempo real com comparativos vs período anterior
-• **CRM** — Funil de vendas com Kanban drag & drop e visualização em planilha
-• **Atendimento** — Chat WhatsApp com Agente IA e inbox multi-atendente
-• **Agente SDR** — Configuração de persona, base de conhecimento e objeções
-• **Follow-up** — Sequências automáticas de mensagens com gatilhos por estágio
-• **Trial SaaS** — Gestão do ciclo de vida de trials com automações
-• **Métricas** — Analytics completo de follow-up, trial e remarketing
-• **Membros** — Gestão de equipe com permissões por função
-• **Briefing** — Formulário público personalizado com sua marca
+• **Dashboard**: KPIs em tempo real com comparativos vs período anterior
+• **CRM**: Funil de vendas com Kanban drag & drop e visualização em planilha
+• **Atendimento**: Chat WhatsApp com Agente IA e inbox multi-atendente
+• **Agente SDR**: Configuração de persona, base de conhecimento e objeções
+• **Follow-up**: Sequências automáticas de mensagens com gatilhos por estágio
+• **Trial SaaS**: Gestão do ciclo de vida de trials com automações
+• **Métricas**: Analytics completo de follow-up, trial e remarketing
+• **Membros**: Gestão de equipe com permissões por função
+• **Briefing**: Formulário público personalizado com sua marca
 [INFO]
 Todas as funcionalidades funcionam dentro da mesma plataforma. Não são necessárias integrações externas complexas além do WhatsApp e, opcionalmente, o Google Calendar.
 [/INFO]`,
       },
       {
-        question: 'Guia de primeiros passos',
+        question:  'Guia de primeiros passos',
         answer:
 `Configure o Zaapply em 5 etapas para começar a operar com IA:
 
-1. **Conecte o WhatsApp** — Acesse Atendimento e escaneie o QR Code com o celular
-2. **Configure o Agente SDR** — Defina persona, base de conhecimento e modo de atendimento em Automações → Agente SDR
-3. **Adicione seus leads** — Importe ou cadastre leads no CRM
-4. **Ative o Agente IA** — Use o toggle global na lista de conversas em Atendimento
-5. **Monitore pelo Dashboard** — Acompanhe conversões, funil e faturamento em tempo real
+1. **Conecte o WhatsApp**: Acesse Atendimento e escaneie o QR Code com o celular
+2. **Configure o Agente SDR**: Defina persona, base de conhecimento e modo de atendimento em Automações → Agente SDR
+3. **Adicione seus leads**: Importe ou cadastre leads no CRM
+4. **Ative o Agente IA**: Use o toggle global na lista de conversas em Atendimento
+5. **Monitore pelo Dashboard**: Acompanhe conversões, funil e faturamento em tempo real
 [TIP]
 Configure a base de conhecimento com produtos, preços e principais objeções antes de ativar o agente. Quanto mais contexto, melhor a qualidade das respostas geradas.
 [/TIP]`,
       },
       {
-        question: 'Automações disponíveis',
+        question:  'Automações disponíveis',
         answer:
 `O Zaapply oferece três tipos de automação de mensagens via WhatsApp:
 
@@ -77,7 +77,7 @@ Configure a base de conhecimento com produtos, preços e principais objeções a
 Sequências de mensagens enviadas automaticamente em intervalos programados. Ideal para nurturing, recuperação de leads inativos, anti-noshow e pós-venda.
 
 ## Trial SaaS
-Automação dedicada para modelos com período de avaliação. Acompanha cada lead pelo ciclo completo: início do trial → engajamento → conversão ou expiração.
+Automação dedicada para modelos com período de avaliação. Acompanha cada lead pelo ciclo completo:  início do trial → engajamento → conversão ou expiração.
 
 ## Remarketing
 Re-engajamento de leads inativos com mensagens personalizadas. Configure sequências específicas com condição de estágio "Remarketing" no CRM.
@@ -88,43 +88,43 @@ Todas as automações podem pausar ou reativar o Agente SDR automaticamente, dep
     ],
   },
   {
-    id: 'dashboard',
-    title: 'Dashboard',
-    icon: LayoutDashboard,
-    description: 'Indicadores de performance e filtros de período',
-    items: [
+    id:  'dashboard',
+    title:  'Dashboard',
+    icon:  LayoutDashboard,
+    description:  'Indicadores de performance e filtros de período',
+    items:  [
       {
-        question: 'KPIs e métricas em tempo real',
+        question:  'KPIs e métricas em tempo real',
         answer:
 `O Dashboard exibe 5 indicadores principais. Os chips coloridos (↑ verde / ↓ vermelho) mostram a variação percentual vs o período anterior equivalente.
 
-• **Novos leads** — Total de leads criados no período selecionado (todos os status)
-• **Em atendimento** — Leads no estágio "Em contato" no estado atual do pipeline
-• **Taxa de conversão** — Leads fechados no período ÷ leads criados no período (máx. 100%)
-• **Em negociação** — Valor total em R$ de todos os leads ativos (estado atual, independe do filtro)
-• **Faturamento** — Soma dos \`project_value\` dos leads fechados no período
+• **Novos leads**: Total de leads criados no período selecionado (todos os status)
+• **Em atendimento**: Leads no estágio "Em contato" no estado atual do pipeline
+• **Taxa de conversão**: Leads fechados no período ÷ leads criados no período (máx. 100%)
+• **Em negociação**: Valor total em R$ de todos os leads ativos (estado atual, independe do filtro)
+• **Faturamento**: Soma dos \`project_value\` dos leads fechados no período
 [INFO]
-"Em atendimento" e "Em negociação" refletem o estado real do pipeline agora — não variam com o filtro de período. Isso é intencional: mostram a situação atual independente de quando os leads foram criados.
+"Em atendimento" e "Em negociação" refletem o estado real do pipeline agora: não variam com o filtro de período. Isso é intencional:  mostram a situação atual independente de quando os leads foram criados.
 [/INFO]`,
       },
       {
-        question: 'Filtros de período e deltas',
+        question:  'Filtros de período e deltas',
         answer:
 `O seletor de período no canto superior direito controla todos os KPIs e gráficos:
 
-• **Hoje** — 00:00 até agora, comparado com ontem
-• **Semana** — Segunda-feira até hoje, comparado com a semana passada
-• **Mês** — Dia 1 até hoje, comparado com o mês anterior
-• **Ano** — 1 de janeiro até hoje, comparado com o ano anterior
-• **Personalizado** — Qualquer intervalo; o delta usa o mesmo número de dias imediatamente anterior
+• **Hoje**: 00:00 até agora, comparado com ontem
+• **Semana**: Segunda-feira até hoje, comparado com a semana passada
+• **Mês**: Dia 1 até hoje, comparado com o mês anterior
+• **Ano**: 1 de janeiro até hoje, comparado com o ano anterior
+• **Personalizado**: Qualquer intervalo; o delta usa o mesmo número de dias imediatamente anterior
 
-Os chips de delta são calculados como: ((atual − anterior) ÷ anterior) × 100. Um chip verde **+23%** significa crescimento de 23% vs o período anterior.
+Os chips de delta são calculados como:  ((atual − anterior) ÷ anterior) × 100. Um chip verde **+23%** significa crescimento de 23% vs o período anterior.
 [TIP]
 Use o filtro "Ano" para visão de crescimento e "Mês" para acompanhamento operacional semanal.
 [/TIP]`,
       },
       {
-        question: 'Gráficos: Performance e Taxa de Conversão',
+        question:  'Gráficos:  Performance e Taxa de Conversão',
         answer:
 `## Performance de Vendas
 Barras duplas por intervalo de tempo. A granularidade muda automaticamente:
@@ -134,20 +134,20 @@ Barras duplas por intervalo de tempo. A granularidade muda automaticamente:
 • Ano → por mês
 
 As séries exibidas:
-• **Leads gerados** (verde) — leads criados no intervalo por data de criação
-• **Leads fechados** (cinza) — negócios fechados por data de fechamento
+• **Leads gerados** (verde): leads criados no intervalo por data de criação
+• **Leads fechados** (cinza): negócios fechados por data de fechamento
 
 ## Taxa de Conversão Geral
 Donut interativo mostrando a proporção de leads **Fechados** vs **Em andamento** (total de leads ativos). Passe o mouse sobre cada fatia para ver os valores absolutos.`,
       },
       {
-        question: 'Funil de Vendas e Vendas Recentes',
+        question:  'Funil de Vendas e Vendas Recentes',
         answer:
 `## Funil de Vendas
 Barras horizontais mostrando a distribuição atual de leads por estágio do pipeline. Use as pills no topo para alternar entre:
-• **Funil de Vendas** — estágios do CRM com contagem de leads ativos
-• **Anti Noshow** — disparos das sequências de lembrete de reunião
-• **Remarketing** — em breve
+• **Funil de Vendas**: estágios do CRM com contagem de leads ativos
+• **Anti Noshow**: disparos das sequências de lembrete de reunião
+• **Remarketing**: em breve
 
 ## Vendas Recentes
 Lista dos últimos 10 leads fechados com nome da empresa, contato e valor da negociação em ordem cronológica inversa.`,
@@ -155,37 +155,37 @@ Lista dos últimos 10 leads fechados com nome da empresa, contato e valor da neg
     ],
   },
   {
-    id: 'crm',
-    title: 'CRM',
-    icon: Users,
-    description: 'Funil de vendas, leads e pipeline completo',
-    items: [
+    id:  'crm',
+    title:  'CRM',
+    icon:  Users,
+    description:  'Funil de vendas, leads e pipeline completo',
+    items:  [
       {
-        question: 'Os 9 estágios do funil',
+        question:  'Os 9 estágios do funil',
         answer:
 `O CRM usa um funil com 9 estágios que representam a jornada completa do lead:
 
-• **Triagem** 🔍 — Leads captados via integração aguardando avaliação de ICP
-• **Outbound** 📣 — Aprovados na triagem, prontos para prospecção ativa
-• **Lead novo** — Adicionados manualmente, ainda não contactados
-• **Em contato** — Primeiro contato realizado pelo SDR ou manualmente
-• **Interessado** — Demonstrou interesse genuíno no produto/serviço
-• **Proposta enviada** — Recebeu orçamento ou proposta formal
-• **Fechado** — Venda concluída e valor registrado
-• **Perdido** — Não converteu neste ciclo de vendas
-• **Remarketing** — Em campanha de reativação futura
+• **Triagem** 🔍:Leads captados via integração aguardando avaliação de ICP
+• **Outbound** 📣:Aprovados na triagem, prontos para prospecção ativa
+• **Lead novo**: Adicionados manualmente, ainda não contactados
+• **Em contato**: Primeiro contato realizado pelo SDR ou manualmente
+• **Interessado**: Demonstrou interesse genuíno no produto/serviço
+• **Proposta enviada**: Recebeu orçamento ou proposta formal
+• **Fechado**: Venda concluída e valor registrado
+• **Perdido**: Não converteu neste ciclo de vendas
+• **Remarketing**: Em campanha de reativação futura
 [TIP]
 Leads em "Perdido" não são deletados. Mova-os para "Remarketing" quando quiser reengajar com uma sequência automática.
 [/TIP]`,
       },
       {
-        question: 'Cadastrar um lead',
+        question:  'Cadastrar um lead',
         answer:
 `Clique em **+ Adicionar Lead** no canto superior direito do CRM. O formulário tem 3 etapas:
 
-1. **Empresa** — Nome (obrigatório), segmento de atuação, site ou @Instagram
-2. **Contato** — Nome do contato, WhatsApp com DDD e e-mail
-3. **Detalhes** — Prioridade (Alta/Média/Baixa), nível de interesse, fonte do lead, valor estimado do projeto e observações
+1. **Empresa**: Nome (obrigatório), segmento de atuação, site ou @Instagram
+2. **Contato**: Nome do contato, WhatsApp com DDD e e-mail
+3. **Detalhes**: Prioridade (Alta/Média/Baixa), nível de interesse, fonte do lead, valor estimado do projeto e observações
 
 O lead entra automaticamente no estágio **Lead novo** ao ser salvo.
 [INFO]
@@ -193,7 +193,7 @@ O campo "valor do projeto" alimenta a métrica "Em negociação" no Dashboard. P
 [/INFO]`,
       },
       {
-        question: 'Planilha vs Kanban',
+        question:  'Planilha vs Kanban',
         answer:
 `Alterne no menu lateral em **CRM → Planilha** ou **CRM → Kanban**:
 
@@ -215,13 +215,13 @@ No celular, o Kanban não suporta drag & drop. Use o seletor de status dentro de
 [/INFO]`,
       },
       {
-        question: 'Filtros, busca e ações em massa',
+        question:  'Filtros, busca e ações em massa',
         answer:
 `## Filtros disponíveis (cumulativos)
-• **Busca de texto** — Nome da empresa, nome do contato ou e-mail
-• **Status** — Um ou mais estágios do funil
-• **Prioridade** — Alta, Média ou Baixa
-• **Limpar filtros** — Remove todos de uma vez
+• **Busca de texto**: Nome da empresa, nome do contato ou e-mail
+• **Status**: Um ou mais estágios do funil
+• **Prioridade**: Alta, Média ou Baixa
+• **Limpar filtros**: Remove todos de uma vez
 
 ## Deletar em massa (somente na Planilha)
 1. Marque os checkboxes ao lado dos leads desejados
@@ -229,7 +229,7 @@ No celular, o Kanban não suporta drag & drop. Use o seletor de status dentro de
 3. Confirme na caixa de diálogo
 
 ## Exportar CSV
-Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados — você exporta apenas o que está visível.
+Clique em **Exportar CSV** no topo da Planilha. Os filtros ativos são aplicados: você exporta apenas o que está visível.
 [AVISO]
 A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção antes de confirmar.
 [/AVISO]`,
@@ -237,24 +237,24 @@ A exclusão em massa é permanente e não pode ser desfeita. Revise a seleção 
     ],
   },
   {
-    id: 'atendimento',
-    title: 'Atendimento',
-    icon: MessageSquare,
-    description: 'Chat WhatsApp com Agente IA e inbox multi-atendente',
-    items: [
+    id:  'atendimento',
+    title:  'Atendimento',
+    icon:  MessageSquare,
+    description:  'Chat WhatsApp com Agente IA e inbox multi-atendente',
+    items:  [
       {
-        question: 'Visão geral do chat WhatsApp',
+        question:  'Visão geral do chat WhatsApp',
         answer:
 `O Atendimento é um inbox WhatsApp multi-atendente com Agente IA nativo. A tela tem 3 painéis:
 
-• **Esquerdo** — Lista de conversas com tabs: Minhas / Livres / Todas. Busca por nome ou número.
-• **Central** — Chat em tempo real espelhando o WhatsApp do número conectado
-• **Direito** — Ficha do lead: resumo IA, notas, tags, mídia enviada e agenda de mensagens
+• **Esquerdo**: Lista de conversas com tabs:  Minhas / Livres / Todas. Busca por nome ou número.
+• **Central**: Chat em tempo real espelhando o WhatsApp do número conectado
+• **Direito**: Ficha do lead:  resumo IA, notas, tags, mídia enviada e agenda de mensagens
 
 Cada conversa fica sincronizada automaticamente com o WhatsApp conectado.`,
       },
       {
-        question: 'Controlar o Agente IA',
+        question:  'Controlar o Agente IA',
         answer:
 `O agente IA tem dois níveis de controle independentes:
 
@@ -262,7 +262,7 @@ Cada conversa fica sincronizada automaticamente com o WhatsApp conectado.`,
 Localizado no topo da lista de conversas. Quando desligado, o agente não responde a nenhuma conversa de nenhum atendente.
 
 ## Toggle por conversa
-Localizado no header de cada chat individual. Quando em "Agente pausado", apenas aquela conversa fica sem resposta automática — as demais continuam normais.
+Localizado no header de cada chat individual. Quando em "Agente pausado", apenas aquela conversa fica sem resposta automática: as demais continuam normais.
 [TIP]
 Use o toggle por conversa quando quiser assumir o controle de uma negociação importante. Após fechar o negócio, reactive para que o agente continue o pós-venda.
 [/TIP]
@@ -274,7 +274,7 @@ O Agente IA:
 • Gera um resumo automático do lead disponível na ficha lateral`,
       },
       {
-        question: 'Modos de atendimento: Suporte vs Vendas',
+        question:  'Modos de atendimento:  Suporte vs Vendas',
         answer:
 `Configure em **Automações → Agente SDR → Geral → Modo de atendimento**:
 
@@ -291,19 +291,19 @@ No modo Vendas, o atendente recebe a conversa instantaneamente. No modo Suporte,
 [/INFO]`,
       },
       {
-        question: 'Tipos de mídia suportados',
+        question:  'Tipos de mídia suportados',
         answer:
 `Clique no ícone de clipe (📎) para acessar os tipos de mídia:
 
-• **Imagens** — JPG, PNG, WebP. Legenda opcional
-• **Áudio** — Grave diretamente com o microfone no sistema, visualização em onda sonora
-• **Vídeos** — MP4 com player de reprodução no chat
-• **Documentos** — PDF, Word (.docx), Excel (.xlsx), TXT
+• **Imagens**: JPG, PNG, WebP. Legenda opcional
+• **Áudio**: Grave diretamente com o microfone no sistema, visualização em onda sonora
+• **Vídeos**: MP4 com player de reprodução no chat
+• **Documentos**: PDF, Word (.docx), Excel (.xlsx), TXT
 
 Todos os arquivos enviados e recebidos ficam organizados na aba **Mídia** da ficha do lead no painel direito.`,
       },
       {
-        question: 'Tags',
+        question:  'Tags',
         answer:
 `Acesse a aba **Tags** na ficha do lead (painel direito):
 • Crie tags com nome e cor personalizada
@@ -313,58 +313,58 @@ Todos os arquivos enviados e recebidos ficam organizados na aba **Mídia** da fi
     ],
   },
   {
-    id: 'sdr',
-    title: 'Agente SDR',
-    icon: Bot,
-    description: 'Persona, base de conhecimento e integração com calendário',
-    items: [
+    id:  'sdr',
+    title:  'Agente SDR',
+    icon:  Bot,
+    description:  'Persona, base de conhecimento e integração com calendário',
+    items:  [
       {
-        question: 'Visão geral: 4 abas de configuração',
+        question:  'Visão geral:  4 abas de configuração',
         answer:
 `Acesse **Automações → Agente SDR** no menu lateral. A configuração tem 4 abas:
 
-• **Geral** — Tipo de agente (SDR/Suporte), modo de atendimento, ativar ou desativar o agente
-• **Identidade** — Nome do agente, tom de voz, empresa representada, produto, restrições e horário de atendimento
-• **Conhecimento** — Base de conhecimento e base de objeções (3 formas de criar cada uma)
-• **Integrações** — Google Calendar para agendamento automático de reuniões diretamente pelo agente`,
+• **Geral**: Tipo de agente (SDR/Suporte), modo de atendimento, ativar ou desativar o agente
+• **Identidade**: Nome do agente, tom de voz, empresa representada, produto, restrições e horário de atendimento
+• **Conhecimento**: Base de conhecimento e base de objeções (3 formas de criar cada uma)
+• **Integrações**: Google Calendar para agendamento automático de reuniões diretamente pelo agente`,
       },
       {
-        question: 'Configurar identidade e persona',
+        question:  'Configurar identidade e persona',
         answer:
 `Na aba **Identidade**, configure como o agente se apresenta e se comporta:
 
-• **Nome** — Como o agente se identifica na conversa (ex: "Ana", "Carlos")
-• **Tom de voz** — Formal, informal, consultivo, direto
-• **Empresa** — Nome e descrição resumida da empresa
-• **Produto/Serviço** — O que está sendo vendido ou suportado
-• **Restrições** — O que o agente NÃO deve fazer ou mencionar
-• **Horário de atendimento** — Janela horária para respostas automáticas (fora do horário, o agente não responde)
+• **Nome**: Como o agente se identifica na conversa (ex:  "Ana", "Carlos")
+• **Tom de voz**: Formal, informal, consultivo, direto
+• **Empresa**: Nome e descrição resumida da empresa
+• **Produto/Serviço**: O que está sendo vendido ou suportado
+• **Restrições**: O que o agente NÃO deve fazer ou mencionar
+• **Horário de atendimento**: Janela horária para respostas automáticas (fora do horário, o agente não responde)
 [TIP]
-Seja específico nas restrições. Exemplos que funcionam bem: "Não ofereça desconto sem aprovação do gestor", "Não mencione concorrentes", "Nunca prometa prazo de entrega".
+Seja específico nas restrições. Exemplos que funcionam bem:  "Não ofereça desconto sem aprovação do gestor", "Não mencione concorrentes", "Nunca prometa prazo de entrega".
 [/TIP]`,
       },
       {
-        question: 'Base de conhecimento e objeções',
+        question:  'Base de conhecimento e objeções',
         answer:
 `Na aba **Conhecimento**, configure duas bases separadas:
 
 ## Base de Conhecimento
-O agente consulta essas informações para responder perguntas sobre o negócio. Configure pelo formulário guiado — 10 blocos de perguntas, um de cada vez, com exemplos em cada etapa.
+O agente consulta essas informações para responder perguntas sobre o negócio. Configure pelo formulário guiado: 10 blocos de perguntas, um de cada vez, com exemplos em cada etapa.
 
 ## Base de Objeções
-Scripts de resposta para objeções comuns ("é caro", "preciso pensar", "já tenho outra solução"). 3 blocos: preço, tempo/decisão e dúvidas sobre o produto.
+Scripts de resposta para objeções comuns ("é caro", "preciso pensar", "já tenho outra solução"). 3 blocos:  preço, tempo/decisão e dúvidas sobre o produto.
 [AVISO]
-Quanto mais detalhadas e específicas forem suas respostas, melhor o agente performa. Respostas genéricas geram um agente genérico — e um agente genérico alucina.
+Quanto mais detalhadas e específicas forem suas respostas, melhor o agente performa. Respostas genéricas geram um agente genérico: e um agente genérico alucina.
 [/AVISO]`,
       },
       {
-        question: 'Usar o Simulador de Prompt',
+        question:  'Usar o Simulador de Prompt',
         answer:
 `O Simulador está na aba **Conhecimento → Simulador** do Agente SDR. Permite testar como o agente responderia a leads reais **antes** de ativar com clientes de verdade.
 
 ## Dois modos de simulação
-• **Básico** — Perguntas pré-definidas comuns (preço, funcionalidades, objeções frequentes). Bom para teste rápido
-• **Avançado** — Você digita mensagens como se fosse o lead. Ideal para testar cenários específicos e objeções difíceis
+• **Básico**: Perguntas pré-definidas comuns (preço, funcionalidades, objeções frequentes). Bom para teste rápido
+• **Avançado**: Você digita mensagens como se fosse o lead. Ideal para testar cenários específicos e objeções difíceis
 
 ## Como usar
 1. Acesse **Agente SDR → Conhecimento → Simulador**
@@ -377,38 +377,38 @@ Quanto mais detalhadas e específicas forem suas respostas, melhor o agente perf
 ## O que fazer com as sugestões
 Volte à aba **Conhecimento**, ajuste o texto das áreas fracas indicadas e teste novamente. Repita até o agente responder como você esperaria de um bom vendedor.
 [TIP]
-Teste especialmente os cenários mais difíceis: "Já uso outra ferramenta", "Preciso pensar", "Tá caro". Se o agente não contornar bem, a base de objeções precisa ser enriquecida.
+Teste especialmente os cenários mais difíceis:  "Já uso outra ferramenta", "Preciso pensar", "Tá caro". Se o agente não contornar bem, a base de objeções precisa ser enriquecida.
 [/TIP]`,
       },
       {
-        question: 'Exemplo completo: base bem configurada',
+        question:  'Exemplo completo:  base bem configurada',
         answer:
 `Use este exemplo como referência de qualidade. Um preenchimento assim resulta em um agente que raramente erra.
 
 ---
 
-## Exemplo — SaaS de Gestão (Tocli)
+## Exemplo: SaaS de Gestão (Tocli)
 
 ### 1. Identidade do Agente
-Você é Ana Voss, especialista comercial da Tocli — sistema de gestão para pequenos negócios.
+Você é Ana Voss, especialista comercial da Tocli: sistema de gestão para pequenos negócios.
 
 Você não é uma assistente. Você é uma especialista que qualifica leads e encaminha para o teste grátis.
 
-Tom: direto, caloroso e consultivo. Nunca frio, nunca rude. Acredita no produto porque viu resultado na prática.
+Tom:  direto, caloroso e consultivo. Nunca frio, nunca rude. Acredita no produto porque viu resultado na prática.
 
-Nunca diga "posso ajudar?" — você já está ajudando.
+Nunca diga "posso ajudar?":você já está ajudando.
 
 ### 2. Produto / Serviço
-Produto: Tocli — sistema de gestão para pequenos negócios.
+Produto:  Tocli: sistema de gestão para pequenos negócios.
 
-O que inclui: controle de vendas, estoque, financeiro e emissão de nota fiscal em um só lugar.
+O que inclui:  controle de vendas, estoque, financeiro e emissão de nota fiscal em um só lugar.
 
-Preço: R$49,90/mês. Sem contrato, cancela quando quiser.
+Preço:  R$49,90/mês. Sem contrato, cancela quando quiser.
 
-Teste grátis: 7 dias sem cartão de crédito.
-Link do teste: tocli.com.br/testegratis7dias
+Teste grátis:  7 dias sem cartão de crédito.
+Link do teste:  tocli.com.br/testegratis7dias
 
-Diferencial: único do mercado que integra NF-e no fluxo de venda, sem precisar de contador.
+Diferencial:  único do mercado que integra NF-e no fluxo de venda, sem precisar de contador.
 
 ### 3. O que NÃO existe
 - Plano anual ou desconto por antecipação
@@ -418,7 +418,7 @@ Diferencial: único do mercado que integra NF-e no fluxo de venda, sem precisar 
 - Garantia de resultado
 - Desconto por indicação
 
-Se perguntarem algo que não existe: "Ainda não temos isso, mas está no nosso roadmap. O que você tem hoje funciona assim: [redirecione]."
+Se perguntarem algo que não existe:  "Ainda não temos isso, mas está no nosso roadmap. O que você tem hoje funciona assim:  [redirecione]."
 
 ### 4. Abordagem de Vendas
 Vai na dor antes de falar de produto.
@@ -437,39 +437,39 @@ Depois que o lead expor a dor, posicione o produto como solução direta para aq
 4. "Você é o dono ou gerencia para outra pessoa?"
 5. "Teria como testar um sistema novo essa semana?"
 
-Descarta: não é o decisor sem acesso ao dono, menos de 10 produtos, já usa concorrente e está satisfeito.
+Descarta:  não é o decisor sem acesso ao dono, menos de 10 produtos, já usa concorrente e está satisfeito.
 
 ### 6. Próximo Passo
-Ação: link do teste grátis por 7 dias.
+Ação:  link do teste grátis por 7 dias.
 
 Só oferecer após qualificação completa.
 
-Script: "Quer testar na prática? São 7 dias grátis, sem cartão. Você configura em menos de 10 minutos."
+Script:  "Quer testar na prática? São 7 dias grátis, sem cartão. Você configura em menos de 10 minutos."
 
-Se recusar: "Tudo bem! Quando tiver um momento, o link fica aqui. Qualquer dúvida me chama." Não insista mais de uma vez.
+Se recusar:  "Tudo bem! Quando tiver um momento, o link fica aqui. Qualquer dúvida me chama." Não insista mais de uma vez.
 
 ### 7. Lead Sem Perfil
-Sem verba: "O Tocli foi pensado para quem já tem um volume de vendas rodando. Quando o negócio crescer um pouco mais, me chama."
+Sem verba:  "O Tocli foi pensado para quem já tem um volume de vendas rodando. Quando o negócio crescer um pouco mais, me chama."
 
-Não é o decisor: "Prefiro não tomar seu tempo sem a pessoa que decide. Quando puder trazer o dono, me chama."
+Não é o decisor:  "Prefiro não tomar seu tempo sem a pessoa que decide. Quando puder trazer o dono, me chama."
 
-Após encerrar: nunca envie mais mensagens.
+Após encerrar:  nunca envie mais mensagens.
 
 ### 8. Preços e Condições
-Preço: R$49,90/mês. Pode revelar desde o início.
+Preço:  R$49,90/mês. Pode revelar desde o início.
 
-Script: "São R$49,90 por mês. Mas o teste é grátis por 7 dias, sem cartão — você testa primeiro e decide depois."
+Script:  "São R$49,90 por mês. Mas o teste é grátis por 7 dias, sem cartão: você testa primeiro e decide depois."
 
-Se perguntar desconto: "No momento o preço é esse. Mas o teste grátis já dá para sentir o valor antes de pagar qualquer coisa."
+Se perguntar desconto:  "No momento o preço é esse. Mas o teste grátis já dá para sentir o valor antes de pagar qualquer coisa."
 
-Não diga "é barato" ou "é acessível" — deixe o lead tirar essa conclusão.
+Não diga "é barato" ou "é acessível":deixe o lead tirar essa conclusão.
 
 ### 9. Como o Lead Chega
-- 70%: anúncios no Meta — já viram o produto no anúncio
-- 20%: indicação — mais qualificados e diretos
-- 10%: orgânico — mais curiosos, menos urgentes
+- 70%: anúncios no Meta: já viram o produto no anúncio
+- 20%: indicação: mais qualificados e diretos
+- 10%: orgânico: mais curiosos, menos urgentes
 
-Primeiras mensagens mais comuns: "Vi o anúncio", "Quanto custa?", "Tem para restaurante?", "Oi" (qualifique antes de avançar).
+Primeiras mensagens mais comuns:  "Vi o anúncio", "Quanto custa?", "Tem para restaurante?", "Oi" (qualifique antes de avançar).
 
 ### 10. Regras Absolutas
 1. Uma pergunta por mensagem. Nunca duas juntas.
@@ -478,30 +478,30 @@ Primeiras mensagens mais comuns: "Vi o anúncio", "Quanto custa?", "Tem para res
 4. Sem markdown (negrito, listas com traço). WhatsApp não renderiza.
 5. Nunca pressionar após a segunda recusa.
 6. Nunca fingir ser humano se perguntarem diretamente.
-7. Nunca falar de concorrente — nem para comparar.
+7. Nunca falar de concorrente: nem para comparar.
 8. Nunca prometer resultado ou prazo que não existe.
 9. Só oferecer o link após qualificação completa.
-10. Se não souber a resposta: "Deixa eu confirmar isso para você." Não invente.
+10. Se não souber a resposta:  "Deixa eu confirmar isso para você." Não invente.
 
 ---
 
-## Exemplo — Objeções (mesmo negócio)
+## Exemplo: Objeções (mesmo negócio)
 
 ### 1. Objeções de Preço
-**Gatilhos:** "Tá caro" / "É muito caro"
-**Script:** "Entendo! São R$49,90 por mês, menos de R$2 por dia. Mas o teste é grátis, sem cartão. Experimenta primeiro e decide depois."
-**Nunca dizer:** "Entendo sua preocupação, mas são apenas R$49,90..." — soa defensivo.
+**Gatilhos: ** "Tá caro" / "É muito caro"
+**Script: ** "Entendo! São R$49,90 por mês, menos de R$2 por dia. Mas o teste é grátis, sem cartão. Experimenta primeiro e decide depois."
+**Nunca dizer: ** "Entendo sua preocupação, mas são apenas R$49,90...":soa defensivo.
 
-**Gatilhos:** "Quanto custa?" / "Qual o valor?"
-**Script:** "O Tocli custa R$49,90 por mês. Você pode testar de graça por 7 dias, sem cartão. Quer que eu envie o link?"
+**Gatilhos: ** "Quanto custa?" / "Qual o valor?"
+**Script: ** "O Tocli custa R$49,90 por mês. Você pode testar de graça por 7 dias, sem cartão. Quer que eu envie o link?"
 
 ### 2. Objeções de Tempo e Decisão
-**Gatilhos:** "Preciso pensar" / "Vou pensar"
-**Script:** "Claro, sem pressão! Posso te mandar o link para você salvar e testar quando decidir?"
-Se recusar o link: "Tudo bem! Quando decidir, me chama aqui." Não insista.
+**Gatilhos: ** "Preciso pensar" / "Vou pensar"
+**Script: ** "Claro, sem pressão! Posso te mandar o link para você salvar e testar quando decidir?"
+Se recusar o link:  "Tudo bem! Quando decidir, me chama aqui." Não insista.
 
-**Gatilhos:** "Já uso outro sistema"
-**Script:** "Entendi! Qual você usa hoje?" [espere resposta] Se for concorrente: "Faz sentido. Se um dia sentir falta de algo — especialmente na parte fiscal — me lembra."
+**Gatilhos: ** "Já uso outro sistema"
+**Script: ** "Entendi! Qual você usa hoje?" [espere resposta] Se for concorrente:  "Faz sentido. Se um dia sentir falta de algo: especialmente na parte fiscal: me lembra."
 
 ### 3. Dúvidas sobre o Produto
 **"Tem contrato?" / "Precisa fidelidade?"**
@@ -511,10 +511,10 @@ Se recusar o link: "Tudo bem! Quando decidir, me chama aqui." Não insista.
 "É bem simples. A maioria configura sozinho em menos de 15 minutos. No teste você já vê como funciona."
 
 **"Tem app?" / "Funciona no celular?"**
-"Funciona direto pelo celular. Não precisa instalar nada — abre no navegador e já usa."`,
+"Funciona direto pelo celular. Não precisa instalar nada: abre no navegador e já usa."`,
       },
       {
-        question: 'Conectar o WhatsApp',
+        question:  'Conectar o WhatsApp',
         answer:
 `Se o WhatsApp não estiver conectado, a tela de Atendimento exibe automaticamente o fluxo de conexão:
 
@@ -531,33 +531,33 @@ O QR Code expira em 60 segundos. Se expirar antes de escanear, clique em **Atual
     ],
   },
   {
-    id: 'follow',
-    title: 'Follow-up',
-    icon: Clock,
-    description: 'Sequências automáticas de mensagens com gatilhos por estágio',
-    items: [
+    id:  'follow',
+    title:  'Follow-up',
+    icon:  Clock,
+    description:  'Sequências automáticas de mensagens com gatilhos por estágio',
+    items:  [
       {
-        question: 'O que é o Follow-up automático',
+        question:  'O que é o Follow-up automático',
         answer:
 `O Follow-up é um sistema de sequências automáticas de mensagens enviadas no WhatsApp em intervalos programados, sem intervenção manual.
 
 ## Casos de uso típicos
-• **Nurturing** — Mensagens educativas ao longo de dias ou semanas
-• **Recuperação** — Reengajar leads que não responderam ao SDR
-• **Anti-noshow** — Lembretes automáticos 24h, 2h e 15min antes de reuniões
-• **Remarketing** — Re-engajar leads inativos no estágio "Remarketing"
-• **Pós-venda** — Acompanhamento e onboarding após fechamento
+• **Nurturing**: Mensagens educativas ao longo de dias ou semanas
+• **Recuperação**: Reengajar leads que não responderam ao SDR
+• **Anti-noshow**: Lembretes automáticos 24h, 2h e 15min antes de reuniões
+• **Remarketing**: Re-engajar leads inativos no estágio "Remarketing"
+• **Pós-venda**: Acompanhamento e onboarding após fechamento
 
 ## Como funciona
 1. Você cria uma **sequência** com nome e tipo
 2. Adiciona **etapas** com mensagem, intervalo e condições opcionais
 3. A sequência é disparada quando o lead atinge o estágio configurado
 [INFO]
-As sequências podem pausar ou reativar o Agente SDR automaticamente por etapa — ideal para alternância entre automação e atendimento humano.
+As sequências podem pausar ou reativar o Agente SDR automaticamente por etapa: ideal para alternância entre automação e atendimento humano.
 [/INFO]`,
       },
       {
-        question: 'Criar e configurar uma sequência',
+        question:  'Criar e configurar uma sequência',
         answer:
 `Acesse **Automações → Follow-up** no menu lateral.
 
@@ -568,14 +568,14 @@ As sequências podem pausar ou reativar o Agente SDR automaticamente por etapa �
 
 ## Configuração de cada etapa
 Cada etapa define:
-• **Mensagem** — Texto a ser enviado (suporta quebras de linha)
-• **Intervalo** — Tempo após a etapa anterior (minutos, horas ou dias)
-• **Condição de estágio** — Estágio do lead que ativa esta etapa (opcional)
-• **Gatilho imediato** — Dispara a etapa sem aguardar o intervalo quando a condição é atingida
-• **Agente SDR** — Define se o agente é pausado (false) ou reativado (true) ao enviar esta etapa`,
+• **Mensagem**: Texto a ser enviado (suporta quebras de linha)
+• **Intervalo**: Tempo após a etapa anterior (minutos, horas ou dias)
+• **Condição de estágio**: Estágio do lead que ativa esta etapa (opcional)
+• **Gatilho imediato**: Dispara a etapa sem aguardar o intervalo quando a condição é atingida
+• **Agente SDR**: Define se o agente é pausado (false) ou reativado (true) ao enviar esta etapa`,
       },
       {
-        question: 'Gatilhos, condições e controle do SDR',
+        question:  'Gatilhos, condições e controle do SDR',
         answer:
 `## Condição de estágio
 Uma etapa com condição de estágio é disparada quando o lead muda para aquele estágio no CRM ou via SDR. Sem condição, a etapa respeita apenas o intervalo após a anterior.
@@ -584,8 +584,8 @@ Combine condição de estágio com **Gatilho imediato** para enviar mensagens in
 [/TIP]
 
 ## Controle do Agente SDR por etapa
-• **Agente SDR = desativado** — Pausa o agente ao enviar esta etapa (para mensagens que não devem gerar resposta automática)
-• **Agente SDR = ativado** — Reativa o agente após enviar, retomando o atendimento automático
+• **Agente SDR = desativado**: Pausa o agente ao enviar esta etapa (para mensagens que não devem gerar resposta automática)
+• **Agente SDR = ativado**: Reativa o agente após enviar, retomando o atendimento automático
 
 ## Teste de sequência
 Use o **Modo de Teste** em Configuração → Trial SaaS para simular disparos sem criar registros reais ou impactar leads existentes.`,
@@ -593,26 +593,26 @@ Use o **Modo de Teste** em Configuração → Trial SaaS para simular disparos s
     ],
   },
   {
-    id: 'trial',
-    title: 'Trial SaaS',
-    icon: Sparkles,
-    description: 'Gestão do ciclo de vida de trials com automações e métricas',
-    items: [
+    id:  'trial',
+    title:  'Trial SaaS',
+    icon:  Sparkles,
+    description:  'Gestão do ciclo de vida de trials com automações e métricas',
+    items:  [
       {
-        question: 'O que é o Trial SaaS',
+        question:  'O que é o Trial SaaS',
         answer:
 `O Trial SaaS é um módulo de gestão automática do ciclo de vida de períodos de avaliação gratuita, integrado ao WhatsApp.
 
 Ideal para produtos SaaS ou qualquer negócio que ofereça trial. O sistema:
 • Registra cada lead que inicia um trial com data e duração
 • Envia mensagens automáticas por sequências vinculadas ao trial
-• Acompanha o status: \`trial_ativo\` → \`convertido\` ou \`expirado\`
+• Acompanha o status:  \`trial_ativo\` → \`convertido\` ou \`expirado\`
 • Exibe alertas de expiração (≤7 dias) no painel de Métricas → Trial SaaS
 
 O painel de Métricas mostra taxa de conversão, tempo médio de conversão e progresso de cada trial.`,
       },
       {
-        question: 'Configurar o Trial',
+        question:  'Configurar o Trial',
         answer:
 `Acesse **Automações → Trial SaaS** no menu lateral. Administradores e empresas com trial ativo podem criar e configurar suas próprias sequências e fluxos normalmente.
 [ADMIN]
@@ -620,15 +620,15 @@ Apenas administradores podem alterar a duração global e a sequência padrão d
 [/ADMIN]
 
 ## Configurações disponíveis
-• **Duração do trial** — Número de dias do período de avaliação
-• **Sequência ativa** — Selecione a sequência follow-up do tipo \`trial_saas\`
-• **Número de teste** — Telefone para simular o fluxo sem criar registros reais
+• **Duração do trial**: Número de dias do período de avaliação
+• **Sequência ativa**: Selecione a sequência follow-up do tipo \`trial_saas\`
+• **Número de teste**: Telefone para simular o fluxo sem criar registros reais
 
 ## Como um trial é iniciado
-O trial é ativado por um **webhook** disparado por um formulário externo (ex: página de cadastro, landing page, Make, n8n). Quando o lead preenche o formulário, o webhook notifica o Zaapply que registra automaticamente: nome, telefone, data de início, duração e status \`trial_ativo\`.`,
+O trial é ativado por um **webhook** disparado por um formulário externo (ex:  página de cadastro, landing page, Make, n8n). Quando o lead preenche o formulário, o webhook notifica o Zaapply que registra automaticamente:  nome, telefone, data de início, duração e status \`trial_ativo\`.`,
       },
       {
-        question: 'Modo de teste',
+        question:  'Modo de teste',
         answer:
 `O modo de teste permite validar todo o fluxo do trial sem afetar leads reais.
 
@@ -636,7 +636,7 @@ O trial é ativado por um **webhook** disparado por um formulário externo (ex: 
 2. Configure um **Número de teste** (use seu próprio WhatsApp)
 3. Use o botão **Testar** para simular o disparo de cada etapa da sequência configurada
 [TIP]
-No modo de teste, o Agente SDR também é pausado e reativado conforme as etapas — você testa o fluxo completo incluindo o comportamento do agente.
+No modo de teste, o Agente SDR também é pausado e reativado conforme as etapas: você testa o fluxo completo incluindo o comportamento do agente.
 [/TIP]
 [AVISO]
 Desative o modo de teste antes de liberar para leads reais. Com o modo ativo, nenhuma sequência de trial é disparada para leads normais.
@@ -645,21 +645,21 @@ Desative o modo de teste antes de liberar para leads reais. Com o modo ativo, ne
     ],
   },
   {
-    id: 'metricas',
-    title: 'Métricas',
-    icon: BarChart2,
-    description: 'Analytics completo de follow-up, trial, sequências e insights',
-    items: [
+    id:  'metricas',
+    title:  'Métricas',
+    icon:  BarChart2,
+    description:  'Analytics completo de follow-up, trial, sequências e insights',
+    items:  [
       {
-        question: 'Visão Geral e KPIs',
+        question:  'Visão Geral e KPIs',
         answer:
 `Acesse **Automações → Métricas** para o painel analytics de automações.
 
 ## KPIs com delta vs período anterior
-• **Execuções** — Total de mensagens enviadas pelas sequências
-• **Taxa de resposta** — % de leads que responderam a ao menos uma mensagem
-• **Leads impactados** — Leads únicos que receberam mensagens no período
-• **Em trial ativo** — Leads em período de avaliação agora
+• **Execuções**: Total de mensagens enviadas pelas sequências
+• **Taxa de resposta**:% de leads que responderam a ao menos uma mensagem
+• **Leads impactados**: Leads únicos que receberam mensagens no período
+• **Em trial ativo**: Leads em período de avaliação agora
 
 ## Funil de conversão
 Visualização horizontal em 4 etapas:
@@ -672,7 +672,7 @@ Use os filtros de período para comparar semanas ou meses. Os chips de delta mos
 [/TIP]`,
       },
       {
-        question: 'As 5 abas de análise',
+        question:  'As 5 abas de análise',
         answer:
 `## Visão Geral
 KPIs, funil de conversão, gráfico por dia (execuções × respostas) e gráfico por tipo de sequência.
@@ -686,33 +686,33 @@ Ranking de performance por sequência:
 • Ordenação por taxa de resposta decrescente
 
 ## Insights
-• **Heatmap de respostas** — Mapa de calor hora × dia da semana mostrando quando os leads mais respondem
-• **Leads frios** — Leads com 3+ tentativas e zero respostas (candidatos a revisão manual ou descarte)
+• **Heatmap de respostas**: Mapa de calor hora × dia da semana mostrando quando os leads mais respondem
+• **Leads frios**: Leads com 3+ tentativas e zero respostas (candidatos a revisão manual ou descarte)
 
 ## Execuções
 Histórico completo de mensagens enviadas com busca por nome/telefone e paginação de 10 por página.`,
       },
       {
-        question: 'Exportar dados e auto-refresh',
+        question:  'Exportar dados e auto-refresh',
         answer:
 `## Exportar CSV
 Cada aba tem um botão **Exportar CSV** que baixa os dados filtrados no formato compatível com Excel e Google Sheets.
 
 ## Auto-refresh
-Ative o botão de **Atualização automática** no canto superior direito. Quando ativo, o painel recarrega os dados a cada 5 minutos automaticamente — ideal para deixar aberto em um monitor de acompanhamento.
+Ative o botão de **Atualização automática** no canto superior direito. Quando ativo, o painel recarrega os dados a cada 5 minutos automaticamente: ideal para deixar aberto em um monitor de acompanhamento.
 
 O indicador mostra quando a última atualização ocorreu e uma barra de progresso do próximo ciclo.`,
       },
     ],
   },
   {
-    id: 'membros',
-    title: 'Membros',
-    icon: UserPlus,
-    description: 'Equipe, funções, permissões e limites por plano',
-    items: [
+    id:  'membros',
+    title:  'Membros',
+    icon:  UserPlus,
+    description:  'Equipe, funções, permissões e limites por plano',
+    items:  [
       {
-        question: 'Funções e permissões',
+        question:  'Funções e permissões',
         answer:
 `O sistema tem 4 níveis de acesso:
 
@@ -726,13 +726,13 @@ CRM completo e Atendimento. Sem acesso a Automações, Métricas e Membros.
 Atendimento e CRM. Sem Automações, Métricas e Membros.
 
 ## Administrador
-Acesso total: CRM, Atendimento, Automações, Métricas, Membros, Configurações e painel Admin.
+Acesso total:  CRM, Atendimento, Automações, Métricas, Membros, Configurações e painel Admin.
 [ADMIN]
 Apenas administradores podem adicionar ou remover membros, configurar o WhatsApp, alterar planos e acessar dados de faturamento.
 [/ADMIN]`,
       },
       {
-        question: 'Convidar e gerenciar membros',
+        question:  'Convidar e gerenciar membros',
         answer:
 `Acesse **Membros** no menu lateral.
 
@@ -750,13 +750,12 @@ Se o membro não acessar no prazo de 48 horas, reenvie o convite clicando em **R
 [/TIP]`,
       },
       {
-        question: 'Limites por plano',
+        question:  'Limites por plano',
         answer:
 `Cada plano define a capacidade máxima de atendentes e números WhatsApp:
 
-• **Starter** — Até 3 atendentes, 1 número WhatsApp
-• **Pro** — Até 10 atendentes, 1 número WhatsApp
-• **Scale** — Atendentes ilimitados, até 10 números WhatsApp (R$ 97/número adicional)
+• **Start**:  Até 3 atendentes, 1 número WhatsApp
+• **Growth**:  Até 10 atendentes, 2 números WhatsApp
 [INFO]
 "Atendentes" são membros com função SDR, Closer ou SDR+Closer. Administradores não entram no limite do plano.
 [/INFO]
@@ -766,33 +765,29 @@ Para verificar o número de atendentes ativos e o limite do seu plano, acesse **
     ],
   },
   {
-    id: 'planos',
-    title: 'Planos & Preços',
-    icon: CreditCard,
-    description: 'Planos disponíveis, tokens de IA e como assinar',
-    items: [
+    id:  'planos',
+    title:  'Planos & Preços',
+    icon:  CreditCard,
+    description:  'Planos disponíveis, tokens de IA e como assinar',
+    items:  [
       {
-        question: 'Comparação de planos',
+        question:  'Comparação de planos',
         answer:
-`## Zaapply Start — R$ 397/mês
-• Agente SDR com IA — 24/7
+`## Zaapply Start:  R$ 297/mês
+• Agente SDR com IA 24/7
 • Atendimento via chat
 • CRM Kanban
-• Canvas → Follow-up automático
-• 5M tokens/mês
+• Canvas:  Follow-up automático
+• 1 número WhatsApp
 
-## Zaapply Growth — R$ 697/mês
+## Zaapply Growth:  R$ 497/mês
 • Tudo do Start, mais:
-• Canvas → Anti-Noshow e Remarketing
+• Canvas:  Anti-Noshow e Remarketing
 • Google Calendar integrado
-• 15M tokens/mês
-
-## Zaapply Pro — R$ 997/mês
-• Tudo do Growth, mais:
-• 50M tokens/mês`,
+• 2 números WhatsApp`,
       },
       {
-        question: 'Como assinar',
+        question:  'Como assinar',
         answer:
 `Acesse **Configuração → Plano** no menu lateral.
 
@@ -809,7 +804,7 @@ PIX é confirmado em minutos. Boleto leva até 3 dias úteis para compensar. Par
 Para cancelar, entre em contato em **contato@zaapply.com.br**. O acesso permanece ativo até o fim do período já pago.`,
       },
       {
-        question: 'Tokens de IA: consumo e recargas',
+        question:  'Tokens de IA:  consumo e recargas',
         answer:
 `Tokens são a unidade de consumo do Agente IA. Cada resposta gerada consome tokens proporcionais ao tamanho da mensagem e do contexto da conversa.
 
@@ -828,13 +823,13 @@ Tokens não utilizados no mês não acumulam para o mês seguinte. O saldo é re
     ],
   },
   {
-    id: 'canvas',
-    title: 'Canvas',
-    icon: HelpCircle,
-    description: 'Editor visual de fluxos — nodes, conexões e como montar automações',
-    items: [
+    id:  'canvas',
+    title:  'Canvas',
+    icon:  HelpCircle,
+    description:  'Editor visual de fluxos: nodes, conexões e como montar automações',
+    items:  [
       {
-        question: 'O que é o Canvas de Automações?',
+        question:  'O que é o Canvas de Automações?',
         answer:
 `O Canvas é o editor visual de fluxos de automação do Zaapply. Em vez de configurar uma sequência passo a passo em uma lista, você **arrasta e conecta nodes** em uma tela infinita para construir fluxos completos com bifurcações, condições, esperas e múltiplos tipos de mensagem.
 
@@ -844,55 +839,55 @@ Acesse **Automações → Follow-up**, selecione ou crie uma sequência e clique
 ## O que você pode construir
 • Sequências lineares simples (Mensagem → Aguardar → Mensagem)
 • Fluxos condicionais com bifurcações (lead respondeu? → caminho Sim ou Não)
-• Roteamento por resposta de botão (Switch: qual botão o lead clicou?)
+• Roteamento por resposta de botão (Switch:  qual botão o lead clicou?)
 • Fluxos com Teste A/B (dividir 50/50 entre duas mensagens diferentes)
 • Integrações com sistemas externos via Webhook
 
 ## Interface do canvas
-• **Barra lateral esquerda** — Paleta de nodes para adicionar ao fluxo
-• **Tela central** — Área de arrastar, conectar e organizar os nodes
-• **MiniMap** — Minimapa no canto inferior para navegar em fluxos grandes
-• **Botão Salvar** — Persiste o fluxo e converte em etapas de sequência
+• **Barra lateral esquerda**: Paleta de nodes para adicionar ao fluxo
+• **Tela central**: Área de arrastar, conectar e organizar os nodes
+• **MiniMap**: Minimapa no canto inferior para navegar em fluxos grandes
+• **Botão Salvar**: Persiste o fluxo e converte em etapas de sequência
 [TIP]
 Use Ctrl+Scroll para dar zoom, Ctrl+Shift+H para centralizar o fluxo, e arraste o fundo da tela para mover a visualização sem mover nodes.
 [/TIP]`,
       },
       {
-        question: 'Os nodes disponíveis e o que cada um faz',
+        question:  'Os nodes disponíveis e o que cada um faz',
         answer:
 `O canvas tem 11 tipos de nodes. Cada um representa uma ação ou decisão no fluxo do lead:
 
 ## Trigger (início)
-Ponto de entrada do fluxo — representa o evento que ativa a sequência. Em sequências comuns (follow-up, remarketing, etc.) há um único trigger com evento de entrada configurável: novo lead, mudança de status ou webhook. Em sequências do tipo **Pagamento**, você pode ter múltiplos triggers — um por plataforma ou por evento. Use os botões **MP**, **KW** e **AS** na barra lateral do canvas para adicionar triggers adicionais. Cada trigger de pagamento pode ser removido individualmente, desde que reste ao menos um ativo no fluxo.
+Ponto de entrada do fluxo: representa o evento que ativa a sequência. Em sequências comuns (follow-up, remarketing, etc.) há um único trigger com evento de entrada configurável:  novo lead, mudança de status ou webhook. Em sequências do tipo **Pagamento**, você pode ter múltiplos triggers: um por plataforma ou por evento. Use os botões **MP**, **KW** e **AS** na barra lateral do canvas para adicionar triggers adicionais. Cada trigger de pagamento pode ser removido individualmente, desde que reste ao menos um ativo no fluxo.
 
 ## Mensagem
 Envia uma mensagem WhatsApp ao lead. O tipo de conteúdo é configurável:
-• **Texto** — Mensagem escrita simples. Suporte a múltiplos blocos (sequência de textos)
-• **Imagem / Vídeo / Documento** — Upload de arquivo com legenda opcional
-• **Áudio** — Grava ou faz upload de áudio enviado como mensagem de voz (PTT)
-• **Localização** — Envia um pin de mapa via URL do Google Maps
-• **Botões** — Mensagem com até 3 botões de resposta rápida, URL ou chamada
-• **Lista** — Menu de opções para o lead selecionar
-• **Carrossel** — Sequência de cards com imagem, título e botão
+• **Texto**: Mensagem escrita simples. Suporte a múltiplos blocos (sequência de textos)
+• **Imagem / Vídeo / Documento**: Upload de arquivo com legenda opcional
+• **Áudio**: Grava ou faz upload de áudio enviado como mensagem de voz (PTT)
+• **Localização**: Envia um pin de mapa via URL do Google Maps
+• **Botões**: Mensagem com até 3 botões de resposta rápida, URL ou chamada
+• **Lista**: Menu de opções para o lead selecionar
+• **Carrossel**: Sequência de cards com imagem, título e botão
 
-Cada node Mensagem também controla o **Agente SDR**: você pode pausar ou reativar o agente automaticamente ao enviar aquela mensagem.
+Cada node Mensagem também controla o **Agente SDR**:  você pode pausar ou reativar o agente automaticamente ao enviar aquela mensagem.
 
 ## Aguardar
 Pausa o fluxo por um número de dias antes de executar o próximo node. Configure a quantidade de dias e o horário em que o fluxo deve continuar. Usado para espaçar mensagens no tempo.
 
 ## Condição (Se/Senão)
-Bifurca o fluxo em dois caminhos: **Sim** e **Não**. A condição avalia uma variável:
-• **respondeu** — Lead mandou alguma mensagem após a última automação?
-• **resposta_botao** — O lead clicou em algum botão?
-• **variável personalizada** — Compara qualquer variável do lead (igual a, contém, começa com, não está vazio)
+Bifurca o fluxo em dois caminhos:  **Sim** e **Não**. A condição avalia uma variável:
+• **respondeu**: Lead mandou alguma mensagem após a última automação?
+• **resposta_botao**: O lead clicou em algum botão?
+• **variável personalizada**: Compara qualquer variável do lead (igual a, contém, começa com, não está vazio)
 
 A saída **Sim** segue se a condição for verdadeira; **Não** segue caso contrário.
 
 ## Switch (N saídas)
-Roteamento por valor de botão — cria um caminho de saída para cada resposta possível de botão. Ideal após um node de Mensagem com botões: cada botão clicado roteia para um caminho diferente do fluxo.
+Roteamento por valor de botão: cria um caminho de saída para cada resposta possível de botão. Ideal após um node de Mensagem com botões:  cada botão clicado roteia para um caminho diferente do fluxo.
 
 ## Encerrar
-Finaliza a sequência para aquele lead. Coloque no fim de cada caminho do fluxo que deve parar. Um fluxo pode ter vários nodes Encerrar (ex: um para "convertido" e outro para "desistiu").
+Finaliza a sequência para aquele lead. Coloque no fim de cada caminho do fluxo que deve parar. Um fluxo pode ter vários nodes Encerrar (ex:  um para "convertido" e outro para "desistiu").
 
 ## Webhook
 Faz uma chamada HTTP (POST ou GET) para uma URL externa quando o fluxo chega naquele ponto. Use para integrar com seu CRM, ERP, planilha do Google, Make, n8n ou qualquer outro sistema.
@@ -906,43 +901,43 @@ Divide o tráfego 50/50 entre duas variantes de mensagem. Leads são roteados al
 ## Agendar Call
 Envia uma sequência de blocos de mensagem e ativa o agente de agendamento via WhatsApp. O agente oferece horários disponíveis ao lead e registra o compromisso automaticamente. Suporta múltiplos blocos de texto com delay humanizado entre eles.
 
-**Use quando:** Você quer que o próprio fluxo feche uma reunião sem intervenção humana — o lead recebe os horários disponíveis e confirma pelo WhatsApp.
+**Use quando: ** Você quer que o próprio fluxo feche uma reunião sem intervenção humana: o lead recebe os horários disponíveis e confirma pelo WhatsApp.
 [INFO]
 O node Agendar Call requer o Google Calendar conectado em Configurações → Integrações para exibir horários disponíveis reais.
 [/INFO]
 
 ## Pos-Condicao
-Aguarda o lead responder ou clicar em um botão antes de disparar a próxima mensagem. Sem interação genuína do lead, o fluxo fica pausado indefinidamente neste ponto — o CRON não avança automaticamente.
+Aguarda o lead responder ou clicar em um botão antes de disparar a próxima mensagem. Sem interação genuína do lead, o fluxo fica pausado indefinidamente neste ponto: o CRON não avança automaticamente.
 
-**Diferença do node Condição:** A Condição bifurca o fluxo em dois caminhos (Sim/Não) com base em uma variável. A Pós-Condição não bifurca — ela simplesmente bloqueia o avanço até o lead agir.
+**Diferença do node Condição: ** A Condição bifurca o fluxo em dois caminhos (Sim/Não) com base em uma variável. A Pós-Condição não bifurca: ela simplesmente bloqueia o avanço até o lead agir.
 
-**Use quando:** Você quer que a próxima mensagem só saia após o lead demonstrar interesse real. Coloque sempre na saída **"NAO"** do node Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido.
+**Use quando: ** Você quer que a próxima mensagem só saia após o lead demonstrar interesse real. Coloque sempre na saída **"NAO"** do node Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido.
 [AVISO]
-Nunca conecte Pós-Condição na saída "SIM" de uma Condição que verifica resposta de botão — nesse caso o lead já interagiu, e o node seria redundante.
+Nunca conecte Pós-Condição na saída "SIM" de uma Condição que verifica resposta de botão: nesse caso o lead já interagiu, e o node seria redundante.
 [/AVISO]`,
       },
       {
-        question: 'Como conectar nodes e montar um fluxo',
+        question:  'Como conectar nodes e montar um fluxo',
         answer:
 `## Adicionar um node
 1. Clique no botão **+ Adicionar node** (ou arraste da paleta lateral)
 2. Selecione o tipo de node desejado
-3. O node aparece na tela — arraste para posicioná-lo
+3. O node aparece na tela: arraste para posicioná-lo
 
 ## Conectar dois nodes
 • Passe o mouse sobre um node até aparecer o **ponto de saída** (círculo na borda direita)
 • Clique e arraste desse ponto até o **ponto de entrada** do próximo node (borda esquerda)
-• Uma seta curva conecta os dois — esse é um "edge"
+• Uma seta curva conecta os dois: esse é um "edge"
 
 ## Nodes com múltiplas saídas
-• **Condição** tem dois pontos de saída: Sim (verde) e Não (cinza)
+• **Condição** tem dois pontos de saída:  Sim (verde) e Não (cinza)
 • **Switch** tem um ponto de saída por caso configurado
 • Conecte cada saída a um node diferente para criar bifurcações
 
 ## Configurar um node
 • **Clique duplo** no node (ou clique simples no ícone de editar) para abrir o painel de configuração à direita
 • Configure mensagem, intervalo, condição, etc.
-• Feche o painel — as alterações são salvas no estado do canvas
+• Feche o painel: as alterações são salvas no estado do canvas
 
 ## Deletar um node ou conexão
 • Clique no node/seta para selecioná-lo (fica destacado)
@@ -963,45 +958,45 @@ Ao criar uma nova sequência, o botão **Usar template** oferece fluxos pré-mon
     ],
   },
   {
-    id: 'integracoes-pagamento',
-    title: 'Integrações de Pagamento',
-    icon: CreditCard,
-    description: 'Mercado Pago, Kiwify e Asaas — gatilhos automáticos por evento de pagamento',
-    items: [
+    id:  'integracoes-pagamento',
+    title:  'Integrações de Pagamento',
+    icon:  CreditCard,
+    description:  'Mercado Pago, Kiwify e Asaas: gatilhos automáticos por evento de pagamento',
+    items:  [
       {
-        question: 'O que são as integrações de pagamento?',
+        question:  'O que são as integrações de pagamento?',
         answer:
-`As integrações de pagamento conectam sua plataforma de cobrança ao Zaapply para disparar sequências automáticas no WhatsApp com base em eventos — venda confirmada, boleto gerado, pagamento vencido.
+`As integrações de pagamento conectam sua plataforma de cobrança ao Zaapply para disparar sequências automáticas no WhatsApp com base em eventos: venda confirmada, boleto gerado, pagamento vencido.
 
 ## Plataformas suportadas
-• **Mercado Pago** — Dispara quando um pagamento é aprovado
-• **Kiwify** — Dispara quando uma compra de infoproduto é confirmada
-• **Asaas** — Dispara por 3 eventos: pagamento confirmado, boleto gerado ou boleto vencido
+• **Mercado Pago**: Dispara quando um pagamento é aprovado
+• **Kiwify**: Dispara quando uma compra de infoproduto é confirmada
+• **Asaas**: Dispara por 3 eventos:  pagamento confirmado, boleto gerado ou boleto vencido
 
 ## Como funciona
 1. Você conecta a plataforma em **Configurações → Integrações**
 2. Cria uma sequência do tipo **Pagamento** em **Automações → Follow-up**
-3. Configura os gatilhos no canvas: um trigger por plataforma ou por evento
+3. Configura os gatilhos no canvas:  um trigger por plataforma ou por evento
 4. Quando o evento ocorre na plataforma, o Zaapply recebe o webhook e dispara a sequência para o lead correspondente automaticamente
 [INFO]
 O lead é identificado pelo e-mail ou telefone cadastrado na plataforma de pagamento. Se o lead não existir no CRM, nenhuma sequência é disparada.
 [/INFO]`,
       },
       {
-        question: 'Conectar o Mercado Pago',
+        question:  'Conectar o Mercado Pago',
         answer:
 `Acesse **Configurações → Integrações → Mercado Pago → Configurar**.
 
 ## O que você precisa
-• **Access Token** — Gerado no painel do Mercado Pago em Suas integrações → Notificações → Webhooks
-• **Chave Secreta do Webhook** — Gerada no mesmo painel para validação de assinatura
+• **Access Token**: Gerado no painel do Mercado Pago em Suas integrações → Notificações → Webhooks
+• **Chave Secreta do Webhook**: Gerada no mesmo painel para validação de assinatura
 
 ## Passos no painel do Mercado Pago
 1. Acesse **Suas integrações → Notificações → Webhooks**
 2. Clique em **Simular** ou **Criar webhook**
 3. Cole a URL do webhook exibida no Zaapply
 4. Copie a chave secreta gerada e cole no Zaapply
-5. Salve — o Mercado Pago enviará um evento de teste
+5. Salve: o Mercado Pago enviará um evento de teste
 
 ## Evento disparado
 Quando um pagamento tem status **approved**, o Zaapply identifica o comprador pelo e-mail, move o lead para **Fechado** no CRM e dispara a sequência de pagamento configurada.
@@ -1010,12 +1005,12 @@ Guarde o valor da venda no campo **Valor do projeto** do lead preenchendo o camp
 [/TIP]`,
       },
       {
-        question: 'Conectar o Kiwify',
+        question:  'Conectar o Kiwify',
         answer:
 `Acesse **Configurações → Integrações → Kiwify → Configurar**.
 
 ## O que você precisa
-• **Token de Verificação** — Gerado automaticamente ao criar um webhook no painel da Kiwify
+• **Token de Verificação**: Gerado automaticamente ao criar um webhook no painel da Kiwify
 
 ## Passos no painel da Kiwify
 1. Acesse **Apps → Webhooks**
@@ -1031,13 +1026,13 @@ A Kiwify envia o nome do produto e o valor da comissão no webhook. O Zaapply us
 [/INFO]`,
       },
       {
-        question: 'Conectar o Asaas',
+        question:  'Conectar o Asaas',
         answer:
 `Acesse **Configurações → Integrações → Asaas → Configurar**.
 
 ## O que você precisa
-• **Chave de API** — Gerada em Menu → Integrações → Chaves de API no painel Asaas
-• **Token do Webhook** — Configurado em Menu → Integrações → Configurar Webhook
+• **Chave de API**: Gerada em Menu → Integrações → Chaves de API no painel Asaas
+• **Token do Webhook**: Configurado em Menu → Integrações → Configurar Webhook
 
 ## Passos no painel do Asaas
 1. Acesse **Menu → Integrações → Chaves de API** e copie sua chave de produção (começa com \`$aact_prod_\`)
@@ -1047,26 +1042,26 @@ A Kiwify envia o nome do produto e o valor da comissão no webhook. O Zaapply us
 5. Salve em ambos os lados
 
 ## Eventos suportados
-O Asaas suporta 3 eventos independentes — cada um pode ter seu próprio fluxo no canvas:
+O Asaas suporta 3 eventos independentes: cada um pode ter seu próprio fluxo no canvas:
 
-• **Pagamento confirmado** (\`PAYMENT_RECEIVED\` / \`PAYMENT_CONFIRMED\`) — lead comprou e pagou. Ideal para onboarding, boas-vindas e upsell
-• **Boleto gerado** (\`PAYMENT_CREATED\` com tipo BOLETO) — boleto foi emitido. Ideal para lembrete de pagamento e instruções
-• **Boleto vencido** (\`PAYMENT_OVERDUE\`) — boleto não foi pago no prazo. Ideal para sequência de recuperação de cobrança
+• **Pagamento confirmado** (\`PAYMENT_RECEIVED\` / \`PAYMENT_CONFIRMED\`): lead comprou e pagou. Ideal para onboarding, boas-vindas e upsell
+• **Boleto gerado** (\`PAYMENT_CREATED\` com tipo BOLETO): boleto foi emitido. Ideal para lembrete de pagamento e instruções
+• **Boleto vencido** (\`PAYMENT_OVERDUE\`): boleto não foi pago no prazo. Ideal para sequência de recuperação de cobrança
 [TIP]
 Use uma chave de API de **sandbox** (\`$aact_hmlg_...\`) para testar sem afetar clientes reais. O Zaapply detecta automaticamente o ambiente pela chave.
 [/TIP]`,
       },
       {
-        question: 'Criar uma sequência de pagamento no canvas com multi-trigger',
+        question:  'Criar uma sequência de pagamento no canvas com multi-trigger',
         answer:
-`Uma sequência de pagamento pode ter **múltiplos triggers** — um por plataforma ou por evento. Isso permite que o mesmo fluxo seja ativado por eventos diferentes sem duplicar a sequência.
+`Uma sequência de pagamento pode ter **múltiplos triggers**: um por plataforma ou por evento. Isso permite que o mesmo fluxo seja ativado por eventos diferentes sem duplicar a sequência.
 
 ## Passo a passo
 
 1. Acesse **Automações → Follow-up → + Nova Sequência**
 2. Nomeie a sequência e selecione o tipo **Pagamento**
 3. Clique em **Abrir Canvas**
-4. O canvas abre com um trigger padrão — clique nele e configure a **plataforma** (MP, Kiwify ou Asaas) e, no caso do Asaas, o **evento** (confirmado, boleto gerado ou vencido)
+4. O canvas abre com um trigger padrão: clique nele e configure a **plataforma** (MP, Kiwify ou Asaas) e, no caso do Asaas, o **evento** (confirmado, boleto gerado ou vencido)
 5. Para adicionar mais triggers, use os botões na barra lateral direita:
    - **MP** → trigger Mercado Pago
    - **KW** → trigger Kiwify
@@ -1075,7 +1070,7 @@ Use uma chave de API de **sandbox** (\`$aact_hmlg_...\`) para testar sem afetar 
 7. Conecte todos os triggers ao mesmo fluxo de nodes
 8. Clique em **Salvar**
 
-## Exemplo: fluxo de cobrança com Asaas
+## Exemplo:  fluxo de cobrança com Asaas
 • Trigger 1: Asaas → Boleto gerado → "Seu boleto está disponível, clique aqui para pagar"
 • Trigger 2: Asaas → Boleto vencido → "Seu boleto venceu, posso te ajudar a regularizar?"
 • Trigger 3: Asaas → Pagamento confirmado → "Pagamento confirmado! Bem-vindo ao [produto]"
@@ -1089,27 +1084,27 @@ Remover um trigger no canvas não desativa o webhook na plataforma. Acesse o pai
     ],
   },
   {
-    id: 'problemas',
-    title: 'Problemas comuns',
-    icon: AlertTriangle,
-    description: 'Soluções para os problemas mais frequentes: WhatsApp, agente IA, mensagens e acesso',
-    items: [
+    id:  'problemas',
+    title:  'Problemas comuns',
+    icon:  AlertTriangle,
+    description:  'Soluções para os problemas mais frequentes:  WhatsApp, agente IA, mensagens e acesso',
+    items:  [
       {
-        question: 'WhatsApp não conecta ou desconecta',
+        question:  'WhatsApp não conecta ou desconecta',
         answer:
 `## QR Code não funciona
 • Verifique se o celular tem conexão com a internet durante o escaneamento
 • Feche e reabra o WhatsApp antes de escanear
-• O QR expira em 60 segundos — clique em **Atualizar** se expirar
+• O QR expira em 60 segundos: clique em **Atualizar** se expirar
 • Confirme que o número não está conectado a outro serviço ou dispositivo simultaneamente
 
 ## WhatsApp desconecta sozinho
 • Acontece quando o celular fica sem internet por tempo prolongado
 • Reconecte pelo mesmo fluxo de QR Code
-• O webhook é reconfigurado automaticamente após reconexão — não é necessário configurar novamente`,
+• O webhook é reconfigurado automaticamente após reconexão: não é necessário configurar novamente`,
       },
       {
-        question: 'Agente IA não responde',
+        question:  'Agente IA não responde',
         answer:
 `Verifique a sequência de itens abaixo em ordem:
 
@@ -1124,34 +1119,34 @@ Se todos os itens estiverem corretos e o agente ainda não responder, acesse Adm
 [/TIP]`,
       },
       {
-        question: 'Mensagens não aparecem no chat',
+        question:  'Mensagens não aparecem no chat',
         answer:
 `## Mensagens não chegam
 • Verifique se o WhatsApp está conectado (status no topo do Atendimento)
 • Tente **Ctrl+Shift+R** para forçar o recarregamento completo da página
-• Verifique se a conversa está na tab correta: Minhas / Livres / Todas
+• Verifique se a conversa está na tab correta:  Minhas / Livres / Todas
 
 ## Conversa sumiu
-• A conversa pode ter mudado de tab — verifique em "Todas"
+• A conversa pode ter mudado de tab: verifique em "Todas"
 • Busque pelo nome ou número do contato na barra de busca da lista de conversas
 • Se foi atribuída a outro atendente, aparece em "Todas" mas não em "Minhas"`,
       },
       {
-        question: 'Performance lenta',
+        question:  'Performance lenta',
         answer:
-`• **Primeiro acesso do dia** — O servidor pode levar alguns segundos para inicializar. Aguarde e recarregue a página
-• **CRM com muitos leads** — Use filtros para reduzir o conjunto exibido; evite carregar todos os leads sem filtro
-• **Conexão instável** — O sistema precisa de conexão estável para atualização em tempo real
-• **Limpar cache** — Ctrl+Shift+R no Windows/Linux ou Cmd+Shift+R no Mac`,
+`• **Primeiro acesso do dia**: O servidor pode levar alguns segundos para inicializar. Aguarde e recarregue a página
+• **CRM com muitos leads**: Use filtros para reduzir o conjunto exibido; evite carregar todos os leads sem filtro
+• **Conexão instável**: O sistema precisa de conexão estável para atualização em tempo real
+• **Limpar cache**: Ctrl+Shift+R no Windows/Linux ou Cmd+Shift+R no Mac`,
       },
       {
-        question: 'Recuperar senha e alterar dados',
+        question:  'Recuperar senha e alterar dados',
         answer:
 `## Recuperar senha
 1. Na tela de login, clique em **Esqueci minha senha**
 2. Digite o e-mail cadastrado
 3. Verifique a caixa de entrada (e a pasta de spam)
-4. Clique no link de recuperação — ele expira em 24 horas
+4. Clique no link de recuperação: ele expira em 24 horas
 
 ## Alterar nome ou e-mail
 Acesse **Configuração → Perfil** e edite os dados desejados.
@@ -1168,25 +1163,25 @@ Alterar dados da empresa requer permissão de Administrador. Acesse Configuraç�
 // ── Content parsing ────────────────────────────────────────────────────────────
 
 type Segment =
-  | { kind: 'lines'; content: string[] }
-  | { kind: 'callout'; type: 'TIP' | 'AVISO' | 'INFO' | 'ADMIN'; content: string[] };
+  | { kind:  'lines'; content:  string[] }
+  | { kind:  'callout'; type:  'TIP' | 'AVISO' | 'INFO' | 'ADMIN'; content:  string[] };
 
-function parseContent(text: string): Segment[] {
+function parseContent(text:  string):  Segment[] {
   const lines = text.split('\n');
-  const segments: Segment[] = [];
-  let inCallout: string | null = null;
-  let buffer: string[] = [];
+  const segments:  Segment[] = [];
+  let inCallout:  string | null = null;
+  let buffer:  string[] = [];
 
   for (const line of lines) {
     const open = line.trim().match(/^\[(TIP|AVISO|INFO|ADMIN)\]$/);
     const close = line.trim().match(/^\[\/(TIP|AVISO|INFO|ADMIN)\]$/);
 
     if (open && !inCallout) {
-      if (buffer.length) segments.push({ kind: 'lines', content: buffer });
+      if (buffer.length) segments.push({ kind:  'lines', content:  buffer });
       buffer = [];
       inCallout = open[1];
     } else if (close && inCallout === close[1]) {
-      segments.push({ kind: 'callout', type: inCallout as any, content: buffer });
+      segments.push({ kind:  'callout', type:  inCallout as any, content:  buffer });
       buffer = [];
       inCallout = null;
     } else {
@@ -1194,11 +1189,11 @@ function parseContent(text: string): Segment[] {
     }
   }
 
-  if (buffer.length) segments.push({ kind: 'lines', content: buffer });
+  if (buffer.length) segments.push({ kind:  'lines', content:  buffer });
   return segments;
 }
 
-function renderInline(str: string, highlight?: string): React.ReactNode[] {
+function renderInline(str:  string, highlight?: string):  React.ReactNode[] {
   const parts = str.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
   return parts.map((part, j) => {
     if (part.startsWith('`') && part.endsWith('`')) {
@@ -1228,14 +1223,14 @@ function renderInline(str: string, highlight?: string): React.ReactNode[] {
 // ── Callout component ─────────────────────────────────────────────────────────
 
 const CALLOUT_CONFIG = {
-  TIP:   { icon: Lightbulb,      label: 'Dica',       classes: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400' },
-  AVISO: { icon: AlertTriangle,  label: 'Atenção',    classes: 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400' },
-  INFO:  { icon: Info,           label: 'Info',       classes: 'border-blue-500/30 bg-blue-500/5 text-blue-600 dark:text-blue-400' },
-  ADMIN: { icon: ShieldCheck,    label: 'Admin',      classes: 'border-purple-500/30 bg-purple-500/5 text-purple-600 dark:text-purple-400' },
+  TIP:    { icon:  Lightbulb,      label:  'Dica',       classes:  'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark: text-emerald-400' },
+  AVISO:  { icon:  AlertTriangle,  label:  'Atenção',    classes:  'border-amber-500/30 bg-amber-500/5 text-amber-600 dark: text-amber-400' },
+  INFO:   { icon:  Info,           label:  'Info',       classes:  'border-blue-500/30 bg-blue-500/5 text-blue-600 dark: text-blue-400' },
+  ADMIN:  { icon:  ShieldCheck,    label:  'Admin',      classes:  'border-purple-500/30 bg-purple-500/5 text-purple-600 dark: text-purple-400' },
 };
 
-function Callout({ type, lines }: { type: keyof typeof CALLOUT_CONFIG; lines: string[] }) {
-  const { icon: Icon, label, classes } = CALLOUT_CONFIG[type];
+function Callout({ type, lines }: { type:  keyof typeof CALLOUT_CONFIG; lines:  string[] }) {
+  const { icon:  Icon, label, classes } = CALLOUT_CONFIG[type];
   return (
     <div className={cn('my-4 flex gap-3 rounded-xl border px-4 py-3', classes)}>
       <Icon className="h-4 w-4 flex-shrink-0 mt-0.5" />
@@ -1253,11 +1248,11 @@ function Callout({ type, lines }: { type: keyof typeof CALLOUT_CONFIG; lines: st
 
 // ── FormatText ─────────────────────────────────────────────────────────────────
 
-function FormatText({ text, highlight }: { text: string; highlight?: string }) {
+function FormatText({ text, highlight }: { text:  string; highlight?: string }) {
   const segments = useMemo(() => parseContent(text), [text]);
 
-  const renderLines = (lines: string[]) => {
-    const result: React.ReactNode[] = [];
+  const renderLines = (lines:  string[]) => {
+    const result:  React.ReactNode[] = [];
     let stepCount = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -1274,7 +1269,7 @@ function FormatText({ text, highlight }: { text: string; highlight?: string }) {
       if (trimmed.startsWith('## ')) {
         stepCount = 0;
         result.push(
-          <h2 key={i} className="text-base font-semibold text-foreground mt-6 mb-2 first:mt-0">
+          <h2 key={i} className="text-base font-semibold text-foreground mt-6 mb-2 first: mt-0">
             {renderInline(trimmed.slice(3), highlight)}
           </h2>
         );
@@ -1355,18 +1350,18 @@ function FormatText({ text, highlight }: { text: string; highlight?: string }) {
 // ── Search ────────────────────────────────────────────────────────────────────
 
 interface SearchResult {
-  sectionId: string;
-  sectionTitle: string;
-  sectionIcon: LucideIcon;
-  question: string;
-  snippet: string;
+  sectionId:  string;
+  sectionTitle:  string;
+  sectionIcon:  LucideIcon;
+  question:  string;
+  snippet:  string;
 }
 
-function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sectionId: string) => void }) {
+function SearchResults({ query, onNavigate }: { query:  string; onNavigate:  (sectionId:  string) => void }) {
   const results = useMemo<SearchResult[]>(() => {
     if (query.length < 2) return [];
     const q = query.toLowerCase();
-    const matches: SearchResult[] = [];
+    const matches:  SearchResult[] = [];
 
     for (const section of sections) {
       for (const item of section.items) {
@@ -1375,7 +1370,7 @@ function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sect
           const idx = answerClean.toLowerCase().indexOf(q);
           const start = Math.max(0, idx - 30);
           const snippet = (start > 0 ? '…' : '') + answerClean.slice(start, start + 100).trim() + (answerClean.length > start + 100 ? '…' : '');
-          matches.push({ sectionId: section.id, sectionTitle: section.title, sectionIcon: section.icon, question: item.question, snippet });
+          matches.push({ sectionId:  section.id, sectionTitle:  section.title, sectionIcon:  section.icon, question:  item.question, snippet });
         }
       }
     }
@@ -1401,7 +1396,7 @@ function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sect
               <button
                 key={i}
                 onClick={() => onNavigate(r.sectionId)}
-                className="w-full text-left group flex items-start gap-3 px-4 py-3 rounded-xl border border-border/50 hover:border-primary/30 hover:bg-primary/3 transition-all duration-100"
+                className="w-full text-left group flex items-start gap-3 px-4 py-3 rounded-xl border border-border/50 hover: border-primary/30 hover: bg-primary/3 transition-all duration-100"
               >
                 <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center mt-0.5">
                   <Icon className="h-3.5 w-3.5 text-primary" />
@@ -1413,7 +1408,7 @@ function SearchResults({ query, onNavigate }: { query: string; onNavigate: (sect
                   <p className="text-sm font-medium text-foreground truncate">{r.question}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{r.snippet}</p>
                 </div>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary flex-shrink-0 mt-1.5 transition-colors" />
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover: text-primary flex-shrink-0 mt-1.5 transition-colors" />
               </button>
             );
           })}
@@ -1429,7 +1424,7 @@ function SupportTicketButton() {
   return (
     <a
       href="/suporte"
-      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-primary hover:bg-primary/12 transition-colors text-[12px] font-medium"
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/8 border border-primary/20 text-primary hover: bg-primary/12 transition-colors text-[12px] font-medium"
     >
       <Ticket className="h-3.5 w-3.5 flex-shrink-0" />
       Abrir ticket de suporte
@@ -1442,11 +1437,11 @@ function SupportTicketButton() {
 const WELCOME_BUTTONS = ['CRM e funil', 'Agente IA', 'WhatsApp', 'Planos e preços'];
 
 const RATING_OPTIONS = [
-  { label: 'Péssimo', value: 1 },
-  { label: 'Ruim',    value: 2 },
-  { label: 'Ok',      value: 3 },
-  { label: 'Bom',     value: 4 },
-  { label: 'Ótimo',   value: 5 },
+  { label:  'Péssimo', value:  1 },
+  { label:  'Ruim',    value:  2 },
+  { label:  'Ok',      value:  3 },
+  { label:  'Bom',     value:  4 },
+  { label:  'Ótimo',   value:  5 },
 ];
 
 const CHAT_STORAGE_KEY = 'zaapply_zaia_chat';
@@ -1469,14 +1464,14 @@ function playNotifSound() {
   } catch { /* noop */ }
 }
 
-function formatRelativeTime(ts: number): string {
+function formatRelativeTime(ts:  number):  string {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60) return 'agora';
   if (diff < 3600) return `${Math.floor(diff / 60)}min`;
   return `${Math.floor(diff / 3600)}h`;
 }
 
-function ChatText({ text }: { text: string }) {
+function ChatText({ text }: { text:  string }) {
   return (
     <>
       {text.split('\n').map((line, i, arr) => {
@@ -1487,7 +1482,7 @@ function ChatText({ text }: { text: string }) {
               if (p.startsWith('**') && p.endsWith('**'))
                 return <strong key={j} className="font-semibold">{p.slice(2, -2)}</strong>;
               if (p.startsWith('`') && p.endsWith('`'))
-                return <code key={j} className="font-mono text-[11px] bg-black/10 dark:bg-white/10 rounded px-1">{p.slice(1, -1)}</code>;
+                return <code key={j} className="font-mono text-[11px] bg-black/10 dark: bg-white/10 rounded px-1">{p.slice(1, -1)}</code>;
               return <span key={j}>{p}</span>;
             })}
             {i < arr.length - 1 && <br />}
@@ -1506,7 +1501,7 @@ function TypingIndicator() {
           <span
             key={i}
             className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce"
-            style={{ animationDelay: `${i * 150}ms` }}
+            style={{ animationDelay:  `${i * 150}ms` }}
           />
         ))}
       </div>
@@ -1544,7 +1539,7 @@ function AiChat() {
 
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: messages.slice(-30), rated }));
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages:  messages.slice(-30), rated }));
     }
   }, [messages, rated]);
 
@@ -1555,7 +1550,7 @@ function AiChat() {
   }, []);
 
   useEffect(() => {
-    if (isAtBottom()) endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isAtBottom()) endRef.current?.scrollIntoView({ behavior:  'smooth' });
   }, [messages, loading, isAtBottom]);
 
   const clearInactivityTimers = useCallback(() => {
@@ -1586,46 +1581,46 @@ function AiChat() {
     if (!text) setInput('');
     setFailedMsg(null);
     setInactiveWarning(false);
-    const history = messages.slice(-8).map(m => ({ role: m.role, content: m.content }));
-    setMessages(prev => [...prev, { role: 'user', content: msg, timestamp: Date.now() }]);
+    const history = messages.slice(-8).map(m => ({ role:  m.role, content:  m.content }));
+    setMessages(prev => [...prev, { role:  'user', content:  msg, timestamp:  Date.now() }]);
     setLoading(true);
     try {
       const res = await fetch('/api/help/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history }),
+        method:  'POST',
+        headers:  { 'Content-Type': 'application/json' },
+        body:  JSON.stringify({ message:  msg, history }),
       });
       const data = await res.json();
       setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.reply || data.error || 'Não consegui responder. Tente novamente.',
-        buttons: data.buttons,
-        askFeedback: data.askFeedback,
-        timestamp: Date.now(),
+        role:  'assistant',
+        content:  data.reply || data.error || 'Não consegui responder. Tente novamente.',
+        buttons:  data.buttons,
+        askFeedback:  data.askFeedback,
+        timestamp:  Date.now(),
       }]);
       if (soundEnabled) playNotifSound();
       resetInactivityTimer();
     } catch {
       setFailedMsg(msg);
       setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Erro ao conectar. Tente novamente.',
-        timestamp: Date.now(),
-        isError: true,
+        role:  'assistant',
+        content:  'Erro ao conectar. Tente novamente.',
+        timestamp:  Date.now(),
+        isError:  true,
       }]);
     } finally {
       setLoading(false);
     }
   }
 
-  function handleRate(r: typeof RATING_OPTIONS[number]) {
+  function handleRate(r:  typeof RATING_OPTIONS[number]) {
     setRated(true);
     setIsEnding(false);
     clearInactivityTimers();
     setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: `Obrigada pelo feedback! Fico feliz em ajudar. Se surgir mais alguma dúvida, é só chamar.`,
-      timestamp: Date.now(),
+      role:  'assistant',
+      content:  `Obrigada pelo feedback! Fico feliz em ajudar. Se surgir mais alguma dúvida, é só chamar.`,
+      timestamp:  Date.now(),
     }]);
   }
 
@@ -1645,7 +1640,7 @@ function AiChat() {
     localStorage.removeItem(CHAT_STORAGE_KEY);
   }
 
-  async function copyMessage(content: string, idx: number) {
+  async function copyMessage(content:  string, idx:  number) {
     await navigator.clipboard.writeText(content);
     setCopiedId(idx);
     setTimeout(() => setCopiedId(null), 2000);
@@ -1659,10 +1654,10 @@ function AiChat() {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          'fixed bottom-28 md:bottom-20 right-6 z-50 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover:scale-105 active:scale-95',
+          'fixed bottom-28 md: bottom-20 right-6 z-50 rounded-full shadow-lg bg-primary text-primary-foreground flex items-center justify-center transition-all hover: scale-105 active: scale-95',
           open && 'hidden'
         )}
-        style={{ width: 52, height: 52 }}
+        style={{ width:  52, height:  52 }}
         title="Falar com Zaia"
       >
         <span className="text-xl font-black tracking-tighter leading-none select-none">Z</span>
@@ -1671,8 +1666,8 @@ function AiChat() {
       {/* Chat window */}
       {open && (
         <div
-          className="fixed bottom-28 md:bottom-20 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: 540 }}
+          className="fixed bottom-28 md: bottom-20 right-6 z-50 w-80 sm: w-96 rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
+          style={{ height:  540 }}
         >
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
@@ -1690,7 +1685,7 @@ function AiChat() {
               <button
                 onClick={() => setSoundEnabled(v => !v)}
                 title={soundEnabled ? 'Silenciar' : 'Ativar som'}
-                className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+                className="text-muted-foreground hover: text-foreground transition-colors p-1.5 rounded-lg hover: bg-muted/50"
               >
                 {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
               </button>
@@ -1698,7 +1693,7 @@ function AiChat() {
                 <button
                   onClick={handleEndChat}
                   title="Encerrar atendimento"
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+                  className="text-muted-foreground hover: text-foreground transition-colors p-1.5 rounded-lg hover: bg-muted/50"
                 >
                   <PhoneOff className="w-3.5 h-3.5" />
                 </button>
@@ -1707,14 +1702,14 @@ function AiChat() {
                 <button
                   onClick={handleClearChat}
                   title="Nova conversa"
-                  className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+                  className="text-muted-foreground hover: text-foreground transition-colors p-1.5 rounded-lg hover: bg-muted/50"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
               )}
               <button
                 onClick={() => setOpen(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted/50"
+                className="text-muted-foreground hover: text-foreground transition-colors p-1.5 rounded-lg hover: bg-muted/50"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1736,7 +1731,7 @@ function AiChat() {
                       key={btn}
                       onClick={() => send(btn)}
                       disabled={loading}
-                      className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                      className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover: bg-primary/10 transition-colors disabled: opacity-40"
                     >
                       {btn}
                     </button>
@@ -1760,7 +1755,7 @@ function AiChat() {
                     {msg.role === 'assistant' && !msg.isError && (
                       <button
                         onClick={() => copyMessage(msg.content, i)}
-                        className="absolute -top-2 -right-2 hidden group-hover:flex w-6 h-6 rounded-full bg-card border border-border items-center justify-center text-muted-foreground hover:text-foreground transition-colors shadow-sm"
+                        className="absolute -top-2 -right-2 hidden group-hover: flex w-6 h-6 rounded-full bg-card border border-border items-center justify-center text-muted-foreground hover: text-foreground transition-colors shadow-sm"
                       >
                         {copiedId === i
                           ? <Check className="w-3 h-3 text-green-500" />
@@ -1780,7 +1775,7 @@ function AiChat() {
                         key={btn}
                         onClick={() => send(btn)}
                         disabled={loading}
-                        className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                        className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary hover: bg-primary/10 transition-colors disabled: opacity-40"
                       >
                         {btn}
                       </button>
@@ -1791,7 +1786,7 @@ function AiChat() {
                 {msg.isError && failedMsg && i === messages.length - 1 && (
                   <button
                     onClick={() => { setMessages(prev => prev.slice(0, -1)); send(failedMsg); setFailedMsg(null); }}
-                    className="flex items-center gap-1.5 ml-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                    className="flex items-center gap-1.5 ml-1 text-xs text-primary hover: text-primary/80 transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
                     Tentar novamente
@@ -1804,7 +1799,7 @@ function AiChat() {
                     <div className="flex gap-1.5 flex-wrap">
                       {RATING_OPTIONS.map(r => (
                         <button key={r.value} onClick={() => handleRate(r)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-muted hover:bg-muted/80 hover:border-primary/50 transition-colors">
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-muted hover: bg-muted/80 hover: border-primary/50 transition-colors">
                           {r.label}
                         </button>
                       ))}
@@ -1816,7 +1811,7 @@ function AiChat() {
 
             {inactiveWarning && (
               <div className="flex justify-start">
-                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm max-w-[85%]">
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 dark: text-amber-400 rounded-2xl rounded-bl-sm px-3.5 py-2.5 text-sm max-w-[85%]">
                   Ei, você ainda tá aí? Vou encerrar em 30 segundos…
                 </div>
               </div>
@@ -1832,7 +1827,7 @@ function AiChat() {
                 <div className="flex gap-1.5 flex-wrap pl-1">
                   {RATING_OPTIONS.map(r => (
                     <button key={r.value} onClick={() => handleRate(r)}
-                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-muted hover:bg-muted/80 hover:border-primary/50 transition-colors">
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium border border-border bg-muted hover: bg-muted/80 hover: border-primary/50 transition-colors">
                       {r.label}
                     </button>
                   ))}
@@ -1850,7 +1845,7 @@ function AiChat() {
               href="https://wa.me/5577988650528?text=Ol%C3%A1!%20Gostaria%20de%20saber%20mais%20sobre%20o%20Zaapply"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-green-600 dark:text-green-400 hover:bg-green-500/8 transition-colors py-1.5 rounded-lg"
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-green-600 dark: text-green-400 hover: bg-green-500/8 transition-colors py-1.5 rounded-lg"
             >
               <MessageSquare className="w-3 h-3" />
               Falar com especialista
@@ -1860,7 +1855,7 @@ function AiChat() {
               href="https://zaapply.com.br/planos"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-primary hover:bg-primary/8 transition-colors py-1.5 rounded-lg"
+              className="flex-1 flex items-center justify-center gap-1.5 text-[11px] text-primary hover: bg-primary/8 transition-colors py-1.5 rounded-lg"
             >
               <CreditCard className="w-3 h-3" />
               Ver planos
@@ -1875,12 +1870,12 @@ function AiChat() {
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
               placeholder={isEnding ? 'Atendimento encerrado' : 'Digite sua dúvida…'}
               disabled={loading || isEnding}
-              className="flex-1 text-sm bg-muted/50 border border-border rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-primary/30 placeholder:text-muted-foreground/50 disabled:opacity-50"
+              className="flex-1 text-sm bg-muted/50 border border-border rounded-xl px-3 py-2 outline-none focus: ring-1 focus: ring-primary/30 placeholder: text-muted-foreground/50 disabled: opacity-50"
             />
             <button
               onClick={() => send()}
               disabled={!input.trim() || loading || isEnding}
-              className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 hover:bg-primary/90 transition-colors shrink-0"
+              className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center disabled: opacity-40 hover: bg-primary/90 transition-colors shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
@@ -1907,7 +1902,7 @@ export default function AjudaPage() {
 
   // CMD+K to focus search
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const handler = (e:  KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         searchRef.current?.focus();
@@ -1918,10 +1913,10 @@ export default function AjudaPage() {
     return () => document.removeEventListener('keydown', handler);
   }, [searchQuery]);
 
-  const handleNavigate = (sectionId: string) => {
+  const handleNavigate = (sectionId:  string) => {
     setActiveId(sectionId);
     setSearchQuery('');
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({ top:  0, behavior:  'smooth' });
   };
 
   return (
@@ -1930,8 +1925,8 @@ export default function AjudaPage() {
       {/* ── Main content ────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Search bar — fixo, não scrollável */}
-        <div className="flex-shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-sm px-6 md:px-12 py-3">
+        {/* Search bar: fixo, não scrollável */}
+        <div className="flex-shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-sm px-6 md: px-12 py-3">
           <div className="max-w-3xl mx-auto relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 pointer-events-none" />
             <input
@@ -1939,15 +1934,15 @@ export default function AjudaPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Pesquisar na documentação…"
-              className="w-full h-10 bg-muted/50 border border-border rounded-xl pl-10 pr-20 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 placeholder:text-muted-foreground/50 transition-all"
+              className="w-full h-10 bg-muted/50 border border-border rounded-xl pl-10 pr-20 text-sm outline-none focus: ring-2 focus: ring-primary/20 focus: border-primary/40 placeholder: text-muted-foreground/50 transition-all"
             />
             <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-muted-foreground/50 hover:text-muted-foreground transition-colors">
+                <button onClick={() => setSearchQuery('')} className="text-muted-foreground/50 hover: text-muted-foreground transition-colors">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
-              <kbd className="hidden sm:flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground/60 font-mono">
+              <kbd className="hidden sm: flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground/60 font-mono">
                 ⌘K
               </kbd>
             </div>
@@ -1959,13 +1954,13 @@ export default function AjudaPage() {
 
           {/* Search results */}
           {isSearching ? (
-            <div className="max-w-3xl mx-auto px-6 md:px-12 py-8">
+            <div className="max-w-3xl mx-auto px-6 md: px-12 py-8">
               <SearchResults query={searchQuery} onNavigate={handleNavigate} />
             </div>
           ) : (
             <>
               {/* Breadcrumb + section header */}
-              <div className="max-w-3xl mx-auto px-6 md:px-12 pt-8 md:pt-10">
+              <div className="max-w-3xl mx-auto px-6 md: px-12 pt-8 md: pt-10">
                 <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
                   <BookOpen className="h-3.5 w-3.5" />
                   <span>Docs</span>
@@ -1978,7 +1973,7 @@ export default function AjudaPage() {
                     <ActiveIcon className="h-3.5 w-3.5 text-primary" />
                     <span className="text-xs font-semibold text-primary">{activeSection.title}</span>
                   </div>
-                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-2">
+                  <h1 className="text-2xl md: text-3xl font-bold tracking-tight text-foreground mb-2">
                     {activeSection.title}
                   </h1>
                   <p className="text-muted-foreground text-base leading-relaxed">{activeSection.description}</p>
@@ -1991,15 +1986,15 @@ export default function AjudaPage() {
               <div className="space-y-12 pb-10">
                 {activeSection.items.map((item, index) => (
                   <article key={index} id={`item-${index}`}>
-                    {/* Text content — constrained width */}
-                    <div className="max-w-3xl mx-auto px-6 md:px-12">
+                    {/* Text content: constrained width */}
+                    <div className="max-w-3xl mx-auto px-6 md: px-12">
                       <h2 className="text-lg font-semibold text-foreground mb-5">{item.question}</h2>
                       <div className="leading-relaxed">
                         <FormatText text={item.answer} />
                       </div>
                     </div>
                     {index < activeSection.items.length - 1 && (
-                      <div className="max-w-3xl mx-auto px-6 md:px-12">
+                      <div className="max-w-3xl mx-auto px-6 md: px-12">
                         <Separator className="mt-12" />
                       </div>
                     )}
@@ -2008,12 +2003,12 @@ export default function AjudaPage() {
               </div>
 
               {/* Prev / Next navigation */}
-              <div className="max-w-3xl mx-auto px-6 md:px-12 pb-10">
+              <div className="max-w-3xl mx-auto px-6 md: px-12 pb-10">
                 <div className="pt-8 border-t border-border/30 flex justify-between">
                   {activeIdx > 0 ? (
                     <button
-                      onClick={() => { setActiveId(sections[activeIdx - 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                      className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => { setActiveId(sections[activeIdx - 1].id); scrollRef.current?.scrollTo({ top:  0, behavior:  'smooth' }); }}
+                      className="group flex items-center gap-2 text-sm text-muted-foreground hover: text-foreground transition-colors"
                     >
                       <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                       <div className="text-left">
@@ -2024,14 +2019,14 @@ export default function AjudaPage() {
                   ) : <div />}
                   {activeIdx < sections.length - 1 ? (
                     <button
-                      onClick={() => { setActiveId(sections[activeIdx + 1].id); scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                      className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors text-right"
+                      onClick={() => { setActiveId(sections[activeIdx + 1].id); scrollRef.current?.scrollTo({ top:  0, behavior:  'smooth' }); }}
+                      className="group flex items-center gap-2 text-sm text-muted-foreground hover: text-foreground transition-colors text-right"
                     >
                       <div>
                         <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-0.5">Próximo</p>
                         <p>{sections[activeIdx + 1].title}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="h-4 w-4 group-hover: translate-x-0.5 transition-transform" />
                     </button>
                   ) : <div />}
                 </div>
@@ -2042,7 +2037,7 @@ export default function AjudaPage() {
       </div>
 
       {/* ── Right sidebar (unchanged layout) ─────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-56 flex-shrink-0 border-l border-border/40">
+      <aside className="hidden lg: flex flex-col w-56 flex-shrink-0 border-l border-border/40">
         <div className="flex-1 overflow-y-auto py-8 px-4">
           <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-2">
             Nesta página
@@ -2059,7 +2054,7 @@ export default function AjudaPage() {
                     'w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] rounded-lg transition-colors text-left',
                     isActive
                       ? 'bg-primary/8 text-primary font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      : 'text-muted-foreground hover: text-foreground hover: bg-muted/50'
                   )}
                 >
                   <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', isActive ? 'text-primary' : 'text-muted-foreground/70')} />

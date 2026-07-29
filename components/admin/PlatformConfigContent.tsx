@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
@@ -23,7 +23,7 @@ const SECTIONS = [
     id: 'openai',
     label: 'OpenAI',
     icon: Bot,
-    description: 'Chave global da API OpenAI — usada por todos os agentes SDR. Cada empresa pode ter uma chave própria como override.',
+    description: 'Chave global da API OpenAI: usada por todos os agentes SDR. Cada empresa pode ter uma chave própria como override.',
     fields: [
       { key: 'openai_api_key', label: 'API Key', placeholder: 'sk-...', sensitive: true },
     ],
@@ -62,7 +62,7 @@ const SECTIONS = [
     id: 'asaas',
     label: 'Asaas',
     icon: CreditCard,
-    description: 'Gateway de pagamentos brasileiro — mensalidades via cartão e pacotes extras via PIX.',
+    description: 'Gateway de pagamentos brasileiro: mensalidades via cartão e pacotes extras via PIX.',
     fields: [
       { key: 'asaas_api_key', label: 'API Key', placeholder: '$aact_...', sensitive: true },
       { key: 'asaas_base_url', label: 'Base URL', placeholder: 'https://api.asaas.com/v3 (produção) ou https://api-sandbox.asaas.com/v3', sensitive: false },
@@ -252,7 +252,7 @@ export function PlatformConfigContent({ initialConfig, readError }: Props) {
               {activeSection.id === 'asaas' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">
-                    Webhook URL — configure no painel Asaas → Integrações → Webhooks
+                    Webhook URL: configure no painel Asaas → Integrações → Webhooks
                   </Label>
                   <div className="flex gap-2 items-center p-3 rounded-lg bg-muted/30 border border-border">
                     <code className="flex-1 text-xs font-mono text-muted-foreground truncate">

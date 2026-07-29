@@ -61,7 +61,6 @@ async function getPlanQuota(tenantId: number, supabase: Supabase): Promise<numbe
   const QUOTA: Record<string, number> = {
     starter: 5_000_000, start: 5_000_000,
     pro: 15_000_000, growth: 15_000_000,
-    scale: 50_000_000,
     basic: 500_000, free: 500_000, trial: 500_000,
   }
   return QUOTA[company?.plan_type ?? ''] ?? 500_000

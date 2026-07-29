@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -190,10 +190,10 @@ type Scene = 'kanban_view' | 'card_grabbed' | 'card_dropping' | 'card_dropped' |
 const SCENES: Scene[] = ['kanban_view', 'card_grabbed', 'card_dropping', 'card_dropped', 'done']
 const META: Record<Scene, string> = {
   kanban_view:   'Clique em um card para "arrastar" o lead para outro estagio',
-  card_grabbed:  'Card selecionado — clique na coluna "Em contato" para mover o lead',
+  card_grabbed:  'Card selecionado: clique na coluna "Em contato" para mover o lead',
   card_dropping: 'Movendo para "Em contato"...',
-  card_dropped:  'Lead movido para "Em contato" — o funil atualiza em tempo real',
-  done:          'Kanban atualizado — arraste leads entre estagios para gerenciar o funil',
+  card_dropped:  'Lead movido para "Em contato": o funil atualiza em tempo real',
+  done:          'Kanban atualizado: arraste leads entre estagios para gerenciar o funil',
 }
 
 function KanbanBoard({ scene, advance }: { scene: Scene; advance: () => void }) {

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -437,10 +437,10 @@ export default function FluxosPage() {
               <Input
                 value={form.event_title_template}
                 onChange={(e) => setForm((p) => ({ ...p, event_title_template: e.target.value }))}
-                placeholder="Ex: Reunião com {nome} — Tocli"
+                placeholder="Ex: Reunião com {nome}: Tocli"
               />
               <p className="text-xs text-muted-foreground">
-                Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para inserir o nome do lead. Se vazio: &quot;Call de venda — {'{nome}'}&quot;.
+                Use <code className="bg-muted px-1 rounded">{'{nome}'}</code> para inserir o nome do lead. Se vazio: &quot;Call de venda: {'{nome}'}&quot;.
               </p>
             </div>
 
@@ -453,7 +453,7 @@ export default function FluxosPage() {
                 className="min-h-[120px] font-mono text-sm resize-y"
               />
               <p className="text-xs text-muted-foreground">
-                Injetado após o prompt base do orquestrador. Não substitui — complementa.
+                Injetado após o prompt base do orquestrador. Não substitui: complementa.
               </p>
             </div>
 

@@ -36,27 +36,19 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Zaapply Start',
-    price: 397,
-    desc: 'SDR + atendimento + follow-up automático',
+    price: 297,
+    desc: 'SDR + atendimento + CRM + automações, 1 número WhatsApp',
     icon: TrendingUp,
-    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Canvas → Follow-up', '5M tokens/mês'],
+    features: ['Agente SDR com IA', 'Atendimento via chat', 'CRM Kanban', 'Canvas: Follow-up automático', '1 número WhatsApp'],
   },
   {
     id: 'pro',
     name: 'Zaapply Growth',
-    price: 697,
-    desc: 'Anti-Noshow, Remarketing e Google Calendar',
+    price: 497,
+    desc: 'Tudo do Start + Google Calendar + 2 números WhatsApp',
     icon: Rocket,
     popular: true,
-    features: ['Tudo do Start', 'Anti-Noshow e Remarketing', 'Google Calendar', '15M tokens/mês'],
-  },
-  {
-    id: 'scale',
-    name: 'Zaapply Pro',
-    price: 997,
-    desc: 'Escala total com 50M tokens/mês',
-    icon: Sparkles,
-    features: ['Tudo do Growth', '50M tokens/mês'],
+    features: ['Tudo do Start', 'Anti-Noshow e Remarketing', 'Google Calendar integrado', '2 números WhatsApp'],
   },
 ];
 

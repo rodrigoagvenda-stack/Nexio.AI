@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -260,11 +260,11 @@ type Scene = 'inbox' | 'agent_paused' | 'resumo_expanded' | 'typing' | 'sent' | 
 const SCENES: Scene[] = ['inbox', 'agent_paused', 'resumo_expanded', 'typing', 'sent', 'done']
 const META: Record<Scene, string> = {
   inbox:           'Clique em "Agente ativo" para controlar o Agente IA nesta conversa',
-  agent_paused:    'Agente pausado — veja o resumo gerado pela IA sobre este lead',
-  resumo_expanded: 'Resumo gerado automaticamente — clique no campo de mensagem para responder manualmente',
-  typing:          'Mensagem digitada — clique em Enviar para responder ao lead',
+  agent_paused:    'Agente pausado: veja o resumo gerado pela IA sobre este lead',
+  resumo_expanded: 'Resumo gerado automaticamente: clique no campo de mensagem para responder manualmente',
+  typing:          'Mensagem digitada: clique em Enviar para responder ao lead',
   sent:            'Mensagem enviada diretamente pelo WhatsApp',
-  done:            'Atendimento concluido — toggle e resumo sao os pontos-chave do chat',
+  done:            'Atendimento concluido: toggle e resumo sao os pontos-chave do chat',
 }
 
 const REPLY = 'Entendido Carlos! Vou preparar uma proposta com foco nas integrações CRM. Posso te enviar ainda hoje?'

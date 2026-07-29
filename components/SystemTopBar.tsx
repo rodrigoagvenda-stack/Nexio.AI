@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useUser } from '@/lib/hooks/useUser';
 import { Bell, Settings, LogOut } from 'lucide-react';
@@ -205,7 +205,7 @@ export function SystemTopBar() {
             <>
               {/* Backdrop */}
               <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
-              {/* Panel — mobile: centrado com margens; desktop: alinhado à direita */}
+              {/* Panel: mobile: centrado com margens; desktop: alinhado à direita */}
               <div className="fixed z-50 bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col
                 left-5 right-5 top-[84px]
                 sm:left-auto sm:right-4 sm:w-[340px] sm:top-[90px]"

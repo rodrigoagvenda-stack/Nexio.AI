@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
   const total = fechados + emAndamento;
   const pct = total > 0 ? Math.round((fechados / total) * 100) : 0;
 
-  // Semicírculo 180° — dimensões maiores para preencher o card
+  // Semicírculo 180°: dimensões maiores para preencher o card
   const r = 90;
   const cx = 128;
   const cy = 108;
@@ -32,7 +32,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
         <CardTitle className="text-base font-semibold">Taxa de conversão</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col pb-5 px-2">
-        {/* Gauge + Delta — ocupa o espaço disponível */}
+        {/* Gauge + Delta: ocupa o espaço disponível */}
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <div className="relative w-full flex justify-center">
             <svg
@@ -71,7 +71,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
           )}
         </div>
 
-        {/* Legenda — rodapé */}
+        {/* Legenda: rodapé */}
         <div className="flex justify-center gap-6 pt-3 pb-1 border-t border-border/20 mt-1">
           <span className="flex items-center gap-1.5 text-xs" style={{ color: '#888' }}>
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#34B270' }} />

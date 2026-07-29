@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
@@ -192,7 +192,7 @@ function ScreenSDRPersona() {
     <div className="flex-1 flex flex-col p-5 gap-4">
       <div>
         <p className="text-xs font-semibold">Agente SDR · Configuração</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Passo 1 de 3 — Persona do agente</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Passo 1 de 3: Persona do agente</p>
         <div className="mt-2 flex gap-1">
           {[1,2,3].map(i => (
             <div key={i} className={cn('h-1 flex-1 rounded-full', i === 1 ? 'bg-primary' : 'bg-muted')} />
@@ -233,7 +233,7 @@ function ScreenSDRKnowledge() {
     <div className="flex-1 flex flex-col p-5 gap-4">
       <div>
         <p className="text-xs font-semibold">Agente SDR · Configuração</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Passo 2 de 3 — Base de conhecimento</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Passo 2 de 3: Base de conhecimento</p>
         <div className="mt-2 flex gap-1">
           {[1,2,3].map(i => (
             <div key={i} className={cn('h-1 flex-1 rounded-full', i <= 2 ? 'bg-primary' : 'bg-muted')} />

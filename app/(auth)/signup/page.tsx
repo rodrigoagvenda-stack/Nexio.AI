@@ -223,7 +223,7 @@ export default function SignupPage() {
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground">
-          &copy; {new Date().getFullYear()} Zaapply — Todos os direitos reservados
+          &copy; {new Date().getFullYear()} Zaapply. Todos os direitos reservados
         </p>
       </div>
 

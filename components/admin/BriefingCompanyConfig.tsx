@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -347,7 +347,7 @@ export function BriefingCompanyConfig({ companyId, companyName }: Props) {
                   >
                     {uploadingLogo ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : <><Camera className="mr-2 h-4 w-4" />{config.logo_url ? 'Trocar logo' : 'Fazer upload'}</>}
                   </Button>
-                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP — máx. 5MB</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP: máx. 5MB</p>
                 </div>
                 <input
                   ref={logoInputRef}

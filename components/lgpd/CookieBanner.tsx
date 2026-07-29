@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils/cn';
@@ -209,7 +209,7 @@ export function CookieBanner() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">Analytics</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Google Analytics — coleta métricas de uso para melhorar o produto. Dados anonimizados.
+                    Google Analytics: coleta métricas de uso para melhorar o produto. Dados anonimizados.
                   </p>
                 </div>
                 <Toggle checked={analytics} onChange={setAnalytics} />
@@ -222,7 +222,7 @@ export function CookieBanner() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">Comportamento</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Hotjar — registra mapas de calor e gravações de sessão para melhorar a experiência.
+                    Hotjar: registra mapas de calor e gravações de sessão para melhorar a experiência.
                   </p>
                 </div>
                 <Toggle checked={behavior} onChange={setBehavior} />
@@ -286,7 +286,7 @@ export function CookieBanner() {
               </p>
             </div>
 
-            {/* Buttons — equal visual weight */}
+            {/* Buttons: equal visual weight */}
             <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
               <button
                 onClick={rejectAll}

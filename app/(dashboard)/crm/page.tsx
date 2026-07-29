@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -66,7 +66,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 function fmtCompact(v: number): string {
-  if (!v || v <= 0) return '—';
+  if (!v || v <= 0) return '-';
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace('.', ',')}M`;
   if (v >= 1_000) {
     const k = v / 1_000;
@@ -633,7 +633,7 @@ export default function CRMPage() {
         throw new Error(errData.message || `HTTP ${res.status}`);
       }
 
-      // Criar log de atividade (fire-and-forget via API — bypassa RLS)
+      // Criar log de atividade (fire-and-forget via API: bypassa RLS)
       if (user && company) {
         logActivity({
           user_id: user.auth_user_id,
@@ -748,7 +748,7 @@ export default function CRMPage() {
 
         if (error) throw error;
 
-        // Criar log de atividade (fire-and-forget via API — bypassa RLS)
+        // Criar log de atividade (fire-and-forget via API: bypassa RLS)
         if (user && company) {
           logActivity({
             user_id: user.auth_user_id,
@@ -776,7 +776,7 @@ export default function CRMPage() {
 
         if (error) throw error;
 
-        // Criar log de atividade (fire-and-forget via API — bypassa RLS)
+        // Criar log de atividade (fire-and-forget via API: bypassa RLS)
         if (user && company && newLead) {
           logActivity({
             user_id: user.auth_user_id,
@@ -824,7 +824,7 @@ export default function CRMPage() {
 
       if (error) throw error;
 
-      // Criar log de atividade (fire-and-forget via API — bypassa RLS)
+      // Criar log de atividade (fire-and-forget via API: bypassa RLS)
       if (user && company) {
         logActivity({
           user_id: user.auth_user_id,
@@ -1109,7 +1109,7 @@ export default function CRMPage() {
               : 'Gerencie seus leads e oportunidades'}
           </p>
         </div>
-        {/* View switcher — segmented control */}
+        {/* View switcher: segmented control */}
         <div className="flex items-center gap-1 bg-muted p-1 rounded-xl flex-shrink-0">
           <button
             onClick={() => router.push('?view=table')}
@@ -1138,7 +1138,7 @@ export default function CRMPage() {
         </div>
       </div>
 
-      {/* Filter bar — zona de descoberta (esquerda) + ações (direita) */}
+      {/* Filter bar: zona de descoberta (esquerda) + ações (direita) */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Zona 1: Descoberta */}
         <div className="relative flex-1 min-w-[160px] max-w-xs">
@@ -1269,7 +1269,7 @@ export default function CRMPage() {
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
-            {/* Fade edge — indica mais colunas à direita */}
+            {/* Fade edge: indica mais colunas à direita */}
             <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-background to-transparent pointer-events-none z-10" />
             </div>
             <DragOverlay>
@@ -1322,7 +1322,7 @@ export default function CRMPage() {
                   <span className="text-sm font-semibold">{column.title}</span>
                   <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded-full">{colLeads.length}</span>
                 </div>
-                {/* Cards — scroll vertical */}
+                {/* Cards: scroll vertical */}
                 <div className="overflow-y-auto flex-1 space-y-2 pb-1" style={{ scrollbarWidth: 'none' }}>
                   {colLeads.length === 0 ? (
                     <div className="flex items-center justify-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">
@@ -1396,7 +1396,7 @@ export default function CRMPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 text-sm text-muted-foreground">{lead.segment || '—'}</td>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground">{lead.segment || '-'}</td>
                         <td className="px-4 py-2.5">
                           <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${getStatusBadgeColor(lead.status || '')}`}>
                             {lead.status}
@@ -1413,17 +1413,17 @@ export default function CRMPage() {
                               Link ↗
                             </a>
                           ) : (
-                            <span className="text-sm text-muted-foreground/40">—</span>
+                            <span className="text-sm text-muted-foreground/40">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-sm text-muted-foreground tabular-nums">{lead.whatsapp || '—'}</td>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground tabular-nums">{lead.whatsapp || '-'}</td>
                         <td className="px-4 py-2.5">
                           {lead.priority ? (
                             <span className={`text-xs px-2 py-0.5 rounded-md font-medium flex items-center gap-1 w-fit ${getPriorityBadgeColor(lead.priority)}`}>
                               <span className="w-1.5 h-1.5 rounded-full bg-current" />
                               {lead.priority}
                             </span>
-                          ) : <span className="text-muted-foreground/40">—</span>}
+                          ) : <span className="text-muted-foreground/40">-</span>}
                         </td>
                         <td className="px-4 py-2.5 max-w-[200px]">
                           {lead.notes ? (
@@ -1433,7 +1433,7 @@ export default function CRMPage() {
                             >
                               {lead.notes}
                             </span>
-                          ) : <span className="text-muted-foreground/40 text-sm">—</span>}
+                          ) : <span className="text-muted-foreground/40 text-sm">-</span>}
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex gap-1">
@@ -1804,7 +1804,7 @@ export default function CRMPage() {
             )}
           </div>
 
-          {/* Mini-timeline de sequências — só ao editar lead existente */}
+          {/* Mini-timeline de sequências: só ao editar lead existente */}
           {editingLead && <LeadSequenceTimeline leadId={editingLead.id} />}
 
           {/* Footer minimalista */}

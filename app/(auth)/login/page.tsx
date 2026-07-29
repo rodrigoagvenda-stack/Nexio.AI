@@ -506,7 +506,7 @@ export default function LoginPage() {
             {' '}e a{' '}
             <a href="/privacidade" target="_blank" className="underline underline-offset-2 hover:text-white transition-colors">Política de Privacidade</a>
           </p>
-          <p className="text-[11px] mt-1" style={{ color: '#333' }}>&copy; {new Date().getFullYear()} Zaapply — Todos os direitos reservados</p>
+          <p className="text-[11px] mt-1" style={{ color: '#333' }}>&copy; {new Date().getFullYear()} Zaapply. Todos os direitos reservados</p>
         </div>
       </div>
     </div>

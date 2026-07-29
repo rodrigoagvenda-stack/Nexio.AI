@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -128,11 +128,11 @@ const SCENE_STEP: Record<Scene, StepId | null> = {
 
 const META: Record<Scene, string> = {
   overview:          'Clique em "Configurar" para iniciar o wizard da base de conhecimento',
-  step_identidade:   'Identidade: nome do agente, empresa, setor e tom de voz — quanto mais detalhes, mais natural o atendimento',
-  step_conhecimento: 'Conhecimento: produtos, precos, diferenciais — DETALHE cada item; respostas vagas aqui = atendimento ruim',
+  step_identidade:   'Identidade: nome do agente, empresa, setor e tom de voz: quanto mais detalhes, mais natural o atendimento',
+  step_conhecimento: 'Conhecimento: produtos, precos, diferenciais: DETALHE cada item; respostas vagas aqui = atendimento ruim',
   step_objetivos:    'Objetivos: defina a meta do agente (agendar demo, fechar venda, qualificar lead) e o fluxo ideal',
-  step_objeccoes:    'Objecoes: liste as mais comuns e como contornar — esta etapa e crucial para converter leads resistentes',
-  done:              'Base de conhecimento preenchida — quanto mais rica, melhor o desempenho do Agente IA',
+  step_objeccoes:    'Objecoes: liste as mais comuns e como contornar: esta etapa e crucial para converter leads resistentes',
+  done:              'Base de conhecimento preenchida: quanto mais rica, melhor o desempenho do Agente IA',
 }
 
 const STEP_CONTENT: Record<StepId, { title: string; fields: { label: string; placeholder: string; filled?: string; tall?: boolean }[] }> = {
@@ -167,7 +167,7 @@ const STEP_CONTENT: Record<StepId, { title: string; fields: { label: string; pla
     title: 'Objecoes Frequentes',
     fields: [
       { label: 'Objecao: Preco alto', placeholder: 'Como o agente deve responder?',
-        filled: '"Entendo! O Starter e R$197/mes — equivale a um atendente trabalhando 24h/dia. Posso mostrar o ROI numa demo rapida?"' },
+        filled: '"Entendo! O Starter e R$197/mes: equivale a um atendente trabalhando 24h/dia. Posso mostrar o ROI numa demo rapida?"' },
       { label: 'Objecao: Ja uso outra ferramenta', placeholder: 'Como o agente deve responder?',
         filled: '"Qual voce usa? Muitos clientes migraram do [X] porque nossa IA nativa elimina 3 ferramentas separadas. Posso comparar?"' },
       { label: 'Objecao: Nao tenho tempo agora', placeholder: 'Como o agente deve responder?',
@@ -252,7 +252,7 @@ function OverviewScreen({ onStart }: { onStart: () => void }) {
       <div className="space-y-2">
         <h3 className="text-lg font-bold">Base de Conhecimento</h3>
         <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
-          Configure o agente em 5 etapas. Esta e a parte mais importante — pule ou deixe vaga e o agente nao ira performar.
+          Configure o agente em 5 etapas. Esta e a parte mais importante: pule ou deixe vaga e o agente nao ira performar.
         </p>
       </div>
       <div className="grid grid-cols-5 gap-2 w-full max-w-sm">

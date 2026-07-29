@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-// CSS group-hover animations — reagem ao hover do item pai (não do ícone de 16px).
+// CSS group-hover animations: reagem ao hover do item pai (não do ícone de 16px).
 // Todos os nav items do sidebar têm className="group", então group-hover: funciona.
 
 import {

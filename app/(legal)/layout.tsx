@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ZaapliLogo } from '@/components/brand/ZaapliLogo'
 
 export const metadata: Metadata = {
-  title: 'Zaapply — Legal',
+  title: 'Zaapply: Legal',
 }
 
 export default function LegalLayout({ children }: { children: React.ReactNode }) {

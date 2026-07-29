@@ -4,7 +4,7 @@ import { SiteFooter } from '@/components/landing/SiteFooter';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
-  title: 'Perguntas frequentes — Zaapply',
+  title: 'Perguntas frequentes - Zaapply',
   description: 'Tire suas dúvidas sobre o SDR com IA do Zaapply: planos, WhatsApp, CRM e como funciona.',
 };
 

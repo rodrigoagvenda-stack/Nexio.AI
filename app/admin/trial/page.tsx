@@ -53,7 +53,7 @@ export default function AdminTrialPage() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <FlaskConical className="w-5 h-5 text-emerald-500" />
-            Trial SaaS — Testes
+            Trial SaaS: Testes
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Selecione um cliente e abra o formulário de teste para simular um cadastro.

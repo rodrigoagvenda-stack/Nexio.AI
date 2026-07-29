@@ -826,7 +826,7 @@ export default function BriefingPage() {
                       <Button type="button" variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
                         {uploadingLogo ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</> : <><Camera className="mr-2 h-4 w-4" />{config.logo_url ? 'Trocar' : 'Fazer upload'}</>}
                       </Button>
-                      <p className="text-xs text-muted-foreground">JPG, PNG, WebP — máx. 5MB</p>
+                      <p className="text-xs text-muted-foreground">JPG, PNG, WebP - máx. 5MB</p>
                     </div>
                     <input ref={logoInputRef} type="file" className="hidden" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleLogoUpload} />
                   </div>
@@ -896,7 +896,7 @@ export default function BriefingPage() {
                   Object.entries(selectedResponse.answers).map(([key, value]) => (
                     <div key={key} className="space-y-1.5">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{key.replace(/_/g, ' ')}</p>
-                      <p className="text-sm leading-relaxed">{Array.isArray(value) ? value.join(', ') : String(value || '—')}</p>
+                      <p className="text-sm leading-relaxed">{Array.isArray(value) ? value.join(', ') : String(value || '-')}</p>
                       <div className="border-b border-border/50" />
                     </div>
                   ))

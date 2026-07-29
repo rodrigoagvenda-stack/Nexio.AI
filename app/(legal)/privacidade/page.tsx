@@ -2,7 +2,7 @@
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Zaapply — Política de Privacidade',
+  title: 'Zaapply: Política de Privacidade',
   description: 'Saiba como a Zaapply coleta, usa e protege seus dados pessoais.',
 }
 
@@ -92,14 +92,14 @@ export default function PrivacidadePage() {
         <Table
           headers={['Finalidade', 'Base Legal (LGPD)']}
           rows={[
-            ['Criar e gerenciar sua conta na plataforma', 'Execução de contrato — Art. 7º, V'],
-            ['Fornecer os recursos de CRM e automação de vendas', 'Execução de contrato — Art. 7º, V'],
-            ['Operar o SDR de IA e responder leads via WhatsApp', 'Execução de contrato — Art. 7º, V'],
-            ['Transcrever áudios para texto via IA (Whisper)', 'Execução de contrato — Art. 7º, V'],
-            ['Enviar notificações sobre o serviço e atualizações', 'Legítimo interesse — Art. 7º, IX'],
-            ['Analisar métricas de desempenho e melhorar o produto', 'Legítimo interesse — Art. 7º, IX'],
-            ['Cumprir obrigações legais e regulatórias', 'Obrigação legal — Art. 7º, II'],
-            ['Prevenir fraudes e garantir a segurança da plataforma', 'Legítimo interesse — Art. 7º, IX'],
+            ['Criar e gerenciar sua conta na plataforma', 'Execução de contrato (Art. 7º, V)'],
+            ['Fornecer os recursos de CRM e automação de vendas', 'Execução de contrato (Art. 7º, V)'],
+            ['Operar o SDR de IA e responder leads via WhatsApp', 'Execução de contrato (Art. 7º, V)'],
+            ['Transcrever áudios para texto via IA (Whisper)', 'Execução de contrato (Art. 7º, V)'],
+            ['Enviar notificações sobre o serviço e atualizações', 'Legítimo interesse (Art. 7º, IX)'],
+            ['Analisar métricas de desempenho e melhorar o produto', 'Legítimo interesse (Art. 7º, IX)'],
+            ['Cumprir obrigações legais e regulatórias', 'Obrigação legal (Art. 7º, II)'],
+            ['Prevenir fraudes e garantir a segurança da plataforma', 'Legítimo interesse (Art. 7º, IX)'],
           ]}
         />
       </Section>
@@ -196,7 +196,7 @@ export default function PrivacidadePage() {
         <ul>
           <li>Criptografia em trânsito (TLS 1.3) e em repouso (AES-256)</li>
           <li>Autenticação com suporte a login social (OAuth 2.0 com Google)</li>
-          <li>Row-Level Security (RLS) no banco de dados — cada empresa acessa apenas seus próprios dados</li>
+          <li>Row-Level Security (RLS) no banco de dados: cada empresa acessa apenas seus próprios dados</li>
           <li>Controle de acesso baseado em funções (RBAC) com papéis de usuário e admin</li>
           <li>Logs de auditoria para todas as operações sensíveis</li>
           <li>Infraestrutura hospedada em provedores com certificação SOC 2 e ISO 27001</li>
@@ -232,7 +232,7 @@ export default function PrivacidadePage() {
 
       <Section id="contato" title="11. Contato">
         <InfoBox>
-          <strong>Zaapply — Encarregado de Proteção de Dados</strong><br />
+          <strong>Zaapply: Encarregado de Proteção de Dados</strong><br />
           E-mail:{' '}
           <a href="mailto:privacidade@zaapply.com.br" className="text-primary underline underline-offset-4">
             privacidade@zaapply.com.br

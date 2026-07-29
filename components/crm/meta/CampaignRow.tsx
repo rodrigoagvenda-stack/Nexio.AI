@@ -64,9 +64,9 @@ export function CampaignRow({ campaign }: CampaignRowProps) {
           <td className="px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">{c.leads}</td>
           <td className="px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">{c.conversions}</td>
           <td className="px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">{brl(c.revenue)}</td>
-          <td className="px-4 py-2 text-right text-xs text-muted-foreground">—</td>
-          <td className="px-4 py-2 text-right text-xs text-muted-foreground">—</td>
-          <td className="px-4 py-2 text-right text-xs text-muted-foreground">—</td>
+          <td className="px-4 py-2 text-right text-xs text-muted-foreground">-</td>
+          <td className="px-4 py-2 text-right text-xs text-muted-foreground">-</td>
+          <td className="px-4 py-2 text-right text-xs text-muted-foreground">-</td>
         </tr>
       ))}
     </>

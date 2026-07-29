@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   FileText,
@@ -68,7 +68,7 @@ export function AttachmentOptionsDialog({
         onClick={close}
       />
 
-      {/* Menu — mobile: acima do botão grampo, desktop: posição fixa próxima ao botão */}
+      {/* Menu: mobile: acima do botão grampo, desktop: posição fixa próxima ao botão */}
       <div
         className="fixed z-50 bg-background/95 backdrop-blur-sm shadow-2xl rounded-2xl border border-border/50"
         style={{

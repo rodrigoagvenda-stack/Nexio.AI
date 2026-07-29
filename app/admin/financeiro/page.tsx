@@ -28,7 +28,7 @@ export default async function FinanceiroPage() {
 
   // ── MRR (soma dos planos com subscription ativa) ───────────────────────────
   const PLAN_PRICES: Record<string, number> = {
-    starter: 1600, pro: 2000, scale: 2600,
+    starter: 297, pro: 497,
   };
   const activeSubs = (subscriptions ?? []).filter(s => {
     if (!s.subscription_expires_at) return false;

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
 
   const startRecording = async () => {
     try {
-      // Checa estado da permissão antes de tentar — se 'prompt', o popup aparece automaticamente
+      // Checa estado da permissão antes de tentar: se 'prompt', o popup aparece automaticamente
       if (navigator.permissions) {
         const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
         if (perm.state === 'denied') {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -135,7 +135,7 @@ export function LeadInfoSidebar({
             {/* Aba: Dados */}
             <TabsContent value="dados" className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-minimal mt-0">
 
-              {/* AI Resumo — topo, destaque */}
+              {/* AI Resumo: topo, destaque */}
               {lead.notes && (
                 <div className="space-y-2">
                   <button

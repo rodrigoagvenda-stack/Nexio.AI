@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { SiteHeader } from './SiteHeader';
@@ -75,7 +75,7 @@ export function LandingPage() {
           </div>
         </Section>
 
-        {/* como funciona — narrado como a própria conversa */}
+        {/* como funciona: narrado como a própria conversa */}
         <Section id="como-funciona" className="bg-[#0D0D0D] border-y border-[#161616]">
           <Reveal className="max-w-lg mx-auto text-center mb-16">
             <h2 className="text-2xl md:text-[2rem] font-bold text-balance">Da mensagem à venda, sem trocar de tela</h2>

@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const { data: company, error: compErr } = await service.from('companies').insert({
       name: companyName.trim(),
       email: userEmail || user.email,
-      plan_type: isTrial ? 'trial' : selectedPlan === 'pro' ? 'pro' : selectedPlan === 'scale' ? 'scale' : 'starter',
+      plan_type: isTrial ? 'trial' : selectedPlan === 'pro' ? 'pro' : 'starter',
       image_url: logoUrl ?? null,
       is_active: true,
       agente_ativo: false,

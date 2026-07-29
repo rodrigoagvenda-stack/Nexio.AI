@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -117,7 +117,7 @@ export function MobileBottomNav() {
             onClick={() => { setMoreOpen(false); navigate('/dashboard'); }}
           />
 
-          {/* Chat FAB — centro elevado */}
+          {/* Chat FAB: centro elevado */}
           <div className="relative flex flex-col items-center -mt-6">
             <button
               onClick={() => { setMoreOpen(false); navigate('/atendimento'); }}

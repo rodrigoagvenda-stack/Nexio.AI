@@ -453,7 +453,7 @@ export default function EmpresaDetailPage() {
                   type="password"
                   value={sdrConfig.uazapi_token}
                   onChange={(e) => setSdrConfig({ ...sdrConfig, uazapi_token: e.target.value })}
-                  placeholder={sdrConfig.has_token ? 'Configurado — cole para alterar' : 'Token da instância'}
+                  placeholder={sdrConfig.has_token ? 'Configurado. Cole para alterar' : 'Token da instância'}
                   className="h-9"
                 />
                 {sdrConfig.has_token && !sdrConfig.uazapi_token && (
@@ -466,7 +466,7 @@ export default function EmpresaDetailPage() {
                   type="password"
                   value={sdrConfig.openai_key}
                   onChange={(e) => setSdrConfig({ ...sdrConfig, openai_key: e.target.value })}
-                  placeholder={sdrConfig.has_openai ? 'Configurada — cole para alterar' : 'sk-… (usa global se vazio)'}
+                  placeholder={sdrConfig.has_openai ? 'Configurada. Cole para alterar' : 'sk-… (usa global se vazio)'}
                   className="h-9"
                 />
               </div>

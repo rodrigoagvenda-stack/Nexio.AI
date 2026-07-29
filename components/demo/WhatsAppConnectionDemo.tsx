@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { CheckCircle2, Wifi } from 'lucide-react'
@@ -8,7 +8,7 @@ type Step = 'idle' | 'scanning' | 'connected'
 
 // ── QR Code decorativo (visualmente fiel a um QR real) ─────────────────────
 function FakeQR() {
-  // Mapa 21×21 — 1 = módulo escuro
+  // Mapa 21×21: 1 = módulo escuro
   const map = [
     [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,0,0],
     [1,0,0,0,0,0,1,0,0,1,0,1,1,0,0,0,0,0,1,0,0],

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Política de Cookies — Nexio.AI',
+  title: 'Política de Cookies - Zaapply',
 };
 
 export default function CookiesPage() {
@@ -107,10 +107,10 @@ export default function CookiesPage() {
             <p>Alguns cookies são definidos por serviços de terceiros que utilizamos:</p>
             <ul className="mt-3 space-y-2 ml-4 list-disc list-outside">
               <li>
-                <strong className="text-white/90">Supabase</strong> — Plataforma de banco de dados e autenticação. Gerencia tokens de sessão para manter o login seguro. <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">Política de Privacidade</a>
+                <strong className="text-white/90">Supabase</strong>: Plataforma de banco de dados e autenticação. Gerencia tokens de sessão para manter o login seguro. <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">Política de Privacidade</a>
               </li>
               <li>
-                <strong className="text-white/90">Vercel</strong> — Infraestrutura de hospedagem da aplicação. Pode armazenar cookies de edge e performance. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">Política de Privacidade</a>
+                <strong className="text-white/90">Vercel</strong>: Infraestrutura de hospedagem da aplicação. Pode armazenar cookies de edge e performance. <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">Política de Privacidade</a>
               </li>
             </ul>
             <p className="mt-3">

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -182,11 +182,11 @@ type Scene = 'seq_list' | 'canvas_view' | 'highlight_trigger' | 'highlight_delay
 const SCENES: Scene[] = ['seq_list', 'canvas_view', 'highlight_trigger', 'highlight_delay', 'highlight_cond', 'done']
 const META: Record<Scene, string> = {
   seq_list:          'Clique em "Abrir Canvas" para entrar no editor visual do fluxo Trial SaaS',
-  canvas_view:       'Canvas do Trial — 5 nodes conectados. Clique no Gatilho para entender o inicio do fluxo',
+  canvas_view:       'Canvas do Trial: 5 nodes conectados. Clique no Gatilho para entender o inicio do fluxo',
   highlight_trigger: 'Gatilho: acionado pelo webhook quando o lead preenche o formulario de cadastro. Clique no Intervalo',
   highlight_delay:   'Intervalo de 3 dias: o fluxo aguarda antes de verificar se o lead respondeu. Clique na Condicao',
   highlight_cond:    'Condicao bifurca: lead respondeu = lembrete amigavel | nao respondeu = reengajamento urgente',
-  done:              'Fluxo completo — Trial automatizado do webhook de cadastro ate conversao ou reengajamento',
+  done:              'Fluxo completo: Trial automatizado do webhook de cadastro ate conversao ou reengajamento',
 }
 
 const SEQ_ROWS = [

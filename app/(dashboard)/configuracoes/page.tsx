@@ -15,7 +15,7 @@ import { toast } from '@/components/ui/use-toast';
 import {
   User, Camera, CreditCard,
   CheckCircle2, Loader2, ExternalLink, Zap, TrendingUp, Rocket,
-  AlertCircle, Sparkles, X, Shield, Check, Bot, UserMinus,
+  AlertCircle, X, Shield, Check, Bot, UserMinus,
   ShieldCheck, Copy, CheckCheck, Volume2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -39,9 +39,8 @@ interface GoogleStatus { connected: boolean; email: string | null }
 const PLANS = {
   basic:   { name: 'Basic',          price: 0,   tokens: 0,          icon: Zap,        desc: 'Plano gratuito' },
   trial:   { name: 'Trial',          price: 0,   tokens: 5_000_000,  icon: Zap,        desc: 'Período de teste gratuito' },
-  starter: { name: 'Zaapply Start',  price: 397, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + follow-up automático' },
-  pro:     { name: 'Zaapply Growth', price: 697, tokens: 15_000_000, icon: Rocket,     desc: 'Anti-Noshow, Remarketing e Trial SaaS desbloqueados' },
-  scale:   { name: 'Zaapply Pro',    price: 997, tokens: 50_000_000, icon: Sparkles,   desc: 'Escala total: 50M tokens/mês' },
+  starter: { name: 'Zaapply Start',  price: 297, tokens: 5_000_000,  icon: TrendingUp, desc: 'SDR + atendimento + follow-up automático' },
+  pro:     { name: 'Zaapply Growth', price: 497, tokens: 15_000_000, icon: Rocket,     desc: 'Tudo do Start + Google Calendar + 2 números WhatsApp' },
 } as const;
 
 

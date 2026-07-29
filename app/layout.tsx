@@ -6,7 +6,7 @@ import { KeepAlive } from "@/components/KeepAlive";
 import { CookieBanner } from "@/components/lgpd/CookieBanner";
 
 export const metadata: Metadata = {
-  title: "Zaapply — CRM Inteligente com IA",
+  title: "Zaapply: CRM Inteligente com IA",
   description: "Sistema completo de CRM com automação e inteligência artificial",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

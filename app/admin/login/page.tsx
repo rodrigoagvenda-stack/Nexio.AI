@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
             <ShieldCheck className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-xl font-bold text-white">Acesso Administrativo</h1>
-          <p className="text-sm text-zinc-400 mt-1">Área restrita — apenas administradores</p>
+          <p className="text-sm text-zinc-400 mt-1">Área restrita: apenas administradores</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

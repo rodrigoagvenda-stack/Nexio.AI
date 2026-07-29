@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   useEffect(() => {
     function onSDKLoad() {
       window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
-      console.log('[MetaConnect] SDK init — APP_ID:', FB_APP_ID)
+      console.log('[MetaConnect] SDK init: APP_ID:', FB_APP_ID)
     }
     if (window.FB) {
       onSDKLoad()
@@ -66,7 +66,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
 
         if (data.event === 'FINISH') {
           const { phone_number_id, waba_id } = data.data ?? {}
-          console.log('[MetaConnect] FINISH — phone_number_id:', phone_number_id, '| waba_id:', waba_id)
+          console.log('[MetaConnect] FINISH: phone_number_id:', phone_number_id, '| waba_id:', waba_id)
           if (!phone_number_id || !waba_id) return
           if (codeRef.current) {
             submit(codeRef.current, phone_number_id, waba_id, false)
@@ -75,7 +75,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           }
         } else if (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
           const { waba_id } = data.data ?? {}
-          console.log('[MetaConnect] FINISH_COEX — waba_id:', waba_id)
+          console.log('[MetaConnect] FINISH_COEX: waba_id:', waba_id)
           if (!waba_id) return
           if (codeRef.current) {
             submit(codeRef.current, undefined, waba_id, true)
@@ -92,7 +92,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           console.log('[MetaConnect] evento desconhecido:', data.event)
         }
       } catch {
-        // mensagens não-JSON de outros origins do facebook.com (cb=...) — ignorar
+        // mensagens não-JSON de outros origins do facebook.com (cb=...): ignorar
       }
     }
     window.addEventListener('message', handleMessage)
@@ -127,35 +127,35 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
       toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
       return
     }
-    console.log('[MetaConnect] launch — APP_ID:', FB_APP_ID, '| CONFIG_ID:', CONFIG_ID)
+    console.log('[MetaConnect] launch: APP_ID:', FB_APP_ID, '| CONFIG_ID:', CONFIG_ID)
     window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
     codeRef.current = null
     pendingRef.current = null
     setLoading(true)
 
     globalTimeoutRef.current = setTimeout(() => {
-      console.warn('[MetaConnect] timeout global — popup fechou sem completar o fluxo')
+      console.warn('[MetaConnect] timeout global: popup fechou sem completar o fluxo')
       reset('Fluxo não completado. Tente novamente.')
     }, 180_000)
 
     window.FB.login(
       (response: any) => {
         if (globalTimeoutRef.current) clearTimeout(globalTimeoutRef.current)
-        console.log('[MetaConnect] FB.login callback — status:', response?.status,
+        console.log('[MetaConnect] FB.login callback: status:', response?.status,
           '| code:', response?.authResponse?.code ? 'recebido' : 'ausente',
           '| authResponse:', JSON.stringify(response?.authResponse ?? null))
 
         if (response?.authResponse?.code) {
           const code = response.authResponse.code
           codeRef.current = code
-          console.log('[MetaConnect] code recebido — aguardando FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING')
+          console.log('[MetaConnect] code recebido: aguardando FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING')
           if (pendingRef.current) {
             const { phoneNumberId, wabaId, coex } = pendingRef.current
             pendingRef.current = null
             submit(code, phoneNumberId, wabaId, coex)
           }
         } else {
-          console.log('[MetaConnect] sem code — status:', response?.status)
+          console.log('[MetaConnect] sem code: status:', response?.status)
           reset('Login cancelado ou não completado')
         }
       },

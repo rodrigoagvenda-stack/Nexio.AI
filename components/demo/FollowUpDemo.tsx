@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -368,7 +368,7 @@ const META: Record<Scene, string> = {
   palette_open: 'Selecione o tipo de nó que deseja adicionar',
   node_added:   'Nó adicionado! Clique nele para configurar a mensagem',
   node_config:  'Configure a mensagem de boas-vindas para o lead',
-  saved:        'Mensagem configurada — clique em Salvar para concluir',
+  saved:        'Mensagem configurada: clique em Salvar para concluir',
   done:         '✓ Sequência de follow-up criada com sucesso!',
 }
 
@@ -426,7 +426,7 @@ function FollowScreen({ scene, advance }: { scene: Scene; advance: () => void })
             <Edge x1={trigRX} y1={trigCY} x2={msgLX} y2={msgCY} />
           )}
 
-          {/* Trigger node — always visible */}
+          {/* Trigger node: always visible */}
           <div style={{ position: 'absolute', left: trigX, top: trigY, zIndex: 1 }}>
             <FakeNode accent="primary" icon={Zap} label="Gatilho" noLeftHandle>
               <p className="text-sm font-semibold text-foreground/90 leading-snug">Sequência de Boas-vindas</p>
@@ -434,7 +434,7 @@ function FollowScreen({ scene, advance }: { scene: Scene; advance: () => void })
             </FakeNode>
           </div>
 
-          {/* Message node — visible from node_added onward */}
+          {/* Message node: visible from node_added onward */}
           {(scene === 'node_added' || hasConfig) && (
             <div style={{ position: 'absolute', left: msgX, top: msgY, zIndex: hasConfig ? 2 : 1 }}>
               {scene === 'node_added' ? (

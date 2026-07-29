@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { Reply, Copy, Forward, Pin, Trash2, Pencil, ChevronDown, MapPin, MoreHorizontal } from 'lucide-react';
@@ -67,7 +67,7 @@ export function MessageContextMenu({
     >
       {children}
 
-      {/* Hover toolbar — aparece acima do balão, alinhado à direita (outbound) ou esquerda (inbound) */}
+      {/* Hover toolbar: aparece acima do balão, alinhado à direita (outbound) ou esquerda (inbound) */}
       {(hovered || dropdownOpen) && (
         <div
           className={`absolute bottom-full pb-1 flex items-center gap-1 z-20 ${
@@ -90,7 +90,7 @@ export function MessageContextMenu({
             </div>
           )}
 
-          {/* Reply shortcut — sempre visível na toolbar */}
+          {/* Reply shortcut: sempre visível na toolbar */}
           {onReply && (
             <button
               onClick={() => { onReply(); setHovered(false); }}

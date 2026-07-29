@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import '@xyflow/react/dist/style.css';
 
@@ -533,7 +533,7 @@ function formatVersionLabel(v: CanvasVersion, idx: number, total: number): strin
   const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const dateStr = isToday ? `hoje ${time}` : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
   const nodeCount = v.nodes.length;
-  return `Versão ${idx + 1 + (5 - total)} — ${dateStr} · ${nodeCount} nós`;
+  return `Versão ${idx + 1 + (5 - total)}: ${dateStr} · ${nodeCount} nós`;
 }
 
 // ─── Templates ──────────────────────────────────────────────────────────────────
@@ -684,7 +684,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     const x = stored?.x ?? (idx + 1) * 280;
     const y = stored?.y ?? 150;
     const condicaoLower = step.condicao?.toLowerCase() ?? '';
-    // Normalize tipo: DB may store EN ('text') or legacy PT ('texto') — map both to canvas PT
+    // Normalize tipo: DB may store EN ('text') or legacy PT ('texto'): map both to canvas PT
     let tipoCanvas = UAZAPI_TO_CANVAS[step.tipo_mensagem] ?? step.tipo_mensagem;
     // Distinguish lista vs botoes by menuType stored in media_config
     if (tipoCanvas === 'lista' && step.media_config?.menuType === 'button') tipoCanvas = 'botoes';
@@ -699,7 +699,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     const media_url = step.media_config?.file ?? undefined;
     const media_name = step.media_config?.docName ?? undefined;
     const mensagemDisplay = step.mensagem ?? step.media_config?.text ?? null;
-    // Location fields — reconstruct Google Maps URL from stored coordinates
+    // Location fields: reconstruct Google Maps URL from stored coordinates
     const location_name = step.media_config?.name as string | undefined;
     const location_address = step.media_config?.address as string | undefined;
     const _lat = step.media_config?.latitude as number | undefined;
@@ -707,7 +707,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     const location_url = (_lat != null && _lng != null && (_lat !== 0 || _lng !== 0))
       ? `https://www.google.com/maps/@${_lat},${_lng},17z`
       : undefined;
-    // Menu fields — prefer raw ButtonDef array for roundtrip fidelity, fall back to labels
+    // Menu fields: prefer raw ButtonDef array for roundtrip fidelity, fall back to labels
     const menu_choices = Array.isArray((step.media_config as any)?.buttons)
       ? serializeButtons((step.media_config as any).buttons as ButtonDef[])
       : Array.isArray(step.media_config?.choices)
@@ -896,7 +896,7 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
     if (d.kind === 'condition') {
       const isCustomVar = d.variavel === 'custom';
       return { id: stepId, dia_offset: 0, horario: '00:00', mensagem: null, tipo_mensagem: 'condicao', ordem: idx + 1,
-        condicao: null, // null passes the DB CHECK constraint — tipo_mensagem='condicao' já identifica o node
+        condicao: null, // null passes the DB CHECK constraint: tipo_mensagem='condicao' já identifica o node
         media_config: {
           variavel: d.variavel ?? 'resposta_botao',
           ...(isCustomVar && { customVariavel: d.condicao || '' }),
@@ -978,7 +978,7 @@ type AccentKey = keyof typeof ACCENTS;
 
 // ─── Node building blocks ───────────────────────────────────────────────────────
 
-// Exec state overlay badge — n8n style
+// Exec state overlay badge: n8n style
 function ExecBadge({ state, error }: { state?: ExecState; error?: string }) {
   if (!state || state === 'idle') return null;
   if (state === 'running') {
@@ -2649,7 +2649,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
         {/* ── Message node ── */}
         {d.kind === 'message' && (
           <>
-            {/* Offset — anti_noshow: sempre horas (relativo à call). Outros: toggle Dias/Horas */}
+            {/* Offset: anti_noshow: sempre horas (relativo à call). Outros: toggle Dias/Horas */}
             {sequenceTipo === 'anti_noshow' ? (
               <Field label="Tempo relativo à call">
                 <AntiNoshowOffsetPicker
@@ -2737,7 +2737,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground/60 leading-snug mt-1">
-                {(d.sdr_ativo === false) && 'Se o lead responder, o SDR não assume — a IA fica pausada.'}
+                {(d.sdr_ativo === false) && 'Se o lead responder, o SDR não assume: a IA fica pausada.'}
                 {(d.sdr_ativo === true) && 'O SDR volta a responder automaticamente após este step.'}
               </p>
             </Field>
@@ -3033,10 +3033,10 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               </Field>
             )}
 
-            {/* Trial SaaS — webhook URL */}
+            {/* Trial SaaS: webhook URL */}
             {sequenceTipo === 'trial_saas' && <TrialWebhookField />}
 
-            {/* Pagamento — plataforma por trigger + webhook */}
+            {/* Pagamento: plataforma por trigger + webhook */}
             {sequenceTipo === 'pagamento' && (
               <>
                 <Field label="Plataforma deste gatilho">
@@ -3306,7 +3306,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                 className="field-input" />
             </Field>
             <Field label="Descrição (opcional)">
-              <input type="text" placeholder="Ex: Consultoria — pacote básico"
+              <input type="text" placeholder="Ex: Consultoria: pacote básico"
                 value={(d as GerarCobrancaNodeData).description ?? ''}
                 onChange={(e) => onUpdate(node.id, { description: e.target.value })}
                 className="field-input" />
@@ -3374,17 +3374,17 @@ interface PaletteItem {
 }
 
 const PALETTE_ITEMS: PaletteItem[] = [
-  { label: 'Mensagem', desc: 'Envia uma mensagem WhatsApp ao lead — texto, áudio, imagem, vídeo, botões ou lista.', useCase: 'Use quando quiser mandar um conteúdo específico num ponto da sequência: apresentação, oferta, prova social ou CTA.', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
-  { label: 'Aguardar', desc: 'Pausa a sequência por um tempo definido antes de executar o próximo node.', useCase: 'Use quando quiser dar um intervalo entre mensagens para não parecer spam — ex: esperar 2 dias antes de fazer follow-up.', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Aguardar Evento', desc: 'Pausa a sequência e aguarda uma ação do lead antes de continuar — resposta, clique em link ou palavra-chave.', useCase: 'Use quando a próxima etapa só deve acontecer se o lead demonstrar interesse ativo.', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
+  { label: 'Mensagem', desc: 'Envia uma mensagem WhatsApp ao lead: texto, áudio, imagem, vídeo, botões ou lista.', useCase: 'Use quando quiser mandar um conteúdo específico num ponto da sequência: apresentação, oferta, prova social ou CTA.', kind: 'message', icon: MessageSquare, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Aguardar', desc: 'Pausa a sequência por um tempo definido antes de executar o próximo node.', useCase: 'Use quando quiser dar um intervalo entre mensagens para não parecer spam: ex: esperar 2 dias antes de fazer follow-up.', kind: 'wait', icon: Clock, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { label: 'Aguardar Evento', desc: 'Pausa a sequência e aguarda uma ação do lead antes de continuar: resposta, clique em link ou palavra-chave.', useCase: 'Use quando a próxima etapa só deve acontecer se o lead demonstrar interesse ativo.', kind: 'wait_event', icon: Bell, bgClass: 'bg-cyan-500/10', iconClass: 'text-cyan-500' },
   { label: 'Sub-fluxo', desc: 'Insere o lead em outra sequência já criada sem interromper o fluxo atual.', useCase: 'Use quando tiver uma sequência reutilizável (ex: quebra de objeção) e quiser ativá-la em múltiplos fluxos sem duplicar nodes.', kind: 'sub_flow', icon: Layers, bgClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
-  { label: 'Condição', desc: 'Cria uma bifurcação com lógica Se/Senão baseada em variáveis do lead — tag, campo CRM, etapa no funil.', useCase: 'Use quando quiser tratar leads diferentes de formas diferentes — ex: "se respondeu, vai pro caminho Sim; senão, vai pro Não".', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Sentimento', desc: 'Usa IA para analisar o tom da última mensagem do lead e rotear automaticamente — positivo, neutro ou negativo.', useCase: 'Use quando quiser adaptar a abordagem com base no humor da conversa sem precisar criar condições manuais.', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
-  { label: 'Encerrar', desc: 'Finaliza a sequência para o lead. Ele para de receber mensagens deste fluxo.', useCase: 'Use no fim de cada caminho — quando o lead converteu, pediu para parar ou chegou ao fim sem ação.', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
-  { label: 'Meta', desc: 'Marca o lead como convertido e registra a conversão no CRM.', useCase: 'Use quando o lead realizou a ação desejada — agendou, comprou ou respondeu positivamente.', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Condição', desc: 'Cria uma bifurcação com lógica Se/Senão baseada em variáveis do lead: tag, campo CRM, etapa no funil.', useCase: 'Use quando quiser tratar leads diferentes de formas diferentes: ex: "se respondeu, vai pro caminho Sim; senão, vai pro Não".', kind: 'condition', icon: GitBranch, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Sentimento', desc: 'Usa IA para analisar o tom da última mensagem do lead e rotear automaticamente: positivo, neutro ou negativo.', useCase: 'Use quando quiser adaptar a abordagem com base no humor da conversa sem precisar criar condições manuais.', kind: 'sentiment', icon: MessageCircle, bgClass: 'bg-violet-500/10', iconClass: 'text-violet-500' },
+  { label: 'Encerrar', desc: 'Finaliza a sequência para o lead. Ele para de receber mensagens deste fluxo.', useCase: 'Use no fim de cada caminho: quando o lead converteu, pediu para parar ou chegou ao fim sem ação.', kind: 'end', icon: XCircle, bgClass: 'bg-destructive/10', iconClass: 'text-destructive' },
+  { label: 'Meta', desc: 'Marca o lead como convertido e registra a conversão no CRM.', useCase: 'Use quando o lead realizou a ação desejada: agendou, comprou ou respondeu positivamente.', kind: 'goal', icon: Target, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Agendar Call', desc: 'Envia blocos de mensagem e ativa o agente de agendamento que oferece horários disponíveis ao lead via WhatsApp.', useCase: 'Use quando quiser que o próprio fluxo feche uma reunião sem intervenção humana.', kind: 'scheduling', icon: CalendarCheck, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Pós-Condição', desc: 'Aguarda o lead responder ou clicar num botão antes de disparar a mensagem. Sem interação genuína, o fluxo fica pausado neste ponto.', useCase: 'Use na saída "NÃO" de uma Condição para evitar que o CRON dispare o caminho negativo sem o lead ter interagido de verdade.', kind: 'post_condition', icon: Zap, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
-  { label: 'Gerar Cobrança', desc: 'Cria um boleto, PIX ou link de pagamento no Asaas para o lead e envia o link via WhatsApp automaticamente.', useCase: 'Use quando quiser disparar uma cobrança diretamente do fluxo — ex: após o lead aceitar a proposta, gerar o boleto na hora.', kind: 'gerar_cobranca', icon: CreditCard, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
+  { label: 'Gerar Cobrança', desc: 'Cria um boleto, PIX ou link de pagamento no Asaas para o lead e envia o link via WhatsApp automaticamente.', useCase: 'Use quando quiser disparar uma cobrança diretamente do fluxo: ex: após o lead aceitar a proposta, gerar o boleto na hora.', kind: 'gerar_cobranca', icon: CreditCard, bgClass: 'bg-emerald-500/10', iconClass: 'text-emerald-500' },
   { label: 'Aguardar Pagamento', desc: 'Pausa o fluxo até o pagamento ser confirmado. Bifurca em "Pago" (topo) e "Vencido" (base) após o timeout.', useCase: 'Use depois de Gerar Cobrança para rotear automaticamente entre pós-venda (pago) e régua de cobrança (vencido).', kind: 'aguardar_pagamento', icon: Hourglass, bgClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
 ];
 
@@ -3918,7 +3918,7 @@ function NoshowCronTestModal({ onClose }: { onClose: () => void }) {
                   </div>
                 ))}
                 <div className="px-3 py-2.5 rounded-xl text-xs font-semibold border bg-primary/10 border-primary/30 text-primary mt-1">
-                  ✓ Concluído — {result.disparados ?? 0} {result.disparados === 1 ? 'node disparado' : 'nodes disparados'}
+                  ✓ Concluído: {result.disparados ?? 0} {result.disparados === 1 ? 'node disparado' : 'nodes disparados'}
                 </div>
               </>
             )}
@@ -4021,7 +4021,7 @@ function RemarketingTestModal({ onClose }: { onClose: () => void }) {
                   </div>
                 ))}
                 <div className="px-3 py-2.5 rounded-xl text-xs font-semibold border bg-primary/10 border-primary/30 text-primary mt-1">
-                  ✓ Concluído — {result.sent ?? 0} {result.sent === 1 ? 'mensagem enviada' : 'mensagens enviadas'}
+                  ✓ Concluído: {result.sent ?? 0} {result.sent === 1 ? 'mensagem enviada' : 'mensagens enviadas'}
                 </div>
               </>
             )}
@@ -4246,7 +4246,7 @@ function VersionDiffModal({ versions, onClose }: { versions: CanvasVersion[]; on
           ) : added.length === 0 && removed.length === 0 && modified.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-6">
               <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-              <p className="text-sm text-muted-foreground">Nenhuma diferença — {unchanged} nós idênticos.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma diferença: {unchanged} nós idênticos.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -4678,7 +4678,7 @@ function CanvasInner() {
       const noDefaultTrigger = !triggerNode; // primary trigger was deleted
       const nome = (triggerNode?.data as TriggerNodeData | undefined)?.label ?? currentSeq.nome;
 
-      // Extra trigger nodes (pagamento only) — stable negative indices for edge map
+      // Extra trigger nodes (pagamento only): stable negative indices for edge map
       const extraTriggerNodes = nodes.filter((n) => n.data.kind === 'trigger' && n.id !== 'trigger');
       const triggerIdToIdx: Record<string, number> = noDefaultTrigger ? {} : { trigger: -1 };
       extraTriggerNodes.forEach((n, i) => { triggerIdToIdx[n.id] = -(i + 2); });
@@ -4886,7 +4886,7 @@ function CanvasInner() {
     return idx >= 0 ? `case-${idx}` : 'else';
   }
 
-  // baselineCount: número de mensagens inbound no momento anterior ao envio — detecta nova resposta por contagem
+  // baselineCount: número de mensagens inbound no momento anterior ao envio: detecta nova resposta por contagem
   async function waitForLeadReply(conversaId: string, timeoutMs = 120_000, baselineCount?: number): Promise<string> {
     let knownCount = baselineCount ?? -1;
     if (baselineCount === undefined) {
@@ -4958,7 +4958,7 @@ function CanvasInner() {
 
     let currentId: string | null = 'trigger';
     const visited = new Set<string>();
-    // Baseline capturado ANTES de cada mensagem enviada — condition node usa para detectar respostas chegadas durante o envio
+    // Baseline capturado ANTES de cada mensagem enviada: condition node usa para detectar respostas chegadas durante o envio
     let replyBaselineCount: number | undefined = undefined;
 
     while (currentId && !abortTestRef.current) {
@@ -4987,7 +4987,7 @@ function CanvasInner() {
           if (String(d.stepId ?? '').startsWith('new-')) {
             throw new Error('Salve a sequência antes de executar o teste');
           }
-          // Captura baseline ANTES do envio — garante que respostas rápidas (botões) sejam detectadas pela condição seguinte
+          // Captura baseline ANTES do envio: garante que respostas rápidas (botões) sejam detectadas pela condição seguinte
           if (conversaId) {
             try {
               const bRes = await fetch(`/api/follow/conversa-latest-reply?conversaId=${conversaId}`);
@@ -5047,7 +5047,7 @@ function CanvasInner() {
               throw new Error(e.error ?? `send-test ${r.status}`);
             }
           }
-          setNodeExecState(node.id, 'success', 'Agente de agendamento ativado — SDR assume a conversa');
+          setNodeExecState(node.id, 'success', 'Agente de agendamento ativado: SDR assume a conversa');
           break; // real executor hands off to SDR; test stops here
         } else if (d.kind === 'post_condition') {
           if (String(d.stepId ?? '').startsWith('new-')) {
@@ -5220,14 +5220,14 @@ function CanvasInner() {
         {/* Right controls */}
         {mode === 'editor' && currentSeq && (
           <div className="flex items-center gap-1.5">
-            {/* Conflict badge — compacto, com tooltip */}
+            {/* Conflict badge: compacto, com tooltip */}
             {conflictCount >= 2 && (
               <div className="relative group">
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold cursor-default">
                   <AlertCircle className="w-3 h-3" />{conflictCount}
                 </div>
                 <div className="absolute right-0 top-full mt-1.5 z-30 w-64 bg-card border border-border rounded-xl shadow-xl p-3 text-xs text-muted-foreground leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
-                  {conflictCount} sequências ativas. Leads podem receber mensagens simultâneas — considere ativar apenas uma por vez.
+                  {conflictCount} sequências ativas. Leads podem receber mensagens simultâneas: considere ativar apenas uma por vez.
                 </div>
               </div>
             )}
@@ -5246,7 +5246,7 @@ function CanvasInner() {
               </button>
             )}
 
-            {/* Biblioteca — Templates + Versões em dropdown único */}
+            {/* Biblioteca: Templates + Versões em dropdown único */}
             <div className="relative">
               <button
                 onClick={() => setVersionsOpen((v) => !v)}
@@ -5305,11 +5305,11 @@ function CanvasInner() {
 
             <div className="w-px h-5 bg-border mx-0.5" />
 
-            {/* Staging — ícone compacto com tooltip */}
+            {/* Staging: ícone compacto com tooltip */}
             <button
               onClick={toggleStaging}
               disabled={stagingLoading}
-              title={currentSeq.staging ? 'Staging ativo — clique para desligar' : 'Ligar modo staging'}
+              title={currentSeq.staging ? 'Staging ativo: clique para desligar' : 'Ligar modo staging'}
               className={cn('flex items-center justify-center w-7 h-7 rounded-lg transition-colors border',
                 currentSeq.staging
                   ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400'
@@ -5519,7 +5519,7 @@ function CanvasInner() {
         <ModalOverlay onClose={() => setNewFlowModalOpen(false)}>
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-[360px] p-5 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold">Novo fluxo — {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label}</p>
+              <p className="text-sm font-semibold">Novo fluxo: {SEQ_TABS.find((t) => t.tipo === activeTipo)?.label}</p>
               <button onClick={() => setNewFlowModalOpen(false)} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex flex-col gap-1.5">

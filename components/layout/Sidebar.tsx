@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -72,7 +72,7 @@ function playNotifSound() {
       osc.start(start);
       osc.stop(start + duration);
     };
-    // Dois tons ascendentes — estilo WhatsApp
+    // Dois tons ascendentes: estilo WhatsApp
     playNote(830, ctx.currentTime, 0.18);
     playNote(1046, ctx.currentTime + 0.12, 0.28);
   } catch {}
@@ -421,7 +421,7 @@ export const Sidebar = memo(function Sidebar({
   const flyoutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSoundRef = useRef<number>(0);
 
-  // Subscription de mensagens inbound — contador + som
+  // Subscription de mensagens inbound: contador + som
   useEffect(() => {
     if (!companyId) return;
     const supabase = createClient();
@@ -456,7 +456,7 @@ export const Sidebar = memo(function Sidebar({
             playNotifSound();
           }
         } else if (next < prev) {
-          // Conversa foi lida — reduz contador
+          // Conversa foi lida: reduz contador
           setUnreadMsgCount((c) => Math.max(0, c - (prev - next)));
         }
       })
@@ -650,7 +650,7 @@ export const Sidebar = memo(function Sidebar({
           )}
         </div>
 
-        {/* Navigation — overflow-y-auto OK aqui, flyout sai pelo portal */}
+        {/* Navigation: overflow-y-auto OK aqui, flyout sai pelo portal */}
         <nav className="flex-1 px-3 pt-3 space-y-3 overflow-y-auto">
           {allSections.map((section) => (
             <div key={section.label}>
@@ -795,7 +795,7 @@ export const Sidebar = memo(function Sidebar({
           {isTrial && isCollapsed && (
             <Link
               href="/configuracoes?tab=plano"
-              title="Trial — Assinar agora"
+              title="Trial: Assinar agora"
               className="flex items-center justify-center w-9 h-9 mx-auto rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
             >
               <Zap className="h-4 w-4" />
@@ -858,7 +858,7 @@ export const Sidebar = memo(function Sidebar({
         </div>
       </aside>
 
-      {/* Flyout portal — fora do aside, sem clip de overflow */}
+      {/* Flyout portal: fora do aside, sem clip de overflow */}
       {flyout && (
         <FlyoutPanel
           state={flyout}

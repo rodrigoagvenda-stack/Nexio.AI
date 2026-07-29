@@ -41,7 +41,7 @@ export default async function AtendimentoLayout({ children }: { children: React.
           <div className="space-y-2">
             <h2 className="text-xl font-bold">Atendimento WhatsApp</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Receba mensagens, escaneie o QR Code e gerencie conversas com IA — disponível nos planos pagos.
+              Receba mensagens, escaneie o QR Code e gerencie conversas com IA. Disponível nos planos pagos.
             </p>
           </div>
           <div className="space-y-2">

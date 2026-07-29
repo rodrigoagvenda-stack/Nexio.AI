@@ -172,8 +172,7 @@ async function handleSubscriptionPayment(
   try {
     const sub = await getSubscription(payment.subscription)
     const value = sub.value ?? 0
-    if (value >= 900) planType = 'scale'
-    else if (value >= 600) planType = 'pro'
+    if (value >= 400) planType = 'pro'
     else planType = 'starter'
   } catch (e: any) {
     console.warn('[billing-webhook] falha ao buscar subscription para plan_type:', e?.message)

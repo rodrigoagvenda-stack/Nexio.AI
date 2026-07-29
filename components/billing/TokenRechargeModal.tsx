@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import {
@@ -116,7 +116,7 @@ export function TokenRechargeModal({
             </div>
             {pct >= 100 && (
               <p className="text-xs text-red-500 font-medium">
-                ⚠ Limite atingido — Nexio pausado
+                ⚠ Limite atingido: Nexio pausado
               </p>
             )}
           </div>
@@ -239,7 +239,7 @@ export function TokenRechargeModal({
               onClick={handleClose}
               className="w-full border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
             >
-              Fechar — vou pagar pelo app do banco
+              Fechar: vou pagar pelo app do banco
             </button>
           </div>
         )}

@@ -23,9 +23,8 @@ import {
 
 // Mapeia plan_type → valor mensal
 const PLAN_PRICES: Record<string, number> = {
-  starter: 1600,
-  pro:     2000,
-  scale:   2600,
+  starter: 297,
+  pro:     497,
 }
 
 function todayISO() {

@@ -3,15 +3,13 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 
 const PLAN_VALUES: Record<string, number> = {
-  starter: 397,
-  pro: 697,
-  scale: 997,
+  starter: 297,
+  pro: 497,
 }
 
 const PLAN_LABELS: Record<string, string> = {
   starter: 'Zaapply Start',
   pro: 'Zaapply Growth',
-  scale: 'Zaapply Pro',
 }
 
 async function asaasJson(res: Response, label: string) {
@@ -186,7 +184,7 @@ export async function POST(request: NextRequest) {
           value: planValue,
           nextDueDate: today,
           cycle: 'MONTHLY',
-          description: `Nexio AI — Plano ${PLAN_LABELS[plan]}`,
+          description: `Zaapply - Plano ${PLAN_LABELS[plan]}`,
           externalReference: subExtRef,
         }),
       })

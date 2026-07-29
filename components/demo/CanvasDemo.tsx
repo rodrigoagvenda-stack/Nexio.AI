@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -367,11 +367,11 @@ type Scene = 'seq_list' | 'canvas_empty' | 'palette_open' | 'node_added' | 'node
 const SCENES: Scene[] = ['seq_list', 'canvas_empty', 'palette_open', 'node_added', 'node_config', 'saved', 'done']
 const META: Record<Scene, string> = {
   seq_list:     'Clique em "Abrir Canvas" para editar o fluxo da sequencia',
-  canvas_empty: 'Canvas aberto — clique em "+" para adicionar o primeiro no',
+  canvas_empty: 'Canvas aberto: clique em "+" para adicionar o primeiro no',
   palette_open: 'Selecione o tipo de no que deseja adicionar ao fluxo',
-  node_added:   'No adicionado — clique nele para configurar a mensagem',
-  node_config:  'Painel de configuracao aberto — clique no campo Mensagem',
-  saved:        'Mensagem configurada — clique em Salvar para finalizar',
+  node_added:   'No adicionado: clique nele para configurar a mensagem',
+  node_config:  'Painel de configuracao aberto: clique no campo Mensagem',
+  saved:        'Mensagem configurada: clique em Salvar para finalizar',
   done:         'Fluxo salvo com sucesso',
 }
 

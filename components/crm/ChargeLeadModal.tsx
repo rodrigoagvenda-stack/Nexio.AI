@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { X, CreditCard, QrCode, FileText, Loader2, CheckCircle2, Copy, ExternalLink } from 'lucide-react'
@@ -208,7 +208,7 @@ export default function ChargeLeadModal({ lead, onClose }: ChargeLeadModalProps)
                 <label className="text-xs font-medium text-muted-foreground">Descrição (opcional)</label>
                 <input
                   type="text"
-                  placeholder="Ex: Consultoria — Outubro 2026"
+                  placeholder="Ex: Consultoria: Outubro 2026"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full bg-muted border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary/50 transition-colors"

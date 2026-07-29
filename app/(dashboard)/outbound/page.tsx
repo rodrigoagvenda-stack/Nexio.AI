@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -552,7 +552,7 @@ export default function OutboundPage() {
       <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
         <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
         <div className="space-y-0.5 text-sm">
-          <p className="font-semibold text-foreground">Orbit.AI — Horário de operação</p>
+          <p className="font-semibold text-foreground">Orbit.AI: Horário de operação</p>
           <p className="text-muted-foreground leading-relaxed">
             Segunda a sexta, das <strong className="text-foreground">9h às 18h</strong> (Brasília). Fora desse período o sistema entra em repouso automaticamente.
           </p>
@@ -1059,7 +1059,7 @@ export default function OutboundPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Exemplos (JSON — opcional)</Label>
+                  <Label className="text-xs">Exemplos (JSON: opcional)</Label>
                   <Textarea
                     value={newTemplateDraft.exemplos}
                     onChange={(e) => setNewTemplateDraft((d) => ({ ...d, exemplos: e.target.value }))}

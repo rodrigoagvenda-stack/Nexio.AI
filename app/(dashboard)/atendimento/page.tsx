@@ -1357,9 +1357,9 @@ export default function AtendimentoPage() {
             <div className="p-6 space-y-5">
               <ul className="space-y-3">
                 {[
-                  'Número nunca é banido — API oficial Meta',
+                  'Número nunca é banido (API oficial Meta)',
                   'CoEx: WhatsApp Business App + nuvem simultaneamente',
-                  'Sem QR Code — autenticação via Facebook Business',
+                  'Sem QR Code: autenticação via Facebook Business',
                   'Janela de 72h para leads de anúncios (Click-to-WhatsApp)',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-2.5">
@@ -1492,7 +1492,7 @@ export default function AtendimentoPage() {
                 <DropdownMenuContent align="end" className="w-52">
                   <div className="px-3 py-2.5">
                     <p className="text-xs text-muted-foreground mb-0.5">Número conectado</p>
-                    <p className="text-sm font-medium font-mono">{waPhone ?? '—'}</p>
+                    <p className="text-sm font-medium font-mono">{waPhone ?? '-'}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
