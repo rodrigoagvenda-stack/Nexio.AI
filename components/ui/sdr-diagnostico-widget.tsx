@@ -246,10 +246,13 @@ interface GapItemProps {
 function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
   const [open, setOpen] = useState(false)
   const [loadingFix, setLoadingFix] = useState(false)
+  const [loadingApply, setLoadingApply] = useState(false)
   const [fixText, setFixText] = useState<string | null>(null)
+  const [editedText, setEditedText] = useState<string>('')
   const [fixApplied, setFixApplied] = useState(false)
   const [fixError, setFixError] = useState<string | null>(null)
 
+  // Passo 1: gera o script (sem embedar)
   const handleGenerateFix = async (e: React.MouseEvent) => {
     e.stopPropagation()
     setLoadingFix(true)
@@ -259,16 +262,38 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
       const res = await fetch('/api/sdr/fix-gap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gap, persona }),
+        body: JSON.stringify({ gap, persona, dry_run: true }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setFixText(data.fix_text)
-      setFixApplied(true)
+      setEditedText(data.fix_text)
     } catch (err: any) {
       setFixError(err?.message ?? 'Erro ao gerar correção. Tente novamente.')
     } finally {
       setLoadingFix(false)
+    }
+  }
+
+  // Passo 2: embeda o texto (possivelmente editado)
+  const handleApplyFix = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!editedText.trim()) return
+    setLoadingApply(true)
+    setFixError(null)
+    try {
+      const res = await fetch('/api/sdr/fix-gap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gap, persona, fix_text_override: editedText }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setFixApplied(true)
+    } catch (err: any) {
+      setFixError(err?.message ?? 'Erro ao aplicar. Tente novamente.')
+    } finally {
+      setLoadingApply(false)
     }
   }
 
@@ -341,19 +366,32 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
                 </p>
               </div>
 
-              {/* Fix preview */}
-              {fixText && (
-                <div className={`rounded-lg px-3 py-2.5 mt-1 ${fixApplied ? 'bg-[#01573C]/10 border border-[#01573C]/30' : 'bg-neutral-900 dark:bg-neutral-800'}`}>
-                  {fixApplied && (
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Check size={12} style={{ color: '#01573C' }} />
-                      <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#01573C' }}>
-                        Adicionado à {gap.source}
-                      </span>
-                    </div>
-                  )}
-                  <p className={`text-xs leading-relaxed whitespace-pre-wrap font-mono ${fixApplied ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-200'}`}>
-                    {fixText}
+              {/* Fix preview + editor */}
+              {fixText && !fixApplied && (
+                <div className="mt-1 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Script gerado — edite se necessário</span>
+                  </div>
+                  <textarea
+                    value={editedText}
+                    onChange={e => setEditedText(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    rows={5}
+                    className="w-full text-xs font-mono leading-relaxed bg-neutral-900 dark:bg-neutral-800 text-neutral-200 rounded-lg px-3 py-2.5 border border-neutral-700 focus:border-neutral-500 focus:outline-none resize-y"
+                  />
+                </div>
+              )}
+
+              {fixApplied && fixText && (
+                <div className="bg-[#01573C]/10 border border-[#01573C]/30 rounded-lg px-3 py-2.5 mt-1">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Check size={12} style={{ color: '#01573C' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#01573C' }}>
+                      Adicionado à {gap.source}
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap font-mono">
+                    {editedText}
                   </p>
                 </div>
               )}
@@ -363,21 +401,43 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
               )}
 
               {/* Actions */}
-              <div className="flex items-center gap-2 pt-1">
-                {!fixApplied && (
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                {!fixText && (
                   <button
                     onClick={handleGenerateFix}
                     disabled={loadingFix}
                     className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
                   >
                     {loadingFix ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                    {loadingFix ? 'Aplicando...' : 'Gerar e aplicar correção'}
+                    {loadingFix ? 'Gerando...' : 'Gerar correção'}
                   </button>
+                )}
+
+                {fixText && !fixApplied && (
+                  <>
+                    <button
+                      onClick={handleApplyFix}
+                      disabled={loadingApply || !editedText.trim()}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-50"
+                      style={{ backgroundColor: '#01573C' }}
+                    >
+                      {loadingApply ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      {loadingApply ? 'Aplicando...' : 'Aplicar na base'}
+                    </button>
+                    <button
+                      onClick={handleGenerateFix}
+                      disabled={loadingFix}
+                      className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
+                    >
+                      <Wand2 size={11} />
+                      {loadingFix ? 'Gerando...' : 'Gerar novamente'}
+                    </button>
+                  </>
                 )}
 
                 {fixApplied && (
                   <button
-                    onClick={handleGenerateFix}
+                    onClick={e => { setFixApplied(false); setFixText(null); handleGenerateFix(e) }}
                     disabled={loadingFix}
                     className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
                   >

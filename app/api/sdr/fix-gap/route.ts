@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const body = await req.json()
-    const { gap, persona } = body
+    const { gap, persona, dry_run = false, fix_text_override } = body
 
     if (!gap?.id || !gap?.scenario) {
       return NextResponse.json({ error: 'Gap inválido' }, { status: 400 })
@@ -106,9 +106,17 @@ Gere o script que deve ser adicionado na ${gap.source}.`
       return NextResponse.json({ error: 'Não foi possível gerar o script.' }, { status: 500 })
     }
 
+    // dry_run: só retorna o script sem embedar (passo 1 — usuário edita antes de aplicar)
+    if (dry_run) {
+      return NextResponse.json({ ok: true, fix_text: fixText, insert_in: tableType })
+    }
+
+    // fix_text_override: usa o texto editado pelo usuário ao invés do gerado
+    const textToEmbed = (fix_text_override as string | undefined)?.trim() || fixText
+
     // Embeda na base correta — INSERT puro, não apaga nada existente
     const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
-    const docText = `=== ${label} ===\nCenário: ${gap.scenario}\n\n${fixText}`
+    const docText = `=== ${label} ===\nCenário: ${gap.scenario}\n\n${textToEmbed}`
 
     await processKnowledgeText({
       companyId: userData.company_id,
