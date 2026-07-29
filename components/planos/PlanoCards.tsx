@@ -146,13 +146,6 @@ function PlanCard({ plan, extraNumbers, delay, isCurrent, isLoading, onSelect }:
           </div>
         </div>
 
-        <div className={cn(
-          'rounded-xl px-3.5 py-2.5 text-xs leading-snug',
-          plan.popular ? 'bg-primary-foreground/10 text-primary-foreground/80' : 'bg-primary/6 text-primary border border-primary/15'
-        )}>
-          <span className="font-semibold">Canvas:</span> {plan.canvas}
-        </div>
-
         {onSelect ? (
           <button
             disabled={isCurrent || isLoading}
