@@ -2202,7 +2202,11 @@ export default function SdrConfigPage() {
     covered: string[]
     gaps: Array<{
       id: string; scenario: string; severity: 'critica' | 'alta' | 'media'
-      what_fails: string; tab_wizard: 'identidade' | 'conhecimento' | 'integracoes' | 'geral'; suggestion: string
+      what_fails: string
+      source: 'Base de Conhecimento' | 'Base de Objeções' | 'Identidade do Agente'
+      example: string
+      tab_wizard: 'identidade' | 'conhecimento' | 'integracoes' | 'geral'
+      suggestion: string
     }>
     error?: string
   } | null>(null)
@@ -3009,7 +3013,12 @@ export default function SdrConfigPage() {
     {showValidationModal && validationResult && (
       <SdrDiagnosticoWidget
         result={validationResult}
+        persona={config.persona as Record<string, string>}
         onClose={() => setShowValidationModal(false)}
+        onNavigate={(tab) => {
+          setShowValidationModal(false)
+          setActiveTab(tab)
+        }}
       />
     )}
 

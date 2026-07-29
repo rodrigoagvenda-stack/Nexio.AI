@@ -17,6 +17,8 @@ export interface ValidationGap {
   scenario: string
   severity: 'critica' | 'alta' | 'media'
   what_fails: string
+  source: 'Base de Conhecimento' | 'Base de Objeções' | 'Identidade do Agente'
+  example: string
   tab_wizard: 'identidade' | 'conhecimento' | 'integracoes' | 'geral'
   suggestion: string
 }
@@ -115,8 +117,10 @@ Retorne SOMENTE um JSON válido neste formato exato:
       "scenario": "<nome curto do cenário>",
       "severity": "<critica|alta|media>",
       "what_fails": "<em 1 linha: o que acontece na conversa real quando esse cenário ocorre sem o script>",
+      "source": "<onde corrigir: 'Base de Conhecimento' | 'Base de Objeções' | 'Identidade do Agente'>",
+      "example": "<2 linhas simulando a conversa que falha, ex: 'Lead: Tá caro\\nSDR: [sem resposta definida] — lead abandona'>",
       "tab_wizard": "<identidade|conhecimento|integracoes|geral>",
-      "suggestion": "<instrução específica e acionável para o usuário corrigir no wizard>"
+      "suggestion": "<instrução específica e acionável para o usuário corrigir. NUNCA invente valores, preços ou links específicos.>"
     }
   ]
 }`

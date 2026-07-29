@@ -10,13 +10,21 @@ import {
   Circle,
   CheckCircle2,
   AlertCircle,
-  MoreHorizontal,
+  Wand2,
+  Copy,
+  Check,
+  Loader2,
+  BookOpen,
+  MessageSquare,
+  User,
 } from 'lucide-react'
 import type { ValidationResult, ValidationGap } from '@/lib/sdr/validator'
 
 interface Props {
   result: ValidationResult
+  persona?: Record<string, string>
   onClose: () => void
+  onNavigate?: (tab: 'identidade' | 'conhecimento' | 'integracoes' | 'geral') => void
 }
 
 const SPRING = {
@@ -38,7 +46,7 @@ function statusLabel(score: number) {
   return 'Ajustes necessários'
 }
 
-export function SdrDiagnosticoWidget({ result, onClose }: Props) {
+export function SdrDiagnosticoWidget({ result, persona, onClose, onNavigate }: Props) {
   const [isOpen, setIsOpen] = useState(true)
 
   const total = result.covered.length + result.gaps.length
@@ -73,15 +81,9 @@ export function SdrDiagnosticoWidget({ result, onClose }: Props) {
                 }`}
               >
                 {result.score >= 75 ? (
-                  <ShieldCheck
-                    size={isOpen ? 20 : 14}
-                    style={{ color: '#01573C' }}
-                  />
+                  <ShieldCheck size={isOpen ? 20 : 14} style={{ color: '#01573C' }} />
                 ) : (
-                  <ShieldAlert
-                    size={isOpen ? 20 : 14}
-                    style={{ color: color }}
-                  />
+                  <ShieldAlert size={isOpen ? 20 : 14} style={{ color: color }} />
                 )}
               </motion.div>
 
@@ -107,18 +109,10 @@ export function SdrDiagnosticoWidget({ result, onClose }: Props) {
                   className="flex items-center gap-2 cursor-pointer"
                   onClick={() => setIsOpen(true)}
                 >
-                  <div className="w-20 h-2 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden relative">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ width: `${result.score}%`, backgroundColor: color }}
-                    />
+                  <div className="w-20 h-2 bg-neutral-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${result.score}%`, backgroundColor: color }} />
                   </div>
-                  <span
-                    className="text-xs font-semibold tabular-nums"
-                    style={{ color }}
-                  >
-                    {result.score}
-                  </span>
+                  <span className="text-xs font-semibold tabular-nums" style={{ color }}>{result.score}</span>
                 </motion.div>
               ) : (
                 <motion.button
@@ -151,9 +145,7 @@ export function SdrDiagnosticoWidget({ result, onClose }: Props) {
                 <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
                   <span>{result.covered.length} de {total} cenários cobertos</span>
                   {result.gaps.length > 0 && (
-                    <span className="text-neutral-400 dark:text-neutral-500">
-                      · {result.gaps.length} lacuna{result.gaps.length !== 1 ? 's' : ''}
-                    </span>
+                    <span className="text-neutral-400">· {result.gaps.length} lacuna{result.gaps.length !== 1 ? 's' : ''}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1 text-xs text-neutral-400">
@@ -177,52 +169,43 @@ export function SdrDiagnosticoWidget({ result, onClose }: Props) {
               >
                 {/* Score pill */}
                 <div className="flex items-center gap-2 px-2.5 py-1.5 border-[1.5px] rounded-full mb-5 w-fit bg-neutral-50/50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700">
-                  {result.score >= 75 ? (
-                    <CheckCircle2 size={20} style={{ color: '#01573C' }} />
-                  ) : (
-                    <Circle size={20} className="text-neutral-300 dark:text-neutral-600" />
-                  )}
+                  {result.score >= 75
+                    ? <CheckCircle2 size={20} style={{ color: '#01573C' }} />
+                    : <Circle size={20} className="text-neutral-300 dark:text-neutral-600" />
+                  }
                   <span className="text-sm font-semibold text-neutral-400 dark:text-neutral-500">
                     {result.covered.length} de {total}
                   </span>
                   <div className="w-24 h-2 bg-neutral-100 dark:bg-neutral-700 rounded-full mx-1">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${result.score}%`, backgroundColor: color }}
-                    />
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${result.score}%`, backgroundColor: color }} />
                   </div>
-                  <span
-                    className="text-sm font-bold tabular-nums text-neutral-700 dark:text-neutral-200"
-                    style={{ color }}
-                  >
+                  <span className="text-sm font-bold tabular-nums" style={{ color }}>
                     {result.score}/100
                   </span>
                 </div>
 
-                {/* Gaps or success */}
+                {/* Gaps */}
                 {result.gaps.length === 0 ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center gap-2 py-8"
-                  >
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-2 py-8">
                     <CheckCircle2 size={36} style={{ color: '#01573C' }} />
-                    <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-                      Todos os cenários cobertos
-                    </p>
-                    <p className="text-xs text-neutral-400">
-                      {statusLabel(result.score)}
-                    </p>
+                    <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Todos os cenários cobertos</p>
                   </motion.div>
                 ) : (
-                  <div className="relative ml-4 mb-5 flex flex-col gap-3 max-h-[50vh] overflow-y-auto pr-1">
+                  <div className="relative ml-4 mb-4 flex flex-col gap-3 max-h-[52vh] overflow-y-auto pr-1">
                     <motion.div
                       initial={{ scaleY: 0 }}
                       animate={{ scaleY: 1 }}
                       className="absolute left-0 top-0 bottom-4 w-[1.7px] origin-top bg-neutral-200 dark:bg-neutral-700"
                     />
                     {result.gaps.map((gap, idx) => (
-                      <GapItem key={gap.id} gap={gap} idx={idx} />
+                      <GapItem
+                        key={gap.id}
+                        gap={gap}
+                        idx={idx}
+                        persona={persona}
+                        onNavigate={onNavigate}
+                        onClose={onClose}
+                      />
                     ))}
                   </div>
                 )}
@@ -234,9 +217,7 @@ export function SdrDiagnosticoWidget({ result, onClose }: Props) {
                   transition={{ delay: 0.25 }}
                   className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800"
                 >
-                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
-                    {statusLabel(result.score)}
-                  </span>
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500">{statusLabel(result.score)}</span>
                   <button
                     onClick={onClose}
                     className="text-xs font-semibold px-4 py-1.5 rounded-lg border-[1.5px] border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
@@ -253,8 +234,54 @@ export function SdrDiagnosticoWidget({ result, onClose }: Props) {
   )
 }
 
-function GapItem({ gap, idx }: { gap: ValidationGap; idx: number }) {
+// ── Gap item ─────────────────────────────────────────────────────────────────
+
+interface GapItemProps {
+  gap: ValidationGap
+  idx: number
+  persona?: Record<string, string>
+  onNavigate?: (tab: 'identidade' | 'conhecimento' | 'integracoes' | 'geral') => void
+  onClose?: () => void
+}
+
+function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
   const [open, setOpen] = useState(false)
+  const [loadingFix, setLoadingFix] = useState(false)
+  const [fixText, setFixText] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleGenerateFix = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setLoadingFix(true)
+    try {
+      const res = await fetch('/api/sdr/fix-gap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gap, persona }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setFixText(data.fix_text)
+    } catch {
+      setFixText('Erro ao gerar correção. Tente novamente.')
+    } finally {
+      setLoadingFix(false)
+    }
+  }
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!fixText) return
+    navigator.clipboard.writeText(fixText)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleNavigate = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onNavigate?.(gap.tab_wizard)
+    onClose?.()
+  }
 
   return (
     <motion.div
@@ -265,42 +292,97 @@ function GapItem({ gap, idx }: { gap: ValidationGap; idx: number }) {
     >
       <div className="absolute left-0 top-[-8px] w-4 h-[26px] border-l-[1.7px] border-b-[1.7px] rounded-bl-xl border-neutral-200 dark:border-neutral-700" />
 
-      <div
-        className="cursor-pointer"
-        onClick={() => setOpen(!open)}
-      >
+      <div onClick={() => setOpen(!open)} className="cursor-pointer">
+        {/* Title row */}
         <div className="flex items-center gap-2">
           <SeverityDot severity={gap.severity} />
           <SeverityBadge severity={gap.severity} />
           <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200 leading-tight flex-1">
             {gap.scenario}
           </p>
-          <ChevronDown
-            size={14}
-            className={`text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`}
-          />
+          <ChevronDown size={14} className={`text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
         </div>
 
+        {/* Source badge */}
+        <div className="mt-1.5 ml-0.5">
+          <SourceBadge source={gap.source as ValidationGap['source']} />
+        </div>
+
+        {/* Expanded detail */}
         <AnimatePresence>
           {open && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mt-2 space-y-1.5 pl-0.5"
+              className="overflow-hidden mt-2 space-y-2 pl-0.5"
+              onClick={e => e.stopPropagation()}
             >
+              {/* what_fails */}
               <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
                 {gap.what_fails}
               </p>
+
+              {/* Example conversation */}
+              {gap.example && (
+                <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-1 mb-1.5">
+                    <MessageSquare size={10} className="text-neutral-400" />
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Exemplo de falha</span>
+                  </div>
+                  <div className="space-y-1">
+                    {gap.example.split('\n').map((line, i) => (
+                      <p key={i} className="text-xs text-neutral-600 dark:text-neutral-300 font-mono leading-relaxed">{line}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* suggestion */}
               <div className="flex items-start gap-1.5">
-                <AlertCircle
-                  size={11}
-                  className="shrink-0 mt-0.5"
-                  style={{ color: '#01573C' }}
-                />
+                <AlertCircle size={11} className="shrink-0 mt-0.5" style={{ color: '#01573C' }} />
                 <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
                   {gap.suggestion}
                 </p>
+              </div>
+
+              {/* Fix preview */}
+              {fixText && (
+                <div className="bg-neutral-900 dark:bg-neutral-800 rounded-lg px-3 py-2.5 mt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold text-[#01573C] uppercase tracking-wide">Script gerado</span>
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-neutral-200 transition-colors"
+                    >
+                      {copied ? <Check size={10} /> : <Copy size={10} />}
+                      {copied ? 'Copiado' : 'Copiar'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap font-mono">{fixText}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleGenerateFix}
+                  disabled={loadingFix}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
+                >
+                  {loadingFix ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+                  {loadingFix ? 'Gerando...' : fixText ? 'Gerar novamente' : 'Gerar correção'}
+                </button>
+
+                {onNavigate && (
+                  <button
+                    onClick={handleNavigate}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border-[1.5px] border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors"
+                  >
+                    <BookOpen size={12} />
+                    Ir para {gap.source === 'Identidade do Agente' ? 'Identidade' : gap.source === 'Base de Objeções' ? 'Objeções' : 'Conhecimento'}
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
@@ -310,11 +392,10 @@ function GapItem({ gap, idx }: { gap: ValidationGap; idx: number }) {
   )
 }
 
+// ── Atoms ─────────────────────────────────────────────────────────────────────
+
 function SeverityDot({ severity }: { severity: 'critica' | 'alta' | 'media' }) {
-  const color =
-    severity === 'critica' ? 'bg-red-500'
-    : severity === 'alta' ? 'bg-amber-500'
-    : 'bg-neutral-400'
+  const color = severity === 'critica' ? 'bg-red-500' : severity === 'alta' ? 'bg-amber-500' : 'bg-neutral-400'
   return <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} />
 }
 
@@ -328,6 +409,21 @@ function SeverityBadge({ severity }: { severity: 'critica' | 'alta' | 'media' })
   return (
     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ${styles[severity]}`}>
       {labels[severity]}
+    </span>
+  )
+}
+
+function SourceBadge({ source }: { source: ValidationGap['source'] }) {
+  const icon = source === 'Base de Objeções'
+    ? <MessageSquare size={9} />
+    : source === 'Identidade do Agente'
+    ? <User size={9} />
+    : <BookOpen size={9} />
+
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] text-neutral-400 dark:text-neutral-500">
+      {icon}
+      {source}
     </span>
   )
 }
