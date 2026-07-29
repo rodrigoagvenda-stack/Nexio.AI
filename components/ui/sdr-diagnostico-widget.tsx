@@ -312,8 +312,8 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
     >
       <div className="absolute left-0 top-[-8px] w-4 h-[26px] border-l-[1.7px] border-b-[1.7px] rounded-bl-xl border-neutral-200 dark:border-neutral-700" />
 
-      <div onClick={() => setOpen(!open)} className="cursor-pointer">
-        {/* Title row */}
+      {/* Header clicável — só ele faz toggle */}
+      <div onClick={() => setOpen(!open)} className="cursor-pointer select-none">
         <div className="flex items-center gap-2">
           <SeverityDot severity={gap.severity} />
           <SeverityBadge severity={gap.severity} />
@@ -322,35 +322,33 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
           </p>
           <ChevronDown size={14} className={`text-neutral-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
         </div>
-
-        {/* Source badge */}
-        <div className="mt-1.5 ml-0.5">
+        <div className="mt-1 ml-0.5">
           <SourceBadge source={gap.source as ValidationGap['source']} />
         </div>
+      </div>
 
-        {/* Expanded detail */}
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mt-2 space-y-2 pl-0.5"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* what_fails */}
+      {/* Conteúdo expandido — fora do header clicável */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-2 space-y-2 pl-0.5">
+
               <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
                 {gap.what_fails}
               </p>
 
-              {/* Example conversation */}
               {gap.example && (
                 <div className="bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg px-3 py-2">
                   <div className="flex items-center gap-1 mb-1.5">
                     <MessageSquare size={10} className="text-neutral-400" />
                     <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Exemplo de falha</span>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {gap.example.split('\n').map((line, i) => (
                       <p key={i} className="text-xs text-neutral-600 dark:text-neutral-300 font-mono leading-relaxed">{line}</p>
                     ))}
@@ -358,7 +356,6 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
                 </div>
               )}
 
-              {/* suggestion */}
               <div className="flex items-start gap-1.5">
                 <AlertCircle size={11} className="shrink-0 mt-0.5" style={{ color: '#01573C' }} />
                 <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
@@ -366,16 +363,15 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
                 </p>
               </div>
 
-              {/* Fix preview + editor */}
+              {/* Textarea editável após geração */}
               {fixText && !fixApplied && (
-                <div className="mt-1 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">Script gerado — edite se necessário</span>
-                  </div>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wide">
+                    Script gerado — edite se necessário
+                  </span>
                   <textarea
                     value={editedText}
                     onChange={e => setEditedText(e.target.value)}
-                    onClick={e => e.stopPropagation()}
                     rows={5}
                     className="w-full text-xs font-mono leading-relaxed bg-neutral-900 dark:bg-neutral-800 text-neutral-200 rounded-lg px-3 py-2.5 border border-neutral-700 focus:border-neutral-500 focus:outline-none resize-y"
                   />
@@ -383,7 +379,7 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
               )}
 
               {fixApplied && fixText && (
-                <div className="bg-[#01573C]/10 border border-[#01573C]/30 rounded-lg px-3 py-2.5 mt-1">
+                <div className="bg-[#01573C]/10 border border-[#01573C]/30 rounded-lg px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <Check size={12} style={{ color: '#01573C' }} />
                     <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#01573C' }}>
@@ -396,12 +392,10 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
                 </div>
               )}
 
-              {fixError && (
-                <p className="text-xs text-red-500 mt-1">{fixError}</p>
-              )}
+              {fixError && <p className="text-xs text-red-500">{fixError}</p>}
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
+              {/* Botões de ação */}
+              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
                 {!fixText && (
                   <button
                     onClick={handleGenerateFix}
@@ -456,10 +450,11 @@ function GapItem({ gap, idx, persona, onNavigate, onClose }: GapItemProps) {
                   </button>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
