@@ -2270,7 +2270,9 @@ export default function SdrConfigPage() {
         }),
       })
       const data = await res.json()
-      setValidationResult(data)
+      if (data.error) throw new Error(data.error)
+      // garante que gaps e covered sempre existem
+      setValidationResult({ score: 0, ready: false, covered: [], gaps: [], ...data })
       setShowValidationModal(true)
     } catch (err: any) {
       toast({ title: 'Erro na análise', description: err?.message ?? 'Não foi possível analisar o SDR.', variant: 'destructive' })
