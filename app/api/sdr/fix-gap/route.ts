@@ -31,11 +31,16 @@ export async function POST(req: NextRequest) {
     const service = createServiceClient()
 
     // Busca flow_id e openai_key da empresa
-    const { data: cfg } = await service
+    const { data: cfg, error: cfgError } = await service
       .from('sdr_configs')
       .select('flow_id, openai_key')
       .eq('company_id', userData.company_id)
       .single()
+
+    console.log('[fix-gap] company_id:', userData.company_id)
+    console.log('[fix-gap] cfg:', JSON.stringify({ flow_id: cfg?.flow_id ?? null, has_openai_key: !!cfg?.openai_key }))
+    console.log('[fix-gap] cfgError:', cfgError?.message ?? null)
+    console.log('[fix-gap] dry_run:', dry_run, '| has override:', !!fix_text_override)
 
     // flow_id só é necessário para embedar — dry_run só gera script, não precisa
     if (!dry_run && !fix_text_override && !cfg?.flow_id) {
@@ -67,8 +72,9 @@ export async function POST(req: NextRequest) {
     // Se fix_text_override está presente: pula GPT e vai direto ao embed
     const overrideText = (fix_text_override as string | undefined)?.trim()
     if (overrideText) {
+      console.log('[fix-gap] override path — flow_id:', cfg?.flow_id ?? 'MISSING')
       if (!cfg?.flow_id) {
-        return NextResponse.json({ error: 'Fluxo SDR não encontrado. Configure o agente primeiro.' }, { status: 400 })
+        return NextResponse.json({ error: `[debug] cfg=${JSON.stringify(cfg)} cfgError=${cfgError?.message}` }, { status: 400 })
       }
       const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
       await processKnowledgeText({
