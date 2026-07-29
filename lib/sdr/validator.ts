@@ -258,6 +258,8 @@ export async function validateSdr(params: {
       scenario: `Campo ausente: ${c.label}`,
       severity: c.severity,
       what_fails: `"${c.label}" não preenchido na persona — se o template referenciar esse campo, o SDR responderá com placeholder vazio.`,
+      source: c.tab_wizard === 'identidade' ? 'Identidade do Agente' : 'Base de Conhecimento' as ValidationGap['source'],
+      example: `SDR: [campo ${c.label} em branco] — resposta incompleta para o lead`,
       tab_wizard: c.tab_wizard,
       suggestion: `Preencha "${c.label}" na aba ${c.tab_wizard === 'identidade' ? 'Identidade' : c.tab_wizard === 'conhecimento' ? 'Conhecimento' : 'Integrações'} (ou confirme que está na base de conhecimento).`,
     }))

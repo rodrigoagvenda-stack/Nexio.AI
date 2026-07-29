@@ -3013,7 +3013,7 @@ export default function SdrConfigPage() {
     {showValidationModal && validationResult && (
       <SdrDiagnosticoWidget
         result={validationResult}
-        persona={config.persona as Record<string, string>}
+        persona={config.persona as unknown as Record<string, string>}
         onClose={() => setShowValidationModal(false)}
         onNavigate={(tab) => {
           setShowValidationModal(false)
