@@ -2193,6 +2193,20 @@ export default function SdrConfigPage() {
   const [pixelDraft, setPixelDraft] = useState({ id: '', token: '' })
   const [savingPixel, setSavingPixel] = useState(false)
 
+  // ── Validator state ────────────────────────────────────────────────────────
+  const [validating, setValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<{
+    score: number
+    ready: boolean
+    covered: string[]
+    gaps: Array<{
+      id: string; scenario: string; severity: 'critica' | 'alta' | 'media'
+      what_fails: string; tab_wizard: string; suggestion: string
+    }>
+    error?: string
+  } | null>(null)
+  const [showValidationModal, setShowValidationModal] = useState(false)
+
   const loadConfig = useCallback(async () => {
     try {
       const [configRes, statusRes] = await Promise.all([fetch('/api/sdr/config'), fetch('/api/sdr/status')])
@@ -2240,6 +2254,40 @@ export default function SdrConfigPage() {
     setPersona('nicho_id', id)
     const niche = NICHES.find((n) => n.id === id)
     if (niche) setPersona('produto', niche.label)
+  }
+
+  const handleActivationToggle = async (newValue: boolean) => {
+    // Desativar não precisa de validação
+    if (!newValue) {
+      setConfig((p) => ({ ...p, agente_ativo: false }))
+      return
+    }
+    // Ativar: roda o validator primeiro
+    setValidating(true)
+    try {
+      const res = await fetch('/api/sdr/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          persona: { ...config.persona, nicho_id: sharedNicheId },
+          agent_type: config.agent_type,
+          conhecimento_ativo: config.conhecimento_ativo,
+          objecoes_ativo: config.objecoes_ativo,
+        }),
+      })
+      const data = await res.json()
+      setValidationResult(data)
+      if (data.ready) {
+        setConfig((p) => ({ ...p, agente_ativo: true }))
+      } else {
+        setShowValidationModal(true)
+      }
+    } catch {
+      // Se falhar a validação, deixa ativar mesmo assim (fail-open)
+      setConfig((p) => ({ ...p, agente_ativo: true }))
+    } finally {
+      setValidating(false)
+    }
   }
 
   const handleSave = async () => {
@@ -2432,6 +2480,7 @@ export default function SdrConfigPage() {
   const identAtendimento = NICHES.filter((n) => n.category === 'atendimento')
 
   return (
+    <>
     <div className="max-w-5xl mx-auto p-4 md:p-6 pb-8 space-y-5">
 
       {/* ── Hero: agente + status ── */}
@@ -2486,12 +2535,16 @@ export default function SdrConfigPage() {
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground hidden sm:inline">
-              {config.agente_ativo ? 'Desativar' : 'Ativar'}
+              {validating ? 'Verificando…' : config.agente_ativo ? 'Desativar' : 'Ativar'}
             </span>
-            <Switch
-              checked={config.agente_ativo}
-              onCheckedChange={(v) => setConfig((p) => ({ ...p, agente_ativo: v }))}
-            />
+            {validating ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : (
+              <Switch
+                checked={config.agente_ativo}
+                onCheckedChange={handleActivationToggle}
+              />
+            )}
           </div>
           <Button onClick={handleSave} disabled={saving} size="sm" className="gap-1.5">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -2953,5 +3006,115 @@ export default function SdrConfigPage() {
       </div>
 
     </div>
+
+    {/* ── Validation Modal ─────────────────────────────────────────────── */}
+    {showValidationModal && validationResult && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+
+          {/* Header */}
+          <div className="p-6 border-b border-border shrink-0">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Diagnóstico do SDR</p>
+                <h2 className="text-lg font-bold leading-tight">
+                  {validationResult.score >= 75
+                    ? 'SDR pronto para ativar'
+                    : 'Ajustes recomendados antes de ativar'}
+                </h2>
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-3xl font-black tabular-nums" style={{ color: validationResult.score >= 75 ? 'hsl(var(--primary))' : validationResult.score >= 50 ? '#f59e0b' : '#ef4444' }}>
+                  {validationResult.score}
+                </p>
+                <p className="text-[10px] text-muted-foreground font-medium">/100</p>
+              </div>
+            </div>
+
+            {/* Score bar */}
+            <div className="mt-4 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${validationResult.score}%`,
+                  backgroundColor: validationResult.score >= 75 ? 'hsl(var(--primary))' : validationResult.score >= 50 ? '#f59e0b' : '#ef4444',
+                }}
+              />
+            </div>
+
+            {/* Covered count */}
+            {validationResult.covered.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {validationResult.covered.length} cenário{validationResult.covered.length !== 1 ? 's' : ''} coberto{validationResult.covered.length !== 1 ? 's' : ''} corretamente
+              </p>
+            )}
+          </div>
+
+          {/* Gaps list */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-3">
+            {validationResult.gaps.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">Nenhuma lacuna encontrada.</div>
+            ) : (
+              validationResult.gaps.map((gap) => (
+                <div
+                  key={gap.id}
+                  className="rounded-xl border p-4 space-y-1.5"
+                  style={{
+                    borderColor: gap.severity === 'critica' ? '#ef444430' : gap.severity === 'alta' ? '#f59e0b30' : 'hsl(var(--border))',
+                    backgroundColor: gap.severity === 'critica' ? '#ef444408' : gap.severity === 'alta' ? '#f59e0b08' : 'transparent',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      'text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md',
+                      gap.severity === 'critica' ? 'bg-red-500/15 text-red-500' :
+                      gap.severity === 'alta' ? 'bg-amber-500/15 text-amber-500' :
+                      'bg-muted text-muted-foreground'
+                    )}>
+                      {gap.severity === 'critica' ? 'Crítico' : gap.severity === 'alta' ? 'Alto' : 'Médio'}
+                    </span>
+                    <p className="text-sm font-medium leading-tight">{gap.scenario}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{gap.what_fails}</p>
+                  <div className="flex items-start gap-1.5 pt-0.5">
+                    <AlertCircle className="w-3 h-3 text-primary shrink-0 mt-0.5" />
+                    <p className="text-xs text-foreground/80 leading-relaxed">{gap.suggestion}</p>
+                  </div>
+                </div>
+              ))
+            )}
+
+            {validationResult.error && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
+                Erro na análise: {validationResult.error}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 border-t border-border shrink-0 flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowValidationModal(false)}
+            >
+              Corrigir primeiro
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                setConfig((p) => ({ ...p, agente_ativo: true }))
+                setShowValidationModal(false)
+              }}
+            >
+              Ativar mesmo assim
+            </Button>
+          </div>
+
+        </div>
+      </div>
+    )}
+
+    </>
   )
 }
