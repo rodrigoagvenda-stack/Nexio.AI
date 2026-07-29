@@ -2257,12 +2257,10 @@ export default function SdrConfigPage() {
   }
 
   const handleActivationToggle = async (newValue: boolean) => {
-    // Desativar não precisa de validação
     if (!newValue) {
       setConfig((p) => ({ ...p, agente_ativo: false }))
       return
     }
-    // Ativar: roda o validator primeiro
     setValidating(true)
     try {
       const res = await fetch('/api/sdr/validate', {
@@ -2277,13 +2275,11 @@ export default function SdrConfigPage() {
       })
       const data = await res.json()
       setValidationResult(data)
-      if (data.ready) {
-        setConfig((p) => ({ ...p, agente_ativo: true }))
-      } else {
-        setShowValidationModal(true)
-      }
-    } catch {
-      // Se falhar a validação, deixa ativar mesmo assim (fail-open)
+      // Sempre mostra o modal — passou ou não
+      setShowValidationModal(true)
+    } catch (err: any) {
+      toast({ title: 'Erro na validação', description: err?.message ?? 'Não foi possível analisar o SDR.', variant: 'destructive' })
+      // fail-open: ativa mesmo assim
       setConfig((p) => ({ ...p, agente_ativo: true }))
     } finally {
       setValidating(false)
@@ -3015,13 +3011,15 @@ export default function SdrConfigPage() {
           {/* Header */}
           <div className="p-6 border-b border-border shrink-0">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Diagnóstico do SDR</p>
                 <h2 className="text-lg font-bold leading-tight">
-                  {validationResult.score >= 75
-                    ? 'SDR pronto para ativar'
-                    : 'Ajustes recomendados antes de ativar'}
+                  {validationResult.score >= 75 ? 'SDR pronto para ativar' : 'Ajustes recomendados'}
                 </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {validationResult.covered.length} cenário{validationResult.covered.length !== 1 ? 's' : ''} coberto{validationResult.covered.length !== 1 ? 's' : ''}
+                  {validationResult.gaps.length > 0 && ` · ${validationResult.gaps.length} lacuna${validationResult.gaps.length !== 1 ? 's' : ''} encontrada${validationResult.gaps.length !== 1 ? 's' : ''}`}
+                </p>
               </div>
               <div className="shrink-0 text-right">
                 <p className="text-3xl font-black tabular-nums" style={{ color: validationResult.score >= 75 ? 'hsl(var(--primary))' : validationResult.score >= 50 ? '#f59e0b' : '#ef4444' }}>
@@ -3031,7 +3029,6 @@ export default function SdrConfigPage() {
               </div>
             </div>
 
-            {/* Score bar */}
             <div className="mt-4 h-1.5 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-700"
@@ -3041,13 +3038,6 @@ export default function SdrConfigPage() {
                 }}
               />
             </div>
-
-            {/* Covered count */}
-            {validationResult.covered.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-2">
-                {validationResult.covered.length} cenário{validationResult.covered.length !== 1 ? 's' : ''} coberto{validationResult.covered.length !== 1 ? 's' : ''} corretamente
-              </p>
-            )}
           </div>
 
           {/* Gaps list */}
@@ -3093,22 +3083,38 @@ export default function SdrConfigPage() {
 
           {/* Footer */}
           <div className="p-6 border-t border-border shrink-0 flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setShowValidationModal(false)}
-            >
-              Corrigir primeiro
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={() => {
-                setConfig((p) => ({ ...p, agente_ativo: true }))
-                setShowValidationModal(false)
-              }}
-            >
-              Ativar mesmo assim
-            </Button>
+            {validationResult.score >= 75 ? (
+              <>
+                <Button variant="outline" className="flex-1" onClick={() => setShowValidationModal(false)}>
+                  Ver detalhes
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    setConfig((p) => ({ ...p, agente_ativo: true }))
+                    setShowValidationModal(false)
+                  }}
+                >
+                  Confirmar ativacao
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" className="flex-1" onClick={() => setShowValidationModal(false)}>
+                  Corrigir primeiro
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 text-muted-foreground"
+                  onClick={() => {
+                    setConfig((p) => ({ ...p, agente_ativo: true }))
+                    setShowValidationModal(false)
+                  }}
+                >
+                  Ativar mesmo assim
+                </Button>
+              </>
+            )}
           </div>
 
         </div>
