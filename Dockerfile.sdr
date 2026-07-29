@@ -7,7 +7,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # Instala todas as deps (incluindo devDeps para ter o tsx)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
