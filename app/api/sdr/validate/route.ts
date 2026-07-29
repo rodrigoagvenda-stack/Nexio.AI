@@ -31,17 +31,32 @@ export async function POST(req: NextRequest) {
         : 'atendimento_venda'
 
     const service = createServiceClient()
-    const { data: cfg } = await service
-      .from('sdr_configs')
-      .select('openai_key')
-      .eq('company_id', userData.company_id)
-      .single()
 
-    if (!cfg?.openai_key) {
-      return NextResponse.json({ error: 'Chave OpenAI não configurada' }, { status: 400 })
+    // Resolve OpenAI key: env var → sdr_configs da empresa → platform_config global
+    let openaiKey: string | null = null
+    if (process.env.OPENAI_API_KEY) {
+      openaiKey = process.env.OPENAI_API_KEY
+    } else {
+      const { data: cfg } = await service
+        .from('sdr_configs')
+        .select('openai_key')
+        .eq('company_id', userData.company_id)
+        .single()
+      if (cfg?.openai_key) {
+        openaiKey = decrypt(cfg.openai_key)
+      } else {
+        const { data: rows } = await service
+          .from('platform_config')
+          .select('key, value, is_encrypted')
+          .eq('key', 'openai_api_key')
+        const row = rows?.[0]
+        if (row?.value) openaiKey = row.is_encrypted ? decrypt(row.value) : row.value
+      }
     }
 
-    const openaiKey = decrypt(cfg.openai_key)
+    if (!openaiKey) {
+      return NextResponse.json({ error: 'Chave OpenAI não configurada' }, { status: 400 })
+    }
     const nichoId: string = persona?.nicho_id ?? ''
 
     // Monta o prompt completo (igual ao engine.ts)
