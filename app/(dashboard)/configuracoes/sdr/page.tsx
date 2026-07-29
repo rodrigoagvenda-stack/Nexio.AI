@@ -2202,7 +2202,7 @@ export default function SdrConfigPage() {
     covered: string[]
     gaps: Array<{
       id: string; scenario: string; severity: 'critica' | 'alta' | 'media'
-      what_fails: string; tab_wizard: string; suggestion: string
+      what_fails: string; tab_wizard: 'identidade' | 'conhecimento' | 'integracoes' | 'geral'; suggestion: string
     }>
     error?: string
   } | null>(null)
