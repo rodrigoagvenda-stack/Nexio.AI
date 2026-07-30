@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
       .select('content, metadata')
       .eq('company_id', userData.company_id)
       .contains('metadata', { flow_id: flowRow.id })
+      .order('created_at', { ascending: true })
       .limit(150)
 
     let builtPrompt = ''
