@@ -1,15 +1,3 @@
-/**
- * Validador pré-ativação do SDR.
- * Duas camadas: estrutural (sem LLM) + semântica (GPT-4o-mini, chamada única na ativação).
- *
- * Cenários baseados em:
- * - SDR Playbook (sdrplaybook.online): BANT, LAER, 8 objeções universais
- * - Moonscale (moonscale.com/blog/why-most-ai-chatbots-fail): 6 failure categories
- * - MKT4EDU (mkt4edu.com/en/blog/sdr-agents-on-whatsapp): WhatsApp SDR mandatory scenarios
- * - Dante AI (dante-ai.com/news/why-ai-chatbots-fail-5-mistakes-to-avoid): 90-day failure rate
- * - Mercado BR: RaiseUp, Leadster, Clint Digital — benchmarks SDR IA WhatsApp 2026
- */
-
 import type OpenAI from 'openai'
 
 export interface ValidationGap {
@@ -31,99 +19,132 @@ export interface ValidationResult {
   error?: string
 }
 
-// ── Cenários obrigatórios (fonte: pesquisa multi-base 2026) ──────────────────
+// ── Definições estáticas de cada cenário ────────────────────────────────────
 
-const MANDATORY_SCENARIOS = `
-CENÁRIOS OBRIGATÓRIOS QUE TODO SDR DE VENDAS WHATSAPP DEVE COBRIR:
+export interface ScenarioDef {
+  id: string
+  title: string
+  severity: 'critica' | 'alta' | 'media'
+  source: ValidationGap['source']
+  tab_wizard: ValidationGap['tab_wizard']
+  coveredCriteria: string
+  what_fails: string
+  example: string
+  suggestion: string
+}
 
-[C1 - CRÍTICO] Saudação ou pedido genérico de informação sem mencionar preço
-Exemplo: "Olá, bom dia", "Preciso saber mais sobre vocês", "Pode me ajudar?", "Me fala sobre os planos"
-Comportamento correto: SDR qualifica com uma pergunta diagnóstica antes de revelar qualquer preço ou plano.
-Comportamento errado: SDR dispara script de preço ou lista de planos sem qualificar.
-Fonte: BANT (Budget, Authority, Need, Timing) — sdrplaybook.online; bug documentado em produção
-
-[C2 - CRÍTICO] Lead pergunta preço explicitamente: "Quanto custa?", "Qual o valor?"
-Comportamento correto: SDR responde com o valor real, não com placeholder vazio ou genérico.
-Comportamento errado: Resposta diz "[preco]" ou "entre em contato" sem dar um número.
-
-[C3 - CRÍTICO] CTA claro para quando o lead quer avançar: "Quero testar", "Como faço para contratar?"
-Comportamento correto: SDR tem próximo passo claro — instrução de agendamento, processo de contratação ou link — para enviar imediatamente.
-Comportamento errado: SDR não tem um próximo passo definido após o interesse do lead.
-
-[A4 - ALTA] Objeção de preço: "Tá caro", "Não tenho esse dinheiro agora"
-Comportamento correto: SDR reencuadra o valor, menciona teste grátis ou parcelas, não desiste.
-Comportamento errado: SDR repete o preço sem reencuadrar ou capitula.
-Fonte: LAER framework (Listen, Acknowledge, Explore, Respond) — sdrplaybook.online
-
-[A5 - ALTA] Pedido de prova ou garantia: "Tem depoimento?", "Como sei que funciona?", "Me mostra algum caso"
-Comportamento correto: SDR tem cases, depoimentos ou direciona para trial gratuito.
-Comportamento errado: SDR não tem social proof e não oferece alternativa.
-Fonte: Moonscale — "Damaged Trust: early negative experiences harm credibility"
-
-[A6 - ALTA] Lead quer fechar proativamente antes do SDR oferecer CTA
-Exemplo: "Quero fechar", "Vamos começar", "Como faço para assinar?"
-Comportamento correto: SDR reconhece o interesse e encaminha o próximo passo imediatamente.
-Comportamento errado: SDR continua qualificando ou ignora o sinal de compra.
-Fonte: mkt4edu.com — "schedules meeting and forwards qualified lead with context"
-
-[M7 - MÉDIA] Objeção de timing: "Preciso pensar", "Me dá um tempo", "Próximo mês vejo"
-Comportamento correto: SDR valida, deixa porta aberta, encaminha sem pressão.
-Comportamento errado: SDR insiste imediatamente ou perde o lead sem script de continuação.
-Fonte: BANT Timing — "Is there a real deadline or a polite no?" — sdrplaybook.online
-
-[M8 - MÉDIA] Objeção de autoridade: "Preciso consultar meu sócio", "Não decido sozinho"
-Comportamento correto: SDR entende, envolve o decisor, não pressiona mas não desiste.
-Comportamento errado: SDR aceita passivamente sem estratégia para manter o lead.
-Fonte: BANT Authority — "Are you talking to a decision-maker?" — sdrplaybook.online
-
-[M9 - MÉDIA] Comparação com concorrente: "Vi no sistema X que tem isso também"
-Comportamento correto: SDR sabe diferenciar sem denigrir o concorrente, tem repositório de diferenciais.
-Comportamento errado: SDR não tem resposta e perde o lead por falta de posicionamento.
-Fonte: Moonscale — "Insufficient Product Expertise" failure category
-
-[M10 - MÉDIA] Encerramento limpo após confirmação do lead
-Exemplo: lead diz "Ok", "Obrigado", "Recebi"
-Comportamento correto: SDR envia resposta curta de encerramento e PARA de enviar mensagens.
-Comportamento errado: SDR continua enviando conteúdo após a confirmação do lead.
-Fonte: Templates validados (ENCERRAMENTO GERAL) — Zaapply produção
-`
-
-const VALIDATOR_SYSTEM_PROMPT = `Você é um auditor especializado em agentes SDR de WhatsApp para o mercado brasileiro.
-Sua função é analisar o prompt de sistema de um SDR e identificar lacunas em relação a cenários obrigatórios de vendas.
-
-INSTRUÇÃO:
-Analise o prompt abaixo e para cada cenário obrigatório decida: está coberto ou não.
-
-CRITÉRIOS:
-- "Coberto" significa: o prompt tem instrução EXPLÍCITA ou script que trata esse cenário corretamente.
-- "Não coberto" significa: o prompt está AUSENTE, INCOMPLETO ou pode gerar comportamento errado nesse cenário.
-- Variáveis com placeholder como [preco], [link_teste] em vez de valores reais = NÃO coberto para o cenário C2.
-- Para C1 (pedido vago): verifique se o FLUXO INBOUND faz qualificação antes de revelar preço ou planos.
-
-REGRAS ABSOLUTAS PARA AS SUGESTÕES:
-- NUNCA invente valores específicos como preços (ex: "R$ 297", "R$ 99"), links ou datas.
-- Nas sugestões, diga apenas o que o usuário deve fazer (ex: "preencha o valor real do produto na aba Conhecimento"), nunca o valor em si.
-- Baseie a análise EXCLUSIVAMENTE no texto do prompt fornecido. Não use conhecimento externo sobre o produto ou empresa.
-
-${MANDATORY_SCENARIOS}
-
-Retorne SOMENTE um JSON válido neste formato exato:
-{
-  "score": <número 0-100>,
-  "covered": [<lista de IDs de cenários cobertos, ex: "C1", "C2">],
-  "gaps": [
-    {
-      "id": "<ID do cenário, ex: C1>",
-      "scenario": "<nome curto do cenário>",
-      "severity": "<critica|alta|media>",
-      "what_fails": "<em 1 linha: o que acontece na conversa real quando esse cenário ocorre sem o script>",
-      "source": "<onde corrigir: 'Base de Conhecimento' | 'Base de Objeções' | 'Identidade do Agente'>",
-      "example": "<2 linhas simulando a conversa que falha, ex: 'Lead: Tá caro\\nSDR: [sem resposta definida] — lead abandona'>",
-      "tab_wizard": "<identidade|conhecimento|integracoes|geral>",
-      "suggestion": "<instrução específica e acionável para o usuário corrigir. NUNCA invente valores, preços ou links específicos.>"
-    }
-  ]
-}`
+export const SCENARIO_DEFS: ScenarioDef[] = [
+  {
+    id: 'C1',
+    title: 'Qualificação antes de revelar preço',
+    severity: 'critica',
+    source: 'Base de Conhecimento',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há instrução explícita de fazer pelo menos uma pergunta diagnóstica (segmento, necessidade, tamanho da equipe etc.) antes de revelar preços ou planos quando o lead abre com saudação genérica ou pedido vago ("olá", "preciso saber mais", "me fala sobre os planos", "me ajuda?").',
+    what_fails: 'Lead diz "olá" e o SDR dispara os planos imediatamente — queima a venda antes de entender a necessidade.',
+    example: 'Lead: "Me fala sobre os planos"\nSDR: [lista de preços sem qualificar] — lead abandona por falta de contexto',
+    suggestion: 'Adicione na Base de Conhecimento um script de abertura com 1-2 perguntas diagnósticas (ex: "Qual é o seu segmento?", "Quantas pessoas usariam?") antes de apresentar qualquer plano ou preço.',
+  },
+  {
+    id: 'C2',
+    title: 'Resposta com preço real ao ser perguntado',
+    severity: 'critica',
+    source: 'Base de Conhecimento',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Quando o lead pergunta "quanto custa?" ou "qual o valor?", o SDR tem um preço real ou faixa de preço para responder — não placeholder como [preco], "entre em contato" ou resposta evasiva.',
+    what_fails: 'SDR responde com placeholder "[preco]" ou "entre em contato" — lead perde confiança e abandona.',
+    example: 'Lead: "Quanto custa?"\nSDR: "O valor é [preco]" — lead vê o placeholder e perde a confiança',
+    suggestion: 'Preencha o campo Preço na aba Identidade ou adicione o valor real na Base de Conhecimento.',
+  },
+  {
+    id: 'C3',
+    title: 'CTA claro para lead que quer avançar',
+    severity: 'critica',
+    source: 'Base de Conhecimento',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há um próximo passo concreto definido (link de agendamento, processo de contratação, ou instrução clara) para quando o lead diz "quero testar", "como contrato?" ou demonstra intenção de avançar.',
+    what_fails: 'Lead quer fechar e o SDR não tem próximo passo definido — oportunidade perdida no momento de maior intenção.',
+    example: 'Lead: "Quero contratar, como faço?"\nSDR: "Vou verificar e retorno em breve" — lead esfria e abandona',
+    suggestion: 'Adicione na Base de Conhecimento o passo a passo de contratação, link de agendamento ou instrução concreta para o próximo passo.',
+  },
+  {
+    id: 'A4',
+    title: 'Contorno de objeção de preço',
+    severity: 'alta',
+    source: 'Base de Objeções',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há script específico para quando o lead diz "tá caro" ou "não tenho esse dinheiro agora" — que reencuadra o valor, menciona parcelamento, teste grátis ou ROI, sem simplesmente repetir o preço.',
+    what_fails: 'SDR repete o preço sem reencuadrar ou capitula — lead descarta sem considerar o valor real.',
+    example: 'Lead: "Tá caro"\nSDR: [sem resposta definida ou repete o preço] — lead abandona sem entender o valor',
+    suggestion: 'Adicione na Base de Objeções um script de reencuadramento de valor (ROI, parcelamento ou período de teste).',
+  },
+  {
+    id: 'A5',
+    title: 'Prova social e garantia',
+    severity: 'alta',
+    source: 'Base de Objeções',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há cases, depoimentos, resultados de clientes ou uma alternativa concreta (trial gratuito, demonstração) para quando o lead pede provas de que o produto funciona ou pede garantia.',
+    what_fails: 'SDR não tem prova social — lead pede garantia e o agente não tem resposta, perdendo credibilidade.',
+    example: 'Lead: "Me mostra algum caso de sucesso"\nSDR: [sem cases ou depoimentos definidos] — lead não confia',
+    suggestion: 'Adicione na Base de Conhecimento pelo menos um case ou depoimento real, ou mencione o período de teste como prova de resultado.',
+  },
+  {
+    id: 'A6',
+    title: 'Reconhecimento de sinal de compra',
+    severity: 'alta',
+    source: 'Base de Conhecimento',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Quando o lead diz "quero fechar", "vamos começar" ou "como assino?" antes do SDR oferecer o CTA, há instrução para o SDR reconhecer imediatamente o sinal e encaminhar o próximo passo sem continuar qualificando.',
+    what_fails: 'SDR ignora o sinal de compra e continua qualificando — lead sente fricção e pode desistir no momento decisivo.',
+    example: 'Lead: "Quero fechar agora"\nSDR: [continua fazendo perguntas de qualificação] — lead frustra e some',
+    suggestion: 'Adicione na Base de Conhecimento instrução para reconhecer sinais de compra e encaminhar imediatamente para o próximo passo sem continuar qualificando.',
+  },
+  {
+    id: 'M7',
+    title: 'Objeção de timing ("preciso pensar")',
+    severity: 'media',
+    source: 'Base de Objeções',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há script para quando o lead diz "preciso pensar", "me dá um tempo" ou "próximo mês vejo" — que valida a decisão, deixa porta aberta e define follow-up sem pressionar.',
+    what_fails: 'SDR pressiona imediatamente ou perde o lead sem script de continuação — lead some sem retornar.',
+    example: 'Lead: "Preciso pensar"\nSDR: [insiste ou não tem resposta definida] — lead abandona e não volta',
+    suggestion: 'Adicione na Base de Objeções um script de adiamento que valida a decisão e propõe um follow-up amigável com prazo definido.',
+  },
+  {
+    id: 'M8',
+    title: 'Objeção de autoridade ("preciso consultar")',
+    severity: 'media',
+    source: 'Base de Objeções',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há script para quando o lead diz "preciso consultar meu sócio" ou "não decido sozinho" — que entende a situação, oferece material para compartilhar e mantém o lead engajado sem pressionar.',
+    what_fails: 'SDR aceita passivamente sem estratégia para manter o lead ou incluir o decisor — oportunidade evapora.',
+    example: 'Lead: "Preciso falar com meu sócio"\nSDR: "Tudo bem, qualquer coisa me chama" — lead some sem retornar',
+    suggestion: 'Adicione na Base de Objeções um script que oferece materiais (resumo, proposta) para o lead compartilhar com o decisor.',
+  },
+  {
+    id: 'M9',
+    title: 'Diferencial ante concorrente',
+    severity: 'media',
+    source: 'Base de Conhecimento',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há pelo menos dois diferenciais concretos do produto versus concorrentes para quando o lead menciona outra solução — sem denigrir o concorrente.',
+    what_fails: 'SDR não tem diferenciais definidos — lead compara com concorrente e não vê razão para preferir o produto.',
+    example: 'Lead: "Vi que o Sistema X tem isso também"\nSDR: [sem diferencial definido] — lead fica em dúvida e vai embora',
+    suggestion: 'Adicione na Base de Conhecimento 2-3 diferenciais competitivos concretos do produto.',
+  },
+  {
+    id: 'M10',
+    title: 'Encerramento limpo após confirmação',
+    severity: 'media',
+    source: 'Base de Conhecimento',
+    tab_wizard: 'conhecimento',
+    coveredCriteria: 'Há instrução para o SDR enviar uma mensagem curta de encerramento e PARAR de enviar conteúdo após o lead confirmar com "ok", "obrigado" ou "recebi".',
+    what_fails: 'SDR continua enviando mensagens após a confirmação do lead — gera irritação e pode levar ao bloqueio.',
+    example: 'Lead: "Ok, obrigado"\nSDR: [continua enviando conteúdo promocional] — lead bloqueia o número',
+    suggestion: 'Adicione na Base de Conhecimento um script de encerramento curto e instrução explícita para não enviar mais mensagens após confirmação do lead.',
+  },
+]
 
 // ── Validação estrutural (sem LLM) ────────────────────────────────────────────
 
@@ -178,7 +199,6 @@ export function runStructuralChecks(cfg: WizardConfig): StructuralCheck[] {
     },
   ]
 
-  // Preço: obrigatório para nichos de produto/SaaS
   if (PRODUCT_LINK_NICHES.has(cfg.nichoId)) {
     checks.push({
       field: 'preco',
@@ -192,7 +212,56 @@ export function runStructuralChecks(cfg: WizardConfig): StructuralCheck[] {
   return checks
 }
 
-// ── Validação semântica (GPT-4o-mini) ────────────────────────────────────────
+// ── Check único e focado por cenário ─────────────────────────────────────────
+
+async function checkOneScenario(
+  def: ScenarioDef,
+  builtPrompt: string,
+  openaiKey: string,
+  OpenAIClass: any
+): Promise<{ covered: boolean; reason: string }> {
+  const client = new OpenAIClass({ apiKey: openaiKey })
+  const res = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: `Você é auditor de SDR WhatsApp. Verifique se o conteúdo do SDR cobre o cenário descrito.
+"Coberto" exige instrução EXPLÍCITA ou script que trata o cenário corretamente.
+Analise com rigor — "Coberto" não é o padrão; exige evidência clara no texto.
+Responda APENAS com JSON válido: {"covered": boolean, "reason": "1 frase curta em português"}`,
+      },
+      {
+        role: 'user',
+        content: `CENÁRIO: ${def.title}
+CRITÉRIO PARA "COBERTO": ${def.coveredCriteria}
+
+CONTEÚDO DO SDR PARA ANÁLISE:
+${builtPrompt}`,
+      },
+    ],
+  })
+  const raw = res.choices[0].message.content ?? '{}'
+  const parsed = JSON.parse(raw)
+  return {
+    covered: parsed.covered === true,
+    reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+  }
+}
+
+// Exportado para o recheck-gap route
+export async function recheckScenario(
+  def: ScenarioDef,
+  builtPrompt: string,
+  openaiKey: string
+): Promise<{ covered: boolean; reason: string }> {
+  const { default: OpenAIClass } = await import('openai')
+  return checkOneScenario(def, builtPrompt, openaiKey, OpenAIClass)
+}
+
+// ── Validação semântica (10 chamadas paralelas e focadas) ─────────────────────
 
 export async function runSemanticValidation(
   builtPrompt: string,
@@ -200,33 +269,34 @@ export async function runSemanticValidation(
   agentType: 'atendimento_venda' | 'atendimento_venda_agendamento'
 ): Promise<Pick<ValidationResult, 'score' | 'covered' | 'gaps'>> {
   const { default: OpenAIClass } = await import('openai')
-  const client = new OpenAIClass({ apiKey: openaiKey })
 
-  const agendaNote = agentType === 'atendimento_venda_agendamento'
-    ? '\nObs: este agente tem agendamento ativo — o SDR agenda diretamente via integração de calendário, sem necessidade de link externo.'
-    : ''
+  // Uma chamada focada por cenário — em paralelo
+  const results = await Promise.all(
+    SCENARIO_DEFS.map((def) => checkOneScenario(def, builtPrompt, openaiKey, OpenAIClass))
+  )
 
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o-mini',
-    temperature: 0,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: VALIDATOR_SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `PROMPT DO SDR PARA ANÁLISE:${agendaNote}\n\n${builtPrompt}`,
-      },
-    ],
+  const covered: string[] = []
+  const gaps: ValidationGap[] = []
+
+  SCENARIO_DEFS.forEach((def, i) => {
+    if (results[i].covered) {
+      covered.push(def.id)
+    } else {
+      gaps.push({
+        id: def.id,
+        scenario: def.title,
+        severity: def.severity,
+        what_fails: def.what_fails,
+        source: def.source,
+        example: def.example,
+        tab_wizard: def.tab_wizard,
+        suggestion: def.suggestion,
+      })
+    }
   })
 
-  const raw = response.choices[0].message.content ?? '{}'
-  const parsed = JSON.parse(raw)
-
-  return {
-    score: typeof parsed.score === 'number' ? parsed.score : 0,
-    covered: Array.isArray(parsed.covered) ? parsed.covered : [],
-    gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],
-  }
+  const score = Math.round((covered.length / SCENARIO_DEFS.length) * 100)
+  return { score, covered, gaps }
 }
 
 // ── Orquestrador principal ────────────────────────────────────────────────────
@@ -242,7 +312,6 @@ export async function validateSdr(params: {
 }): Promise<ValidationResult> {
   const { builtPrompt, openaiKey, nichoId, agentType, persona, conhecimentoAtivo, objecoesAtivo } = params
 
-  // Camada 1: estrutural (nunca bloqueia — só adiciona gaps informativos)
   const structuralChecks = runStructuralChecks({
     nichoId,
     agentType,
@@ -257,18 +326,16 @@ export async function validateSdr(params: {
       id: `struct_${c.field}`,
       scenario: `Campo ausente: ${c.label}`,
       severity: c.severity,
-      what_fails: `"${c.label}" não preenchido na persona — se o template referenciar esse campo, o SDR responderá com placeholder vazio.`,
+      what_fails: `"${c.label}" não preenchido — se o template referenciar esse campo, o SDR responderá com placeholder vazio.`,
       source: c.tab_wizard === 'identidade' ? 'Identidade do Agente' : 'Base de Conhecimento' as ValidationGap['source'],
       example: `SDR: [campo ${c.label} em branco] — resposta incompleta para o lead`,
       tab_wizard: c.tab_wizard,
-      suggestion: `Preencha "${c.label}" na aba ${c.tab_wizard === 'identidade' ? 'Identidade' : c.tab_wizard === 'conhecimento' ? 'Conhecimento' : 'Integrações'} (ou confirme que está na base de conhecimento).`,
+      suggestion: `Preencha "${c.label}" na aba ${c.tab_wizard === 'identidade' ? 'Identidade' : c.tab_wizard === 'conhecimento' ? 'Conhecimento' : 'Integrações'}.`,
     }))
 
-  // Camada 2: semântica — sempre roda independente dos gaps estruturais
   try {
     const semantic = await runSemanticValidation(builtPrompt, openaiKey, agentType)
 
-    // Gaps estruturais críticos reduzem o score em 10 pts cada; altos em 5 pts
     const penalty = structuralGaps.reduce((acc, g) => acc + (g.severity === 'critica' ? 10 : 5), 0)
     const finalScore = Math.max(0, semantic.score - penalty)
 
