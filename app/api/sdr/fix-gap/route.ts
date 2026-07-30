@@ -1,13 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { processKnowledgeText } from '@/lib/sdr/rag'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+// Insere um chunk diretamente na base sem apagar nada existente.
+// Usa o mesmo filename e flow dos docs existentes para ficar no lugar certo.
+async function appendChunk(params: {
+  companyId: number
+  flowId: string
+  tableType: 'conhecimento' | 'objecoes'
+  text: string
+  openaiKey: string
+}) {
+  const { companyId, flowId, tableType, text, openaiKey } = params
+  const service = createServiceClient()
+
+  // Acha o filename e o maior chunk_index dos docs existentes desse tipo
+  const { data: existing } = await service
+    .from('documents')
+    .select('metadata')
+    .eq('company_id', companyId)
+    .contains('metadata', { flow_id: flowId, doc_type: tableType })
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  let filename = tableType === 'objecoes' ? 'base_objecoes.txt' : 'base_conhecimento.txt'
+  let nextIndex = 0
+
+  if (existing && existing.length > 0) {
+    // Usa o filename do doc mais recente (é o que o usuário subiu)
+    filename = existing[0].metadata?.filename ?? filename
+    // Maior chunk_index entre todos os docs desse tipo
+    const maxIdx = Math.max(...existing.map((d) => d.metadata?.chunk_index ?? 0))
+    nextIndex = maxIdx + 1
+  }
+
+  // Gera embedding do novo chunk
+  const { default: OpenAIClass } = await import('openai')
+  const openai = new OpenAIClass({ apiKey: openaiKey })
+  const embRes = await openai.embeddings.create({
+    model: 'text-embedding-3-small',
+    input: text,
+  })
+  const embedding = embRes.data[0].embedding
+
+  const { error } = await service.from('documents').insert({
+    company_id: companyId,
+    content: text,
+    embedding,
+    metadata: { flow_id: flowId, doc_type: tableType, filename, chunk_index: nextIndex },
+  })
+
+  if (error) throw new Error(`Erro ao salvar na base: ${error.message}`)
+}
+
 // POST /api/sdr/fix-gap
-// Gera script para a lacuna e embeda diretamente na base correta (sem apagar existente).
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
@@ -30,14 +79,14 @@ export async function POST(req: NextRequest) {
 
     const service = createServiceClient()
 
-    // Busca openai_key em sdr_configs
+    // Busca openai_key
     const { data: cfg } = await service
       .from('sdr_configs')
       .select('openai_key')
       .eq('company_id', userData.company_id)
       .single()
 
-    // Busca o flow ativo da empresa (mesma lógica do config route)
+    // Busca o flow ativo
     const { data: flowRow } = await service
       .from('sdr_flows')
       .select('id')
@@ -48,9 +97,7 @@ export async function POST(req: NextRequest) {
 
     const flowId = flowRow?.id ?? null
 
-    console.log('[fix-gap] company_id:', userData.company_id, '| flow_id:', flowId, '| dry_run:', dry_run, '| has override:', !!fix_text_override)
-
-    // Resolve OpenAI key (mesma cadeia do worker)
+    // Resolve OpenAI key
     let openaiKey: string | null = null
     if (process.env.OPENAI_API_KEY) {
       openaiKey = process.env.OPENAI_API_KEY
@@ -72,24 +119,17 @@ export async function POST(req: NextRequest) {
     const tableType: 'conhecimento' | 'objecoes' =
       gap.source === 'Base de Objeções' ? 'objecoes' : 'conhecimento'
 
-    // Se fix_text_override está presente: pula GPT e vai direto ao embed
+    // Se fix_text_override: pula GPT e embeda o texto editado pelo usuário
     const overrideText = (fix_text_override as string | undefined)?.trim()
     if (overrideText) {
       if (!flowId) {
-        return NextResponse.json({ error: 'Nenhum fluxo SDR ativo encontrado. Ative o agente primeiro.' }, { status: 400 })
+        return NextResponse.json({ error: 'Nenhum fluxo SDR ativo encontrado.' }, { status: 400 })
       }
-      const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
-      await processKnowledgeText({
-        companyId: userData.company_id,
-        flowId,
-        filename: `diagnostico_fix_${gap.id}_${Date.now()}.txt`,
-        text: `=== ${label} ===\nCenário: ${gap.scenario}\n\n${overrideText}`,
-        tableType,
-      })
+      await appendChunk({ companyId: userData.company_id, flowId, tableType, text: overrideText, openaiKey })
       return NextResponse.json({ ok: true, fix_text: overrideText, insert_in: tableType })
     }
 
-    // Gera o script via GPT (dry_run ou geração inicial)
+    // Gera script via GPT
     const empresaNome = persona?.empresa ?? persona?.nome_empresa ?? 'sua empresa'
     const produto = persona?.produto ?? 'seu produto/serviço'
 
@@ -133,28 +173,16 @@ Gere o script que deve ser adicionado na ${gap.source}.`
       return NextResponse.json({ error: 'Não foi possível gerar o script.' }, { status: 500 })
     }
 
-    // dry_run: retorna script para o usuário editar antes de aplicar
+    // dry_run: retorna para o usuário revisar antes de aplicar
     if (dry_run) {
       return NextResponse.json({ ok: true, fix_text: fixText, insert_in: tableType })
     }
 
-    // Embed direto (sem override) — flow ativo obrigatório
     if (!flowId) {
-      return NextResponse.json({ error: 'Nenhum fluxo SDR ativo encontrado. Ative o agente primeiro.' }, { status: 400 })
+      return NextResponse.json({ error: 'Nenhum fluxo SDR ativo encontrado.' }, { status: 400 })
     }
 
-    // Embeda na base correta — INSERT puro, não apaga nada existente
-    const label = gap.source === 'Base de Objeções' ? 'OBJEÇÃO ADICIONADA VIA DIAGNÓSTICO' : 'CONHECIMENTO ADICIONADO VIA DIAGNÓSTICO'
-    const docText = `=== ${label} ===\nCenário: ${gap.scenario}\n\n${fixText}`
-
-    await processKnowledgeText({
-      companyId: userData.company_id,
-      flowId,
-      filename: `diagnostico_fix_${gap.id}_${Date.now()}.txt`,
-      text: docText,
-      tableType,
-    })
-
+    await appendChunk({ companyId: userData.company_id, flowId, tableType, text: fixText, openaiKey })
     return NextResponse.json({ ok: true, fix_text: fixText, insert_in: tableType })
   } catch (err: any) {
     console.error('[sdr/fix-gap] erro:', err)
