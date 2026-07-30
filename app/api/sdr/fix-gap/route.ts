@@ -7,10 +7,12 @@ export const maxDuration = 60
 
 // Insere um chunk diretamente na base sem apagar nada existente.
 // Usa o mesmo filename e flow dos docs existentes para ficar no lugar certo.
+type DiagDocType = 'diagnostico_conhecimento' | 'diagnostico_objecoes'
+
 async function appendChunk(params: {
   companyId: number
   flowId: string
-  tableType: 'conhecimento' | 'objecoes'
+  tableType: DiagDocType
   text: string
   openaiKey: string
 }) {
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
     }
 
     // doc_type separado para fixes — nunca apagado pelo upload normal do wizard
-    const tableType: 'diagnostico_conhecimento' | 'diagnostico_objecoes' =
+    const tableType: DiagDocType =
       gap.source === 'Base de Objeções' ? 'diagnostico_objecoes' : 'diagnostico_conhecimento'
 
     // Se fix_text_override: pula GPT e embeda o texto editado pelo usuário
