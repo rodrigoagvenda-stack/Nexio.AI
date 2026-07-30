@@ -90,9 +90,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fallback: persona em JSON se não houver documentos ainda
     if (!builtPrompt.trim()) {
-      builtPrompt = JSON.stringify(persona, null, 2)
+      return NextResponse.json(
+        { error: 'Configure a Base de Conhecimento antes de diagnosticar.', code: 'SEM_BASE' },
+        { status: 400 }
+      )
     }
 
     const result = await validateSdr({

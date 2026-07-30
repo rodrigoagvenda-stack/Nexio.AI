@@ -2275,6 +2275,14 @@ export default function SdrConfigPage() {
         }),
       })
       const data = await res.json()
+      if (data.code === 'SEM_BASE') {
+        toast({
+          title: 'Base de conhecimento vazia',
+          description: 'Configure a Base de Conhecimento na aba Conhecimento antes de diagnosticar.',
+        })
+        setActiveTab('conhecimento')
+        return
+      }
       if (data.error) throw new Error(data.error)
       // garante que gaps e covered sempre existem
       setValidationResult({ score: 0, ready: false, covered: [], gaps: [], ...data })
