@@ -79,10 +79,10 @@ export async function POST(req: NextRequest) {
 
       if (docs && docs.length > 0) {
         const conhecimento = docs
-          .filter((d) => d.metadata?.doc_type === 'conhecimento')
+          .filter((d) => d.metadata?.doc_type === 'conhecimento' || d.metadata?.doc_type === 'diagnostico_conhecimento')
           .map((d) => d.content).join('\n')
         const objecoes = docs
-          .filter((d) => d.metadata?.doc_type === 'objecoes')
+          .filter((d) => d.metadata?.doc_type === 'objecoes' || d.metadata?.doc_type === 'diagnostico_objecoes')
           .map((d) => d.content).join('\n')
 
         if (conhecimento) builtPrompt += `=== BASE DE CONHECIMENTO ===\n${conhecimento}`

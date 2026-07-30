@@ -26,7 +26,7 @@ async function appendChunk(params: {
     .order('created_at', { ascending: false })
     .limit(50)
 
-  let filename = tableType === 'objecoes' ? 'base_objecoes.txt' : 'base_conhecimento.txt'
+  let filename = tableType === 'diagnostico_objecoes' ? 'diagnostico_objecoes.txt' : 'diagnostico_conhecimento.txt'
   let nextIndex = 0
 
   if (existing && existing.length > 0) {
@@ -116,8 +116,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Chave OpenAI não configurada' }, { status: 400 })
     }
 
-    const tableType: 'conhecimento' | 'objecoes' =
-      gap.source === 'Base de Objeções' ? 'objecoes' : 'conhecimento'
+    // doc_type separado para fixes — nunca apagado pelo upload normal do wizard
+    const tableType: 'diagnostico_conhecimento' | 'diagnostico_objecoes' =
+      gap.source === 'Base de Objeções' ? 'diagnostico_objecoes' : 'diagnostico_conhecimento'
 
     // Se fix_text_override: pula GPT e embeda o texto editado pelo usuário
     const overrideText = (fix_text_override as string | undefined)?.trim()
