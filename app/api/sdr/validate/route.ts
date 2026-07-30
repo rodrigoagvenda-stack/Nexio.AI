@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { NICHES, interpolate } from '@/lib/sdr/templates'
 import { validateSdr } from '@/lib/sdr/validator'
 
 // POST /api/sdr/validate
@@ -59,37 +58,45 @@ export async function POST(req: NextRequest) {
     }
     const nichoId: string = persona?.nicho_id ?? ''
 
-    // Monta o prompt completo (igual ao engine.ts)
-    const niche = NICHES.find((n) => n.id === nichoId)
-    const vars = {
-      nome_agente: persona?.nome_agente ?? '',
-      nome_empresa: persona?.empresa ?? '',
-      descricao_produto: persona?.produto ?? '',
-      tom_agente: persona?.tom ?? '',
-      url_empresa: persona?.url_empresa ?? '',
-      preco: persona?.preco ?? '',
-      periodo_teste: persona?.periodo_teste ?? '',
-      link_teste: persona?.link_teste ?? '',
-      link_playlist: persona?.link_playlist ?? '',
-      link_agendamento: persona?.link_agendamento ?? '',
-      link_catalogo: persona?.link_catalogo ?? '',
-      link_pedido: persona?.link_pedido ?? '',
-      endereco: persona?.endereco ?? '',
-      horario: persona?.horario ?? '',
-      taxa_entrega: persona?.taxa_entrega ?? '',
-      tempo_entrega: persona?.tempo_entrega ?? '',
-      area_entrega: persona?.area_entrega ?? '',
-      formas_pagamento: persona?.formas_pagamento ?? '',
-      valor_minimo_pedido: persona?.valor_minimo_pedido ?? '',
-      pedido_tipo: persona?.pedido_tipo ?? '',
+    // Busca o flow ativo da empresa
+    const { data: flowRow } = await service
+      .from('sdr_flows')
+      .select('id')
+      .eq('company_id', userData.company_id)
+      .eq('ativo', true)
+      .limit(1)
+      .single()
+
+    // O conteúdo real do SDR é a Base de Conhecimento + Base de Objeções
+    let builtPrompt = ''
+    if (flowRow?.id) {
+      const { data: docs } = await service
+        .from('documents')
+        .select('content, metadata')
+        .eq('company_id', userData.company_id)
+        .contains('metadata', { flow_id: flowRow.id })
+        .limit(150)
+
+      if (docs && docs.length > 0) {
+        const conhecimento = docs
+          .filter((d) => d.metadata?.doc_type === 'conhecimento')
+          .map((d) => d.content).join('\n')
+        const objecoes = docs
+          .filter((d) => d.metadata?.doc_type === 'objecoes')
+          .map((d) => d.content).join('\n')
+
+        if (conhecimento) builtPrompt += `=== BASE DE CONHECIMENTO ===\n${conhecimento}`
+        if (objecoes) builtPrompt += `\n\n=== BASE DE OBJEÇÕES ===\n${objecoes}`
+      }
     }
 
-    const rawTemplate = niche
-      ? `${interpolate(niche.conhecimento, vars)}\n\n${interpolate(niche.objecoes, vars)}`
-      : JSON.stringify(persona, null, 2)
+    // Fallback: persona em JSON se não houver documentos ainda
+    if (!builtPrompt.trim()) {
+      builtPrompt = JSON.stringify(persona, null, 2)
+    }
 
     const result = await validateSdr({
-      builtPrompt: rawTemplate,
+      builtPrompt,
       openaiKey,
       nichoId,
       agentType: agent_type ?? 'atendimento_venda',
