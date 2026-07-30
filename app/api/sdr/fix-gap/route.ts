@@ -134,15 +134,19 @@ export async function POST(req: NextRequest) {
     const produto = persona?.produto ?? 'seu produto/serviço'
 
     const systemPrompt = `Você é um especialista em scripts de vendas para WhatsApp no mercado brasileiro.
-Gere um script específico e pronto para uso que resolva a lacuna identificada no agente SDR.
+Sua resposta é APENAS o script pronto — nada mais.
 
-REGRAS:
-- Escreva APENAS o script/conteúdo pronto, sem explicações, sem introdução, sem cabeçalho.
-- Tom WhatsApp: informal mas profissional.
-- Use [variavel] apenas quando for óbvio que o usuário deve substituir.
-- Máximo 5 mensagens curtas. Cada mensagem numa linha separada.
-- NUNCA invente preços, valores ou links — use o que foi informado ou [variavel].
-- Foque EXCLUSIVAMENTE no cenário da lacuna.
+PROIBIDO:
+- Frases de introdução ("Entendi!", "Claro!", "Sem problemas", "Aqui está o script", etc.)
+- Explicações, títulos, cabeçalhos ou comentários
+- Qualquer texto que não seja parte do script em si
+
+OBRIGATÓRIO:
+- Começar diretamente com a primeira mensagem do script
+- Tom WhatsApp: informal mas profissional
+- Use [variavel] apenas quando for óbvio que o usuário deve substituir
+- Máximo 5 mensagens curtas, cada uma numa linha separada
+- NUNCA invente preços, valores ou links — use o que foi informado ou [variavel]
 
 Contexto do negócio:
 - Empresa: ${empresaNome}
