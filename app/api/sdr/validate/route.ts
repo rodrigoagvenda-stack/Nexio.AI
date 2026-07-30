@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
 
     // O conteúdo real do SDR é a Base de Conhecimento + Base de Objeções
     let builtPrompt = ''
+    const _debug: Record<string, unknown> = { flow_id: flowRow?.id ?? null, docs_total: 0, doc_types: {} }
+
     if (flowRow?.id) {
       const { data: docs } = await service
         .from('documents')
@@ -76,6 +78,11 @@ export async function POST(req: NextRequest) {
         .eq('company_id', userData.company_id)
         .contains('metadata', { flow_id: flowRow.id })
         .limit(150)
+
+      _debug.docs_total = docs?.length ?? 0
+      const byType: Record<string, number> = {}
+      docs?.forEach(d => { const t = d.metadata?.doc_type ?? 'unknown'; byType[t] = (byType[t] ?? 0) + 1 })
+      _debug.doc_types = byType
 
       if (docs && docs.length > 0) {
         const conhecimento = docs
@@ -89,6 +96,10 @@ export async function POST(req: NextRequest) {
         if (objecoes) builtPrompt += `\n\n=== BASE DE OBJEÇÕES ===\n${objecoes}`
       }
     }
+
+    _debug.prompt_chars = builtPrompt.length
+    _debug.prompt_preview = builtPrompt.slice(0, 300)
+    console.log('[sdr/validate] debug:', JSON.stringify(_debug))
 
     if (!builtPrompt.trim()) {
       return NextResponse.json(
@@ -107,7 +118,7 @@ export async function POST(req: NextRequest) {
       objecoesAtivo: objecoes_ativo ?? false,
     })
 
-    return NextResponse.json(result)
+    return NextResponse.json({ ...result, _debug })
   } catch (err: any) {
     console.error('[sdr/validate]', err)
     return NextResponse.json({ error: err?.message ?? 'Erro interno' }, { status: 500 })
