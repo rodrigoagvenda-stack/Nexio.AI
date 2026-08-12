@@ -81,12 +81,34 @@ export function QuickReplyMenu({
       url.searchParams.set('companyId', companyId.toString());
       url.searchParams.set('activeOnly', 'true');
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const [templateRes, quickRes] = await Promise.allSettled([
+        fetch(url),
+        fetch('/api/quick-replies'),
+      ]);
 
-      if (data.success) {
-        setTemplates(data.templates);
+      let merged: Template[] = [];
+
+      if (templateRes.status === 'fulfilled' && templateRes.value.ok) {
+        const data = await templateRes.value.json();
+        if (data.success) merged = data.templates;
       }
+
+      if (quickRes.status === 'fulfilled' && quickRes.value.ok) {
+        const qData = await quickRes.value.json();
+        if (qData.data) {
+          const quickItems: Template[] = qData.data.map((q: any, i: number) => ({
+            id: -(i + 1),
+            name: q.shortcut,
+            content: q.content,
+            shortcut: q.shortcut,
+            category: 'geral',
+            usage_count: 0,
+          }));
+          merged = [...quickItems, ...merged];
+        }
+      }
+
+      setTemplates(merged);
     } catch (error) {
       console.error('Error fetching templates:', error);
     }

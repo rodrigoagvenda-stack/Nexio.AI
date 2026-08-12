@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { KeepAlive } from "@/components/KeepAlive";
 import { CookieBanner } from "@/components/lgpd/CookieBanner";
+import { PwaInit } from "@/components/PwaInit";
 
 export const metadata: Metadata = {
   title: "Zaapply: CRM Inteligente com IA",
@@ -45,6 +46,7 @@ export default function RootLayout({
         <Toaster />
         <KeepAlive />
         <CookieBanner />
+        <PwaInit />
 
         {/* ── Google Analytics ─────────────────────────────────────────────── */}
         {GA_ID && (

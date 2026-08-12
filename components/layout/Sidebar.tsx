@@ -116,6 +116,7 @@ const navSections: NavSection[] = [
         children: [
           { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
           { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
+          { href: '/crm/conversas', label: 'Kanban WA', icon: Kanban },
         ],
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMoreIcon },

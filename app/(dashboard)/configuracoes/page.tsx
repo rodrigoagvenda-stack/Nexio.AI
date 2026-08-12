@@ -23,6 +23,10 @@ import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NumerosContent } from '@/components/configuracoes/NumerosContent';
 import { EquipeContent } from '@/components/configuracoes/EquipeContent';
+import { HorarioContent } from '@/components/configuracoes/HorarioContent';
+import { RespostasRapidasContent } from '@/components/configuracoes/RespostasRapidasContent';
+import { SaudeNumerosContent } from '@/components/configuracoes/SaudeNumerosContent';
+import { TemplatesHSMContent } from '@/components/configuracoes/TemplatesHSMContent';
 
 interface CompanyFull {
   id: number;
@@ -57,7 +61,7 @@ function resolvePlan(raw: string) {
   return 'basic' as keyof typeof PLANS;
 }
 
-const TABS = ['perfil', 'plano', 'integracoes', 'numeros', 'equipe', 'automacao', 'seguranca'] as const;
+const TABS = ['perfil', 'plano', 'integracoes', 'numeros', 'equipe', 'horario', 'respostas', 'saude', 'templates', 'automacao', 'seguranca'] as const;
 type Tab = typeof TABS[number];
 
 // ─── Automação Inteligente ────────────────────────────────────────────────────
@@ -540,7 +544,7 @@ function ConfiguracoesContent() {
     }
   };
 
-  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', numeros: 'Números WA', equipe: 'Equipe', automacao: 'Automação', seguranca: 'Segurança' };
+  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', numeros: 'Números WA', equipe: 'Equipe', horario: 'Horários', respostas: 'Respostas Rápidas', saude: 'Saúde do Número', templates: 'Templates HSM', automacao: 'Automação', seguranca: 'Segurança' };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -1287,6 +1291,18 @@ function ConfiguracoesContent() {
 
       {/* ── EQUIPE ─────────────────────────────────────────────── */}
       {tab === 'equipe' && <EquipeContent />}
+
+      {/* ── HORÁRIOS ───────────────────────────────────────────── */}
+      {tab === 'horario' && <HorarioContent />}
+
+      {/* ── RESPOSTAS RÁPIDAS ───────────────────────────────────── */}
+      {tab === 'respostas' && <RespostasRapidasContent />}
+
+      {/* ── SAÚDE DO NÚMERO ─────────────────────────────────────── */}
+      {tab === 'saude' && <SaudeNumerosContent />}
+
+      {/* ── TEMPLATES HSM ───────────────────────────────────────── */}
+      {tab === 'templates' && <TemplatesHSMContent />}
 
       {/* ── AUTOMAÇÃO ──────────────────────────────────────────── */}
       {tab === 'automacao' && <AutomacaoContent />}

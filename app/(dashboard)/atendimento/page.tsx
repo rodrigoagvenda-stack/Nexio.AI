@@ -86,6 +86,13 @@ interface Conversation {
   whatsapp_photo_url?: string;
   window_expires_at?: string | null;
   window_type?: 'ctwa' | 'regular' | null;
+  // Épico 2 — multi-atendente
+  current_status?: 'sdr' | 'livre' | 'em_atendimento' | 'fechada' | 'aguardando_retorno' | null;
+  current_attendant_id?: string | null;
+  kanban_stage?: string | null;
+  briefing?: Record<string, string> | null;
+  ctwa_clid?: string | null;
+  attribution_source?: string | null;
   lead_source?: {
     type: string;
     ctwa_clid?: string;
@@ -448,6 +455,22 @@ export default function AtendimentoPage() {
       });
     } catch (error) {
       console.error('Error fetching messages:', error);
+    }
+  }
+
+  async function handleTakeConversation(conv: Conversation, e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/conversations/${conv.id}/take`, { method: 'POST' });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Erro ao assumir conversa');
+      }
+      toast({ title: `Conversa com ${conv.nome_do_contato || conv.numero_de_telefone} assumida!` });
+      setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, current_status: 'em_atendimento', assigned_to: user?.id } : c));
+      setSelectedConversation({ ...conv, current_status: 'em_atendimento' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao assumir conversa', variant: 'destructive' });
     }
   }
 
@@ -1687,7 +1710,16 @@ export default function AtendimentoPage() {
                     </div>
                   </div>
                   </button>
-                  <div className="flex justify-end mt-1.5">
+                  <div className="flex justify-end items-center gap-1 mt-1.5">
+                    {(conv.current_status === 'livre' || (!conv.current_status && conv.assigned_to == null)) && (
+                      <button
+                        className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20"
+                        title="Assumir esta conversa"
+                        onClick={(e) => handleTakeConversation(conv, e)}
+                      >
+                        Pegar
+                      </button>
+                    )}
                     <button
                       className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10"
                       title="Apagar conversa"

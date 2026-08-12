@@ -1,0 +1,43 @@
+{
+  "name": "Zaapply",
+  "short_name": "Zaapply",
+  "description": "CRM inteligente com IA para WhatsApp",
+  "start_url": "/atendimento",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#01573C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Atendimento",
+      "url": "/atendimento",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "CRM",
+      "url": "/crm",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ],
+  "categories": ["productivity", "business"]
+}
