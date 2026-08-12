@@ -144,6 +144,7 @@ export default function AtendimentoPage() {
   const [editDialog, setEditDialog] = useState<{ open: boolean; message: Message | null }>({ open: false, message: null });
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [attachBtnRect, setAttachBtnRect] = useState<DOMRect | null>(null);
   const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const [templateMenuPosition, setTemplateMenuPosition] = useState({ top: 0, left: 0 });
   const [assignDialog, setAssignDialog] = useState(false);
@@ -1979,7 +1980,7 @@ export default function AtendimentoPage() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => setShowAttachmentOptions(true)}
+                      onClick={(e) => { setAttachBtnRect((e.currentTarget as HTMLElement).getBoundingClientRect()); setShowAttachmentOptions(true); }}
                       disabled={loading}
                       title="Anexar"
                       className="text-muted-foreground"
@@ -2136,15 +2137,10 @@ export default function AtendimentoPage() {
       <AttachmentOptionsDialog
         open={showAttachmentOptions}
         onOpenChange={setShowAttachmentOptions}
+        anchorRect={attachBtnRect}
         onSelectDocument={() => handleFileSelect('document')}
         onSelectImage={() => handleFileSelect('image')}
-        onSelectVideo={() => handleFileSelect('video')}
-        onSelectCamera={() => toast({ title: 'Câmera em breve' })}
         onSelectAudio={() => setShowAudioRecorder(true)}
-        onSelectContact={() => toast({ title: 'Contato em breve' })}
-        onSelectPoll={() => toast({ title: 'Enquete em breve' })}
-        onSelectEvent={() => toast({ title: 'Evento em breve' })}
-        onSelectSticker={() => toast({ title: 'Figurinha em breve' })}
         hasLead={!!selectedConversation?.id_do_lead}
         onSelectCharge={() => setShowChargeModal(true)}
       />
