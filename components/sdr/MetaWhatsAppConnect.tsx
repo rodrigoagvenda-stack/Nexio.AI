@@ -24,6 +24,7 @@ const CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID!
 
 export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
+  const [sdkReady, setSdkReady] = useState(false)
   const codeRef = useRef<string | null>(null)
   const pendingRef = useRef<{ phoneNumberId?: string; wabaId: string; coex: boolean } | null>(null)
   const globalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -32,6 +33,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
     function onSDKLoad() {
       window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
       console.log('[MetaConnect] SDK init: APP_ID:', FB_APP_ID)
+      setSdkReady(true)
     }
     if (window.FB) {
       onSDKLoad()
@@ -192,12 +194,12 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
   return (
     <Button
       onClick={launch}
-      disabled={loading}
+      disabled={loading || !sdkReady}
       className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white"
       size="sm"
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
-      {loading ? 'Conectando...' : 'Conectar via Meta (CoEx)'}
+      {(loading || !sdkReady) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
+      {loading ? 'Conectando...' : !sdkReady ? 'Carregando...' : 'Conectar via Meta (CoEx)'}
     </Button>
   )
 }
