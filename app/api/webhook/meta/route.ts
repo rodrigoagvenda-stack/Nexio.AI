@@ -227,19 +227,29 @@ export async function POST(req: NextRequest) {
           convId = created ? String(created.id) : null
         }
 
-        if (convId) {
-          await supabase.from('mensagens_do_whatsapp').insert({
-            company_id: companyId,
-            id_da_conversacao: convId,
-            texto_da_mensagem: content,
-            tipo_de_mensagem: msgType,
-            direcao: 'inbound',
-            sender_type: 'lead',
-            carimbo_de_data_e_hora: ts,
-            url_da_midia: mediaUrl ?? null,
-            whatsapp_message_id: msgId,
-          })
-          console.log(`[meta-webhook] mensagem salva na UI : convId=${convId}`)
+        if (convId && msgId) {
+          const { data: alreadySaved } = await supabase
+            .from('mensagens_do_whatsapp')
+            .select('id')
+            .eq('whatsapp_message_id', msgId)
+            .maybeSingle()
+
+          if (!alreadySaved) {
+            await supabase.from('mensagens_do_whatsapp').insert({
+              company_id: companyId,
+              id_da_conversacao: convId,
+              texto_da_mensagem: content,
+              tipo_de_mensagem: msgType,
+              direcao: 'inbound',
+              sender_type: 'lead',
+              carimbo_de_data_e_hora: ts,
+              url_da_midia: mediaUrl ?? null,
+              whatsapp_message_id: msgId,
+            })
+            console.log(`[meta-webhook] mensagem salva na UI : convId=${convId}`)
+          } else {
+            console.log(`[meta-webhook] mensagem já existe no DB : msgId=${msgId}`)
+          }
         }
 
         if (metaToken && msgId) markMetaRead(phoneNumberId, metaToken, msgId)
