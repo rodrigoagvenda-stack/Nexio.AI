@@ -1790,19 +1790,43 @@ async function sendWithHumanDelay(
   token: string,
   conversationId: string,
   ctx: SdrContext,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  metaPhoneNumberId?: string | null,
+  metaToken?: string | null
 ): Promise<void> {
-  const uazapi = createUazapiClient(uazapiUrl, token)
+  const isMeta = !!(metaPhoneNumberId && metaToken)
+  const uazapi = isMeta ? null : createUazapiClient(uazapiUrl, token)
 
   for (let i = 0; i < paragraphs.length; i++) {
     const paragraph = paragraphs[i]
     if (!paragraph.trim()) continue
 
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000
-    await uazapi.sendPresence(phone, 'composing', typingDelay)
-    await new Promise((r) => setTimeout(r, typingDelay))
 
-    await uazapi.sendText({ number: phone, text: paragraph })
+    if (isMeta) {
+      await new Promise((r) => setTimeout(r, Math.min(typingDelay, 4000)))
+      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${metaPhoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${metaToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phone.replace(/\D/g, ''),
+          type: 'text',
+          text: { body: paragraph },
+        }),
+      })
+      const metaJson = await metaRes.json()
+      if (!metaRes.ok) {
+        console.error(`[SDR:meta] ERRO ao enviar mensagem: ${JSON.stringify(metaJson)}`)
+        throw new Error(metaJson?.error?.message ?? `Meta API error ${metaRes.status}`)
+      }
+      console.log(`[SDR:meta] mensagem enviada : id=${metaJson.messages?.[0]?.id}`)
+    } else {
+      await uazapi!.sendPresence(phone, 'composing', typingDelay)
+      await new Promise((r) => setTimeout(r, typingDelay))
+      await uazapi!.sendText({ number: phone, text: paragraph })
+    }
+
     await saveOutbound(conversationId, ctx, paragraph, supabase)
 
     if (i < paragraphs.length - 1) {
@@ -1854,6 +1878,9 @@ interface SdrFullConfig {
   objecoesAtivo: boolean
   inboxMode: 'vendas' | 'suporte'
   eventTitleTemplate: string | null
+  whatsapp_provider: string
+  meta_wa_token: string | null
+  meta_wa_phone_number_id: string | null
 }
 
 async function loadSdrConfig(
@@ -1952,6 +1979,9 @@ async function loadSdrConfig(
     objecoesAtivo: resolvedObjecoesAtivo,
     inboxMode: (flow?.inbox_mode as 'vendas' | 'suporte') ?? 'suporte',
     eventTitleTemplate: flow?.event_title_template ?? null,
+    whatsapp_provider: config.whatsapp_provider ?? 'uazapi',
+    meta_wa_token: config.meta_wa_token ?? null,
+    meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
   }
 }
 
@@ -2148,7 +2178,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     console.log(`[SDR:${companyId}] → enviando ${paragraphs.length} bloco(s) para ${phone}:`)
     paragraphs.forEach((p, i) => console.log(`  [${i + 1}] ${p}`))
-    await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase)
+    await sendWithHumanDelay(paragraphs, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token)
     console.log(`[SDR:${companyId}] ✓ enviado para ${phone}`)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)

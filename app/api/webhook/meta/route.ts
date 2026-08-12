@@ -187,6 +187,61 @@ export async function POST(req: NextRequest) {
           console.log(`[meta-webhook] job upserted : companyId=${companyId} phone=${phone.slice(0, 6)}****`)
         }
 
+        // Salva imediatamente no chat para aparecer na UI sem esperar o SDR
+        const contactName = value.contacts?.[0]?.profile?.name ?? from
+        const ts = new Date().toISOString()
+
+        const { data: existingConv } = await supabase
+          .from('conversas_do_whatsapp')
+          .select('id, contagem_nao_lida')
+          .eq('company_id', companyId)
+          .eq('numero_de_telefone', phone)
+          .maybeSingle()
+
+        let convId: string | null = null
+
+        if (existingConv?.id) {
+          convId = String(existingConv.id)
+          await supabase
+            .from('conversas_do_whatsapp')
+            .update({
+              ultima_mensagem: content,
+              hora_da_ultima_mensagem: ts,
+              contagem_nao_lida: (existingConv.contagem_nao_lida ?? 0) + 1,
+            })
+            .eq('id', existingConv.id)
+        } else {
+          const { data: created } = await supabase
+            .from('conversas_do_whatsapp')
+            .insert({
+              company_id: companyId,
+              numero_de_telefone: phone,
+              nome_do_contato: contactName,
+              ultima_mensagem: content,
+              hora_da_ultima_mensagem: ts,
+              status_da_conversa: 'aberto',
+              contagem_nao_lida: 1,
+            })
+            .select('id')
+            .single()
+          convId = created ? String(created.id) : null
+        }
+
+        if (convId) {
+          await supabase.from('mensagens_do_whatsapp').insert({
+            company_id: companyId,
+            id_da_conversacao: convId,
+            texto_da_mensagem: content,
+            tipo_de_mensagem: msgType,
+            direcao: 'inbound',
+            sender_type: 'lead',
+            carimbo_de_data_e_hora: ts,
+            url_da_midia: mediaUrl ?? null,
+            whatsapp_message_id: msgId,
+          })
+          console.log(`[meta-webhook] mensagem salva na UI : convId=${convId}`)
+        }
+
         if (metaToken && msgId) markMetaRead(phoneNumberId, metaToken, msgId)
       }
 
