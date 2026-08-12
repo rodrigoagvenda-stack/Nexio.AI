@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { rateLimit } from '@/lib/rate-limit'
-import { getUazapiForCompany } from '@/lib/sdr/uazapi-for-company'
+import { sendText as waSendText, sendMedia as waSendMedia } from '@/lib/sdr/whatsapp-sender'
 
 export async function POST(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request)
@@ -41,21 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Conversa não encontrada ou acesso negado' }, { status: 403 })
     }
 
-    const uazapi = await getUazapiForCompany(Number(companyId))
-
     let waMessageId: string | undefined
     if (type === 'text') {
-      const result = await uazapi.sendText({ number: phoneNumber, text: message, replyid: replyId || undefined })
+      const result = await waSendText({ companyId: Number(companyId), phoneNumber, text: message, replyId: replyId || undefined })
       waMessageId = result?.id
     } else {
       const mediaType = type === 'audio' ? 'ptt' : (type as 'image' | 'video' | 'document' | 'ptt')
-      const result = await uazapi.sendMedia({
-        number: phoneNumber,
-        type: mediaType,
-        file: mediaUrl,
-        text: caption || undefined,
-        docName: filename || undefined,
-      })
+      const result = await waSendMedia({ companyId: Number(companyId), phoneNumber, type: mediaType, fileUrl: mediaUrl, caption: caption || undefined, filename: filename || undefined })
       waMessageId = result?.id
     }
 
