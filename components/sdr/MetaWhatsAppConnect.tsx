@@ -31,10 +31,12 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
 
   useEffect(() => {
     function onSDKLoad() {
+      console.log('[MetaConnect] fbAsyncInit fired, window.FB:', !!window.FB, '| APP_ID:', FB_APP_ID)
       window.FB.init({ appId: FB_APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' })
-      console.log('[MetaConnect] SDK init: APP_ID:', FB_APP_ID)
+      console.log('[MetaConnect] FB.init concluido')
       setSdkReady(true)
     }
+    console.log('[MetaConnect] useEffect mount | window.FB ja existe:', !!window.FB, '| script ja existe:', !!document.getElementById('facebook-jssdk'))
     if (window.FB) {
       onSDKLoad()
     } else {
@@ -44,7 +46,12 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
         s.id = 'facebook-jssdk'
         s.src = 'https://connect.facebook.net/pt_BR/sdk.js'
         s.async = true
+        s.onerror = () => console.error('[MetaConnect] ERRO ao carregar facebook-jssdk script')
+        s.onload = () => console.log('[MetaConnect] facebook-jssdk script carregado (onload)')
         document.body.appendChild(s)
+        console.log('[MetaConnect] script facebook-jssdk adicionado ao DOM')
+      } else {
+        console.log('[MetaConnect] script ja existe no DOM mas window.FB indefinido — aguardando fbAsyncInit')
       }
     }
   }, [])
