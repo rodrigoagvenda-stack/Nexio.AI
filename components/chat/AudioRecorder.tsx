@@ -52,7 +52,7 @@ export function AudioRecorder({ onSendAudio, onCancel }: AudioRecorderProps) {
         if (perm.state === 'denied') {
           toast({
             title: 'Microfone bloqueado',
-            description: 'Acesse Configurações do Android → Apps → Chrome → Permissões → Microfone → Permitir.',
+            description: 'Clique no cadeado na barra de endereço → Permissões do site → Microfone → Permitir.',
             variant: 'destructive',
           });
           onCancel();
