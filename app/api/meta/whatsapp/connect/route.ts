@@ -54,15 +54,16 @@ export async function POST(req: NextRequest) {
       phone = phoneJson.display_phone_number ?? phoneNumberId
     }
 
-    // Inscreve o número no webhook do app
-    if (finalPhoneNumberId) {
-      const webhookRes = await fetch(
-        `https://graph.facebook.com/v21.0/${finalPhoneNumberId}/subscribed_apps`,
-        { method: 'POST', headers: { Authorization: `Bearer ${longToken}` } }
-      )
-      if (!webhookRes.ok) {
-        console.warn('[meta/connect] webhook subscribe warn:', await webhookRes.text())
-      }
+    // Inscreve a WABA no webhook do app (obrigatório para receber mensagens)
+    const wabaSubRes = await fetch(
+      `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`,
+      { method: 'POST', headers: { Authorization: `Bearer ${longToken}` } }
+    )
+    const wabaSubJson = await wabaSubRes.json()
+    if (!wabaSubRes.ok) {
+      console.error('[meta/connect] ERRO ao inscrever WABA no webhook:', wabaSubJson)
+    } else {
+      console.log(`[meta/connect] WABA ${wabaId} inscrita no webhook com sucesso`)
     }
 
     // Salva na sdr_configs
