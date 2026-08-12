@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Plus, Phone, Wifi, WifiOff, Pencil, X, Check, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Phone, Wifi, WifiOff, Pencil, X, Check, AlertTriangle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface WaNumber {
@@ -21,12 +21,216 @@ interface WaNumber {
   created_at: string;
 }
 
+interface SdrModeConfig {
+  mode: 'completo' | 'recepcao';
+  briefing_fields: BriefingField[] | null;
+  out_of_hours_message: string | null;
+}
+
+interface BriefingField {
+  name: string;
+  label: string;
+  required: boolean;
+}
+
 const STATUS_CONFIG = {
   conectado:    { label: 'Conectado',    color: 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/20' },
   desconectado: { label: 'Desconectado', color: 'bg-muted text-muted-foreground ring-border' },
   pareando:     { label: 'Pareando…',   color: 'bg-yellow-500/15 text-yellow-400 ring-yellow-500/20' },
   erro:         { label: 'Erro',         color: 'bg-red-500/15 text-red-400 ring-red-500/20' },
 };
+
+const DEFAULT_BRIEFING_FIELDS: BriefingField[] = [
+  { name: 'nome', label: 'Nome', required: true },
+  { name: 'interesse', label: 'Interesse / objetivo', required: true },
+  { name: 'orcamento', label: 'Orçamento aproximado', required: false },
+];
+
+function SdrModePanel({ numberId }: { numberId: string }) {
+  const [config, setConfig] = useState<SdrModeConfig>({
+    mode: 'completo',
+    briefing_fields: null,
+    out_of_hours_message: null,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [newField, setNewField] = useState({ name: '', label: '', required: false });
+
+  useEffect(() => {
+    fetch(`/api/sdr-mode-config?wa_number_id=${numberId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const found = d?.data?.[0];
+        if (found) {
+          setConfig({
+            mode: found.mode ?? 'completo',
+            briefing_fields: found.briefing_fields ?? null,
+            out_of_hours_message: found.out_of_hours_message ?? null,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [numberId]);
+
+  const save = async (partial?: Partial<SdrModeConfig>) => {
+    const updated = { ...config, ...partial };
+    setSaving(true);
+    try {
+      const res = await fetch('/api/sdr-mode-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wa_number_id: numberId, ...updated }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        if (d?.migration_pending) {
+          toast({ title: 'Execute a migration primeiro para usar esta funcionalidade', variant: 'destructive' });
+          return;
+        }
+        throw new Error(d?.error);
+      }
+      if (partial) setConfig(updated);
+      toast({ title: 'Configuração salva' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fields = config.briefing_fields ?? DEFAULT_BRIEFING_FIELDS;
+
+  const addField = () => {
+    if (!newField.name.trim() || !newField.label.trim()) return;
+    const slugName = newField.name.trim().toLowerCase().replace(/\s+/g, '_');
+    const updated = [...fields, { name: slugName, label: newField.label.trim(), required: newField.required }];
+    save({ briefing_fields: updated });
+    setConfig(c => ({ ...c, briefing_fields: updated }));
+    setNewField({ name: '', label: '', required: false });
+  };
+
+  const removeField = (idx: number) => {
+    const updated = fields.filter((_, i) => i !== idx);
+    save({ briefing_fields: updated });
+    setConfig(c => ({ ...c, briefing_fields: updated }));
+  };
+
+  const toggleRequired = (idx: number) => {
+    const updated = fields.map((f, i) => i === idx ? { ...f, required: !f.required } : f);
+    setConfig(c => ({ ...c, briefing_fields: updated }));
+  };
+
+  if (loading) return <div className="py-2"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-4 pt-2">
+      {/* Seletor de modo */}
+      <div>
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Modo do SDR</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(['completo', 'recepcao'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => { setConfig(c => ({ ...c, mode: m })); save({ mode: m }); }}
+              className={cn(
+                'p-3 rounded-xl border text-left transition-colors',
+                config.mode === m
+                  ? 'border-primary/50 bg-primary/5 text-primary'
+                  : 'border-border bg-muted/30 text-muted-foreground hover:border-border/70'
+              )}
+            >
+              <p className="text-xs font-semibold capitalize">{m === 'completo' ? 'Completo' : 'Recepção'}</p>
+              <p className="text-[11px] mt-0.5 leading-snug">
+                {m === 'completo'
+                  ? 'SDR faz venda completa: qualifica, apresenta, supera objeções e fecha'
+                  : 'SDR coleta briefing e passa para atendente humano (sem pitch de venda)'}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Campos de briefing — exibidos sempre, mas relevantes no modo Recepção */}
+      {config.mode === 'recepcao' && (
+        <div>
+          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            Campos do briefing coletado pelo SDR
+          </p>
+          <div className="space-y-1.5 mb-3">
+            {fields.map((f, i) => (
+              <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-border/60 bg-background text-xs">
+                <div className="flex-1 min-w-0">
+                  <span className="font-mono text-muted-foreground text-[11px]">{f.name}</span>
+                  <span className="mx-1.5 text-muted-foreground/40">·</span>
+                  <span>{f.label}</span>
+                </div>
+                <button
+                  onClick={() => toggleRequired(i)}
+                  className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors',
+                    f.required ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {f.required ? 'obrigatório' : 'opcional'}
+                </button>
+                <button onClick={() => removeField(i)} className="text-muted-foreground/40 hover:text-destructive transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Novo campo */}
+          <div className="flex gap-2">
+            <Input
+              value={newField.name}
+              onChange={e => setNewField(f => ({ ...f, name: e.target.value }))}
+              placeholder="nome_interno"
+              className="h-7 text-xs font-mono"
+            />
+            <Input
+              value={newField.label}
+              onChange={e => setNewField(f => ({ ...f, label: e.target.value }))}
+              placeholder="Label visível"
+              className="h-7 text-xs flex-1"
+            />
+            <button
+              onClick={() => setNewField(f => ({ ...f, required: !f.required }))}
+              className={cn('text-[10px] px-2 rounded border transition-colors shrink-0',
+                newField.required ? 'border-primary/50 text-primary' : 'border-border text-muted-foreground'
+              )}
+            >
+              {newField.required ? 'obrig.' : 'opc.'}
+            </button>
+            <Button size="sm" className="h-7 text-xs px-2" onClick={addField}>
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          {/* Salvar required toggles */}
+          <Button size="sm" variant="outline" className="mt-2 h-7 text-xs" disabled={saving} onClick={() => save({ briefing_fields: fields })}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Salvar campos'}
+          </Button>
+        </div>
+      )}
+
+      {/* Mensagem fora do horário */}
+      <div>
+        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+          Mensagem fora do horário (opcional)
+        </p>
+        <textarea
+          value={config.out_of_hours_message ?? ''}
+          onChange={e => setConfig(c => ({ ...c, out_of_hours_message: e.target.value }))}
+          onBlur={() => save({ out_of_hours_message: config.out_of_hours_message })}
+          placeholder="Olá! Nosso horário de atendimento é de segunda a sexta, das 8h às 18h. Retornaremos em breve!"
+          rows={2}
+          className="w-full resize-none text-xs rounded-lg border border-border bg-muted/30 px-3 py-2 outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
+        />
+      </div>
+    </div>
+  );
+}
 
 export function NumerosContent() {
   const [numbers, setNumbers] = useState<WaNumber[]>([]);
@@ -35,6 +239,7 @@ export function NumerosContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     friendly_name: '',
@@ -221,97 +426,118 @@ export function NumerosContent() {
           {numbers.map(num => {
             const sc = STATUS_CONFIG[num.status] ?? STATUS_CONFIG.desconectado;
             const isEditing = editingId === num.id;
+            const isExpanded = expandedId === num.id;
             return (
               <div
                 key={num.id}
                 className={cn(
-                  'p-4 rounded-2xl border bg-card transition-colors',
+                  'rounded-2xl border bg-card transition-colors',
                   num.status === 'conectado' ? 'border-emerald-500/20' : 'border-border'
                 )}
               >
-                <div className="flex items-start gap-3">
-                  {/* Ícone */}
-                  <div className={cn(
-                    'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                    num.status === 'conectado' ? 'bg-emerald-500/10' : 'bg-muted'
-                  )}>
-                    {num.status === 'conectado'
-                      ? <Wifi className="h-5 w-5 text-emerald-400" />
-                      : num.status === 'erro'
-                      ? <AlertTriangle className="h-5 w-5 text-red-400" />
-                      : <WifiOff className="h-5 w-5 text-muted-foreground" />
-                    }
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Ícone */}
+                    <div className={cn(
+                      'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                      num.status === 'conectado' ? 'bg-emerald-500/10' : 'bg-muted'
+                    )}>
+                      {num.status === 'conectado'
+                        ? <Wifi className="h-5 w-5 text-emerald-400" />
+                        : num.status === 'erro'
+                        ? <AlertTriangle className="h-5 w-5 text-red-400" />
+                        : <WifiOff className="h-5 w-5 text-muted-foreground" />
+                      }
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            className="h-7 text-sm"
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleRename(num.id);
+                              if (e.key === 'Escape') setEditingId(null);
+                            }}
+                          />
+                          <button onClick={() => handleRename(num.id)} className="text-emerald-400 hover:text-emerald-300">
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{num.friendly_name}</p>
+                          <button
+                            onClick={() => { setEditingId(num.id); setEditName(num.friendly_name); }}
+                            className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground font-mono mt-0.5">{num.phone_number}</p>
+                      {num.phone_number_id && (
+                        <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">ID: {num.phone_number_id}</p>
+                      )}
+                    </div>
+
+                    {/* Direita: status */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={cn('text-[11px] font-medium px-2 py-0.5 rounded-full ring-1', sc.color)}>
+                        {sc.label}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editName}
-                          onChange={e => setEditName(e.target.value)}
-                          className="h-7 text-sm"
-                          autoFocus
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleRename(num.id);
-                            if (e.key === 'Escape') setEditingId(null);
-                          }}
-                        />
-                        <button onClick={() => handleRename(num.id)} className="text-emerald-400 hover:text-emerald-300">
-                          <Check className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{num.friendly_name}</p>
-                        <button
-                          onClick={() => { setEditingId(num.id); setEditName(num.friendly_name); }}
-                          className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                  {/* Footer do card */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
+                    <div className="flex items-center gap-2.5">
+                      <Switch
+                        checked={num.sdr_enabled}
+                        onCheckedChange={() => handleToggleSdr(num.id, num.sdr_enabled)}
+                        disabled={toggling === num.id}
+                        className="scale-90"
+                      />
+                      <span className="text-xs text-muted-foreground">SDR ativo neste número</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {num.status === 'conectado' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDisconnect(num.id, num.friendly_name)}
+                          disabled={disconnecting === num.id}
+                          className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
                         >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{num.phone_number}</p>
-                    {num.phone_number_id && (
-                      <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">ID: {num.phone_number_id}</p>
-                    )}
-                  </div>
-
-                  {/* Direita: status + ações */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={cn('text-[11px] font-medium px-2 py-0.5 rounded-full ring-1', sc.color)}>
-                      {sc.label}
-                    </span>
+                          {disconnecting === num.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Desconectar'}
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedId(isExpanded ? null : num.id)}
+                        className="h-7 text-xs text-muted-foreground"
+                      >
+                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        <span className="ml-1">Configurar SDR</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Footer do card */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
-                  <div className="flex items-center gap-2.5">
-                    <Switch
-                      checked={num.sdr_enabled}
-                      onCheckedChange={() => handleToggleSdr(num.id, num.sdr_enabled)}
-                      disabled={toggling === num.id}
-                      className="scale-90"
-                    />
-                    <span className="text-xs text-muted-foreground">SDR ativo neste número</span>
+                {/* Painel de configuração do SDR (expandível) */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 border-t border-border/40">
+                    <SdrModePanel numberId={num.id} />
                   </div>
-                  {num.status === 'conectado' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDisconnect(num.id, num.friendly_name)}
-                      disabled={disconnecting === num.id}
-                      className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    >
-                      {disconnecting === num.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Desconectar'}
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
             );
           })}

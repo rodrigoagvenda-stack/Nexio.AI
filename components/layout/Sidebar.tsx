@@ -15,6 +15,7 @@ import {
   Zap,
   BarChart2,
   Wallet,
+  Shield,
 } from 'lucide-react';
 import { TrendingUpIcon } from '@/components/ui/trending-up';
 import { ChartPieIcon } from '@/components/ui/chart-pie';
@@ -117,6 +118,8 @@ const navSections: NavSection[] = [
           { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
           { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
           { href: '/crm/conversas', label: 'Kanban WA', icon: Kanban },
+          { href: '/crm/time', label: 'Dashboard Time', icon: BarChart2 },
+          { href: '/crm/auditoria', label: 'Auditoria', icon: Shield },
         ],
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMoreIcon },

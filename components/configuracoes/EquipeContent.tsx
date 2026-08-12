@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
-import { Loader2, Plus, Users, Crown, Eye, Headphones, X, UserX, MoreHorizontal } from 'lucide-react';
+import { Loader2, Plus, Users, Crown, Eye, Headphones, X, UserX, MoreHorizontal, Hash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Attendant {
@@ -35,6 +35,9 @@ export function EquipeContent() {
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', email: '', role: 'atendente' as Attendant['role'] });
   const [saving, setSaving] = useState(false);
+  const [limits, setLimits] = useState<Record<string, number>>({});
+  const [editingLimit, setEditingLimit] = useState<string | null>(null);
+  const [limitDraft, setLimitDraft] = useState('15');
 
   useEffect(() => {
     fetch('/api/attendants')
@@ -42,7 +45,42 @@ export function EquipeContent() {
       .then(d => { if (d?.data) setAttendants(d.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    fetch('/api/attendant-limits')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.data) {
+          const map: Record<string, number> = {};
+          for (const l of d.data) map[l.attendant_id] = l.max_concurrent_conversations;
+          setLimits(map);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleSaveLimit = async (attendantId: string) => {
+    const val = parseInt(limitDraft, 10);
+    if (isNaN(val) || val < 1) return;
+    try {
+      const res = await fetch('/api/attendant-limits', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendant_id: attendantId, max_concurrent_conversations: val }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        if (d?.migration_pending) {
+          toast({ title: 'Execute a migration para usar limites por atendente', variant: 'destructive' });
+          return;
+        }
+      }
+      setLimits(prev => ({ ...prev, [attendantId]: val }));
+      setEditingLimit(null);
+      toast({ title: 'Limite atualizado' });
+    } catch {
+      toast({ title: 'Erro ao atualizar limite', variant: 'destructive' });
+    }
+  };
 
   const handleAdd = async () => {
     if (!form.name.trim() || !form.email.trim()) {
@@ -220,6 +258,39 @@ export function EquipeContent() {
                   <RoleIcon className="h-3 w-3" />
                   {rc.label}
                 </span>
+
+                {/* Limite de conversas */}
+                <div className="shrink-0 flex items-center gap-1">
+                  {editingLimit === att.id ? (
+                    <>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={limitDraft}
+                        onChange={e => setLimitDraft(e.target.value)}
+                        className="h-7 w-14 text-xs text-center px-1"
+                        autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleSaveLimit(att.id);
+                          if (e.key === 'Escape') setEditingLimit(null);
+                        }}
+                      />
+                      <button onClick={() => handleSaveLimit(att.id)} className="text-emerald-400 hover:text-emerald-300 transition-colors">
+                        <X className="h-3.5 w-3.5 rotate-45" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => { setEditingLimit(att.id); setLimitDraft(String(limits[att.id] ?? 15)); }}
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-muted"
+                      title="Limite máximo de conversas simultâneas"
+                    >
+                      <Hash className="h-3 w-3" />
+                      {limits[att.id] ?? 15}
+                    </button>
+                  )}
+                </div>
 
                 {/* Menu */}
                 <div className="relative shrink-0">
