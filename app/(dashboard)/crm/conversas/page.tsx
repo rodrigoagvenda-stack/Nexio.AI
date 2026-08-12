@@ -98,6 +98,7 @@ function ConvCard({ conv, onClick }: { conv: WaConv; onClick: () => void }) {
   const queueExceeded = inQueue && conv.queue_entered_at
     ? Math.floor((Date.now() - new Date(conv.queue_entered_at).getTime()) / 60000) >= 10
     : false;
+  const missingValue = stage === 'negociacao' && (!conv.value_cents || conv.value_cents <= 0);
 
   const originBadge = getOriginBadge(conv);
 
@@ -109,7 +110,9 @@ function ConvCard({ conv, onClick }: { conv: WaConv; onClick: () => void }) {
       {...listeners}
       className={cn(
         'p-3 rounded-xl border bg-card cursor-grab active:cursor-grabbing transition-colors mb-2',
-        queueExceeded ? 'border-red-500/50 bg-red-500/5' : 'border-border hover:border-primary/30'
+        queueExceeded ? 'border-red-500/50 bg-red-500/5' :
+        missingValue  ? 'border-orange-500/40 bg-orange-500/5' :
+        'border-border hover:border-primary/30'
       )}
       onClick={onClick}
     >
@@ -161,6 +164,8 @@ function ConvCard({ conv, onClick }: { conv: WaConv; onClick: () => void }) {
       <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-border/50">
         {conv.value_cents && conv.value_cents > 0 ? (
           <span className="text-[10px] font-semibold text-emerald-400">{fmtValue(conv.value_cents)}</span>
+        ) : missingValue ? (
+          <span className="text-[10px] font-medium text-orange-400" title="Informe o valor do negócio ao fechar">$ valor não definido</span>
         ) : (
           <span />
         )}
