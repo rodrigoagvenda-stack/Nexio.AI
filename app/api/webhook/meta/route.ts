@@ -123,7 +123,13 @@ export async function POST(req: NextRequest) {
           content = `[${msgType}]`
         }
 
-        console.log(`[meta-webhook] msg : companyId=${companyId} from=${from.slice(0, 4)}**** type=${msgType} id=${msgId}`)
+        // ── CTWA_CLID: capturado PRIMEIRO, antes de qualquer outro processamento ──
+        // RF6.1 do PRD — janela de 7 dias, dado irrecuperável se perdido aqui
+        const referral = msg.referral ?? null
+        const ctwaClid = referral?.ctwa_clid ?? null
+        const gclid: string | null = null  // capturado via landing page, não via webhook
+
+        console.log(`[meta-webhook] msg : companyId=${companyId} from=${from.slice(0, 4)}**** type=${msgType} id=${msgId} ctwa=${ctwaClid ? 'SIM' : 'NAO'}`)
 
         if (!companyId) continue
 
@@ -193,24 +199,40 @@ export async function POST(req: NextRequest) {
 
         const { data: existingConv } = await supabase
           .from('conversas_do_whatsapp')
-          .select('id, contagem_nao_lida')
+          .select('id, contagem_nao_lida, ctwa_clid')
           .eq('company_id', companyId)
           .eq('numero_de_telefone', phone)
           .maybeSingle()
 
         let convId: string | null = null
+        let isNewConversation = false
 
         if (existingConv?.id) {
           convId = String(existingConv.id)
+          const updatePayload: Record<string, unknown> = {
+            ultima_mensagem: content,
+            hora_da_ultima_mensagem: ts,
+            contagem_nao_lida: (existingConv.contagem_nao_lida ?? 0) + 1,
+            ultima_mensagem_inbound_at: ts,
+          }
+          // Só sobrescreve ctwa_clid se ainda não tinha (primeira atribuição ganha)
+          if (ctwaClid && !existingConv.ctwa_clid) {
+            updatePayload.ctwa_clid = ctwaClid
+            updatePayload.attribution_source = 'meta_ctwa'
+            updatePayload.window_type = 'ctwa'
+            const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+            updatePayload.window_expires_at = expiresAt
+          }
           await supabase
             .from('conversas_do_whatsapp')
-            .update({
-              ultima_mensagem: content,
-              hora_da_ultima_mensagem: ts,
-              contagem_nao_lida: (existingConv.contagem_nao_lida ?? 0) + 1,
-            })
+            .update(updatePayload)
             .eq('id', existingConv.id)
         } else {
+          isNewConversation = true
+          const windowExpiresAt = ctwaClid
+            ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+            : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
           const { data: created } = await supabase
             .from('conversas_do_whatsapp')
             .insert({
@@ -221,6 +243,14 @@ export async function POST(req: NextRequest) {
               hora_da_ultima_mensagem: ts,
               status_da_conversa: 'aberto',
               contagem_nao_lida: 1,
+              ultima_mensagem_inbound_at: ts,
+              ctwa_clid: ctwaClid ?? null,
+              gclid: gclid ?? null,
+              attribution_source: ctwaClid ? 'meta_ctwa' : 'organic',
+              kanban_stage: 'novo',
+              current_status: 'sdr',
+              window_type: ctwaClid ? 'ctwa' : 'regular',
+              window_expires_at: windowExpiresAt,
             })
             .select('id')
             .single()
@@ -249,6 +279,25 @@ export async function POST(req: NextRequest) {
             console.log(`[meta-webhook] mensagem salva na UI : convId=${convId}`)
           } else {
             console.log(`[meta-webhook] mensagem já existe no DB : msgId=${msgId}`)
+          }
+
+          // Salva attribution_event se veio de CTWA (ou ao criar conversa nova como orgânico)
+          if (isNewConversation) {
+            const attrSource = ctwaClid ? 'meta_ctwa' : 'organic'
+            const windowType = ctwaClid ? 'meta_ctwa_72h' : 'organic_free'
+            await supabase.from('attribution_events').insert({
+              conversation_id: convId,
+              source: attrSource,
+              ctwa_clid: ctwaClid ?? null,
+              gclid: gclid ?? null,
+              campaign_id: referral?.source_id ?? null,
+              referral_source_url: referral?.source_url ?? null,
+              referral_source_type: referral?.source_type ?? null,
+              referral_headline: referral?.headline ?? null,
+              referral_body: referral?.body ?? null,
+              window_type: windowType,
+            })
+            console.log(`[meta-webhook] attribution_event salvo : source=${attrSource} ctwa=${ctwaClid ? 'SIM' : 'NAO'}`)
           }
         }
 
