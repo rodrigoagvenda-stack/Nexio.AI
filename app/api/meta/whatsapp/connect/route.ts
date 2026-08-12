@@ -55,15 +55,17 @@ export async function POST(req: NextRequest) {
     }
 
     // Inscreve a WABA no webhook do app (obrigatório para receber mensagens)
+    console.log(`[meta/connect] chamando subscribed_apps para wabaId=${wabaId}`)
     const wabaSubRes = await fetch(
       `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`,
       { method: 'POST', headers: { Authorization: `Bearer ${longToken}` } }
     )
     const wabaSubJson = await wabaSubRes.json()
+    console.log(`[meta/connect] subscribed_apps status=${wabaSubRes.status} response=${JSON.stringify(wabaSubJson)}`)
     if (!wabaSubRes.ok) {
-      console.error('[meta/connect] ERRO ao inscrever WABA no webhook:', wabaSubJson)
+      console.error(`[meta/connect] ERRO subscribed_apps : ${JSON.stringify(wabaSubJson)}`)
     } else {
-      console.log(`[meta/connect] WABA ${wabaId} inscrita no webhook com sucesso`)
+      console.log(`[meta/connect] WABA ${wabaId} inscrita com sucesso`)
     }
 
     // Salva na sdr_configs

@@ -13,13 +13,15 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get('hub.verify_token')
   const challenge = searchParams.get('hub.challenge')
 
+  console.log(`[meta-webhook:GET] mode=${mode} token_ok=${token === process.env.META_WEBHOOK_VERIFY_TOKEN} challenge=${challenge?.slice(0, 10)}`)
+
   const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN
   if (mode === 'subscribe' && token === verifyToken) {
-    console.log('[meta-webhook] verificação OK')
+    console.log('[meta-webhook:GET] verificação OK — respondendo challenge')
     return new NextResponse(challenge, { status: 200 })
   }
 
-  console.warn('[meta-webhook] verificação falhou : token inválido')
+  console.warn('[meta-webhook:GET] verificação falhou : token inválido ou mode errado')
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 }
 
@@ -33,20 +35,24 @@ async function markMetaRead(phoneNumberId: string, token: string, messageId: str
 
 // POST : recebe eventos da Meta (mensagens, status, etc.)
 export async function POST(req: NextRequest) {
+  console.log(`[meta-webhook:POST] requisição recebida — ${new Date().toISOString()}`)
+
   const rawBody = await req.text()
+  console.log(`[meta-webhook:POST] body length=${rawBody.length} x-hub-signature-256=${req.headers.get('x-hub-signature-256')?.slice(0, 20)}...`)
 
   const appSecret = process.env.META_APP_SECRET
   if (!appSecret) {
-    console.error('[meta-webhook] META_APP_SECRET não configurado')
+    console.error('[meta-webhook:POST] META_APP_SECRET não configurado')
     return NextResponse.json({ error: 'Webhook não configurado' }, { status: 500 })
   }
 
   const sig = req.headers.get('x-hub-signature-256') ?? ''
   const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
   if (!sig || sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
-    console.warn('[meta-webhook] assinatura inválida')
+    console.error(`[meta-webhook:POST] ASSINATURA INVÁLIDA — sig recebida: ${sig.slice(0, 30)} | expected: ${expected.slice(0, 30)}`)
     return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
   }
+  console.log('[meta-webhook:POST] assinatura OK')
 
   let body: any
   try {
