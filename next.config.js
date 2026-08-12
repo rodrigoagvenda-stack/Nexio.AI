@@ -56,12 +56,14 @@ const nextConfig = {
 
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://www.facebook.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       `img-src 'self' data: blob: https: ${supabaseUrl}`,
-      "font-src 'self' data:",
-      `connect-src 'self' ${supabaseUrl} ${supabaseWss} https://api.mercadopago.com https://api.asaas.com https://sandbox.asaas.com https://sentry.io`,
+      "font-src 'self' data: https://fonts.gstatic.com",
+      `connect-src 'self' ${supabaseUrl} ${supabaseWss} https://api.mercadopago.com https://api.asaas.com https://sandbox.asaas.com https://sentry.io https://graph.facebook.com https://www.facebook.com`,
+      "frame-src https://www.facebook.com",
       "media-src 'self' blob: https:",
+      "worker-src 'self' blob:",
       "frame-ancestors 'none'",
       "object-src 'none'",
       "base-uri 'self'",
