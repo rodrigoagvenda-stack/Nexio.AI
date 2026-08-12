@@ -1689,6 +1689,19 @@ async function saveInbound(
     return
   }
 
+  // Dedup: pula insert se messageId já está na tabela (webhook pode ter salvo antes)
+  if (messageId) {
+    const { data: existing } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('id')
+      .eq('whatsapp_message_id', messageId)
+      .maybeSingle()
+    if (existing) {
+      console.log(`[SDR:${ctx.companyId}] saveInbound dedup : messageId=${messageId} já existe`)
+      return
+    }
+  }
+
   const { error } = await supabase.from('mensagens_do_whatsapp').insert({
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
