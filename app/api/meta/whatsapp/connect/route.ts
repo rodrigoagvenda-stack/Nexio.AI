@@ -97,8 +97,9 @@ export async function DELETE(req: NextRequest) {
   const { context, error: authError } = await requireAuth(req)
   if (authError) return authError
 
+  console.log(`[meta/connect:DELETE] desconectando companyId=${context.companyId}`)
   const supabase = createServiceClient()
-  await supabase
+  const { error: dbErr } = await supabase
     .from('sdr_configs')
     .update({
       whatsapp_provider: 'uazapi',
@@ -108,5 +109,11 @@ export async function DELETE(req: NextRequest) {
     })
     .eq('company_id', context.companyId)
 
+  if (dbErr) {
+    console.error(`[meta/connect:DELETE] ERRO : ${dbErr.message}`)
+    return NextResponse.json({ error: dbErr.message }, { status: 500 })
+  }
+
+  console.log(`[meta/connect:DELETE] OK : companyId=${context.companyId}`)
   return NextResponse.json({ ok: true })
 }

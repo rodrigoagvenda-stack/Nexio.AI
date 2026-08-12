@@ -2761,7 +2761,12 @@ export default function SdrConfigPage() {
                             }))
                           }}
                           onDisconnect={async () => {
-                            await fetch('/api/meta/whatsapp/connect', { method: 'DELETE' })
+                            const res = await fetch('/api/meta/whatsapp/connect', { method: 'DELETE' })
+                            if (!res.ok) {
+                              const err = await res.json().catch(() => ({}))
+                              toast({ title: `Erro ao desconectar: ${err?.error ?? res.status}`, variant: 'destructive' })
+                              return
+                            }
                             setConfig((p) => ({
                               ...p,
                               whatsapp_provider: 'uazapi',
