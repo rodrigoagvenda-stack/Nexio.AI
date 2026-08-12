@@ -21,6 +21,8 @@ import {
 import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { NumerosContent } from '@/components/configuracoes/NumerosContent';
+import { EquipeContent } from '@/components/configuracoes/EquipeContent';
 
 interface CompanyFull {
   id: number;
@@ -55,7 +57,7 @@ function resolvePlan(raw: string) {
   return 'basic' as keyof typeof PLANS;
 }
 
-const TABS = ['perfil', 'plano', 'integracoes', 'automacao', 'seguranca'] as const;
+const TABS = ['perfil', 'plano', 'integracoes', 'numeros', 'equipe', 'automacao', 'seguranca'] as const;
 type Tab = typeof TABS[number];
 
 // ─── Automação Inteligente ────────────────────────────────────────────────────
@@ -538,7 +540,7 @@ function ConfiguracoesContent() {
     }
   };
 
-  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', automacao: 'Automação', seguranca: 'Segurança' };
+  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', numeros: 'Números WA', equipe: 'Equipe', automacao: 'Automação', seguranca: 'Segurança' };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -1279,6 +1281,12 @@ function ConfiguracoesContent() {
           </div>
         </div>
       )}
+
+      {/* ── NÚMEROS WA ─────────────────────────────────────────── */}
+      {tab === 'numeros' && <NumerosContent />}
+
+      {/* ── EQUIPE ─────────────────────────────────────────────── */}
+      {tab === 'equipe' && <EquipeContent />}
 
       {/* ── AUTOMAÇÃO ──────────────────────────────────────────── */}
       {tab === 'automacao' && <AutomacaoContent />}
