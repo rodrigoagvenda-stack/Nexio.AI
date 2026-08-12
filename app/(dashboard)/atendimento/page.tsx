@@ -1111,6 +1111,14 @@ export default function AtendimentoPage() {
       .slice(0, 2) || '??';
   };
 
+  const proxyPhoto = (url?: string | null) => {
+    if (!url) return undefined
+    if (url.includes('pps.whatsapp.net') || url.includes('lookaside.fbsbx.com')) {
+      return `/api/whatsapp/photo-proxy?url=${encodeURIComponent(url)}`
+    }
+    return url
+  };
+
   const renderTextWithLinks = (text: string) => {
     if (!text) return null;
     const parts: { type: 'text' | 'url'; content: string }[] = [];
@@ -1581,7 +1589,7 @@ export default function AtendimentoPage() {
                   <div className="flex items-start gap-3">
                     <div className="relative">
                       <Avatar>
-                        <AvatarImage src={conv.whatsapp_photo_url ?? undefined} />
+                        <AvatarImage src={proxyPhoto(conv.whatsapp_photo_url)} />
                         <AvatarFallback>
                           {getInitials(conv.nome_do_contato || conv.numero_de_telefone)}
                         </AvatarFallback>
@@ -1709,7 +1717,7 @@ export default function AtendimentoPage() {
 
                   {/* Avatar */}
                   <Avatar className="h-9 w-9 flex-shrink-0">
-                    <AvatarImage src={selectedConversation.whatsapp_photo_url ?? undefined} />
+                    <AvatarImage src={proxyPhoto(selectedConversation.whatsapp_photo_url)} />
                     <AvatarFallback className="text-sm">
                       {getInitials(selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone)}
                     </AvatarFallback>
@@ -1820,7 +1828,7 @@ export default function AtendimentoPage() {
                   >
                     {msg.direcao === 'inbound' && (
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={selectedConversation.whatsapp_photo_url ?? undefined} />
+                        <AvatarImage src={proxyPhoto(selectedConversation.whatsapp_photo_url)} />
                         <AvatarFallback className="text-xs">
                           {getInitials(selectedConversation.nome_do_contato || 'C')}
                         </AvatarFallback>
@@ -1828,7 +1836,6 @@ export default function AtendimentoPage() {
                     )}
                     <MessageContextMenu
                       isOutbound={msg.direcao === 'outbound'}
-                      onReact={(emoji) => handleReactToMessage(msg.id, emoji)}
                       onReply={typeof msg.id === 'number' ? () => setReplyingTo({ id: msg.id as number, text: msg.texto_da_mensagem, sender: msg.direcao === 'inbound' ? (selectedConversation?.nome_do_contato || 'Contato') : (msg.user?.name || 'Você'), waId: (msg as any).whatsapp_message_id }) : undefined}
                       onCopy={() => handleCopyMessage(msg.texto_da_mensagem)}
                       onEdit={msg.direcao === 'outbound' ? () => setEditDialog({ open: true, message: msg }) : undefined}
@@ -1875,15 +1882,6 @@ export default function AtendimentoPage() {
                           </div>
                         )}
                         {renderMessageContent(msg)}
-                        {msg.reactions && msg.reactions.length > 0 && (
-                          <div className="flex gap-1 mt-2">
-                            {msg.reactions.map((reaction, idx) => (
-                              <span key={idx} className="text-base">
-                                {reaction}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                         <p
                           className={`text-xs mt-1 flex items-center gap-1 ${
                             msg.direcao === 'outbound' ? 'opacity-80' : 'text-muted-foreground'

@@ -7,7 +7,6 @@ interface MessageContextMenuProps {
   children: React.ReactNode;
   isOutbound?: boolean;
   className?: string;
-  onReact?: (emoji: string) => void;
   onReply?: () => void;
   onCopy?: () => void;
   onEdit?: () => void;
@@ -16,13 +15,10 @@ interface MessageContextMenuProps {
   onDelete?: () => void;
 }
 
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-
 export function MessageContextMenu({
   children,
   isOutbound = false,
   className = '',
-  onReact,
   onReply,
   onCopy,
   onEdit,
@@ -74,22 +70,6 @@ export function MessageContextMenu({
             isOutbound ? 'right-0' : 'left-0'
           }`}
         >
-          {/* Quick reactions */}
-          {onReact && (
-            <div className="flex items-center bg-background border border-border rounded-full shadow-md px-1 py-0.5 gap-0.5">
-              {QUICK_REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => { onReact(emoji); setHovered(false); }}
-                  className="text-base hover:scale-125 transition-transform px-0.5 leading-none"
-                  title={emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Reply shortcut: sempre visível na toolbar */}
           {onReply && (
             <button
