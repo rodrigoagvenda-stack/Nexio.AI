@@ -34,7 +34,7 @@ export default function Hero4({
     const sectionRef = useRef<HTMLElement>(null);
 
     // Spotlight que segue o mouse, via CSS custom properties (sem lib de animação)
-    function handleMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent) {
+    function handleMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent<HTMLElement>) {
         const { left, top } = currentTarget.getBoundingClientRect();
         currentTarget.style.setProperty('--mx', `${clientX - left}px`);
         currentTarget.style.setProperty('--my', `${clientY - top}px`);
