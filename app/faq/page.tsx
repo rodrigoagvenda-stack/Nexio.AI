@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { SiteHeader } from '@/components/landing/SiteHeader';
-import { SiteFooter } from '@/components/landing/SiteFooter';
+import { Navigation6 } from '@/components/ui/navigation-6';
+import Footer18 from '@/components/ui/footer-18';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
@@ -45,7 +45,7 @@ export default function FaqPage() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white font-roboto">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <SiteHeader />
+      <Navigation6 />
       <main className="px-6 py-20 md:py-28">
         <div className="mx-auto max-w-2xl">
           <p className="text-xs font-mono uppercase tracking-[0.12em] text-[#4fb884] mb-3">FAQ</p>
@@ -62,7 +62,7 @@ export default function FaqPage() {
           </Accordion>
         </div>
       </main>
-      <SiteFooter />
+      <Footer18 />
     </div>
   );
 }

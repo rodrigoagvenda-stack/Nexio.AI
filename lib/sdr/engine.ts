@@ -2233,7 +2233,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
         const handoffMsg = 'Perfeito! Recebi todas as informações. Em breve um de nossos especialistas entrará em contato com você. Aguarde!'
         const uazClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
-        await uazClient.sendText(phone, handoffMsg)
+        await uazClient.sendText({ number: phone, text: handoffMsg })
 
         await supabase.from('mensagens_do_whatsapp').insert({
           company_id: companyId,
@@ -2259,7 +2259,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       }
 
       const uazClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
-      await uazClient.sendText(phone, question)
+      await uazClient.sendText({ number: phone, text: question })
 
       await supabase.from('mensagens_do_whatsapp').insert({
         company_id: companyId,

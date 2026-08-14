@@ -1,56 +1,57 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ZaapliIcon } from '@/components/brand/ZaapliIcon';
 import { CheckCheck, Send } from 'lucide-react';
-
-gsap.registerPlugin(ScrollTrigger);
 
 const LEAD_MESSAGE = 'Oi, vi o anúncio, quanto custa o serviço?';
 const REPLY_MESSAGE = 'Oi! Consigo te ajudar agora. Pra te passar o valor certo: é pra uso pessoal ou pra empresa?';
 
+type Step = 'idle' | 'lead' | 'typing' | 'reply';
+
+function stepStyle(active: boolean) {
+  return {
+    opacity: active ? 1 : 0,
+    transform: active ? 'translateY(0)' : 'translateY(12px)',
+    transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+  };
+}
+
 export function WhatsAppSimulator() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const leadRef = useRef<HTMLDivElement>(null);
-  const typingRef = useRef<HTMLDivElement>(null);
-  const replyRef = useRef<HTMLDivElement>(null);
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [step, setStep] = useState<Step>('idle');
 
   useEffect(() => {
-    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mql.matches);
+    const root = rootRef.current;
+    if (!root) return;
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setStep('reply');
+      return;
+    }
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        observer.disconnect();
+        setStep('lead');
+        timers.push(setTimeout(() => setStep('typing'), 500));
+        timers.push(setTimeout(() => setStep('reply'), 1900));
+      },
+      { threshold: 0.3 }
+    );
+
+    observer.observe(root);
+    return () => {
+      observer.disconnect();
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
-  useEffect(() => {
-    if (reducedMotion) return;
-    const root = rootRef.current;
-    const lead = leadRef.current;
-    const typing = typingRef.current;
-    const reply = replyRef.current;
-    if (!root || !lead || !typing || !reply) return;
-
-    gsap.set([lead, typing, reply], { autoAlpha: 0, y: 12 });
-
-    const tl = gsap.timeline({ paused: true });
-    tl.to(lead, { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power2.out' })
-      .to(typing, { autoAlpha: 1, y: 0, duration: 0.3, ease: 'power2.out' }, '+=0.5')
-      .to(typing, { autoAlpha: 0, duration: 0.2 }, '+=1.1')
-      .to(reply, { autoAlpha: 1, y: 0, duration: 0.4, ease: 'power2.out' });
-
-    const st = ScrollTrigger.create({
-      trigger: root,
-      start: 'top 75%',
-      once: true,
-      onEnter: () => tl.play(),
-    });
-
-    return () => {
-      st.kill();
-      tl.kill();
-    };
-  }, [reducedMotion]);
+  const showLead = step === 'lead' || step === 'typing' || step === 'reply';
+  const showTyping = step === 'typing';
+  const showReply = step === 'reply';
 
   return (
     <div
@@ -76,14 +77,14 @@ export function WhatsAppSimulator() {
 
       {/* área de mensagens */}
       <div className="chat-background dark min-h-[260px] px-3.5 py-4 flex flex-col justify-end gap-2">
-        <div ref={leadRef} className="flex justify-start">
+        <div className="flex justify-start" style={stepStyle(showLead)}>
           <div className="max-w-[78%] rounded-2xl rounded-bl-sm bg-[#1F1F1F] px-3 py-2">
             <p className="text-[13.5px] text-[#EDEDED] leading-snug">{LEAD_MESSAGE}</p>
             <span className="block text-right text-[10px] text-[#888] mt-1">23:47</span>
           </div>
         </div>
 
-        <div ref={typingRef} className="flex justify-end">
+        <div className="flex justify-end" style={stepStyle(showTyping)}>
           <div className="rounded-2xl rounded-br-sm bg-[#01573C] px-3.5 py-2.5 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-[#d8d8d8]/70 animate-[zaapply-dot_1s_infinite]" style={{ animationDelay: '0s' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-[#d8d8d8]/70 animate-[zaapply-dot_1s_infinite]" style={{ animationDelay: '0.15s' }} />
@@ -91,7 +92,7 @@ export function WhatsAppSimulator() {
           </div>
         </div>
 
-        <div ref={replyRef} className="flex justify-end">
+        <div className="flex justify-end" style={stepStyle(showReply)}>
           <div className="max-w-[78%] rounded-2xl rounded-br-sm bg-[#01573C] px-3 py-2">
             <p className="text-[13.5px] text-[#EDEDED] leading-snug">{REPLY_MESSAGE}</p>
             <span className="flex items-center justify-end gap-1 text-[10px] text-[#a8d9c8] mt-1">

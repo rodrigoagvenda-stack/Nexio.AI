@@ -1,7 +1,7 @@
-export async function register() {
+﻿export async function register() {
   console.log('[Instrumentation] register() chamado')
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    // Sentry em try/catch — falha aqui NUNCA pode impedir o worker de subir
+    // Sentry em try/catch : falha aqui NUNCA pode impedir o worker de subir
     try {
       await import('./sentry.server.config')
     } catch (e: any) {
@@ -10,7 +10,7 @@ export async function register() {
 
     import('openai').catch(() => {})
 
-    // SDR Job Worker — processa fila persistente de mensagens.
+    // SDR Job Worker : processa fila persistente de mensagens.
     // Desabilitado quando DISABLE_SDR_WORKER=true (roda no container zaapply-sdr separado).
     if (process.env.DISABLE_SDR_WORKER !== 'true') {
       try {
@@ -20,7 +20,7 @@ export async function register() {
         console.error('[Instrumentation] ERRO CRÍTICO ao iniciar SDR worker:', e?.message)
       }
     } else {
-      console.log('[Instrumentation] SDR worker desabilitado — rodando em container separado')
+      console.log('[Instrumentation] SDR worker desabilitado : rodando em container separado')
     }
 
     const { writeHeapSnapshot } = await import('v8')

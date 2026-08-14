@@ -1,28 +1,46 @@
 ﻿'use client';
 
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
-import { SiteHeader } from './SiteHeader';
-import { SiteFooter } from './SiteFooter';
+import { Navigation6 } from '@/components/ui/navigation-6';
+import Hero4 from '@/components/ui/hero-13';
+import Footer18 from '@/components/ui/footer-18';
 import { Button } from '@/components/ui/button';
 import { Reveal } from './Reveal';
 import { WhatsAppSimulator } from './WhatsAppSimulator';
-import { Bot, Calendar, MessageSquare, KanbanSquare, Users2 } from 'lucide-react';
+import { Bot, Calendar, MessageSquare, KanbanSquare, Users2, Check, X } from 'lucide-react';
+
+const ALL_FEATURES = [
+  'SDR com IA',
+  'CRM Kanban',
+  'Atendimento via chat',
+  'Google Calendar integrado',
+  'Até 5 membros',
+];
 
 const PLANS = [
   {
     name: 'Zaapply Start',
     price: '297',
     members: '1 membro',
-    features: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat'],
+    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat'],
     badge: null as string | null,
   },
   {
     name: 'Zaapply Growth',
     price: '397',
     members: 'Até 5 membros',
-    features: ['Tudo do Start', 'Google Calendar integrado'],
+    included: ['SDR com IA', 'CRM Kanban', 'Atendimento via chat', 'Google Calendar integrado', 'Até 5 membros'],
     badge: 'Mais completo',
   },
+];
+
+const TICKER_ITEMS = [
+  'SDR com IA',
+  'CRM Kanban',
+  'Atendimento via chat',
+  'API oficial Meta via CoEx',
+  'Google Calendar integrado',
+  'Responde a qualquer hora',
 ];
 
 const STEPS = [
@@ -33,7 +51,7 @@ const STEPS = [
 
 function Section({ id, className = '', children }: { id?: string; className?: string; children: React.ReactNode }) {
   return (
-    <section id={id} className={`px-6 py-24 md:py-32 ${className}`}>
+    <section id={id} className={`px-6 md:px-10 lg:px-16 xl:px-24 py-24 md:py-32 ${className}`}>
       <div className="mx-auto max-w-5xl">{children}</div>
     </section>
   );
@@ -42,37 +60,42 @@ function Section({ id, className = '', children }: { id?: string; className?: st
 export function LandingPage() {
   return (
     <SmoothScrollProvider>
-      <div className="min-h-screen bg-[#0A0A0A] text-white font-roboto">
-        <SiteHeader />
+      <div className="relative min-h-screen bg-[#0A0A0A] text-white font-roboto">
+        {/* nav flutuante sobre o hero */}
+        <div className="absolute inset-x-0 top-0 z-50">
+          <Navigation6 />
+        </div>
 
-        {/* hero */}
-        <Section className="pt-16 md:pt-24 pb-28">
-          <div className="grid md:grid-cols-[1.15fr_1fr] gap-16 items-center">
-            <Reveal>
-              <div className="inline-flex items-center gap-2 text-xs text-[#8f8f8f] mb-6">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#96F63C] opacity-60" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#96F63C]" />
-                </span>
-                respondendo agora, em tempo real
-              </div>
-              <h1 className="text-[2.75rem] md:text-6xl font-extrabold leading-[1.04] tracking-tight text-balance">
-                23h de sexta. O lead manda mensagem.<br />Ninguém responde até segunda.
-              </h1>
-              <p className="mt-6 text-lg text-[#999] max-w-md leading-relaxed">
-                O Zaapply é o SDR que atende no WhatsApp da sua empresa: responde, qualifica e chama seu vendedor na hora certa. A venda acontece na conversa, não em mais um sistema pra alguém abrir.
-              </p>
-              <div className="mt-9 flex flex-wrap gap-3">
-                <Button size="lg">Assinar o Zaapply</Button>
-                <a href="#como-funciona">
-                  <Button variant="secondary" size="lg">Ver como funciona</Button>
-                </a>
-              </div>
-            </Reveal>
-            <Reveal delay={0.15} className="flex justify-center md:justify-end">
-              <WhatsAppSimulator />
-            </Reveal>
+        {/* hero cinematográfico */}
+        <Hero4 />
+
+        {/* ticker de destaques */}
+        <div className="relative border-y border-[#01573C] bg-[#01573C] py-3 overflow-hidden">
+          <div className="ticker-track flex w-max items-center gap-10 whitespace-nowrap">
+            {[...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS].map((item, i) => (
+              <span key={i} className="flex items-center gap-2 text-sm font-semibold text-[#d8f5e6]">
+                <span className="w-1 h-1 rounded-full bg-[#96F63C]" />
+                {item}
+              </span>
+            ))}
           </div>
+          <style>{`
+            @keyframes ticker-scroll {
+              from { transform: translateX(0); }
+              to { transform: translateX(-33.333%); }
+            }
+            .ticker-track { animation: ticker-scroll 22s linear infinite; }
+            @media (prefers-reduced-motion: reduce) {
+              .ticker-track { animation: none; }
+            }
+          `}</style>
+        </div>
+
+        {/* prova em ação: a conversa de verdade, logo após a promessa do hero */}
+        <Section className="pt-20 md:pt-28 pb-4">
+          <Reveal className="flex justify-center">
+            <WhatsAppSimulator />
+          </Reveal>
         </Section>
 
         {/* como funciona: narrado como a própria conversa */}
@@ -94,6 +117,24 @@ export function LandingPage() {
               </Reveal>
             ))}
           </div>
+        </Section>
+
+        {/* produto de verdade: print real do CRM Kanban */}
+        <Section>
+          <Reveal className="max-w-lg mx-auto text-center mb-14">
+            <p className="text-xs font-mono uppercase tracking-[0.12em] text-[#7fae8f] mb-3">CRM Kanban</p>
+            <h2 className="text-2xl md:text-[2rem] font-bold text-balance">Todo lead, no lugar certo, sem esforço</h2>
+            <p className="mt-4 text-[#999] text-[15px]">
+              O agente já organiza cada conversa no funil. Você só arrasta o card quando quiser mudar a etapa você mesmo.
+            </p>
+          </Reveal>
+          <Reveal delay={0.1} className="max-w-4xl mx-auto rounded-2xl border border-[#212121] overflow-hidden shadow-2xl">
+            <img
+              src="/demo/kanban/tela5.png"
+              alt="Tela real do CRM Kanban do Zaapply, com leads organizados por etapa do funil"
+              className="w-full h-auto block"
+            />
+          </Reveal>
         </Section>
 
         {/* para quem é */}
@@ -204,11 +245,19 @@ export function LandingPage() {
                 </p>
                 <p className="mt-1 text-xs text-[#777]">{plan.members}</p>
                 <ul className="mt-6 space-y-2.5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="text-sm text-[#ccc] flex items-start gap-2.5">
-                      <span className="text-[#7fae8f] mt-0.5 font-mono text-xs">＋</span>{f}
-                    </li>
-                  ))}
+                  {ALL_FEATURES.map((f) => {
+                    const has = plan.included.includes(f);
+                    return (
+                      <li key={f} className={`text-sm flex items-start gap-2.5 ${has ? 'text-[#ccc]' : 'text-[#555]'}`}>
+                        {has ? (
+                          <Check className="w-4 h-4 text-[#7fae8f] mt-0.5 shrink-0" strokeWidth={2} />
+                        ) : (
+                          <X className="w-4 h-4 text-[#444] mt-0.5 shrink-0" strokeWidth={2} />
+                        )}
+                        {f}
+                      </li>
+                    );
+                  })}
                 </ul>
               </Reveal>
             ))}
@@ -241,7 +290,7 @@ export function LandingPage() {
           </Reveal>
         </Section>
 
-        <SiteFooter />
+        <Footer18 />
       </div>
     </SmoothScrollProvider>
   );

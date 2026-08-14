@@ -1,59 +1,64 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export function Reveal({
   children,
   className = '',
   delay = 0,
   y = 24,
+  blur = 0,
+  once = false,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
   y?: number;
+  /** px de blur inicial que desfoca até 0 junto com o fade, tipo o giant-text do footer */
+  blur?: number;
+  /** true = revela uma vez e fica, false (padrão) = entra e sai a cada vez que cruza a tela */
+  once?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      gsap.set(el, { autoAlpha: 1, y: 0 });
+      setVisible(true);
       return;
     }
 
-    gsap.set(el, { autoAlpha: 0, y });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const inView = entries[0].isIntersecting;
+        if (inView) {
+          setVisible(true);
+          if (once) observer.disconnect();
+        } else if (!once) {
+          setVisible(false);
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -10% 0px' }
+    );
 
-    const tween = gsap.to(el, {
-      autoAlpha: 1,
-      y: 0,
-      duration: 0.7,
-      delay,
-      ease: 'power3.out',
-      paused: true,
-    });
-
-    const st = ScrollTrigger.create({
-      trigger: el,
-      start: 'top 85%',
-      once: true,
-      onEnter: () => tween.play(),
-    });
-
-    return () => {
-      st.kill();
-      tween.kill();
-    };
-  }, [delay, y]);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [once]);
 
   return (
-    <div ref={ref} className={className} style={{ visibility: 'hidden' }}>
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : `translateY(${y}px)`,
+        filter: blur ? (visible ? 'blur(0px)' : `blur(${blur}px)`) : undefined,
+        transition: `opacity 0.7s ease-out ${delay}s, transform 0.7s ease-out ${delay}s${blur ? `, filter 0.7s ease-out ${delay}s` : ''}`,
+      }}
+    >
       {children}
     </div>
   );
