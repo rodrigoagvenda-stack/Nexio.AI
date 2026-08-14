@@ -1,3 +1,5 @@
+'use client'
+
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import { Reveal } from '@/components/landing/Reveal';
 
