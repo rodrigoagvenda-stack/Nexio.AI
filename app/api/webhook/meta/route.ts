@@ -2,9 +2,45 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { normalizePhone } from '@/lib/sdr/uazapi'
+import { persistMediaToStorage } from '@/lib/sdr/media-storage'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
+
+// Resolve um media_id da Cloud API pra bytes reais : a Meta manda só { id, mime_type }
+// no webhook, nunca uma URL direta. Precisa de uma chamada extra pro Graph API que
+// devolve uma URL temporária (expira em minutos, exige o token no header pra baixar).
+async function resolveMetaMedia(mediaId: string, token: string): Promise<{ bytes: Buffer; mimetype: string } | null> {
+  try {
+    const metaRes = await fetch(`https://graph.facebook.com/v21.0/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!metaRes.ok) {
+      console.error(`[meta-webhook] resolveMetaMedia falhou ao buscar url : ${metaRes.status}`)
+      return null
+    }
+    const { url, mime_type } = await metaRes.json()
+    if (!url) return null
+
+    const fileRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    if (!fileRes.ok) {
+      console.error(`[meta-webhook] resolveMetaMedia falhou ao baixar arquivo : ${fileRes.status}`)
+      return null
+    }
+    const bytes = Buffer.from(await fileRes.arrayBuffer())
+    return { bytes, mimetype: mime_type || '' }
+  } catch (e: any) {
+    console.error('[meta-webhook] resolveMetaMedia erro:', e.message)
+    return null
+  }
+}
+
+function mediaKindFor(msgType: string): 'audio' | 'image' | 'document' | 'video' {
+  if (msgType === 'audio' || msgType === 'voice') return 'audio'
+  if (msgType === 'video') return 'video'
+  if (msgType === 'document') return 'document'
+  return 'image' // image, sticker
+}
 
 // GET : verificação do webhook pela Meta
 export async function GET(req: NextRequest) {
@@ -99,23 +135,24 @@ export async function POST(req: NextRequest) {
 
         let content = ''
         let mediaUrl: string | undefined
+        let metaMediaId: string | undefined
 
         if (msgType === 'text') {
           content = msg.text?.body ?? ''
         } else if (msgType === 'image') {
-          mediaUrl = msg.image?.url
+          metaMediaId = msg.image?.id
           content = msg.image?.caption ?? '📷 Imagem'
         } else if (msgType === 'video') {
-          mediaUrl = msg.video?.url
+          metaMediaId = msg.video?.id
           content = msg.video?.caption ?? '🎥 Vídeo'
         } else if (msgType === 'audio' || msgType === 'voice') {
-          mediaUrl = msg.audio?.url ?? msg.voice?.url
+          metaMediaId = msg.audio?.id ?? msg.voice?.id
           content = '🎵 Áudio'
         } else if (msgType === 'document') {
-          mediaUrl = msg.document?.url
+          metaMediaId = msg.document?.id
           content = msg.document?.caption ?? msg.document?.filename ?? '📄 Documento'
         } else if (msgType === 'sticker') {
-          mediaUrl = msg.sticker?.url
+          metaMediaId = msg.sticker?.id
           content = '🎭 Figurinha'
         } else if (msgType === 'location') {
           content = `📍 Localização: ${msg.location?.latitude}, ${msg.location?.longitude}`
@@ -134,6 +171,22 @@ export async function POST(req: NextRequest) {
         if (!companyId) continue
 
         const phone = normalizePhone(from)
+
+        // Resolve o media_id pra bytes reais e sobe pro storage : sem isso mediaUrl
+        // fica sempre undefined (a Meta nunca manda url pronta no webhook) e a mídia
+        // não aparece nem toca no Atendimento, nem chega pro enriquecimento da IA.
+        if (metaMediaId && metaToken) {
+          const resolved = await resolveMetaMedia(metaMediaId, metaToken)
+          if (resolved) {
+            mediaUrl = (await persistMediaToStorage({
+              companyId,
+              phone,
+              bytes: resolved.bytes,
+              mimetype: resolved.mimetype,
+              kind: mediaKindFor(msgType),
+            })) ?? undefined
+          }
+        }
 
         // Dedup por messageId
         const { data: existing } = await supabase

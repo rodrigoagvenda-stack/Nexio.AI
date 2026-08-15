@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       waMessageId = result?.id
     } else {
       const mediaType = type === 'audio' ? 'ptt' : (type as 'image' | 'video' | 'document' | 'ptt')
-      const result = await waSendMedia({ companyId: Number(companyId), phoneNumber, type: mediaType, fileUrl: mediaUrl, caption: caption || undefined, filename: filename || undefined })
+      const result = await waSendMedia({ companyId: Number(companyId), phoneNumber, type: mediaType, fileUrl: mediaUrl, caption: caption || undefined, filename: filename || undefined, replyId: replyId || undefined })
       waMessageId = result?.id
     }
 

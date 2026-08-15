@@ -13,6 +13,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
+import { persistMediaToStorage } from './media-storage'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -1727,7 +1728,8 @@ async function saveOutbound(
   conversationId: string,
   ctx: SdrContext,
   text: string,
-  supabase: ReturnType<typeof createServiceClient>
+  supabase: ReturnType<typeof createServiceClient>,
+  messageId?: string
 ): Promise<void> {
   if (!conversationId) {
     console.error(`[SDR:${ctx.companyId}] saveOutbound ignorado : conversationId vazio`)
@@ -1745,6 +1747,7 @@ async function saveOutbound(
     status: 'sent',
     nome_do_agente: ctx.instanceName || 'SDR IA',
     carimbo_de_data_e_hora: new Date().toISOString(),
+    whatsapp_message_id: messageId || null,
   })
   if (error) console.error(`[SDR:${ctx.companyId}] saveOutbound INSERT error:`, error.message)
 
@@ -1815,6 +1818,7 @@ async function sendWithHumanDelay(
     if (!paragraph.trim()) continue
 
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000
+    let sentMessageId: string | undefined
 
     if (isMeta) {
       await new Promise((r) => setTimeout(r, Math.min(typingDelay, 4000)))
@@ -1833,14 +1837,16 @@ async function sendWithHumanDelay(
         console.error(`[SDR:meta] ERRO ao enviar mensagem: ${JSON.stringify(metaJson)}`)
         throw new Error(metaJson?.error?.message ?? `Meta API error ${metaRes.status}`)
       }
-      console.log(`[SDR:meta] mensagem enviada : id=${metaJson.messages?.[0]?.id}`)
+      sentMessageId = metaJson.messages?.[0]?.id
+      console.log(`[SDR:meta] mensagem enviada : id=${sentMessageId}`)
     } else {
       await uazapi!.sendPresence(phone, 'composing', typingDelay)
       await new Promise((r) => setTimeout(r, typingDelay))
-      await uazapi!.sendText({ number: phone, text: paragraph })
+      const sendResult = await uazapi!.sendText({ number: phone, text: paragraph })
+      sentMessageId = sendResult?.id
     }
 
-    await saveOutbound(conversationId, ctx, paragraph, supabase)
+    await saveOutbound(conversationId, ctx, paragraph, supabase, sentMessageId)
 
     if (i < paragraphs.length - 1) {
       await new Promise((r) => setTimeout(r, 1500))
@@ -2000,18 +2006,24 @@ async function loadSdrConfig(
 
 // ─── Enriquecimento de mídia (transcrição de áudio, descrição de imagem) ──────
 
+// Agnóstico de canal : lê de msg.mediaUrl (já resolvida e persistida no storage na
+// hora do webhook, seja uazapi ou Meta/CoEx). Não baixa mais direto da uazapi aqui,
+// o que quebrava silenciosamente pra mensagens vindas do canal Meta.
 async function enrichMediaMessages(
   messages: BufferedMessage[],
-  uazapi: ReturnType<typeof createUazapiClient>,
   openai: OpenAI
 ): Promise<Array<BufferedMessage & { enrichedContent: string }>> {
   return Promise.all(
     messages.map(async (msg) => {
-      if (msg.type === 'audio' && msg.messageId) {
+      if (!msg.mediaUrl) return { ...msg, enrichedContent: msg.content }
+
+      if (msg.type === 'audio') {
         try {
-          const { base64Data, mimetype } = await uazapi.downloadMedia(msg.messageId)
-          const buffer = Buffer.from(base64Data, 'base64')
-          const file = new File([buffer], 'audio.ogg', { type: mimetype || 'audio/ogg' })
+          const res = await fetch(msg.mediaUrl)
+          if (!res.ok) throw new Error(`fetch mídia falhou : ${res.status}`)
+          const buffer = Buffer.from(await res.arrayBuffer())
+          const mimetype = res.headers.get('content-type') || 'audio/ogg'
+          const file = new File([buffer], 'audio.ogg', { type: mimetype })
           const transcription = await openai.audio.transcriptions.create({
             file,
             model: 'whisper-1',
@@ -2025,16 +2037,15 @@ async function enrichMediaMessages(
         }
       }
 
-      if (msg.type === 'image' && msg.messageId) {
+      if (msg.type === 'image') {
         try {
-          const { base64Data, mimetype } = await uazapi.downloadMedia(msg.messageId)
           const resp = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             max_tokens: 300,
             messages: [{
               role: 'user',
               content: [
-                { type: 'image_url', image_url: { url: `data:${mimetype || 'image/jpeg'};base64,${base64Data}` } },
+                { type: 'image_url', image_url: { url: msg.mediaUrl } },
                 { type: 'text', text: 'Descreva brevemente o conteúdo desta imagem no contexto de uma conversa comercial via WhatsApp.' },
               ],
             }],
@@ -2047,10 +2058,12 @@ async function enrichMediaMessages(
         }
       }
 
-      if (msg.type === 'document' && msg.messageId) {
+      if (msg.type === 'document') {
         try {
-          const { base64Data } = await uazapi.downloadMedia(msg.messageId)
-          const text = Buffer.from(base64Data, 'base64').toString('utf-8').slice(0, 2000)
+          const res = await fetch(msg.mediaUrl)
+          if (!res.ok) throw new Error(`fetch mídia falhou : ${res.status}`)
+          const buffer = Buffer.from(await res.arrayBuffer())
+          const text = buffer.toString('utf-8').slice(0, 2000)
           return { ...msg, enrichedContent: `[Documento enviado pelo lead: ${text}]` }
         } catch (e) {
           console.error('[SDR] Extração de documento falhou:', e)
@@ -2099,8 +2112,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const openai = await getOpenAIClient(cfg.openai_key || process.env.OPENAI_API_KEY || '')
 
     // Enriquece mídia (transcrição de áudio, descrição de imagem, extração de documento)
-    const uazapiMediaClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
-    const enrichedMessages = await enrichMediaMessages(bufferedMessages, uazapiMediaClient, openai)
+    const enrichedMessages = await enrichMediaMessages(bufferedMessages, openai)
 
     const { data: company } = await supabase
       .from('companies')
@@ -2380,8 +2392,27 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       return false
     }
 
-    const mediaUrl: string | undefined =
-      msg?.url || msg?.mediaUrl || msg?.media?.url || msg?.downloadUrl || undefined
+    const phone = normalizePhone(body.chat.phone)
+    const messageId = body.message.id ?? body.message.messageid
+
+    // Baixa a mídia da uazapi e sobe pro storage AQUI (não só na hora de enriquecer
+    // pra IA) : sem isso mediaUrl fica vazio e a mídia não aparece/toca no Atendimento.
+    let mediaUrl: string | undefined
+    if (isMedia && messageId) {
+      try {
+        const uazapiMedia = createUazapiClient(body.BaseUrl ?? 'https://nexioai.uazapi.com', body.token ?? '')
+        const { base64Data, mimetype } = await uazapiMedia.downloadMedia(messageId)
+        mediaUrl = (await persistMediaToStorage({
+          companyId,
+          phone,
+          bytes: Buffer.from(base64Data, 'base64'),
+          mimetype: mimetype || '',
+          kind: msgType as 'audio' | 'image' | 'document' | 'video',
+        })) ?? undefined
+      } catch (e: any) {
+        console.error(`[SDR:${companyId}] download/persist de mídia falhou:`, e.message)
+      }
+    }
 
     const placeholder = msgType === 'audio' ? '🎵 Áudio'
       : msgType === 'image' ? '📷 Imagem'
@@ -2413,9 +2444,6 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
       return false
     }
-
-    const phone = normalizePhone(body.chat.phone)
-    const messageId = body.message.id ?? body.message.messageid
 
     // Deduplicação por messageId
     const { data: dup } = await supabase
