@@ -65,12 +65,12 @@ export async function POST(req: NextRequest) {
   const queueThreshold = new Date(Date.now() - warmUpMinutes * 60 * 1000).toISOString()
   const { data: queued } = await supabase
     .from('conversas_do_whatsapp')
-    .select('id, created_at, queue_entered_at')
+    .select('id, created_at:criado_em, queue_entered_at')
     .eq('company_id', context.companyId)
     .in('current_status', ['livre', 'sdr'])
     .is('current_attendant_id', null)
     .in('kanban_stage', ['fila', 'novo'])
-    .lte('created_at', queueThreshold)
+    .lte('criado_em', queueThreshold)
     .order('queue_entered_at', { ascending: true, nullsFirst: false })
     .limit(50)
 

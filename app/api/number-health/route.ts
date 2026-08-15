@@ -45,9 +45,9 @@ export async function GET(req: NextRequest) {
   // Calculate response rates from conversations (internal calculation)
   const { data: convStats } = await supabase
     .from('conversas_do_whatsapp')
-    .select('wa_number_id, created_at')
+    .select('wa_number_id, created_at:criado_em')
     .eq('company_id', context.companyId)
-    .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
+    .gte('criado_em', new Date(Date.now() - 30 * 86400000).toISOString())
     .not('wa_number_id', 'is', null)
 
   const volumeByNumber: Record<string, number> = {}

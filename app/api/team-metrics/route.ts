@@ -15,9 +15,9 @@ export async function GET(req: NextRequest) {
   // Conversations in the period
   const { data: convs, error: convErr } = await supabase
     .from('conversas_do_whatsapp')
-    .select('id, created_at, current_status, kanban_stage, current_attendant_id')
+    .select('id, created_at:criado_em, current_status, kanban_stage, current_attendant_id')
     .eq('company_id', context.companyId)
-    .gte('created_at', since)
+    .gte('criado_em', since)
 
   if (convErr) {
     if (convErr.message?.includes('does not exist')) {

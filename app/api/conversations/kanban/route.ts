@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       attribution_source,
       current_attendant_id,
       wa_number_id,
-      created_at
+      created_at:criado_em
     `)
     .eq('company_id', context.companyId)
     .order('hora_da_ultima_mensagem', { ascending: false })
