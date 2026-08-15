@@ -855,7 +855,10 @@ async function runAgenteAgendamento(
   const systemPrompt = `Você é um assistente de agendamento comercial da Nexio.AI. Seu jeito é caloroso, gentil e eficiente. Trate o lead pelo nome sempre que possível e demonstre genuíno entusiasmo em agendar a call.
 Data e hora atual: ${now}
 
-FLUXO DE AGENDAMENTO:
+⛔ GUARDA-CHUVA (verifique ANTES de tudo) : você SÓ sabe marcar/remarcar/cancelar reunião no Google Calendar. Você NÃO conhece o produto do cliente, NÃO tem link de teste grátis, NÃO envia e-mail e NÃO libera cadastro nenhum.
+Se a "nova_informacao_agendamento" recebida NÃO for claramente um pedido de marcar/remarcar/cancelar uma REUNIÃO ou CALL com data e hora (por exemplo, for sobre teste grátis, link, cadastro, dúvida de produto ou preço), NÃO simule nenhum fluxo, NÃO invente prazo nem promessa de envio de nada. Responda apenas, em uma linha: "Isso não é um agendamento de reunião, vou verificar a forma correta de te ajudar com isso." e pare — não chame nenhuma tool.
+
+FLUXO DE AGENDAMENTO (só se passou pelo guarda-chuva acima):
 0. VERIFIQUE O HISTÓRICO ANTES DE QUALQUER AÇÃO:
    - O input pode conter histórico da conversa. Leia tudo antes de agir.
    - Se no histórico existe uma mensagem sua no formato "[Nome], [dia] [data] às [hora], confirma?" E a última mensagem do lead foi "sim", "pode", "ok", "confirmo", "tá bom" ou qualquer afirmação → PARE. Verifique se já tem nome completo E email no histórico. Se sim: vá direto para "Agendar_gcal". Se não: vá para o passo 4.5 agora.
@@ -1199,8 +1202,9 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
 1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
-2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar reunião/call, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
-Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.`
+2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
+Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.
+⛔ PROIBIDO chamar "Agente_de_Agendamento" para: pedido de teste grátis, link de teste, cadastro, demonstração, dúvida sobre produto ou preço, ou qualquer coisa que não seja marcar uma reunião/call com data e hora reais. Esse agente só sabe mexer no Google Calendar : ele NÃO conhece o produto, não tem link de teste e não envia e-mail nenhum. Pedido de teste/trial é respondido com "Play_conhecimento"/"Play_objecoes", nunca com este agente.`
     : ''
 
   return `${fixedLogic}${companyBlock}${schedulingBlock}`
@@ -1322,7 +1326,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
       type: 'function',
       function: {
         name: TOOL_NAME_MAP['Agente de Agendamento'],
-        description: 'Realiza o agendamento de reunião ou call com o lead. Chame quando o lead demonstrar intenção de agendar qualquer tipo de encontro.',
+        description: 'Marca, remarca ou cancela uma REUNIÃO/CALL com data e hora no Google Calendar. NÃO use para teste grátis, link de teste, cadastro, demonstração ou dúvidas de produto/preço : este agente só mexe em calendário, não conhece o produto e não tem como enviar link ou e-mail nenhum.',
         parameters: {
           type: 'object',
           properties: {
@@ -1829,7 +1833,7 @@ async function sendWithHumanDelay(
           messaging_product: 'whatsapp',
           to: phone.replace(/\D/g, ''),
           type: 'text',
-          text: { body: paragraph },
+          text: { body: paragraph, preview_url: true },
         }),
       })
       const metaJson = await metaRes.json()
@@ -2376,6 +2380,14 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     const msg = body.message as any
+
+    // Reação (❤️👍 etc) não é mensagem : ignora, não buffa e não gera resposta do SDR
+    const rawMessageType = String(msg?.messageType ?? '').toLowerCase()
+    if (rawMessageType.includes('reaction')) {
+      console.log(`[SDR:${companyId}] ignorado : reação (messageType="${msg?.messageType}")`)
+      return false
+    }
+
     const msgType = detectMessageType(body.message)
     const isMedia = msgType === 'audio' || msgType === 'image' || msgType === 'document' || msgType === 'video'
 

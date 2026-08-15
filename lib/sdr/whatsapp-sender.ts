@@ -40,7 +40,7 @@ async function metaSendText(phoneNumberId: string, token: string, to: string, te
       messaging_product: 'whatsapp',
       to: to.replace(/\D/g, ''),
       type: 'text',
-      text: { body: text },
+      text: { body: text, preview_url: true },
       ...(replyId ? { context: { message_id: replyId } } : {}),
     }),
   })

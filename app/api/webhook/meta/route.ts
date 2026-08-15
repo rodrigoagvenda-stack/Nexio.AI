@@ -133,6 +133,12 @@ export async function POST(req: NextRequest) {
         const msgId: string = msg.id ?? ''
         const msgType: string = msg.type ?? 'text'
 
+        // Reação (❤️👍 etc) não é mensagem : ignora, não buffa e não gera resposta do SDR
+        if (msgType === 'reaction') {
+          console.log(`[meta-webhook] ignorado : reação (emoji=${msg.reaction?.emoji ?? '?'})`)
+          continue
+        }
+
         let content = ''
         let mediaUrl: string | undefined
         let metaMediaId: string | undefined
