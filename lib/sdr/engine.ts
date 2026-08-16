@@ -14,6 +14,7 @@ import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
 import { persistMediaToStorage } from './media-storage'
+import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -68,7 +69,7 @@ interface SdrContext {
   eventTitleTemplate: string | null
 }
 
-interface BufferedMessage {
+export interface BufferedMessage {
   content: string
   type: string
   timestamp: string
@@ -187,7 +188,7 @@ function calcEntropy(text: string): number {
   return Math.round(e * 100) / 100
 }
 
-function isPromptInjection(text: string): boolean {
+export function isPromptInjection(text: string): boolean {
   if (!text) return false
 
   // LAYER 1: critical patterns : bloqueio imediato (espelha CRITICAL_PATTERNS do n8n)
@@ -233,7 +234,7 @@ function isPromptInjection(text: string): boolean {
 
 // ─── Buffer (Supabase) ────────────────────────────────────────
 
-async function bufferMessage(
+export async function bufferMessage(
   companyId: number,
   phone: string,
   message: BufferedMessage,
@@ -1763,7 +1764,7 @@ async function saveOutbound(
 
 // ─── Lead ──────────────────────────────────────────────────────
 
-async function findOrCreateLead(
+export async function findOrCreateLead(
   companyId: number,
   phone: string,
   name: string,
@@ -1860,7 +1861,7 @@ async function sendWithHumanDelay(
 
 // ─── Log ───────────────────────────────────────────────────────
 
-async function log(
+export async function log(
   companyId: number,
   eventType: string,
   payload: object,
@@ -2457,19 +2458,6 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       return false
     }
 
-    // Deduplicação por messageId
-    const { data: dup } = await supabase
-      .from('sdr_message_buffer')
-      .select('messages')
-      .eq('company_id', companyId)
-      .eq('phone', phone)
-      .maybeSingle()
-
-    if (dup?.messages) {
-      const msgs = dup.messages as BufferedMessage[]
-      if (msgs.some((m) => m.messageId === messageId)) return false
-    }
-
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
     const senderPhoto: string | undefined = body.chat?.image || body.chat?.imagePreview || undefined
 
@@ -2482,36 +2470,32 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
     }
 
-    const bufferedMsg: BufferedMessage = {
-      content: text || placeholder,
-      type: msgType,
-      timestamp: new Date().toISOString(),
+    const referral = msg?.referral ?? null
+    const evt: NormalizedInboundEvent = {
+      companyId,
+      channel: 'uazapi',
+      phone,
       messageId,
-      mediaUrl,
+      type: msgType,
+      text: text || placeholder,
+      timestamp: new Date().toISOString(),
       senderName,
       senderPhoto,
+      mediaUrl,
+      instanceName: body.instanceName ?? null,
+      referral: referral ? {
+        ctwaClid: referral.ctwaClid ?? null,
+        gclid: null,
+        sourceId: referral.sourceId ?? null,
+        sourceUrl: referral.sourceUrl ?? null,
+        sourceType: referral.sourceType ?? null,
+        headline: referral.headline ?? null,
+        body: referral.body ?? null,
+      } : null,
     }
 
-    await bufferMessage(companyId, phone, bufferedMsg, supabase)
-
-    // Persiste job : zaapply-sdr processa após 30s de inatividade
-    const { error: jobErr } = await supabase.from('sdr_jobs').upsert(
-      {
-        company_id: companyId,
-        phone,
-        status: 'PENDING',
-        last_message_at: new Date().toISOString(),
-        attempts: 0,
-      },
-      { onConflict: 'company_id,phone', ignoreDuplicates: false }
-    )
-    if (jobErr) {
-      console.error(`[SDR:${companyId}] ERRO ao criar job:`, jobErr.message)
-    } else {
-      console.log(`[SDR:${companyId}] job criado : phone=${phone}`)
-    }
-
-    return true
+    const result = await ingestInboundMessage(evt, supabase)
+    return result.handled
   } catch (err: any) {
     console.error('[SDR Webhook] Erro:', err)
     return false

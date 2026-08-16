@@ -3,6 +3,9 @@ import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { normalizePhone } from '@/lib/sdr/uazapi'
 import { persistMediaToStorage } from '@/lib/sdr/media-storage'
+import { isPromptInjection, log } from '@/lib/sdr/engine'
+import { ingestInboundMessage, type NormalizedInboundEvent } from '@/lib/sdr/inbound'
+import { sendInjectionAlertEmail } from '@/lib/email/resend'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -170,7 +173,6 @@ export async function POST(req: NextRequest) {
         // RF6.1 do PRD — janela de 7 dias, dado irrecuperável se perdido aqui
         const referral = msg.referral ?? null
         const ctwaClid = referral?.ctwa_clid ?? null
-        const gclid: string | null = null  // capturado via landing page, não via webhook
 
         console.log(`[meta-webhook] msg : companyId=${companyId} from=${from.slice(0, 4)}**** type=${msgType} id=${msgId} ctwa=${ctwaClid ? 'SIM' : 'NAO'}`)
 
@@ -194,170 +196,46 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Dedup por messageId
-        const { data: existing } = await supabase
-          .from('sdr_message_buffer')
-          .select('messages')
-          .eq('company_id', companyId)
-          .eq('phone', phone)
-          .maybeSingle()
-
-        if (existing?.messages) {
-          const buffered = existing.messages as any[]
-          if (buffered.some((m: any) => m.messageId === msgId)) {
-            console.log(`[meta-webhook] dedup : msgId=${msgId} já no buffer`)
-            continue
-          }
+        // Mesmo bloqueio de prompt injection que já roda pro canal uazapi
+        if (msgType === 'text' && content && isPromptInjection(content)) {
+          await log(companyId, 'injection_blocked', { text: content }, supabase, phone)
+          sendInjectionAlertEmail({
+            pushName: value.contacts?.[0]?.profile?.name ?? from,
+            senderNumber: phone,
+            instanceName: '', // sem equivalente na API oficial : não dá pra bloquear o contato via Graph API
+            originalMessage: content,
+            classification: 'DIRECT_OVERRIDE',
+            riskLevel: 'CRITICAL',
+            confidence: 0.95,
+            timestamp: new Date().toISOString(),
+          }).catch(() => {})
+          continue
         }
 
-        const bufferedMsg = {
-          content,
-          type: msgType,
-          timestamp: new Date().toISOString(),
+        const evt: NormalizedInboundEvent = {
+          companyId,
+          channel: 'meta',
+          phone,
           messageId: msgId,
+          type: msgType,
+          text: content,
+          timestamp: new Date().toISOString(),
+          senderName: value.contacts?.[0]?.profile?.name ?? undefined,
           mediaUrl,
+          referral: referral ? {
+            ctwaClid: referral.ctwa_clid ?? null,
+            gclid: null,
+            sourceId: referral.source_id ?? null,
+            sourceUrl: referral.source_url ?? null,
+            sourceType: referral.source_type ?? null,
+            headline: referral.headline ?? null,
+            body: referral.body ?? null,
+          } : null,
         }
 
-        const expiresAt = new Date(Date.now() + 30_000).toISOString()
-
-        if (existing) {
-          await supabase
-            .from('sdr_message_buffer')
-            .update({ messages: [...(existing.messages as any[]), bufferedMsg], expires_at: expiresAt })
-            .eq('company_id', companyId)
-            .eq('phone', phone)
-        } else {
-          await supabase.from('sdr_message_buffer').insert({
-            company_id: companyId,
-            phone,
-            messages: [bufferedMsg],
-            expires_at: expiresAt,
-          })
-        }
-
-        const { error: jobErr } = await supabase.from('sdr_jobs').upsert(
-          {
-            company_id: companyId,
-            phone,
-            status: 'PENDING',
-            last_message_at: new Date().toISOString(),
-            attempts: 0,
-          },
-          { onConflict: 'company_id,phone', ignoreDuplicates: false }
-        )
-
-        if (jobErr) {
-          console.error(`[meta-webhook] ERRO job : companyId=${companyId} phone=${phone.slice(0, 6)}**** : ${jobErr.message}`)
-        } else {
-          console.log(`[meta-webhook] job upserted : companyId=${companyId} phone=${phone.slice(0, 6)}****`)
-        }
-
-        // Salva imediatamente no chat para aparecer na UI sem esperar o SDR
-        const contactName = value.contacts?.[0]?.profile?.name ?? from
-        const ts = new Date().toISOString()
-
-        const { data: existingConv } = await supabase
-          .from('conversas_do_whatsapp')
-          .select('id, contagem_nao_lida, ctwa_clid')
-          .eq('company_id', companyId)
-          .eq('numero_de_telefone', phone)
-          .maybeSingle()
-
-        let convId: string | null = null
-        let isNewConversation = false
-
-        if (existingConv?.id) {
-          convId = String(existingConv.id)
-          const updatePayload: Record<string, unknown> = {
-            ultima_mensagem: content,
-            hora_da_ultima_mensagem: ts,
-            contagem_nao_lida: (existingConv.contagem_nao_lida ?? 0) + 1,
-            ultima_mensagem_inbound_at: ts,
-          }
-          // Só sobrescreve ctwa_clid se ainda não tinha (primeira atribuição ganha)
-          if (ctwaClid && !existingConv.ctwa_clid) {
-            updatePayload.ctwa_clid = ctwaClid
-            updatePayload.attribution_source = 'meta_ctwa'
-            updatePayload.window_type = 'ctwa'
-            const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
-            updatePayload.window_expires_at = expiresAt
-          }
-          await supabase
-            .from('conversas_do_whatsapp')
-            .update(updatePayload)
-            .eq('id', existingConv.id)
-        } else {
-          isNewConversation = true
-          const windowExpiresAt = ctwaClid
-            ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
-            : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-
-          const { data: created } = await supabase
-            .from('conversas_do_whatsapp')
-            .insert({
-              company_id: companyId,
-              numero_de_telefone: phone,
-              nome_do_contato: contactName,
-              ultima_mensagem: content,
-              hora_da_ultima_mensagem: ts,
-              status_da_conversa: 'aberto',
-              contagem_nao_lida: 1,
-              ultima_mensagem_inbound_at: ts,
-              ctwa_clid: ctwaClid ?? null,
-              gclid: gclid ?? null,
-              attribution_source: ctwaClid ? 'meta_ctwa' : 'organic',
-              kanban_stage: 'novo',
-              current_status: 'sdr',
-              window_type: ctwaClid ? 'ctwa' : 'regular',
-              window_expires_at: windowExpiresAt,
-            })
-            .select('id')
-            .single()
-          convId = created ? String(created.id) : null
-        }
-
-        if (convId && msgId) {
-          const { data: alreadySaved } = await supabase
-            .from('mensagens_do_whatsapp')
-            .select('id')
-            .eq('whatsapp_message_id', msgId)
-            .maybeSingle()
-
-          if (!alreadySaved) {
-            await supabase.from('mensagens_do_whatsapp').insert({
-              company_id: companyId,
-              id_da_conversacao: convId,
-              texto_da_mensagem: content,
-              tipo_de_mensagem: msgType,
-              direcao: 'inbound',
-              sender_type: 'lead',
-              carimbo_de_data_e_hora: ts,
-              url_da_midia: mediaUrl ?? null,
-              whatsapp_message_id: msgId,
-            })
-            console.log(`[meta-webhook] mensagem salva na UI : convId=${convId}`)
-          } else {
-            console.log(`[meta-webhook] mensagem já existe no DB : msgId=${msgId}`)
-          }
-
-          // Salva attribution_event se veio de CTWA (ou ao criar conversa nova como orgânico)
-          if (isNewConversation) {
-            const attrSource = ctwaClid ? 'meta_ctwa' : 'organic'
-            const windowType = ctwaClid ? 'meta_ctwa_72h' : 'organic_free'
-            await supabase.from('attribution_events').insert({
-              conversation_id: convId,
-              source: attrSource,
-              ctwa_clid: ctwaClid ?? null,
-              gclid: gclid ?? null,
-              campaign_id: referral?.source_id ?? null,
-              referral_source_url: referral?.source_url ?? null,
-              referral_source_type: referral?.source_type ?? null,
-              referral_headline: referral?.headline ?? null,
-              referral_body: referral?.body ?? null,
-              window_type: windowType,
-            })
-            console.log(`[meta-webhook] attribution_event salvo : source=${attrSource} ctwa=${ctwaClid ? 'SIM' : 'NAO'}`)
-          }
+        const result = await ingestInboundMessage(evt, supabase)
+        if (!result.handled) {
+          console.log(`[meta-webhook] dedup : msgId=${msgId} já no buffer`)
         }
 
         if (metaToken && msgId) markMetaRead(phoneNumberId, metaToken, msgId)
