@@ -65,6 +65,29 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
+// 🔗 Fusão Kanban WA → Kanban de leads : estado da conversa vinculada por telefone
+interface ConversaState {
+  kanban_stage?: string | null;
+  current_status?: string | null;
+  contagem_nao_lida?: number | null;
+  queue_entered_at?: string | null;
+}
+type LeadWithConversa = Lead & { _conversa?: ConversaState };
+
+function getConversaBadge(conversa?: ConversaState): { label: string; className: string; Icon: typeof Clock } | null {
+  if (!conversa) return null;
+  if (conversa.current_status === 'em_atendimento') {
+    return { label: 'Atendendo', className: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400', Icon: UserPlus };
+  }
+  if (conversa.kanban_stage === 'fila' || conversa.current_status === 'livre') {
+    return { label: 'Na fila', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', Icon: Clock };
+  }
+  if (conversa.current_status === 'sdr') {
+    return { label: 'IA respondendo', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400', Icon: MessageCircle };
+  }
+  return null;
+}
+
 function fmtCompact(v: number): string {
   if (!v || v <= 0) return '-';
   if (v >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace('.', ',')}M`;
@@ -78,7 +101,7 @@ function fmtCompact(v: number): string {
 const photoCache: Record<string, string | null> = {}
 
 // 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
-const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: Lead; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
+const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: {
@@ -239,6 +262,17 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
                 {lead.segment}
               </span>
             )}
+            {(() => {
+              const badge = getConversaBadge(lead._conversa);
+              if (!badge) return null;
+              const { Icon } = badge;
+              return (
+                <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 h-fit ${badge.className}`}>
+                  <Icon className="h-2.5 w-2.5" />
+                  {badge.label}
+                </span>
+              );
+            })()}
             {(lead.lead_tags as any[])?.map((lt: any) => {
               const tag = lt.tags;
               if (!tag) return null;
@@ -260,8 +294,16 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
               <DollarSign className="h-3 w-3 text-primary/60" />
               <span>{fmtCompact(lead.project_value || 0)}</span>
             </div>
-            <div className="text-[10px] text-muted-foreground">
-              {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+            <div className="flex items-center gap-1.5">
+              {!!lead._conversa?.contagem_nao_lida && lead._conversa.contagem_nao_lida > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-primary">
+                  <MessageCircle className="h-2.5 w-2.5" />
+                  {lead._conversa.contagem_nao_lida}
+                </span>
+              )}
+              <div className="text-[10px] text-muted-foreground">
+                {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              </div>
             </div>
           </div>
         </OrbitCardContent>
@@ -270,7 +312,7 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
   );
 });
 
-const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: Lead; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
+const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -330,6 +372,23 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
           )}
           {lead.segment && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-green-500/10 text-green-600 dark:text-green-400">{lead.segment}</span>
+          )}
+          {(() => {
+            const badge = getConversaBadge(lead._conversa);
+            if (!badge) return null;
+            const { Icon } = badge;
+            return (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-0.5 ${badge.className}`}>
+                <Icon className="h-2.5 w-2.5" />
+                {badge.label}
+              </span>
+            );
+          })()}
+          {!!lead._conversa?.contagem_nao_lida && lead._conversa.contagem_nao_lida > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] font-semibold text-primary">
+              <MessageCircle className="h-2.5 w-2.5" />
+              {lead._conversa.contagem_nao_lida}
+            </span>
           )}
           {(lead.lead_tags as any[])?.map((lt: any) => {
             const tag = lt.tags;
@@ -451,7 +510,7 @@ const DroppableColumn = memo(function DroppableColumn({
 export default function CRMPage() {
   const router = useRouter();
   const { authUser, user, company, loading: userLoading } = useUser();
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<LeadWithConversa[]>([]);
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -554,7 +613,22 @@ export default function CRMPage() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setLeads(data || []);
+
+      // 🔗 Fusão Kanban WA : busca estado da conversa vinculada a cada lead pelo telefone
+      const phones = Array.from(new Set((data ?? []).map((l: any) => l.whatsapp).filter(Boolean))) as string[];
+      let convByPhone: Record<string, ConversaState> = {};
+      if (phones.length > 0) {
+        const { data: convs } = await supabase
+          .from('conversas_do_whatsapp')
+          .select('numero_de_telefone, kanban_stage, current_status, contagem_nao_lida, queue_entered_at')
+          .eq('company_id', user?.company_id)
+          .in('numero_de_telefone', phones);
+        for (const c of (convs ?? [])) {
+          convByPhone[c.numero_de_telefone] = c;
+        }
+      }
+
+      setLeads((data ?? []).map((l: any) => ({ ...l, _conversa: l.whatsapp ? convByPhone[l.whatsapp] : undefined })));
     } catch (error) {
       console.error('Error fetching leads:', error);
       toast({ title: 'Erro ao carregar leads', variant: 'destructive' });
