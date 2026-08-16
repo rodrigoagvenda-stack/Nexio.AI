@@ -277,6 +277,10 @@ O formato deve ser rigoroso: gatilhos, script correto, o que nunca dizer, condic
 === INFORMAÇÕES DO NEGÓCIO ===
 Nome: ${variables.nome_empresa ?? '[nome_empresa]'}
 
+[LINKS OFICIAIS : use EXATAMENTE estes, nunca invente ou altere um caractere]
+Link de teste/demonstração: ${variables.link_teste || 'NÃO INFORMADO : não inclua link de teste em nenhum script, apenas ofereça agendar ou tirar dúvida'}
+Link de playlist/tutoriais: ${variables.link_playlist || 'NÃO INFORMADO : omita'}
+
 [OBJEÇÕES DE PREÇO E VALOR]
 ${answers.obj_preco}
 
@@ -306,6 +310,8 @@ Gatilhos: "frase gatilho 1" / "frase gatilho 2" / "frase gatilho 3"
    - [JÁ USO OUTRA COISA] : investigue sem rebater
    - [NÃO SEI SE PRECISO] : normalize, redirecione para teste/ação sem pressão
 3. Se recusar 2x → script de encerramento cordial
+
+⚠️ PROIBIDO inventar, adivinhar ou "completar" qualquer URL. Use SOMENTE os links informados na seção [LINKS OFICIAIS] acima, copiados caractere por caractere. Se um link não foi informado, não o mencione em nenhum script.
 
 Responda em JSON: { "scripts": "todos os scripts no formato acima, um após o outro" }`
 
