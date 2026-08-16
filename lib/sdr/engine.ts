@@ -760,10 +760,15 @@ NÍVEL DE INTERESSE (use exatamente assim):
 - "Morno 🌡️"
 - "Frio ❄️"
 
-PRIORIDADE (use exatamente assim):
-- "Alta"
-- "Média"
-- "Baixa"
+PRIORIDADE (use exatamente assim) — critério objetivo, não é opinião:
+- "Alta": pelo menos UM destes sinais está presente na conversa:
+  · urgência declarada pelo lead ("preciso pra já", "quero resolver essa semana", "hoje mesmo")
+  · nível de interesse "Quente 🔥"
+  · pediu ou aceitou o link de teste / demonstrou intenção clara de avançar (agendar, testar, comprar)
+  · confirmou orçamento/ticket compatível sem levantar objeção de preço
+- "Média": lead engajado (responde, faz perguntas sobre o produto), nível de interesse "Morno 🌡️", mas sem nenhum sinal de urgência ou intenção de avançar ainda
+- "Baixa": lead pouco engajado (respostas curtas, frias, genéricas), nível de interesse "Frio ❄️", objeção forte sem resolução, ou sinal de que não é o momento
+Se não houver sinal suficiente pra nenhuma das três, NÃO atualize o campo — mantenha o valor atual do lead.
 
 SEGMENTOS (use exatamente assim):
 - "E-commerce", "Saúde/Medicina", "Educação", "Alimentação", "Beleza/Estética", "Imobiliária", "Advocacia", "Consultoria", "Tecnologia", "Moda/Fashion", "Arquitetura", "Outros"
