@@ -21,6 +21,7 @@ import { TagsManager } from './TagsManager';
 import { AgendaTab } from './AgendaTab';
 import { MidiaTab } from './MidiaTab';
 import type { Lead } from '@/types/database.types';
+import { computeWindowState, formatWindowBadge } from '@/lib/sdr/window';
 
 type LeadSource = {
   type?: string;
@@ -43,8 +44,9 @@ interface LeadInfoSidebarProps {
   tags?: string[];
   className?: string;
   leadSource?: LeadSource | null;
-  windowExpiresAt?: string | null;
-  windowType?: 'ctwa' | 'regular' | null;
+  ultimaMensagemInboundAt?: string | null;
+  ctwaClid?: string | null;
+  ctwaFirstReplyAt?: string | null;
   onLeadUpdate?: (updatedLead: Lead) => void;
   onTagsUpdate?: (tags: string[]) => void;
 }
@@ -58,8 +60,9 @@ export function LeadInfoSidebar({
   tags = [],
   className,
   leadSource,
-  windowExpiresAt,
-  windowType,
+  ultimaMensagemInboundAt,
+  ctwaClid,
+  ctwaFirstReplyAt,
   onLeadUpdate,
   onTagsUpdate,
 }: LeadInfoSidebarProps) {
@@ -366,7 +369,7 @@ export function LeadInfoSidebar({
                   <div className="flex items-center gap-1.5">
                     <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
                     <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Origem</p>
-                    {windowType === 'ctwa' && (
+                    {ctwaClid && (
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-auto text-purple-500 border-purple-500/40">CTWA</Badge>
                     )}
                   </div>
@@ -414,15 +417,23 @@ export function LeadInfoSidebar({
                         <p className="font-mono text-[10px] text-muted-foreground truncate">{leadSource.ctwa_clid.slice(0, 24)}…</p>
                       </div>
                     )}
-                    {windowExpiresAt && (() => {
-                      const diff = new Date(windowExpiresAt).getTime() - Date.now()
-                      if (diff <= 0) return <p className="text-muted-foreground">Janela de conversa encerrada</p>
-                      const h = Math.floor(diff / 3600000)
-                      const timeStr = h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h restantes` : `${h}h restantes na janela`
+                    {ultimaMensagemInboundAt && (() => {
+                      const state = computeWindowState({
+                        ultimaMensagemInboundAt: ultimaMensagemInboundAt ?? null,
+                        ctwaClid: ctwaClid ?? null,
+                        ctwaFirstReplyAt: ctwaFirstReplyAt ?? null,
+                      })
+                      const label = formatWindowBadge(state)
+                      if (!state.serviceWindow.open) return <p className="text-muted-foreground">{label}</p>
+                      const colorClass = state.ctwaWindow?.active
+                        ? 'text-purple-500 font-medium'
+                        : state.billing === 'charged_24h'
+                          ? 'text-amber-500 font-medium'
+                          : 'text-emerald-500 font-medium'
                       return (
                         <div>
-                          <p className="text-[10px] text-muted-foreground mb-0.5">Janela gratuita</p>
-                          <p className={windowType === 'ctwa' ? 'text-purple-500 font-medium' : 'text-emerald-500 font-medium'}>{timeStr}</p>
+                          <p className="text-[10px] text-muted-foreground mb-0.5">Janela de mensagem</p>
+                          <p className={colorClass}>{label}</p>
                         </div>
                       )
                     })()}

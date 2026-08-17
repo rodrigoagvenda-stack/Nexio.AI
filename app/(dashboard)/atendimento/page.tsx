@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign } from 'lucide-react';
 import NextImage from 'next/image';
+import { computeWindowState, formatWindowBadge } from '@/lib/sdr/window';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -48,15 +49,22 @@ function fmtConvTime(iso: string): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
-function fmtWindowBadge(expiresAt: string | null | undefined, type: string | null | undefined): { label: string; style: string } | null {
-  if (!expiresAt) return null
-  const diff = new Date(expiresAt).getTime() - Date.now()
-  if (diff <= 0) return { label: '○ Fora da janela', style: 'text-muted-foreground border-muted-foreground/30' }
-  const h = Math.floor(diff / 3600000)
-  const m = Math.floor((diff % 3600000) / 60000)
-  const timeStr = h > 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : h > 0 ? `${h}h` : `${m}min`
-  if (type === 'ctwa') return { label: `● CTWA · ${timeStr}`, style: 'text-purple-500 border-purple-500/40 bg-purple-500/5' }
-  return { label: `● Janela · ${timeStr}`, style: 'text-emerald-500 border-emerald-500/40 bg-emerald-500/5' }
+function fmtWindowBadge(conv: {
+  ultima_mensagem_inbound_at?: string | null
+  ctwa_clid?: string | null
+  ctwa_first_reply_at?: string | null
+}): { label: string; style: string } | null {
+  if (!conv.ultima_mensagem_inbound_at) return null
+  const state = computeWindowState({
+    ultimaMensagemInboundAt: conv.ultima_mensagem_inbound_at ?? null,
+    ctwaClid: conv.ctwa_clid ?? null,
+    ctwaFirstReplyAt: conv.ctwa_first_reply_at ?? null,
+  })
+  const label = formatWindowBadge(state)
+  if (!state.serviceWindow.open) return { label, style: 'text-muted-foreground border-muted-foreground/30' }
+  if (state.ctwaWindow?.active) return { label, style: 'text-purple-500 border-purple-500/40 bg-purple-500/5' }
+  if (state.billing === 'charged_24h') return { label, style: 'text-amber-500 border-amber-500/40 bg-amber-500/5' }
+  return { label, style: 'text-emerald-500 border-emerald-500/40 bg-emerald-500/5' }
 }
 
 function fmtDateLabel(iso: string): string {
@@ -86,6 +94,8 @@ interface Conversation {
   whatsapp_photo_url?: string;
   window_expires_at?: string | null;
   window_type?: 'ctwa' | 'regular' | null;
+  ultima_mensagem_inbound_at?: string | null;
+  ctwa_first_reply_at?: string | null;
   // Épico 2 — multi-atendente
   current_status?: 'sdr' | 'livre' | 'em_atendimento' | 'fechada' | 'aguardando_retorno' | null;
   current_attendant_id?: string | null;
@@ -558,7 +568,20 @@ export default function AtendimentoPage() {
       });
 
       const data = await response.json();
-      if (!data.success) throw new Error(data.message);
+      if (!data.success) {
+        if (data.code === 'OUTSIDE_WINDOW') {
+          setMessages(prev => prev.filter(msg => msg.id !== tempId));
+          setNewMessage(messageText);
+          toast({
+            title: 'Fora da janela de 24h',
+            description: 'Só é possível enviar um template aprovado. Veja em Configurações → Respostas Rápidas / Templates HSM.',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+        throw new Error(data.message);
+      }
 
       // Atualizar mensagem otimista com dados reais do servidor
       setMessages(prev =>
@@ -1647,7 +1670,7 @@ export default function AtendimentoPage() {
                       </p>
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
                         {(() => {
-                          const wb = fmtWindowBadge(conv.window_expires_at, conv.window_type)
+                          const wb = fmtWindowBadge(conv)
                           return wb ? (
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${wb.style}`}>
                               {wb.label}
@@ -2089,8 +2112,9 @@ export default function AtendimentoPage() {
               chatId={selectedConversation.id}
               tags={selectedConversation.etiquetas || []}
               leadSource={selectedConversation.lead_source}
-              windowExpiresAt={selectedConversation.window_expires_at}
-              windowType={selectedConversation.window_type}
+              ultimaMensagemInboundAt={selectedConversation.ultima_mensagem_inbound_at}
+              ctwaClid={selectedConversation.ctwa_clid}
+              ctwaFirstReplyAt={selectedConversation.ctwa_first_reply_at}
               onLeadUpdate={(updatedLead) => {
                 // Atualizar o lead na conversa selecionada
                 setSelectedConversation((prev) =>
@@ -2146,8 +2170,9 @@ export default function AtendimentoPage() {
                 chatId={selectedConversation.id}
                 tags={selectedConversation.etiquetas || []}
                 leadSource={selectedConversation.lead_source}
-                windowExpiresAt={selectedConversation.window_expires_at}
-                windowType={selectedConversation.window_type}
+                ultimaMensagemInboundAt={selectedConversation.ultima_mensagem_inbound_at}
+                ctwaClid={selectedConversation.ctwa_clid}
+                ctwaFirstReplyAt={selectedConversation.ctwa_first_reply_at}
                 className="flex flex-col border-0 shadow-none rounded-none bg-transparent"
                 onLeadUpdate={(updatedLead) => {
                   setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);

@@ -15,6 +15,8 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
 import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
+import { canSendFreeform } from './window'
+import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -1823,6 +1825,15 @@ async function sendWithHumanDelay(
   const isMeta = !!(metaPhoneNumberId && metaToken)
   const uazapi = isMeta ? null : createUazapiClient(uazapiUrl, token)
 
+  // Janela de 24h : fora dela, mensagem livre falha direto na API da Meta.
+  // Bloqueia antes de tentar, em vez de deixar a chamada estourar.
+  const windowState = await getWindowStateForConversation(supabase, conversationId)
+  if (windowState && !canSendFreeform(windowState)) {
+    console.warn(`[SDR:${ctx.companyId}] envio bloqueado : fora da janela de 24h (conversationId=${conversationId})`)
+    await log(ctx.companyId, 'send_blocked_outside_window', { conversationId }, supabase, phone, ctx.leadId)
+    return
+  }
+
   for (let i = 0; i < paragraphs.length; i++) {
     const paragraph = paragraphs[i]
     if (!paragraph.trim()) continue
@@ -1857,6 +1868,7 @@ async function sendWithHumanDelay(
     }
 
     await saveOutbound(conversationId, ctx, paragraph, supabase, sentMessageId)
+    await maybeStampFirstCtwaReply(supabase, conversationId)
 
     if (i < paragraphs.length - 1) {
       await new Promise((r) => setTimeout(r, 1500))

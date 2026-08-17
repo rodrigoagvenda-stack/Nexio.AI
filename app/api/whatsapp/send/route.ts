@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { sendText as waSendText, sendMedia as waSendMedia } from '@/lib/sdr/whatsapp-sender'
+import { computeWindowState, canSendFreeform } from '@/lib/sdr/window'
 
 export async function POST(request: NextRequest) {
   const { context, error: authError } = await requireAuth(request)
@@ -32,13 +33,26 @@ export async function POST(request: NextRequest) {
 
     const { data: conversation, error: convError } = await supabase
       .from('conversas_do_whatsapp')
-      .select('id, company_id, id_do_lead')
+      .select('id, company_id, id_do_lead, ultima_mensagem_inbound_at, ctwa_clid, ctwa_first_reply_at')
       .eq('id', conversationId)
       .eq('company_id', companyId)
       .single()
 
     if (convError || !conversation) {
       return NextResponse.json({ success: false, message: 'Conversa não encontrada ou acesso negado' }, { status: 403 })
+    }
+
+    // Janela de 24h : fora dela, mensagem livre falha direto na API da Meta.
+    const windowState = computeWindowState({
+      ultimaMensagemInboundAt: conversation.ultima_mensagem_inbound_at,
+      ctwaClid: conversation.ctwa_clid,
+      ctwaFirstReplyAt: conversation.ctwa_first_reply_at,
+    })
+    if (!canSendFreeform(windowState)) {
+      return NextResponse.json(
+        { success: false, code: 'OUTSIDE_WINDOW', message: 'Fora da janela de 24h : só é possível enviar template aprovado.' },
+        { status: 422 }
+      )
     }
 
     let waMessageId: string | undefined
@@ -67,6 +81,11 @@ export async function POST(request: NextRequest) {
     }
     if (conversation.id_do_lead) messageData.id_do_lead = conversation.id_do_lead
     if (replyToText) messageData.reply_to_text = replyToText
+    // Marca a primeira resposta a uma conversa CTWA : início real da janela de 72h grátis.
+    if (conversation.ctwa_clid && !conversation.ctwa_first_reply_at) {
+      supabase.from('conversas_do_whatsapp').update({ ctwa_first_reply_at: new Date().toISOString() }).eq('id', conversationId)
+        .then(() => {}, () => {})
+    }
     if (replyToSender) messageData.reply_to_sender = replyToSender
 
     const [{ data: savedMessage, error: messageError }] = await Promise.all([
