@@ -18,18 +18,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   if (tErr || !template) return NextResponse.json({ error: 'Template não encontrado' }, { status: 404 })
 
-  // Busca config do Meta (waba_id + token)
-  const { data: numConfig } = await supabase
-    .from('meta_wa_numbers')
-    .select('waba_id, token')
+  // Busca WABA ID + token do número Meta conectado de verdade (mesma conexão
+  // usada pra enviar/receber mensagem, ver MetaWhatsAppConnect em
+  // configuracoes/sdr) — não da tabela meta_wa_numbers, que é um formulário
+  // manual desconectado do motor do SDR.
+  const { data: sdrConfig } = await supabase
+    .from('sdr_configs')
+    .select('meta_wa_waba_id, meta_wa_token')
     .eq('company_id', context.companyId)
-    .not('waba_id', 'is', null)
-    .not('token', 'is', null)
-    .limit(1)
     .maybeSingle()
 
-  if (!numConfig?.waba_id || !numConfig?.token) {
-    return NextResponse.json({ error: 'Configure um número com WABA ID e token para submeter templates ao Meta' }, { status: 422 })
+  if (!sdrConfig?.meta_wa_waba_id || !sdrConfig?.meta_wa_token) {
+    return NextResponse.json({ error: 'Conecte o WhatsApp via Meta Cloud API (Automações → Agente SDR → Integrações) antes de submeter templates' }, { status: 422 })
   }
 
   const payload = {
@@ -45,11 +45,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const metaRes = await fetch(
-    `https://graph.facebook.com/v21.0/${numConfig.waba_id}/message_templates`,
+    `https://graph.facebook.com/v21.0/${sdrConfig.meta_wa_waba_id}/message_templates`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${numConfig.token}`,
+        Authorization: `Bearer ${sdrConfig.meta_wa_token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),

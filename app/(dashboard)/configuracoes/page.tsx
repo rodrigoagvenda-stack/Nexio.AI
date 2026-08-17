@@ -21,11 +21,9 @@ import {
 import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { NumerosContent } from '@/components/configuracoes/NumerosContent';
 import { EquipeContent } from '@/components/configuracoes/EquipeContent';
 import { HorarioContent } from '@/components/configuracoes/HorarioContent';
 import { RespostasRapidasContent } from '@/components/configuracoes/RespostasRapidasContent';
-import { SaudeNumerosContent } from '@/components/configuracoes/SaudeNumerosContent';
 import { TemplatesHSMContent } from '@/components/configuracoes/TemplatesHSMContent';
 
 interface CompanyFull {
@@ -61,7 +59,10 @@ function resolvePlan(raw: string) {
   return 'basic' as keyof typeof PLANS;
 }
 
-const TABS = ['perfil', 'plano', 'integracoes', 'numeros', 'equipe', 'horario', 'respostas', 'saude', 'templates', 'automacao', 'seguranca'] as const;
+// numeros/saude removidos do nav : gravam em meta_wa_numbers, tabela que
+// nenhum lugar do motor do SDR (engine.ts/inbound.ts/webhooks) lê. Escondido
+// até a v2 de múltiplos números (roadmap) existir de verdade.
+const TABS = ['perfil', 'plano', 'integracoes', 'equipe', 'horario', 'respostas', 'templates', 'automacao', 'seguranca'] as const;
 type Tab = typeof TABS[number];
 
 // ─── Automação Inteligente ────────────────────────────────────────────────────
@@ -544,7 +545,7 @@ function ConfiguracoesContent() {
     }
   };
 
-  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', numeros: 'Números WA', equipe: 'Equipe', horario: 'Horários', respostas: 'Respostas Rápidas', saude: 'Saúde do Número', templates: 'Templates HSM', automacao: 'Automação', seguranca: 'Segurança' };
+  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', equipe: 'Equipe', horario: 'Horários', respostas: 'Respostas Rápidas', templates: 'Templates HSM', automacao: 'Automação', seguranca: 'Segurança' };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -1286,9 +1287,6 @@ function ConfiguracoesContent() {
         </div>
       )}
 
-      {/* ── NÚMEROS WA ─────────────────────────────────────────── */}
-      {tab === 'numeros' && <NumerosContent />}
-
       {/* ── EQUIPE ─────────────────────────────────────────────── */}
       {tab === 'equipe' && <EquipeContent />}
 
@@ -1297,9 +1295,6 @@ function ConfiguracoesContent() {
 
       {/* ── RESPOSTAS RÁPIDAS ───────────────────────────────────── */}
       {tab === 'respostas' && <RespostasRapidasContent />}
-
-      {/* ── SAÚDE DO NÚMERO ─────────────────────────────────────── */}
-      {tab === 'saude' && <SaudeNumerosContent />}
 
       {/* ── TEMPLATES HSM ───────────────────────────────────────── */}
       {tab === 'templates' && <TemplatesHSMContent />}

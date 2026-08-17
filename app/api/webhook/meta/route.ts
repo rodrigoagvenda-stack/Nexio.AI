@@ -108,6 +108,35 @@ export async function POST(req: NextRequest) {
   for (const entry of entries) {
     for (const change of entry.changes ?? []) {
       const value = change.value
+
+      // Aprovação/rejeição de template HSM : evento separado, na WABA (entry.id),
+      // não no número de telefone. Sem isso o status do template ficava preso em
+      // "pendente" pra sempre depois de submetido (ver app/api/hsm-templates).
+      if (change.field === 'message_template_status_update') {
+        const wabaId: string = entry.id ?? ''
+        const metaTemplateId: string | undefined = value?.message_template_id ? String(value.message_template_id) : undefined
+        const event: string = (value?.event ?? '').toUpperCase()
+        const newStatus = event === 'APPROVED' ? 'aprovado' : event === 'REJECTED' ? 'rejeitado' : null
+
+        if (wabaId && metaTemplateId && newStatus) {
+          const { data: cfg } = await supabase
+            .from('sdr_configs')
+            .select('company_id')
+            .eq('meta_wa_waba_id', wabaId)
+            .maybeSingle()
+
+          if (cfg?.company_id) {
+            await supabase
+              .from('hsm_templates')
+              .update({ status: newStatus, rejection_reason: value?.reason ?? null, updated_at: new Date().toISOString() })
+              .eq('company_id', cfg.company_id)
+              .eq('meta_template_id', metaTemplateId)
+            console.log(`[meta-webhook] template ${metaTemplateId} : status atualizado pra ${newStatus} (empresa ${cfg.company_id})`)
+          }
+        }
+        continue
+      }
+
       const phoneNumberId: string = value?.metadata?.phone_number_id ?? ''
       const messages: any[] = value?.messages ?? []
       const statuses: any[] = value?.statuses ?? []
