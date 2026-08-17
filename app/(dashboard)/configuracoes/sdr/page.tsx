@@ -21,7 +21,7 @@ import {
   Monitor, Wand2, Smile, Activity, Leaf, Stethoscope,
   Heart, BarChart2, ShoppingCart, GraduationCap,
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
-  TrendingUp,
+  TrendingUp, Link2, Copy,
   type LucideIcon,
 } from 'lucide-react'
 import { BotMessageSquareIcon } from '@/components/ui/bot-message-square'
@@ -1104,6 +1104,173 @@ function CalendarSection({ calendarId, onCalendarIdChange }: {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Google Ads (OAuth + status) ───────────────────────────────────────────
+
+interface GoogleAdsStatus { connected: boolean; email: string | null; customer_id: string | null }
+
+function GoogleAdsSection() {
+  const [status, setStatus] = useState<GoogleAdsStatus>({ connected: false, email: null, customer_id: null })
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/google-ads/status').then((r) => r.json())
+      .then((d) => setStatus({ connected: d.connected, email: d.email, customer_id: d.customer_id }))
+      .catch(() => {})
+  }, [])
+
+  async function disconnect() {
+    setDisconnecting(true)
+    try {
+      await fetch('/api/google-ads/status', { method: 'DELETE' })
+      setStatus({ connected: false, email: null, customer_id: null })
+    } finally { setDisconnecting(false) }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
+        <p className="text-sm font-semibold">Google Ads : Enhanced Conversions</p>
+        {status.connected && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium ml-auto">Conectado</span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Conecta a conta Google Ads pra casar leads fechados com cliques via telefone (Enhanced Conversions for Leads). Upload automático da conversão ainda depende de aprovação do Developer Token pela Google.
+      </p>
+      {status.connected ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-green-500/30 bg-green-500/5 px-3 py-2">
+          <div className="flex items-center gap-2 text-xs min-w-0">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+            <span className="font-mono text-foreground truncate">{status.email}</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={disconnect} disabled={disconnecting} className="text-xs text-muted-foreground gap-1.5 h-7 shrink-0">
+            {disconnecting ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}Desconectar
+          </Button>
+        </div>
+      ) : (
+        <Button variant="outline" onClick={() => { window.location.href = '/api/google-ads/auth' }} className="gap-2">
+          <svg className="w-4 h-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Conectar com Google Ads
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// ── Links Rastreados (captura de gclid pra Google Ads) ────────────────────
+
+interface TrackingLink {
+  id: number; slug: string; phone: string; mensagem: string | null
+  utm_campaign: string | null; utm_source: string | null; gclid_capture: boolean; cliques: number
+}
+
+function TrackingLinksManager() {
+  const [links, setLinks] = useState<TrackingLink[]>([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ phone: '', mensagem: '', utm_campaign: '', utm_source: '', gclid_capture: true })
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/sdr/tracking-links')
+      const data = await res.json()
+      setLinks(data.links ?? [])
+    } catch { toast({ title: 'Erro ao carregar links', variant: 'destructive' }) }
+    finally { setLoading(false) }
+  }
+
+  async function createLink() {
+    if (!form.phone || (!form.utm_campaign && !form.utm_source)) {
+      toast({ title: 'Telefone e campanha/fonte são obrigatórios', variant: 'destructive' }); return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/sdr/tracking-links', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setLinks((p) => [data.link, ...p])
+      setForm({ phone: '', mensagem: '', utm_campaign: '', utm_source: '', gclid_capture: true })
+      setAdding(false)
+    } catch (err: any) { toast({ title: `Erro: ${err.message}`, variant: 'destructive' }) }
+    finally { setSaving(false) }
+  }
+
+  async function deleteLink(id: number) {
+    setLinks((p) => p.filter((l) => l.id !== id))
+    await fetch(`/api/sdr/tracking-links?id=${id}`, { method: 'DELETE' }).catch(() => {})
+  }
+
+  function linkUrl(link: TrackingLink) {
+    const base = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+    return link.gclid_capture ? `${base}/l/${link.slug}?gclid={gclid}` : `${base}/api/track/${link.slug}`
+  }
+
+  function copyUrl(link: TrackingLink) {
+    navigator.clipboard.writeText(linkUrl(link)).then(() => toast({ title: 'Link copiado' }))
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+        <p className="text-sm font-semibold">Links Rastreados</p>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        Gere um link pra usar no anúncio do Google. Com "capturar gclid" ativo, o link abre uma página pedindo o telefone antes de ir pro WhatsApp — necessário pra Enhanced Conversions.
+      </p>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-1"><Loader2 className="w-3.5 h-3.5 animate-spin" />Carregando…</div>
+      ) : (
+        <div className="space-y-2 mb-3">
+          {links.map((link) => (
+            <div key={link.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{link.utm_campaign || link.utm_source}{link.gclid_capture && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600">gclid</span>}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{linkUrl(link)} · {link.cliques} cliques</p>
+              </div>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => copyUrl(link)}><Copy className="w-3.5 h-3.5" /></Button>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0 text-destructive hover:text-destructive" onClick={() => deleteLink(link.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+            </div>
+          ))}
+          {links.length === 0 && <p className="text-xs text-muted-foreground py-1">Nenhum link criado ainda.</p>}
+        </div>
+      )}
+
+      {adding ? (
+        <div className="space-y-2 p-3 rounded-lg border border-border">
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Telefone (WhatsApp destino)" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className="h-8 text-sm" />
+            <Input placeholder="Campanha (utm_campaign)" value={form.utm_campaign} onChange={(e) => setForm((p) => ({ ...p, utm_campaign: e.target.value }))} className="h-8 text-sm" />
+          </div>
+          <Input placeholder="Mensagem pré-preenchida (opcional)" value={form.mensagem} onChange={(e) => setForm((p) => ({ ...p, mensagem: e.target.value }))} className="h-8 text-sm" />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch checked={form.gclid_capture} onCheckedChange={(v) => setForm((p) => ({ ...p, gclid_capture: v }))} />
+            Capturar telefone + gclid antes de redirecionar (recomendado pra Google Ads)
+          </label>
+          <div className="flex gap-2">
+            <Button size="sm" className="h-8 text-xs" disabled={saving} onClick={createLink}>
+              {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}Criar link
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setAdding(false)}>Cancelar</Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5" onClick={() => setAdding(true)}>
+          <Plus className="w-3.5 h-3.5" />Novo link
+        </Button>
+      )}
     </div>
   )
 }
@@ -2824,7 +2991,15 @@ export default function SdrConfigPage() {
                         )}
                       </div>
 
-                      {/* Links Rastreados removido — substituído por atribuição CTWA nativa do Meta (Épico 6) */}
+                      <div className="border-t border-border" />
+
+                      {/* ── Google Ads : Enhanced Conversions ── */}
+                      <GoogleAdsSection />
+
+                      <div className="border-t border-border" />
+
+                      {/* ── Links Rastreados : captura de gclid ── */}
+                      <TrackingLinksManager />
                     </div>
                   )}
 

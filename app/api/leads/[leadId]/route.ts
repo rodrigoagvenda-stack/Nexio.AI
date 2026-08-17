@@ -80,6 +80,42 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ lea
           console.warn('[CAPI] falha ao disparar evento pra lead fechado:', e.message)
         }
       })()
+
+      // Dispara upload de Enhanced Conversion pro Google Ads em background,
+      // só se a empresa tiver conectado a conta (lib/google-ads/data-manager.ts
+      // ainda é um stub : a chamada real depende de Developer Token aprovado).
+      ;(async () => {
+        try {
+          const { data: integration } = await supabase
+            .from('google_ads_integrations')
+            .select('access_token, refresh_token, customer_id, login_customer_id, developer_token, conversion_action_id')
+            .eq('company_id', context.companyId)
+            .maybeSingle()
+          if (!integration) return
+          const { data: leadRow } = await supabase
+            .from('leads')
+            .select('whatsapp, project_value')
+            .eq('id', leadId)
+            .single()
+          if (!leadRow?.whatsapp) return
+          const { data: convRow } = await supabase
+            .from('conversas_do_whatsapp')
+            .select('gclid')
+            .eq('company_id', context.companyId)
+            .eq('numero_de_telefone', leadRow.whatsapp)
+            .maybeSingle()
+          const { uploadEnhancedConversion } = await import('@/lib/google-ads/data-manager')
+          await uploadEnhancedConversion({
+            integration,
+            phone: leadRow.whatsapp,
+            gclid: convRow?.gclid ?? null,
+            conversionDateTime: new Date().toISOString(),
+            valueCents: leadRow.project_value ? Math.round(leadRow.project_value * 100) : null,
+          })
+        } catch (e: any) {
+          console.warn('[GoogleAds] falha ao disparar enhanced conversion:', e.message)
+        }
+      })()
     }
     if (field === 'status' && value !== 'Fechado') updateData.closed_at = null;
 

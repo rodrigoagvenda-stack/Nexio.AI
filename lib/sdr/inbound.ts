@@ -84,7 +84,7 @@ async function ensureConversationAtWebhookTime(
 
   const { data: existing } = await supabase
     .from('conversas_do_whatsapp')
-    .select('id, contagem_nao_lida, ctwa_clid')
+    .select('id, contagem_nao_lida, ctwa_clid, gclid')
     .eq('company_id', companyId)
     .eq('numero_de_telefone', phone)
     .maybeSingle()
@@ -102,6 +102,10 @@ async function ensureConversationAtWebhookTime(
       updatePayload.attribution_source = 'meta_ctwa'
       updatePayload.window_type = 'ctwa'
       updatePayload.window_expires_at = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+    }
+    if (gclid && !existing.gclid) {
+      updatePayload.gclid = gclid
+      if (!ctwaClid && !existing.ctwa_clid) updatePayload.attribution_source = 'google_ads'
     }
     if (instanceName) updatePayload.instance_name = instanceName
 
@@ -128,7 +132,7 @@ async function ensureConversationAtWebhookTime(
       ultima_mensagem_inbound_at: ts,
       ctwa_clid: ctwaClid,
       gclid,
-      attribution_source: ctwaClid ? 'meta_ctwa' : 'organic',
+      attribution_source: ctwaClid ? 'meta_ctwa' : gclid ? 'google_ads' : 'organic',
       window_type: ctwaClid ? 'ctwa' : 'regular',
       window_expires_at: windowExpiresAt,
     })
@@ -189,13 +193,33 @@ async function ensureConversationAtWebhookTime(
   return { conversationId: String(created.id), isNewConversation: true }
 }
 
+// Casa a mensagem que chega com um clique recente numa landing de captura de
+// gclid (app/l/[slug]) pelo telefone informado lá. Consome o clique (marca
+// consumed_at) pra não reaproveitar o mesmo gclid numa conversa futura.
+async function resolveGclidForPhone(companyId: number, phone: string, supabase: Supabase): Promise<string | null> {
+  const { data: click } = await supabase
+    .from('tracking_link_clicks')
+    .select('id, gclid')
+    .eq('company_id', companyId)
+    .eq('captured_phone', phone)
+    .is('consumed_at', null)
+    .order('clicked_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!click?.gclid) return null
+
+  await supabase.from('tracking_link_clicks').update({ consumed_at: new Date().toISOString() }).eq('id', click.id)
+  return click.gclid
+}
+
 async function insertAttributionEvent(
   conversationId: string,
   referral: NormalizedReferral | null | undefined,
   supabase: Supabase
 ): Promise<void> {
   const ctwaClid = referral?.ctwaClid ?? null
-  const attrSource = ctwaClid ? 'meta_ctwa' : 'organic'
+  const attrSource = ctwaClid ? 'meta_ctwa' : referral?.gclid ? 'google_ads' : 'organic'
   const windowType = ctwaClid ? 'meta_ctwa_72h' : 'organic_free'
   await supabase.from('attribution_events').insert({
     conversation_id: conversationId,
@@ -288,6 +312,14 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
     const lead = await findOrCreateLead(evt.companyId, evt.phone, evt.senderName ?? '', company?.name ?? '', supabase)
     leadId = lead.id
 
+    // Referral da Meta (CTWA) nunca traz gclid : busca separada por clique de
+    // Google Ads capturado na landing app/l/[slug] antes dessa mensagem chegar.
+    let referral = evt.referral ?? null
+    if (!referral?.gclid) {
+      const matchedGclid = await resolveGclidForPhone(evt.companyId, evt.phone, supabase)
+      if (matchedGclid) referral = { ...(referral ?? {}), gclid: matchedGclid }
+    }
+
     const { conversationId: convId, isNewConversation } = await ensureConversationAtWebhookTime(
       {
         companyId: evt.companyId,
@@ -296,14 +328,14 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
         contactName: evt.senderName || evt.phone,
         displayText: evt.text,
         instanceName: evt.instanceName,
-        referral: evt.referral,
+        referral,
       },
       supabase
     )
     conversationId = convId
 
     if (isNewConversation) {
-      await insertAttributionEvent(conversationId, evt.referral, supabase)
+      await insertAttributionEvent(conversationId, referral, supabase)
     }
 
     await insertInboundMessageRow(

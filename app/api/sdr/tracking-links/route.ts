@@ -17,7 +17,7 @@ export async function GET() {
     const service = createServiceClient()
     const { data: links, error } = await service
       .from('tracking_links')
-      .select('id, slug, phone, mensagem, utm_campaign, utm_source, utm_medium, utm_content, cliques, criado_em')
+      .select('id, slug, phone, mensagem, utm_campaign, utm_source, utm_medium, utm_content, gclid_capture, cliques, criado_em')
       .eq('company_id', userData.company_id)
       .order('criado_em', { ascending: false })
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     if (!userData) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
     const body = await req.json()
-    const { phone, mensagem, utm_campaign, utm_source, utm_medium, utm_content } = body
+    const { phone, mensagem, utm_campaign, utm_source, utm_medium, utm_content, gclid_capture } = body
 
     if (!phone) return NextResponse.json({ error: 'Telefone obrigatório' }, { status: 400 })
     if (!utm_campaign && !utm_source) {
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         utm_source: utm_source || null,
         utm_medium: utm_medium || null,
         utm_content: utm_content || null,
+        gclid_capture: !!gclid_capture,
       })
       .select()
       .single()
