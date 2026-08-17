@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
-import crypto from 'crypto'
+import { fireMetaCapiEvent } from '@/lib/meta/capi'
 
 const VALID_STAGES = ['novo', 'qualificacao', 'fila', 'em_atendimento', 'negociacao', 'fechado']
 
@@ -60,82 +60,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         { onConflict: 'conversation_id' }
       )
 
-    // Dispara Conversions API Meta em background
-    fireMetaConversionsApi(supabase, convId, conv.numero_de_telefone, conv.ctwa_clid, value_cents, context.companyId)
+    // Dispara Conversions API Meta em background (mesmo helper usado pelo
+    // fechamento no Kanban de leads, ver lib/meta/capi.ts)
+    fireMetaCapiEvent(supabase, {
+      companyId: context.companyId,
+      phone: conv.numero_de_telefone,
+      valueCents: value_cents,
+      eventIdSeed: `conv_${convId}`,
+    }).catch((e) => console.warn('[conversions-kanban] falha ao disparar CAPI:', e?.message))
   }
 
   return NextResponse.json({ ok: true, stage, conv_id: convId })
-}
-
-async function fireMetaConversionsApi(
-  supabase: ReturnType<typeof createServiceClient>,
-  convId: number,
-  phone: string,
-  ctwaClid: string | null,
-  valueCents: number,
-  companyId: number
-) {
-  try {
-    // Busca pixel config
-    const { data: cfg } = await supabase
-      .from('sdr_configs')
-      .select('meta_pixel_id, meta_pixel_token')
-      .eq('company_id', companyId)
-      .maybeSingle()
-
-    if (!cfg?.meta_pixel_id || !cfg?.meta_pixel_token) {
-      console.log('[conversions-api] pixel não configurado — pulando disparo')
-      return
-    }
-
-    // Hasheia telefone (SHA-256 sem formatação)
-    const cleanPhone = phone.replace(/\D/g, '')
-    const hashedPhone = crypto.createHash('sha256').update(cleanPhone).digest('hex')
-
-    const eventTime = Math.floor(Date.now() / 1000)
-    const payload = {
-      data: [
-        {
-          event_name: 'Purchase',
-          event_time: eventTime,
-          action_source: 'other',
-          user_data: {
-            ph: [hashedPhone],
-          },
-          custom_data: {
-            value: valueCents / 100,
-            currency: 'BRL',
-          },
-          ...(ctwaClid ? { attribution_data: { attribution_share: '1', attribution_model: 'last_touch', ctwa_clid: ctwaClid } } : {}),
-        },
-      ],
-    }
-
-    const res = await fetch(
-      `https://graph.facebook.com/v21.0/${cfg.meta_pixel_id}/events?access_token=${cfg.meta_pixel_token}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-    )
-    const responseBody = await res.json()
-
-    await supabase.from('conversions_api_log').insert({
-      conversation_id: convId,
-      payload_sent: payload,
-      response_status: res.status,
-      response_body: responseBody,
-      attempt_number: 1,
-      success: res.ok,
-    })
-
-    console.log(`[conversions-api] disparo : convId=${convId} status=${res.status} ok=${res.ok}`)
-  } catch (err: any) {
-    console.error(`[conversions-api] erro no disparo : convId=${convId} : ${err.message}`)
-    await supabase.from('conversions_api_log').insert({
-      conversation_id: convId,
-      payload_sent: {},
-      response_status: 0,
-      response_body: { error: err.message },
-      attempt_number: 1,
-      success: false,
-    })
-  }
 }

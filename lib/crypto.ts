@@ -66,6 +66,20 @@ export function decrypt(encryptedData: string): string {
 }
 
 /**
+ * Descriptografa com fallback pro valor bruto : usado em campos que
+ * historicamente foram salvos sem passar por encrypt() (texto puro sem
+ * o prefixo plain:), pra não quebrar leitura de dados antigos. Autocura
+ * sozinho : o próximo save já grava criptografado de verdade.
+ */
+export function safeDecrypt(value: string): string {
+  try {
+    return decrypt(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
  * Gera um ID aleatório para webhooks
  */
 export function generateWebhookId(length: number = 32): string {

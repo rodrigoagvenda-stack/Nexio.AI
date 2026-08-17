@@ -2,6 +2,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireAuth, validateCompanyAccess } from '@/lib/auth/require-auth';
 import { gtproConvertLead } from '@/lib/meta/gtpro';
+import { fireMetaCapiEvent } from '@/lib/meta/capi';
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ leadId: string }> }) {
   const params = await props.params;
@@ -56,6 +57,28 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ lea
             value: leadMeta?.project_value ?? undefined,
           })
         } catch {}
+      })()
+
+      // Dispara conversão pra Meta Conversions API em background : manda
+      // sempre que tiver telefone, com ou sem ctwa_clid (prática padrão :
+      // ver commit). Provider independente do GTPRO acima.
+      ;(async () => {
+        try {
+          const { data: leadRow } = await supabase
+            .from('leads')
+            .select('whatsapp, project_value')
+            .eq('id', leadId)
+            .single()
+          if (!leadRow?.whatsapp) return
+          await fireMetaCapiEvent(supabase, {
+            companyId: context.companyId,
+            phone: leadRow.whatsapp,
+            valueCents: leadRow.project_value ? Math.round(leadRow.project_value * 100) : null,
+            eventIdSeed: `lead_${leadId}`,
+          })
+        } catch (e: any) {
+          console.warn('[CAPI] falha ao disparar evento pra lead fechado:', e.message)
+        }
       })()
     }
     if (field === 'status' && value !== 'Fechado') updateData.closed_at = null;

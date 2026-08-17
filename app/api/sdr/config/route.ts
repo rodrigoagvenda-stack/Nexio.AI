@@ -128,7 +128,7 @@ export async function PUT(request: NextRequest) {
     if (google_calendar_id !== undefined) configUpdates.google_calendar_id = google_calendar_id
     if (meta_pixel_id !== undefined) configUpdates.meta_pixel_id = meta_pixel_id || null
     if (meta_pixel_token && !meta_pixel_token.startsWith('••')) {
-      configUpdates.meta_pixel_token = meta_pixel_token
+      configUpdates.meta_pixel_token = encrypt(meta_pixel_token)
     }
 
     if (uazapi_token && !uazapi_token.startsWith('••')) {

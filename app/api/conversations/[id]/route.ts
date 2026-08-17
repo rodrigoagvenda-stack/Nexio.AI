@@ -1,8 +1,11 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import crypto from 'crypto'
 
-// PATCH /api/conversations/:id : atualiza status da conversa; dispara CAPI se fechado/ganho
+// PATCH /api/conversations/:id : atualiza status da conversa
+// (o disparo de evento pra Meta CAPI acontece só via leads.status → 'Fechado',
+// ver app/api/leads/[leadId]/route.ts + lib/meta/capi.ts — essa rota tinha uma
+// cópia própria da mesma lógica, mas sem chamador nenhum : removida pra não
+// arriscar disparo duplicado de Purchase se alguém religar sem saber da outra.)
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
@@ -28,7 +31,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
     const { data: conv, error: convFetchErr } = await service
       .from('conversas_do_whatsapp')
-      .select('id, numero_de_telefone, lead_source, window_type')
+      .select('id')
       .eq('id', convId)
       .eq('company_id', userData.company_id)
       .single()
@@ -39,52 +42,6 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       .from('conversas_do_whatsapp')
       .update({ status_da_conversa: status })
       .eq('id', convId)
-
-    // Dispara evento CAPI quando fechado com sucesso (fire-and-forget)
-    if (status === 'fechado') {
-      ;(async () => {
-        try {
-          const { data: config } = await service
-            .from('sdr_configs')
-            .select('meta_pixel_id, meta_pixel_token')
-            .eq('company_id', userData.company_id)
-            .single()
-
-          if (!config?.meta_pixel_id || !config?.meta_pixel_token) return
-
-          const phone = conv.numero_de_telefone?.replace(/\D/g, '') ?? ''
-          const ctwaClid = (conv.lead_source as any)?.ctwa_clid ?? undefined
-          const phoneHash = phone
-            ? crypto.createHash('sha256').update(phone).digest('hex')
-            : undefined
-
-          const eventTime = Math.floor(Date.now() / 1000)
-          await fetch(
-            `https://graph.facebook.com/v21.0/${config.meta_pixel_id}/events?access_token=${config.meta_pixel_token}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                data: [{
-                  event_name: 'Purchase',
-                  event_time: eventTime,
-                  event_id: `zaapply_close_${convId}_${eventTime}`,
-                  action_source: 'business_messaging',
-                  messaging_channel: 'whatsapp',
-                  user_data: {
-                    ...(phoneHash ? { ph: [phoneHash] } : {}),
-                    ...(ctwaClid ? { ctwa_clid: ctwaClid } : {}),
-                  },
-                }],
-              }),
-            }
-          )
-          console.log(`[CAPI] Purchase disparado : conversa=${convId}`)
-        } catch (e: any) {
-          console.warn('[CAPI] falha ao disparar evento:', e?.message)
-        }
-      })()
-    }
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
