@@ -99,3 +99,55 @@ export function buildTemplateComponents(spec: TemplateSpec): unknown[] {
 
   return components
 }
+
+// ── Envio (payload diferente de criação : "parameters" no lugar de "example") ──
+
+export interface SendButtonParam {
+  subType: 'quick_reply' | 'url'
+  index: number
+  value: string // payload pro quick_reply, texto da variável da url pro url
+}
+
+export interface SendCardSpec {
+  cardIndex: number
+  mediaType: 'image' | 'video'
+  mediaId: string // id da Media Upload API padrão (envio), NÃO o handle de criação
+  buttons?: SendButtonParam[]
+}
+
+export interface TemplateSendSpec {
+  bodyParams?: string[]
+  cards?: SendCardSpec[] // só carrossel
+}
+
+function buildSendButtonComponent(b: SendButtonParam) {
+  return {
+    type: 'button',
+    sub_type: b.subType,
+    index: b.index,
+    parameters: [b.subType === 'quick_reply' ? { type: 'payload', payload: b.value } : { type: 'text', text: b.value }],
+  }
+}
+
+export function buildTemplateSendComponents(spec: TemplateSendSpec): unknown[] {
+  const components: unknown[] = []
+
+  if (spec.bodyParams?.length) {
+    components.push({ type: 'body', parameters: spec.bodyParams.map((t) => ({ type: 'text', text: t })) })
+  }
+
+  if (spec.cards?.length) {
+    components.push({
+      type: 'carousel',
+      cards: spec.cards.map((c) => ({
+        card_index: c.cardIndex,
+        components: [
+          { type: 'header', parameters: [{ type: c.mediaType, [c.mediaType]: { id: c.mediaId } }] },
+          ...(c.buttons ?? []).map(buildSendButtonComponent),
+        ],
+      })),
+    })
+  }
+
+  return components
+}
