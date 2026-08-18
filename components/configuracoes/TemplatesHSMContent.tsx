@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2, Plus, FileText, CheckCircle2, XCircle, Clock, Copy, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 
 interface HSMTemplate {
   id: string;
@@ -45,12 +46,49 @@ export function TemplatesHSMContent() {
     body: '',
   });
 
-  useEffect(() => {
+  const loadTemplates = () => {
     fetch('/api/hsm-templates')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.data) setTemplates(d.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  // Status muda sozinho quando a Meta aprova/rejeita (webhook message_template_status_update
+  // grava direto em hsm_templates) : escuta via Realtime pra tela atualizar sem precisar de F5.
+  useEffect(() => {
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null;
+
+    (async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData?.company_id) return;
+
+      channel = supabase
+        .channel('hsm-templates-status')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'hsm_templates', filter: `company_id=eq.${userData.company_id}` },
+          () => loadTemplates()
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      if (channel) createClient().removeChannel(channel);
+    };
   }, []);
 
   const handleAdd = async () => {
