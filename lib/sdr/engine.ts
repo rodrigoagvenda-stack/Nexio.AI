@@ -2537,7 +2537,11 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
     }
 
-    const referral = msg?.referral ?? null
+    // uazapi (API não oficial, Baileys) : NÃO captura ctwa_clid/atribuição de
+    // anúncio. O formato real do payload de referral nesse canal nunca foi
+    // confirmado (pergunta feita na comunidade uazapi, sem resposta) — em vez
+    // de supor que é igual ao da Meta, tratamos toda conversa vinda por aqui
+    // como orgânica. Se a uazapi confirmar o formato, reavaliar.
     const evt: NormalizedInboundEvent = {
       companyId,
       channel: 'uazapi',
@@ -2550,15 +2554,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       senderPhoto,
       mediaUrl,
       instanceName: body.instanceName ?? null,
-      referral: referral ? {
-        ctwaClid: referral.ctwaClid ?? null,
-        gclid: null,
-        sourceId: referral.sourceId ?? null,
-        sourceUrl: referral.sourceUrl ?? null,
-        sourceType: referral.sourceType ?? null,
-        headline: referral.headline ?? null,
-        body: referral.body ?? null,
-      } : null,
+      referral: null,
     }
 
     const result = await ingestInboundMessage(evt, supabase)
