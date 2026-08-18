@@ -12,6 +12,7 @@ export interface ButtonSpec {
 export interface CarouselCardSpec {
   header_type: 'image' | 'video'
   header_handle: string
+  media_url?: string // URL de origem (Supabase Storage) : preservada pra reupload no envio (ver whatsapp-sender.ts)
   body_text: string
   buttons: ButtonSpec[]
 }

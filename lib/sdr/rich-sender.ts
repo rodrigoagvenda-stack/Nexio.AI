@@ -7,8 +7,9 @@
 //  - uazapi (canal atual, sem restrição de janela) : sendRichStep de sempre,
 //    zero mudança de comportamento pra quem já usa uazapi hoje.
 //  - Meta + lista/botões/carrossel : SEMPRE via Template HSM aprovado
-//    (media.metaTemplate), nunca sujeito à janela de 24h — é a razão de
-//    template existir. Falta de metaTemplate é erro de autoria, lança.
+//    (media.metaTemplateId, resolvido aqui contra hsm_templates), nunca
+//    sujeito à janela de 24h — é a razão de template existir. Falta de
+//    metaTemplateId ou template não aprovado é erro de autoria, lança.
 //  - Meta + texto/mídia/localização : livre, mas checa a janela de 24h antes
 //    de mandar (só quando conversationId é passado). Fora da janela retorna
 //    bloqueado (não lança) pra quem chamou decidir loggar/pular.
@@ -28,15 +29,10 @@ export interface RichSendResult {
   reason?: 'window_closed'
 }
 
-interface MetaTemplateRef {
-  templateName: string
-  language: string
-  bodyParams?: string[]
-  cards?: Array<{ cardIndex: number; mediaUrl: string; mediaType: 'image' | 'video'; buttons?: Array<{ subType: 'quick_reply' | 'url'; index: number; value: string }> }>
-}
-
-// StepMediaConfig ganha esse campo opcional só pro canal Meta (uazapi ignora)
-type RichMediaConfig = StepMediaConfig & { metaTemplate?: MetaTemplateRef }
+// StepMediaConfig ganha esses campos opcionais só pro canal Meta (uazapi
+// ignora) : id do Template HSM aprovado escolhido no canvas (Peça 5), e os
+// valores das variáveis {{n}} do corpo, se o template tiver.
+type RichMediaConfig = StepMediaConfig & { metaTemplateId?: string; metaTemplateBodyParams?: string[] }
 
 export async function sendRichStepUnified(
   companyId: number,
@@ -57,17 +53,35 @@ export async function sendRichStepUnified(
 
   // Meta : lista/botões/carrossel sempre via template, nunca checa janela
   if (tipo === 'menu' || tipo === 'carousel') {
-    if (!media?.metaTemplate) {
-      throw new Error(`sendRichStepUnified: nó ${tipo} no canal Meta precisa de um Template HSM selecionado (media.metaTemplate)`)
+    if (!media?.metaTemplateId) {
+      throw new Error(`sendRichStepUnified: nó ${tipo} no canal Meta precisa de um Template HSM selecionado (media.metaTemplateId)`)
     }
-    const t = media.metaTemplate
+    const supabase = createServiceClient()
+    const { data: template } = await supabase
+      .from('hsm_templates')
+      .select('*')
+      .eq('id', media.metaTemplateId)
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    if (!template) throw new Error(`sendRichStepUnified: template ${media.metaTemplateId} não encontrado`)
+    if (template.status !== 'aprovado') throw new Error(`sendRichStepUnified: template "${template.name}" ainda não foi aprovado pela Meta (status: ${template.status})`)
+
+    const cards = template.kind === 'carousel'
+      ? ((template.carousel_cards ?? []) as Array<{ header_type: 'image' | 'video'; media_url: string }>).map((c, i) => ({
+          cardIndex: i,
+          mediaType: c.header_type,
+          mediaUrl: c.media_url,
+        }))
+      : undefined
+
     await sendTemplate({
       companyId,
       phoneNumber: phone,
-      templateName: t.templateName,
-      language: t.language,
-      bodyParams: t.bodyParams,
-      cards: t.cards,
+      templateName: template.name,
+      language: template.language,
+      bodyParams: media.metaTemplateBodyParams,
+      cards,
       fallbackText: mensagem,
     })
     return { sent: true }

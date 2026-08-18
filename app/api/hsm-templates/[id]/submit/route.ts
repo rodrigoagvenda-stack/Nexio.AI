@@ -65,6 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       carouselCards = await Promise.all(
         rawCards.map(async (c) => ({
           header_type: c.header_type,
+          media_url: c.media_url, // preserva : Peça 4/6 precisam reenviar essa mídia a cada envio (a Meta reexige, o handle de criação não serve pra isso)
           header_handle: c.header_handle || (await getMetaMediaHandle(c.media_url, metaToken)),
           body_text: c.body_text,
           buttons: c.buttons,
