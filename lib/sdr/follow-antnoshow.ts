@@ -10,7 +10,8 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { createUazapiClient, normalizePhone } from './uazapi'
+import { normalizePhone } from './uazapi'
+import { sendRichStepUnified } from './rich-sender'
 
 function safeDecrypt(value: string | null | undefined, fallback = ''): string {
   if (!value) return fallback
@@ -420,7 +421,7 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
   const companyIds = Array.from(new Set(leads.map((l) => l.company_id)))
   const { data: configs } = await supabase
     .from('sdr_configs')
-    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, agente_ativo')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, agente_ativo, whatsapp_provider')
     .in('company_id', companyIds)
     .eq('agente_ativo', true)
 
@@ -456,10 +457,9 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
         continue
       }
 
-      const uazapiToken = safeDecrypt(cfg.uazapi_token)
-      const uazapiUrl = cfg.uazapi_instance_url ?? process.env.UAZAPI_URL ?? 'https://vendai.uazapi.com'
-
-      if (!uazapiToken) {
+      // Canal Meta não usa token uazapi : credencial validada por
+      // sendRichStepUnified a cada envio (mesmo padrão de follow.ts)
+      if (cfg.whatsapp_provider !== 'meta' && !safeDecrypt(cfg.uazapi_token)) {
         result.pulados++
         continue
       }
@@ -482,15 +482,11 @@ export async function runAntNoshow(options: AntNoshowOptions = {}): Promise<AntN
         await new Promise((r) => setTimeout(r, delayMs))
       }
 
-      // Simula typing 2–5 segundos
       const phone = normalizePhone(lead.whatsapp)
-      const uazapi = createUazapiClient(uazapiUrl, uazapiToken)
-      const typingMs = (Math.floor(Math.random() * (5 - 2 + 1)) + 2) * 1000
-      await uazapi.sendPresence(phone, 'composing', typingMs)
-      await new Promise((r) => setTimeout(r, typingMs))
 
-      // Envia via uazapi
-      await uazapi.sendText({ number: phone, text: mensagem })
+      // sendRichStepUnified resolve o canal (Meta ou uazapi) e, no uazapi,
+      // já simula a digitação sozinho — mesmo comportamento de antes.
+      await sendRichStepUnified(lead.company_id, phone, 'text', mensagem)
 
       // Registra no follow_logs (deduplicação)
       await registrarDisparo(lead.id, effectiveJanela, lead.company_id, mensagem, supabase)
