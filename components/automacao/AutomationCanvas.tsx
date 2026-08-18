@@ -204,10 +204,14 @@ interface MessageNodeData extends Record<string, unknown> {
   location_url?: string;
   location_name?: string;
   location_address?: string;
-  // Lista / Botões (newline-separated serialized)
+  // Lista / Botões (newline-separated serialized) : uazapi, autoria livre
   menu_choices?: string;
-  // Carrossel (JSON string)
+  // Carrossel (JSON string) : uazapi, autoria livre
   carousel_json?: string;
+  // Canal Meta : lista/botões/carrossel exigem Template HSM aprovado
+  // (Meta não tem lista/botões/carrossel livres, ver TemplateSelector)
+  metaTemplateId?: string;
+  metaTemplateBodyParams?: string[];
   // Controle de IA: null = sem mudança, true = ativar, false = pausar
   sdr_ativo?: boolean | null;
   // Unidade do dia_offset: 'days' (padrão) ou 'hours'. Para anti_noshow sempre 'hours'.
@@ -692,7 +696,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     const isPostCondition = step.tipo_mensagem === 'pos_condicao';
     const isFim = tipoCanvas === 'fim' || step.condicao?.toLowerCase().includes('fim') || step.condicao?.toLowerCase().includes('encerr');
     const isCondition = tipoCanvas === 'condicao' || step.condicao?.toLowerCase().includes('respondeu') || step.condicao?.toLowerCase().includes('condicao');
-    const hasMedia = !!step.media_config?.file || !!step.media_config?.latitude || !!step.media_config?.choices || !!step.media_config?.carousel;
+    const hasMedia = !!step.media_config?.file || !!step.media_config?.latitude || !!step.media_config?.choices || !!step.media_config?.carousel || !!(step.media_config as any)?.metaTemplateId;
     const isWait = tipoCanvas === 'aguardar' || (!hasMedia && step.mensagem === null && !isFim && !isCondition && !isScheduling && !isPostCondition);
 
     // Extract media from media_config (stored by nodesToSteps)
@@ -715,6 +719,9 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
         : undefined;
     // Carousel
     const carousel_json = Array.isArray(step.media_config?.carousel) ? JSON.stringify(step.media_config!.carousel, null, 2) : undefined;
+    // Canal Meta : referência ao Template HSM escolhido (lista/botões/carrossel)
+    const metaTemplateId = (step.media_config as any)?.metaTemplateId as string | undefined;
+    const metaTemplateBodyParams = (step.media_config as any)?.metaTemplateBodyParams as string[] | undefined;
     // Blocos: array of separate text messages sent sequentially
     const blocos = Array.isArray(step.media_config?.blocos) && (step.media_config!.blocos as string[]).length > 0
       ? (step.media_config!.blocos as string[])
@@ -810,7 +817,7 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
     else {
       const offset_unit: 'days' | 'hours' = (step.media_config as any)?.offset_unit ?? (sequenceTipo === 'anti_noshow' ? 'hours' : 'days');
-      nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, blocos, customLabel, sdr_ativo: step.sdr_ativo ?? null, offset_unit } satisfies MessageNodeData });
+      nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, metaTemplateId, metaTemplateBodyParams, blocos, customLabel, sdr_ativo: step.sdr_ativo ?? null, offset_unit } satisfies MessageNodeData });
     }
   });
   return nodes;
@@ -864,6 +871,8 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
           latitude: coords?.lat ?? 0,
           longitude: coords?.lng ?? 0,
         };
+      } else if (d.tipo_mensagem === 'botoes' && d.metaTemplateId) {
+        media_config = { menuType: 'button', metaTemplateId: d.metaTemplateId, metaTemplateBodyParams: d.metaTemplateBodyParams };
       } else if (d.tipo_mensagem === 'botoes') {
         const buttons = parseButtons(d.menu_choices ?? '');
         media_config = {
@@ -872,10 +881,14 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
           buttons,                               // full metadata for roundtrip
           text: d.mensagem || undefined,
         };
+      } else if (d.tipo_mensagem === 'lista' && d.metaTemplateId) {
+        media_config = { menuType: 'list', metaTemplateId: d.metaTemplateId, metaTemplateBodyParams: d.metaTemplateBodyParams };
       } else if (d.tipo_mensagem === 'lista') {
         const sections = parseLista(d.menu_choices ?? '');
         const choices = sections.flatMap(s => s.items.map(i => i.label)).filter(Boolean);
         media_config = { menuType: 'list', choices, sections, text: d.mensagem || undefined };
+      } else if (d.tipo_mensagem === 'carrossel' && d.metaTemplateId) {
+        media_config = { metaTemplateId: d.metaTemplateId, metaTemplateBodyParams: d.metaTemplateBodyParams };
       } else if (d.tipo_mensagem === 'carrossel') {
         let carousel: unknown[] = [];
         try { carousel = JSON.parse(String(d.carousel_json ?? '[]')); } catch { /* invalid json */ }
@@ -1348,9 +1361,11 @@ function MessageNode({ id, data, selected }: NodeProps) {
           <div className="flex items-center gap-1.5 mt-0.5">
             <List className="w-3 h-3 text-violet-500/60 shrink-0" />
             <span className="text-[10px] text-muted-foreground/60">
-              {d.menu_choices
-                ? `${(d.menu_choices as string).split('\n').filter(Boolean).length} itens`
-                : 'Lista não configurada'}
+              {d.metaTemplateId
+                ? 'Template HSM selecionado'
+                : d.menu_choices
+                  ? `${(d.menu_choices as string).split('\n').filter(Boolean).length} itens`
+                  : 'Lista não configurada'}
             </span>
           </div>
         </div>
@@ -1360,13 +1375,15 @@ function MessageNode({ id, data, selected }: NodeProps) {
         <div className="space-y-1">
           {d.mensagem && <p className="text-xs text-foreground/80 leading-snug line-clamp-2 bg-muted/30 rounded-lg px-2.5 py-2">{d.mensagem}</p>}
           <div className="flex flex-wrap gap-1 mt-0.5">
-            {d.menu_choices
-              ? (d.menu_choices as string).split('\n').filter(Boolean).slice(0, 3).map((btn, i) => (
-                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
-                    {String(btn).split('|')[0].trim()}
-                  </span>
-                ))
-              : <span className="text-[10px] text-muted-foreground/50 italic">Botões não configurados</span>}
+            {d.metaTemplateId
+              ? <span className="text-[10px] px-2 py-0.5 rounded-full border border-primary/30 bg-primary/10 text-primary">Template HSM selecionado</span>
+              : d.menu_choices
+                ? (d.menu_choices as string).split('\n').filter(Boolean).slice(0, 3).map((btn, i) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted text-muted-foreground">
+                      {String(btn).split('|')[0].trim()}
+                    </span>
+                  ))
+                : <span className="text-[10px] text-muted-foreground/50 italic">Botões não configurados</span>}
           </div>
         </div>
       )}
@@ -1377,9 +1394,11 @@ function MessageNode({ id, data, selected }: NodeProps) {
           <div className="flex items-center gap-1.5 mt-0.5">
             <GalleryHorizontal className="w-3 h-3 text-cyan-500/60 shrink-0" />
             <span className="text-[10px] text-muted-foreground/60">
-              {d.carousel_json
-                ? (() => { try { return `${(JSON.parse(d.carousel_json as string) as unknown[]).length} cards`; } catch { return 'Carrossel'; } })()
-                : 'Carrossel não configurado'}
+              {d.metaTemplateId
+                ? 'Template HSM selecionado'
+                : d.carousel_json
+                  ? (() => { try { return `${(JSON.parse(d.carousel_json as string) as unknown[]).length} cards`; } catch { return 'Carrossel'; } })()
+                  : 'Carrossel não configurado'}
             </span>
           </div>
         </div>
@@ -1967,6 +1986,106 @@ function TipoSelector({ value, onChange, onClear }: { value: string; onChange: (
   );
 }
 
+// ─── Seletor de Template HSM (canal Meta) ────────────────────────────────────────
+// Meta não tem lista/botões/carrossel livres : esses tipos exigem um Template
+// HSM já aprovado pela Meta. Sem seletor pronto reaproveitável no projeto — a
+// tela de gestão (TemplatesHSMContent) é CRUD, não picker — construído aqui.
+
+interface HsmTemplateOption {
+  id: string;
+  name: string;
+  language: string;
+  body: string;
+  kind: 'simple' | 'buttons' | 'carousel';
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+}
+
+function extractBodyParamCount(body: string): number {
+  const matches = body.match(/\{\{(\d+)\}\}/g) ?? [];
+  const nums = matches.map((m) => parseInt(m.replace(/[{}]/g, ''), 10));
+  return nums.length > 0 ? Math.max(...nums) : 0;
+}
+
+function TemplateSelector({
+  nodeType, templateId, bodyParams, onSelect, onParamsChange,
+}: {
+  nodeType: 'lista' | 'botoes' | 'carrossel';
+  templateId?: string;
+  bodyParams?: string[];
+  onSelect: (id: string | undefined) => void;
+  onParamsChange: (params: string[]) => void;
+}) {
+  const [templates, setTemplates] = useState<HsmTemplateOption[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/hsm-templates')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.data) setTemplates(d.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // lista e botões usam o mesmo tipo de template : Meta não tem componente
+  // de "lista" (seções/itens) em template, só BUTTONS e CAROUSEL
+  const wantedKind: HsmTemplateOption['kind'] = nodeType === 'carrossel' ? 'carousel' : 'buttons';
+  const options = templates.filter((t) => t.kind === wantedKind && t.status === 'aprovado');
+  const selected = templates.find((t) => t.id === templateId);
+  const paramCount = selected ? extractBodyParamCount(selected.body) : 0;
+
+  if (loading) {
+    return <div className="flex items-center gap-2 text-xs text-muted-foreground py-2"><Loader2 className="w-3.5 h-3.5 animate-spin" />Carregando templates…</div>;
+  }
+
+  if (options.length === 0) {
+    return (
+      <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-xs text-amber-600 dark:text-amber-400 space-y-1">
+        <p className="font-medium">Nenhum template {wantedKind === 'carousel' ? 'de carrossel' : 'de botões'} aprovado ainda.</p>
+        <p className="text-[11px] opacity-80">Crie e submeta em Configurações → Templates HSM. No canal Meta, {nodeType} só funciona com um template aprovado.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <select
+        value={templateId ?? ''}
+        onChange={(e) => onSelect(e.target.value || undefined)}
+        className="field-input"
+      >
+        <option value="">Selecione um template…</option>
+        {options.map((t) => (
+          <option key={t.id} value={t.id}>{t.name}</option>
+        ))}
+      </select>
+      {selected && (
+        <div className="p-2.5 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground line-clamp-3">
+          {selected.body}
+        </div>
+      )}
+      {selected && paramCount > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium text-muted-foreground">Variáveis do template</p>
+          {Array.from({ length: paramCount }, (_, i) => (
+            <input
+              key={i}
+              type="text"
+              value={bodyParams?.[i] ?? ''}
+              onChange={(e) => {
+                const next = [...(bodyParams ?? [])];
+                next[i] = e.target.value;
+                onParamsChange(next);
+              }}
+              placeholder={`{{${i + 1}}}`}
+              className="field-input"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Botões builder ─────────────────────────────────────────────────────────────
 
 function BotoesBuilder({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -2499,6 +2618,7 @@ interface ConfigPanelProps {
   onRemarketingChange?: (cfg: RemarketingConfig) => void;
   sequences?: FollowSequence[];
   currentSeqId?: string;
+  whatsappProvider?: 'uazapi' | 'meta';
 }
 
 function TrialWebhookField() {
@@ -2616,7 +2736,7 @@ function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify'
   )
 }
 
-function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange, sequences = [], currentSeqId }: ConfigPanelProps) {
+function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], edges: allEdges = [], sequenceTipo, remarketingCfg, onRemarketingChange, sequences = [], currentSeqId, whatsappProvider = 'uazapi' }: ConfigPanelProps) {
   if (!node) return null;
   const d = node.data;
 
@@ -2746,7 +2866,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               <TipoSelector
                 value={d.tipo_mensagem}
                 onChange={(v) => onUpdate(node.id, { tipo_mensagem: v })}
-                onClear={() => onUpdate(node.id, { media_url: undefined, media_name: undefined, mensagem: null, menu_choices: undefined, carousel_json: undefined, location_url: undefined, location_name: undefined, location_address: undefined, uploading: false })}
+                onClear={() => onUpdate(node.id, { media_url: undefined, media_name: undefined, mensagem: null, menu_choices: undefined, carousel_json: undefined, metaTemplateId: undefined, metaTemplateBodyParams: undefined, location_url: undefined, location_name: undefined, location_address: undefined, uploading: false })}
               />
             </Field>
 
@@ -2847,7 +2967,18 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               </>
             )}
 
-            {d.tipo_mensagem === 'lista' && (
+            {d.tipo_mensagem === 'lista' && whatsappProvider === 'meta' && (
+              <Field label="Template HSM aprovado (Meta não tem lista livre)">
+                <TemplateSelector
+                  nodeType="lista"
+                  templateId={d.metaTemplateId}
+                  bodyParams={d.metaTemplateBodyParams}
+                  onSelect={(id) => onUpdate(node.id, { metaTemplateId: id })}
+                  onParamsChange={(params) => onUpdate(node.id, { metaTemplateBodyParams: params })}
+                />
+              </Field>
+            )}
+            {d.tipo_mensagem === 'lista' && whatsappProvider !== 'meta' && (
               <>
                 <Field label="Texto principal">
                   <textarea rows={2} value={d.mensagem ?? ''}
@@ -2860,7 +2991,18 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               </>
             )}
 
-            {d.tipo_mensagem === 'botoes' && (
+            {d.tipo_mensagem === 'botoes' && whatsappProvider === 'meta' && (
+              <Field label="Template HSM aprovado (botões fixos no Meta)">
+                <TemplateSelector
+                  nodeType="botoes"
+                  templateId={d.metaTemplateId}
+                  bodyParams={d.metaTemplateBodyParams}
+                  onSelect={(id) => onUpdate(node.id, { metaTemplateId: id })}
+                  onParamsChange={(params) => onUpdate(node.id, { metaTemplateBodyParams: params })}
+                />
+              </Field>
+            )}
+            {d.tipo_mensagem === 'botoes' && whatsappProvider !== 'meta' && (
               <>
                 <Field label="Texto principal">
                   <textarea rows={2} value={d.mensagem ?? ''}
@@ -2873,7 +3015,18 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               </>
             )}
 
-            {d.tipo_mensagem === 'carrossel' && (
+            {d.tipo_mensagem === 'carrossel' && whatsappProvider === 'meta' && (
+              <Field label="Template HSM de carrossel aprovado">
+                <TemplateSelector
+                  nodeType="carrossel"
+                  templateId={d.metaTemplateId}
+                  bodyParams={d.metaTemplateBodyParams}
+                  onSelect={(id) => onUpdate(node.id, { metaTemplateId: id })}
+                  onParamsChange={(params) => onUpdate(node.id, { metaTemplateBodyParams: params })}
+                />
+              </Field>
+            )}
+            {d.tipo_mensagem === 'carrossel' && whatsappProvider !== 'meta' && (
               <>
                 <Field label="Texto principal">
                   <textarea rows={2} value={d.mensagem ?? ''}
@@ -4347,6 +4500,15 @@ function CanvasInner() {
   const { screenToFlowPosition } = useReactFlow();
 
   const [mode, setMode] = useState<'editor' | 'execucoes'>('editor');
+  // Canal WhatsApp da empresa : Meta não tem lista/botões/carrossel livres,
+  // esses tipos passam a exigir um Template HSM aprovado (ver TemplateSelector)
+  const [whatsappProvider, setWhatsappProvider] = useState<'uazapi' | 'meta'>('uazapi');
+  useEffect(() => {
+    fetch('/api/sdr/config')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.config?.whatsapp_provider) setWhatsappProvider(d.config.whatsapp_provider); })
+      .catch(() => {});
+  }, []);
   const [activeTipo, setActiveTipo] = useState<SequenceTipo>('follow_geral');
   const [activeSeqId, setActiveSeqId] = useState<string | null>(null);
   const [sequences, setSequences] = useState<FollowSequence[]>([]);
@@ -5473,7 +5635,8 @@ function CanvasInner() {
                 remarketingCfg={remarketingCfg}
                 onRemarketingChange={setRemarketingCfg}
                 sequences={sequences}
-                currentSeqId={currentSeq?.id} />
+                currentSeqId={currentSeq?.id}
+                whatsappProvider={whatsappProvider} />
             )}
           </>
         )}
