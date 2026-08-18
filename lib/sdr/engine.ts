@@ -17,6 +17,8 @@ import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
+import { isWithinBusinessHours } from './business-hours'
+import { sendText } from './whatsapp-sender'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -1922,6 +1924,7 @@ interface SdrFullConfig {
   whatsapp_provider: string
   meta_wa_token: string | null
   meta_wa_phone_number_id: string | null
+  business_hours_message: string | null
 }
 
 async function loadSdrConfig(
@@ -2023,6 +2026,7 @@ async function loadSdrConfig(
     whatsapp_provider: config.whatsapp_provider ?? 'uazapi',
     meta_wa_token: config.meta_wa_token ?? null,
     meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
+    business_hours_message: config.business_hours_message ?? null,
   }
 }
 
@@ -2197,6 +2201,52 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     if (conv?.agente_pausado) {
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
+      return
+    }
+
+    // ── Horários de atendimento ─────────────────────────────────────────────────
+    // Bloqueio "pula esse job" (não pausa a conversa) : se fora do horário
+    // configurado, manda mensagem de ausência, coloca em fila e retorna antes
+    // do orquestrador rodar. Sem linhas em business_hours = sempre aberto.
+    const withinHours = await isWithinBusinessHours(companyId, supabase)
+    if (!withinHours) {
+      const { data: convQueue } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('kanban_stage, queue_entered_at')
+        .eq('id', conversationId)
+        .single()
+
+      const spToday = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).toDateString()
+      const alreadyQueuedToday = convQueue?.kanban_stage === 'fila'
+        && convQueue?.queue_entered_at
+        && new Date(new Date(convQueue.queue_entered_at).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).toDateString() === spToday
+
+      if (!alreadyQueuedToday) {
+        const msg = cfg.business_hours_message?.trim()
+          || 'No momento estamos fora do horário de atendimento. Assim que reabrirmos, um de nossos atendentes ou nosso assistente virtual dará continuidade à conversa.'
+
+        await sendText({ companyId, phoneNumber: phone, text: msg })
+
+        await supabase.from('mensagens_do_whatsapp').insert({
+          company_id: companyId,
+          id_da_conversacao: conversationId,
+          texto_da_mensagem: msg,
+          tipo_de_mensagem: 'text',
+          direcao: 'outbound',
+          sender_type: 'sdr',
+          carimbo_de_data_e_hora: new Date().toISOString(),
+        })
+
+        await supabase.from('conversas_do_whatsapp').update({
+          kanban_stage: 'fila',
+          queue_entered_at: new Date().toISOString(),
+          current_status: 'livre',
+        }).eq('id', conversationId)
+
+        await log(companyId, 'outside_business_hours', {}, supabase, phone, leadId)
+      } else {
+        await log(companyId, 'outside_business_hours_suppressed', {}, supabase, phone, leadId)
+      }
       return
     }
 

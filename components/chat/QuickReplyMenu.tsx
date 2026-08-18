@@ -12,6 +12,8 @@ interface Template {
   shortcut: string | null;
   category: string;
   usage_count: number;
+  content_type?: 'text' | 'media' | 'template';
+  media_url?: string | null;
 }
 
 interface QuickReplyMenuProps {
@@ -103,6 +105,8 @@ export function QuickReplyMenu({
             shortcut: q.shortcut,
             category: 'geral',
             usage_count: 0,
+            content_type: q.content_type,
+            media_url: q.media_url,
           }));
           merged = [...quickItems, ...merged];
         }

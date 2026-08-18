@@ -30,8 +30,11 @@ const DEFAULT_HOURS: DayConfig[] = DAYS.map(d => ({
   closed: d.id === 0 || d.id === 6,
 }));
 
+const DEFAULT_MESSAGE = 'No momento estamos fora do horário de atendimento. Assim que reabrirmos, um de nossos atendentes ou nosso assistente virtual dará continuidade à conversa.';
+
 export function HorarioContent() {
   const [hours, setHours] = useState<DayConfig[]>(DEFAULT_HOURS);
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -46,6 +49,7 @@ export function HorarioContent() {
           });
           setHours(merged);
         }
+        setMessage(d?.message ?? '');
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -61,7 +65,7 @@ export function HorarioContent() {
       const res = await fetch('/api/business-hours', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hours }),
+        body: JSON.stringify({ hours, message }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       toast({ title: 'Horários salvos!' });
@@ -129,6 +133,18 @@ export function HorarioContent() {
             </div>
           );
         })}
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">Mensagem de ausência (enviada fora do horário)</label>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder={DEFAULT_MESSAGE}
+          rows={3}
+          className="w-full resize-none text-sm rounded-xl border border-border bg-card px-3 py-2 text-foreground outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50"
+        />
+        <p className="text-xs text-muted-foreground">Se deixar em branco, enviamos a mensagem padrão acima.</p>
       </div>
 
       <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">

@@ -1099,26 +1099,92 @@ export default function AtendimentoPage() {
     return result;
   }
 
-  async function handleTemplateSelect(template: any) {
-    // Substituir variáveis no conteúdo do template
-    const contentWithVariables = substituteVariables(template.content);
+  function inferMediaTypeFromUrl(url: string): 'image' | 'video' | 'audio' | 'document' {
+    const ext = url.split('?')[0].split('.').pop()?.toLowerCase() ?? '';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image';
+    if (['mp4', 'mov', 'webm', 'avi', 'mkv'].includes(ext)) return 'video';
+    if (['mp3', 'ogg', 'wav', 'm4a', 'opus'].includes(ext)) return 'audio';
+    return 'document';
+  }
 
-    // Inserir no campo de mensagem
-    setNewMessage(contentWithVariables);
+  async function handleTemplateSelect(template: any) {
     setShowTemplateMenu(false);
 
-    // Incrementar contador de uso
-    try {
-      await fetch(`/api/templates/${template.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: company!.id }),
-      });
-    } catch (error) {
-      console.error('Error incrementing template usage:', error);
+    // Resposta rápida de mídia : envia direto (não dá pra representar mídia
+    // digitando no campo de texto). Template HSM aprovado ainda não tem
+    // caminho de envio no sistema — ver app/api/hsm-templates (só CRUD/submissão).
+    if (template.content_type === 'media' && template.media_url) {
+      if (!selectedConversation || !user) return;
+      const type = inferMediaTypeFromUrl(template.media_url);
+      const caption = substituteVariables(template.content || '');
+      const tempId = `temp_quickreply_${Date.now()}`;
+
+      const optimisticMessage: Message = {
+        id: tempId,
+        company_id: company!.id,
+        id_da_conversacao: selectedConversation.id,
+        texto_da_mensagem: caption,
+        tipo_de_mensagem: type,
+        direcao: 'outbound',
+        sender_type: 'human',
+        sender_user_id: user.auth_user_id,
+        status: 'sending',
+        carimbo_de_data_e_hora: new Date().toISOString(),
+        url_da_midia: template.media_url,
+      };
+      setMessages(prev => [...prev, optimisticMessage]);
+      scrollToBottom();
+
+      try {
+        const response = await fetch('/api/whatsapp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationId: selectedConversation.id,
+            phoneNumber: selectedConversation.numero_de_telefone,
+            message: caption,
+            messageType: type,
+            mediaUrl: template.media_url,
+            companyId: company!.id,
+            userId: user.auth_user_id,
+          }),
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message);
+        setMessages(prev => prev.map(msg => msg.id === tempId ? { ...data.data, status: 'sent' } : msg));
+      } catch (error: any) {
+        console.error('Error sending quick reply media:', error);
+        setMessages(prev => prev.filter(msg => msg.id !== tempId));
+        toast({ title: error.message || 'Erro ao enviar resposta rápida', variant: 'destructive' });
+      }
+      inputRef.current?.focus();
+      return;
     }
 
-    // Focar no input
+    if (template.content_type === 'template') {
+      toast({ title: 'Envio de template HSM aprovado ainda não é suportado por aqui.', variant: 'destructive' });
+      inputRef.current?.focus();
+      return;
+    }
+
+    // Resposta de texto (padrão, cobre também os templates de marketing sem content_type)
+    const contentWithVariables = substituteVariables(template.content);
+    setNewMessage(contentWithVariables);
+
+    // Incrementar contador de uso : só pra templates de verdade (id positivo,
+    // respostas rápidas usam id sintético negativo, ver QuickReplyMenu.tsx)
+    if (template.id > 0) {
+      try {
+        await fetch(`/api/templates/${template.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: company!.id }),
+        });
+      } catch (error) {
+        console.error('Error incrementing template usage:', error);
+      }
+    }
+
     inputRef.current?.focus();
   }
 
