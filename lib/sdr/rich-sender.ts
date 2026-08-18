@@ -11,8 +11,11 @@
 //    sujeito à janela de 24h — é a razão de template existir. Falta de
 //    metaTemplateId ou template não aprovado é erro de autoria, lança.
 //  - Meta + texto/mídia/localização : livre, mas checa a janela de 24h antes
-//    de mandar (só quando conversationId é passado). Fora da janela retorna
-//    bloqueado (não lança) pra quem chamou decidir loggar/pular.
+//    de mandar (resolve a conversa pelo telefone). Fora da janela lança
+//    WindowClosedError — os chamadores (follow.ts/follow-antnoshow.ts) já
+//    têm try/catch + retry/DLQ em volta de todo envio, então isso vira só
+//    mais um tipo de falha tratada pela máquina de retry existente, sem
+//    precisar mudar nenhum dos ~20 call sites.
 //  - Meta + sticker : não suportado (Meta exige webp pré-processado de um
 //    jeito que não replicamos aqui), lança erro claro em vez de mandar
 //    formato errado.
@@ -24,9 +27,11 @@ import { getMetaConfig, sendText, sendMedia, sendLocation, sendTemplate } from '
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation } from './window-server'
 
-export interface RichSendResult {
-  sent: boolean
-  reason?: 'window_closed'
+export class WindowClosedError extends Error {
+  constructor(companyId: number, phone: string) {
+    super(`Fora da janela de 24h : companyId=${companyId} phone=${phone}`)
+    this.name = 'WindowClosedError'
+  }
 }
 
 // StepMediaConfig ganha esses campos opcionais só pro canal Meta (uazapi
@@ -34,21 +39,42 @@ export interface RichSendResult {
 // valores das variáveis {{n}} do corpo, se o template tiver.
 type RichMediaConfig = StepMediaConfig & { metaTemplateId?: string; metaTemplateBodyParams?: string[] }
 
+async function resolveConversationId(supabase: ReturnType<typeof createServiceClient>, companyId: number, phone: string): Promise<number | null> {
+  const { data } = await supabase
+    .from('conversas_do_whatsapp')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('numero_de_telefone', phone)
+    .order('hora_da_ultima_mensagem', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.id ?? null
+}
+
 export async function sendRichStepUnified(
   companyId: number,
   phone: string,
   tipo: StepTipoMensagem,
   mensagem: string,
-  media?: RichMediaConfig | null,
-  conversationId?: string | number
-): Promise<RichSendResult> {
+  media?: RichMediaConfig | null
+): Promise<void> {
   const config = await getMetaConfig(companyId)
   const isMeta = config?.whatsapp_provider === 'meta' && !!config.meta_wa_phone_number_id && !!config.meta_wa_token
 
   if (!isMeta) {
     const uazapi = await getUazapiForCompany(companyId)
+    // Simulação de digitação/gravação : comportamento idêntico ao que
+    // enviarMensagem fazia antes de existir sendRichStepUnified.
+    const typingMs = 2_000 + Math.floor(Math.random() * 3_000)
+    const presenceType = tipo === 'audio' || tipo === 'ptt' ? 'recording' : 'composing'
+    try {
+      await uazapi.sendPresence(phone, presenceType, typingMs)
+    } catch {
+      // presence não-crítico : falha silenciosa, continua o envio
+    }
+    await new Promise((r) => setTimeout(r, typingMs))
     await sendRichStep(uazapi, phone, tipo, mensagem, media ?? undefined)
-    return { sent: true }
+    return
   }
 
   // Meta : lista/botões/carrossel sempre via template, nunca checa janela
@@ -84,26 +110,26 @@ export async function sendRichStepUnified(
       cards,
       fallbackText: mensagem,
     })
-    return { sent: true }
+    return
   }
 
   if (tipo === 'sticker') {
     throw new Error('sendRichStepUnified: sticker não é suportado no canal Meta')
   }
 
-  // Meta : texto/mídia/localização livres, respeitam a janela de 24h quando
-  // a chamada informa uma conversa existente pra checar.
+  // Meta : texto/mídia/localização livres, respeitam a janela de 24h.
+  const supabase = createServiceClient()
+  const conversationId = await resolveConversationId(supabase, companyId, phone)
   if (conversationId != null) {
-    const supabase = createServiceClient()
     const windowState = await getWindowStateForConversation(supabase, conversationId)
     if (windowState && !canSendFreeform(windowState)) {
-      return { sent: false, reason: 'window_closed' }
+      throw new WindowClosedError(companyId, phone)
     }
   }
 
   if (tipo === 'text') {
     await sendText({ companyId, phoneNumber: phone, text: mensagem })
-    return { sent: true }
+    return
   }
 
   if (tipo === 'image' || tipo === 'video' || tipo === 'document' || tipo === 'audio' || tipo === 'ptt') {
@@ -116,7 +142,7 @@ export async function sendRichStepUnified(
       caption: media.text,
       filename: media.docName,
     })
-    return { sent: true }
+    return
   }
 
   if (tipo === 'location') {
@@ -124,13 +150,12 @@ export async function sendRichStepUnified(
       throw new Error('sendRichStepUnified: location requer latitude e longitude')
     }
     await sendLocation({ companyId, phoneNumber: phone, latitude: media.latitude, longitude: media.longitude, name: media.name, address: media.address })
-    return { sent: true }
+    return
   }
 
   // Tipos de controle de fluxo (agendamento/sentiment/goal/...) : mesmo
   // fallback que sendRichStep já usa pro uazapi, manda como texto simples.
   await sendText({ companyId, phoneNumber: phone, text: mensagem })
-  return { sent: true }
 }
 
 // Reexport pra quem só precisa do client uazapi direto (compat com código

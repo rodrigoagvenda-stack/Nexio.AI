@@ -16,7 +16,8 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
-import { createUazapiClient, normalizePhone, sendRichStep, StepTipoMensagem, StepMediaConfig } from './uazapi'
+import { normalizePhone, StepTipoMensagem, StepMediaConfig } from './uazapi'
+import { sendRichStepUnified } from './rich-sender'
 import { getRedis } from './redis'
 import {
   acquireSendLock, releaseSendLock, sendLockKey,
@@ -551,16 +552,7 @@ async function enviarMensagem(
   tipo: StepTipoMensagem = 'text',
   media?: StepMediaConfig | null
 ): Promise<void> {
-  const uazapi = createUazapiClient(company.uazapi_url, company.uazapi_token)
-  const typingMs = 2_000 + Math.floor(Math.random() * 3_000)
-  const presenceType = tipo === 'audio' || tipo === 'ptt' ? 'recording' : 'composing'
-  try {
-    await uazapi.sendPresence(phone, presenceType, typingMs)
-  } catch {
-    // presence não-crítico : falha silenciosa, continua o envio
-  }
-  await new Promise((r) => setTimeout(r, typingMs))
-  await sendRichStep(uazapi, phone, tipo, text, media ?? undefined)
+  await sendRichStepUnified(company.id, phone, tipo, text, media)
 }
 
 function formatOffsetLabel(dia_offset: number, offsetUnit: string | undefined): string {
@@ -2087,7 +2079,7 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
 
     const { data: configs } = await supabase
       .from('sdr_configs')
-      .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+      .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo, whatsapp_provider')
       .eq('agente_ativo', true)
 
     for (const cfg of configs ?? []) {
@@ -2100,7 +2092,8 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
           sdr_prompt: cfg.prompt ?? null,
         }
 
-        if (!company.uazapi_token) continue
+        // Canal Meta não usa token uazapi : credencial validada por sendRichStepUnified a cada envio
+        if (cfg.whatsapp_provider !== 'meta' && !company.uazapi_token) continue
 
         const openai = new OpenAI({ apiKey: company.openai_key })
 
@@ -2191,7 +2184,7 @@ export async function runAntNoshowAll(): Promise<{ processed: number; sent: numb
 
   const { data: configs, error: cfgErr } = await supabase
     .from('sdr_configs')
-    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo, whatsapp_provider')
     .eq('agente_ativo', true)
 
   if (cfgErr) return { processed: 0, sent: 0, errors: [cfgErr.message] }
@@ -2205,10 +2198,15 @@ export async function runAntNoshowAll(): Promise<{ processed: number; sent: numb
         openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
         sdr_prompt: cfg.prompt ?? null,
       }
-      if (!company.uazapi_token) { errors.push(`Empresa ${cfg.company_id}: token WhatsApp vazio`); continue }
-      if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) {
-        errors.push(`Empresa ${cfg.company_id}: WhatsApp desconectado : anti-noshow pulado`)
-        continue
+      // Canal Meta : não tem token uazapi nem checagem de saúde por instância
+      // (credencial é validada por sendRichStepUnified/whatsapp-sender.ts a
+      // cada envio) — só o canal uazapi precisa desses dois checks.
+      if (cfg.whatsapp_provider !== 'meta') {
+        if (!company.uazapi_token) { errors.push(`Empresa ${cfg.company_id}: token WhatsApp vazio`); continue }
+        if (!(await isUazapiHealthy(company.id, company.uazapi_url, company.uazapi_token))) {
+          errors.push(`Empresa ${cfg.company_id}: WhatsApp desconectado : anti-noshow pulado`)
+          continue
+        }
       }
 
       const { data: sequences } = await supabase
@@ -2240,7 +2238,7 @@ export async function runAntNoshowForCompany(
 
   const { data: cfg } = await supabase
     .from('sdr_configs')
-    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo, whatsapp_provider')
     .eq('company_id', companyId)
     .maybeSingle()
 
@@ -2253,7 +2251,7 @@ export async function runAntNoshowForCompany(
     openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
     sdr_prompt: cfg.prompt ?? null,
   }
-  if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
+  if (cfg.whatsapp_provider !== 'meta' && !company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
 
   const { data: sequences } = await supabase
     .from('follow_sequences')
@@ -2279,7 +2277,7 @@ export async function runRemarketingForCompany(companyId: number, skipDelay = fa
   const platformCfg = await getPlatformConfig()
   const { data: cfg } = await supabase
     .from('sdr_configs')
-    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo, whatsapp_provider')
     .eq('company_id', companyId)
     .maybeSingle()
 
@@ -2293,7 +2291,7 @@ export async function runRemarketingForCompany(companyId: number, skipDelay = fa
     openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
     sdr_prompt: cfg.prompt ?? null,
   }
-  if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
+  if (cfg.whatsapp_provider !== 'meta' && !company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
 
   const openai = new OpenAI({ apiKey: company.openai_key })
 
@@ -2317,7 +2315,7 @@ export async function runTrialSaasImmediate(companyId: number, trialId: number):
 
   const { data: cfg } = await supabase
     .from('sdr_configs')
-    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo')
+    .select('company_id, uazapi_instance_url, uazapi_token, openai_key, prompt, agente_ativo, whatsapp_provider')
     .eq('company_id', companyId)
     .maybeSingle()
 
@@ -2330,7 +2328,7 @@ export async function runTrialSaasImmediate(companyId: number, trialId: number):
     openai_key: safeDecrypt(cfg.openai_key, platformCfg.openai_api_key),
     sdr_prompt: cfg.prompt ?? null,
   }
-  if (!company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
+  if (cfg.whatsapp_provider !== 'meta' && !company.uazapi_token) return { sent: 0, error: 'Token WhatsApp não configurado' }
 
   const { data: sequences } = await supabase
     .from('follow_sequences')
@@ -2352,22 +2350,18 @@ export async function runPaymentSequenceImmediate(
   context: { platform: string; eventoEntrada?: string; value?: number; productName?: string; paymentId?: string; orderId?: string }
 ): Promise<{ sent: number; error?: string }> {
   const supabase = createServiceClient()
-  const platformCfg = await getPlatformConfig()
 
   console.log(`[payment-seq] company=${companyId} lead=${leadId} platform=${context.platform}`)
 
-  // Credenciais WhatsApp da empresa
+  // Confirma que a empresa tem sdr_configs (credencial de canal é resolvida
+  // por mensagem dentro de sendRichStepUnified, Meta ou uazapi)
   const { data: cfg } = await supabase
     .from('sdr_configs')
-    .select('company_id, uazapi_instance_url, uazapi_token')
+    .select('company_id')
     .eq('company_id', companyId)
     .maybeSingle()
 
   if (!cfg) return { sent: 0, error: 'sdr_configs não encontrado' }
-
-  const uazapiUrl = cfg.uazapi_instance_url ?? platformCfg.uazapi_base_url
-  const uazapiToken = safeDecrypt(cfg.uazapi_token)
-  if (!uazapiToken) return { sent: 0, error: 'Token WhatsApp não configurado' }
 
   // WhatsApp do lead
   const { data: lead } = await supabase
@@ -2405,7 +2399,6 @@ export async function runPaymentSequenceImmediate(
     return { sent: 0, error: 'Nenhuma sequência pagamento ativa' }
   }
 
-  const client = createUazapiClient(uazapiUrl, uazapiToken)
   const phone = normalizePhone(lead.whatsapp)
   let totalSent = 0
 
@@ -2423,8 +2416,8 @@ export async function runPaymentSequenceImmediate(
       if (!step.mensagem && !step.media_config) continue
 
       try {
-        await sendRichStep(
-          client,
+        await sendRichStepUnified(
+          companyId,
           phone,
           (step.tipo_mensagem ?? 'text') as StepTipoMensagem,
           step.mensagem ?? '',
