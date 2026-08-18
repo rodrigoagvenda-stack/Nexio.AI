@@ -10,7 +10,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { decrypt } from '@/lib/crypto'
+import { decrypt, safeDecrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
 import { persistMediaToStorage } from './media-storage'
@@ -2024,7 +2024,7 @@ async function loadSdrConfig(
     inboxMode: (flow?.inbox_mode as 'vendas' | 'suporte') ?? 'suporte',
     eventTitleTemplate: flow?.event_title_template ?? null,
     whatsapp_provider: config.whatsapp_provider ?? 'uazapi',
-    meta_wa_token: config.meta_wa_token ?? null,
+    meta_wa_token: config.meta_wa_token ? safeDecrypt(config.meta_wa_token) : null,
     meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
     business_hours_message: config.business_hours_message ?? null,
   }

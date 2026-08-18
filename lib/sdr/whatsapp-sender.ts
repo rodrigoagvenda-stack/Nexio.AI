@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getUazapiForCompany } from './uazapi-for-company'
+import { safeDecrypt } from '@/lib/crypto'
 
 interface SendTextInput {
   companyId: number
@@ -22,14 +23,15 @@ interface SendResult {
   id?: string
 }
 
-async function getMetaConfig(companyId: number) {
+export async function getMetaConfig(companyId: number) {
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('sdr_configs')
     .select('whatsapp_provider, meta_wa_phone_number_id, meta_wa_token')
     .eq('company_id', companyId)
     .single()
-  return data
+  if (!data) return data
+  return { ...data, meta_wa_token: data.meta_wa_token ? safeDecrypt(data.meta_wa_token) : data.meta_wa_token }
 }
 
 async function metaSendText(phoneNumberId: string, token: string, to: string, text: string, replyId?: string): Promise<SendResult> {

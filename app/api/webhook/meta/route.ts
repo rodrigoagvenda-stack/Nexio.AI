@@ -6,6 +6,7 @@ import { persistMediaToStorage } from '@/lib/sdr/media-storage'
 import { isPromptInjection, log } from '@/lib/sdr/engine'
 import { ingestInboundMessage, type NormalizedInboundEvent } from '@/lib/sdr/inbound'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
+import { safeDecrypt } from '@/lib/crypto'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
 
         if (config) {
           companyId = config.company_id
-          metaToken = config.meta_wa_token
+          metaToken = config.meta_wa_token ? safeDecrypt(config.meta_wa_token) : null
           console.log(`[meta-webhook] empresa resolvida : companyId=${companyId} phoneNumberId=${phoneNumberId}`)
         } else {
           console.warn(`[meta-webhook] phoneNumberId=${phoneNumberId} não encontrado em sdr_configs`)

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { safeDecrypt } from '@/lib/crypto'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { context, error: authError } = await requireAuth(req)
@@ -32,6 +33,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Conecte o WhatsApp via Meta Cloud API (Automações → Agente SDR → Integrações) antes de submeter templates' }, { status: 422 })
   }
 
+  const metaToken = safeDecrypt(sdrConfig.meta_wa_token)
+
   const payload = {
     name: template.name,
     category: template.category.toUpperCase(),
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${sdrConfig.meta_wa_token}`,
+        Authorization: `Bearer ${metaToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),

@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
+import { encrypt } from '@/lib/crypto'
 
 export const runtime = 'nodejs'
 
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
         whatsapp_provider: 'meta',
         meta_wa_phone_number_id: finalPhoneNumberId,
         meta_wa_waba_id: wabaId,
-        meta_wa_token: longToken,
+        meta_wa_token: encrypt(longToken),
       })
       .eq('company_id', context.companyId)
 
