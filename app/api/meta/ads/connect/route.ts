@@ -35,8 +35,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'META_APP_ID ou META_APP_SECRET não configurado' }, { status: 500 })
     }
 
+    // redirect_uri vazio explícito: o code veio do popup do SDK JS
+    // (FB.login com scope, não Embedded Signup com config_id) -- a Meta
+    // associa esse code a um redirect_uri vazio e rejeita a troca
+    // ("Error validating verification code...") se o parâmetro não vier
+    // explicitamente, mesmo vazio.
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&code=${code}`
+      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=&code=${code}`
     )
     const tokenJson = await tokenRes.json()
     if (!tokenRes.ok || !tokenJson.access_token) {
