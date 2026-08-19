@@ -85,6 +85,10 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
       toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
       return
     }
+    if (!CONFIG_ID) {
+      toast({ title: 'NEXT_PUBLIC_META_ADS_CONFIG_ID não configurada neste ambiente -- confira a variável e refaça o deploy', variant: 'destructive' })
+      return
+    }
 
     setLoading(true)
     setAccounts(null)
