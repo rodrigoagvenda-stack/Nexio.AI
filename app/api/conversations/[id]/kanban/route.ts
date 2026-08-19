@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { fireMetaCapiEvent } from '@/lib/meta/capi'
+import { recomputeAndStoreLeadScore } from '@/lib/sdr/inbound'
 
 const VALID_STAGES = ['novo', 'qualificacao', 'fila', 'em_atendimento', 'negociacao', 'fechado']
 
@@ -45,11 +46,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .update(update)
     .eq('id', convId)
     .eq('company_id', context.companyId)
-    .select('id, numero_de_telefone, ctwa_clid, attribution_source')
+    .select('id, numero_de_telefone, ctwa_clid, attribution_source, id_do_lead, mensagens_recebidas')
     .single()
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
   if (!conv) return NextResponse.json({ error: 'Conversa não encontrada' }, { status: 404 })
+
+  if (conv.id_do_lead) {
+    recomputeAndStoreLeadScore(
+      { companyId: context.companyId, conversationId: String(convId), leadId: conv.id_do_lead, mensagensRecebidas: conv.mensagens_recebidas ?? 0, kanbanStage: stage, currentInboundAt: now },
+      supabase
+    ).catch((e) => console.warn('[kanban] falha ao recalcular lead_score:', e?.message))
+  }
 
   // Salva conversion_values
   if (stage === 'fechado') {

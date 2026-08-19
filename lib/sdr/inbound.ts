@@ -10,6 +10,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { bufferMessage, findOrCreateLead, type BufferedMessage } from './engine'
+import { computeLeadScore } from './lead-score'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -68,6 +69,8 @@ interface EnsureConversationParams {
 interface EnsureConversationResult {
   conversationId: string
   isNewConversation: boolean
+  mensagensRecebidas: number
+  kanbanStage: string | null
 }
 
 // Cria/atualiza a conversa no momento do webhook (mesmo timing que a Meta já
@@ -84,17 +87,19 @@ async function ensureConversationAtWebhookTime(
 
   const { data: existing } = await supabase
     .from('conversas_do_whatsapp')
-    .select('id, contagem_nao_lida, ctwa_clid, gclid')
+    .select('id, contagem_nao_lida, ctwa_clid, gclid, mensagens_recebidas, kanban_stage')
     .eq('company_id', companyId)
     .eq('numero_de_telefone', phone)
     .maybeSingle()
 
   if (existing?.id) {
+    const mensagensRecebidas = (existing.mensagens_recebidas ?? 0) + 1
     const updatePayload: Record<string, unknown> = {
       ultima_mensagem: displayText,
       hora_da_ultima_mensagem: ts,
       contagem_nao_lida: (existing.contagem_nao_lida ?? 0) + 1,
       ultima_mensagem_inbound_at: ts,
+      mensagens_recebidas: mensagensRecebidas,
     }
     // Primeira atribuição ganha : só sobrescreve se ainda não tinha ctwa_clid
     if (ctwaClid && !existing.ctwa_clid) {
@@ -110,7 +115,12 @@ async function ensureConversationAtWebhookTime(
     if (instanceName) updatePayload.instance_name = instanceName
 
     await supabase.from('conversas_do_whatsapp').update(updatePayload).eq('id', existing.id)
-    return { conversationId: String(existing.id), isNewConversation: false }
+    return {
+      conversationId: String(existing.id),
+      isNewConversation: false,
+      mensagensRecebidas,
+      kanbanStage: existing.kanban_stage ?? null,
+    }
   }
 
   const inboxMode = await resolveInboxModeForCompany(companyId, supabase)
@@ -130,6 +140,7 @@ async function ensureConversationAtWebhookTime(
       status_da_conversa: 'aberto',
       contagem_nao_lida: 1,
       ultima_mensagem_inbound_at: ts,
+      mensagens_recebidas: 1,
       ctwa_clid: ctwaClid,
       gclid,
       attribution_source: ctwaClid ? 'meta_ctwa' : gclid ? 'google_ads' : 'organic',
@@ -190,7 +201,7 @@ async function ensureConversationAtWebhookTime(
     }
   }
 
-  return { conversationId: String(created.id), isNewConversation: true }
+  return { conversationId: String(created.id), isNewConversation: true, mensagensRecebidas: 1, kanbanStage: 'novo' }
 }
 
 // Casa a mensagem que chega com um clique recente numa landing de captura de
@@ -233,6 +244,39 @@ async function insertAttributionEvent(
     referral_body: referral?.body ?? null,
     window_type: windowType,
   })
+}
+
+// Peça E: recalcula o lead_score a cada mensagem inbound, usando o que já
+// foi resolvido nesta mesma ingestão (profundidade, estágio) + duas buscas
+// leves (nível de interesse do lead, timestamp da última resposta nossa).
+export async function recomputeAndStoreLeadScore(
+  params: { companyId: number; conversationId: string; leadId: number; mensagensRecebidas: number; kanbanStage: string | null; currentInboundAt: string },
+  supabase: Supabase
+): Promise<void> {
+  const [{ data: leadRow }, { data: lastOutbound }] = await Promise.all([
+    supabase.from('leads').select('nivel_interesse').eq('id', params.leadId).maybeSingle(),
+    supabase
+      .from('mensagens_do_whatsapp')
+      .select('carimbo_de_data_e_hora')
+      .eq('id_da_conversacao', params.conversationId)
+      .eq('direcao', 'outbound')
+      .order('carimbo_de_data_e_hora', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  const score = computeLeadScore({
+    mensagensRecebidas: params.mensagensRecebidas,
+    lastOutboundAt: lastOutbound?.carimbo_de_data_e_hora ?? null,
+    currentInboundAt: params.currentInboundAt,
+    kanbanStage: params.kanbanStage,
+    nivelInteresse: leadRow?.nivel_interesse ?? null,
+  })
+
+  await supabase
+    .from('conversas_do_whatsapp')
+    .update({ lead_score: score, lead_score_updated_at: new Date().toISOString() })
+    .eq('id', params.conversationId)
 }
 
 async function insertInboundMessageRow(
@@ -320,7 +364,7 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
       if (matchedGclid) referral = { ...(referral ?? {}), gclid: matchedGclid }
     }
 
-    const { conversationId: convId, isNewConversation } = await ensureConversationAtWebhookTime(
+    const { conversationId: convId, isNewConversation, mensagensRecebidas, kanbanStage } = await ensureConversationAtWebhookTime(
       {
         companyId: evt.companyId,
         phone: evt.phone,
@@ -337,6 +381,11 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
     if (isNewConversation) {
       await insertAttributionEvent(conversationId, referral, supabase)
     }
+
+    await recomputeAndStoreLeadScore(
+      { companyId: evt.companyId, conversationId, leadId, mensagensRecebidas, kanbanStage, currentInboundAt: evt.timestamp },
+      supabase
+    )
 
     await insertInboundMessageRow(
       {
