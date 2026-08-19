@@ -2326,9 +2326,7 @@ export default function AtendimentoPage() {
           onOpenChange={setAssignDialog}
           chatId={selectedConversation.id}
           chatName={selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
-          currentAssignedTo={selectedConversation.assigned_to}
-          companyId={company.id}
-          userId={user.id}
+          currentAssignedTo={selectedConversation.current_attendant_id}
           onSuccess={fetchConversations}
         />
       )}

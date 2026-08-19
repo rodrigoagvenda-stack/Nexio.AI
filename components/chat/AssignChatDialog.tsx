@@ -20,18 +20,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { UserCircle, MessageSquare, AlertCircle } from 'lucide-react';
+import { UserCircle, Circle } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 interface TeamMember {
-  id: number;
+  id: string;
   name: string;
   email: string;
-  stats: {
-    totalChats: number;
-    activeChats: number;
-    unreadChats: number;
-  };
+  role: string;
+  active: boolean;
+  online: boolean;
 }
 
 interface AssignChatDialogProps {
@@ -39,9 +37,7 @@ interface AssignChatDialogProps {
   onOpenChange: (open: boolean) => void;
   chatId: number;
   chatName: string;
-  currentAssignedTo?: number | null;
-  companyId: number;
-  userId: number;
+  currentAssignedTo?: string | null;
   onSuccess: () => void;
 }
 
@@ -51,8 +47,6 @@ export function AssignChatDialog({
   chatId,
   chatName,
   currentAssignedTo,
-  companyId,
-  userId,
   onSuccess,
 }: AssignChatDialogProps) {
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -65,16 +59,16 @@ export function AssignChatDialog({
     if (open) {
       fetchTeam();
     }
-  }, [open, companyId]);
+  }, [open]);
 
   async function fetchTeam() {
     setLoadingTeam(true);
     try {
-      const response = await fetch(`/api/chats/team?companyId=${companyId}`);
+      const response = await fetch('/api/attendants');
       const data = await response.json();
 
-      if (data.success) {
-        setTeam(data.team);
+      if (response.ok) {
+        setTeam((data.data ?? []).filter((a: TeamMember) => a.active));
       } else {
         toast({ title: 'Erro ao carregar equipe', variant: 'destructive' });
       }
@@ -94,28 +88,29 @@ export function AssignChatDialog({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/chats/assign', {
+      const url = currentAssignedTo
+        ? `/api/conversations/${chatId}/transfer`
+        : `/api/conversations/${chatId}/assign`;
+      const body = currentAssignedTo
+        ? { to_attendant_id: selectedUser, notes: notes.trim() || null }
+        : { attendant_id: selectedUser };
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId,
-          assignedTo: parseInt(selectedUser),
-          assignedBy: userId,
-          companyId,
-          notes: notes.trim() || null,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        toast({ title: data.message });
+      if (response.ok && data.ok) {
+        toast({ title: currentAssignedTo ? 'Chat transferido com sucesso' : 'Chat atribuído com sucesso' });
         onSuccess();
         onOpenChange(false);
         setSelectedUser('');
         setNotes('');
       } else {
-        toast({ title: data.message || 'Erro ao atribuir chat', variant: 'destructive' });
+        toast({ title: data.error || 'Erro ao atribuir chat', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error assigning chat:', error);
@@ -130,19 +125,15 @@ export function AssignChatDialog({
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/chats/assign?chatId=${chatId}&userId=${userId}&companyId=${companyId}`,
-        { method: 'DELETE' }
-      );
-
+      const response = await fetch(`/api/conversations/${chatId}/release`, { method: 'POST' });
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.ok) {
         toast({ title: 'Chat desatribuído com sucesso' });
         onSuccess();
         onOpenChange(false);
       } else {
-        toast({ title: data.message || 'Erro ao desatribuir chat', variant: 'destructive' });
+        toast({ title: data.error || 'Erro ao desatribuir chat', variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error unassigning chat:', error);
@@ -189,20 +180,14 @@ export function AssignChatDialog({
               </SelectTrigger>
               <SelectContent>
                 {team.map((member) => (
-                  <SelectItem key={member.id} value={member.id.toString()}>
+                  <SelectItem key={member.id} value={member.id}>
                     <div className="flex items-center justify-between w-full">
                       <span>{member.name}</span>
-                      <div className="flex gap-1 ml-4">
-                        <Badge variant="outline" className="text-xs">
-                          <MessageSquare className="h-3 w-3 mr-1" />
-                          {member.stats.activeChats}
-                        </Badge>
-                        {member.stats.unreadChats > 0 && (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            {member.stats.unreadChats}
-                          </Badge>
-                        )}
+                      <div className="flex items-center gap-1 ml-4">
+                        <Badge variant="outline" className="text-xs capitalize">{member.role}</Badge>
+                        <Circle
+                          className={`h-2 w-2 ${member.online ? 'fill-green-500 text-green-500' : 'fill-muted-foreground/40 text-muted-foreground/40'}`}
+                        />
                       </div>
                     </div>
                   </SelectItem>
@@ -210,7 +195,7 @@ export function AssignChatDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Os badges mostram: chats ativos • mensagens não lidas
+              O ponto verde indica atendente online agora
             </p>
           </div>
 

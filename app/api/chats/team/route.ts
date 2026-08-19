@@ -1,3 +1,6 @@
+// Depreciado: sistema antigo baseado em users. AssignChatDialog usa
+// /api/attendants desde a unificação da máquina de vendas. Mantido sem
+// remoção só por segurança, nenhum código novo deve depender desta rota.
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';

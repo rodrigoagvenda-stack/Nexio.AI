@@ -84,6 +84,26 @@ async function findLead(companyId: number, email?: string, phone?: string, supab
   return null
 }
 
+// ─── Helper: reconcilia lead_charges com o evento de pagamento recebido ──────
+// Sem isso, toda cobrança criada via "Gerar Cobrança" ficava 'pending' pra
+// sempre no nosso lado mesmo depois de paga -- pré-requisito da recuperação
+// de venda parada (Peça D), senão o cron cutucaria quem já pagou.
+async function reconcileLeadCharge(
+  companyId: number,
+  externalId: string | number | undefined,
+  status: 'received' | 'confirmed' | 'overdue',
+  supabase: any
+) {
+  if (!externalId) return
+  const updates: Record<string, any> = { status, updated_at: new Date().toISOString() }
+  if (status === 'received' || status === 'confirmed') updates.paid_at = new Date().toISOString()
+  await supabase
+    .from('lead_charges')
+    .update(updates)
+    .eq('company_id', companyId)
+    .eq('external_id', String(externalId))
+}
+
 // ─── Helper: cria lead a partir de dados do cliente Asaas ────────────────────
 async function createLeadFromAsaasCustomer(
   companyId: number,
@@ -210,6 +230,7 @@ export async function POST(
 
     await supabase.from('leads').update(updates).eq('id', lead.id)
     console.log(`[payment-webhook:mp] lead=${lead.id} movido para Fechado valor=${value}`)
+    await reconcileLeadCharge(companyId, paymentId, 'confirmed', supabase)
 
     // Dispara sequência "pagamento" em background
     runPaymentSequenceImmediate(companyId, lead.id, { platform: 'mercadopago', eventoEntrada: 'mercadopago', paymentId: String(paymentId), value })
@@ -277,6 +298,7 @@ export async function POST(
 
     await supabase.from('leads').update(updates).eq('id', lead.id)
     console.log(`[payment-webhook:kiwify] lead=${lead.id} movido para Fechado produto="${productName}"`)
+    await reconcileLeadCharge(companyId, body.order_id, 'confirmed', supabase)
 
     // Dispara sequência "pagamento" em background
     runPaymentSequenceImmediate(companyId, lead.id, { platform: 'kiwify', eventoEntrada: 'kiwify', orderId: body.order_id, productName, value })
@@ -389,6 +411,9 @@ export async function POST(
       const updates: Record<string, any> = { status: 'Fechado' }
       if (value && !lead.project_value) updates.project_value = value
       await supabase.from('leads').update(updates).eq('id', lead.id)
+      await reconcileLeadCharge(companyId, payment.id, 'received', supabase)
+    } else if (eventoEntrada === 'asaas_boleto_vencido') {
+      await reconcileLeadCharge(companyId, payment.id, 'overdue', supabase)
     }
 
     // Dispara sequência canvas em background + loga resultado

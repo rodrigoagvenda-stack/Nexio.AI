@@ -1,3 +1,7 @@
+// Depreciado: sistema antigo baseado em users/assigned_to. O botão "Transferir"
+// do Atendimento usa /api/conversations/[id]/assign e /transfer (attendants/
+// current_attendant_id) desde a unificação da máquina de vendas. Mantido sem
+// remoção só por segurança, sem novo código deve depender destas rotas.
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';

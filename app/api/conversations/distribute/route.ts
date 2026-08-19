@@ -18,14 +18,14 @@ export async function POST(req: NextRequest) {
     .eq('active', true)
     .maybeSingle()
 
-  const strategy: string = rules?.strategy ?? 'round_robin'
+  const strategy: string = rules?.strategy ?? 'by_load'
   const warmUpMinutes: number = rules?.warm_up_minutes ?? 5
-  const reattributionMinutes: number = rules?.reattribution_minutes ?? 10
+  const reattributionMinutes: number = rules?.reassign_minutes ?? 10
 
   // Atendentes ativos com seus limites
   const { data: attendants } = await supabase
     .from('attendants')
-    .select('id, name')
+    .select('id, name, online')
     .eq('company_id', context.companyId)
     .eq('active', true)
 
@@ -53,13 +53,21 @@ export async function POST(req: NextRequest) {
   }
 
   // Filtrar atendentes com capacidade disponível
-  const available = attendants.filter(att => {
+  let available = attendants.filter(att => {
     const max = limitsMap[att.id] ?? 15
     const current = activeByAttendant[att.id] ?? 0
     return current < max
   })
 
   if (!available.length) return NextResponse.json({ assigned: 0, reason: 'all_attendants_at_capacity' })
+
+  // by_load/by_availability: prioriza quem está online, mas nunca zera a fila
+  // por isso -- se ninguém marcou presença online ainda, cai pra todos com
+  // capacidade (comportamento de hoje), sem regressão pra empresa que não usa o toggle.
+  if (strategy === 'by_load' || strategy === 'by_availability') {
+    const online = available.filter(att => att.online)
+    if (online.length) available = online
+  }
 
   // Conversas na fila aguardando atendente (fila ou novo sem atendente)
   const queueThreshold = new Date(Date.now() - warmUpMinutes * 60 * 1000).toISOString()
@@ -78,7 +86,7 @@ export async function POST(req: NextRequest) {
 
   // Escolher próximo atendente baseado na strategy
   let attendantIdx = 0
-  if (strategy === 'least_busy') {
+  if (strategy === 'by_load' || strategy === 'by_availability') {
     available.sort((a, b) => (activeByAttendant[a.id] ?? 0) - (activeByAttendant[b.id] ?? 0))
   }
 
