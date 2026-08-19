@@ -555,23 +555,29 @@ function ConfiguracoesContent() {
         <p className="text-muted-foreground text-sm mt-1">Gerencie sua conta, plano e integrações</p>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-none flex-nowrap -mx-4 px-4 md:mx-0 md:px-0">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0',
-              tab === t
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {TAB_LABELS[t]}
-            {tab === t && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary rounded-full" />}
-          </button>
-        ))}
+      {/* Tab bar : overflow-x-auto rola, mas sem indício visual nenhum de que
+          dá pra rolar (scrollbar escondida) — abas do fim (ex: Segurança)
+          pareciam cortadas sem saída. Fades nas bordas avisam que tem mais. */}
+      <div className="relative -mx-4 px-4 md:mx-0 md:px-0">
+        <div className="flex gap-1 border-b border-border overflow-x-auto scrollbar-none flex-nowrap">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                'px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0',
+                tab === t
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {TAB_LABELS[t]}
+              {tab === t && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary rounded-full" />}
+            </button>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent" />
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-4 bg-gradient-to-r from-background to-transparent" />
       </div>
 
       {/* ── PERFIL ─────────────────────────────────────────────── */}
