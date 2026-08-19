@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
     const { context, error: authError } = await requireAuth(req)
     if (authError) return authError
 
-    const { code } = await req.json()
-    if (!code) {
-      return NextResponse.json({ error: 'code é obrigatório' }, { status: 400 })
+    const { code, redirectUri } = await req.json()
+    if (!code || !redirectUri) {
+      return NextResponse.json({ error: 'code e redirectUri são obrigatórios' }, { status: 400 })
     }
 
     const appId = process.env.NEXT_PUBLIC_META_APP_ID
@@ -35,13 +35,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'META_APP_ID ou META_APP_SECRET não configurado' }, { status: 500 })
     }
 
-    // redirect_uri vazio explícito: o code veio do popup do SDK JS
-    // (FB.login com scope, não Embedded Signup com config_id) -- a Meta
-    // associa esse code a um redirect_uri vazio e rejeita a troca
-    // ("Error validating verification code...") se o parâmetro não vier
-    // explicitamente, mesmo vazio.
+    // redirect_uri precisa ser exatamente o mesmo valor passado como
+    // fallback_redirect_uri no FB.login() do frontend -- a Meta associa o
+    // code a esse valor e rejeita a troca ("Error validating verification
+    // code...") se não bater. Esse domínio também precisa estar cadastrado
+    // em "Valid OAuth Redirect URIs" nas configurações de Facebook Login
+    // do app na Meta (passo manual, fora do código).
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=&code=${code}`
+      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
     )
     const tokenJson = await tokenRes.json()
     if (!tokenRes.ok || !tokenJson.access_token) {

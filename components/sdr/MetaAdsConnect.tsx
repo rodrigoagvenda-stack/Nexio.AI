@@ -63,7 +63,7 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
       const res = await fetch('/api/meta/ads/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, redirectUri: window.location.origin }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -108,6 +108,11 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
         scope: 'ads_management,business_management',
         response_type: 'code',
         override_default_response_type: true,
+        // O code do popup do SDK fica associado a esse redirect_uri -- a
+        // troca por token no backend precisa mandar o mesmo valor, e esse
+        // domínio precisa estar em "Valid OAuth Redirect URIs" nas
+        // configurações de Facebook Login do app na Meta.
+        fallback_redirect_uri: window.location.origin,
       }
     )
   }
