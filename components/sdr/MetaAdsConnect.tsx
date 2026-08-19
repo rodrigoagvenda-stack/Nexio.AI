@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { toast } from '@/components/ui/use-toast'
 import { Loader2, CheckCircle2, X, Target } from 'lucide-react'
 
@@ -11,6 +10,13 @@ declare global {
     FB: any
     fbAsyncInit: () => void
   }
+}
+
+interface AdAccount {
+  id: string
+  name: string
+  status: number
+  currency: string
 }
 
 interface Props {
@@ -22,14 +28,16 @@ interface Props {
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
 
-// Diferente do WhatsApp (Embedded Signup com config_id dedicado), conexão de
-// conta de anúncios usa login padrão da Meta pedindo o escopo ads_management
-// (superconjunto de ads_read -- lê e opcionalmente gerencia anúncios; é o
-// que já veio aprovado na revisão do app, ads_read isolado foi rejeitado).
+// Diferente do WhatsApp (Embedded Signup escolhe a conta dentro do próprio
+// popup da Meta via config_id), conexão de conta de anúncios usa login
+// padrão pedindo o escopo ads_management (superconjunto de ads_read -- já
+// aprovado na revisão do app) e depois lista as contas reais do usuário pra
+// ele escolher por nome, não por ID cru.
 export function MetaAdsConnect({ connected, accountName, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
-  const [adAccountId, setAdAccountId] = useState('')
+  const [accounts, setAccounts] = useState<AdAccount[] | null>(null)
+  const [picking, setPicking] = useState(false)
 
   useEffect(() => {
     function onSDKLoad() {
@@ -51,17 +59,13 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
   }, [])
 
   function launch() {
-    const normalized = adAccountId.trim().replace(/^act_/, '')
-    if (!normalized) {
-      toast({ title: 'Informe o ID da conta de anúncios primeiro', variant: 'destructive' })
-      return
-    }
     if (!window.FB) {
       toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
       return
     }
 
     setLoading(true)
+    setAccounts(null)
     const timeout = setTimeout(() => {
       setLoading(false)
       toast({ title: 'Fluxo não completado. Tente novamente.', variant: 'destructive' })
@@ -79,16 +83,15 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
           const res = await fetch('/api/meta/ads/connect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: response.authResponse.code, adAccountId: normalized }),
+            body: JSON.stringify({ code: response.authResponse.code }),
           })
           const json = await res.json()
           if (!res.ok) {
-            toast({ title: json.error ?? 'Erro ao conectar conta de anúncios', variant: 'destructive' })
+            toast({ title: json.error ?? 'Erro ao buscar contas de anúncio', variant: 'destructive' })
             setLoading(false)
             return
           }
-          onConnected(json.adAccountId ?? normalized, json.name ?? null)
-          toast({ title: 'Conta de anúncios conectada ✅' })
+          setAccounts(json.accounts)
         } catch (e: any) {
           toast({ title: e?.message ?? 'Erro ao conectar', variant: 'destructive' })
         } finally {
@@ -101,6 +104,29 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
         override_default_response_type: true,
       }
     )
+  }
+
+  async function pickAccount(account: AdAccount) {
+    setPicking(true)
+    try {
+      const res = await fetch('/api/meta/ads/connect', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adAccountId: account.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: json.error ?? 'Erro ao salvar conta de anúncio', variant: 'destructive' })
+        return
+      }
+      onConnected(json.adAccountId ?? account.id, json.name ?? account.name)
+      toast({ title: 'Conta de anúncios conectada ✅' })
+      setAccounts(null)
+    } catch (e: any) {
+      toast({ title: e?.message ?? 'Erro ao salvar', variant: 'destructive' })
+    } finally {
+      setPicking(false)
+    }
   }
 
   if (connected) {
@@ -120,23 +146,40 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
     )
   }
 
+  if (accounts) {
+    return (
+      <div className="rounded-lg border border-border p-3 space-y-2">
+        <p className="text-xs text-muted-foreground mb-1">Escolha a conta de anúncios:</p>
+        {accounts.map((acc) => (
+          <button
+            key={acc.id}
+            onClick={() => pickAccount(acc)}
+            disabled={picking}
+            className="w-full flex items-center justify-between p-2.5 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
+          >
+            <div>
+              <p className="text-sm font-medium">{acc.name}</p>
+              <p className="text-xs text-muted-foreground">act_{acc.id} · {acc.currency}</p>
+            </div>
+            {picking && <Loader2 className="h-4 w-4 animate-spin" />}
+          </button>
+        ))}
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => setAccounts(null)} disabled={picking}>
+          Cancelar
+        </Button>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col sm:flex-row gap-2">
-      <Input
-        placeholder="ID da conta de anúncios (ex: 123456789012345)"
-        value={adAccountId}
-        onChange={(e) => setAdAccountId(e.target.value)}
-        className="h-9 text-sm"
-      />
-      <Button
-        onClick={launch}
-        disabled={loading || !sdkReady}
-        className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white shrink-0"
-        size="sm"
-      >
-        {(loading || !sdkReady) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
-        {loading ? 'Conectando...' : !sdkReady ? 'Carregando...' : 'Conectar via Meta'}
-      </Button>
-    </div>
+    <Button
+      onClick={launch}
+      disabled={loading || !sdkReady}
+      className="gap-2 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white"
+      size="sm"
+    >
+      {(loading || !sdkReady) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+      {loading ? 'Buscando contas...' : !sdkReady ? 'Carregando...' : 'Conectar via Meta'}
+    </Button>
   )
 }
