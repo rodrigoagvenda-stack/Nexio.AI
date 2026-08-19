@@ -19,6 +19,7 @@ import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
 import { isWithinBusinessHours } from './business-hours'
 import { sendText } from './whatsapp-sender'
+import { distributeQueuedConversations } from './distribute'
 import {
   checkAvailableSlots,
   createEventWithMeet,
@@ -1538,17 +1539,28 @@ CONTEXTO DO CRM:
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
       } else if (fn === 'Pausar_conversa') {
-        // Pausa o bot nesta conversa : atendimento humano irá assumir
+        // Pausa o bot nesta conversa : atendimento humano irá assumir.
+        // Peça C: além da flag, entra de fato na fila (kanban_stage/current_status)
+        // e dispara a distribuição na hora — sem isso a conversa nunca chegava a
+        // ser vista pelo motor de distribuição, mesmo já existindo pronto.
         if (ctx.conversationId) {
           const { error } = await supabase
             .from('conversas_do_whatsapp')
-            .update({ agente_pausado: true })
+            .update({
+              agente_pausado: true,
+              current_status: 'livre',
+              kanban_stage: 'fila',
+              queue_entered_at: new Date().toISOString(),
+            })
             .eq('id', ctx.conversationId)
           if (error) {
             console.error(`[SDR:${ctx.companyId}] Pausar_conversa erro:`, error.message)
             result = 'ERRO ao pausar conversa: ' + error.message
           } else {
             await log(ctx.companyId, 'agent_paused_handoff', { motivo: args.motivo }, supabase, ctx.leadPhone, ctx.leadId)
+            distributeQueuedConversations(ctx.companyId, supabase).catch((e) =>
+              console.error(`[SDR:${ctx.companyId}] distribuição pós-handoff falhou:`, e.message)
+            )
             result = `Conversa pausada com sucesso. Motivo: ${args.motivo ?? 'handoff'}. Atendente humano será notificado.`
           }
         } else {
