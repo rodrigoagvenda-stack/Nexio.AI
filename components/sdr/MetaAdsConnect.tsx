@@ -58,6 +58,26 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
     }
   }, [])
 
+  async function handleLoginCode(code: string) {
+    try {
+      const res = await fetch('/api/meta/ads/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: json.error ?? 'Erro ao buscar contas de anúncio', variant: 'destructive' })
+        return
+      }
+      setAccounts(json.accounts)
+    } catch (e: any) {
+      toast({ title: e?.message ?? 'Erro ao conectar', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function launch() {
     if (!window.FB) {
       toast({ title: 'SDK Meta ainda carregando, aguarde', variant: 'destructive' })
@@ -71,32 +91,18 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
       toast({ title: 'Fluxo não completado. Tente novamente.', variant: 'destructive' })
     }, 120_000)
 
+    // FB.login rejeita callback async direto ("Expression is of type
+    // asyncfunction, not function") -- o callback tem que ser síncrono,
+    // disparando a lógica async por dentro sem await.
     window.FB.login(
-      async (response: any) => {
+      (response: any) => {
         clearTimeout(timeout)
         if (!response?.authResponse?.code) {
           setLoading(false)
           toast({ title: 'Login cancelado ou não completado', variant: 'destructive' })
           return
         }
-        try {
-          const res = await fetch('/api/meta/ads/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: response.authResponse.code }),
-          })
-          const json = await res.json()
-          if (!res.ok) {
-            toast({ title: json.error ?? 'Erro ao buscar contas de anúncio', variant: 'destructive' })
-            setLoading(false)
-            return
-          }
-          setAccounts(json.accounts)
-        } catch (e: any) {
-          toast({ title: e?.message ?? 'Erro ao conectar', variant: 'destructive' })
-        } finally {
-          setLoading(false)
-        }
+        handleLoginCode(response.authResponse.code)
       },
       {
         scope: 'ads_management,business_management',
