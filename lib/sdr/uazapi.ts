@@ -80,6 +80,8 @@ export type StepTipoMensagem =
   | 'sub_flow'
   | 'wait_event'
   | 'pos_condicao'
+  | 'gerar_cobranca'
+  | 'aguardar_pagamento'
 
 export interface ButtonAction {
   status?: string         // mover lead para este status

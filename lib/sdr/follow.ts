@@ -19,6 +19,7 @@ import { getPlatformConfig } from '@/lib/platform-config'
 import { normalizePhone, StepTipoMensagem, StepMediaConfig } from './uazapi'
 import { sendRichStepUnified } from './rich-sender'
 import { getRedis } from './redis'
+import { findOrCreateCustomer, createCharge, getPixQrCode, type BillingType } from '@/lib/asaas/company-client'
 import {
   acquireSendLock, releaseSendLock, sendLockKey,
   recordCircuitFailure, recordCircuitSuccess, isCircuitOpen,
@@ -306,6 +307,22 @@ async function evaluateBranch(
       const sentiment = await redis.get(`follow:sentiment:${companyId}:${lead.id}`)
       return (sentiment as string | null) ?? 'neutro'
     } catch { return 'neutro' }
+  }
+
+  // Peça D: só é chamado depois que o próprio step de aguardar_pagamento já
+  // se marcou 'sent' (pago ou timeout vencido) -- ver processamento do tipo
+  // logo abaixo. Reavalia o status aqui pra escolher o handle certo do canvas.
+  if (tipo === 'aguardar_pagamento') {
+    const { data: charge } = await supabase
+      .from('lead_charges')
+      .select('status')
+      .eq('lead_id', lead.id)
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const paid = charge?.status === 'received' || charge?.status === 'confirmed'
+    return paid ? 'pago' : 'vencido'
   }
 
   return 'sim'
@@ -1098,6 +1115,115 @@ async function processFollowGeral(
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           }
           await releaseSendLock(lockKey)
+          continue
+        }
+
+        // ── Gerar Cobrança step (Peça D): cria a cobrança via Asaas (mesma
+        // lógica do botão manual em app/api/asaas/company/charge/route.ts) e
+        // opcionalmente manda o link via WhatsApp. Nó órfão até aqui : existia
+        // no canvas mas não tinha processamento nenhum, ficava sempre 'skipped'.
+        if (tipo === 'gerar_cobranca') {
+          try {
+            const cfg = media as any
+            const billingType = (cfg?.billingType ?? 'PIX') as BillingType
+            const value = Number(cfg?.value ?? 0)
+            const description = cfg?.description || `Cobrança - ${lead.contact_name}`
+            const daysUntilDue = Number(cfg?.daysUntilDue ?? 3)
+            const dueDate = new Date(Date.now() + daysUntilDue * 86_400_000).toISOString().slice(0, 10)
+
+            const customer = await findOrCreateCustomer(company.id, {
+              name: lead.contact_name,
+              phone: lead.whatsapp || undefined,
+              externalReference: `lead_${lead.id}`,
+            })
+            const payment = await createCharge(company.id, {
+              customerId: customer.id,
+              value,
+              dueDate,
+              billingType,
+              description,
+              externalReference: `zaapply_lead_${lead.id}_${Date.now()}`,
+            })
+
+            let pixPayload: any = null
+            if (billingType === 'PIX') {
+              try { pixPayload = await getPixQrCode(company.id, payment.id) } catch {}
+            }
+
+            await supabase.from('lead_charges').insert({
+              company_id: company.id,
+              lead_id: lead.id,
+              platform: 'asaas',
+              external_id: payment.id,
+              amount: value,
+              description,
+              billing_type: billingType,
+              due_date: dueDate,
+              status: 'pending',
+              payment_url: payment.invoiceUrl,
+              invoice_url: payment.bankSlipUrl || payment.invoiceUrl,
+              pix_payload: pixPayload,
+            })
+
+            if (cfg?.sendWhatsapp !== false) {
+              const paymentUrl = billingType === 'PIX'
+                ? (pixPayload?.payload ?? payment.invoiceUrl ?? '')
+                : (payment.invoiceUrl ?? payment.bankSlipUrl ?? '')
+              const msgLines = [
+                `Olá${lead.contact_name ? ` ${lead.contact_name}` : ''}! Segue sua cobrança:`,
+                '',
+                `💰 Valor: R$ ${value.toFixed(2).replace('.', ',')}`,
+                `📅 Vencimento: ${new Date(dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}`,
+              ]
+              if (description) msgLines.push(`📋 ${description}`)
+              if (billingType === 'PIX' && pixPayload?.payload) msgLines.push('', '📲 Código PIX:', `\`${pixPayload.payload}\``)
+              else if (paymentUrl) msgLines.push('', '🔗 Link de pagamento:', paymentUrl)
+
+              const texto = msgLines.join('\n')
+              await enviarMensagem(phone, texto, company, 'text', null)
+              await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, 'text', null)
+            }
+
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+          } catch (err: any) {
+            console.error(`[follow] gerar_cobranca falhou lead=${lead.id}:`, err.message)
+            await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
+          continue
+        }
+
+        // ── Aguardar Pagamento step (Peça D): espera lead_charges resolver
+        // (pago) ou vencer o timeout configurado no nó (vencido). Só se marca
+        // 'sent' quando um dos dois acontece -- é isso que libera evaluateBranch
+        // acima a escolher o handle 'pago'/'vencido' certo pros steps seguintes.
+        // Enquanto pendente, fica parado sem marcar execução (tenta de novo no
+        // próximo tick, igual wait_event).
+        if (tipo === 'aguardar_pagamento') {
+          try {
+            const { data: charge } = await supabase
+              .from('lead_charges')
+              .select('status, created_at')
+              .eq('lead_id', lead.id)
+              .eq('company_id', company.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            const timeoutDays = Number((media as any)?.timeoutDays ?? 7)
+            const isPaid = charge?.status === 'received' || charge?.status === 'confirmed'
+            const isExpired = !isPaid && !!charge?.created_at &&
+              (Date.now() - new Date(charge.created_at).getTime()) / 86_400_000 > timeoutDays
+
+            if (isPaid || isExpired) {
+              await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
+            }
+          } catch (err: any) {
+            console.error(`[follow] aguardar_pagamento erro lead=${lead.id}:`, err.message)
+          } finally {
+            await releaseSendLock(lockKey)
+          }
           continue
         }
 
