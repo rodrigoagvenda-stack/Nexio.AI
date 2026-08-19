@@ -1,8 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, Users, TrendingUp, Clock, MessageSquare, DollarSign, Award, BarChart2 } from 'lucide-react'
+import { Loader2, Users, TrendingUp, Clock, MessageSquare, DollarSign, Award, BarChart2, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+interface CacAd {
+  ad_id: string
+  ad_name: string | null
+  campaign_name: string | null
+  spend_cents: number
+  conversations: number
+  qualified_leads: number
+  customers: number
+  cost_per_qualified_lead_cents: number | null
+  cost_per_customer_cents: number | null
+}
 
 interface TeamMetrics {
   period_days: number
@@ -61,6 +73,8 @@ export default function TimeDashboardPage() {
   const [metrics, setMetrics] = useState<TeamMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [days, setDays] = useState(30)
+  const [cacAds, setCacAds] = useState<CacAd[] | null>(null)
+  const [cacNote, setCacNote] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -69,6 +83,11 @@ export default function TimeDashboardPage() {
       .then(d => setMetrics(d))
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    fetch(`/api/reports/cac?days=${days}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setCacAds(d?.ads ?? null); setCacNote(d?.note ?? null) })
+      .catch(() => {})
   }, [days])
 
   if (loading) {
@@ -115,7 +134,7 @@ export default function TimeDashboardPage() {
             <Users className="h-5 w-5" />
             Dashboard de Time
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Performance da equipe e funil de conversas</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Funil ponta a ponta: anúncio → conversa → qualificado → fechamento, e performance da equipe</p>
         </div>
         <div className="flex gap-1.5">
           {[7, 14, 30, 90].map(d => (
@@ -229,6 +248,61 @@ export default function TimeDashboardPage() {
             <span className="text-[10px] text-muted-foreground">Mais</span>
           </div>
         </div>
+      </div>
+
+      {/* CAC por anúncio (Marketing API) */}
+      <div className="p-5 rounded-2xl border border-border bg-card">
+        <p className="text-sm font-semibold mb-1 flex items-center gap-2">
+          <Target className="h-4 w-4" />
+          Custo por lead qualificado e por cliente, por anúncio
+        </p>
+        <p className="text-xs text-muted-foreground mb-4">
+          Cruza o gasto real da conta de anúncios com o que a conversa virou aqui dentro — não só custo por conversa iniciada.
+        </p>
+
+        {!cacAds || cacAds.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            {cacNote ?? 'Conecte a conta de anúncios da Meta em Configurações para ver o CAC por anúncio aqui.'}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-4">Anúncio</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Gasto</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Conversas</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Leads qualificados</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Custo/lead qualificado</th>
+                  <th className="text-right text-xs font-medium text-muted-foreground pb-2">Custo/cliente</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {cacAds.map(ad => (
+                  <tr key={ad.ad_id}>
+                    <td className="py-2.5 pr-4">
+                      <p className="font-medium text-sm">{ad.ad_name ?? ad.ad_id}</p>
+                      {ad.campaign_name && <p className="text-xs text-muted-foreground">{ad.campaign_name}</p>}
+                    </td>
+                    <td className="py-2.5 pr-4 text-right"><span className="font-mono tabular-nums text-sm">{fmt(ad.spend_cents)}</span></td>
+                    <td className="py-2.5 pr-4 text-right"><span className="font-mono tabular-nums text-sm">{ad.conversations}</span></td>
+                    <td className="py-2.5 pr-4 text-right"><span className="font-mono tabular-nums text-sm">{ad.qualified_leads}</span></td>
+                    <td className="py-2.5 pr-4 text-right">
+                      <span className="font-mono tabular-nums text-sm font-medium">
+                        {ad.cost_per_qualified_lead_cents !== null ? fmt(ad.cost_per_qualified_lead_cents) : '-'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <span className="font-mono tabular-nums text-sm font-medium">
+                        {ad.cost_per_customer_cents !== null ? fmt(ad.cost_per_customer_cents) : '-'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Leaderboard */}
