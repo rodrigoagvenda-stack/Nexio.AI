@@ -199,7 +199,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                 <EmptyState
                   message="Nenhum disparo Anti Noshow no período"
                   detail="Configure sequências de Anti Noshow em Automações para reduzir faltas."
-                  href="/automacoes"
+                  href="/configuracoes/follow"
                   cta="Configurar automação"
                 />
               ) : (
@@ -212,7 +212,7 @@ export function SalesFunnelTabs({ stages, antiNoshowCounts, remarketingCount = 0
                 <EmptyState
                   message="Nenhum lead de remarketing no período"
                   detail="Configure sequências de remarketing para reativar leads perdidos."
-                  href="/automacoes"
+                  href="/configuracoes/follow"
                   cta="Configurar remarketing"
                 />
               ) : (

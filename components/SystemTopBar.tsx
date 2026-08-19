@@ -296,10 +296,10 @@ export function SystemTopBar() {
                 {notifications.length > 0 && (
                   <div className="border-t border-border p-2 flex-shrink-0">
                     <button
-                      onClick={() => { router.push('/atendimento'); setNotifOpen(false); }}
+                      onClick={() => { router.push('/notificacoes'); setNotifOpen(false); }}
                       className="w-full py-2 text-xs text-primary font-medium hover:bg-accent/50 rounded-lg transition-colors"
                     >
-                      Ver todas as mensagens
+                      Ver todas as notificações
                     </button>
                   </div>
                 )}

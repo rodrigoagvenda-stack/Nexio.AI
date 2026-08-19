@@ -117,19 +117,20 @@ const navSections: NavSection[] = [
         children: [
           { href: '/crm?view=table', label: 'Planilha', icon: Table2 },
           { href: '/crm?view=kanban', label: 'Kanban', icon: Kanban },
-          { href: '/crm/time', label: 'Dashboard Time', icon: BarChart2 },
           { href: '/crm/auditoria', label: 'Auditoria', icon: Shield },
         ],
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMoreIcon },
       {
-        href: '/automacoes',
+        href: '/configuracoes/follow',
         label: 'Automações',
         icon: BotIcon,
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: BotMessageSquareIcon },
           { href: '/configuracoes/follow', label: 'Canvas', icon: CursorClickIcon },
+          { href: '/configuracoes/fluxos', label: 'Fluxos', icon: Table2 },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDaysIcon },
+          { href: '/configuracoes/trial', label: 'Trial', icon: FlameIcon },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: ChartLineIcon },
         ],
       },
@@ -221,16 +222,21 @@ function NavItemLinkComp({
 }
 
 function NavItemFlyoutComp({
-  link, isParentActive, isCollapsed, onMouseEnter, onMouseLeave,
+  link, isParentActive, isCollapsed, onMouseEnter, onMouseLeave, onClick,
 }: {
   link: NavLink; isParentActive: boolean; isCollapsed: boolean;
   onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => void;
   onMouseLeave: () => void;
+  onClick: () => void;
 }) {
   const iconRef = useRef<AnyIconHandle>(null);
   const Icon = link.icon as unknown as AnyAnimIcon;
   return (
     <div
+      role="link"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       onMouseEnter={(e) => { iconRef.current?.startAnimation(); onMouseEnter(e); }}
       onMouseLeave={() => { iconRef.current?.stopAnimation(); onMouseLeave(); }}
       className={cn(
@@ -568,8 +574,8 @@ export const Sidebar = memo(function Sidebar({
             : [];
           return { ...link, children: [...(link.children ?? []), ...metaChild] };
         }
-        if (link.href === '/automacoes') {
-          const children = (link.children ?? []).filter(child => {
+        if (link.href === '/configuracoes/follow' && link.children) {
+          const children = link.children.filter(child => {
             if (child.href === '/configuracoes/follow' && !features.canvas) return false;
             if (child.href === '/configuracoes/agenda' && !features.agenda) return false;
             if (child.href === '/configuracoes/metricas' && !features.metricas) return false;
@@ -582,7 +588,7 @@ export const Sidebar = memo(function Sidebar({
         }
         return link;
       }).filter(link => {
-        if (isCloser && (link.href === '/automacoes' || link.href === '/membros')) return false;
+        if (isCloser && (link.href === '/configuracoes/follow' || link.href === '/membros')) return false;
         if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
         return true;
       }),
@@ -685,6 +691,7 @@ export const Sidebar = memo(function Sidebar({
                         isCollapsed={isCollapsed}
                         onMouseEnter={(e) => openFlyout(link, e.currentTarget)}
                         onMouseLeave={closeFlyout}
+                        onClick={() => router.push(link.href)}
                       />
                     );
                   }
