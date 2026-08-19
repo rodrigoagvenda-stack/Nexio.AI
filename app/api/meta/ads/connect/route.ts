@@ -1,11 +1,14 @@
 // Peça B do plano "máquina de vendas completa": conexão da Marketing API da
-// Meta (conta de anúncios, escopo ads_management). Fluxo em duas etapas,
-// diferente do WhatsApp (Embedded Signup escolhe a conta dentro do próprio
-// popup da Meta via config_id — não existe equivalente pra conta de
-// anúncios): POST troca o code por token, lista as contas reais do usuário
-// via /me/adaccounts e devolve pro front escolher; PATCH recebe a conta
-// escolhida e finaliza o save. O token trafega só entre servidor e Redis —
-// nunca é exposto ao navegador entre as duas etapas.
+// Meta (conta de anúncios, escopo ads_management). Mesmo mecanismo do
+// WhatsApp (Login do Facebook para Empresas via config_id, sem
+// redirect_uri) — só que com uma Configuração de Login própria
+// (NEXT_PUBLIC_META_ADS_CONFIG_ID), já que config_id é específico por
+// permissão/caso de uso. Fluxo em duas etapas porque não existe seleção de
+// conta embutida no popup igual o Embedded Signup do WhatsApp faz: POST
+// troca o code por token e lista as contas reais do usuário via
+// /me/adaccounts pro front escolher; PATCH recebe a conta escolhida e
+// finaliza o save. O token trafega só entre servidor e Redis — nunca é
+// exposto ao navegador entre as duas etapas.
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -24,9 +27,9 @@ export async function POST(req: NextRequest) {
     const { context, error: authError } = await requireAuth(req)
     if (authError) return authError
 
-    const { code, redirectUri } = await req.json()
-    if (!code || !redirectUri) {
-      return NextResponse.json({ error: 'code e redirectUri são obrigatórios' }, { status: 400 })
+    const { code } = await req.json()
+    if (!code) {
+      return NextResponse.json({ error: 'code é obrigatório' }, { status: 400 })
     }
 
     const appId = process.env.NEXT_PUBLIC_META_APP_ID
@@ -35,14 +38,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'META_APP_ID ou META_APP_SECRET não configurado' }, { status: 500 })
     }
 
-    // redirect_uri precisa ser exatamente o mesmo valor passado como
-    // fallback_redirect_uri no FB.login() do frontend -- a Meta associa o
-    // code a esse valor e rejeita a troca ("Error validating verification
-    // code...") se não bater. Esse domínio também precisa estar cadastrado
-    // em "Valid OAuth Redirect URIs" nas configurações de Facebook Login
-    // do app na Meta (passo manual, fora do código).
+    // Sem redirect_uri: o code vem de Login do Facebook para Empresas
+    // (config_id, mesmo mecanismo do CoEx em app/api/meta/whatsapp/connect),
+    // que não exige redirect_uri na troca -- diferente do login clássico
+    // por scope, que exige e precisaria de URI cadastrada nas configurações
+    // do app.
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+      `https://graph.facebook.com/v21.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&code=${code}`
     )
     const tokenJson = await tokenRes.json()
     if (!tokenRes.ok || !tokenJson.access_token) {

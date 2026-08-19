@@ -27,12 +27,14 @@ interface Props {
 }
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
+const CONFIG_ID = process.env.NEXT_PUBLIC_META_ADS_CONFIG_ID!
 
-// Diferente do WhatsApp (Embedded Signup escolhe a conta dentro do próprio
-// popup da Meta via config_id), conexão de conta de anúncios usa login
-// padrão pedindo o escopo ads_management (superconjunto de ads_read -- já
-// aprovado na revisão do app) e depois lista as contas reais do usuário pra
-// ele escolher por nome, não por ID cru.
+// Mesmo mecanismo do WhatsApp (Login do Facebook para Empresas via
+// config_id, não login clássico com scope) -- por isso não precisa de
+// redirect_uri nem de cadastrar URI nenhuma nas configurações do app: é
+// exatamente o que o CoEx já faz, só que com uma Configuração de Login
+// separada (NEXT_PUBLIC_META_ADS_CONFIG_ID) pedindo ads_management em vez
+// de whatsapp_business_app_onboarding.
 export function MetaAdsConnect({ connected, accountName, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
@@ -63,7 +65,7 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
       const res = await fetch('/api/meta/ads/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirectUri: window.location.origin }),
+        body: JSON.stringify({ code }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -105,14 +107,9 @@ export function MetaAdsConnect({ connected, accountName, onConnected, onDisconne
         handleLoginCode(response.authResponse.code)
       },
       {
-        scope: 'ads_management,business_management',
+        config_id: CONFIG_ID,
         response_type: 'code',
         override_default_response_type: true,
-        // O code do popup do SDK fica associado a esse redirect_uri -- a
-        // troca por token no backend precisa mandar o mesmo valor, e esse
-        // domínio precisa estar em "Valid OAuth Redirect URIs" nas
-        // configurações de Facebook Login do app na Meta.
-        fallback_redirect_uri: window.location.origin,
       }
     )
   }
