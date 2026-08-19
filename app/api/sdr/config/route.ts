@@ -57,6 +57,8 @@ export async function GET() {
         meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
         meta_wa_waba_id: config.meta_wa_waba_id ?? null,
         meta_wa_token: config.meta_wa_token ? '••••••••' : null,
+        meta_ad_account_id: config.meta_ad_account_id ?? null,
+        meta_ad_account_name: config.meta_ad_account_name ?? null,
         meta_pixel_id: config.meta_pixel_id ?? null,
         meta_pixel_token: config.meta_pixel_token ? '••••••••' : null,
         created_at: config.created_at,

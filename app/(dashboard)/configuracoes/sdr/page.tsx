@@ -21,7 +21,7 @@ import {
   Monitor, Wand2, Smile, Activity, Leaf, Stethoscope,
   Heart, BarChart2, ShoppingCart, GraduationCap,
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
-  TrendingUp, Link2, Copy,
+  TrendingUp, Link2, Copy, Target,
   type LucideIcon,
 } from 'lucide-react'
 import { BotMessageSquareIcon } from '@/components/ui/bot-message-square'
@@ -33,6 +33,7 @@ import { FilePenLineIcon } from '@/components/ui/file-pen-line'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect'
+import { MetaAdsConnect } from '@/components/sdr/MetaAdsConnect'
 import { SdrDiagnosticoWidget } from '@/components/ui/sdr-diagnostico-widget'
 
 // ── Niche icons ────────────────────────────────────────────────────────────
@@ -87,6 +88,8 @@ interface SdrConfig {
   meta_wa_phone_number_id: string | null
   meta_wa_waba_id: string | null
   meta_wa_token: string | null
+  meta_ad_account_id: string | null
+  meta_ad_account_name: string | null
   meta_pixel_id: string | null
   meta_pixel_token: string | null
 }
@@ -2344,6 +2347,7 @@ export default function SdrConfigPage() {
     event_title_template: '',
     whatsapp_provider: 'uazapi',
     meta_wa_phone_number_id: null, meta_wa_waba_id: null, meta_wa_token: null,
+    meta_ad_account_id: null, meta_ad_account_name: null,
     meta_pixel_id: null, meta_pixel_token: null,
   })
   const [loading, setLoading] = useState(true)
@@ -2401,6 +2405,8 @@ export default function SdrConfigPage() {
           meta_wa_phone_number_id: data.config.meta_wa_phone_number_id ?? null,
           meta_wa_waba_id: data.config.meta_wa_waba_id ?? null,
           meta_wa_token: data.config.meta_wa_token ?? null,
+          meta_ad_account_id: data.config.meta_ad_account_id ?? null,
+          meta_ad_account_name: data.config.meta_ad_account_name ?? null,
           meta_pixel_id: data.config.meta_pixel_id ?? null,
           meta_pixel_token: data.config.meta_pixel_token ?? null,
         })
@@ -2908,6 +2914,37 @@ export default function SdrConfigPage() {
                               meta_wa_token: null,
                             }))
                             toast({ title: 'Meta WhatsApp desconectado' })
+                          }}
+                        />
+                      </div>
+
+                      <div className="border-t border-border" />
+
+                      {/* ── Conta de anúncios Meta (CAC por anúncio) ── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Target className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">Conta de Anúncios Meta</p>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 font-medium ml-auto">CAC por anúncio</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Conecta a conta de anúncios pra calcular custo por lead qualificado e por cliente, por anúncio (Dashboard de Time).
+                        </p>
+                        <MetaAdsConnect
+                          connected={!!config.meta_ad_account_id}
+                          accountName={config.meta_ad_account_name}
+                          onConnected={(adAccountId, name) => {
+                            setConfig((p) => ({ ...p, meta_ad_account_id: adAccountId, meta_ad_account_name: name }))
+                          }}
+                          onDisconnect={async () => {
+                            const res = await fetch('/api/meta/ads/connect', { method: 'DELETE' })
+                            if (!res.ok) {
+                              const err = await res.json().catch(() => ({}))
+                              toast({ title: `Erro ao desconectar: ${err?.error ?? res.status}`, variant: 'destructive' })
+                              return
+                            }
+                            setConfig((p) => ({ ...p, meta_ad_account_id: null, meta_ad_account_name: null }))
+                            toast({ title: 'Conta de anúncios desconectada' })
                           }}
                         />
                       </div>
