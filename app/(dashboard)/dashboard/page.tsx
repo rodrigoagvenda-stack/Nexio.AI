@@ -1,366 +1,488 @@
-'use client'
+﻿'use client';
 
-import { useState, useEffect } from 'react'
-import { Loader2, Users, TrendingUp, Clock, MessageSquare, DollarSign, Award, BarChart2, Target } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useEffect, useState, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { UserRoundPlus, MessageCircleMore, TrendingUp, Users, CircleDollarSign } from 'lucide-react';
+import {
+  startOfDay, startOfWeek, startOfMonth, startOfYear,
+  endOfDay, subDays, subWeeks, subMonths, subYears, format,
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { FilterPeriod } from '@/components/dashboard/FilterButtons';
+import { DateRangePicker } from '@/components/dashboard/DateRangePicker';
+import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
+import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
+import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
+import { RecentSales } from '@/components/dashboard/RecentSales';
+import { useFeatures } from '@/components/layout/FeaturesProvider';
 
-interface CacAd {
-  ad_id: string
-  ad_name: string | null
-  campaign_name: string | null
-  spend_cents: number
-  conversations: number
-  qualified_leads: number
-  customers: number
-  cost_per_qualified_lead_cents: number | null
-  cost_per_customer_cents: number | null
+interface DateRange {
+  from: Date | undefined;
+  to: Date | undefined;
 }
 
-interface TeamMetrics {
-  period_days: number
-  summary: {
-    total_conversations: number
-    closed_deals: number
-    total_revenue_cents: number
-    conversion_rate: string
-    avg_queue_min: number | null
+interface Lead {
+  id: string;
+  status: string;
+  project_value: number;
+  created_at: string;
+  closed_at: string | null;
+  outbound_responded: boolean;
+  outbound_meeting: boolean;
+  outbound_followups: number;
+}
+
+// ── Pure helpers ──────────────────────────────────────────────────────────────
+
+function getPeriodRange(period: FilterPeriod, dateRange?: DateRange): { from: Date; to: Date } | null {
+  const now = new Date();
+  if (period === 'custom') {
+    return dateRange?.from && dateRange?.to
+      ? { from: startOfDay(dateRange.from), to: endOfDay(dateRange.to) }
+      : null;
   }
-  funnel: { stage: string; count: number }[]
-  heatmap: { date: string; count: number }[]
-  leaderboard: {
-    id: string
-    name: string
-    email: string
-    role: string
-    active_conversations: number
-    closed_deals: number
-    revenue_cents: number
-  }[]
-  migration_pending?: boolean
+  const map: Record<string, { from: Date; to: Date }> = {
+    today: { from: startOfDay(now), to: endOfDay(now) },
+    week:  { from: startOfWeek(now, { weekStartsOn: 0 }), to: endOfDay(now) },
+    month: { from: startOfMonth(now), to: endOfDay(now) },
+    year:  { from: startOfYear(now), to: endOfDay(now) },
+  };
+  return map[period] ?? null;
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  novo: 'Novo',
-  qualificacao: 'Qualificação',
-  fila: 'Fila',
-  em_atendimento: 'Em Atendimento',
-  negociacao: 'Negociação',
-  fechado: 'Fechado',
+function getPreviousPeriodRange(period: FilterPeriod, dateRange?: DateRange): { from: Date; to: Date } | null {
+  const now = new Date();
+  switch (period) {
+    case 'today': {
+      const d = subDays(now, 1);
+      return { from: startOfDay(d), to: endOfDay(d) };
+    }
+    case 'week': {
+      const ws = startOfWeek(now, { weekStartsOn: 0 });
+      return { from: subWeeks(ws, 1), to: endOfDay(subDays(ws, 1)) };
+    }
+    case 'month': {
+      const ms = startOfMonth(now);
+      return { from: startOfMonth(subMonths(now, 1)), to: endOfDay(subDays(ms, 1)) };
+    }
+    case 'year': {
+      const ys = startOfYear(now);
+      return { from: startOfYear(subYears(now, 1)), to: endOfDay(subDays(ys, 1)) };
+    }
+    case 'custom': {
+      if (!dateRange?.from || !dateRange?.to) return null;
+      const diff = dateRange.to.getTime() - dateRange.from.getTime();
+      const prevTo = endOfDay(subDays(dateRange.from, 1));
+      const prevFrom = new Date(prevTo.getTime() - diff);
+      return { from: prevFrom, to: prevTo };
+    }
+    default:
+      return null;
+  }
 }
 
-const STAGE_COLORS: Record<string, string> = {
-  novo: 'bg-zinc-500',
-  qualificacao: 'bg-blue-500',
-  fila: 'bg-yellow-500',
-  em_atendimento: 'bg-orange-500',
-  negociacao: 'bg-purple-500',
-  fechado: 'bg-emerald-500',
+function calcDelta(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? 100 : null;
+  return Math.round(((current - previous) / previous) * 100);
 }
 
-function fmt(cents: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
 }
 
-function fmtMin(min: number | null) {
-  if (min === null) return '-'
-  if (min < 60) return `${min}min`
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  return m > 0 ? `${h}h ${m}min` : `${h}h`
-}
+const PERIOD_LABELS: Record<FilterPeriod, string> = {
+  today: 'Hoje', week: 'Semana', month: 'Mês', year: 'Ano', custom: 'Personalizado',
+};
+
+const PERIODS: FilterPeriod[] = ['today', 'week', 'month', 'year', 'custom'];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<TeamMetrics | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [days, setDays] = useState(30)
-  const [cacAds, setCacAds] = useState<CacAd[] | null>(null)
-  const [cacNote, setCacNote] = useState<string | null>(null)
+  const features = useFeatures();
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [antiNoshowCounts, setAntiNoshowCounts] = useState<Record<string, number>>({});
+  const [companyName, setCompanyName] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState<FilterPeriod>('month');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-    setLoading(true)
-    fetch(`/api/team-metrics?days=${days}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setMetrics(d))
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    fetchData();
+    const onVisible = () => { if (!document.hidden) fetchData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
-    fetch(`/api/reports/cac?days=${days}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { setCacAds(d?.ads ?? null); setCacNote(d?.note ?? null) })
-      .catch(() => {})
-  }, [days])
+  async function fetchData() {
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
+      const { data: userData } = await supabase
+        .from('users').select('company_id').eq('auth_user_id', user.id).single();
+      if (!userData?.company_id) return;
+      const companyId = userData.company_id;
+
+      const [leadsRes, followLogsRes, companyRes] = await Promise.all([
+        supabase.from('leads')
+          .select('id, status, project_value, created_at, closed_at, outbound_responded, outbound_meeting, outbound_followups')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: true }),
+        supabase.from('follow_logs').select('momento').eq('company_id', companyId),
+        supabase.from('companies').select('name').eq('id', companyId).maybeSingle(),
+      ]);
+
+      setLeads(leadsRes.data || []);
+      setCompanyName(companyRes.data?.name || '');
+
+      const counts: Record<string, number> = {};
+      (followLogsRes.data || []).forEach((r: any) => {
+        if (r.momento) counts[r.momento] = (counts[r.momento] || 0) + 1;
+      });
+      setAntiNoshowCounts(counts);
+    } catch (e) {
+      console.error('Dashboard fetch error:', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handlePeriodChange = (period: FilterPeriod) => {
+    setSelectedPeriod(period);
+    if (period !== 'custom') { setDateRange(undefined); setShowDatePicker(false); }
+    else { setShowDatePicker(true); }
+  };
+
+  // ── Ranges ────────────────────────────────────────────────────────────────
+  const currentRange = useMemo(() => getPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
+  const previousRange = useMemo(() => getPreviousPeriodRange(selectedPeriod, dateRange), [selectedPeriod, dateRange]);
+
+  // ── Derived lead sets ─────────────────────────────────────────────────────
+  const filteredLeads = useMemo(() => {
+    if (!currentRange) return leads;
+    return leads.filter(l => {
+      const d = new Date(l.created_at);
+      return d >= currentRange.from && d <= currentRange.to;
+    });
+  }, [leads, currentRange]);
+
+  const leadsClosedInPeriod = useMemo(() => {
+    if (!currentRange) return leads.filter(l => l.status === 'Fechado' && l.closed_at);
+    return leads.filter(l => {
+      if (l.status !== 'Fechado' || !l.closed_at) return false;
+      const d = new Date(l.closed_at);
+      return d >= currentRange.from && d <= currentRange.to;
+    });
+  }, [leads, currentRange]);
+
+  // Leads not closed/lost : state atual do pipeline (independe do período)
+  const activeLeads = useMemo(() =>
+    leads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido'),
+    [leads]
+  );
+
+  const prevFilteredLeads = useMemo(() => {
+    if (!previousRange) return [];
+    return leads.filter(l => {
+      const d = new Date(l.created_at);
+      return d >= previousRange.from && d <= previousRange.to;
+    });
+  }, [leads, previousRange]);
+
+  const prevLeadsClosedInPeriod = useMemo(() => {
+    if (!previousRange) return [];
+    return leads.filter(l => {
+      if (l.status !== 'Fechado' || !l.closed_at) return false;
+      const d = new Date(l.closed_at);
+      return d >= previousRange.from && d <= previousRange.to;
+    });
+  }, [leads, previousRange]);
+
+  // ── Current metrics ───────────────────────────────────────────────────────
+  // novosLeads: TODOS os leads criados no período (independente do status atual)
+  const novosLeads = filteredLeads.length;
+  // emAtendimento: estado real do pipeline agora
+  const emAtendimento = activeLeads.filter(l => l.status === 'Em contato').length;
+  const fechados = leadsClosedInPeriod.length;
+  const faturamento = leadsClosedInPeriod.reduce((s, l) => s + (l.project_value || 0), 0);
+  // pipeline: valor total de leads ainda ativos (estado atual, independe do período)
+  const faturamentoEmNegociacao = activeLeads.reduce((s, l) => s + (l.project_value || 0), 0);
+  const taxaConversao = filteredLeads.length > 0
+    ? Math.min(100, (fechados / filteredLeads.length) * 100).toFixed(1)
+    : '0.0';
+
+  // ── Previous period metrics ───────────────────────────────────────────────
+  const prevNovosLeads = prevFilteredLeads.length;
+  const prevFechados = prevLeadsClosedInPeriod.length;
+  const prevFaturamento = prevLeadsClosedInPeriod.reduce((s, l) => s + (l.project_value || 0), 0);
+  const prevTaxaConversao = prevFilteredLeads.length > 0
+    ? (prevFechados / prevFilteredLeads.length) * 100 : 0;
+
+  // ── Deltas ────────────────────────────────────────────────────────────────
+  const deltaNovosLeads = calcDelta(novosLeads, prevNovosLeads);
+  const deltaFechados = calcDelta(fechados, prevFechados);
+  const deltaFaturamento = calcDelta(faturamento, prevFaturamento);
+  const deltaTaxaConversao = calcDelta(parseFloat(taxaConversao), prevTaxaConversao);
+  const deltaEmAtendimento = calcDelta(
+    filteredLeads.filter(l => l.status === 'Em contato').length,
+    prevFilteredLeads.filter(l => l.status === 'Em contato').length
+  );
+
+  // ── Performance chart data ────────────────────────────────────────────────
+  const performanceData = useMemo(() => {
+    const now = new Date();
+    switch (selectedPeriod) {
+      case 'today': {
+        return Array.from({ length: 24 }, (_, i) => ({
+          name: `${i}h`,
+          leads: filteredLeads.filter(l => new Date(l.created_at).getHours() === i).length,
+          fechados: leadsClosedInPeriod.filter(l => l.closed_at && new Date(l.closed_at).getHours() === i).length,
+        }));
+      }
+      case 'week': {
+        const ws = startOfWeek(now, { weekStartsOn: 0 });
+        return Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(ws); d.setDate(d.getDate() + i);
+          const ds = startOfDay(d), de = endOfDay(d);
+          return {
+            name: d.toLocaleDateString('pt-BR', { weekday: 'short' }),
+            leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ds && ld <= de; }).length,
+            fechados: leadsClosedInPeriod.filter(l => {
+              if (!l.closed_at) return false;
+              const cd = new Date(l.closed_at); return cd >= ds && cd <= de;
+            }).length,
+          };
+        });
+      }
+      case 'month': {
+        const ms = startOfMonth(now);
+        const weeks: { name: string; leads: number; fechados: number }[] = [];
+        let wn = 1;
+        for (let d = new Date(ms); d <= now; ) {
+          const ws2 = startOfDay(d);
+          const we2 = endOfDay(new Date(d.getTime() + 6 * 86400000));
+          weeks.push({
+            name: `Sem ${wn}`,
+            leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ws2 && ld <= we2; }).length,
+            fechados: leadsClosedInPeriod.filter(l => {
+              if (!l.closed_at) return false;
+              const cd = new Date(l.closed_at); return cd >= ws2 && cd <= we2;
+            }).length,
+          });
+          d.setDate(d.getDate() + 7); wn++;
+        }
+        return weeks.length > 0 ? weeks : [{ name: 'Sem 1', leads: 0, fechados: 0 }];
+      }
+      case 'year': {
+        return Array.from({ length: 12 }, (_, i) => {
+          const mn = new Date(now.getFullYear(), i, 1).toLocaleDateString('pt-BR', { month: 'short' });
+          return {
+            name: mn.charAt(0).toUpperCase() + mn.slice(1),
+            leads: filteredLeads.filter(l => new Date(l.created_at).getMonth() === i).length,
+            fechados: leadsClosedInPeriod.filter(l => l.closed_at && new Date(l.closed_at).getMonth() === i).length,
+          };
+        });
+      }
+      case 'custom': {
+        if (!dateRange?.from || !dateRange?.to) return [{ name: 'Selecione um período', leads: 0, fechados: 0 }];
+        const diff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000);
+        if (diff <= 7) {
+          return Array.from({ length: diff + 1 }, (_, i) => {
+            const d = new Date(dateRange.from!); d.setDate(d.getDate() + i);
+            const ds = startOfDay(d), de = endOfDay(d);
+            return {
+              name: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+              leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ds && ld <= de; }).length,
+              fechados: leadsClosedInPeriod.filter(l => {
+                if (!l.closed_at) return false;
+                const cd = new Date(l.closed_at); return cd >= ds && cd <= de;
+              }).length,
+            };
+          });
+        }
+        const weeks2: { name: string; leads: number; fechados: number }[] = [];
+        let wn2 = 1;
+        for (let d = new Date(dateRange.from); d <= dateRange.to; ) {
+          const ws3 = startOfDay(d);
+          const we3 = endOfDay(new Date(Math.min(d.getTime() + 6 * 86400000, dateRange.to.getTime())));
+          weeks2.push({
+            name: `Sem ${wn2}`,
+            leads: filteredLeads.filter(l => { const ld = new Date(l.created_at); return ld >= ws3 && ld <= we3; }).length,
+            fechados: leadsClosedInPeriod.filter(l => {
+              if (!l.closed_at) return false;
+              const cd = new Date(l.closed_at); return cd >= ws3 && cd <= we3;
+            }).length,
+          });
+          d.setDate(d.getDate() + 7); wn2++;
+        }
+        return weeks2;
+      }
+      default:
+        return [];
+    }
+  }, [selectedPeriod, dateRange, filteredLeads, leadsClosedInPeriod]);
+
+  // ── Radial conversion (period-based) ─────────────────────────────────────
+  const allFechados = leads.filter(l => l.status === 'Fechado').length;
+  const radialEmAndamento = filteredLeads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido').length;
+
+  // ── Funnel (current pipeline state) ──────────────────────────────────────
+  const remarketingCount = leads.filter(l => l.status === 'Remarketing').length;
+  const funnelStages = [
+    { label: 'Lead novo',        count: activeLeads.filter(l => l.status === 'Lead novo').length,        color: 'bg-blue-500' },
+    { label: 'Em contato',       count: activeLeads.filter(l => l.status === 'Em contato').length,       color: 'bg-green-400' },
+    { label: 'Interessado',      count: activeLeads.filter(l => l.status === 'Interessado').length,      color: 'bg-green-500' },
+    { label: 'Proposta enviada', count: activeLeads.filter(l => l.status === 'Proposta enviada').length, color: 'bg-green-600' },
+    { label: 'Remarketing',      count: remarketingCount,                                                  color: 'bg-amber-500' },
+    { label: 'Fechado',          count: allFechados,                                                       color: 'bg-zinc-700' },
+  ];
+
+  // ── Header date ───────────────────────────────────────────────────────────
+  const formattedDate = (() => {
+    const s = format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
+  // ── Skeleton ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-56 animate-pulse bg-muted rounded-lg" />
+            <div className="h-4 w-64 animate-pulse bg-muted rounded-lg" />
+          </div>
+          <div className="h-10 w-80 animate-pulse bg-muted rounded-xl" />
+        </div>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          {[...Array(5)].map((_, i) => <div key={i} className="h-28 animate-pulse bg-muted rounded-xl" />)}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 h-72 animate-pulse bg-muted rounded-xl" />
+          <div className="h-72 animate-pulse bg-muted rounded-xl" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 h-64 animate-pulse bg-muted rounded-xl" />
+          <div className="h-64 animate-pulse bg-muted rounded-xl" />
+        </div>
       </div>
-    )
-  }
-
-  if (metrics?.migration_pending) {
-    return (
-      <div className="p-8 text-center">
-        <BarChart2 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-        <p className="font-medium">Dashboard</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Execute a migration <code className="text-xs bg-muted px-1 rounded">20260812000000_prd_zaapply_fase1.sql</code> no Supabase para habilitar esta funcionalidade.
-        </p>
-      </div>
-    )
-  }
-
-  if (!metrics) return null
-
-  const { summary, funnel, heatmap, leaderboard } = metrics
-  const funnelMax = Math.max(...funnel.map(f => f.count), 1)
-
-  // Heatmap: last N days grid
-  const heatmapMap: Record<string, number> = {}
-  for (const h of heatmap) heatmapMap[h.date] = h.count
-  const heatmapMax = Math.max(...heatmap.map(h => h.count), 1)
-  const heatDays: string[] = []
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000)
-    heatDays.push(d.toISOString().slice(0, 10))
+    );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Dashboard
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            {getGreeting()}{companyName ? `, ${companyName}` : ''}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Funil ponta a ponta: anúncio → conversa → qualificado → fechamento, e performance da equipe</p>
-        </div>
-        <div className="flex gap-1.5">
-          {[7, 14, 30, 90].map(d => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={cn(
-                'h-7 px-3 rounded-lg text-xs font-medium transition-colors',
-                days === d
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/70'
-              )}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl border border-border bg-card space-y-1">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <MessageSquare className="h-3.5 w-3.5" />
-            <p className="text-xs">Conversas</p>
-          </div>
-          <p className="text-2xl font-semibold tabular-nums">{summary.total_conversations}</p>
-          <p className="text-xs text-muted-foreground">últimos {days}d</p>
+          <p className="text-sm text-muted-foreground mt-1">{formattedDate}</p>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-card space-y-1">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <TrendingUp className="h-3.5 w-3.5" />
-            <p className="text-xs">Taxa de conversão</p>
-          </div>
-          <p className="text-2xl font-semibold tabular-nums">{summary.conversion_rate}%</p>
-          <p className="text-xs text-muted-foreground">{summary.closed_deals} fechamentos</p>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-border bg-card space-y-1">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <DollarSign className="h-3.5 w-3.5" />
-            <p className="text-xs">Receita total</p>
-          </div>
-          <p className="text-2xl font-semibold tabular-nums">{fmt(summary.total_revenue_cents)}</p>
-          <p className="text-xs text-muted-foreground">negócios fechados</p>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-border bg-card space-y-1">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            <p className="text-xs">Tempo médio na fila</p>
-          </div>
-          <p className="text-2xl font-semibold tabular-nums">{fmtMin(summary.avg_queue_min)}</p>
-          <p className="text-xs text-muted-foreground">por atendimento</p>
-        </div>
-      </div>
-
-      {/* Funil + Heatmap */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Funil */}
-        <div className="p-5 rounded-2xl border border-border bg-card">
-          <p className="text-sm font-semibold mb-4">Funil de conversas</p>
-          <div className="space-y-2">
-            {funnel.map(({ stage, count }) => (
-              <div key={stage} className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-28 shrink-0">{STAGE_LABELS[stage] ?? stage}</span>
-                <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                  <div
-                    className={cn('h-2 rounded-full transition-all', STAGE_COLORS[stage] ?? 'bg-primary')}
-                    style={{ width: `${Math.max((count / funnelMax) * 100, count > 0 ? 4 : 0)}%` }}
-                  />
-                </div>
-                <span className="text-xs font-mono tabular-nums w-6 text-right">{count}</span>
-              </div>
+        <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-center">
+          <div className="flex items-center rounded-full p-1 bg-muted">
+            {PERIODS.map(period => (
+              <button
+                key={period}
+                onClick={() => handlePeriodChange(period)}
+                className="px-4 py-1.5 text-xs font-medium rounded-full transition-all duration-150 whitespace-nowrap"
+                style={selectedPeriod === period
+                  ? { backgroundColor: '#0F3D2B', color: '#fff', fontWeight: 600 }
+                  : { color: 'var(--muted-foreground)', background: 'transparent' }
+                }
+              >
+                {PERIOD_LABELS[period]}
+              </button>
             ))}
           </div>
-          {funnel.every(f => f.count === 0) && (
-            <p className="text-xs text-muted-foreground text-center mt-4">Nenhuma conversa no período.</p>
+          {showDatePicker && (
+            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           )}
         </div>
+      </div>
 
-        {/* Volume heatmap */}
-        <div className="p-5 rounded-2xl border border-border bg-card">
-          <p className="text-sm font-semibold mb-4">Volume diário de conversas</p>
-          <div className="flex flex-wrap gap-1">
-            {heatDays.map(date => {
-              const count = heatmapMap[date] ?? 0
-              const intensity = count === 0 ? 0 : Math.ceil((count / heatmapMax) * 4)
-              const bg = [
-                'bg-muted',
-                'bg-emerald-500/20',
-                'bg-emerald-500/40',
-                'bg-emerald-500/70',
-                'bg-emerald-500',
-              ][intensity]
-              return (
-                <div
-                  key={date}
-                  title={`${date}: ${count} conversa${count !== 1 ? 's' : ''}`}
-                  className={cn('w-4 h-4 rounded-sm transition-colors cursor-default', bg)}
-                />
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-1.5 mt-3">
-            <span className="text-[10px] text-muted-foreground">Menos</span>
-            {['bg-muted', 'bg-emerald-500/20', 'bg-emerald-500/40', 'bg-emerald-500/70', 'bg-emerald-500'].map((b, i) => (
-              <div key={i} className={cn('w-3 h-3 rounded-sm', b)} />
-            ))}
-            <span className="text-[10px] text-muted-foreground">Mais</span>
-          </div>
+
+      {/* KPI Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+        <MetricCard
+          title="Novos leads"
+          value={novosLeads}
+          subtitle={`${novosLeads === 1 ? '1 lead' : `${novosLeads} leads`} no período`}
+          icon={UserRoundPlus}
+          format="number"
+          delta={deltaNovosLeads}
+        />
+        <MetricCard
+          title="Em atendimento"
+          value={emAtendimento}
+          subtitle="Pipeline ativo agora"
+          icon={MessageCircleMore}
+          format="number"
+          delta={deltaEmAtendimento}
+        />
+        <MetricCard
+          title="Taxa de conversão"
+          value={taxaConversao}
+          subtitle="Fechados / entrados"
+          icon={TrendingUp}
+          format="percentage"
+          delta={deltaTaxaConversao}
+        />
+        <MetricCard
+          title="Em negociação"
+          value={faturamentoEmNegociacao}
+          subtitle="Valor em pipeline"
+          icon={Users}
+          format="currency"
+        />
+        <MetricCard
+          title="Faturamento"
+          value={faturamento}
+          subtitle="Fechados no período"
+          icon={CircleDollarSign}
+          format="currency"
+          delta={deltaFaturamento}
+        />
+      </div>
+
+      {/* Charts */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch min-h-[380px]">
+        <div className="lg:col-span-2 h-[320px] md:h-full">
+          <PerformanceChart data={performanceData} />
+        </div>
+        <div className="h-[300px] md:h-full">
+          <ConversionDonut
+            fechados={fechados}
+            emAndamento={radialEmAndamento}
+            delta={deltaTaxaConversao}
+            periodo={PERIOD_LABELS[selectedPeriod]}
+          />
         </div>
       </div>
 
-      {/* CAC por anúncio (Marketing API) */}
-      <div className="p-5 rounded-2xl border border-border bg-card">
-        <p className="text-sm font-semibold mb-1 flex items-center gap-2">
-          <Target className="h-4 w-4" />
-          Custo por lead qualificado e por cliente, por anúncio
-        </p>
-        <p className="text-xs text-muted-foreground mb-4">
-          Cruza o gasto real da conta de anúncios com o que a conversa virou aqui dentro — não só custo por conversa iniciada.
-        </p>
-
-        {!cacAds || cacAds.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            {cacNote ?? 'Conecte a conta de anúncios da Meta em Configurações para ver o CAC por anúncio aqui.'}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-4">Anúncio</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Gasto</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Conversas</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Leads qualificados</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Custo/lead qualificado</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2">Custo/cliente</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {cacAds.map(ad => (
-                  <tr key={ad.ad_id}>
-                    <td className="py-2.5 pr-4">
-                      <p className="font-medium text-sm">{ad.ad_name ?? ad.ad_id}</p>
-                      {ad.campaign_name && <p className="text-xs text-muted-foreground">{ad.campaign_name}</p>}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right"><span className="font-mono tabular-nums text-sm">{fmt(ad.spend_cents)}</span></td>
-                    <td className="py-2.5 pr-4 text-right"><span className="font-mono tabular-nums text-sm">{ad.conversations}</span></td>
-                    <td className="py-2.5 pr-4 text-right"><span className="font-mono tabular-nums text-sm">{ad.qualified_leads}</span></td>
-                    <td className="py-2.5 pr-4 text-right">
-                      <span className="font-mono tabular-nums text-sm font-medium">
-                        {ad.cost_per_qualified_lead_cents !== null ? fmt(ad.cost_per_qualified_lead_cents) : '-'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <span className="font-mono tabular-nums text-sm font-medium">
-                        {ad.cost_per_customer_cents !== null ? fmt(ad.cost_per_customer_cents) : '-'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Leaderboard */}
-      <div className="p-5 rounded-2xl border border-border bg-card">
-        <p className="text-sm font-semibold mb-4 flex items-center gap-2">
-          <Award className="h-4 w-4" />
-          Ranking da equipe
-        </p>
-
-        {leaderboard.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            Nenhum atendente cadastrado ainda.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-4">#</th>
-                  <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-4">Atendente</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Conversas ativas</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2 pr-4">Fechamentos</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground pb-2">Receita gerada</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {leaderboard.map((att, idx) => (
-                  <tr key={att.id} className={cn(idx === 0 && 'bg-amber-500/5')}>
-                    <td className="py-2.5 pr-4">
-                      <span className={cn(
-                        'text-xs font-bold tabular-nums',
-                        idx === 0 ? 'text-amber-500' : idx === 1 ? 'text-zinc-400' : idx === 2 ? 'text-orange-600' : 'text-muted-foreground'
-                      )}>
-                        {idx + 1}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <p className="font-medium text-sm">{att.name}</p>
-                      <p className="text-xs text-muted-foreground">{att.email}</p>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right">
-                      <span className="font-mono tabular-nums text-sm">{att.active_conversations}</span>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right">
-                      <span className="font-mono tabular-nums text-sm">{att.closed_deals}</span>
-                    </td>
-                    <td className="py-2.5 text-right">
-                      <span className="font-mono tabular-nums text-sm font-medium">
-                        {att.revenue_cents > 0 ? fmt(att.revenue_cents) : '-'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* Funnel + Recent Sales */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-start">
+        <div className="lg:col-span-2">
+          <SalesFunnelTabs
+            stages={funnelStages}
+            antiNoshowCounts={antiNoshowCounts}
+            remarketingCount={remarketingCount}
+            showAntiNoshow={!!features.anti_noshow}
+            showRemarketing={!!features.remarketing}
+          />
+        </div>
+        <div className="overflow-hidden">
+          <RecentSales />
+        </div>
       </div>
     </div>
-  )
+  );
 }
