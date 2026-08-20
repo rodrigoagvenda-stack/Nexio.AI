@@ -18,6 +18,7 @@ import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
 import { isWithinBusinessHours, getBusinessHoursSummary } from './business-hours'
+import { findOrCreateCustomer, createCharge, getPixQrCode, type BillingType } from '@/lib/asaas/company-client'
 import { sendText } from './whatsapp-sender'
 import { distributeQueuedConversations } from './distribute'
 import {
@@ -73,6 +74,7 @@ interface SdrContext {
   objecoesAtivo: boolean
   eventTitleTemplate: string | null
   businessHoursSummary: string
+  asaasAtivo: boolean
 }
 
 export interface BufferedMessage {
@@ -1233,6 +1235,7 @@ const TOOL_NAME_MAP: Record<string, string> = {
   'Memory_long':                     'Memory_long',
   'Agente de Agendamento':           'Agente_de_Agendamento',
   'Pausar_conversa':                 'Pausar_conversa',
+  'Gerar_cobranca':                  'Gerar_cobranca',
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
@@ -1345,6 +1348,25 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
             nova_informacao_agendamento: { type: 'string', description: 'Última mensagem do lead + histórico resumido da conversa sobre agendamento' },
           },
           required: ['nova_informacao_agendamento'],
+        },
+      },
+    })
+  }
+
+  if (ctx.asaasAtivo) {
+    tools.push({
+      type: 'function',
+      function: {
+        name: TOOL_NAME_MAP['Gerar_cobranca'],
+        description: 'Gera uma cobrança real via Asaas (PIX, boleto ou cartão) e retorna o link/código de pagamento pra você mandar ao lead. Use SOMENTE quando o lead confirmar de forma clara que quer comprar/contratar AGORA e você já souber com certeza o valor exato e o que está sendo cobrado (baseado na base de conhecimento ou no que foi combinado na conversa). NUNCA chame esta tool com um valor que você não tem certeza : se houver qualquer dúvida sobre o preço, use Play_conhecimento primeiro ou pergunte ao lead antes de gerar a cobrança.',
+        parameters: {
+          type: 'object',
+          properties: {
+            valor: { type: 'number', description: 'Valor exato da cobrança em reais, ex: 297.00' },
+            descricao: { type: 'string', description: 'O que está sendo cobrado, ex: "Plano Start - assinatura mensal"' },
+            forma_pagamento: { type: 'string', enum: ['PIX', 'BOLETO', 'CREDIT_CARD'], description: 'Forma de pagamento. Use PIX como padrão se o lead não especificar.' },
+          },
+          required: ['valor', 'descricao'],
         },
       },
     })
@@ -1539,6 +1561,68 @@ CONTEXTO DO CRM:
       } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
         result = await runAgenteAgendamento(msg, ctx, openai, supabase, acc, history)
+      } else if (fn === 'Gerar_cobranca') {
+        const value = Number(args.valor)
+        const description = String(args.descricao ?? '').trim()
+        const billingType = (['PIX', 'BOLETO', 'CREDIT_CARD'].includes(args.forma_pagamento) ? args.forma_pagamento : 'PIX') as BillingType
+        if (!value || value <= 0 || !description) {
+          result = 'ERRO: valor ou descrição inválidos. Não gere a cobrança : peça o valor certo ao lead ou confirme antes de tentar de novo.'
+        } else {
+          try {
+            const customer = await findOrCreateCustomer(ctx.companyId, {
+              name: ctx.leadName || 'Lead',
+              phone: ctx.leadPhone || undefined,
+              externalReference: `lead_${ctx.leadId}`,
+            })
+            const dueDate = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
+            const payment = await createCharge(ctx.companyId, {
+              customerId: customer.id,
+              value,
+              dueDate,
+              billingType,
+              description,
+              externalReference: `zaapply_orchestrator_${ctx.leadId}_${Date.now()}`,
+            })
+
+            let pixPayload: any = null
+            if (billingType === 'PIX') {
+              try { pixPayload = await getPixQrCode(ctx.companyId, payment.id) } catch { /* segue sem PIX copia-e-cola, o link ainda funciona */ }
+            }
+
+            await supabase.from('lead_charges').insert({
+              company_id: ctx.companyId,
+              lead_id: ctx.leadId,
+              platform: 'asaas',
+              external_id: payment.id,
+              amount: value,
+              description,
+              billing_type: billingType,
+              due_date: dueDate,
+              status: 'pending',
+              payment_url: payment.invoiceUrl,
+              invoice_url: payment.bankSlipUrl || payment.invoiceUrl,
+              pix_payload: pixPayload,
+            })
+
+            const dueDateBr = new Date(dueDate + 'T12:00:00').toLocaleDateString('pt-BR')
+            result = `Cobrança gerada com sucesso via Asaas. Valor: R$ ${value.toFixed(2).replace('.', ',')}. Vencimento: ${dueDateBr}. `
+              + (billingType === 'PIX' && pixPayload?.payload
+                ? `Código PIX copia-e-cola: ${pixPayload.payload}`
+                : `Link de pagamento: ${payment.invoiceUrl}`)
+              + ' Mande esse link/código EXATAMENTE como fornecido acima, sem alterar nenhum caractere, junto com o valor e vencimento.'
+
+            await log(ctx.companyId, 'charge_generated', {
+              value, description, billingType, paymentId: payment.id, dueDate,
+            }, supabase, ctx.leadPhone, ctx.leadId)
+          } catch (err: any) {
+            console.error(`[SDR:${ctx.companyId}] Gerar_cobranca falhou:`, err.message)
+            result = `ERRO ao gerar cobrança: ${err.message}. Avise o lead que houve um problema técnico ao gerar o pagamento e que alguém do time vai confirmar em instantes.`
+
+            await log(ctx.companyId, 'charge_generation_failed', {
+              value, description, billingType,
+            }, supabase, ctx.leadPhone, ctx.leadId, err.message)
+          }
+        }
       } else if (fn === 'Pausar_conversa') {
         // Pausa o bot nesta conversa : atendimento humano irá assumir.
         // Peça C: além da flag, entra de fato na fila (kanban_stage/current_status)
@@ -2165,6 +2249,15 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     const businessHoursSummary = await getBusinessHoursSummary(companyId, supabase)
 
+    const { data: asaasIntegration } = await supabase
+      .from('payment_integrations')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('platform', 'asaas')
+      .eq('active', true)
+      .maybeSingle()
+    const asaasAtivo = !!asaasIntegration
+
     const ctx: SdrContext = {
       companyId,
       companyName: company?.name ?? '',
@@ -2187,6 +2280,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       objecoesAtivo: cfg.objecoesAtivo,
       eventTitleTemplate: cfg.eventTitleTemplate,
       businessHoursSummary,
+      asaasAtivo,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
