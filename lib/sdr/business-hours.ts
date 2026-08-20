@@ -22,3 +22,39 @@ export async function isWithinBusinessHours(companyId: number, supabase: Supabas
 
   return hhmm >= today.open_time.slice(0, 5) && hhmm < today.close_time.slice(0, 5)
 }
+
+const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+
+// Texto humano derivado da MESMA tabela que bloqueia mensagens (business_hours),
+// pra nunca divergir do que a IA fala do que o gate realmente faz.
+// Sem linhas configuradas = '' (fallback pro texto padrão de cada chamador).
+export async function getBusinessHoursSummary(companyId: number, supabase: Supabase): Promise<string> {
+  const { data: rows } = await supabase
+    .from('business_hours')
+    .select('day_of_week, open_time, close_time, closed')
+    .eq('company_id', companyId)
+    .is('wa_number_id', null)
+    .order('day_of_week')
+
+  if (!rows || rows.length === 0) return ''
+
+  const sigOf = (r: { closed: boolean; open_time: string | null; close_time: string | null }) =>
+    r.closed ? 'fechado' : `${r.open_time?.slice(0, 5)} às ${r.close_time?.slice(0, 5)}`
+
+  const groups: { days: string[]; sig: string }[] = []
+  for (let i = 0; i < 7; i++) {
+    const row = rows.find((r) => r.day_of_week === i)
+    if (!row) continue
+    const sig = sigOf(row)
+    const last = groups[groups.length - 1]
+    if (last && last.sig === sig) last.days.push(DAY_NAMES[i])
+    else groups.push({ days: [DAY_NAMES[i]], sig })
+  }
+
+  return groups
+    .map((g) => {
+      const label = g.days.length > 2 ? `${g.days[0]} a ${g.days[g.days.length - 1]}` : g.days.join(' e ')
+      return g.sig === 'fechado' ? `${label} fechado` : `${label} das ${g.sig}`
+    })
+    .join(', ')
+}

@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { rateLimit } from '@/lib/rate-limit'
+import { getBusinessHoursSummary } from '@/lib/sdr/business-hours'
 import type OpenAI from 'openai'
 
 const simulateSchema = z.object({
@@ -48,12 +49,20 @@ export async function POST(request: NextRequest) {
     const { default: OpenAI } = await import('openai')
     const openai = new OpenAI({ apiKey: openaiKey })
 
+    // business_hours (aba Horários) é a fonte de verdade do horário, não texto livre
+    const service = createServiceClient()
+    const { data: userDataForHours } = await supabase
+      .from('users').select('company_id').eq('auth_user_id', user.id).single()
+    if (userDataForHours?.company_id) {
+      const businessHours = await getBusinessHoursSummary(userDataForHours.company_id, service)
+      if (businessHours) variables.horario = businessHours
+    }
+
     // ── Fetch flow documents (real KB) and corrections ───────────────────
     let basePrompt = interpolate(niche.conhecimento, variables)
     let correctionsBlock = ''
 
     if (flowId) {
-      const service = createServiceClient()
       const { data: userData } = await supabase
         .from('users').select('company_id').eq('auth_user_id', user.id).single()
       if (userData?.company_id) {

@@ -2,6 +2,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { getBusinessHoursSummary } from '@/lib/sdr/business-hours'
 import { rateLimit } from '@/lib/rate-limit'
 import type OpenAI from 'openai'
 
@@ -38,10 +39,21 @@ async function buildSdrPrompt(
   user?: { id: string } | null
 ): Promise<string> {
   const niche = NICHE_MAP[nicheId]
+  const service = createServiceClient()
+
+  // business_hours (aba Horários) é a fonte de verdade do horário, não texto livre
+  if (user) {
+    const { data: userData } = await (supabase as any)
+      .from('users').select('company_id').eq('auth_user_id', user.id).single()
+    if (userData?.company_id) {
+      const businessHours = await getBusinessHoursSummary(userData.company_id, service)
+      if (businessHours) variables.horario = businessHours
+    }
+  }
+
   let prompt = interpolate(niche.conhecimento, variables)
 
   if (flowId && user) {
-    const service = createServiceClient()
     const { data: userData } = await (supabase as any)
       .from('users').select('company_id').eq('auth_user_id', user.id).single()
     if (userData?.company_id) {

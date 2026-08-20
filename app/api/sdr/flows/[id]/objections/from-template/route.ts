@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NICHE_MAP, interpolate, type SdrVariables } from '@/lib/sdr/templates'
 import { processKnowledgeText } from '@/lib/sdr/rag'
+import { getBusinessHoursSummary } from '@/lib/sdr/business-hours'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -27,6 +28,10 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 
     const niche = NICHE_MAP[nicheId]
     if (!niche) return NextResponse.json({ error: 'Nicho inválido' }, { status: 400 })
+
+    // business_hours (aba Horários) é a fonte de verdade do horário, não texto livre
+    const businessHours = await getBusinessHoursSummary(userData.company_id, service)
+    if (businessHours) variables.horario = businessHours
 
     const missing = niche.requiredVars.filter((k) => !variables[k]?.trim())
     if (missing.length) {

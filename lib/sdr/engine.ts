@@ -17,7 +17,7 @@ import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
-import { isWithinBusinessHours } from './business-hours'
+import { isWithinBusinessHours, getBusinessHoursSummary } from './business-hours'
 import { sendText } from './whatsapp-sender'
 import { distributeQueuedConversations } from './distribute'
 import {
@@ -72,6 +72,7 @@ interface SdrContext {
   conhecimentoAtivo: boolean
   objecoesAtivo: boolean
   eventTitleTemplate: string | null
+  businessHoursSummary: string
 }
 
 export interface BufferedMessage {
@@ -1199,7 +1200,7 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
     if (persona.empresa)           lines.push(`Empresa: ${persona.empresa}.`)
     if (persona.produto)           lines.push(`Produto/serviço: ${persona.produto}.`)
     if (persona.restricoes)        lines.push(`Nunca diga: ${persona.restricoes}.`)
-    if (persona.horario)           lines.push(`Horário de atendimento: ${persona.horario}.`)
+    if (ctx.businessHoursSummary)  lines.push(`Horário de atendimento: ${ctx.businessHoursSummary}.`)
     if (persona.area_entrega)      lines.push(`Área de entrega e taxas: ${persona.area_entrega}.`)
     if (persona.formas_pagamento)  lines.push(`Formas de pagamento aceitas: ${persona.formas_pagamento}.`)
     if (persona.valor_minimo_pedido) lines.push(`Valor mínimo do pedido: ${persona.valor_minimo_pedido}.`)
@@ -2162,6 +2163,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const senderName = bufferedMessages[0]?.senderName || bufferedMessages[0]?.content?.split(' ')[0] || ''
     const { id: leadId, notes: leadNotes } = await findOrCreateLead(companyId, phone, senderName, company?.name ?? '', supabase)
 
+    const businessHoursSummary = await getBusinessHoursSummary(companyId, supabase)
+
     const ctx: SdrContext = {
       companyId,
       companyName: company?.name ?? '',
@@ -2183,6 +2186,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       conhecimentoAtivo: cfg.conhecimentoAtivo,
       objecoesAtivo: cfg.objecoesAtivo,
       eventTitleTemplate: cfg.eventTitleTemplate,
+      businessHoursSummary,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
