@@ -2363,6 +2363,11 @@ export default function SdrConfigPage() {
   const [pixelDraft, setPixelDraft] = useState({ id: '', token: '' })
   const [savingPixel, setSavingPixel] = useState(false)
 
+  // Só leitura : a Zaia checa payment_integrations a cada mensagem pra saber
+  // se pode oferecer a tool Gerar_cobranca. A ativação em si (token) fica em
+  // /configuracoes -> Integrações, aqui é só pra confirmar que ela enxerga.
+  const [asaasStatus, setAsaasStatus] = useState<'loading' | 'active' | 'inactive'>('loading')
+
   // ── Validator state ────────────────────────────────────────────────────────
   const [validating, setValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<{
@@ -2421,6 +2426,16 @@ export default function SdrConfigPage() {
   }, [])
 
   useEffect(() => { loadConfig() }, [loadConfig])
+
+  useEffect(() => {
+    fetch('/api/payment-integrations')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        const active = (d?.integrations ?? []).some((i: any) => i.platform === 'asaas' && i.active)
+        setAsaasStatus(active ? 'active' : 'inactive')
+      })
+      .catch(() => setAsaasStatus('inactive'))
+  }, [])
 
   const setPersona = (field: keyof AgentPersona, value: string) =>
     setConfig((prev) => ({ ...prev, persona: { ...prev.persona, [field]: value } }))
@@ -3024,6 +3039,42 @@ export default function SdrConfigPage() {
                               {savingPixel ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
                               Salvar Pixel
                             </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-border" />
+
+                      {/* ── Cobrança automática (Asaas) : só leitura, ativa em /configuracoes ── */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <ShoppingBag className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-sm font-semibold">Cobrança automática</p>
+                          {asaasStatus === 'active' && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-medium ml-auto">Asaas ativo</span>
+                          )}
+                          {asaasStatus === 'inactive' && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium ml-auto">Não conectado</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Quando o Asaas está ativo, a Zaia pode gerar cobrança de verdade (PIX, boleto ou cartão) e mandar o link direto na conversa, sem handoff humano.
+                        </p>
+                        {asaasStatus === 'loading' ? (
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verificando...
+                          </div>
+                        ) : asaasStatus === 'active' ? (
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            <p className="text-xs">A Zaia já enxerga o Asaas ativo pra essa empresa e pode gerar cobrança em tempo real.</p>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/40 border border-border">
+                            <p className="text-xs text-muted-foreground">Asaas não está ativo : a Zaia não consegue gerar cobrança sozinha ainda.</p>
+                            <Link href="/configuracoes?tab=integracoes" className="text-xs text-primary hover:underline whitespace-nowrap shrink-0">
+                              Ativar em Configurações →
+                            </Link>
                           </div>
                         )}
                       </div>
