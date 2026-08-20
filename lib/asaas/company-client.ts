@@ -154,6 +154,55 @@ export async function createCharge(
   })
 }
 
+export interface CompanyAsaasSubscription {
+  id: string
+  status: string
+  value: number
+  nextDueDate: string
+  cycle: string
+  billingType: string
+}
+
+// Assinatura recorrente de verdade (cobra sozinha todo ciclo). Com billingType
+// UNDEFINED, o Asaas hospeda a própria página de pagamento e deixa o cliente
+// escolher PIX/boleto/cartão -- número de cartão nunca passa pela nossa API,
+// vai direto pro Asaas na página deles. Mesmo padrão que /api/asaas/checkout
+// já usa pra cobrar a própria assinatura da empresa na Zaapply, só que aqui
+// com a chave Asaas da empresa (pra ela cobrar os leads dela).
+export async function createSubscription(
+  companyId: number,
+  params: {
+    customerId: string
+    value: number
+    billingType: BillingType
+    description: string
+    cycle?: 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+    externalReference?: string
+  }
+): Promise<CompanyAsaasSubscription> {
+  const today = new Date().toISOString().slice(0, 10)
+  return companyAsaasRequest<CompanyAsaasSubscription>(companyId, 'POST', '/subscriptions', {
+    customer: params.customerId,
+    billingType: params.billingType,
+    value: params.value,
+    nextDueDate: today,
+    cycle: params.cycle ?? 'MONTHLY',
+    description: params.description,
+    externalReference: params.externalReference,
+  })
+}
+
+export async function getSubscriptionFirstPaymentUrl(
+  companyId: number,
+  subscriptionId: string
+): Promise<{ invoiceUrl?: string; bankSlipUrl?: string }> {
+  const res = await companyAsaasRequest<{ data: CompanyAsaasPayment[] }>(
+    companyId, 'GET', `/subscriptions/${subscriptionId}/payments`
+  )
+  const first = res.data?.[0]
+  return { invoiceUrl: first?.invoiceUrl, bankSlipUrl: first?.bankSlipUrl }
+}
+
 export async function getPixQrCode(
   companyId: number,
   paymentId: string

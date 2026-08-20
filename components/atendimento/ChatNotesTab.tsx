@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Pin, Trash2, Edit2, Save, X, Sparkles } from 'lucide-react';
+import { Pin, Trash2, Edit2, Save, X, Sparkles, ChevronDown } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { formatDateTime } from '@/lib/utils/format';
+import { cn } from '@/lib/utils';
 import type { ChatNote } from '@/types/database.types';
 
 interface ChatNotesTabProps {
@@ -19,15 +20,27 @@ interface ChatNotesTabProps {
   isOutbound?: boolean;
 }
 
+interface ResumoHistoryEntry {
+  id: number;
+  resumo_ia: string | null;
+  segment: string | null;
+  priority: string | null;
+  nivel_interesse: string | null;
+  created_at: string;
+}
+
 export function ChatNotesTab({ leadId, companyId, userId, aiSummary, resumoIa, isOutbound = false }: ChatNotesTabProps) {
   const [notes, setNotes] = useState<ChatNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [resumoHistory, setResumoHistory] = useState<ResumoHistoryEntry[]>([]);
+  const [expandedResumoId, setExpandedResumoId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchNotes();
+    fetchResumoHistory();
   }, [leadId]);
 
   async function fetchNotes() {
@@ -41,6 +54,19 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary, resumoIa, i
       }
     } catch (error) {
       console.error('Error fetching notes:', error);
+    }
+  }
+
+  async function fetchResumoHistory() {
+    try {
+      const response = await fetch(`/api/leads/resumo-history?leadId=${leadId}`);
+      const data = await response.json();
+      if (data.success) {
+        setResumoHistory(data.data);
+        if (data.data[0]) setExpandedResumoId(data.data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching resumo history:', error);
     }
   }
 
@@ -296,8 +322,63 @@ export function ChatNotesTab({ leadId, companyId, userId, aiSummary, resumoIa, i
         )}
       </div>
 
-      {/* Resumo da IA */}
-      {resumoIa && (
+      {/* Resumo da IA : histórico, mais recente primeiro */}
+      {resumoHistory.length > 0 ? (
+        <>
+          <Separator />
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-green-500 shrink-0" />
+            <h3 className="text-xs font-semibold text-green-700 dark:text-green-300">
+              Resumo da IA : evolução do lead
+            </h3>
+          </div>
+          <div className="space-y-1.5">
+            {resumoHistory.map((entry) => {
+              const isExpanded = expandedResumoId === entry.id;
+              return (
+                <div
+                  key={entry.id}
+                  className="rounded-lg bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border border-green-500/20 overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedResumoId(isExpanded ? null : entry.id)}
+                    className="w-full flex items-start gap-2 p-3 text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                        <span className="text-[10px] text-muted-foreground">{formatDateTime(entry.created_at)}</span>
+                        {entry.nivel_interesse && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{entry.nivel_interesse}</Badge>
+                        )}
+                        {entry.priority && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{entry.priority}</Badge>
+                        )}
+                      </div>
+                      {!isExpanded && (
+                        <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">
+                          {entry.resumo_ia}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5 transition-transform', isExpanded && 'rotate-180')} />
+                  </button>
+                  {isExpanded && (
+                    <div className="px-3 pb-3 space-y-2">
+                      <p className="text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                        {entry.resumo_ia}
+                      </p>
+                      {entry.segment && (
+                        <p className="text-[11px] text-muted-foreground">Segmento: <span className="text-foreground/80">{entry.segment}</span></p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : resumoIa && (
         <>
           <Separator />
           <div className="relative p-3 rounded-lg bg-gradient-to-br from-green-500/10 via-blue-500/10 to-cyan-500/10 border border-green-500/20">

@@ -94,6 +94,7 @@ interface SdrConfig {
   meta_ad_account_name: string | null
   meta_pixel_id: string | null
   meta_pixel_token: string | null
+  billing_recurring: boolean
 }
 interface GoogleStatus { connected: boolean; email: string | null }
 interface CalendarItem { id: string; summary: string; primary: boolean; backgroundColor?: string }
@@ -2352,6 +2353,7 @@ export default function SdrConfigPage() {
     meta_wa_phone_number_id: null, meta_wa_waba_id: null, meta_wa_token: null,
     meta_ad_account_id: null, meta_ad_account_name: null,
     meta_pixel_id: null, meta_pixel_token: null,
+    billing_recurring: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -2417,6 +2419,7 @@ export default function SdrConfigPage() {
           meta_ad_account_name: data.config.meta_ad_account_name ?? null,
           meta_pixel_id: data.config.meta_pixel_id ?? null,
           meta_pixel_token: data.config.meta_pixel_token ?? null,
+          billing_recurring: data.config.billing_recurring ?? false,
         })
         if (persona.nicho_id) setSharedNicheId(persona.nicho_id)
         if (!data.config.flow_id) setSetupMode('choosing')
@@ -2496,6 +2499,7 @@ export default function SdrConfigPage() {
           conhecimento_ativo: config.conhecimento_ativo,
           objecoes_ativo: config.objecoes_ativo,
           inbox_mode: config.inbox_mode,
+          billing_recurring: config.billing_recurring,
         }),
       })
       const data = await res.json()
@@ -3065,9 +3069,25 @@ export default function SdrConfigPage() {
                             <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verificando...
                           </div>
                         ) : asaasStatus === 'active' ? (
-                          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            <p className="text-xs">A Zaia já enxerga o Asaas ativo pra essa empresa e pode gerar cobrança em tempo real.</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                              <p className="text-xs">A Zaia já enxerga o Asaas ativo pra essa empresa e pode gerar cobrança em tempo real.</p>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium">Cobrança recorrente (assinatura)</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {config.billing_recurring
+                                    ? 'Assinatura mensal, cobrada automaticamente no cartão : só cartão fica disponível pro lead.'
+                                    : 'Cobrança avulsa, paga uma vez. PIX, boleto ou cartão à escolha do lead.'}
+                                </p>
+                              </div>
+                              <Switch
+                                checked={config.billing_recurring}
+                                onCheckedChange={(v) => setConfig((p) => ({ ...p, billing_recurring: v }))}
+                              />
+                            </div>
                           </div>
                         ) : (
                           <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/40 border border-border">

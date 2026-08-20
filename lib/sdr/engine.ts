@@ -18,7 +18,7 @@ import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
 import { isWithinBusinessHours, getBusinessHoursSummary } from './business-hours'
-import { findOrCreateCustomer, createCharge, getPixQrCode, type BillingType } from '@/lib/asaas/company-client'
+import { findOrCreateCustomer, createCharge, createSubscription, getSubscriptionFirstPaymentUrl, getPixQrCode, type BillingType } from '@/lib/asaas/company-client'
 import { sendText } from './whatsapp-sender'
 import { distributeQueuedConversations } from './distribute'
 import {
@@ -75,6 +75,7 @@ interface SdrContext {
   eventTitleTemplate: string | null
   businessHoursSummary: string
   asaasAtivo: boolean
+  billingRecurring: boolean
 }
 
 export interface BufferedMessage {
@@ -835,7 +836,28 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       if (args.segment) updates.segment = args.segment
       if (args.priority) updates.priority = args.priority
       if (args.nivel_interesse) updates.nivel_interesse = args.nivel_interesse
-      await supabase.from('leads').update(updates).eq('id', ctx.leadId)
+
+      const { data: updated } = await supabase
+        .from('leads')
+        .update(updates)
+        .eq('id', ctx.leadId)
+        .select('resumo_ia, segment, priority, nivel_interesse')
+        .single()
+
+      // Snapshot pra histórico só quando o resumo em si mudou -- evita
+      // ficar guardando entrada nova toda vez que só priority/segment
+      // mexem sozinhos, sem novidade real de contexto pra revisar depois.
+      if (args.resumo_ia && updated) {
+        await supabase.from('lead_resumo_history').insert({
+          company_id: ctx.companyId,
+          lead_id: ctx.leadId,
+          resumo_ia: updated.resumo_ia,
+          segment: updated.segment,
+          priority: updated.priority,
+          nivel_interesse: updated.nivel_interesse,
+        })
+      }
+
       return JSON.stringify({ atualizado: true, campos: Object.keys(updates) })
     },
   }
@@ -1358,15 +1380,16 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
       type: 'function',
       function: {
         name: TOOL_NAME_MAP['Gerar_cobranca'],
-        description: 'Gera uma cobrança real via Asaas (PIX, boleto ou cartão) e retorna o link/código de pagamento pra você mandar ao lead. Use SOMENTE quando o lead confirmar de forma clara que quer comprar/contratar AGORA e você já souber com certeza o valor exato e o que está sendo cobrado (baseado na base de conhecimento ou no que foi combinado na conversa). NUNCA chame esta tool com um valor que você não tem certeza : se houver qualquer dúvida sobre o preço, use Play_conhecimento primeiro ou pergunte ao lead antes de gerar a cobrança.',
+        description: 'Gera uma cobrança real via Asaas e retorna o link/código de pagamento pra você mandar ao lead. Use SOMENTE quando o lead confirmar de forma clara que quer comprar/contratar AGORA e você já souber com certeza o valor exato e o que está sendo cobrado (baseado na base de conhecimento ou no que foi combinado na conversa). NUNCA chame esta tool com um valor que você não tem certeza : se houver qualquer dúvida sobre o preço, use Play_conhecimento primeiro ou pergunte ao lead antes de gerar a cobrança. SEGURANÇA: NUNCA peça número de cartão de crédito na conversa, em nenhuma hipótese. Se o lead quiser pagar de cartão ou não especificar a forma de pagamento, deixe forma_pagamento em branco : o Asaas gera um link onde o próprio lead digita o cartão com segurança, direto na página deles.',
         parameters: {
           type: 'object',
           properties: {
             valor: { type: 'number', description: 'Valor exato da cobrança em reais, ex: 297.00' },
             descricao: { type: 'string', description: 'O que está sendo cobrado, ex: "Plano Start - assinatura mensal"' },
-            forma_pagamento: { type: 'string', enum: ['PIX', 'BOLETO', 'CREDIT_CARD'], description: 'Forma de pagamento. Use PIX como padrão se o lead não especificar.' },
+            forma_pagamento: { type: 'string', enum: ['PIX', 'BOLETO'], description: 'Só preencha se o lead pedir EXPLICITAMENTE pagar por PIX ou boleto (ignorado se a empresa cobra por assinatura : nesse caso é sempre cartão). Deixe em branco pra qualquer outro caso, inclusive cartão.' },
+            cpf_cnpj: { type: 'string', description: 'CPF ou CNPJ do lead, obrigatório pra gerar a cobrança. Se ainda não tiver esse dado na conversa, PERGUNTE ao lead antes de chamar esta tool : não chame sem ele.' },
           },
-          required: ['valor', 'descricao'],
+          required: ['valor', 'descricao', 'cpf_cnpj'],
         },
       },
     })
@@ -1564,62 +1587,98 @@ CONTEXTO DO CRM:
       } else if (fn === 'Gerar_cobranca') {
         const value = Number(args.valor)
         const description = String(args.descricao ?? '').trim()
-        const billingType = (['PIX', 'BOLETO', 'CREDIT_CARD'].includes(args.forma_pagamento) ? args.forma_pagamento : 'PIX') as BillingType
+        const cpfCnpj = String(args.cpf_cnpj ?? '').replace(/\D/g, '')
+        // Recorrência é decidida pela EMPRESA na configuração, nunca pela IA --
+        // evita cobrar avulso quando devia ser assinatura ou vice-versa.
+        // Assinatura é sempre CREDIT_CARD (cartão cobra sozinho todo ciclo;
+        // PIX/boleto recorrente depende do cliente lembrar de pagar manualmente
+        // toda vez, alto risco de perder assinatura por esquecimento).
+        const billingType = ctx.billingRecurring
+          ? 'CREDIT_CARD' as BillingType
+          : (['PIX', 'BOLETO'].includes(args.forma_pagamento) ? args.forma_pagamento : 'UNDEFINED') as BillingType
+
         if (!value || value <= 0 || !description) {
           result = 'ERRO: valor ou descrição inválidos. Não gere a cobrança : peça o valor certo ao lead ou confirme antes de tentar de novo.'
+        } else if (!cpfCnpj || (cpfCnpj.length !== 11 && cpfCnpj.length !== 14)) {
+          result = 'ERRO: falta o CPF ou CNPJ do lead, obrigatório pro Asaas gerar a cobrança. Peça educadamente o CPF ou CNPJ e, assim que o lead responder, chame Gerar_cobranca de novo com o campo cpf_cnpj preenchido. Isso não é um problema técnico, é só um dado que falta : não peça desculpa nem mencione erro pro lead.'
         } else {
           try {
             const customer = await findOrCreateCustomer(ctx.companyId, {
               name: ctx.leadName || 'Lead',
               phone: ctx.leadPhone || undefined,
+              cpfCnpj,
               externalReference: `lead_${ctx.leadId}`,
             })
-            const dueDate = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
-            const payment = await createCharge(ctx.companyId, {
-              customerId: customer.id,
-              value,
-              dueDate,
-              billingType,
-              description,
-              externalReference: `zaapply_orchestrator_${ctx.leadId}_${Date.now()}`,
-            })
 
+            let externalId: string
+            let paymentUrl: string | undefined
+            let bankSlipUrl: string | undefined
+            let dueDate: string
             let pixPayload: any = null
-            if (billingType === 'PIX') {
-              try { pixPayload = await getPixQrCode(ctx.companyId, payment.id) } catch { /* segue sem PIX copia-e-cola, o link ainda funciona */ }
+
+            if (ctx.billingRecurring) {
+              const subscription = await createSubscription(ctx.companyId, {
+                customerId: customer.id,
+                value,
+                billingType,
+                description,
+                cycle: 'MONTHLY',
+                externalReference: `zaapply_orchestrator_sub_${ctx.leadId}_${Date.now()}`,
+              })
+              externalId = subscription.id
+              dueDate = subscription.nextDueDate
+              const firstPayment = await getSubscriptionFirstPaymentUrl(ctx.companyId, subscription.id)
+              paymentUrl = firstPayment.invoiceUrl
+              bankSlipUrl = firstPayment.bankSlipUrl
+            } else {
+              dueDate = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10)
+              const payment = await createCharge(ctx.companyId, {
+                customerId: customer.id,
+                value,
+                dueDate,
+                billingType,
+                description,
+                externalReference: `zaapply_orchestrator_${ctx.leadId}_${Date.now()}`,
+              })
+              externalId = payment.id
+              paymentUrl = payment.invoiceUrl
+              bankSlipUrl = payment.bankSlipUrl
+              if (billingType === 'PIX') {
+                try { pixPayload = await getPixQrCode(ctx.companyId, payment.id) } catch { /* segue sem PIX copia-e-cola, o link ainda funciona */ }
+              }
             }
 
             await supabase.from('lead_charges').insert({
               company_id: ctx.companyId,
               lead_id: ctx.leadId,
               platform: 'asaas',
-              external_id: payment.id,
+              external_id: externalId,
               amount: value,
               description,
               billing_type: billingType,
               due_date: dueDate,
               status: 'pending',
-              payment_url: payment.invoiceUrl,
-              invoice_url: payment.bankSlipUrl || payment.invoiceUrl,
+              payment_url: paymentUrl,
+              invoice_url: bankSlipUrl || paymentUrl,
               pix_payload: pixPayload,
             })
 
             const dueDateBr = new Date(dueDate + 'T12:00:00').toLocaleDateString('pt-BR')
-            result = `Cobrança gerada com sucesso via Asaas. Valor: R$ ${value.toFixed(2).replace('.', ',')}. Vencimento: ${dueDateBr}. `
-              + (billingType === 'PIX' && pixPayload?.payload
+            result = `Cobrança gerada com sucesso via Asaas${ctx.billingRecurring ? ' (assinatura mensal)' : ''}. Valor: R$ ${value.toFixed(2).replace('.', ',')}. Vencimento: ${dueDateBr}. `
+              + (pixPayload?.payload
                 ? `Código PIX copia-e-cola: ${pixPayload.payload}`
-                : `Link de pagamento: ${payment.invoiceUrl}`)
+                : `Link de pagamento: ${paymentUrl}`)
               + ' Mande esse link/código EXATAMENTE como fornecido acima, sem alterar nenhum caractere, junto com o valor e vencimento.'
 
             await log(ctx.companyId, 'charge_generated', {
-              value, description, billingType, paymentId: payment.id, dueDate,
+              value, description, billingType, externalId, dueDate, recurring: ctx.billingRecurring,
             }, supabase, ctx.leadPhone, ctx.leadId)
           } catch (err: any) {
             console.error(`[SDR:${ctx.companyId}] Gerar_cobranca falhou:`, err.message)
             result = `ERRO ao gerar cobrança: ${err.message}. Avise o lead que houve um problema técnico ao gerar o pagamento e que alguém do time vai confirmar em instantes.`
 
             await log(ctx.companyId, 'charge_generation_failed', {
-              value, description, billingType,
+              value, description, billingType, recurring: ctx.billingRecurring,
             }, supabase, ctx.leadPhone, ctx.leadId, err.message)
           }
         }
@@ -2022,6 +2081,7 @@ interface SdrFullConfig {
   meta_wa_token: string | null
   meta_wa_phone_number_id: string | null
   business_hours_message: string | null
+  billing_recurring: boolean
 }
 
 async function loadSdrConfig(
@@ -2124,6 +2184,7 @@ async function loadSdrConfig(
     meta_wa_token: config.meta_wa_token ? safeDecrypt(config.meta_wa_token) : null,
     meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
     business_hours_message: config.business_hours_message ?? null,
+    billing_recurring: config.billing_recurring ?? false,
   }
 }
 
@@ -2281,6 +2342,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       eventTitleTemplate: cfg.eventTitleTemplate,
       businessHoursSummary,
       asaasAtivo,
+      billingRecurring: cfg.billing_recurring,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)

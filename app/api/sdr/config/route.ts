@@ -61,6 +61,7 @@ export async function GET() {
         meta_ad_account_name: config.meta_ad_account_name ?? null,
         meta_pixel_id: config.meta_pixel_id ?? null,
         meta_pixel_token: config.meta_pixel_token ? '••••••••' : null,
+        billing_recurring: config.billing_recurring ?? false,
         created_at: config.created_at,
         updated_at: config.updated_at,
       },
@@ -104,6 +105,7 @@ export async function PUT(request: NextRequest) {
       event_title_template,
       meta_pixel_id,
       meta_pixel_token,
+      billing_recurring,
     } = body
 
     const service = createServiceClient()
@@ -129,6 +131,7 @@ export async function PUT(request: NextRequest) {
     if (uazapi_instance_url !== undefined) configUpdates.uazapi_instance_url = uazapi_instance_url
     if (google_calendar_id !== undefined) configUpdates.google_calendar_id = google_calendar_id
     if (meta_pixel_id !== undefined) configUpdates.meta_pixel_id = meta_pixel_id || null
+    if (billing_recurring !== undefined) configUpdates.billing_recurring = billing_recurring
     if (meta_pixel_token && !meta_pixel_token.startsWith('••')) {
       configUpdates.meta_pixel_token = encrypt(meta_pixel_token)
     }
