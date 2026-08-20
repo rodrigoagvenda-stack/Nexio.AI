@@ -30,11 +30,13 @@ import { FlaskIcon } from '@/components/ui/flask'
 import { BrainIcon } from '@/components/ui/brain'
 import { SlidersHorizontalIcon } from '@/components/ui/sliders-horizontal'
 import { FilePenLineIcon } from '@/components/ui/file-pen-line'
+import { CalendarDaysIcon } from '@/components/ui/calendar-days'
 import { NICHES, VAR_LABELS, type SdrVariables, type VariableKey } from '@/lib/sdr/templates'
 import Link from 'next/link'
 import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect'
 import { MetaAdsConnect } from '@/components/sdr/MetaAdsConnect'
 import { SdrDiagnosticoWidget } from '@/components/ui/sdr-diagnostico-widget'
+import { HorarioContent } from '@/components/configuracoes/HorarioContent'
 
 // ── Niche icons ────────────────────────────────────────────────────────────
 
@@ -130,6 +132,7 @@ const TABS = [
   { id: 'identidade',   label: 'Identidade',   icon: FlaskIcon as AnyAnimIcon,            desc: 'Persona, tom de voz e restrições do agente' },
   { id: 'conhecimento', label: 'Conhecimento', icon: BrainIcon as AnyAnimIcon,            desc: 'Base de conhecimento e simulador de conversas' },
   { id: 'integracoes',  label: 'Integrações',  icon: SlidersHorizontalIcon as AnyAnimIcon, desc: 'Google Calendar e demais integrações' },
+  { id: 'horarios',     label: 'Horários',     icon: CalendarDaysIcon as AnyAnimIcon,     desc: 'Dias e horários em que o agente atende' },
   { id: 'cardapio',     label: 'Cardápio',     icon: FilePenLineIcon as AnyAnimIcon,      desc: 'Produtos e itens para pedidos via WhatsApp' },
 ] as const
 type TabId = typeof TABS[number]['id']
@@ -3037,6 +3040,13 @@ export default function SdrConfigPage() {
 
                       {/* ── Links Rastreados : captura de gclid ── */}
                       <TrackingLinksManager />
+                    </div>
+                  )}
+
+                  {/* ── Horários ── */}
+                  {activeTab === 'horarios' && (
+                    <div className="space-y-4">
+                      <HorarioContent />
                     </div>
                   )}
 

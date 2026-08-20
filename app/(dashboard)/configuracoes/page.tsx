@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 import { PlanoCards, type PlanKey } from '@/components/planos/PlanoCards';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { EquipeContent } from '@/components/configuracoes/EquipeContent';
-import { HorarioContent } from '@/components/configuracoes/HorarioContent';
 import { RespostasRapidasContent } from '@/components/configuracoes/RespostasRapidasContent';
 import { TemplatesHSMContent } from '@/components/configuracoes/TemplatesHSMContent';
 
@@ -62,7 +61,7 @@ function resolvePlan(raw: string) {
 // numeros/saude removidos do nav : gravam em meta_wa_numbers, tabela que
 // nenhum lugar do motor do SDR (engine.ts/inbound.ts/webhooks) lê. Escondido
 // até a v2 de múltiplos números (roadmap) existir de verdade.
-const TABS = ['perfil', 'plano', 'integracoes', 'equipe', 'horario', 'respostas', 'templates', 'automacao', 'seguranca'] as const;
+const TABS = ['perfil', 'plano', 'integracoes', 'equipe', 'respostas', 'templates', 'automacao', 'seguranca'] as const;
 type Tab = typeof TABS[number];
 
 // ─── Automação Inteligente ────────────────────────────────────────────────────
@@ -545,7 +544,7 @@ function ConfiguracoesContent() {
     }
   };
 
-  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', equipe: 'Equipe', horario: 'Horários', respostas: 'Respostas Rápidas', templates: 'Templates HSM', automacao: 'Automação', seguranca: 'Segurança' };
+  const TAB_LABELS: Record<Tab, string> = { perfil: 'Perfil', plano: 'Plano', integracoes: 'Integrações', equipe: 'Equipe', respostas: 'Respostas Rápidas', templates: 'Templates HSM', automacao: 'Automação', seguranca: 'Segurança' };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -1295,9 +1294,6 @@ function ConfiguracoesContent() {
 
       {/* ── EQUIPE ─────────────────────────────────────────────── */}
       {tab === 'equipe' && <EquipeContent />}
-
-      {/* ── HORÁRIOS ───────────────────────────────────────────── */}
-      {tab === 'horario' && <HorarioContent />}
 
       {/* ── RESPOSTAS RÁPIDAS ───────────────────────────────────── */}
       {tab === 'respostas' && <RespostasRapidasContent />}
