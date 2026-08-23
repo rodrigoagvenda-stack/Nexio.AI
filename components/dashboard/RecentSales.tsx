@@ -79,11 +79,11 @@ export function RecentSales() {
   }
 
   return (
-    <Card className="flex flex-col overflow-hidden">
+    <Card className="flex flex-col overflow-hidden h-full">
       <CardHeader className="flex-shrink-0">
         <CardTitle className="text-lg font-semibold">Vendas Recentes</CardTitle>
       </CardHeader>
-      <CardContent className="overflow-y-auto scrollbar-minimal max-h-[400px] md:max-h-[500px]">
+      <CardContent className="flex-1 overflow-y-auto scrollbar-minimal">
         {closedLeads.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-muted-foreground">Nenhuma venda fechada ainda</p>

@@ -336,6 +336,7 @@ export default function DashboardPage() {
   // ── Funnel (current pipeline state) ──────────────────────────────────────
   const remarketingCount = leads.filter(l => l.status === 'Remarketing').length;
   const funnelStages = [
+    { label: 'Triagem',          count: activeLeads.filter(l => l.status === 'Triagem').length,          color: 'bg-slate-500' },
     { label: 'Lead novo',        count: activeLeads.filter(l => l.status === 'Lead novo').length,        color: 'bg-blue-500' },
     { label: 'Em contato',       count: activeLeads.filter(l => l.status === 'Em contato').length,       color: 'bg-green-400' },
     { label: 'Interessado',      count: activeLeads.filter(l => l.status === 'Interessado').length,      color: 'bg-green-500' },
@@ -469,7 +470,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Funnel + Recent Sales */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-start">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3 items-stretch">
         <div className="lg:col-span-2">
           <SalesFunnelTabs
             stages={funnelStages}
@@ -479,7 +480,7 @@ export default function DashboardPage() {
             showRemarketing={!!features.remarketing}
           />
         </div>
-        <div className="overflow-hidden">
+        <div className="h-full overflow-hidden">
           <RecentSales />
         </div>
       </div>
