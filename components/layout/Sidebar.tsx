@@ -52,7 +52,6 @@ interface SidebarProps {
   isTrial?: boolean;
   tokensUsed?: number;
   tokensLimit?: number;
-  gtproConnected?: boolean;
   features?: Record<string, boolean>;
 }
 
@@ -401,7 +400,6 @@ export const Sidebar = memo(function Sidebar({
   isTrial = false,
   tokensUsed = 0,
   tokensLimit = 0,
-  gtproConnected = false,
   features = {},
 }: SidebarProps) {
   const trialDaysLeft = useMemo(() => {
@@ -562,12 +560,6 @@ export const Sidebar = memo(function Sidebar({
         if (link.href === '/atendimento' && unreadMsgCount > 0) {
           return { ...link, unreadCount: unreadMsgCount };
         }
-        if (link.href === '/crm') {
-          const metaChild = gtproConnected && features.meta_ads
-            ? [{ href: '/crm/meta', label: 'Meta Ads', icon: BarChart2 }]
-            : [];
-          return { ...link, children: [...(link.children ?? []), ...metaChild] };
-        }
         if (link.href === '/automacoes') {
           const children = (link.children ?? []).filter(child => {
             if (child.href === '/configuracoes/follow' && !features.canvas) return false;
@@ -610,7 +602,7 @@ export const Sidebar = memo(function Sidebar({
       }
       return section;
     });
-  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, gtproConnected, hasPaymentIntegration, features]);
+  }, [isAdmin, userRole, hasBriefing, trialEnabled, hasUnseenChangelog, hasPaymentIntegration, features]);
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);

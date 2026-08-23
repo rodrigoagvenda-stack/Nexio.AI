@@ -192,16 +192,6 @@ function ConfiguracoesContent() {
   const [savingPlatform, setSavingPlatform] = useState<string | null>(null);
   const [disconnectingPlatform, setDisconnectingPlatform] = useState<string | null>(null);
 
-  // GTPRO API Key
-  const [gtproApiKey, setGtproApiKey] = useState('');
-  const [gtproFormOpen, setGtproFormOpen] = useState(false);
-  const [gtproSaving, setGtproSaving] = useState(false);
-  const [gtproConnected, setGtproConnected] = useState(false);
-
-  const [metaAccounts, setMetaAccounts] = useState<{ id: string; ad_account_id: string; name: string; is_active: boolean }[]>([]);
-  const [metaDropdownOpen, setMetaDropdownOpen] = useState(false);
-  const [metaAccountSaving, setMetaAccountSaving] = useState(false);
-
   const [notifSound, setNotifSound] = useState(true);
   useEffect(() => {
     setNotifSound(localStorage.getItem('zaapply_notif_sound') !== 'false');
@@ -260,18 +250,6 @@ function ConfiguracoesContent() {
   useEffect(() => {
     fetch('/api/payment-integrations').then(r => r.ok ? r.json() : null).then(d => { if (d) setPaymentIntegrations(d.integrations ?? []); }).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    fetch('/api/integrations/gtpro').then(r => r.ok ? r.json() : null).then(d => {
-      if (d?.connected) {
-        setGtproConnected(true);
-        fetch('/api/integrations/meta/accounts').then(r => r.ok ? r.json() : null).then(d2 => {
-          if (Array.isArray(d2)) setMetaAccounts(d2);
-        }).catch(() => {});
-      }
-    }).catch(() => {});
-  }, []);
-
 
   useEffect(() => {
     createClient().auth.mfa.listFactors().then(({ data }: { data: any }) => {
@@ -464,47 +442,6 @@ function ConfiguracoesContent() {
       toast({ title: `${platformName} configurado com sucesso!` });
     } catch { toast({ title: 'Erro de conexão', variant: 'destructive' }); }
     finally { setSavingPlatform(null); }
-  };
-
-  const handleGtproSave = async () => {
-    if (!gtproApiKey.trim()) return;
-    setGtproSaving(true);
-    try {
-      const res = await fetch('/api/integrations/gtpro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: gtproApiKey }) });
-      if (!res.ok) throw new Error();
-      setGtproConnected(true);
-      setGtproFormOpen(false);
-      setGtproApiKey('');
-      toast({ title: 'GTPRO configurado com sucesso!' });
-      fetch('/api/integrations/meta/accounts').then(r => r.ok ? r.json() : null).then(d2 => {
-        if (Array.isArray(d2)) setMetaAccounts(d2);
-      }).catch(() => {});
-    } catch { toast({ title: 'Erro ao salvar GTPRO', variant: 'destructive' }); }
-    finally { setGtproSaving(false); }
-  };
-
-  const handleGtproDisconnect = async () => {
-    try {
-      await fetch('/api/integrations/gtpro', { method: 'DELETE' });
-      setGtproConnected(false);
-      setMetaAccounts([]);
-      toast({ title: 'GTPRO desconectado' });
-    } catch { toast({ title: 'Erro ao desconectar', variant: 'destructive' }); }
-  };
-
-  const selectMetaAccount = async (account: { id: string; ad_account_id: string; name: string }) => {
-    setMetaAccountSaving(true);
-    try {
-      await fetch('/api/integrations/meta/accounts', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: account.id }),
-      });
-      setMetaAccounts(prev => prev.map(a => ({ ...a, is_active: a.id === account.id })));
-      setMetaDropdownOpen(false);
-      toast({ title: `Conta "${account.name}" selecionada!` });
-    } catch { toast({ title: 'Erro ao selecionar conta', variant: 'destructive' }); }
-    finally { setMetaAccountSaving(false); }
   };
 
   const handlePaymentDisconnect = async (platform: string) => {
@@ -1175,112 +1112,6 @@ function ConfiguracoesContent() {
             );
           })()}
 
-          {/* ── GTPRO · Meta Ads (API key + BM OAuth unificados) ── */}
-          <div className={cn('rounded-2xl border bg-card transition-colors', gtproConnected ? 'border-emerald-500/30 bg-emerald-500/[0.03]' : 'border-border')}>
-            {/* Linha principal : GTPRO API key */}
-            <div className="p-5 flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-[#1877F2]/10 flex items-center justify-center shrink-0 p-2 overflow-hidden">
-                  <svg viewBox="0 0 24 24" fill="#1877F2" className="w-full h-full"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-sm">GTPRO · Meta Ads</p>
-                    {gtproConnected && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-medium"><CheckCircle2 className="h-2.5 w-2.5" />Conectado</span>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Atribua leads de anúncios e dispare eventos de conversão (CAPI) automaticamente</p>
-                  {!gtproConnected && gtproFormOpen && (
-                    <div className="mt-3 space-y-2">
-                      <div>
-                        <Label className="text-xs">API Key GTPRO</Label>
-                        <Input
-                          type="password"
-                          placeholder="gtpro_..."
-                          value={gtproApiKey}
-                          onChange={e => setGtproApiKey(e.target.value)}
-                          className="h-8 text-xs mt-1 font-mono"
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">Obtenha sua API Key no painel GTPRO em Configurações → API.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                {gtproConnected ? (
-                  <Button variant="ghost" size="sm" onClick={handleGtproDisconnect} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
-                    <X className="h-4 w-4 mr-1" />Desconectar
-                  </Button>
-                ) : gtproFormOpen ? (
-                  <>
-                    <Button variant="ghost" size="sm" onClick={() => setGtproFormOpen(false)} className="text-muted-foreground">Cancelar</Button>
-                    <Button size="sm" onClick={handleGtproSave} disabled={!gtproApiKey.trim() || gtproSaving}>
-                      {gtproSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
-                    </Button>
-                  </>
-                ) : (
-                  <Button variant="outline" size="sm" onClick={() => setGtproFormOpen(true)}>Conectar</Button>
-                )}
-              </div>
-            </div>
-
-            {/* Sub-seção seleção de conta de anúncio */}
-            {gtproConnected && metaAccounts.length > 0 && (
-              <div className="border-t border-border/60 px-5 py-4">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Conta de anúncio</p>
-                  {metaAccounts.length > 1 && (
-                    <button
-                      onClick={() => setMetaDropdownOpen(o => !o)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Alterar
-                    </button>
-                  )}
-                </div>
-
-                {/* Conta ativa */}
-                {(() => {
-                  const active = metaAccounts.find(a => a.is_active) ?? metaAccounts[0];
-                  return (
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                      <span className="text-sm font-medium">{active.name}</span>
-                      <span className="text-[11px] text-muted-foreground font-mono">{active.ad_account_id}</span>
-                    </div>
-                  );
-                })()}
-
-                {/* Dropdown de seleção */}
-                {metaDropdownOpen && (
-                  <div className="mt-3 rounded-xl border border-border bg-card shadow-lg overflow-hidden">
-                    {metaAccounts.map(a => (
-                      <button
-                        key={a.id}
-                        onClick={() => selectMetaAccount(a)}
-                        disabled={metaAccountSaving}
-                        className={cn(
-                          'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/50 text-sm',
-                          a.is_active && 'bg-emerald-500/[0.06]'
-                        )}
-                      >
-                        <span className={cn('w-2 h-2 rounded-full shrink-0', a.is_active ? 'bg-emerald-400' : 'bg-muted-foreground/30')} />
-                        <span className={cn('flex-1 truncate', a.is_active ? 'font-medium text-foreground' : 'text-muted-foreground')}>{a.name}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono shrink-0">{a.ad_account_id}</span>
-                        {a.is_active && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {metaAccounts.length === 1 && (
-                  <p className="text-[11px] text-muted-foreground mt-1.5">
-                    Para adicionar contas, defina o escopo no <span className="font-medium">GTPRO → Configurações → API</span>.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
 
           <div className="p-5 rounded-2xl border border-dashed border-border/50 flex items-center gap-4 opacity-50 select-none">
             <Zap className="h-5 w-5 text-muted-foreground" />
