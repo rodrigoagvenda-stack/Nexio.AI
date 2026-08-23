@@ -71,6 +71,8 @@ interface ConversaState {
   current_status?: string | null;
   contagem_nao_lida?: number | null;
   queue_entered_at?: string | null;
+  lead_score?: number | null;
+  lead_source?: { headline?: string; utm_campaign?: string; utm_source?: string } | null;
 }
 type LeadWithConversa = Lead & { _conversa?: ConversaState };
 
@@ -286,13 +288,32 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
                 </span>
               );
             })}
+            {(() => {
+              const src = lead._conversa?.lead_source;
+              const label = src?.utm_campaign || src?.headline || src?.utm_source;
+              if (!label) return null;
+              return (
+                <span className="text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 h-fit bg-purple-500/10 text-purple-600 dark:text-purple-400 max-w-[140px]" title={label}>
+                  <Megaphone className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate">{label}</span>
+                </span>
+              );
+            })()}
           </div>
 
           {/* Footer com métricas */}
           <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50 mt-2">
-            <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
-              <DollarSign className="h-3 w-3 text-primary/60" />
-              <span>{fmtCompact(lead.project_value || 0)}</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
+                <DollarSign className="h-3 w-3 text-primary/60" />
+                <span>{fmtCompact(lead.project_value || 0)}</span>
+              </div>
+              {typeof lead._conversa?.lead_score === 'number' && (
+                <div className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground" title="Lead score">
+                  <Flame className="h-2.5 w-2.5" />
+                  {lead._conversa.lead_score}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               {!!lead._conversa?.contagem_nao_lida && lead._conversa.contagem_nao_lida > 0 && (
@@ -399,6 +420,23 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
               </span>
             );
           })}
+          {(() => {
+            const src = lead._conversa?.lead_source;
+            const label = src?.utm_campaign || src?.headline || src?.utm_source;
+            if (!label) return null;
+            return (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 max-w-[110px]" title={label}>
+                <Megaphone className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{label}</span>
+              </span>
+            );
+          })()}
+          {typeof lead._conversa?.lead_score === 'number' && (
+            <span className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground" title="Lead score">
+              <Flame className="h-2.5 w-2.5" />
+              {lead._conversa.lead_score}
+            </span>
+          )}
           {lead.project_value && lead.project_value > 0 && (
             <span className="text-[10px] text-primary font-medium ml-auto">{fmtCompact(lead.project_value)}</span>
           )}
@@ -620,7 +658,7 @@ export default function CRMPage() {
       if (phones.length > 0) {
         const { data: convs } = await supabase
           .from('conversas_do_whatsapp')
-          .select('numero_de_telefone, kanban_stage, current_status, contagem_nao_lida, queue_entered_at')
+          .select('numero_de_telefone, kanban_stage, current_status, contagem_nao_lida, queue_entered_at, lead_score, lead_source')
           .eq('company_id', user?.company_id)
           .in('numero_de_telefone', phones);
         for (const c of (convs ?? [])) {
@@ -1315,7 +1353,7 @@ export default function CRMPage() {
                   width: 'fit-content'
                 }}
               >
-                {columns.filter(c => c.id !== 'Triagem' && c.id !== 'Outbound').map((column) => {
+                {columns.filter(c => c.id !== 'Outbound').map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
                     <div key={column.id} className="w-[320px] flex-shrink-0">
@@ -1387,7 +1425,7 @@ export default function CRMPage() {
 
         {/* Mobile Kanban - Horizontal snap scroll, scroll vertical em cada coluna */}
         <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none', height: 'calc(100dvh - 280px)' }}>
-          {columns.filter(c => c.id !== 'Triagem' && c.id !== 'Outbound').map((column) => {
+          {columns.filter(c => c.id !== 'Outbound').map((column) => {
             const colLeads = getLeadsByStatus(column.id);
             return (
               <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col rounded-xl bg-muted/40 p-2 gap-2">
