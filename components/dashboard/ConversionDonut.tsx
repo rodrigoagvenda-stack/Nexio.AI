@@ -47,7 +47,7 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
                   <stop offset="100%" stopColor="#34B270" />
                 </linearGradient>
               </defs>
-              <path d={trackPath} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={strokeW} strokeLinecap="round" />
+              <path d={trackPath} className="stroke-foreground/10" fill="none" strokeWidth={strokeW} strokeLinecap="round" />
               <path
                 d={trackPath}
                 fill="none"
@@ -58,8 +58,8 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
                 strokeDashoffset={fillOffset}
                 style={{ transition: 'stroke-dashoffset 0.7s ease' }}
               />
-              <text x={cx} y={cy - 4} textAnchor="middle" fontSize="32" fontWeight="700" fill="white">{pct}%</text>
-              <text x={cx} y={cy + 16} textAnchor="middle" fontSize="11" fill="#888">Conversão</text>
+              <text x={cx} y={cy - 4} textAnchor="middle" fontSize="32" fontWeight="700" className="fill-foreground">{pct}%</text>
+              <text x={cx} y={cy + 16} textAnchor="middle" fontSize="11" className="fill-muted-foreground">Conversão</text>
             </svg>
           </div>
 
