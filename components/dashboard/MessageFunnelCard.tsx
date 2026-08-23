@@ -17,22 +17,34 @@ interface FunnelResponse {
   note?: string;
 }
 
+interface MessageFunnelCardProps {
+  since?: Date;
+  until?: Date;
+}
+
 function formatCurrency(cents: number | null): string {
   if (cents === null) return '—';
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function MessageFunnelCard() {
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export function MessageFunnelCard({ since, until }: MessageFunnelCardProps) {
   const [data, setData] = useState<FunnelResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/reports/message-funnel?days=7')
+    if (!since || !until) return;
+    setLoading(true);
+    const params = new URLSearchParams({ since: toISODate(since), until: toISODate(until) });
+    fetch(`/api/reports/message-funnel?${params}`)
       .then(r => r.ok ? r.json() : null)
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [since, until]);
 
   const stages = data?.stages ?? [];
   const maxCount = Math.max(1, ...stages.map(s => s.count));
@@ -43,7 +55,7 @@ export function MessageFunnelCard() {
       <CardHeader className="flex-shrink-0">
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
           <MessageCircle className="h-4 w-4 text-primary/70" />
-          Funil de Mensagens (7d)
+          Funil de Mensagens
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1">

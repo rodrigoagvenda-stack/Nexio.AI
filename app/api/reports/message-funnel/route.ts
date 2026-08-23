@@ -13,8 +13,11 @@ export async function GET(req: NextRequest) {
   if (authError) return authError
 
   const url = new URL(req.url)
+  const sinceParam = url.searchParams.get('since')
+  const untilParam = url.searchParams.get('until')
   const days = parseInt(url.searchParams.get('days') ?? '7', 10)
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const since = sinceParam ?? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const until = untilParam ?? new Date().toISOString().slice(0, 10)
 
   const supabase = createServiceClient()
 
@@ -23,6 +26,7 @@ export async function GET(req: NextRequest) {
     .select('raw, spend_cents')
     .eq('company_id', context.companyId)
     .gte('date', since)
+    .lte('date', until)
 
   if (!insights?.length) {
     return NextResponse.json({
@@ -42,7 +46,8 @@ export async function GET(req: NextRequest) {
   }))
 
   return NextResponse.json({
-    period_days: days,
+    since,
+    until,
     stages: stagesWithCost,
     total_spend_cents: totalSpendCents,
     // Ajuda a conferir se os nomes de campo em lib/meta/message-funnel.ts
