@@ -710,30 +710,29 @@ export const Sidebar = memo(function Sidebar({
             const barColor = isCritical ? '#ef4444' : isWarning ? '#f59e0b' : '#96F63C';
             return (
               <div
-                className="relative rounded-xl overflow-hidden p-3 space-y-2"
-                style={{
-                  backdropFilter: 'blur(24px)',
-                  background: 'linear-gradient(135deg, rgba(7,38,28,0.85) 0%, rgba(14,64,40,0.85) 56%, rgba(10,48,30,0.85) 100%)',
-                  border: '1px solid rgba(96,246,60,0.18)',
-                }}
+                className={cn(
+                  'relative rounded-xl overflow-hidden p-3 space-y-2 border border-[rgba(96,246,60,0.18)]',
+                  'bg-[#0E4028] dark:bg-[linear-gradient(135deg,rgba(7,38,28,0.85)_0%,rgba(14,64,40,0.85)_56%,rgba(10,48,30,0.85)_100%)]',
+                  'dark:backdrop-blur-xl'
+                )}
               >
                 <div className="flex items-start justify-between gap-1">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-foreground leading-none tracking-tight">Tokens mensais</p>
-                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{planName || 'Plano atual'}</p>
+                    <p className="text-[11px] font-bold text-white leading-none tracking-tight">Tokens mensais</p>
+                    <p className="text-[10px] text-white/60 truncate mt-0.5">{planName || 'Plano atual'}</p>
                   </div>
                 </div>
 
                 <div className="flex items-baseline gap-1">
-                  <span className="text-[15px] font-bold text-foreground tabular-nums">{tokensUsed.toLocaleString('pt-BR')}</span>
-                  <span className="text-[10px] text-muted-foreground tabular-nums">/ {tokensLimit.toLocaleString('pt-BR')}</span>
+                  <span className="text-[15px] font-bold text-white tabular-nums">{tokensUsed.toLocaleString('pt-BR')}</span>
+                  <span className="text-[10px] text-white/60 tabular-nums">/ {tokensLimit.toLocaleString('pt-BR')}</span>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: '#0C0C0C' }}>
                     <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(barWidth, tokensUsed > 0 ? 3 : 0)}%`, backgroundColor: barColor }} />
                   </div>
-                  <p className="text-[10px] text-muted-foreground">{pctDisplay}% utilizado</p>
+                  <p className="text-[10px] text-white/60">{pctDisplay}% utilizado</p>
                 </div>
 
                 <Link
