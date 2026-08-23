@@ -15,6 +15,7 @@ import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { ConversionDonut } from '@/components/dashboard/ConversionDonut';
 import { SalesFunnelTabs } from '@/components/dashboard/SalesFunnelTabs';
 import { RecentSales } from '@/components/dashboard/RecentSales';
+import { MessageFunnelCard } from '@/components/dashboard/MessageFunnelCard';
 import { useFeatures } from '@/components/layout/FeaturesProvider';
 
 interface DateRange {
@@ -482,6 +483,13 @@ export default function DashboardPage() {
         </div>
         <div className="h-full overflow-hidden">
           <RecentSales />
+        </div>
+      </div>
+
+      {/* Message Funnel */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <MessageFunnelCard />
         </div>
       </div>
     </div>
