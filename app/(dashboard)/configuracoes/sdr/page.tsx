@@ -491,11 +491,11 @@ O que o agente NUNCA deve mencionar, oferecer ou inventar? Liste funcionalidades
 [Preencha aqui]
 
 BLOCO 4 : Abordagem de Vendas
-Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto? Inclua a estratégia e exemplos de perguntas de diagnóstico.
+Como o agente deve abordar o lead? Vai na dor primeiro ou apresenta o produto direto? Inclua a estratégia, exemplos de perguntas de diagnóstico E pelo menos uma pergunta que amplifique o custo/impacto do problema antes de apresentar a solução (ex: "isso te custa quanto por mês em oportunidade perdida?") : nunca pule direto do diagnóstico pro pitch sem aprofundar a dor.
 [Preencha aqui]
 
 BLOCO 5 : Qualificação
-Quais perguntas qualificam o lead? Em que ordem? O que descarta (sem verba, sem perfil, não é o decisor)?
+Quais perguntas qualificam o lead? Em que ordem? Inclua também: orçamento disponível (mesmo que aproximado) e prazo/urgência pra resolver isso : não só segmento e decisor. O que descarta (sem verba, sem perfil, não é o decisor, sem prazo definido)?
 [Preencha aqui]
 
 BLOCO 6 : Próximo Passo
@@ -515,7 +515,7 @@ De onde vêm os leads (anúncio, indicação, orgânico)? O que costumam dizer n
 [Preencha aqui]
 
 BLOCO 10 : Regras Absolutas
-Quais são as regras que o agente NUNCA pode quebrar? Seja específico : cada regra deve ser clara e inviolável.
+Quais são as regras que o agente NUNCA pode quebrar? Seja específico : cada regra deve ser clara e inviolável. Inclua obrigatoriamente estas três, além das específicas do seu negócio: (1) nunca se apresentar de novo depois da primeira mensagem da conversa; (2) nunca repetir uma pergunta de qualificação já respondida antes na mesma conversa; (3) nunca repetir o mesmo argumento ou diferencial mais de uma vez : sempre amarrar a resposta ao que o lead acabou de dizer, nunca reciclar bloco de pitch genérico.
 [Preencha aqui]
 ────────────────────────────
 

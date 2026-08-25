@@ -756,6 +756,12 @@ CAMPOS QUE VOCÊ ATUALIZA:
 - priority: prioridade do lead
 - nivel_interesse: temperatura do lead
 - updated_at: sempre atualizar com a data/hora atual
+- checklist_atendimento: campos ESTRUTURADOS que nunca degradam com o tempo (diferente do resumo_ia, que prioriza o novo sobre o antigo). É o que impede a Zaia de se apresentar de novo ou repetir pergunta já respondida depois de muitas mensagens.
+
+CHECKLIST_ATENDIMENTO (sempre confira o que "Buscar_lead" já retornou antes de decidir o que enviar) :
+- apresentacao_feita: marque true assim que a Zaia se apresentar pela primeira vez nesta conversa. Uma vez true, NUNCA marque false de novo.
+- nova_pergunta_respondida: SEMPRE que o lead responder uma pergunta de qualificação nova (segmento, volume, decisor, orçamento, prazo, etc), registre como {"pergunta": "rótulo curto", "resposta": "o que ele disse"}. Não repita rótulo já existente : se for atualização do mesmo tema, é normal registrar de novo com o mesmo rótulo.
+- estagio_atual: rótulo curto do estágio da conversa (ex: "qualificando", "apresentando_solucao", "objecao_preco", "fechamento").
 
 REGRAS DO RESUMO (resumo_ia):
 - Máximo 200 palavras
@@ -806,7 +812,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       type: 'function',
       function: {
         name: 'Atualizar_resumo',
-        description: 'Atualiza os campos do lead no CRM',
+        description: 'Atualiza os campos do lead no CRM, incluindo o checklist estruturado de atendimento',
         parameters: {
           type: 'object',
           properties: {
@@ -814,6 +820,15 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
             segment: { type: 'string' },
             priority: { type: 'string', enum: ['Alta', 'Média', 'Baixa'] },
             nivel_interesse: { type: 'string', enum: ['Quente 🔥', 'Morno 🌡️', 'Frio ❄️'] },
+            apresentacao_feita: { type: 'boolean', description: 'true assim que a Zaia se apresentar pela primeira vez nesta conversa' },
+            nova_pergunta_respondida: {
+              type: 'object',
+              properties: {
+                pergunta: { type: 'string', description: 'Rótulo curto, ex: segmento, volume_mensagens, decisor, orcamento, prazo' },
+                resposta: { type: 'string', description: 'O que o lead respondeu' },
+              },
+            },
+            estagio_atual: { type: 'string', description: 'Rótulo curto do estágio da conversa, ex: qualificando, apresentando_solucao, fechamento' },
           },
         },
       },
@@ -828,7 +843,16 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
         .select('id, whatsapp, contact_name, resumo_ia, segment, priority, nivel_interesse, status, notes')
         .eq('id', ctx.leadId)
         .single()
-      return JSON.stringify(data ?? {})
+      let checklist_atendimento: any = null
+      if (ctx.conversationId) {
+        const { data: conv } = await supabase
+          .from('conversas_do_whatsapp')
+          .select('checklist_atendimento')
+          .eq('id', ctx.conversationId)
+          .maybeSingle()
+        checklist_atendimento = conv?.checklist_atendimento ?? null
+      }
+      return JSON.stringify({ ...(data ?? {}), checklist_atendimento })
     },
     'Atualizar_resumo': async (args) => {
       const updates: Record<string, any> = { updated_at: new Date().toISOString() }
@@ -836,6 +860,30 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       if (args.segment) updates.segment = args.segment
       if (args.priority) updates.priority = args.priority
       if (args.nivel_interesse) updates.nivel_interesse = args.nivel_interesse
+
+      // Checklist estruturado : merge com o que já existe, nunca sobrescreve
+      // apagando (apresentacao_feita só vira true e fica true; perguntas novas
+      // se acumulam na lista, sem duplicar rótulo).
+      if (ctx.conversationId && (args.apresentacao_feita || args.nova_pergunta_respondida || args.estagio_atual)) {
+        const { data: convAtual } = await supabase
+          .from('conversas_do_whatsapp')
+          .select('checklist_atendimento')
+          .eq('id', ctx.conversationId)
+          .maybeSingle()
+        const atual = (convAtual?.checklist_atendimento as ChecklistAtendimento) ?? {}
+        const perguntas = atual.perguntas_e_respostas ?? []
+        if (args.nova_pergunta_respondida?.pergunta) {
+          const idx = perguntas.findIndex((p) => p.pergunta === args.nova_pergunta_respondida.pergunta)
+          if (idx >= 0) perguntas[idx] = args.nova_pergunta_respondida
+          else perguntas.push(args.nova_pergunta_respondida)
+        }
+        const novoChecklist: ChecklistAtendimento = {
+          apresentacao_feita: atual.apresentacao_feita || !!args.apresentacao_feita,
+          perguntas_e_respostas: perguntas,
+          estagio_atual: args.estagio_atual ?? atual.estagio_atual,
+        }
+        await supabase.from('conversas_do_whatsapp').update({ checklist_atendimento: novoChecklist }).eq('id', ctx.conversationId)
+      }
 
       const { data: updated } = await supabase
         .from('leads')
@@ -1414,6 +1462,26 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
   return tools
 }
 
+interface ChecklistAtendimento {
+  apresentacao_feita?: boolean
+  perguntas_e_respostas?: { pergunta: string; resposta: string }[]
+  estagio_atual?: string
+}
+
+function formatChecklist(checklist: ChecklistAtendimento | null): string {
+  if (!checklist || (!checklist.apresentacao_feita && !checklist.perguntas_e_respostas?.length && !checklist.estagio_atual)) {
+    return 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
+  }
+  const lines: string[] = []
+  lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : 'NÃO : apresente-se nesta resposta'}`)
+  if (checklist.perguntas_e_respostas?.length) {
+    lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
+    for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
+  }
+  if (checklist.estagio_atual) lines.push(`Estágio atual da conversa: ${checklist.estagio_atual}`)
+  return lines.join('\n')
+}
+
 async function runOrchestrator(
   messages: BufferedMessage[],
   history: ChatMsg[],
@@ -1426,13 +1494,26 @@ async function runOrchestrator(
   const userInput = messages.map((m) => m.content).join('\n\n')
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
+  let checklistText = 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
+  if (ctx.conversationId) {
+    const { data: convRow } = await supabase
+      .from('conversas_do_whatsapp')
+      .select('checklist_atendimento')
+      .eq('id', ctx.conversationId)
+      .maybeSingle()
+    checklistText = formatChecklist((convRow?.checklist_atendimento as ChecklistAtendimento) ?? null)
+  }
+
   const systemMsg = `${buildOrchestratorSystem(ctx)}
 
 CONTEXTO DO CRM:
 - Lead: ${ctx.leadName} | WhatsApp: ${ctx.leadPhone}
 - Notas: ${leadNotes || 'nenhuma'}
 - Empresa: ${ctx.companyName}
-- Data/hora: ${now}`
+- Data/hora: ${now}
+
+CHECKLIST DESTA CONVERSA (siga isto à risca, é mais confiável que reler o histórico sozinho):
+${checklistText}`
 
   const TOOLS = buildOrchestratorTools(ctx)
   console.log(`[SDR:${ctx.companyId}] tools disponíveis: [${TOOLS.map(t => (t as OpenAI.Chat.ChatCompletionFunctionTool).function?.name ?? '?').join(', ')}]`)
