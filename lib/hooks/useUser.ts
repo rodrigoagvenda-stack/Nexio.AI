@@ -55,7 +55,7 @@ export function useUser() {
       if (userData?.company_id) {
         const { data: companyData } = await supabase
           .from('companies')
-          .select('id, name, email, plan_type, plan_name, plan_price, is_active, created_at, updated_at')
+          .select('id, name, email, plan_type, plan_name, plan_price, is_active, created_at, updated_at, features')
           .eq('id', userData.company_id)
           .single();
 

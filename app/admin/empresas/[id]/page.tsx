@@ -608,6 +608,7 @@ export default function EmpresaDetailPage() {
                 { key: 'anti_noshow', label: 'Anti Noshow',            desc: 'Motor de reconfirmação automática' },
                 { key: 'remarketing', label: 'Remarketing',            desc: 'Reativação de leads perdidos' },
                 { key: 'follow_up',   label: 'Follow-up',             desc: 'Sequências automáticas de follow-up' },
+                { key: 'outbound',    label: 'Outbound (disparo frio)', desc: 'Prospecção ativa via WhatsApp, com limites e anti-ban' },
               ] as { key: string; label: string; desc: string }[]).map(({ key, label, desc }) => (
                 <div key={key} className="flex items-center justify-between py-1.5">
                   <div>

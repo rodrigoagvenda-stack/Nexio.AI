@@ -32,6 +32,7 @@ import { FileTextIcon } from '@/components/ui/file-text';
 import { ReceiptTextIcon } from '@/components/ui/receipt-text';
 import { CogIcon } from '@/components/ui/cog';
 import { ShieldCheckIcon } from '@/components/ui/shield-check';
+import { SendIcon } from '@/components/ui/send';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -130,6 +131,7 @@ const navSections: NavSection[] = [
           { href: '/configuracoes/follow', label: 'Canvas', icon: CursorClickIcon },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDaysIcon },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: ChartLineIcon },
+          { href: '/outbound', label: 'Outbound', icon: SendIcon },
         ],
       },
     ],
@@ -565,6 +567,7 @@ export const Sidebar = memo(function Sidebar({
             if (child.href === '/configuracoes/follow' && !features.canvas) return false;
             if (child.href === '/configuracoes/agenda' && !features.agenda) return false;
             if (child.href === '/configuracoes/metricas' && !features.metricas) return false;
+            if (child.href === '/outbound' && !features.outbound) return false;
             return true;
           });
           return { ...link, children };

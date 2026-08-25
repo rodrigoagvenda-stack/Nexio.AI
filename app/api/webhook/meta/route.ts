@@ -3,7 +3,8 @@ import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { normalizePhone } from '@/lib/sdr/uazapi'
 import { persistMediaToStorage } from '@/lib/sdr/media-storage'
-import { isPromptInjection, log } from '@/lib/sdr/engine'
+import { isPromptInjection, isOptOutRequest, log } from '@/lib/sdr/engine'
+import { markOptOut } from '@/lib/sdr/outbound'
 import { ingestInboundMessage, type NormalizedInboundEvent } from '@/lib/sdr/inbound'
 import { sendInjectionAlertEmail } from '@/lib/email/resend'
 import { safeDecrypt } from '@/lib/crypto'
@@ -240,6 +241,10 @@ export async function POST(req: NextRequest) {
             timestamp: new Date().toISOString(),
           }).catch(() => {})
           continue
+        }
+
+        if (msgType === 'text' && content && isOptOutRequest(content)) {
+          markOptOut(companyId, phone, content).catch(() => {})
         }
 
         const evt: NormalizedInboundEvent = {

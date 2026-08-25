@@ -22,7 +22,7 @@ async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
 }
 
 /** Resolve OpenAI key: env var → sdr_configs (empresa) → platform_config (global) */
-async function resolveOpenAIKey(companyId: number): Promise<string> {
+export async function resolveOpenAIKey(companyId: number): Promise<string> {
   if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
 
   try {

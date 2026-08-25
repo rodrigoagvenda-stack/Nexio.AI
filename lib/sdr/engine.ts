@@ -13,6 +13,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, safeDecrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
+import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { canSendFreeform } from './window'
@@ -239,6 +240,27 @@ export function isPromptInjection(text: string): boolean {
 
   const total = Math.min(keywordScore + structuralScore + entropyScore + suspiciousScore + contextScore, 0.98)
   return total >= BLOCK_CONFIDENCE
+}
+
+// Padrões de opt-out do lead pedindo pra não receber mais mensagens de
+// outbound (disparo frio). Ao contrário de isPromptInjection, uma detecção
+// aqui NÃO descarta a mensagem : ela segue o fluxo normal (ingestInboundMessage),
+// só dispara markOptOut em paralelo pra bloquear futuros disparos.
+const OPT_OUT_PATTERNS = [
+  /\bpar(?:e|a|ar)\s+de\s+(?:me\s+)?mandar/i,
+  /\bpar(?:e|a|ar)\s+de\s+(?:me\s+)?chamar/i,
+  /\bn(?:ã|a)o\s+quero\s+(?:mais\s+)?(?:receber|mensage)/i,
+  /\bremov(?:e|er|a)\s+(?:o\s+)?(?:meu\s+)?(?:contato|n[uú]mero)/i,
+  /\bdescadastr/i,
+  /\bcancelar\s+(?:a\s+)?inscri[cç][aã]o/i,
+  /\bsa(?:i|ir)\s+da\s+lista/i,
+  /\bn(?:ã|a)o\s+me\s+(?:mand|escrev|chame|contate)/i,
+  /^\s*(?:stop|unsubscribe)\s*$/i,
+]
+
+export function isOptOutRequest(text: string): boolean {
+  if (!text) return false
+  return OPT_OUT_PATTERNS.some((p) => p.test(text))
 }
 
 // ─── Buffer (Supabase) ────────────────────────────────────────
@@ -2776,6 +2798,10 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       }).catch(() => {})
 
       return false
+    }
+
+    if (text && isOptOutRequest(text)) {
+      markOptOut(companyId, normalizePhone(body.chat.phone), text).catch(() => {})
     }
 
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
