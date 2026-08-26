@@ -612,6 +612,7 @@ export default function EmpresaDetailPage() {
                 { key: 'remarketing', label: 'Remarketing',            desc: 'Reativação de leads perdidos' },
                 { key: 'follow_up',   label: 'Follow-up',             desc: 'Sequências automáticas de follow-up' },
                 { key: 'outbound',    label: 'Outbound (disparo frio)', desc: 'Prospecção ativa via WhatsApp, com limites e anti-ban' },
+                { key: 'prospect',    label: 'Orbit (extração de leads)', desc: 'Extração de leads via Google Maps/Apify, roda no n8n' },
               ] as { key: string; label: string; desc: string }[]).map(({ key, label, desc }) => (
                 <div key={key} className="flex items-center justify-between py-1.5">
                   <div>

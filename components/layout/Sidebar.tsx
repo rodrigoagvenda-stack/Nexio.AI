@@ -16,6 +16,7 @@ import {
   BarChart2,
   Wallet,
   Shield,
+  Radar,
 } from 'lucide-react';
 import { TrendingUpIcon } from '@/components/ui/trending-up';
 import { ChartPieIcon } from '@/components/ui/chart-pie';
@@ -122,6 +123,7 @@ const navSections: NavSection[] = [
         ],
       },
       { href: '/atendimento', label: 'Atendimento', icon: MessageCircleMoreIcon },
+      { href: '/prospect', label: 'Orbit', icon: Radar },
       {
         href: '/automacoes',
         label: 'Automações',
@@ -579,6 +581,7 @@ export const Sidebar = memo(function Sidebar({
       }).filter(link => {
         if (isCloser && (link.href === '/automacoes' || link.href === '/membros')) return false;
         if ((isSdr || isSdrCloser) && link.href === '/membros') return false;
+        if (link.href === '/prospect' && !features.prospect) return false;
         return true;
       }),
     })).filter(section => section.links.length > 0);
