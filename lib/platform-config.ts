@@ -16,6 +16,7 @@ export const SENSITIVE_KEYS = new Set([
   'asaas_api_key',
   'asaas_webhook_token',
   'groq_api_key',
+  'apify_api_token',
 ]);
 
 const MASK = '••••••••••••••••';
@@ -35,6 +36,7 @@ export interface PlatformConfig {
   asaas_base_url: string;
   asaas_webhook_token: string;
   groq_api_key: string;
+  apify_api_token: string;
 }
 
 /** Read all platform config keys from DB, decrypt sensitive ones. Falls back to env. */
@@ -69,6 +71,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       asaas_base_url: map.asaas_base_url || process.env.ASAAS_BASE_URL || 'https://api-sandbox.asaas.com/v3',
       asaas_webhook_token: map.asaas_webhook_token || process.env.ASAAS_WEBHOOK_TOKEN || '',
       groq_api_key: map.groq_api_key || process.env.GROQ_API_KEY || '',
+      apify_api_token: map.apify_api_token || process.env.APIFY_API_TOKEN || '',
     };
   } catch {
     // DB unavailable → env only
@@ -87,6 +90,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       asaas_base_url: process.env.ASAAS_BASE_URL || 'https://api-sandbox.asaas.com/v3',
       asaas_webhook_token: process.env.ASAAS_WEBHOOK_TOKEN || '',
       groq_api_key: process.env.GROQ_API_KEY || '',
+      apify_api_token: process.env.APIFY_API_TOKEN || '',
     };
   }
 }

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils/cn';
 import {
   Smartphone, KeyRound, Save, Loader2, Eye, EyeOff,
-  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle, Bot, Mic,
+  CreditCard, Calendar, CheckCircle2, XCircle, Copy, CheckCheck, AlertTriangle, Bot, Mic, Compass,
 } from 'lucide-react';
 
 interface Props {
@@ -56,6 +56,15 @@ const SECTIONS = [
     description: 'Transcrição de áudio (Whisper) para mensagens de voz do WhatsApp. Groq oferece Whisper com latência extremamente baixa.',
     fields: [
       { key: 'groq_api_key', label: 'API Key', placeholder: 'gsk_...', sensitive: true },
+    ],
+  },
+  {
+    id: 'apify',
+    label: 'Apify',
+    icon: Compass,
+    description: 'Scraper do Google Maps (Orbit) usado na extração de leads. Token global, uma conta Apify pra todas as empresas.',
+    fields: [
+      { key: 'apify_api_token', label: 'API Token', placeholder: 'apify_api_...', sensitive: true },
     ],
   },
   {
