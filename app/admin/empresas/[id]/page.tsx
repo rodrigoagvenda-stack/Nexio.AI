@@ -135,6 +135,9 @@ export default function EmpresaDetailPage() {
       const res = await fetch(`/api/admin/sdr/${params.id}/status`);
       const data = await res.json();
       setSdrStatus(data);
+      if (data.error) {
+        toast({ title: 'Instância retornou erro', description: data.error, variant: 'destructive' });
+      }
     } catch {
       toast({ title: 'Erro ao verificar status', variant: 'destructive' });
     } finally {
