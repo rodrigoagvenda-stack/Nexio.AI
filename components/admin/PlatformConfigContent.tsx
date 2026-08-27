@@ -68,6 +68,15 @@ const SECTIONS = [
     ],
   },
   {
+    id: 'google-places',
+    label: 'Google Places',
+    icon: Compass,
+    description: 'Análise de perfil Google Meu Negócio (score + gaps) : feature exclusiva, gate por company.features. Chave dedicada, não reaproveita outra.',
+    fields: [
+      { key: 'google_places_api_key', label: 'API Key', placeholder: 'AIza...', sensitive: true },
+    ],
+  },
+  {
     id: 'asaas',
     label: 'Asaas',
     icon: CreditCard,

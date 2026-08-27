@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { extractLeadsFromMaps } from '@/lib/n8n/client';
+import { runExtraction } from '@/lib/sdr/extraction';
 
 async function buildMapsUrl(nicho: string, cidade: string, estado: string): Promise<string> {
   try {
@@ -60,9 +60,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: company } = await supabase.from('companies').select('id, name').eq('id', companyId).single();
+    const { data: company } = await supabase.from('companies').select('id, name, features').eq('id', companyId).single();
     if (!company) {
       return NextResponse.json({ success: false, message: 'Empresa não encontrada' }, { status: 404 });
+    }
+    if (!company.features?.prospect) {
+      return NextResponse.json({ success: false, message: 'Extração de leads não está ativada pra sua empresa' }, { status: 403 });
     }
 
     const leadsToExtract = Math.min(limit, 500);
@@ -82,20 +85,11 @@ export async function POST(request: NextRequest) {
 
     const sessionId = sessionData.id;
 
-    // Acionar n8n passando o session_id para callbacks
-    const extractionResult = await extractLeadsFromMaps(finalUrl, leadsToExtract, companyId, sessionId);
-
-    if (!extractionResult.success) {
-      await serviceSupabase
-        .from('extraction_sessions')
-        .update({ status: 'error', completed_at: new Date().toISOString() })
-        .eq('id', sessionId);
-
-      return NextResponse.json(
-        { success: false, message: extractionResult.message || 'Erro ao extrair leads via n8n' },
-        { status: 500 }
-      );
-    }
+    // Roda em background : a página já faz polling direto no Supabase
+    // (RLS permite leitura da própria empresa em extraction_sessions).
+    runExtraction({ sessionId, companyId, mapsUrl: finalUrl, quantity: leadsToExtract }).catch((err) => {
+      console.error('[Prospect] runExtraction falhou:', err?.message)
+    });
 
     // activity_logs não tem policy de INSERT pra usuário autenticado : usa service role,
     // mesmo padrão de app/api/activity-logs/route.ts

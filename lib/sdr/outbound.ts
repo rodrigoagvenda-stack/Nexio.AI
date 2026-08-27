@@ -214,6 +214,8 @@ async function dispatchForCompany(companyId: number, supabase: Supabase): Promis
 
   const openaiKey = await resolveOpenAIKey(companyId)
   const openai = new OpenAI({ apiKey: openaiKey })
+  const persona = await fetchPersona(companyId, supabase)
+  const aberturasPool = await fetchOpenersPool(companyId, supabase)
 
   let sentCount = 0
   for (const lead of leadsDisponiveis) {
@@ -233,6 +235,8 @@ async function dispatchForCompany(companyId: number, supabase: Supabase): Promis
         contactName: lead.contact_name,
         mqlResumo: mql?.mql_resumo ?? null,
         templatePrompt: template?.prompt_sistema ?? null,
+        persona,
+        aberturasPool,
       })
 
       const blocos = mensagem.split(/\n\n+/).map((b) => b.trim()).filter(Boolean)
@@ -268,6 +272,64 @@ async function withinHourlyRate(companyId: number, supabase: Supabase): Promise<
   return (count ?? 0) < HOURLY_CAP
 }
 
+interface Persona {
+  nomeAgente?: string
+  tom?: string
+  empresa?: string
+  produto?: string
+  restricoes?: string
+}
+
+/** Reaproveita a mesma persona do SDR (sdr_flows.orchestrator_prompt) : a Zaia
+ * soa igual respondendo inbound ou abordando outbound, sem tela de config nova. */
+async function fetchPersona(companyId: number, supabase: Supabase): Promise<Persona | null> {
+  const { data } = await supabase
+    .from('sdr_flows')
+    .select('orchestrator_prompt')
+    .eq('company_id', companyId)
+    .eq('ativo', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (!data?.orchestrator_prompt) return null
+  try {
+    const parsed = JSON.parse(data.orchestrator_prompt)
+    return {
+      nomeAgente: parsed.nome_agente || undefined,
+      tom: parsed.tom || undefined,
+      empresa: parsed.empresa || undefined,
+      produto: parsed.produto || undefined,
+      restricoes: parsed.restricoes || undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Pool de aberturas específico da empresa (gerado uma vez, revisável), guardado em
+ * outbound_templates.exemplos (categoria='aberturas'). Cai pro pool genérico dos 100
+ * se a empresa não tiver gerado o próprio ainda. */
+async function fetchOpenersPool(companyId: number, supabase: Supabase): Promise<Abertura[]> {
+  const { data } = await supabase
+    .from('outbound_templates')
+    .select('exemplos')
+    .eq('company_id', companyId)
+    .eq('categoria', 'aberturas')
+    .eq('ativo', true)
+    .limit(1)
+    .maybeSingle()
+
+  if (Array.isArray(data?.exemplos) && data.exemplos.length > 0) {
+    const custom = data.exemplos.filter((e: any) => e?.texto).map((e: any, i: number) => ({
+      id: i + 1,
+      categoria: e.categoria || 'Personalizada',
+      texto: String(e.texto),
+    }))
+    if (custom.length > 0) return custom
+  }
+  return ABERTURAS
+}
+
 async function fetchTemplate(companyId: number, categoria: string, supabase: Supabase): Promise<{ prompt_sistema: string } | null> {
   const { data } = await supabase
     .from('outbound_templates')
@@ -282,11 +344,22 @@ async function fetchTemplate(companyId: number, categoria: string, supabase: Sup
 
 async function generateMessage(
   openai: OpenAI,
-  ctx: { contactName: string; mqlResumo: string | null; templatePrompt: string | null }
+  ctx: {
+    contactName: string
+    mqlResumo: string | null
+    templatePrompt: string | null
+    persona?: Persona | null
+    aberturasPool?: Abertura[]
+  }
 ): Promise<string> {
-  const abertura = ABERTURAS[Math.floor(Math.random() * ABERTURAS.length)]
+  const pool = ctx.aberturasPool?.length ? ctx.aberturasPool : ABERTURAS
+  const abertura = pool[Math.floor(Math.random() * pool.length)]
+  const p = ctx.persona
 
-  const systemPrompt = `Você é um especialista em prospecção fria via WhatsApp. Gere UMA mensagem curta, natural e personalizada pra iniciar contato com um lead frio.
+  const systemPrompt = `Você é um especialista em prospecção fria via WhatsApp${p?.nomeAgente ? `, escrevendo como ${p.nomeAgente}` : ''}${p?.empresa ? ` da ${p.empresa}` : ''}. Gere UMA mensagem curta, natural e personalizada pra iniciar contato com um lead frio.
+${p?.tom ? `\nTom de voz da empresa: ${p.tom}` : ''}
+${p?.produto ? `Produto/serviço: ${p.produto}` : ''}
+${p?.restricoes ? `Restrições : NUNCA quebrar: ${p.restricoes}` : ''}
 
 REGRAS OBRIGATÓRIAS:
 - Máximo 40 palavras, máximo 3 linhas
@@ -298,7 +371,7 @@ REGRAS OBRIGATÓRIAS:
 - Linguagem humana e natural, como alguém mandando WhatsApp de verdade : "vc", reticências, vírgulas naturais
 - Faça 1 pergunta simples
 - Toda frase começa com letra maiúscula
-- Use a abordagem abaixo só como INSPIRAÇÃO : nunca copie literalmente, reescreva com as próprias palavras
+- Use a abordagem abaixo só como INSPIRAÇÃO : nunca copie literalmente, reescreva com as próprias palavras, respeitando o tom da empresa acima
 - Se fizer sentido dividir em duas mensagens curtas, separe os blocos com uma linha em branco (no máximo 2 blocos)
 
 Abordagem de inspiração (categoria: ${abertura.categoria}):

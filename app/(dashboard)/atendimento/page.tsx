@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign, Zap } from 'lucide-react';
 import NextImage from 'next/image';
 import { computeWindowState, formatWindowBadge } from '@/lib/sdr/window';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -136,6 +136,7 @@ interface Message {
   reply_to_sender?: string;
   whatsapp_message_id?: string;
   is_deleted?: boolean;
+  nome_do_agente?: string;
   user?: {
     name: string;
   };
@@ -1976,8 +1977,8 @@ export default function AtendimentoPage() {
                           <div className="flex items-center gap-1 mb-1 text-xs opacity-80">
                             {msg.sender_type === 'ai' ? (
                               <>
-                                <Bot className="h-3 w-3" />
-                                IA
+                                {msg.nome_do_agente === 'Outbound' ? <Zap className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                                {msg.nome_do_agente === 'Outbound' ? 'Outbound' : 'SDR'}
                               </>
                             ) : (
                               <>

@@ -17,6 +17,7 @@ export const SENSITIVE_KEYS = new Set([
   'asaas_webhook_token',
   'groq_api_key',
   'apify_api_token',
+  'google_places_api_key',
 ]);
 
 const MASK = '••••••••••••••••';
@@ -37,6 +38,7 @@ export interface PlatformConfig {
   asaas_webhook_token: string;
   groq_api_key: string;
   apify_api_token: string;
+  google_places_api_key: string;
 }
 
 /** Read all platform config keys from DB, decrypt sensitive ones. Falls back to env. */
@@ -72,6 +74,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       asaas_webhook_token: map.asaas_webhook_token || process.env.ASAAS_WEBHOOK_TOKEN || '',
       groq_api_key: map.groq_api_key || process.env.GROQ_API_KEY || '',
       apify_api_token: map.apify_api_token || process.env.APIFY_API_TOKEN || '',
+      google_places_api_key: map.google_places_api_key || process.env.GOOGLE_PLACES_API_KEY || '',
     };
   } catch {
     // DB unavailable → env only
@@ -91,6 +94,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       asaas_webhook_token: process.env.ASAAS_WEBHOOK_TOKEN || '',
       groq_api_key: process.env.GROQ_API_KEY || '',
       apify_api_token: process.env.APIFY_API_TOKEN || '',
+      google_places_api_key: process.env.GOOGLE_PLACES_API_KEY || '',
     };
   }
 }
