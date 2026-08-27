@@ -175,6 +175,10 @@ function ConfiguracoesContent() {
   const [checkoutPhone, setCheckoutPhone] = useState('');
   const [savingCpfCnpj, setSavingCpfCnpj] = useState(false);
 
+  const [paymentMethodPrompt, setPaymentMethodPrompt] = useState<string | null>(null); // null = closed; string = plan aguardando escolha PIX/cartão
+  const [pixResult, setPixResult] = useState<{ encodedImage: string; payload: string; expirationDate?: string } | null>(null);
+  const [copiedPix, setCopiedPix] = useState(false);
+
   const [googleStatus, setGoogleStatus] = useState<GoogleStatus | null>(null);
   const [googleLoading, setGoogleLoading] = useState(true);
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
@@ -365,14 +369,17 @@ function ConfiguracoesContent() {
     }
   };
 
-  const doCheckout = async (plan: string, cpfCnpj?: string, extra = 0, fullName?: string, mobilePhone?: string) => {
+  const doCheckout = async (plan: string, billingType: 'PIX' | 'CREDIT_CARD', cpfCnpj?: string, extra = 0, fullName?: string, mobilePhone?: string) => {
     setCheckoutLoading(plan);
     try {
       const doc = cpfCnpj || company?.asaas_cpf_cnpj || '';
-      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers: extra, fullName, mobilePhone }) });
+      const res = await fetch('/api/asaas/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan, cpfCnpj: doc, extraNumbers: extra, fullName, mobilePhone, billingType }) });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error);
-      if (d.url) {
+      if (d.pix?.encodedImage) {
+        setPixResult(d.pix);
+        setCheckoutLoading(null);
+      } else if (d.url) {
         window.location.href = d.url;
       } else {
         toast({ title: d.message || 'Assinatura criada! Verifique seu email para o link de pagamento.' });
@@ -384,15 +391,15 @@ function ConfiguracoesContent() {
   const [pendingExtra, setPendingExtra] = useState(0);
 
   const handleCheckout = (plan: string, extra = 0) => {
+    setPendingExtra(extra);
     if (!company?.asaas_cpf_cnpj) {
       setCpfCnpjPrompt(plan);
       setCpfCnpjInput('');
       setCheckoutFullName(user?.name || '');
       setCheckoutPhone('');
-      setPendingExtra(extra);
       return;
     }
-    doCheckout(plan, undefined, extra);
+    setPaymentMethodPrompt(plan);
   };
 
   const handleCpfCnpjSubmit = async () => {
@@ -409,12 +416,26 @@ function ConfiguracoesContent() {
       const pending = cpfCnpjPrompt;
       setCpfCnpjPrompt(null);
       if (pending === '_extra_tokens_') handleBuyExtraTokens();
-      else doCheckout(pending!, doc, pendingExtra, checkoutFullName || undefined, checkoutPhone || undefined);
+      else setPaymentMethodPrompt(pending);
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao salvar documento', variant: 'destructive' });
     } finally {
       setSavingCpfCnpj(false);
     }
+  };
+
+  const handleSelectPaymentMethod = (billingType: 'PIX' | 'CREDIT_CARD') => {
+    const plan = paymentMethodPrompt;
+    setPaymentMethodPrompt(null);
+    if (!plan) return;
+    doCheckout(plan, billingType, cpfCnpjInput || undefined, pendingExtra, checkoutFullName || undefined, checkoutPhone || undefined);
+  };
+
+  const handleCopyPix = () => {
+    if (!pixResult) return;
+    navigator.clipboard.writeText(pixResult.payload);
+    setCopiedPix(true);
+    setTimeout(() => setCopiedPix(false), 2000);
   };
 
   const handleGoogleDisconnect = async () => {
@@ -771,6 +792,75 @@ function ConfiguracoesContent() {
                   <Button size="sm" onClick={handleCpfCnpjSubmit} disabled={savingCpfCnpj} className="w-full h-10">
                     {savingCpfCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Gerar cobrança'}
                   </Button>
+                </div>
+              )}
+
+              {/* Escolha PIX ou cartão */}
+              {paymentMethodPrompt && (
+                <div className="p-5 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">Forma de pagamento</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Como você quer pagar a assinatura?</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setPaymentMethodPrompt(null)} className="h-7 w-7 p-0 flex-shrink-0">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      className="h-16 flex-col gap-1"
+                      disabled={checkoutLoading === paymentMethodPrompt}
+                      onClick={() => handleSelectPaymentMethod('PIX')}
+                    >
+                      <Zap className="h-4 w-4" />
+                      <span className="text-xs">PIX</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-16 flex-col gap-1"
+                      disabled={checkoutLoading === paymentMethodPrompt}
+                      onClick={() => handleSelectPaymentMethod('CREDIT_CARD')}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span className="text-xs">Cartão</span>
+                    </Button>
+                  </div>
+                  {checkoutLoading === paymentMethodPrompt && (
+                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando cobrança...
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* QR Code do PIX */}
+              {pixResult && (
+                <div className="p-5 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">Pague com PIX</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Escaneie o QR code ou copie o código abaixo.</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setPixResult(null)} className="h-7 w-7 p-0 flex-shrink-0">
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="flex justify-center">
+                    <img
+                      src={`data:image/png;base64,${pixResult.encodedImage}`}
+                      alt="QR Code PIX"
+                      className="h-48 w-48 rounded-lg border border-border/50"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input value={pixResult.payload} readOnly className="font-mono text-[10px] h-10" onFocus={(e) => e.target.select()} />
+                    <Button size="sm" variant="outline" onClick={handleCopyPix} className="h-10 flex-shrink-0">
+                      {copiedPix ? <CheckCheck className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center">Assim que o pagamento for identificado, seu plano é ativado automaticamente.</p>
                 </div>
               )}
 

@@ -12,6 +12,31 @@ const PLAN_LABELS: Record<string, string> = {
   pro: 'Zaapply Growth',
 }
 
+/** Pra PIX, busca o QR code do primeiro pagamento : se falhar (ex: pagamento não é PIX
+ * ainda, de uma assinatura antiga reaproveitada), cai pro invoiceUrl como fallback. */
+async function buildPaymentResponse(
+  baseUrl: string,
+  headers: Record<string, string>,
+  payment: { id: string; invoiceUrl?: string; bankSlipUrl?: string },
+  billingType: 'PIX' | 'CREDIT_CARD' | 'UNDEFINED'
+) {
+  const invoiceUrl = payment?.invoiceUrl || payment?.bankSlipUrl
+
+  if (billingType === 'PIX' && payment?.id) {
+    try {
+      const qrRes = await fetch(`${baseUrl}/payments/${payment.id}/pixQrCode`, { headers })
+      if (qrRes.ok) {
+        const qrData = await qrRes.json()
+        if (qrData?.encodedImage && qrData?.payload) {
+          return { pix: { encodedImage: qrData.encodedImage, payload: qrData.payload, expirationDate: qrData.expirationDate } }
+        }
+      }
+    } catch { /* cai pro invoiceUrl abaixo */ }
+  }
+
+  return { url: invoiceUrl || null }
+}
+
 async function asaasJson(res: Response, label: string) {
   const text = await res.text()
   try { return JSON.parse(text) } catch {
@@ -38,7 +63,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { plan, cpfCnpj: cpfCnpjRaw, extraNumbers: extraNumbersRaw, fullName, mobilePhone } = body as { plan: string; cpfCnpj?: string; extraNumbers?: number; fullName?: string; mobilePhone?: string }
+    const { plan, cpfCnpj: cpfCnpjRaw, extraNumbers: extraNumbersRaw, fullName, mobilePhone, billingType: billingTypeRaw } = body as {
+      plan: string; cpfCnpj?: string; extraNumbers?: number; fullName?: string; mobilePhone?: string; billingType?: 'PIX' | 'CREDIT_CARD'
+    }
+    const billingType: 'PIX' | 'CREDIT_CARD' | 'UNDEFINED' =
+      billingTypeRaw === 'PIX' || billingTypeRaw === 'CREDIT_CARD' ? billingTypeRaw : 'UNDEFINED'
 
     const basePlanValue = PLAN_VALUES[plan]
     if (!basePlanValue) return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
@@ -158,8 +187,7 @@ export async function POST(request: NextRequest) {
       const paymentsRes = await fetch(`${baseUrl}/subscriptions/${company.asaas_subscription_id}/payments`, { headers })
       const paymentsData = await asaasJson(paymentsRes, 'list-payments-existing')
       const firstPayment = paymentsData.data?.[0]
-      const invoiceUrl = firstPayment?.invoiceUrl || firstPayment?.bankSlipUrl
-      if (invoiceUrl) return NextResponse.json({ url: invoiceUrl })
+      if (firstPayment) return NextResponse.json(await buildPaymentResponse(baseUrl, headers, firstPayment, billingType))
     }
 
     // Busca por externalReference no Asaas antes de criar (anti-duplicata em retry)
@@ -180,7 +208,7 @@ export async function POST(request: NextRequest) {
         headers,
         body: JSON.stringify({
           customer: customerId,
-          billingType: 'UNDEFINED',
+          billingType,
           value: planValue,
           nextDueDate: today,
           cycle: 'MONTHLY',
@@ -205,9 +233,7 @@ export async function POST(request: NextRequest) {
     const paymentsData = await asaasJson(paymentsRes, 'list-payments')
     const firstPayment = paymentsData.data?.[0]
 
-    const invoiceUrl = firstPayment?.invoiceUrl || firstPayment?.bankSlipUrl
-
-    if (!invoiceUrl) {
+    if (!firstPayment) {
       return NextResponse.json({
         url: null,
         message: 'Assinatura criada! Você receberá o link de pagamento por email em instantes.',
@@ -215,7 +241,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ url: invoiceUrl })
+    return NextResponse.json(await buildPaymentResponse(baseUrl, headers, firstPayment, billingType))
   } catch (err: any) {
     console.error('[asaas/checkout]', err)
     return NextResponse.json({ error: err.message || 'Erro ao processar checkout' }, { status: 500 })
