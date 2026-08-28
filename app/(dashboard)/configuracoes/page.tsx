@@ -334,12 +334,19 @@ function ConfiguracoesContent() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const { error } = await createClient().from('users')
-        .update({ name: profileData.name, description: profileData.description, department: profileData.department })
-        .eq('auth_user_id', authUser?.id);
-      if (error) throw error;
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profileData.name,
+          description: profileData.description,
+          department: profileData.department,
+        }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.message);
       toast({ title: 'Perfil salvo!' });
-    } catch { toast({ title: 'Erro ao salvar', variant: 'destructive' }); }
+    } catch (err: any) { toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' }); }
     finally { setSaving(false); }
   };
 
