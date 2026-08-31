@@ -584,7 +584,7 @@ function formatOffsetLabel(dia_offset: number, offsetUnit: string | undefined): 
   return `${h}h ${m}min ${suffix}`
 }
 
-async function gravarMensagemFollow(
+export async function gravarMensagemFollow(
   leadId: number,
   companyId: number,
   phone: string,

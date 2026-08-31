@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { sendRichStepUnified } from '@/lib/sdr/rich-sender';
+import { gravarMensagemFollow } from '@/lib/sdr/follow';
+import { normalizePhone } from '@/lib/sdr/uazapi';
+
+// Status que já avançaram além de "qualificação" : preencher o briefing não
+// deve regredir um lead que já fechou, perdeu ou já está em proposta.
+const STATUS_NAO_REGREDIR = new Set(['Fechado', 'Perdido', 'Proposta enviada']);
+
+function extrairEmailDasRespostas(answers: Record<string, unknown>): string | null {
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  for (const v of Object.values(answers)) {
+    if (typeof v === 'string' && EMAIL_RE.test(v.trim())) return v.trim();
+  }
+  return null;
+}
 
 // GET: Buscar config + perguntas da empresa pelo slug (para renderizar o formulário público)
 export async function GET(_request: NextRequest, props: { params: Promise<{ slug: string }> }) {
@@ -69,7 +84,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     // Buscar config da empresa
     const { data: config, error: configError } = await supabase
       .from('briefing_company_config')
-      .select('id, company_id, is_active, webhook_url')
+      .select('id, company_id, is_active, webhook_url, success_message')
       .eq('slug', params.slug)
       .eq('is_active', true)
       .single();
@@ -96,10 +111,66 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
       const lead = leadRows?.[0] ?? null;
       if (lead) {
         leadId = lead.id;
+        const email = extrairEmailDasRespostas(answers);
         await supabase
           .from('leads')
-          .update({ briefing_preenchido: true, briefing_preenchido_em: new Date().toISOString() })
+          .update({
+            briefing_preenchido: true,
+            briefing_preenchido_em: new Date().toISOString(),
+            ...(email ? { email } : {}),
+          })
           .eq('id', leadId);
+
+        // Fecha o loop form → conversa → follow-up : sem isso o SDR só sabia
+        // do briefing se o lead escrevesse de novo (reativo). Agora reage na
+        // hora do envio (proativo), grava estado permanente no checklist da
+        // conversa (não depende de janela de histórico) e reaproveita o
+        // motor de follow-up já existente via mudança de status.
+        try {
+          const { data: leadRow } = await supabase
+            .from('leads')
+            .select('contact_name, status')
+            .eq('id', leadId)
+            .single();
+
+          // Não regride lead que já avançou além de qualificação
+          if (leadRow && !STATUS_NAO_REGREDIR.has(leadRow.status)) {
+            await supabase.from('leads').update({ status: 'Interessado' }).eq('id', leadId);
+          }
+
+          const phone = normalizePhone(whatsappRaw);
+
+          // Checklist estruturado da conversa (conversas_do_whatsapp.checklist_atendimento) :
+          // mesmo campo que o orquestrador do SDR já lê e prioriza sobre reler histórico.
+          const { data: conv } = await supabase
+            .from('conversas_do_whatsapp')
+            .select('id, checklist_atendimento')
+            .eq('company_id', config.company_id)
+            .eq('id_do_lead', leadId)
+            .order('hora_da_ultima_mensagem', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (conv?.id) {
+            const checklistAtual = (conv.checklist_atendimento as Record<string, unknown>) ?? {};
+            await supabase
+              .from('conversas_do_whatsapp')
+              .update({ checklist_atendimento: { ...checklistAtual, estagio_atual: 'formulario_preenchido' } })
+              .eq('id', conv.id);
+          }
+
+          // Mensagem proativa : reaproveita o texto de sucesso já configurado
+          // pela empresa pra tela do formulário, se existir.
+          const nome = leadRow?.contact_name?.split(' ')[0];
+          const mensagem = (config.success_message?.trim())
+            || `Parabéns${nome ? `, ${nome}` : ''}! Recebi suas respostas. Já vou te confirmar os próximos passos por aqui.`;
+
+          await sendRichStepUnified(config.company_id, phone, 'text', mensagem);
+          await gravarMensagemFollow(leadId, config.company_id, phone, mensagem, 'briefing', supabase);
+        } catch (err: any) {
+          // Melhor esforço : falha aqui não pode derrubar o envio do formulário em si
+          console.error('[Briefing] Falha ao dar continuidade (checklist/mensagem/status):', err?.message);
+        }
       }
     }
 
