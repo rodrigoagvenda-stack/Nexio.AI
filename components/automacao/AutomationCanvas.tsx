@@ -3177,7 +3177,11 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <SelectItem value="none">Manual / cron padrão</SelectItem>
                     <SelectItem value="novo_lead">Novo lead criado</SelectItem>
                     <SelectItem value="mudanca_status">Mudança de status</SelectItem>
-                    <SelectItem value="webhook">Evento de webhook</SelectItem>
+                    {/* "Evento de webhook" só tem receptor de verdade pra trial_saas
+                        (/api/trial/webhook/[token]). Pra outros tipos a opção ficava
+                        selecionável sem nenhum motor por trás : selecionável mas
+                        morta, enganando quem configura. Escondida até generalizar. */}
+                    {sequenceTipo === 'trial_saas' && <SelectItem value="webhook">Evento de webhook</SelectItem>}
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">

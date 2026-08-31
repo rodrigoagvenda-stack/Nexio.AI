@@ -13,7 +13,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { syslog } from '@/lib/logger'
 import { decrypt, safeDecrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
-import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
+import { createUazapiClient, normalizePhone, detectMessageType, extractCtwaReferral, type UazapiWebhookMessage } from './uazapi'
 import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
@@ -2858,27 +2858,35 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       uazapiMark.markRead(messageId).catch(() => {/* best-effort */})
     }
 
-    // uazapi (API não oficial, Baileys) : NÃO captura ctwa_clid/atribuição de
-    // anúncio. O formato real do payload de referral nesse canal nunca foi
-    // confirmado (pergunta feita na comunidade uazapi, sem resposta) — em vez
-    // de supor que é igual ao da Meta, tratamos toda conversa vinda por aqui
-    // como orgânica. Se a uazapi confirmar o formato, reavaliar.
-    //
-    // LOG TEMPORÁRIO (remover após o teste) : grava o payload bruto de TODO
-    // webhook uazapi recebido durante a investigação de ctwa_clid/atribuição,
-    // sem filtro : não sabemos o formato real, filtrar por palavra-chave
-    // arrisca não capturar o dado se ele vier num formato inesperado.
-    // Número mascarado. Remover assim que a resposta for confirmada.
-    try {
-      const maskedPhone = phone ? `${'*'.repeat(Math.max(phone.length - 4, 0))}${phone.slice(-4)}` : null
-      syslog({
-        type: 'debug_ctwa_uazapi',
-        severity: 'info',
-        message: 'Payload bruto uazapi : investigação de atribuição (ctwa_clid)',
-        company_id: companyId,
-        payload: { phone: maskedPhone, rawBody: body },
-      }).catch(() => {})
-    } catch { /* investigação best-effort, nunca deve quebrar o webhook */ }
+    // uazapi (API não oficial, Baileys) : ctwa_clid confirmado por terceiro em
+    // comunidade uazapi (não é resposta oficial do suporte deles, então segue
+    // com o log de verificação abaixo por mais um tempo até confirmar 100% em
+    // produção). Formato real, nem sempre presente : ver extractCtwaReferral
+    // em uazapi.ts. Quando não vier o click id mas vier o sinal de que é CTWA
+    // (entryPointConversionSource='ctwa_ad'), a atribuição ainda funciona pro
+    // CAPI usando o telefone do lead como identificador alternativo.
+    const ctwa = extractCtwaReferral(msg as any)
+    const referral: NormalizedInboundEvent['referral'] = ctwa
+      ? { ctwaClid: ctwa.ctwaClid, sourceType: ctwa.sourceApp ? `ctwa_ad:${ctwa.sourceApp}` : 'ctwa_ad' }
+      : null
+
+    // LOG TEMPORÁRIO (remover após confirmar em produção real) : grava o
+    // payload bruto quando a extração acima encontra sinal de CTWA, pra
+    // validar contra caso real antes de confiar 100% e desligar esse log.
+    // Número mascarado.
+    if (ctwa) {
+      try {
+        const maskedPhone = phone ? `${'*'.repeat(Math.max(phone.length - 4, 0))}${phone.slice(-4)}` : null
+        syslog({
+          type: 'debug_ctwa_uazapi',
+          severity: 'info',
+          message: `CTWA detectado : ctwaClid=${ctwa.ctwaClid ?? '(ausente, só sinal ctwa_ad)'}`,
+          company_id: companyId,
+          payload: { phone: maskedPhone, rawBody: body },
+        }).catch(() => {})
+      } catch { /* investigação best-effort, nunca deve quebrar o webhook */ }
+    }
+
     const evt: NormalizedInboundEvent = {
       companyId,
       channel: 'uazapi',
@@ -2891,7 +2899,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       senderPhoto,
       mediaUrl,
       instanceName: body.instanceName ?? null,
-      referral: null,
+      referral,
     }
 
     const result = await ingestInboundMessage(evt, supabase)

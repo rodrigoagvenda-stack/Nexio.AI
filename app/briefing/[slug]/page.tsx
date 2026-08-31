@@ -131,8 +131,11 @@ export default function BriefingPublicPage() {
       return digits.length >= 10;
     }
     if (!currentQuestion) return false;
-    if (!currentQuestion.is_required) return true;
     const val = answers[currentQuestion.field_key];
+    if (currentQuestion.question_type === 'email' && val) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+    }
+    if (!currentQuestion.is_required) return true;
     if (isMulti(currentQuestion.question_type)) return Array.isArray(val) && val.length > 0;
     return !!val && val !== '';
   }
@@ -475,6 +478,21 @@ export default function BriefingPublicPage() {
                   value={answers[q.field_key] || ''}
                   onChange={(e) => setAnswer(q.field_key, e.target.value)}
                   placeholder="https://..."
+                  autoFocus
+                  className={`w-full text-xl bg-transparent outline-none border-b-2 py-3 px-1 placeholder:opacity-40 ${borderClass} ${textClass}`}
+                />
+                {actionBtn}
+              </>
+            )}
+
+            {/* EMAIL */}
+            {q.question_type === 'email' && (
+              <>
+                <input
+                  type="email"
+                  value={answers[q.field_key] || ''}
+                  onChange={(e) => setAnswer(q.field_key, e.target.value)}
+                  placeholder="seu@email.com"
                   autoFocus
                   className={`w-full text-xl bg-transparent outline-none border-b-2 py-3 px-1 placeholder:opacity-40 ${borderClass} ${textClass}`}
                 />

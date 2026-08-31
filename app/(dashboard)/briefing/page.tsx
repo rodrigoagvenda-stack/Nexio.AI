@@ -42,7 +42,7 @@ interface BriefingQuestion {
   id?: number;
   label: string;
   field_key: string;
-  question_type: 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'currency' | 'url';
+  question_type: 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'currency' | 'url' | 'email';
   options?: string[];
   is_required: boolean;
   order_index: number;
@@ -62,6 +62,7 @@ type SortableListItem =
 const QUESTION_TYPES = [
   { value: 'text', label: 'Texto curto' },
   { value: 'textarea', label: 'Texto longo' },
+  { value: 'email', label: 'Email' },
   { value: 'currency', label: 'Valor em R$' },
   { value: 'url', label: 'Link / URL' },
   { value: 'select', label: 'Seleção única (dropdown)' },

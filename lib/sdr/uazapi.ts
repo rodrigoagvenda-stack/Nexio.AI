@@ -137,6 +137,17 @@ export interface UazapiWebhookMessage {
     text: string
     content?: {
       mimetype?: string
+      // Confirmado por terceiro em comunidade uazapi (não oficial da uazapi,
+      // não veio pelo suporte deles) : nem sempre presente, e o nome do campo
+      // varia entre variações camelCase/snake_case conforme a versão. Ver
+      // extractCtwaReferral() : checa todos os formatos reportados.
+      contextInfo?: {
+        externalAdReply?: { ctwaClid?: string; ctwa_clid?: string }
+        ctwaClid?: string
+        ctwa_clid?: string
+        entryPointConversionSource?: string // ex: "ctwa_ad"
+        entryPointConversionApp?: string    // ex: "instagram"
+      }
     }
     messageTimestamp: number
     messageType: string
@@ -150,6 +161,33 @@ export interface UazapiWebhookMessage {
       thumbnailUrl?: string
     }
   }
+}
+
+/**
+ * Extrai ctwa_clid do payload uazapi : tentando todos os formatos confirmados
+ * por terceiro em comunidade (não suporte oficial uazapi), já que o nome do
+ * campo varia. Quando ctwaClid não vier, mas entryPointConversionSource
+ * indicar 'ctwa_ad', ainda retorna sinal de atribuição sem o click id exato
+ * (CAPI aceita ctwa_clid OU telefone do lead como identificador).
+ */
+export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undefined | null): {
+  ctwaClid: string | null
+  sourceApp: string | null
+} | null {
+  const ctx = msg?.content?.contextInfo
+  if (!ctx) return null
+
+  const ctwaClid =
+    ctx.externalAdReply?.ctwaClid ??
+    ctx.externalAdReply?.ctwa_clid ??
+    ctx.ctwaClid ??
+    ctx.ctwa_clid ??
+    null
+
+  const isCtwa = !!ctwaClid || ctx.entryPointConversionSource === 'ctwa_ad'
+  if (!isCtwa) return null
+
+  return { ctwaClid, sourceApp: ctx.entryPointConversionApp ?? null }
 }
 
 export class UazapiClient {
