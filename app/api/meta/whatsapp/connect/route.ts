@@ -46,6 +46,15 @@ export async function POST(req: NextRequest) {
       if (numbers.length > 0) {
         finalPhoneNumberId = numbers[0].id
         phone = numbers[0].display_phone_number ?? numbers[0].id
+      } else {
+        // Sem número na WABA ainda (atraso da Meta, verificação pendente etc) :
+        // não grava whatsapp_provider='meta' sem phone_number_id, senão a empresa
+        // fica travada numa tela Meta que nunca conecta e sem botão de desconectar
+        // (Desconectar só aparece quando já tem meta_wa_phone_number_id).
+        return NextResponse.json(
+          { error: 'Nenhum número de telefone encontrado na WABA ainda. Aguarde alguns instantes e tente novamente.' },
+          { status: 409 }
+        )
       }
     } else {
       const phoneRes = await fetch(

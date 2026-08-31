@@ -30,6 +30,7 @@ export interface Company {
   webhook_whatsapp_enabled?: boolean;
   is_active: boolean;
   subscription_expires_at?: string | null;
+  trial_ends_at?: string | null;
   agente_ativo?: boolean;
   trial_enabled?: boolean;
   allow_uazapi?: boolean;

@@ -533,7 +533,7 @@ export default function EmpresaDetailPage() {
                 <Input
                   type="date"
                   value={company.subscription_expires_at ? new Date(company.subscription_expires_at).toISOString().split('T')[0] : ''}
-                  onChange={(e) => setCompany({ ...company, subscription_expires_at: e.target.value })}
+                  onChange={(e) => setCompany({ ...company, subscription_expires_at: e.target.value, trial_ends_at: e.target.value })}
                   className="h-9"
                 />
                 <div className="flex gap-2 pt-0.5">
@@ -544,7 +544,7 @@ export default function EmpresaDetailPage() {
                     onClick={() => {
                       const d = new Date();
                       d.setDate(d.getDate() + 7);
-                      setCompany({ ...company, plan_type: 'trial' as any, plan_price: 0, subscription_expires_at: d.toISOString() });
+                      setCompany({ ...company, plan_type: 'trial' as any, plan_price: 0, subscription_expires_at: d.toISOString(), trial_ends_at: d.toISOString() });
                     }}
                   >
                     <Calendar className="h-3 w-3" />+7d Trial
@@ -556,7 +556,7 @@ export default function EmpresaDetailPage() {
                     onClick={() => {
                       const d = new Date();
                       d.setMonth(d.getMonth() + 1);
-                      setCompany({ ...company, subscription_expires_at: d.toISOString() });
+                      setCompany({ ...company, subscription_expires_at: d.toISOString(), trial_ends_at: d.toISOString() });
                     }}
                   >
                     <Calendar className="h-3 w-3" />+30d
