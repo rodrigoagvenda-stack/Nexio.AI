@@ -24,6 +24,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { resolveOpenAIKey } from './rag'
 import { getUazapiForCompany } from './uazapi-for-company'
+import { normalizePhone } from './uazapi'
 import { syslog } from '@/lib/logger'
 import OpenAI from 'openai'
 
@@ -218,10 +219,39 @@ export async function runExtraction(params: {
         const lead = calcularMQL(enriquecer(raw))
         if (lead.telefone === 'Não informado') continue
 
+        // Apify devolve telefone formatado (ex: "(11) 91234-5678") : sem
+        // normalizar antes de checar, a uazapi nunca reconhece o número como
+        // WhatsApp válido e descarta todo mundo (era o que estava acontecendo).
+        const telefoneNormalizado = normalizePhone(lead.telefone)
+
         // Checa WhatsApp antes de gastar IA/insert com número morto
         if (uazapi) {
-          const [check] = await uazapi.checkWhatsapp([lead.telefone]).catch(() => [])
-          if (check && !check.exists) continue
+          let check: { exists: boolean } | undefined
+          try {
+            ;[check] = await uazapi.checkWhatsapp([telefoneNormalizado])
+          } catch (checkErr: any) {
+            // Antes isso era engolido em silêncio (.catch(() => [])) : se a
+            // checagem falhar de verdade (API fora, token errado), nenhum
+            // lead era descartado por engano, mas também não tinha rastro
+            // nenhum de que a checagem parou de funcionar.
+            await syslog({
+              type: 'extraction',
+              severity: 'warning',
+              message: `Falha ao checar WhatsApp (lead segue sem confirmação): ${checkErr?.message ?? 'erro desconhecido'}`,
+              company_id: companyId,
+              payload: { sessionId, telefone: telefoneNormalizado },
+            })
+          }
+          if (check && !check.exists) {
+            await syslog({
+              type: 'extraction',
+              severity: 'info',
+              message: `Lead descartado : número sem WhatsApp`,
+              company_id: companyId,
+              payload: { sessionId, nome: lead.nome, telefone: telefoneNormalizado },
+            })
+            continue
+          }
         }
 
         const mqlResumo = await generateMqlResumo(openai, lead)
@@ -233,7 +263,7 @@ export async function runExtraction(params: {
           company_name: companyName,
           segment,
           website_or_instagram: lead.site,
-          whatsapp: lead.telefone,
+          whatsapp: telefoneNormalizado,
           status: 'Triagem',
           priority: 'Média',
           import_source: 'PEG',
