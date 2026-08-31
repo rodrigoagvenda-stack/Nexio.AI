@@ -1501,17 +1501,6 @@ export default function AtendimentoPage() {
                 }}
                 onDisconnect={() => {}}
               />
-
-              <button
-                type="button"
-                className="w-full text-center text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                onClick={async () => {
-                  await fetch('/api/meta/whatsapp/connect', { method: 'DELETE' }).catch(() => {});
-                  await fetchWaStatus();
-                }}
-              >
-                Usar uazapi (não oficial) em vez disso
-              </button>
             </div>
           </div>
         </div>
