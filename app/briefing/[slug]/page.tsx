@@ -24,7 +24,7 @@ interface BriefingQuestion {
   id: number;
   label: string;
   field_key: string;
-  question_type: 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'currency' | 'url';
+  question_type: 'text' | 'textarea' | 'select' | 'multiselect' | 'radio' | 'checkbox' | 'currency' | 'url' | 'email';
   options?: string[];
   is_required: boolean;
   order_index: number;

@@ -109,8 +109,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
         });
 
       const lead = leadRows?.[0] ?? null;
-      if (lead) {
-        leadId = lead.id;
+      if (lead && lead.id != null) {
+        const currentLeadId: number = lead.id;
+        leadId = currentLeadId;
         const email = extrairEmailDasRespostas(answers);
         await supabase
           .from('leads')
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
             briefing_preenchido_em: new Date().toISOString(),
             ...(email ? { email } : {}),
           })
-          .eq('id', leadId);
+          .eq('id', currentLeadId);
 
         // Fecha o loop form → conversa → follow-up : sem isso o SDR só sabia
         // do briefing se o lead escrevesse de novo (reativo). Agora reage na
@@ -130,12 +131,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
           const { data: leadRow } = await supabase
             .from('leads')
             .select('contact_name, status')
-            .eq('id', leadId)
+            .eq('id', currentLeadId)
             .single();
 
           // Não regride lead que já avançou além de qualificação
           if (leadRow && !STATUS_NAO_REGREDIR.has(leadRow.status)) {
-            await supabase.from('leads').update({ status: 'Interessado' }).eq('id', leadId);
+            await supabase.from('leads').update({ status: 'Interessado' }).eq('id', currentLeadId);
           }
 
           const phone = normalizePhone(whatsappRaw);
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
             .from('conversas_do_whatsapp')
             .select('id, checklist_atendimento')
             .eq('company_id', config.company_id)
-            .eq('id_do_lead', leadId)
+            .eq('id_do_lead', currentLeadId)
             .order('hora_da_ultima_mensagem', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
             || `Parabéns${nome ? `, ${nome}` : ''}! Recebi suas respostas. Já vou te confirmar os próximos passos por aqui.`;
 
           await sendRichStepUnified(config.company_id, phone, 'text', mensagem);
-          await gravarMensagemFollow(leadId, config.company_id, phone, mensagem, 'briefing', supabase);
+          await gravarMensagemFollow(currentLeadId, config.company_id, phone, mensagem, 'briefing', supabase);
         } catch (err: any) {
           // Melhor esforço : falha aqui não pode derrubar o envio do formulário em si
           console.error('[Briefing] Falha ao dar continuidade (checklist/mensagem/status):', err?.message);
