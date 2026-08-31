@@ -84,6 +84,23 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       }
     }
 
+    // allow_uazapi aqui é o seletor de provider ativo (não só uma permissão) :
+    // liga = a empresa passa a usar uazapi, desliga = volta pro padrão Meta.
+    // Só mexe em sdr_configs quando o valor realmente mudou nesse save, senão
+    // qualquer salvamento não relacionado (ex: trocar nome) desconectaria uma
+    // empresa que já está de verdade conectada via Meta.
+    let providerSync: 'uazapi' | 'meta' | null = null;
+    if ('allow_uazapi' in updateData) {
+      const { data: before } = await auth.serviceSupabase
+        .from('companies')
+        .select('allow_uazapi')
+        .eq('id', params.id)
+        .single();
+      if ((before?.allow_uazapi ?? true) !== updateData.allow_uazapi) {
+        providerSync = updateData.allow_uazapi ? 'uazapi' : 'meta';
+      }
+    }
+
     const { data, error } = await auth.serviceSupabase
       .from('companies')
       .update(updateData)
@@ -92,6 +109,13 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       .single();
 
     if (error) throw error;
+
+    if (providerSync) {
+      await auth.serviceSupabase
+        .from('sdr_configs')
+        .update({ whatsapp_provider: providerSync })
+        .eq('company_id', params.id);
+    }
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
