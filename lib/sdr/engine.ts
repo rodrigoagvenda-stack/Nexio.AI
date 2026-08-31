@@ -10,6 +10,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { syslog } from '@/lib/logger'
 import { decrypt, safeDecrypt } from '@/lib/crypto'
 import { getPlatformConfig } from '@/lib/platform-config'
 import { createUazapiClient, normalizePhone, detectMessageType, type UazapiWebhookMessage } from './uazapi'
@@ -2821,6 +2822,22 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     // confirmado (pergunta feita na comunidade uazapi, sem resposta) — em vez
     // de supor que é igual ao da Meta, tratamos toda conversa vinda por aqui
     // como orgânica. Se a uazapi confirmar o formato, reavaliar.
+    //
+    // LOG TEMPORÁRIO (remover após o teste) : grava o payload bruto de TODO
+    // webhook uazapi recebido durante a investigação de ctwa_clid/atribuição,
+    // sem filtro : não sabemos o formato real, filtrar por palavra-chave
+    // arrisca não capturar o dado se ele vier num formato inesperado.
+    // Número mascarado. Remover assim que a resposta for confirmada.
+    try {
+      const maskedPhone = phone ? `${'*'.repeat(Math.max(phone.length - 4, 0))}${phone.slice(-4)}` : null
+      syslog({
+        type: 'debug_ctwa_uazapi',
+        severity: 'info',
+        message: 'Payload bruto uazapi : investigação de atribuição (ctwa_clid)',
+        company_id: companyId,
+        payload: { phone: maskedPhone, rawBody: body },
+      }).catch(() => {})
+    } catch { /* investigação best-effort, nunca deve quebrar o webhook */ }
     const evt: NormalizedInboundEvent = {
       companyId,
       channel: 'uazapi',
