@@ -45,6 +45,59 @@ async function embedAll(chunks: string[], openai: OpenAI): Promise<number[][]> {
   return res.data.map((d) => d.embedding)
 }
 
+/**
+ * Tag de tipo + contexto mínimo pro chunk : resolve a auditoria de RAG (achado 1
+ * e 8). `documents` guarda conhecimento e objeções juntos na mesma tabela, e a
+ * busca hoje não filtrava por tipo (achado 1) : chunk de objeção podia voltar
+ * numa pergunta de conhecimento e vice-versa. A tag `[[DOC_TYPE:x]]` no início
+ * do content guardado permite filtrar isso no lado da aplicação sem precisar
+ * alterar a função SQL match_documents (que não tenho acesso pra inspecionar
+ * com segurança nessa sessão).
+ *
+ * O prefixo de contexto no texto QUE VAI PRO EMBEDDING (embedText, diferente
+ * do que fica guardado) é uma versão simplificada da técnica "Contextual
+ * Retrieval" da Anthropic (redução de até 35-67% em falha de busca, conforme
+ * pesquisa publicada) : aqui sem chamada de IA extra por chunk, só um rótulo
+ * estático que já ajuda o embedding a diferenciar tipo de conteúdo.
+ */
+export const DOC_TYPE_TAG_RE = /^\[\[DOC_TYPE:(conhecimento|objecoes)\]\]\n/
+
+export function tagChunk(
+  content: string,
+  docType: 'conhecimento' | 'objecoes',
+  companyName?: string | null
+): { stored: string; embedText: string } {
+  const stored = `[[DOC_TYPE:${docType}]]\n${content}`
+  const label = docType === 'conhecimento' ? 'Base de conhecimento do produto' : 'Base de scripts de objeções'
+  const embedText = `${label}${companyName ? ` (${companyName})` : ''} : ${content}`
+  return { stored, embedText }
+}
+
+/**
+ * Cap de correções acumuladas (achado 2/3 da auditoria) : patch/route.ts só
+ * inseria, nunca limpava, e correções antigas podiam contradizer as novas
+ * sem nenhum critério de qual prevalece na busca. Mantém só as N mais
+ * recentes por flow+tipo, apagando o excedente mais antigo antes de inserir.
+ */
+export async function capCorrectionChunks(
+  supabase: ReturnType<typeof createServiceClient>,
+  companyId: number,
+  flowId: string,
+  docType: string,
+  maxKeep = 19 // +1 nova inserida logo em seguida = 20 no total
+): Promise<void> {
+  const { data } = await supabase
+    .from('documents')
+    .select('id, created_at')
+    .eq('company_id', companyId)
+    .contains('metadata', { flow_id: flowId, doc_type: docType, is_correction: true })
+    .order('created_at', { ascending: false })
+
+  const excess = (data ?? []).slice(maxKeep)
+  if (excess.length === 0) return
+  await supabase.from('documents').delete().in('id', excess.map((r) => r.id))
+}
+
 const MAX_CHUNK_CHARS = 1100 // ~300 tokens : um assunto por chunk
 
 function chunkText(text: string): string[] {
@@ -120,8 +173,9 @@ export async function processKnowledgePdf(params: {
   filename: string
   fileBuffer: Buffer
   tableType: 'conhecimento' | 'objecoes'
+  companyName?: string | null
 }): Promise<{ chunks: number; table: string }> {
-  const { companyId, flowId, filename, fileBuffer, tableType } = params
+  const { companyId, flowId, filename, fileBuffer, tableType, companyName } = params
   const supabase = createServiceClient()
 
   const openaiKey = await resolveOpenAIKey(companyId)
@@ -135,11 +189,12 @@ export async function processKnowledgePdf(params: {
   const chunks = chunkText(rawText)
   await deleteOldChunks(supabase, companyId, flowId, tableType)
 
-  const embeddings = await embedAll(chunks, openai)
+  const tagged = chunks.map((c) => tagChunk(c, tableType, companyName))
+  const embeddings = await embedAll(tagged.map((t) => t.embedText), openai)
 
-  const rows = chunks.map((content, i) => ({
+  const rows = tagged.map((t, i) => ({
     company_id: companyId,
-    content,
+    content: t.stored,
     embedding: embeddings[i],
     metadata: { flow_id: flowId, doc_type: tableType, filename, chunk_index: i },
   }))
@@ -157,8 +212,9 @@ export async function processKnowledgeText(params: {
   filename: string
   text: string
   tableType: 'conhecimento' | 'objecoes'
+  companyName?: string | null
 }): Promise<{ chunks: number; table: string }> {
-  const { companyId, flowId, filename, text, tableType } = params
+  const { companyId, flowId, filename, text, tableType, companyName } = params
   if (!text.trim()) throw new Error('Conteúdo vazio')
 
   const supabase = createServiceClient()
@@ -168,11 +224,12 @@ export async function processKnowledgeText(params: {
   const chunks = chunkText(text)
   await deleteOldChunks(supabase, companyId, flowId, tableType)
 
-  const embeddings = await embedAll(chunks, openai)
+  const tagged = chunks.map((c) => tagChunk(c, tableType, companyName))
+  const embeddings = await embedAll(tagged.map((t) => t.embedText), openai)
 
-  const rows = chunks.map((content, i) => ({
+  const rows = tagged.map((t, i) => ({
     company_id: companyId,
-    content,
+    content: t.stored,
     embedding: embeddings[i],
     metadata: { flow_id: flowId, doc_type: tableType, filename, chunk_index: i },
   }))

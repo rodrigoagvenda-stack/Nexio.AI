@@ -90,6 +90,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       filename: `${type}_monte-o-seu.txt`,
       text: generatedText,
       tableType: type,
+      companyName: variables.nome_empresa ?? null,
     })
 
     return NextResponse.json({ ok: true, ...result })
@@ -268,9 +269,14 @@ async function generateObjecoes(
   const blocks = IMUTABLE_BLOCKS
 
   const systemInstruction = `Você é um especialista em SDR e escrita de scripts de objeções para WhatsApp.
-Escreva scripts de objeção IMUTÁVEIS : o agente deve copiar e enviar EXATAMENTE como escrito.
-Cada script: máximo 3 linhas, linguagem natural de WhatsApp, valide antes de redirecionar.
-O formato deve ser rigoroso: gatilhos, script correto, o que nunca dizer, condicionais.`
+Escreva LÓGICA DE RESPOSTA pra cada objeção, não frase decorada pra repetir igual pra todo lead : dado
+real de vendas (Gong, análise de 67 mil ligações) mostra que quem pausa e faz uma pergunta de
+esclarecimento antes de rebater vence mais do que quem dispara resposta pronta. Pra cada objeção, dê:
+o que está por trás dela (a preocupação real do lead, não a frase literal), uma pergunta de
+esclarecimento quando fizer sentido, e um exemplo de resposta que o agente deve ADAPTAR ao que o lead
+disse : nunca copiar palavra por palavra pra leads diferentes.
+Cada exemplo: máximo 3 linhas, linguagem natural de WhatsApp, valide antes de redirecionar.
+O formato deve ser rigoroso: gatilhos, o que está por trás, exemplo de resposta (adaptável), o que nunca dizer, condicionais.`
 
   const userPrompt = `Escreva a base de scripts de objeções para este negócio com base nas informações fornecidas.
 
@@ -293,22 +299,24 @@ ${answers.obj_produto}
 === FORMATO OBRIGATÓRIO PARA CADA SCRIPT ===
 "[NOME DA OBJEÇÃO EM CAPS]"
 Gatilhos: "frase gatilho 1" / "frase gatilho 2" / "frase gatilho 3"
-✅ CORRETO : envie EXATAMENTE assim:
+Por trás da objeção: [a preocupação real do lead, não a frase literal]
+Pergunta de esclarecimento (quando o motivo não estiver claro, antes de rebater): "[pergunta curta]"
+Exemplo de resposta (o agente ADAPTA ao que o lead disse, nunca copia igual pra todo mundo):
 "[linha 1]
 [linha 2]
 [linha 3]"
-❌ ERRADO : NUNCA envie assim:
-"[exemplo de paráfrase proibida]"
-[Se houver condicional: Se lead [condição] → envie EXATAMENTE assim: "[script de continuação]"]
+Nunca dizer: "[frase que soa defensiva, decorada ou robótica]"
+[Se houver condicional: Se lead [condição] → linha de raciocínio pra continuar, não frase fixa]
 
 === O QUE ESCREVER ===
-1. Scripts baseados nas objeções reais informadas acima : mantenha os gatilhos e scripts exatos fornecidos
+1. Lógica de resposta baseada nas objeções reais informadas acima : mantenha os gatilhos e a essência do que foi fornecido, mas escreva como raciocínio adaptável, não frase fixa
 2. Acrescente estas objeções padrão se não estiverem cobertas:
    - [VOU PENSAR] : com urgência real, sem pressão
    - [CARO / MUITO CARO] : valide, contextualize valor, redirecione para teste/ação
    - [NÃO TENHO TEMPO] : valide, ofereça facilitar
    - [JÁ USO OUTRA COISA] : investigue sem rebater
    - [NÃO SEI SE PRECISO] : normalize, redirecione para teste/ação sem pressão
+   - [ISSO É GOLPE? / VOCÊS SÃO CONFIÁVEIS?] : objeção de confiança, comum em venda fria por WhatsApp de empresa que o lead não conhece : nunca ignore, sempre traga prova concreta (case, número, forma de verificar a empresa)
 3. Se recusar 2x → script de encerramento cordial
 
 ⚠️ PROIBIDO inventar, adivinhar ou "completar" qualquer URL. Use SOMENTE os links informados na seção [LINKS OFICIAIS] acima, copiados caractere por caractere. Se um link não foi informado, não o mencione em nenhum script.

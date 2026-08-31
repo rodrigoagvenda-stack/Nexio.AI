@@ -523,30 +523,34 @@ Gere cada bloco com o nível de qualidade de um prompt de produção profissiona
 
 const GUIA_OBJECOES = `Você é um especialista em SDR e criação de scripts de objeções para WhatsApp.
 
-Abaixo estão as informações do meu negócio. Com base nelas, responda cada um dos 3 blocos com scripts reais, específicos e prontos para uso. Para cada objeção: informe os gatilhos (frases que o lead diz), o script correto (exato, como será enviado) e o que nunca dizer.
+Abaixo estão as informações do meu negócio. Com base nelas, responda cada um dos 3 blocos com respostas reais e específicas. Para cada objeção: informe os gatilhos (frases que o lead diz), o que está por trás da objeção (a preocupação real, não a frase literal), um exemplo de resposta que o agente deve ADAPTAR ao que o lead disse (nunca copiar igual pra todo mundo) e o que nunca dizer.
+
+Dado real de vendas (Gong, análise de 67 mil ligações): reps que pausam e fazem uma pergunta de esclarecimento antes de rebater vencem mais do que quem dispara resposta decorada. Script fixo copiado igual pra todo lead é a causa mais comum de "isso parece bot" : não escreva frase pra decorar, escreva a lógica de resposta com um exemplo.
 
 Meu negócio: [Nome da empresa]
 Meu produto/serviço: [O que você vende]
 Preço: [Valor e condições de pagamento]
+Concorrentes diretos (nomeie, se souber): [Nome dos concorrentes]
+Prova social real (número de clientes, case, depoimento, garantia): [Preencha aqui]
 
 ────────────────────────────
 BLOCO 1 : Objeções de Preço e Valor
-Para cada objeção de preço, informe: gatilhos → script exato → o que nunca dizer → condicional (se houver).
+Para cada objeção de preço, informe: gatilhos → o que está por trás → exemplo de resposta (adaptável) → o que nunca dizer → condicional (se houver).
 Inclua pelo menos: "Tá caro", "Não tenho dinheiro agora", "Vou pensar", "Não sei se vale a pena".
 [Preencha aqui]
 
-BLOCO 2 : Objeções de Tempo, Indecisão e Concorrência
-Para cada objeção, informe: gatilhos → script exato → condicional (se houver).
-Inclua pelo menos: "Não tenho tempo", "Preciso pensar", "Já uso outro", "Vou esperar".
+BLOCO 2 : Objeções de Tempo, Indecisão, Concorrência e Confiança
+Para cada objeção, informe: gatilhos → o que está por trás → exemplo de resposta (adaptável) → condicional (se houver).
+Inclua pelo menos: "Não tenho tempo", "Preciso pensar", "Já uso outro", "Vou esperar", "Isso é golpe?", "Vocês são confiáveis?" (comum em venda fria por WhatsApp de empresa desconhecida, não pule essa).
 [Preencha aqui]
 
 BLOCO 3 : Dúvidas sobre o Produto
-Para cada dúvida frequente, informe: gatilho → resposta exata e direta.
+Para cada dúvida frequente, informe: gatilho → resposta direta e específica.
 Inclua as perguntas mais comuns que seus leads fazem sobre o produto/serviço.
 [Preencha aqui]
 ────────────────────────────
 
-Scripts devem ser curtos (máximo 3 linhas), em linguagem natural de WhatsApp, sem markdown, sem emojis em excesso.`
+Respostas devem ser curtas (máximo 3 linhas), em linguagem natural de WhatsApp, sem markdown, sem emojis em excesso.`
 
 function DicaDeOuro() {
   type Handle = { startAnimation: () => void; stopAnimation: () => void }
@@ -678,17 +682,17 @@ const Q_BLOCKS: QBlockDef[] = [
   // ── Objeções ──────────────────────────────────────────────────────────────
   {
     key: 'obj_preco', tipo: 'objecoes', label: '1. Objeções de Preço e Valor', required: true,
-    question: 'Objeções de preço/valor: para cada uma, informe gatilho + script exato + o que nunca dizer',
-    hint: 'Formato: Gatilhos → Script correto (exato, como vai ser enviado) → Nunca dizer. Inclua condicional se houver.',
-    placeholder: 'Liste as objeções de preço com gatilhos, script e o que nunca dizer...',
-    example: 'Gatilhos: "Ta caro" / "E muito caro" / "Nao tenho dinheiro"\nScript:\n"Entendo!\nSao R$49,90 por mes, menos de R$2 por dia.\nMas o teste e gratis, sem cartao. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupacao, mas sao apenas R$49,90..." : soa defensivo.\n\n---\n\nGatilhos: "Quanto custa?" / "Qual o valor?" / "Qual o preco?"\nScript:\n"O Tocli custa R$49,90 por mes.\nVoce pode testar de graca por 7 dias, sem precisar de cartao.\nQuer que eu envie o link do teste?"\nSe lead disser SIM:\n"Aqui esta o link: tocli.com.br/testegratis7dias\nQualquer duvida pode me chamar aqui!"',
+    question: 'Objeções de preço/valor: para cada uma, informe gatilho + o que está por trás + exemplo de resposta (adaptável) + o que nunca dizer',
+    hint: 'Formato: Gatilhos → o que está por trás da objeção → exemplo de resposta que o agente ADAPTA ao que o lead disse (não decora) → nunca dizer. Inclua condicional se houver. Dado real (Gong, 67 mil ligações analisadas): quem pausa e pergunta antes de rebater vence mais do que quem dispara resposta pronta.',
+    placeholder: 'Liste as objeções de preço com gatilhos, o que está por trás, exemplo de resposta e o que nunca dizer...',
+    example: 'Gatilhos: "Ta caro" / "E muito caro" / "Nao tenho dinheiro"\nPor tras: pode ser preco mesmo, ou pode ser duvida se vale a pena : nem sempre e so dinheiro.\nExemplo de resposta (adapte ao que o lead disse):\n"Entendo!\nSao R$49,90 por mes, menos de R$2 por dia.\nMas o teste e gratis, sem cartao. Experimenta primeiro e decide depois."\nNunca dizer: "Entendo sua preocupacao, mas sao apenas R$49,90..." : soa defensivo e decorado.\n\n---\n\nGatilhos: "Quanto custa?" / "Qual o valor?" / "Qual o preco?"\nExemplo de resposta:\n"O Tocli custa R$49,90 por mes.\nVoce pode testar de graca por 7 dias, sem precisar de cartao.\nQuer que eu envie o link do teste?"\nSe lead disser SIM:\n"Aqui esta o link: tocli.com.br/testegratis7dias\nQualquer duvida pode me chamar aqui!"',
   },
   {
-    key: 'obj_tempo', tipo: 'objecoes', label: '2. Objeções de Tempo e Decisão', required: true,
-    question: 'Objeções de tempo, indecisão e concorrência: gatilho + script + condicional',
-    hint: 'Inclua "Preciso pensar", "Não tenho tempo", "Já uso outra coisa", "Vou pensar". Inclua o que fazer se recusar duas vezes.',
-    placeholder: 'Liste objeções de tempo, indecisão e concorrência com scripts...',
-    example: 'Gatilhos: "Preciso pensar" / "Vou pensar" / "Deixa eu ver"\nScript:\n"Claro, sem pressao!\nO teste fica disponivel quando voce quiser : sao 7 dias gratis.\nPosso te mandar o link pra voce salvar?"\nSe recusar o link: "Tudo bem! Quando decidir, me chama aqui."\nNao insista.\n\n---\n\nGatilhos: "Nao tenho tempo agora" / "To ocupado"\nScript:\n"Sem problema!\nO teste fica aqui esperando. Quando tiver 10 minutinhos, da pra configurar tranquilo.\nDeixo o link: tocli.com.br/testegratis7dias"\n\n---\n\nGatilhos: "Ja uso outro sistema" / "Ja tenho"\nScript:\n"Entendi! Qual voce usa hoje?"\n[espere resposta]\nSe for concorrente direto: "Faz sentido. Se um dia sentir falta de [funcionalidade diferencial], me lembra."\nNao fale mal do concorrente.',
+    key: 'obj_tempo', tipo: 'objecoes', label: '2. Objeções de Tempo, Indecisão e Confiança', required: true,
+    question: 'Objeções de tempo, indecisão, concorrência e confiança: gatilho + o que está por trás + exemplo de resposta (adaptável) + condicional',
+    hint: 'Inclua "Preciso pensar", "Não tenho tempo", "Já uso outra coisa", "Vou pensar" e também objeções de confiança : "isso é golpe?", "vocês são confiáveis?", "quem mais usa isso?" (comuns em venda fria por WhatsApp de empresa desconhecida, não pule essas). Inclua o que fazer se recusar duas vezes.',
+    placeholder: 'Liste objeções de tempo, indecisão, concorrência e confiança : gatilho, o que está por trás, exemplo de resposta...',
+    example: 'Gatilhos: "Preciso pensar" / "Vou pensar" / "Deixa eu ver"\nExemplo de resposta (adapte ao que o lead disse):\n"Claro, sem pressao!\nO teste fica disponivel quando voce quiser : sao 7 dias gratis.\nPosso te mandar o link pra voce salvar?"\nSe recusar o link: "Tudo bem! Quando decidir, me chama aqui."\nNao insista.\n\n---\n\nGatilhos: "Nao tenho tempo agora" / "To ocupado"\nExemplo de resposta:\n"Sem problema!\nO teste fica aqui esperando. Quando tiver 10 minutinhos, da pra configurar tranquilo.\nDeixo o link: tocli.com.br/testegratis7dias"\n\n---\n\nGatilhos: "Ja uso outro sistema" / "Ja tenho"\nExemplo de resposta:\n"Entendi! Qual voce usa hoje?"\n[espere resposta, nao rebata sem saber qual e]\nSe for concorrente direto: "Faz sentido. Se um dia sentir falta de [funcionalidade diferencial], me lembra."\nNao fale mal do concorrente.\n\n---\n\nGatilhos: "Isso e golpe?" / "Voces sao confiaveis?" / "Quem mais usa isso?"\nPor tras: lead nao te conhece e esta arriscando confiar numa empresa nova por WhatsApp : nao adianta so afirmar "somos confiaveis", precisa de prova.\nExemplo de resposta:\n"Otima pergunta!\nSomos a Tocli, [numero] negocios ja usam hoje. Da uma olhada aqui: [link de prova/case/site]\nQualquer duvida sobre a empresa, fico a disposicao."\nNunca dizer: "Pode confiar, somos serios" : afirmar sem provar so aumenta a desconfianca.',
   },
   {
     key: 'obj_produto', tipo: 'objecoes', label: '3. Dúvidas sobre o Produto', required: true,
@@ -700,11 +704,12 @@ const Q_BLOCKS: QBlockDef[] = [
 ]
 
 function QuestionnaireWizard({
-  flowId, type, variables, onSuccess,
+  flowId, type, variables, hasExistingBase, onSuccess,
 }: {
   flowId: string | null
   type: 'conhecimento' | 'objecoes'
   variables: SdrVariables
+  hasExistingBase?: boolean
   onSuccess: (result: { chunks: number }) => void
 }) {
   const storageKey = flowId ? `sdr_questionnaire_${flowId}_${type}` : null
@@ -736,7 +741,10 @@ function QuestionnaireWizard({
     setTimeout(() => textareaRef.current?.focus(), 80)
   }, [step])
 
-  const MIN_CHARS = 80
+  // 80 chars era piso baixo demais (menos de uma frase) : GIGO documentado em
+  // pesquisa de prompt engineering, output nunca fica específico se o input
+  // não for. 220 força um parágrafo curto de verdade por bloco.
+  const MIN_CHARS = 220
 
   const charCount = answers[current?.key ?? 'identidade']?.length ?? 0
   const requiredFilled = visibleBlocks.filter((b) => b.required).every((b) => answers[b.key].trim())
@@ -844,6 +852,13 @@ function QuestionnaireWizard({
           )}
         </div>
       </div>
+
+      {isLast && hasExistingBase && (
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>Gerar agora substitui a base atual inteira, incluindo qualquer correção aplicada pelo simulador desde a última geração.</span>
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex gap-2">
@@ -1017,6 +1032,7 @@ function KnowledgeBuilder({ flowId, type, active, onActiveChange, persona, onPer
             flowId={flowId}
             type={type}
             variables={buildVariables()}
+            hasExistingBase={!!existingBase}
             onSuccess={(result) => {
               setExistingBase({ filename: `${type}_guiado`, chunks: result.chunks })
               setSheetOpen(false)

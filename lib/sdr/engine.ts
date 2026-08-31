@@ -320,15 +320,28 @@ async function drainBuffer(
 
 // ─── RAG : Busca vetorial no Supabase ─────────────────────────
 
+const SIMILARITY_MIN = 0.75 // achado 6 da auditoria RAG : piso pra não formular resposta em cima de lixo
+const RERANK_CANDIDATES = 16 // achado 1/7 : busca mais candidatos pra filtrar por tipo e reordenar por relevância
+
+/** Overlap de palavras relevantes (>3 letras) entre query e conteúdo : reranking leve, sem chamada de IA extra */
+function keywordOverlapScore(query: string, content: string): number {
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const queryWords = new Set(norm(query).split(/\W+/).filter((w) => w.length > 3))
+  if (queryWords.size === 0) return 0
+  const contentNorm = norm(content)
+  let hits = 0
+  for (const w of queryWords) if (contentNorm.includes(w)) hits++
+  return hits / queryWords.size
+}
+
 async function searchDocuments(
   query: string,
   companyId: number,
   openai: OpenAI,
   supabase: ReturnType<typeof createServiceClient>,
-  vectorTable?: string | null
+  docType: 'conhecimento' | 'objecoes'
 ): Promise<string> {
-  const table = vectorTable ?? 'documents'
-  console.log(`[SDR:${companyId}] RAG search : table="${table}" query="${query.slice(0, 60)}"`)
+  console.log(`[SDR:${companyId}] RAG search : tipo="${docType}" query="${query.slice(0, 60)}"`)
   try {
     const embRes = await openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -338,7 +351,7 @@ async function searchDocuments(
 
     const { data, error } = await supabase.rpc('match_documents', {
       query_embedding: embedding,
-      match_count: 4,
+      match_count: RERANK_CANDIDATES,
       filter: { company_id: companyId },
     })
 
@@ -346,9 +359,37 @@ async function searchDocuments(
       console.error(`[SDR:${companyId}] RAG error:`, error.message)
       return ''
     }
-    console.log(`[SDR:${companyId}] RAG results: ${data?.length ?? 0} docs`)
     if (!data || data.length === 0) return ''
-    return (data as Array<{ content: string }>).map((d) => d.content).join('\n\n')
+
+    const rows = data as Array<{ content: string; similarity?: number }>
+    const tag = `[[DOC_TYPE:${docType}]]\n`
+    let typed = rows.filter((d) => d.content.startsWith(tag)).map((d) => ({ ...d, content: d.content.slice(tag.length) }))
+
+    // Fallback : base antiga sem tag (gerada antes desse fix) — usa tudo sem
+    // filtrar por tipo, do jeito que já funcionava antes, pra não zerar a
+    // resposta de empresa que ainda não regenerou a base.
+    let usedFallback = false
+    if (typed.length === 0) {
+      usedFallback = true
+      typed = rows.filter((d) => !/^\[\[DOC_TYPE:/.test(d.content))
+    }
+
+    // Piso de similaridade (achado 6), só quando a RPC devolve o campo
+    const withThreshold = typeof typed[0]?.similarity === 'number'
+      ? typed.filter((d) => (d.similarity ?? 0) >= SIMILARITY_MIN)
+      : typed
+    const pool = withThreshold.length > 0 ? withThreshold : typed
+
+    // Reranking leve por overlap de palavras-chave (achado 7), combinado com
+    // a similaridade vetorial quando disponível
+    const ranked = pool
+      .map((d) => ({ ...d, _score: (d.similarity ?? 0.5) + keywordOverlapScore(query, d.content) }))
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 4)
+
+    console.log(`[SDR:${companyId}] RAG results: ${ranked.length} docs (fallback sem tag: ${usedFallback})`)
+    if (ranked.length === 0) return ''
+    return ranked.map((d) => d.content).join('\n\n')
   } catch (e: any) {
     console.error(`[SDR:${companyId}] RAG exception:`, e.message)
     return ''
@@ -1671,10 +1712,10 @@ ${checklistText}`
       if (fn === 'Think1') {
         result = `Pensamento registrado: ${args.thought}`
       } else if (fn === 'Play_conhecimento') {
-        result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableConhecimento)
+        result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, 'conhecimento')
         if (!result) result = 'Base de conhecimento: nenhum resultado encontrado para esta query.'
       } else if (fn === 'Play_objecoes') {
-        result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, ctx.vectorTableObjecoes)
+        result = await searchDocuments(args.query ?? userInput, ctx.companyId, openai, supabase, 'objecoes')
         if (!result) result = 'Objeções: nenhum argumento encontrado. Use o bom senso.'
       } else if (fn === 'Agente_de_Pipeline') {
         result = await runAgentePipeline(args.message ?? userInput, ctx, openai, supabase, acc)

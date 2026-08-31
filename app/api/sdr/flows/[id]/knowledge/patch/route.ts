@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { tagChunk, capCorrectionChunks } from '@/lib/sdr/rag'
 import type OpenAI from 'openai'
 
 export const runtime = 'nodejs'
@@ -63,19 +64,24 @@ Não explique o motivo : só diga o que fazer.`
     const instruction = res.choices[0]?.message?.content?.trim() ?? correction
 
     const correctionText = `=== CORREÇÃO DE COMPORTAMENTO ===\n${instruction}\n\n[Identificada em simulação : aplicar imediatamente]`
+    const { stored, embedText } = tagChunk(correctionText, type)
 
     // Embed the correction chunk
     const embRes = await openai.embeddings.create({
       model: 'text-embedding-3-small',
-      input: [correctionText],
+      input: [embedText],
     })
     const embedding = embRes.data[0]?.embedding
     if (!embedding) throw new Error('Falha ao gerar embedding')
 
-    // INSERT only : does not delete existing chunks
+    // Limita acúmulo antes de inserir a nova (achado 2/3 da auditoria RAG :
+    // correção nunca era removida, podia contradizer correção mais recente
+    // sem nenhum critério de qual prevalece na busca)
+    await capCorrectionChunks(service, userData.company_id, params.id, type)
+
     const { error: insertError } = await service.from('documents').insert({
       company_id: userData.company_id,
-      content: correctionText,
+      content: stored,
       embedding,
       metadata: {
         flow_id: params.id,
