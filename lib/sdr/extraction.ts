@@ -272,7 +272,10 @@ export async function runExtraction(params: {
           import_source: 'PEG',
           mql_resumo: mqlResumo,
           nivel_interesse: nivelInteresseFromMqlStatus(lead.mqlStatus),
-          origem: 'google_maps',
+          // leads.origem só aceita 'outbound'/'inbound' (constraint real do banco,
+          // 'google_maps' nunca foi valor válido) : lead extraído ainda não foi
+          // contatado ativamente, mais próximo semanticamente de 'inbound'.
+          origem: 'inbound',
         })
         if (error) throw new Error(error.message)
 
