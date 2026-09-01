@@ -770,6 +770,45 @@ export default function CRMPage() {
     }
   }, [leads, user, company, router]);
 
+  // Botão "Promover"/"Voltar todos" no header da coluna : move em lote todo
+  // mundo de um status pra outro, mesmo endpoint por lead que o drag-and-drop
+  // já usa (sem endpoint de bulk dedicado, lista de coluna nunca é grande o
+  // suficiente pra precisar disso).
+  const handleBulkStatusChange = useCallback(async (fromStatus: string, toStatus: Lead['status']) => {
+    const toMove = leads.filter((l) => l.status === fromStatus);
+    if (!toMove.length) return;
+
+    setLeads((prev) => prev.map((l) => (l.status === fromStatus ? { ...l, status: toStatus } : l)));
+
+    const results = await Promise.allSettled(
+      toMove.map((lead) =>
+        fetch(`/api/leads/${lead.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: user?.company_id, field: 'status', value: toStatus }),
+        }).then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); })
+      )
+    );
+
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) {
+      toast({ title: `${failed} lead(s) não puderam ser movidos`, variant: 'destructive' });
+      fetchLeads();
+    } else {
+      if (user && company) {
+        logActivity({
+          user_id: user.auth_user_id,
+          company_id: company.id,
+          action: 'lead_status_change',
+          description: `Moveu ${toMove.length} lead(s) de "${fromStatus}" para "${toStatus}"`,
+          metadata: { count: toMove.length, from_status: fromStatus, to_status: toStatus },
+        });
+      }
+      toast({ title: `${toMove.length} lead(s) movido(s) para "${toStatus}"` });
+      router.refresh();
+    }
+  }, [leads, user, company, router]);
+
   const handleOpenModal = useCallback((lead?: Lead) => {
     if (lead) {
       setEditingLead(lead);
@@ -1353,7 +1392,7 @@ export default function CRMPage() {
                   width: 'fit-content'
                 }}
               >
-                {columns.filter(c => c.id !== 'Outbound').map((column) => {
+                {columns.map((column) => {
                   const columnLeads = getLeadsByStatus(column.id);
                   return (
                     <div key={column.id} className="w-[320px] flex-shrink-0">
@@ -1362,6 +1401,8 @@ export default function CRMPage() {
                         title={column.title}
                         count={columnLeads.length}
                         totalValue={getTotalValueByStatus(column.id)}
+                        onPromoteAll={column.id === 'Triagem' ? () => handleBulkStatusChange('Triagem', 'Outbound') : undefined}
+                        onDemoteAll={column.id === 'Outbound' ? () => handleBulkStatusChange('Outbound', 'Triagem') : undefined}
                       >
                         <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                           {columnLeads.map((lead) => (
@@ -1425,7 +1466,7 @@ export default function CRMPage() {
 
         {/* Mobile Kanban - Horizontal snap scroll, scroll vertical em cada coluna */}
         <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none', height: 'calc(100dvh - 280px)' }}>
-          {columns.filter(c => c.id !== 'Outbound').map((column) => {
+          {columns.map((column) => {
             const colLeads = getLeadsByStatus(column.id);
             return (
               <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col rounded-xl bg-muted/40 p-2 gap-2">
