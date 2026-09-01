@@ -36,6 +36,7 @@ interface BriefingConfig {
   success_message?: string;
   whatsapp_label?: string;
   whatsapp_order_index?: number;
+  webhook_url?: string;
 }
 
 interface BriefingQuestion {
@@ -416,7 +417,7 @@ export default function BriefingPage() {
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/api/admin/briefing/upload-logo', { method: 'POST', body: form });
+      const res = await fetch('/api/user/briefing/upload-logo', { method: 'POST', body: form });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       setConfig(prev => ({ ...prev, logo_url: data.url }));
@@ -723,6 +724,22 @@ export default function BriefingPage() {
                 />
                 <Button size="sm" onClick={handleSaveConfig} disabled={saving}>
                   {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : 'Salvar mensagem'}
+                </Button>
+              </div>
+
+              {/* Webhook */}
+              <div className="border rounded-lg p-4 space-y-2 mt-2">
+                <Label className="text-sm font-medium">Webhook</Label>
+                <p className="text-xs text-muted-foreground">
+                  Dispara um POST com as respostas assim que o lead envia o formulário. Cole aqui a URL do seu n8n/Zapier/Make.
+                </p>
+                <Input
+                  value={config.webhook_url ?? ''}
+                  onChange={(e) => setConfig({ ...config, webhook_url: e.target.value })}
+                  placeholder="https://sua-automacao.com/webhook/..."
+                />
+                <Button size="sm" onClick={handleSaveConfig} disabled={saving}>
+                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : 'Salvar webhook'}
                 </Button>
               </div>
 

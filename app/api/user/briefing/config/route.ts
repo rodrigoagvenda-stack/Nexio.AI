@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     if (!companyId) return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
 
     const body = await request.json();
-    const { slug, is_active, primary_color, theme, logo_url, title, description, success_message, whatsapp_label, whatsapp_order_index } = body;
+    const { slug, is_active, primary_color, theme, logo_url, title, description, success_message, whatsapp_label, whatsapp_order_index, webhook_url } = body;
 
     const service = createServiceClient();
 
@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       success_message: success_message || null,
       whatsapp_label: whatsapp_label || null,
       whatsapp_order_index: whatsapp_order_index ?? null,
+      webhook_url: webhook_url || null,
       updated_at: new Date().toISOString(),
     };
 
