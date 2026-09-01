@@ -153,27 +153,47 @@ export async function POST(request: NextRequest) {
       console.log('[INVITE] Email enviado via Resend com sucesso')
     }
 
-    // 4. Criar registro na tabela users
+    // 4. Completar o registro na tabela users : o trigger on_auth_user_created
+    // (handle_new_user) já cria uma linha básica (auth_user_id, name, email)
+    // assim que o usuário é criado no Auth, um passo antes deste. Um INSERT
+    // aqui sempre colidiria com ela (era a causa real do erro "email já
+    // possui conta" em todo convite); upsert por auth_user_id completa essa
+    // mesma linha com os dados que o trigger não preenche (user_id,
+    // company_id, role, department).
     const { data: user, error: userError } = await supabaseService
       .from('users')
-      .insert({
-        user_id: authUser.id,
+      .upsert({
         auth_user_id: authUser.id,
+        user_id: authUser.id,
         company_id: companyId,
         name,
         email,
         role,
         department: department || null,
         is_active: true,
-      })
+      }, { onConflict: 'auth_user_id' })
       .select()
       .single();
 
     if (userError) {
-      console.error('[INVITE] Erro ao criar usuário na tabela:', userError);
+      console.error('[INVITE] Erro ao criar usuário na tabela:', JSON.stringify(userError));
       // Se falhar, deletar do Auth para evitar inconsistência
       await supabaseService.auth.admin.deleteUser(authUser.id);
-      throw userError;
+
+      // Só é "email já tem conta" de verdade se a violação foi especificamente
+      // na constraint de email (23505 = unique_violation no Postgres). Qualquer
+      // outro erro (FK, check, RLS, coluna obrigatória faltando etc.) mostra a
+      // mensagem real em vez de mentir pro usuário que a conta já existe.
+      if (userError.code === '23505' && userError.message?.includes('users_email_key')) {
+        return NextResponse.json(
+          { success: false, message: 'Este email já possui uma conta na plataforma.' },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, message: `Erro ao criar membro: ${userError.message}` },
+        { status: 500 }
+      );
     }
 
     console.log('[INVITE] Usuário criado na tabela com sucesso');
