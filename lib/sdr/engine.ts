@@ -78,6 +78,7 @@ interface SdrContext {
   businessHoursSummary: string
   asaasAtivo: boolean
   billingRecurring: boolean
+  placesAnalysisAtivo: boolean
 }
 
 export interface BufferedMessage {
@@ -1355,7 +1356,23 @@ Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela respo
 ⛔ PROIBIDO chamar "Agente_de_Agendamento" para: pedido de teste grátis, link de teste, cadastro, demonstração, dúvida sobre produto ou preço, ou qualquer coisa que não seja marcar uma reunião/call com data e hora reais. Esse agente só sabe mexer no Google Calendar : ele NÃO conhece o produto, não tem link de teste e não envia e-mail nenhum. Pedido de teste/trial é respondido com "Play_conhecimento"/"Play_objecoes", nunca com este agente.`
     : ''
 
-  return `${fixedLogic}${companyBlock}${schedulingBlock}`
+  // ── Camada 4 (FIXO condicional): diagnóstico de perfil como gancho de reunião ─
+  // Técnica: Information Gap Theory (Loewenstein, 1994) : curiosidade funciona
+  // como fome, uma vez ativada exige ser saciada. Revela 1 achado concreto,
+  // nunca a lista inteira : prometer "tenho mais coisas" e não entregar no
+  // diagnóstico é manipulação percebida, queima confiança. A reunião TEM que
+  // entregar o resto de verdade.
+  const placesBlock = ctx.placesAnalysisAtivo
+    ? `\n\nDIAGNÓSTICO DE PERFIL (GANCHO DE REUNIÃO):
+Quando for argumentar sobre a presença digital do lead, ou quando fizer sentido reforçar o convite pra reunião, chame "Buscar_analise_places".
+Regras de uso do que a tool devolver:
+1. Revele SOMENTE o gap_principal, com o dado concreto dele (número, nota, quantidade : nunca genérico tipo "seu perfil tem problemas").
+2. NUNCA liste os outros gaps. Diga que encontrou mais pontos (use outros_gaps_encontrados) sem dizer quais são.
+3. Use isso como o motivo de agendar : "no diagnóstico completo eu te mostro cada um desses pontos e como resolver, ao vivo". A reunião é a entrega do resto, não uma call genérica de apresentação.
+4. Nunca prometa algo que a reunião não vai cumprir : se disser que tem mais gaps, o diagnóstico na call precisa realmente cobrir todos.`
+    : ''
+
+  return `${fixedLogic}${companyBlock}${schedulingBlock}${placesBlock}`
 }
 
 // Mapa de nome-display (n8n) → nome-função (OpenAI: ^[a-zA-Z0-9_-]+$)
@@ -1370,6 +1387,7 @@ const TOOL_NAME_MAP: Record<string, string> = {
   'Agente de Agendamento':           'Agente_de_Agendamento',
   'Pausar_conversa':                 'Pausar_conversa',
   'Gerar_cobranca':                  'Gerar_cobranca',
+  'Buscar_analise_places':           'Buscar_analise_places',
 }
 
 function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool[] {
@@ -1503,6 +1521,17 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
           },
           required: ['valor', 'descricao', 'cpf_cnpj'],
         },
+      },
+    })
+  }
+
+  if (ctx.placesAnalysisAtivo) {
+    tools.push({
+      type: 'function',
+      function: {
+        name: TOOL_NAME_MAP['Buscar_analise_places'],
+        description: 'Busca o diagnóstico do perfil Google do lead (nota, avaliações, o que falta no perfil). Use quando for argumentar sobre a presença digital do lead ou quando for oferecer/reforçar o agendamento : o gancho da reunião é o diagnóstico completo ao vivo.',
+        parameters: { type: 'object', properties: {}, required: [] },
       },
     })
   }
@@ -1826,6 +1855,20 @@ ${checklistText}`
               value, description, billingType, recurring: ctx.billingRecurring,
             }, supabase, ctx.leadPhone, ctx.leadId, err.message)
           }
+        }
+      } else if (fn === 'Buscar_analise_places') {
+        const { data: leadRow } = await supabase.from('leads').select('places_analysis').eq('id', ctx.leadId).maybeSingle()
+        const analysis = leadRow?.places_analysis as { score?: { total: number; grade: string }; gaps?: { titulo: string; texto: string }[] } | null
+        if (!analysis?.gaps?.length) {
+          result = 'Sem diagnóstico de perfil disponível pra esse lead ainda.'
+        } else {
+          const [primeiro, ...resto] = analysis.gaps
+          result = JSON.stringify({
+            score: analysis.score,
+            gap_principal: primeiro,
+            outros_gaps_encontrados: resto.length,
+            instrucao: 'Revele SOMENTE o gap_principal na conversa, com o dado concreto dele. NÃO liste os outros. Diga que encontrou mais pontos (use o número em outros_gaps_encontrados) sem detalhar quais são, e ofereça mostrar todos no diagnóstico completo ao vivo na reunião : é o gancho pra agendar.',
+          })
         }
       } else if (fn === 'Pausar_conversa') {
         // Pausa o bot nesta conversa : atendimento humano irá assumir.
@@ -2227,6 +2270,7 @@ interface SdrFullConfig {
   meta_wa_phone_number_id: string | null
   business_hours_message: string | null
   billing_recurring: boolean
+  placesAnalysisAtivo: boolean
 }
 
 async function loadSdrConfig(
@@ -2260,7 +2304,7 @@ async function loadSdrConfig(
   // Verifica agente_ativo na tabela companies (fonte de verdade : igual ao N8N)
   const { data: company } = await supabase
     .from('companies')
-    .select('agente_ativo, is_active')
+    .select('agente_ativo, is_active, features')
     .eq('id', companyId)
     .single()
 
@@ -2330,6 +2374,7 @@ async function loadSdrConfig(
     meta_wa_phone_number_id: config.meta_wa_phone_number_id ?? null,
     business_hours_message: config.business_hours_message ?? null,
     billing_recurring: config.billing_recurring ?? false,
+    placesAnalysisAtivo: !!(company?.features as Record<string, boolean> | null)?.places_analysis,
   }
 }
 
@@ -2488,6 +2533,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       businessHoursSummary,
       asaasAtivo,
       billingRecurring: cfg.billing_recurring,
+      placesAnalysisAtivo: cfg.placesAnalysisAtivo,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
