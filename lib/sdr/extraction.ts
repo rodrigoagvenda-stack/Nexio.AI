@@ -26,6 +26,7 @@ import { resolveOpenAIKey } from './rag'
 import { getUazapiForCompany } from './uazapi-for-company'
 import { normalizePhone } from './uazapi'
 import { syslog } from '@/lib/logger'
+import { fetchPlaceDetails, computePlacesScore, buildGaps, summarizeForOutreach } from '@/lib/places-analysis'
 import OpenAI from 'openai'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -214,6 +215,20 @@ export async function runExtraction(params: {
     const openai = new OpenAI({ apiKey: openaiKey })
     const uazapi = await getUazapiForCompany(companyId).catch(() => null)
 
+    // Análise Google Places : feature exclusiva, atrás de flag. Sem a flag ou
+    // sem a chave configurada, esse trecho nunca roda : zero mudança de
+    // comportamento pra quem não usa isso, não interfere no resto do Orbit.
+    const { data: companyRow } = await supabase.from('companies').select('features').eq('id', companyId).maybeSingle()
+    const placesEnabled = !!(companyRow?.features as Record<string, boolean> | null)?.places_analysis
+    const placesApiKey = placesEnabled ? platformCfg.google_places_api_key : null
+    if (placesEnabled && !placesApiKey) {
+      await syslog({
+        type: 'extraction', severity: 'warning',
+        message: 'places_analysis ativo mas google_places_api_key não configurada (Admin → Configurações → Google Places)',
+        company_id: companyId, payload: { sessionId },
+      })
+    }
+
     for (const raw of rawPlaces) {
       try {
         const lead = calcularMQL(enriquecer(raw))
@@ -261,7 +276,7 @@ export async function runExtraction(params: {
         const companyName = limparTitulo(lead.nome)
         const segment = mapearSegmento(lead.segmento)
 
-        const { error } = await supabase.from('leads').insert({
+        const { data: insertedLead, error } = await supabase.from('leads').insert({
           company_id: companyId,
           company_name: companyName,
           segment,
@@ -276,10 +291,31 @@ export async function runExtraction(params: {
           // 'google_maps' nunca foi valor válido) : lead extraído ainda não foi
           // contatado ativamente, mais próximo semanticamente de 'inbound'.
           origem: 'inbound',
-        })
+        }).select('id').single()
         if (error) throw new Error(error.message)
 
         await supabase.rpc('increment_extraction_session', { p_session_id: sessionId })
+
+        // Análise Google Places : melhor esforço, nunca derruba o lead já
+        // inserido se falhar (rate limit, place sem dado suficiente, etc.)
+        if (placesEnabled && placesApiKey && lead.placeId && insertedLead?.id) {
+          try {
+            const details = await fetchPlaceDetails(lead.placeId, placesApiKey)
+            const score = computePlacesScore(details)
+            const gaps = buildGaps(score, details, {})
+            const summary = summarizeForOutreach(details, score, gaps)
+            await supabase.from('leads').update({
+              places_analysis: { score, gaps, summary, fetchedAt: new Date().toISOString() },
+              mql_resumo: `${mqlResumo}\n\n${summary}`,
+            }).eq('id', insertedLead.id)
+          } catch (placesErr: any) {
+            await syslog({
+              type: 'extraction', severity: 'warning',
+              message: `Análise Google Places falhou pro lead ${insertedLead.id}: ${placesErr?.message ?? 'erro desconhecido'}`,
+              company_id: companyId, payload: { sessionId, placeId: lead.placeId },
+            })
+          }
+        }
       } catch (err: any) {
         await syslog({
           type: 'extraction',
