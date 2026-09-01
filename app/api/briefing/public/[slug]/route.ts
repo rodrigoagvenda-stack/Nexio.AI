@@ -190,38 +190,46 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
     if (responseError) throw responseError;
     if (!response) throw new Error('Falha ao salvar resposta no banco de dados');
 
-    // Disparar webhook
+    // Disparar webhook : melhor esforço, igual ao bloco de checklist/mensagem
+    // acima. O formulário já foi salvo (insert acima) : uma falha aqui (rede,
+    // timeout, webhook mal configurado) não pode derrubar a tela de sucesso
+    // de quem preencheu, senão perde a resposta pro lead por um problema que
+    // é só nosso/da automação, não dele.
     if (webhookUrl) {
-      console.log('[Briefing] Disparando webhook para:', webhookUrl);
-      const webhookRes = await Promise.race([
-        fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            briefing_response_id: response.id,
-            company_id: config.company_id,
-            slug: params.slug,
-            lead_id: leadId,
-            answers,
-            submitted_at: response.submitted_at,
+      try {
+        console.log('[Briefing] Disparando webhook para:', webhookUrl);
+        const webhookRes = await Promise.race([
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              briefing_response_id: response.id,
+              company_id: config.company_id,
+              slug: params.slug,
+              lead_id: leadId,
+              answers,
+              submitted_at: response.submitted_at,
+            }),
           }),
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('webhook timeout após 8s')), 8000)
-        ),
-      ]);
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('webhook timeout após 8s')), 8000)
+          ),
+        ]);
 
-      if (!webhookRes.ok) {
-        const errText = await webhookRes.text();
-        throw new Error(`Webhook retornou erro ${webhookRes.status}: ${errText.substring(0, 200)}`);
+        if (!webhookRes.ok) {
+          const errText = await webhookRes.text();
+          throw new Error(`Webhook retornou erro ${webhookRes.status}: ${errText.substring(0, 200)}`);
+        }
+
+        await supabase
+          .from('briefing_mt_responses')
+          .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
+          .eq('id', response.id);
+
+        console.log('[Briefing] Webhook disparado com sucesso, status:', webhookRes.status);
+      } catch (err: any) {
+        console.error('[Briefing] Falha ao disparar webhook (não derruba o envio):', err?.message);
       }
-
-      await supabase
-        .from('briefing_mt_responses')
-        .update({ webhook_sent: true, webhook_sent_at: new Date().toISOString() })
-        .eq('id', response.id);
-
-      console.log('[Briefing] Webhook disparado com sucesso, status:', webhookRes.status);
     } else {
       console.warn('[Briefing] Nenhum webhook_url configurado para slug:', params.slug);
     }
