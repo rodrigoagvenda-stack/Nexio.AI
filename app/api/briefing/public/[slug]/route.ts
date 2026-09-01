@@ -17,6 +17,16 @@ function extrairEmailDasRespostas(answers: Record<string, unknown>): string | nu
   return null;
 }
 
+// Heurística por chave (field_key), igual extrairEmailDasRespostas é por
+// formato : o Briefing é genérico por empresa, cada uma define suas próprias
+// perguntas/chaves, não dá pra saber de antemão qual é "a pergunta do nome".
+function extrairNomeDasRespostas(answers: Record<string, unknown>): string | null {
+  for (const [key, v] of Object.entries(answers)) {
+    if (typeof v === 'string' && v.trim() && /nome|name/i.test(key)) return v.trim();
+  }
+  return null;
+}
+
 // GET: Buscar config + perguntas da empresa pelo slug (para renderizar o formulário público)
 export async function GET(_request: NextRequest, props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
@@ -108,11 +118,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
           phone_param: whatsappRaw,
         });
 
-      const lead = leadRows?.[0] ?? null;
+      let lead = leadRows?.[0] ?? null;
+      const email = extrairEmailDasRespostas(answers);
+
       if (lead && lead.id != null) {
         const currentLeadId: number = lead.id;
         leadId = currentLeadId;
-        const email = extrairEmailDasRespostas(answers);
         await supabase
           .from('leads')
           .update({
@@ -121,6 +132,35 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
             ...(email ? { email } : {}),
           })
           .eq('id', currentLeadId);
+      } else {
+        // Ninguém preenchendo pela primeira vez ainda tem lead no CRM (ex: veio
+        // direto de um anúncio pro formulário, sem passar pelo SDR antes).
+        // Cria na hora : sem isso a resposta ficava órfã, sem status/checklist
+        // e sem lead_id pro webhook disparar follow-up nenhum.
+        const nome = extrairNomeDasRespostas(answers);
+        const { data: novoLead } = await supabase
+          .from('leads')
+          .insert({
+            company_id: config.company_id,
+            company_name: nome || 'Lead via formulário',
+            contact_name: nome,
+            whatsapp: normalizePhone(whatsappRaw),
+            email,
+            status: 'Interessado',
+            origem: 'inbound',
+            briefing_preenchido: true,
+            briefing_preenchido_em: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+        if (novoLead?.id != null) {
+          lead = novoLead;
+          leadId = novoLead.id;
+        }
+      }
+
+      if (lead && lead.id != null) {
+        const currentLeadId: number = lead.id;
 
         // Fecha o loop form → conversa → follow-up : sem isso o SDR só sabia
         // do briefing se o lead escrevesse de novo (reativo). Agora reage na
