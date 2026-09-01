@@ -2662,6 +2662,59 @@ function TrialWebhookField() {
   )
 }
 
+function SequenceWebhookField({ sequenceId }: { sequenceId?: string }) {
+  const [companyId, setCompanyId] = useState<number | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/automacoes/company-id').then(r => r.json()).then(d => {
+      if (d.companyId) setCompanyId(d.companyId)
+    }).catch(() => {})
+  }, [])
+
+  if (!sequenceId) {
+    return (
+      <>
+        <div className="h-px bg-border/60 -mx-4" />
+        <p className="text-[10px] text-muted-foreground/70 leading-snug">Salve a sequência primeiro pra gerar a URL do webhook.</p>
+      </>
+    )
+  }
+  if (!companyId) return null
+
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const url = `${baseUrl}/api/webhooks/sequence/${companyId}/${sequenceId}`
+
+  function copy() {
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <>
+      <div className="h-px bg-border/60 -mx-4" />
+      <div className="space-y-2">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">URL do Webhook</p>
+        <p className="text-[10px] text-muted-foreground/70 leading-snug">Cole esta URL onde quiser disparar esta sequência (ex: campo "Webhook" do Briefing). Precisa enviar POST com <code>{'{ lead_id }'}</code>.</p>
+        <div className="flex items-center gap-1.5">
+          <input readOnly value={url} className="field-input font-mono text-[10px] truncate flex-1" />
+          <button
+            type="button"
+            onClick={copy}
+            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted/40 transition-colors"
+          >
+            {copied
+              ? <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              : <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            }
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 function PaymentWebhookField({ platform }: { platform?: 'mercadopago' | 'kiwify' | 'asaas' }) {
   const [integrations, setIntegrations] = useState<{ platform: string }[]>([])
   const [companyId, setCompanyId] = useState<number | null>(null)
@@ -3177,11 +3230,7 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <SelectItem value="none">Manual / cron padrão</SelectItem>
                     <SelectItem value="novo_lead">Novo lead criado</SelectItem>
                     <SelectItem value="mudanca_status">Mudança de status</SelectItem>
-                    {/* "Evento de webhook" só tem receptor de verdade pra trial_saas
-                        (/api/trial/webhook/[token]). Pra outros tipos a opção ficava
-                        selecionável sem nenhum motor por trás : selecionável mas
-                        morta, enganando quem configura. Escondida até generalizar. */}
-                    {sequenceTipo === 'trial_saas' && <SelectItem value="webhook">Evento de webhook</SelectItem>}
+                    <SelectItem value="webhook">Evento de webhook</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
@@ -3190,8 +3239,14 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
               </Field>
             )}
 
-            {/* Trial SaaS: webhook URL */}
+            {/* Trial SaaS: webhook URL (receptor próprio, /api/trial/webhook) */}
             {sequenceTipo === 'trial_saas' && <TrialWebhookField />}
+
+            {/* Sequência normal com gatilho de webhook : URL genérica desta sequência,
+                pra colar em qualquer origem externa (ex: campo "Webhook" do Briefing) */}
+            {sequenceTipo !== 'trial_saas' && sequenceTipo !== 'pagamento' && (d as TriggerNodeData).eventoEntrada === 'webhook' && (
+              <SequenceWebhookField sequenceId={currentSeqId} />
+            )}
 
             {/* Pagamento: plataforma por trigger + webhook */}
             {sequenceTipo === 'pagamento' && (

@@ -2562,3 +2562,84 @@ export async function runPaymentSequenceImmediate(
 
   return { sent: totalSent }
 }
+
+/**
+ * Dispara imediatamente UMA sequência específica (por id) pra um lead.
+ * Usado pelo gatilho "Evento de webhook" genérico do canvas : diferente de
+ * runPaymentSequenceImmediate (que casa por tipo+eventoEntrada, podendo
+ * atingir várias sequências), aqui a URL do webhook já identifica a
+ * sequência exata, então não precisa de nenhum matching : só valida que ela
+ * pertence à empresa e está ativa, e roda os steps.
+ */
+export async function runSequenceImmediateById(
+  companyId: number,
+  sequenceId: string,
+  leadId: number
+): Promise<{ sent: number; error?: string }> {
+  const supabase = createServiceClient()
+
+  console.log(`[webhook-seq] company=${companyId} lead=${leadId} sequence=${sequenceId}`)
+
+  const { data: cfg } = await supabase
+    .from('sdr_configs')
+    .select('company_id')
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!cfg) return { sent: 0, error: 'sdr_configs não encontrado' }
+
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('whatsapp, contact_name, company_name')
+    .eq('id', leadId)
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!lead?.whatsapp) {
+    console.warn(`[webhook-seq] lead=${leadId} sem WhatsApp cadastrado ou não pertence à empresa`)
+    return { sent: 0, error: `Lead ${leadId} sem WhatsApp` }
+  }
+
+  const { data: sequence } = await supabase
+    .from('follow_sequences')
+    .select('id, nome')
+    .eq('id', sequenceId)
+    .eq('company_id', companyId)
+    .eq('ativo', true)
+    .maybeSingle()
+
+  if (!sequence) return { sent: 0, error: 'Sequência não encontrada, inativa ou de outra empresa' }
+
+  const { data: steps } = await supabase
+    .from('follow_steps')
+    .select('*')
+    .eq('sequence_id', sequence.id)
+    .order('ordem', { ascending: true })
+
+  if (!steps?.length) return { sent: 0, error: 'Sequência sem steps' }
+
+  const phone = normalizePhone(lead.whatsapp)
+  let sent = 0
+
+  for (const step of steps) {
+    if (!step.mensagem && !step.media_config) continue
+
+    try {
+      await sendRichStepUnified(
+        companyId,
+        phone,
+        (step.tipo_mensagem ?? 'text') as StepTipoMensagem,
+        step.mensagem ?? '',
+        step.media_config as StepMediaConfig | undefined
+      )
+      sent++
+      console.log(`[webhook-seq] company=${companyId} lead=${leadId} seq="${sequence.nome}" step=${step.ordem} enviado`)
+
+      await new Promise((r) => setTimeout(r, 1500))
+    } catch (err: any) {
+      console.error(`[webhook-seq] company=${companyId} lead=${leadId} step=${step.ordem} erro:`, err.message)
+    }
+  }
+
+  return { sent }
+}
