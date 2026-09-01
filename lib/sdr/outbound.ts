@@ -173,7 +173,7 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
 
   for (const company of enabled) {
     try {
-      sent += await dispatchForCompany(company.id, supabase)
+      sent += await dispatchForCompany(company.id, company.features ?? {}, supabase)
       processed++
     } catch (err: any) {
       errors.push(`Empresa ${company.id}: ${err.message}`)
@@ -194,7 +194,7 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
   return { processed, sent, errors }
 }
 
-async function dispatchForCompany(companyId: number, supabase: Supabase): Promise<number> {
+async function dispatchForCompany(companyId: number, features: Record<string, unknown>, supabase: Supabase): Promise<number> {
   const { data: leads } = await supabase
     .from('vw_leads_disponiveis')
     .select('*')
@@ -206,9 +206,11 @@ async function dispatchForCompany(companyId: number, supabase: Supabase): Promis
   const leadsDisponiveis = (leads ?? []) as LeadDisponivel[]
   if (!leadsDisponiveis.length) return 0
 
+  const placesEnabled = features?.places_analysis === true
+
   const leadIds = leadsDisponiveis.map((l) => l.lead_id).filter((id): id is number => id != null)
   const { data: mqlRows } = leadIds.length
-    ? await supabase.from('leads').select('id, mql_resumo, nivel_interesse').in('id', leadIds)
+    ? await supabase.from('leads').select('id, mql_resumo, nivel_interesse, places_analysis').in('id', leadIds)
     : { data: [] as any[] }
   const mqlById = new Map((mqlRows ?? []).map((r: any) => [r.id, r]))
 
@@ -231,9 +233,17 @@ async function dispatchForCompany(companyId: number, supabase: Supabase): Promis
       const categoria = lead.tentativas === 0 ? 'primeira_abordagem' : lead.tentativas === 1 ? 'follow_up_1' : 'follow_up_2'
       const template = await fetchTemplate(companyId, categoria, supabase)
 
+      // Empresa com Places ativo : contexto vem da análise de perfil Google
+      // (gaps específicos do lead), não do mql_resumo genérico — é o
+      // diferencial da mensagem pra essa empresa, não faz sentido diluir com
+      // o resumo padrão de outra origem.
+      const mqlResumo = placesEnabled && mql?.places_analysis?.summary
+        ? mql.places_analysis.summary
+        : mql?.mql_resumo ?? null
+
       const mensagem = await generateMessage(openai, {
         contactName: lead.contact_name,
-        mqlResumo: mql?.mql_resumo ?? null,
+        mqlResumo,
         templatePrompt: template?.prompt_sistema ?? null,
         persona,
         aberturasPool,

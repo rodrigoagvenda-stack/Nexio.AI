@@ -304,9 +304,12 @@ export async function runExtraction(params: {
             const score = computePlacesScore(details)
             const gaps = buildGaps(score, details, {})
             const summary = summarizeForOutreach(details, score, gaps)
+            // mql_resumo fica intocado (genérico, de qualquer origem) : o
+            // outbound já sabe ler places_analysis.summary direto quando a
+            // empresa tem a flag ligada (lib/sdr/outbound.ts), sem duplicar
+            // conteúdo nos dois campos.
             await supabase.from('leads').update({
               places_analysis: { score, gaps, summary, fetchedAt: new Date().toISOString() },
-              mql_resumo: `${mqlResumo}\n\n${summary}`,
             }).eq('id', insertedLead.id)
           } catch (placesErr: any) {
             await syslog({
