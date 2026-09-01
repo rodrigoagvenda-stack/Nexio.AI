@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { sendRichStepUnified } from '@/lib/sdr/rich-sender';
-import { gravarMensagemFollow } from '@/lib/sdr/follow';
 import { normalizePhone } from '@/lib/sdr/uazapi';
 
 // Status que já avançaram além de "qualificação" : preencher o briefing não
@@ -179,8 +177,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
             await supabase.from('leads').update({ status: 'Interessado' }).eq('id', currentLeadId);
           }
 
-          const phone = normalizePhone(whatsappRaw);
-
           // Checklist estruturado da conversa (conversas_do_whatsapp.checklist_atendimento) :
           // mesmo campo que o orquestrador do SDR já lê e prioriza sobre reler histórico.
           const { data: conv } = await supabase
@@ -200,17 +196,15 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
               .eq('id', conv.id);
           }
 
-          // Mensagem proativa : reaproveita o texto de sucesso já configurado
-          // pela empresa pra tela do formulário, se existir.
-          const nome = leadRow?.contact_name?.split(' ')[0];
-          const mensagem = (config.success_message?.trim())
-            || `Parabéns${nome ? `, ${nome}` : ''}! Recebi suas respostas. Já vou te confirmar os próximos passos por aqui.`;
-
-          await sendRichStepUnified(config.company_id, phone, 'text', mensagem);
-          await gravarMensagemFollow(currentLeadId, config.company_id, phone, mensagem, 'briefing', supabase);
+          // Mensagem de WhatsApp pró-ativa NÃO é mais enviada daqui : "Mensagem
+          // final" é só texto de tela (config.success_message, usado em
+          // app/briefing/[slug]/page.tsx). Quem manda WhatsApp de continuidade
+          // agora é a sequência ligada ao gatilho "Evento de webhook"
+          // (config.webhook_url), configurável no canvas — evita duplicar
+          // mensagem quando as duas coisas disparavam juntas.
         } catch (err: any) {
           // Melhor esforço : falha aqui não pode derrubar o envio do formulário em si
-          console.error('[Briefing] Falha ao dar continuidade (checklist/mensagem/status):', err?.message);
+          console.error('[Briefing] Falha ao dar continuidade (checklist/status):', err?.message);
         }
       }
     }

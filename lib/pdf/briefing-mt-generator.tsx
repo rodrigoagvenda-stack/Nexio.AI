@@ -202,7 +202,31 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
   );
 };
 
+// @react-pdf/renderer 3.4.x tem bug conhecido resolvendo <Image src="URL remota">
+// (buscando internamente, gera "Cannot read properties of undefined
+// (reading 'hasOwnProperty')" durante o layout). Workaround padrão da
+// própria comunidade da lib: buscar a imagem à parte e passar já como
+// data URI base64, evitando o caminho de código com o bug.
+async function toDataUri(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function generateBriefingMtPDF(props: BriefingMtPDFProps): Promise<Blob> {
   const { pdf } = await import('@react-pdf/renderer');
-  return pdf(<BriefingMtPDF {...props} />).toBlob();
+  // Logo é melhor esforço : se falhar ao buscar/converter, gera o PDF sem
+  // logo em vez de travar o download inteiro.
+  const logoDataUri = props.logoUrl ? await toDataUri(props.logoUrl) : null;
+  return pdf(<BriefingMtPDF {...props} logoUrl={logoDataUri ?? undefined} />).toBlob();
 }

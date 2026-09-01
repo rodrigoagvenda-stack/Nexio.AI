@@ -2590,7 +2590,7 @@ export async function runSequenceImmediateById(
 
   const { data: lead } = await supabase
     .from('leads')
-    .select('whatsapp, contact_name, company_name')
+    .select('id, company_id, whatsapp, contact_name, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, meet_url')
     .eq('id', leadId)
     .eq('company_id', companyId)
     .maybeSingle()
@@ -2625,11 +2625,12 @@ export async function runSequenceImmediateById(
     if (!step.mensagem && !step.media_config) continue
 
     try {
+      const texto = substituirVariaveis(step.mensagem ?? '', lead as unknown as Lead)
       await sendRichStepUnified(
         companyId,
         phone,
         (step.tipo_mensagem ?? 'text') as StepTipoMensagem,
-        step.mensagem ?? '',
+        texto,
         step.media_config as StepMediaConfig | undefined
       )
       sent++
