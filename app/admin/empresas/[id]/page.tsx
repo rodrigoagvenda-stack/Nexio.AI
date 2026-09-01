@@ -614,6 +614,7 @@ export default function EmpresaDetailPage() {
                 { key: 'outbound',    label: 'Outbound (disparo frio)', desc: 'Prospecção ativa via WhatsApp, com limites e anti-ban' },
                 { key: 'prospect',    label: 'Orbit (extração de leads)', desc: 'Extração de leads via Google Maps/Apify' },
                 { key: 'places_analysis', label: 'Análise Google Places', desc: 'Score + gaps de cada lead extraído no Orbit (exclusivo, consome cota de API própria)' },
+                { key: 'briefing',    label: 'Formulário de Briefing', desc: 'Formulário público pra qualificação/coleta de contato (a empresa monta as próprias perguntas em Configurações → Briefing)' },
               ] as { key: string; label: string; desc: string }[]).map(({ key, label, desc }) => (
                 <div key={key} className="flex items-center justify-between py-1.5">
                   <div>

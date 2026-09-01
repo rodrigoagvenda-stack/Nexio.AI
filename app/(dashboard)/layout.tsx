@@ -116,10 +116,13 @@ export default async function DashboardLayout({
   const tokensUsed = companyData?.tokens_used ?? 0;
   const tokensLimit = PLAN_TOKENS[companyData?.plan_type ?? ''] ?? (companyData?.plan_monthly_limit ?? 0);
   const isAdmin = !!adminUser;
-  const hasBriefing = !!briefingConfig;
+  const features = (companyData?.features ?? {}) as Record<string, boolean>;
+  // Feature gate pelo admin (nova) + precisa ter config ativa : sem as duas,
+  // não mostra o nav nem o formulário some da hora pra outra pra quem já
+  // configurou, sem o admin desativar de propósito.
+  const hasBriefing = features.briefing === true && !!briefingConfig;
   const userRole = userData?.role || 'closer';
   const brandLogoUrl = briefingConfig?.logo_url || null;
-  const features = (companyData?.features ?? {}) as Record<string, boolean>;
 
   return (
     <PostHogProvider
