@@ -33,7 +33,7 @@ export default async function DashboardLayout({
   const [{ data: userData }, { data: adminUser }] = await Promise.all([
     supabase
       .from('users')
-      .select('company_id, role')
+      .select('company_id, role, name, email, photo_url')
       .eq('auth_user_id', user.id)
       .maybeSingle(),
     supabase
@@ -152,7 +152,11 @@ export default async function DashboardLayout({
         features={features}
       />
       <div className="flex-1 flex flex-col min-w-0">
-        <SystemTopBar />
+        <SystemTopBar
+          userName={userData?.name || null}
+          userEmail={userData?.email || null}
+          userAvatarUrl={userData?.photo_url || null}
+        />
         <main id="main-scroll" className="relative flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-6 pb-[120px] lg:pb-6 w-full">
           {children}
         </main>

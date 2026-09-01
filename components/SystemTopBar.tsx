@@ -33,7 +33,13 @@ interface Notification {
   photo?: string | null;
 }
 
-export function SystemTopBar() {
+interface SystemTopBarProps {
+  userName?: string | null;
+  userEmail?: string | null;
+  userAvatarUrl?: string | null;
+}
+
+export function SystemTopBar({ userName: userNameProp, userEmail: userEmailProp, userAvatarUrl: userAvatarUrlProp }: SystemTopBarProps = {}) {
   const { user, company } = useUser();
   const router = useRouter();
   const pathname = usePathname();
@@ -41,8 +47,13 @@ export function SystemTopBar() {
   const [activeTab, setActiveTab] = useState<NotifTab>('todas');
   const [notifOpen, setNotifOpen] = useState(false);
 
-  const userName = user?.name || 'Usuário';
-  const userEmail = user?.email || '';
+  // Nome/email/avatar vêm do server (layout.tsx, mesma consulta que já
+  // alimenta a Sidebar) como fonte principal : o hook useUser() faz a mesma
+  // busca no navegador, sujeita a sessão/RLS instável, e servia só de
+  // fallback antes — trocado porque falhava (ficava em branco) sem que a
+  // Sidebar, que é server-side, apresentasse o mesmo problema.
+  const userName = userNameProp || user?.name || 'Usuário';
+  const userEmail = userEmailProp || user?.email || '';
   const userInitials = userName
     .split(' ')
     .map((n) => n[0])
@@ -50,7 +61,7 @@ export function SystemTopBar() {
     .toUpperCase()
     .slice(0, 2);
 
-  const avatarUrl = (user as any)?.avatar_url || (user as any)?.photo_url || company?.image_url || null;
+  const avatarUrl = userAvatarUrlProp || (user as any)?.avatar_url || (user as any)?.photo_url || company?.image_url || null;
 
   const handleLogout = async () => {
     const supabase = createClient();
