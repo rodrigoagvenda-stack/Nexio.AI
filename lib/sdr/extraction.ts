@@ -224,9 +224,12 @@ export async function runExtraction(params: {
         // WhatsApp válido e descarta todo mundo (era o que estava acontecendo).
         const telefoneNormalizado = normalizePhone(lead.telefone)
 
-        // Checa WhatsApp antes de gastar IA/insert com número morto
+        // Checa WhatsApp antes de gastar IA/insert com número morto.
+        // Campo confirmado na doc oficial da uazapi : isInWhatsapp (não "exists" :
+        // esse era o bug real, o código lia um campo que nunca existiu na resposta,
+        // então vinha undefined/falso pra 100% dos números, mesmo já normalizados).
         if (uazapi) {
-          let check: { exists: boolean } | undefined
+          let check: { isInWhatsapp: boolean } | undefined
           try {
             ;[check] = await uazapi.checkWhatsapp([telefoneNormalizado])
           } catch (checkErr: any) {
@@ -242,7 +245,7 @@ export async function runExtraction(params: {
               payload: { sessionId, telefone: telefoneNormalizado },
             })
           }
-          if (check && !check.exists) {
+          if (check && !check.isInWhatsapp) {
             await syslog({
               type: 'extraction',
               severity: 'info',

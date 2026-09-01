@@ -234,7 +234,8 @@ export class UazapiClient {
 
   /** Verifica se um ou mais números têm WhatsApp ativo. Usado na extração
    * de leads antes de tentar abordar (evita gastar disparo com número morto). */
-  async checkWhatsapp(numbers: string[]): Promise<{ query: string; exists: boolean; jid?: string }[]> {
+  // Campo de existência confirmado na doc oficial : isInWhatsapp (não "exists").
+  async checkWhatsapp(numbers: string[]): Promise<{ query: string; isInWhatsapp: boolean; jid?: string; verifiedName?: string }[]> {
     const raw: any = await this.request('/chat/check', {
       method: 'POST',
       body: JSON.stringify({ numbers }),
