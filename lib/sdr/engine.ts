@@ -80,6 +80,7 @@ interface SdrContext {
   asaasAtivo: boolean
   billingRecurring: boolean
   placesAnalysisAtivo: boolean
+  briefingLinkPending: boolean
 }
 
 export interface BufferedMessage {
@@ -1389,7 +1390,11 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   }
 
   // ── Camada 3 (FIXO condicional): agendamento : exato do AI Agent2 ─
-  const schedulingBlock = ctx.calendarId
+  const schedulingBlock = ctx.briefingLinkPending
+    ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
+Esta empresa exige preencher o formulário de briefing ANTES de marcar reunião. Você NÃO tem a tool "Agente_de_Agendamento" disponível agora, de propósito : não tente chamá-la, ela não existe na sua lista de tools desta vez.
+Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma reunião/call, chame "Play_conhecimento" com essa intenção como query pra pegar o link do formulário de fechamento configurado na base de conhecimento, e mande esse link pro lead. NUNCA invente um link, NUNCA diga que vai agendar sem o link ter sido enviado antes.`
+    : ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
 1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
 2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
@@ -1529,7 +1534,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     })
   }
 
-  if (ctx.calendarId) {
+  if (ctx.calendarId && !ctx.briefingLinkPending) {
     tools.push({
       type: 'function',
       function: {
@@ -1650,6 +1655,26 @@ async function runOrchestrator(
       .limit(1)
       .maybeSingle()
     adHeadline = attrRow?.referral_headline ?? null
+
+    // Trava agendamento direto até o formulário de briefing ser preenchido,
+    // pra empresa que configurou esse fluxo (achado ao vivo, 2026-09-02 :
+    // Grupo Venda) : a regra "chame Agente_de_Agendamento imediatamente" do
+    // núcleo é incondicional e sempre vencia o link do formulário no wizard,
+    // porque o modelo pula Play_conhecimento quando detecta intenção de
+    // agendar. Travando a TOOL em si (não só pedindo por prompt), o modelo
+    // fisicamente não consegue pular a etapa : sobra só Play_conhecimento,
+    // que é onde o link de fechamento mora.
+    const estagioAtual = (convRow?.checklist_atendimento as ChecklistAtendimento | null)?.estagio_atual
+    if (estagioAtual !== 'formulario_preenchido') {
+      const { data: companyRow } = await supabase
+        .from('companies')
+        .select('features')
+        .eq('id', ctx.companyId)
+        .maybeSingle()
+      if ((companyRow?.features as Record<string, boolean> | null)?.briefing === true) {
+        ctx.briefingLinkPending = true
+      }
+    }
   }
 
   const systemMsg = `${buildOrchestratorSystem(ctx)}
@@ -2591,6 +2616,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       asaasAtivo,
       billingRecurring: cfg.billing_recurring,
       placesAnalysisAtivo: cfg.placesAnalysisAtivo,
+      briefingLinkPending: false, // recalculado em runOrchestrator, com o checklist da conversa em mãos
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
