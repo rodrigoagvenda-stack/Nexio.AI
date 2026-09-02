@@ -84,16 +84,22 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Verificar se o email já existe em qualquer empresa
+    // Restrição real: 1 email = 1 conta Supabase Auth = 1 empresa (não é só nossa
+    // constraint, o próprio Auth já impede duas contas com o mesmo email). Por
+    // isso a mensagem aqui precisa dizer QUAL empresa, senão vira beco sem saída
+    // pra quem recebe : sem saber onde a conta está, ninguém consegue se
+    // desvincular de lá pra aceitar o convite daqui.
     const { data: existingMembers } = await supabaseService
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, companies(name)')
       .eq('email', email)
       .limit(1);
 
     if (existingMembers && existingMembers.length > 0) {
-      const msg = existingMembers[0].company_id === companyId
+      const existing = existingMembers[0] as any
+      const msg = existing.company_id === companyId
         ? 'Este email já é membro desta empresa.'
-        : 'Este email já possui uma conta na plataforma.';
+        : `Este email já possui conta vinculada à empresa "${existing.companies?.name ?? 'outra empresa'}". Peça para um administrador de lá remover o membro (Configuração > Membros) antes de convidar aqui.`
       return NextResponse.json({ success: false, message: msg }, { status: 400 });
     }
 
