@@ -81,6 +81,7 @@ interface SdrContext {
   billingRecurring: boolean
   placesAnalysisAtivo: boolean
   briefingLinkPending: boolean
+  qaDryRun: boolean
 }
 
 export interface BufferedMessage {
@@ -2306,7 +2307,13 @@ async function sendWithHumanDelay(
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000
     let sentMessageId: string | undefined
 
-    if (isMeta) {
+    if (ctx.qaDryRun) {
+      // Harness de avaliação (scripts/sdr-eval.ts) : roda o motor real de
+      // ponta a ponta, mas sem entregar WhatsApp de verdade. saveOutbound
+      // logo abaixo continua gravando normal em mensagens_do_whatsapp : é o
+      // canal que o harness lê de volta pra conferir o que o SDR "disse".
+      sentMessageId = `dryrun-${Date.now()}-${i}`
+    } else if (isMeta) {
       await new Promise((r) => setTimeout(r, Math.min(typingDelay, 4000)))
       const metaRes = await fetch(`https://graph.facebook.com/v21.0/${metaPhoneNumberId}/messages`, {
         method: 'POST',
@@ -2609,7 +2616,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     const { data: company } = await supabase
       .from('companies')
-      .select('name')
+      .select('name, features')
       .eq('id', companyId)
       .single()
 
@@ -2654,6 +2661,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       billingRecurring: cfg.billing_recurring,
       placesAnalysisAtivo: cfg.placesAnalysisAtivo,
       briefingLinkPending: false, // recalculado em runOrchestrator, com o checklist da conversa em mãos
+      qaDryRun: (company?.features as Record<string, boolean> | null)?.qa_dry_run === true,
     }
 
     const conversationId = await ensureConversation(ctx, supabase, cfg.inboxMode)
