@@ -164,8 +164,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // ── companies: sincroniza agente_ativo (fonte de verdade lida pelo engine) ──
+    // Toggle manual sempre limpa agente_pausado_motivo : a partir daqui é decisão
+    // do usuário, não mais um auto-pause (quota excedida etc) que precise de aviso.
     if (agente_ativo !== undefined) {
-      await service.from('companies').update({ agente_ativo }).eq('id', companyId)
+      await service.from('companies').update({ agente_ativo, agente_pausado_motivo: null }).eq('id', companyId)
     }
 
     // ── sdr_flows: orchestrator_prompt + RAG fields (source of truth) ──

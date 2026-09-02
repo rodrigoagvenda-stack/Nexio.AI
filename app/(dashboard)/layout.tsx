@@ -6,6 +6,7 @@ import { ZaapliLoader } from '@/components/brand/ZaapliLoader';
 import { DashboardTour } from '@/components/onboarding/DashboardTour';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { TrialGuard } from '@/components/layout/TrialGuard';
+import { QuotaPausedBanner } from '@/components/layout/QuotaPausedBanner';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
@@ -48,7 +49,7 @@ export default async function DashboardLayout({
   const [{ data: companyData }, { data: briefingConfig }] = await Promise.all([
     supabase
       .from('companies')
-      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit, features')
+      .select('name, email, image_url, plan_name, plan_type, trial_enabled, trial_ends_at, subscription_expires_at, tokens_used, plan_monthly_limit, features, agente_ativo, agente_pausado_motivo')
       .eq('id', userData?.company_id || 0)
       .single(),
     supabase
@@ -123,6 +124,7 @@ export default async function DashboardLayout({
   const hasBriefing = features.briefing === true;
   const userRole = userData?.role || 'closer';
   const brandLogoUrl = briefingConfig?.logo_url || null;
+  const quotaPaused = companyData?.agente_ativo === false && companyData?.agente_pausado_motivo === 'quota_exceeded';
 
   return (
     <PostHogProvider
@@ -152,6 +154,7 @@ export default async function DashboardLayout({
         features={features}
       />
       <div className="flex-1 flex flex-col min-w-0">
+        {quotaPaused && <QuotaPausedBanner />}
         <SystemTopBar
           userName={userData?.name || null}
           userEmail={userData?.email || null}

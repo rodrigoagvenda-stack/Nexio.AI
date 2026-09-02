@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Gerar link de convite via Supabase Admin (não precisa de SMTP)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.zaapply.com.br'
-    const redirectUrl = `${appUrl}/auth/callback`
+    const redirectUrl = `${appUrl}/api/auth/callback`
 
     const { data: linkData, error: authError } = await supabaseService.auth.admin.generateLink({
       type: 'invite',

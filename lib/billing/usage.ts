@@ -197,7 +197,10 @@ export async function recordUsage(
 // ─── pauseTenant ─────────────────────────────────────────────────────────────
 
 export async function pauseTenant(tenantId: number, supabase: Supabase): Promise<void> {
-  await supabase.from('companies').update({ agente_ativo: false }).eq('id', tenantId)
+  await supabase.from('companies').update({
+    agente_ativo: false,
+    agente_pausado_motivo: 'quota_exceeded',
+  }).eq('id', tenantId)
 }
 
 // ─── checkAndSendQuotaAlerts (fire-and-forget) ───────────────────────────────
