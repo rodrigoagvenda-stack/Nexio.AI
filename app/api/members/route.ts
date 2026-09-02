@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(request: NextRequest) {
@@ -7,7 +7,11 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const supabase = await createClient();
+    // Service client, não o client com RLS : a policy users_read_own só deixa
+    // cada pessoa ver a própria linha (auth_user_id = auth.uid()), então todo
+    // admin sempre via só a si mesmo na lista, não importa quantos membros
+    // existissem de verdade. company_id já vem validado por requireAuth.
+    const supabase = createServiceClient();
 
     const { data: members, error } = await supabase
       .from('users')
