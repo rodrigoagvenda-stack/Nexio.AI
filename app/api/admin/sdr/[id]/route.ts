@@ -49,5 +49,18 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     .upsert({ company_id: Number(params.id), ...update }, { onConflict: 'company_id' })
 
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+
+  // resolveCompanyByInstance() (webhook do uazapi, app/api/webhook/nexio)
+  // identifica a empresa da mensagem por companies.whatsapp_instance_name,
+  // não por sdr_configs.uazapi_instance_name : sem sincronizar os dois,
+  // mensagem inbound é descartada silenciosamente (200 ok, sem erro em
+  // lugar nenhum). Achado ao vivo com 3 empresas desincronizadas.
+  if (body.uazapi_instance_name) {
+    await supabase
+      .from('companies')
+      .update({ whatsapp_instance_name: body.uazapi_instance_name })
+      .eq('id', Number(params.id))
+  }
+
   return NextResponse.json({ ok: true })
 }
