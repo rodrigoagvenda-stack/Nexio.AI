@@ -340,7 +340,7 @@ Responda em JSON: { "scripts": "todos os scripts no formato acima, um após o ou
     throw new Error('Resposta da IA truncada por limite de tokens. Reduza a quantidade de detalhes e tente novamente.')
   }
 
-  let generated: { scripts: string }
+  let generated: { scripts: unknown }
   try {
     generated = JSON.parse(rawContent)
   } catch {
@@ -348,7 +348,17 @@ Responda em JSON: { "scripts": "todos os scripts no formato acima, um após o ou
     throw new Error('Falha ao interpretar resposta da IA')
   }
 
-  if (!generated.scripts?.trim()) {
+  // A IA às vezes devolve "scripts" como array (um item por objeção/bloco)
+  // em vez de uma string só, mesmo pedindo string no prompt — normaliza os
+  // dois formatos em vez de assumir sempre string (achado ao vivo : conteúdo
+  // grande com várias seções levou a IA a estruturar como lista).
+  const scriptsText = Array.isArray(generated.scripts)
+    ? generated.scripts.join('\n\n')
+    : typeof generated.scripts === 'string'
+      ? generated.scripts
+      : ''
+
+  if (!scriptsText.trim()) {
     throw new Error('IA não retornou scripts de objeções. Tente novamente.')
   }
 
@@ -359,7 +369,7 @@ Responda em JSON: { "scripts": "todos os scripts no formato acima, um após o ou
 
 === SCRIPTS DE OBJEÇÕES ===
 
-${generated.scripts}
+${scriptsText}
 
 === REGRA GERAL DE OBJEÇÃO ===
 Nunca rebater diretamente. Sempre validar antes de redirecionar.
