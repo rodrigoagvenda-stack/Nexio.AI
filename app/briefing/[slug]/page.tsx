@@ -252,7 +252,7 @@ export default function BriefingPublicPage() {
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
         <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url && (
-            <img src={config.logo_url} alt="Logo" className="h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '240px' }} />
+            <img src={config.logo_url} alt="Logo" className="h-12 sm:h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '200px' }} />
           )}
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
@@ -260,8 +260,8 @@ export default function BriefingPublicPage() {
           >
             <Check className="h-8 w-8" style={{ color: primaryColor }} />
           </div>
-          <h1 className="text-4xl md:text-5xl font-semibold">Enviado!</h1>
-          <p className={`text-lg whitespace-pre-wrap ${mutedClass}`}>{successMsg}</p>
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-semibold break-words">Enviado!</h1>
+          <p className={`text-base sm:text-lg whitespace-pre-wrap break-words ${mutedClass}`}>{successMsg}</p>
         </div>
       </div>
     );
@@ -273,11 +273,11 @@ export default function BriefingPublicPage() {
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
         <div className={`max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url && (
-            <img src={config.logo_url} alt="Logo" className="h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '240px' }} />
+            <img src={config.logo_url} alt="Logo" className="h-12 sm:h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '200px' }} />
           )}
-          <p className="text-5xl">😕</p>
-          <h1 className="text-3xl font-semibold">Algo deu errado</h1>
-          <p className={`text-base ${mutedClass}`}>{submitError}</p>
+          <p className="text-4xl sm:text-5xl">😕</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold break-words">Algo deu errado</h1>
+          <p className={`text-base break-words ${mutedClass}`}>{submitError}</p>
           <Button
             onClick={() => setSubmitError('')}
             className="text-white"
@@ -294,17 +294,17 @@ export default function BriefingPublicPage() {
   if (currentStep === -1) {
     return (
       <div className={`min-h-screen ${bgClass} flex items-center justify-center p-4`}>
-        <div className={`max-w-2xl w-full text-center space-y-8 animate-in fade-in duration-500 ${textClass}`}>
+        <div className={`max-w-2xl w-full text-center space-y-5 sm:space-y-8 animate-in fade-in duration-500 ${textClass}`}>
           {config.logo_url ? (
-            <img src={config.logo_url} alt="Logo" className="h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '240px' }} />
+            <img src={config.logo_url} alt="Logo" className="h-12 sm:h-16 md:h-20 w-auto object-contain mx-auto" style={{ maxWidth: '200px' }} />
           ) : (
             <div className="h-1 w-16 mx-auto rounded-full" style={{ backgroundColor: primaryColor }} />
           )}
-          <h1 className="text-4xl md:text-5xl font-semibold">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-semibold leading-tight break-words">
             {config.title || 'Preencha seu briefing'}
           </h1>
           {config.description && (
-            <p className={`text-lg max-w-xl mx-auto ${mutedClass}`}>{config.description}</p>
+            <p className={`text-base sm:text-lg max-w-xl mx-auto break-words ${mutedClass}`}>{config.description}</p>
           )}
           <Button
             size="lg"
@@ -345,8 +345,8 @@ export default function BriefingPublicPage() {
               <span className={`text-sm ${mutedClass}`}>{currentStep + 1} → {totalSteps}</span>
             </div>
             <div className="space-y-6">
-              <h2 className="text-3xl md:text-4xl font-medium leading-snug">
-                {config.whatsapp_label || 'Qual o seu WhatsApp?'} <span className="text-red-500 ml-1 text-2xl">*</span>
+              <h2 className="text-xl sm:text-2xl md:text-4xl font-medium leading-snug break-words">
+                {config.whatsapp_label || 'Qual o seu WhatsApp?'} <span className="text-red-500 ml-1 text-xl sm:text-2xl">*</span>
               </h2>
               <div className={`flex items-center border-b-2 ${borderClass} py-2 gap-3`}>
                 <span className="flex items-center gap-1.5 text-xl shrink-0 select-none">
@@ -413,9 +413,9 @@ export default function BriefingPublicPage() {
 
           <div className="space-y-6">
             {/* Label da pergunta */}
-            <h2 className="text-3xl md:text-4xl font-medium leading-snug">
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-medium leading-snug break-words">
               {interpolate(q.label)}
-              {q.is_required && <span className="text-red-500 ml-1 text-2xl">*</span>}
+              {q.is_required && <span className="text-red-500 ml-1 text-xl sm:text-2xl">*</span>}
             </h2>
 
             {/* TEXT */}
