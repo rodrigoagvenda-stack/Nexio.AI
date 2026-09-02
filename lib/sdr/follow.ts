@@ -2625,16 +2625,28 @@ export async function runSequenceImmediateById(
     if (!step.mensagem && !step.media_config) continue
 
     try {
+      const media = step.media_config as StepMediaConfig | undefined
       const texto = substituirVariaveis(step.mensagem ?? '', lead as unknown as Lead)
       await sendRichStepUnified(
         companyId,
         phone,
         (step.tipo_mensagem ?? 'text') as StepTipoMensagem,
         texto,
-        step.media_config as StepMediaConfig | undefined
+        media
       )
       sent++
       console.log(`[webhook-seq] company=${companyId} lead=${leadId} seq="${sequence.nome}" step=${step.ordem} enviado`)
+
+      // Blocos adicionais : mesmo padrão do trial_saas/follow_geral, o
+      // primeiro bloco já é step.mensagem, o loop manda o resto (índice 1+).
+      const blocos: string[] = Array.isArray((media as any)?.blocos) ? (media as any).blocos as string[] : []
+      for (let i = 1; i < blocos.length; i++) {
+        const blocoTexto = substituirVariaveis(blocos[i] || '', lead as unknown as Lead)
+        if (!blocoTexto) continue
+        await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1500))
+        await sendRichStepUnified(companyId, phone, 'text', blocoTexto, undefined)
+        sent++
+      }
 
       await new Promise((r) => setTimeout(r, 1500))
     } catch (err: any) {

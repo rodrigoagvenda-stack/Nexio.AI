@@ -118,6 +118,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
 
       let lead = leadRows?.[0] ?? null;
       const email = extrairEmailDasRespostas(answers);
+      const nomeDoFormulario = extrairNomeDasRespostas(answers);
 
       if (lead && lead.id != null) {
         const currentLeadId: number = lead.id;
@@ -128,6 +129,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
             briefing_preenchido: true,
             briefing_preenchido_em: new Date().toISOString(),
             ...(email ? { email } : {}),
+            // Nome sempre reflete o que foi digitado NESSE preenchimento, não
+            // o que ficou salvo de um lead antigo/teste anterior pro mesmo
+            // telefone : achado ao vivo (WhatsApp de teste reaproveitado
+            // mandava o nome de um teste anterior, "Gabriel", ignorando o
+            // "Rodrigo" digitado agora).
+            ...(nomeDoFormulario ? { contact_name: nomeDoFormulario } : {}),
           })
           .eq('id', currentLeadId);
       } else {
@@ -135,13 +142,12 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
         // direto de um anúncio pro formulário, sem passar pelo SDR antes).
         // Cria na hora : sem isso a resposta ficava órfã, sem status/checklist
         // e sem lead_id pro webhook disparar follow-up nenhum.
-        const nome = extrairNomeDasRespostas(answers);
         const { data: novoLead } = await supabase
           .from('leads')
           .insert({
             company_id: config.company_id,
-            company_name: nome || 'Lead via formulário',
-            contact_name: nome,
+            company_name: nomeDoFormulario || 'Lead via formulário',
+            contact_name: nomeDoFormulario,
             whatsapp: normalizePhone(whatsappRaw),
             email,
             status: 'Interessado',
