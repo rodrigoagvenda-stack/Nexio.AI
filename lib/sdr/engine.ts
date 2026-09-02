@@ -253,7 +253,9 @@ export function isPromptInjection(text: string): boolean {
 const OPT_OUT_PATTERNS = [
   /\bpar(?:e|a|ar)\s+de\s+(?:me\s+)?mandar/i,
   /\bpar(?:e|a|ar)\s+de\s+(?:me\s+)?chamar/i,
-  /\bn(?:ã|a)o\s+quero\s+(?:mais\s+)?(?:receber|mensage)/i,
+  /\bn(?:ã|a)o\s+quero\s+(?:mais\s+)?(?:receber|mensage|informa[cç][aã]o|informa[cç][oõ]es|saber|nada)/i,
+  /\bn(?:ã|a)o\s+tenho\s+interesse/i,
+  /\bn(?:ã|a)o\s+preciso(?:\s+mais)?/i,
   /\bremov(?:e|er|a)\s+(?:o\s+)?(?:meu\s+)?(?:contato|n[uú]mero)/i,
   /\bdescadastr/i,
   /\bcancelar\s+(?:a\s+)?inscri[cç][aã]o/i,
@@ -1358,8 +1360,9 @@ REGRAS DE MENSAGEM (CRÍTICO):
 - Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
 - Máximo 1 a 2 frases por bloco.
 - NUNCA junte tudo em um parágrafo só. Sempre quebre em blocos.
-- NUNCA use travessão (:). Use vírgula ou ponto.
+- NUNCA use travessão (—). Use vírgula ou ponto.
 - NUNCA repita a mesma muleta de frase em mensagens seguidas (ex: "Se quiser, posso...", "Fico à disposição", "Qualquer dúvida me avisa"). Revise mentalmente a ÚLTIMA mensagem que você mandou nesta conversa : se ela já terminava com uma oferta parecida, feche essa mensagem de um jeito diferente ou sem oferta nenhuma.
+- Evite "Se quiser, posso..." como abertura padrão de oferta : é hedge passivo, soa hesitante e repetitivo. Prefira afirmar direto ou fazer a pergunta objetiva (em vez de "Se quiser, posso te explicar os motivos", use "Isso costuma acontecer por 2-3 motivos : [motivo]. Você já tem X?"). Seja direto e cirúrgico, não ofereça passivamente.
 
 Exemplo CORRETO:
 Olá, Rodrigo! Tudo bem por aqui, e com você?
@@ -1605,13 +1608,17 @@ interface ChecklistAtendimento {
   apresentacao_feita?: boolean
   perguntas_e_respostas?: { pergunta: string; resposta: string }[]
   estagio_atual?: string
+  lead_recusou?: boolean
 }
 
 function formatChecklist(checklist: ChecklistAtendimento | null): string {
-  if (!checklist || (!checklist.apresentacao_feita && !checklist.perguntas_e_respostas?.length && !checklist.estagio_atual)) {
+  if (!checklist || (!checklist.apresentacao_feita && !checklist.perguntas_e_respostas?.length && !checklist.estagio_atual && !checklist.lead_recusou)) {
     return 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
   }
   const lines: string[] = []
+  if (checklist.lead_recusou) {
+    lines.push('⚠️ O LEAD JÁ RECUSOU/PEDIU PRA PARAR EXPLICITAMENTE nesta conversa. NÃO ofereça nada novo, NÃO faça pergunta de qualificação, NÃO empurre a conversa adiante. Responda no máximo uma frase curta e educada se ele mandar algo, e só volte a vender de verdade se ELE fizer uma pergunta clara e nova sobre o produto.')
+  }
   lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : 'NÃO : apresente-se nesta resposta'}`)
   if (checklist.perguntas_e_respostas?.length) {
     lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
@@ -1641,7 +1648,22 @@ async function runOrchestrator(
       .select('checklist_atendimento')
       .eq('id', ctx.conversationId)
       .maybeSingle()
-    checklistText = formatChecklist((convRow?.checklist_atendimento as ChecklistAtendimento) ?? null)
+    const checklistAtual = (convRow?.checklist_atendimento as ChecklistAtendimento) ?? null
+
+    // Lead já recusou/pediu pra parar : achado ao vivo (2026-09-02) que o SDR
+    // continuava empurrando venda em toda mensagem seguinte mesmo depois de o
+    // lead recusar claramente, porque a regra "empurre sempre adiante" é
+    // prosa e o modelo não confiava/lembrava disso sozinho relendo o
+    // histórico. Persistido no checklist (igual estagio_atual) : uma vez
+    // marcado, fica sinalizado explicitamente em TODO turno seguinte, não só
+    // quando a frase de recusa aparece na mensagem atual.
+    if (!checklistAtual?.lead_recusou && isOptOutRequest(userInput)) {
+      const merged = { ...(checklistAtual ?? {}), lead_recusou: true }
+      await supabase.from('conversas_do_whatsapp').update({ checklist_atendimento: merged }).eq('id', ctx.conversationId)
+      checklistText = formatChecklist(merged)
+    } else {
+      checklistText = formatChecklist(checklistAtual)
+    }
 
     // Título do anúncio que o lead clicou (CTWA), se veio de um : já
     // gravado em attribution_events pela ingestão (lib/sdr/inbound.ts),
