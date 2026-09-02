@@ -320,10 +320,12 @@ export function buildGaps(score: PlacesScoreResult, details: PlaceDetails, manua
   })
 }
 
-/** Resumo curto (pro contexto do outbound/SDR) : 3-4 linhas, factual, sem invenção. */
+/** Resumo curto (pro contexto do outbound/SDR) : 5-6 linhas, factual, sem invenção.
+ * 4 gaps (não 2) pra abordagem consultiva conseguir listar vários problemas
+ * concretos antes de puxar pra call, em vez de só 1 gancho isolado. */
 export function summarizeForOutreach(details: PlaceDetails, score: PlacesScoreResult, gaps: Gap[]): string {
   const nome = details.displayName?.text ?? 'o negócio'
-  const criticos = gaps.filter((g) => g.severidade === 'critico').slice(0, 2)
+  const criticos = gaps.filter((g) => g.severidade === 'critico').slice(0, 4)
   const linhas = [
     `${nome}: nota ${(details.rating ?? 0).toFixed(1)} (${details.userRatingCount ?? 0} avaliações), perfil Google score ${score.total}/100 (${score.grade}).`,
     ...criticos.map((g) => `Gap: ${g.titulo}.`),

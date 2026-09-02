@@ -366,13 +366,26 @@ async function generateMessage(
   const abertura = pool[Math.floor(Math.random() * pool.length)]
   const p = ctx.persona
 
-  const systemPrompt = `Você é um especialista em prospecção fria via WhatsApp${p?.nomeAgente ? `, escrevendo como ${p.nomeAgente}` : ''}${p?.empresa ? ` da ${p.empresa}` : ''}. Gere UMA mensagem curta, natural e personalizada pra iniciar contato com um lead frio.
+  // Consultivo : quando existe análise real com 2+ gaps concretos, vale gastar
+  // mais palavras listando os problemas antes de puxar pra call, em vez de um
+  // gancho de 1 linha só. Sem isso (contexto genérico ou ausente), mantém o
+  // estilo curto de sempre.
+  const gapCount = (ctx.mqlResumo?.match(/Gap:/g) ?? []).length
+  const consultivo = gapCount >= 2
+
+  const systemPrompt = `Você é um especialista em prospecção fria via WhatsApp${p?.nomeAgente ? `, escrevendo como ${p.nomeAgente}` : ''}${p?.empresa ? ` da ${p.empresa}` : ''}. Gere UMA mensagem${consultivo ? ' consultiva' : ' curta'}, natural e personalizada pra iniciar contato com um lead frio.
 ${p?.tom ? `\nTom de voz da empresa: ${p.tom}` : ''}
 ${p?.produto ? `Produto/serviço: ${p.produto}` : ''}
 ${p?.restricoes ? `Restrições : NUNCA quebrar: ${p.restricoes}` : ''}
 
 REGRAS OBRIGATÓRIAS:
-- Máximo 40 palavras, máximo 3 linhas
+${consultivo ? `- Cumprimente o lead pelo nome e pergunte como está
+- Diga que fez uma análise detalhada do perfil da empresa no Google : NUNCA mencione site ou qualquer canal que não apareça no "Contexto sobre o lead" abaixo, só afirme o que a análise realmente cobriu
+- Cite de 2 a 4 problemas CONCRETOS listados no "Contexto sobre o lead" (os "Gap:"), nunca invente um problema que não está lá
+- Feche perguntando se pode bater um papo rápido pra mostrar como resolver isso : tom consultivo, veio ajudar, não empurrar venda
+- Máximo 80 palavras, pode quebrar em até 3 blocos (linha em branco entre eles)` : `- Máximo 40 palavras, máximo 3 linhas
+- Se fizer sentido dividir em duas mensagens curtas, separe os blocos com uma linha em branco (no máximo 2 blocos)
+- Se o "Contexto sobre o lead" abaixo citar um "Gap:" específico do perfil Google (ex: sem site, sem fotos, sem posts), cite ESSE dado concreto na mensagem. NUNCA generalize pra algo vago tipo "pode melhorar" ou "tem espaço pra crescer" sem dizer o quê : o gancho só funciona sendo específico.`}
 - Sem markdown, sem negrito, sem itálico
 - Máximo 1 emoji
 - Sem CAIXA ALTA
@@ -382,8 +395,6 @@ REGRAS OBRIGATÓRIAS:
 - Faça 1 pergunta simples
 - Toda frase começa com letra maiúscula
 - Use a abordagem abaixo só como INSPIRAÇÃO : nunca copie literalmente, reescreva com as próprias palavras, respeitando o tom da empresa acima
-- Se fizer sentido dividir em duas mensagens curtas, separe os blocos com uma linha em branco (no máximo 2 blocos)
-- Se o "Contexto sobre o lead" abaixo citar um "Gap:" específico do perfil Google (ex: sem site, sem fotos, sem posts), cite ESSE dado concreto na mensagem. NUNCA generalize pra algo vago tipo "pode melhorar" ou "tem espaço pra crescer" sem dizer o quê : o gancho só funciona sendo específico.
 
 Abordagem de inspiração (categoria: ${abertura.categoria}):
 "${abertura.texto}"
