@@ -217,6 +217,40 @@ export async function cancelEvent(calendarId: string, eventId: string, companyId
   await calendar.events.delete({ calendarId, eventId, sendUpdates: 'all' })
 }
 
+/** Busca um evento específico direto no Google Calendar (fonte da verdade, não o
+ * banco) : usado pra confirmar se uma reunião "marcada" segundo o CRM ainda existe
+ * de verdade, sem depender do banco ter sido atualizado quando alguém cancela/deleta
+ * o evento manualmente no Calendar. Retorna null se não existir ou tiver sido cancelado. */
+export async function getEvent(
+  calendarId: string,
+  eventId: string,
+  companyId: number
+): Promise<ScheduledEvent | null> {
+  const calendar = await getCalendarClientForCompany(companyId)
+  try {
+    const { data } = await calendar.events.get({ calendarId, eventId })
+    if (!data || data.status === 'cancelled') return null
+    const startIso = data.start?.dateTime ?? data.start?.date
+    const endIso = data.end?.dateTime ?? data.end?.date
+    if (!startIso || !endIso) return null
+    const meetUrl =
+      data.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ??
+      data.hangoutLink ??
+      ''
+    return {
+      eventId: data.id ?? eventId,
+      meetUrl,
+      start: new Date(startIso),
+      end: new Date(endIso),
+      title: data.summary ?? '',
+    }
+  } catch (err: any) {
+    // 404/410 = evento não existe mais (deletado) : trata como "sem reunião", não como erro
+    if (err?.code === 404 || err?.code === 410) return null
+    throw err
+  }
+}
+
 /** Formata data/hora para exibição em PT-BR (fuso America/Sao_Paulo) */
 export function formatDateTimeBR(date: Date): string {
   return date.toLocaleString('pt-BR', {

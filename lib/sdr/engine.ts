@@ -27,6 +27,7 @@ import {
   checkAvailableSlots,
   createEventWithMeet,
   cancelEvent,
+  getEvent,
   formatDateTimeBR,
   nextBusinessDay,
   isBusinessDay,
@@ -1013,13 +1014,11 @@ FLUXO DE AGENDAMENTO (só se passou pelo guarda-chuva acima):
    - Se no histórico existe uma mensagem sua no formato "[Nome], [dia] [data] às [hora], confirma?" E a última mensagem do lead foi "sim", "pode", "ok", "confirmo", "tá bom" ou qualquer afirmação → PARE. Verifique se já tem nome completo E email no histórico. Se sim: vá direto para "Agendar_gcal". Se não: vá para o passo 4.5 agora.
    - Só inicie o fluxo do passo 1 se não houver confirmação pendente no histórico.
 1. "Hora_atual" → obter data/hora exata
-2. "Buscar_reuniao" → retorna o campo call_de_venda (boolean)
-   - FALSE = sem call marcada → vá direto para o passo 4
-   - TRUE = pode ter call marcada → vá para o passo 3
-3. "Consultar_gcal" → verificar se o evento realmente existe no calendário
-   - Se existir → informe de forma simpática e pergunte se quer reagendar
-   - Se não existir → trate como sem agendamento e vá para o passo 4
-4. "Consultar_gcal" → verificar conflitos no calendário
+2. "Buscar_reuniao" → já confirma sozinho, no Google Calendar de verdade (não só no banco), se existe uma reunião válida. Use o campo "reuniao_valida" da resposta, ele já é a resposta final e definitiva, NÃO precisa chamar "Consultar_gcal" de novo só pra confirmar isso:
+   - reuniao_valida=true → informe a reunião existente de forma simpática (use call_agendada_para/meet_url da resposta) e pergunte se quer reagendar
+   - reuniao_valida=false → trate como SEM nenhum agendamento (mesmo que call_de_venda esteja true no banco : o motivo pode ser "evento_nao_existe_mais_no_calendario" ou "horario_ja_passou", ambos = sem reunião válida pra apresentar) e vá direto para o passo 4
+   - NUNCA diga "já temos uma reunião marcada" sobre um horário que já passou. Se motivo="horario_ja_passou" ou "evento_nao_existe_mais_no_calendario", é como se não houvesse reunião nenhuma.
+4. "Consultar_gcal" → verificar conflitos no calendário (pra achar/confirmar um NOVO horário, não pra reconferir a reunião do passo 2)
    - Se o lead JÁ informou dia e/ou horário desejado:
      → Consulte especificamente esse dia/horário
      → Se livre → vá direto para o passo 4.5
@@ -1163,7 +1162,38 @@ REGRAS:
         .select('call_de_venda, call_agendada_para, meet_url, call_status, contact_name, calendar_event_id')
         .eq('id', ctx.leadId)
         .single()
-      return JSON.stringify(data ?? {})
+
+      // O banco só reflete o que o SDR gravou quando agendou : se alguém cancelar
+      // ou deletar o evento direto no Google Calendar, o banco fica desatualizado
+      // e o SDR continuaria oferecendo uma reunião que não existe mais. Por isso
+      // reuniao_valida é sempre calculado aqui, consultando o Calendar de verdade
+      // (fonte da verdade), nunca deixado pra IA decidir se confia no banco ou
+      // confere o calendário : achado ao vivo (2026-09-02) uma reunião de horário
+      // já passado e evento já deletado sendo apresentada como "já temos marcado".
+      let reuniaoValida = false
+      let motivo = 'sem_agendamento'
+      if (data?.call_de_venda && data?.calendar_event_id && ctx.calendarId) {
+        try {
+          const evento = await getEvent(ctx.calendarId, data.calendar_event_id, ctx.companyId)
+          if (!evento) {
+            motivo = 'evento_nao_existe_mais_no_calendario'
+          } else if (evento.start.getTime() < Date.now()) {
+            motivo = 'horario_ja_passou'
+          } else {
+            reuniaoValida = true
+            motivo = 'confirmado_no_calendario'
+          }
+        } catch (err: any) {
+          console.error(`[SDR:${ctx.companyId}] Buscar_reuniao : falha ao confirmar no Calendar:`, err.message)
+          motivo = 'erro_ao_consultar_calendario'
+        }
+      }
+
+      return JSON.stringify({
+        ...data,
+        reuniao_valida: reuniaoValida,
+        motivo,
+      })
     },
     'Consultar_gcal': async (args) => {
       try {
