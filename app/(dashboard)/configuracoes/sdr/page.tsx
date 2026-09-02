@@ -1828,7 +1828,12 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   const [showAutoPanel, setShowAutoPanel] = useState(false)
   const [autoSummary, setAutoSummary] = useState<{ avgScore: number; wouldConvert: boolean; errors: string[]; rounds: number } | null>(null)
   const [realTestRunning, setRealTestRunning] = useState(false)
-  const [realTestResult, setRealTestResult] = useState<{ passou: boolean; resumo: string; detalhes: { ok: boolean; label: string }[] } | null>(null)
+  const [realTestResult, setRealTestResult] = useState<{
+    passou: boolean
+    resumo: string
+    detalhes: { nome: string; passou: boolean; transcript: { lead: string; sdr: string }[]; observacao: string }[]
+  } | null>(null)
+  const [appliedRealTestIndices, setAppliedRealTestIndices] = useState<Set<number>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -1942,10 +1947,16 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
   // Diferente da simulação acima (que reescreve o prompt do zero) : chama o
   // motor de produção de verdade, contra uma cópia isolada da sua empresa.
+  async function applyRealTestCorrection(index: number, observacao: string) {
+    await applyAutoError(observacao)
+    setAppliedRealTestIndices((prev) => new Set(prev).add(index))
+  }
+
   async function runRealTest() {
     if (!flowId || realTestRunning) return
     setRealTestRunning(true)
     setRealTestResult(null)
+    setAppliedRealTestIndices(new Set())
     try {
       const res = await fetch('/api/sdr/self-test', { method: 'POST' })
       const data = await res.json()
@@ -2268,24 +2279,55 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
 
         {realTestResult && (
           <div className={cn(
-            'mx-3 rounded-xl border p-4 space-y-2 animate-in fade-in duration-300',
+            'mx-3 rounded-xl border p-4 space-y-3 animate-in fade-in duration-300',
             realTestResult.passou ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'
           )}>
-            <p className="text-xs font-semibold flex items-center gap-1.5">
-              <ShieldCheck className={cn('w-3.5 h-3.5', realTestResult.passou ? 'text-emerald-500' : 'text-amber-500')} />
-              Teste real do seu SDR
-            </p>
-            <p className="text-xs text-foreground/90">{realTestResult.resumo}</p>
-            {!realTestResult.passou && realTestResult.detalhes.some((d) => !d.ok) && (
-              <div className="space-y-1 pt-1">
-                {realTestResult.detalhes.filter((d) => !d.ok).map((d, i) => (
-                  <div key={i} className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-2.5 py-2">
-                    <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0 text-amber-500" />
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex-1">{d.label}</p>
+            <div>
+              <p className="text-xs font-semibold flex items-center gap-1.5">
+                <ShieldCheck className={cn('w-3.5 h-3.5', realTestResult.passou ? 'text-emerald-500' : 'text-amber-500')} />
+                Teste real do seu SDR
+              </p>
+              <p className="text-xs text-foreground/90 mt-1">{realTestResult.resumo}</p>
+            </div>
+            <div className="space-y-2">
+              {realTestResult.detalhes.map((d, i) => (
+                <div key={i} className={cn(
+                  'rounded-lg border px-3 py-2.5 space-y-1.5',
+                  d.passou ? 'border-border bg-card' : 'border-amber-500/20 bg-amber-500/5'
+                )}>
+                  <div className="flex items-start gap-2">
+                    {d.passou
+                      ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                      : <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium">{d.nome}</p>
+                      <p className={cn('text-[11px] mt-0.5', d.passou ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400')}>{d.observacao}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  {d.transcript.length > 0 && (
+                    <div className="pl-6 space-y-1 border-l border-border/60 ml-1.5">
+                      {d.transcript.map((t, ti) => (
+                        <div key={ti} className="text-[10px] leading-relaxed">
+                          <span className="text-emerald-600 dark:text-emerald-500">Lead:</span> <span className="text-muted-foreground">{t.lead}</span>
+                          <br />
+                          <span className="text-primary">SDR:</span> <span className="text-muted-foreground">{t.sdr}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!d.passou && flowId && (
+                    <button
+                      type="button"
+                      onClick={() => applyRealTestCorrection(i, d.observacao)}
+                      disabled={appliedRealTestIndices.has(i)}
+                      className="text-[10px] font-medium text-primary hover:underline disabled:text-muted-foreground disabled:no-underline ml-6"
+                    >
+                      {appliedRealTestIndices.has(i) ? '✓ Correção aplicada' : 'Aplicar correção'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

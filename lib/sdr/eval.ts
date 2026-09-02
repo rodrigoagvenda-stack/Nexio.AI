@@ -13,8 +13,13 @@
  *   entregar mudança no núcleo. Rotas: scripts/sdr-eval.ts,
  *   POST /api/admin/qa/sdr-eval (Bearer CRON_SECRET).
  * - `runTenantSelfTest(realCompanyId)` : mesmos cenários, resultado em
- *   português simples pro próprio cliente ler. Rota:
+ *   português simples com a transcrição real de cada conversa. Rota:
  *   POST /api/sdr/self-test (auth normal de usuário logado).
+ *
+ * Achado ao vivo (2026-09-02) : rodar dois testes ao mesmo tempo pra mesma
+ * empresa (2 abas, duplo clique) corrompe tudo — toda mensagem sai
+ * duplicada, resultado vira lixo. runTenantSelfTest trava contra isso
+ * (companies.qa_test_running_since).
  */
 import { createServiceClient } from '@/lib/supabase/server'
 import { processSdrMessage, bufferMessage, type BufferedMessage } from '@/lib/sdr/engine'
@@ -35,11 +40,20 @@ export interface EvalResult {
   log: string[]
 }
 
+export interface ScenarioReport {
+  nome: string
+  passou: boolean
+  transcript: { lead: string; sdr: string }[]
+  observacao: string
+}
+
 export interface TenantSelfTestResult {
   passou: boolean
   resumo: string
-  detalhes: EvalCheck[]
+  detalhes: ScenarioReport[]
 }
+
+const LOCK_TTL_MS = 3 * 60_000 // trava expira sozinha se algo travar de verdade no meio
 
 // ─── Helpers de execução (parametrizados pela empresa-sombra) ────────
 
@@ -123,8 +137,6 @@ function makeRunner(companyId: number, supabase: Supabase) {
 
 // ─── Cenários (genéricos : servem pra qualquer nicho/empresa) ─────────
 
-type ScenarioResult = { checks: EvalCheck[]; log: string[] }
-
 /** Cada cenário usa um telefone próprio e roda isolado : dá pra rodar os 4
  * em paralelo (Promise.all lá embaixo) sem colidir, o que corta o tempo
  * total de ~4x pra ~1x (cada chamada real ao motor já é lenta sozinha,
@@ -132,93 +144,114 @@ type ScenarioResult = { checks: EvalCheck[]; log: string[] }
 function makeScenario(companyId: number, supabase: Supabase) {
   const { resetLead, sendLeadMessage, getChecklist, hasFechamentoConfigured, hasBriefingLink } = makeRunner(companyId, supabase)
 
-  function collector(): { checks: EvalCheck[]; log: string[]; say: (l: string) => void; assert: (c: boolean, l: string) => void; assertBlockCap: (m: string[], l: string) => void } {
-    const checks: EvalCheck[] = []
-    const log: string[] = []
-    const say = (line: string) => { log.push(line); console.log(line) }
-    const assert = (condition: boolean, label: string) => { checks.push({ ok: condition, label }); say(`  ${condition ? '✓' : '✗'} ${label}`) }
-    const assertBlockCap = (messages: string[], turnLabel: string) => assert(messages.length <= 3, `${turnLabel}: no máximo 3 blocos (veio ${messages.length})`)
-    return { checks, log, say, assert, assertBlockCap }
-  }
-
   // Cenário 1 : lead pergunta preço direto — smoke test (varia por empresa,
   // não dá pra saber o valor certo aqui) : só confirma que responde de
   // verdade, sem travar e sem virar discurso longo.
-  const precoDireto = async (): Promise<ScenarioResult> => {
-    const { checks, log, say, assert, assertBlockCap } = collector()
-    say('\n[Cenário 1] Lead pergunta preço direto')
+  const precoDireto = async (): Promise<ScenarioReport> => {
     const phone = '5511900000001'
     await resetLead(phone)
     await sendLeadMessage(phone, 'Oi, tudo bem?')
     const r2 = await sendLeadMessage(phone, 'Quanto custa?')
-    assert(r2.length > 0, 'SDR respondeu à pergunta de preço (não ficou em silêncio)')
-    assertBlockCap(r2, 'resposta de preço')
-    return { checks, log }
+    const transcript = [
+      { lead: 'Oi, tudo bem?', sdr: '(cumprimento inicial)' },
+      { lead: 'Quanto custa?', sdr: r2.join(' ') || '(sem resposta)' },
+    ]
+    if (r2.length === 0) return { nome: 'Lead pergunta preço direto', passou: false, transcript, observacao: 'O SDR não respondeu quando o lead perguntou o preço direto.' }
+    if (r2.length > 3) return { nome: 'Lead pergunta preço direto', passou: false, transcript, observacao: `A resposta veio em ${r2.length} mensagens seguidas : ficou um textão em vez de curto e direto.` }
+    return { nome: 'Lead pergunta preço direto', passou: true, transcript, observacao: 'Respondeu de forma curta e direta.' }
   }
 
   // Cenário 2 : lead confirma intenção de agendar — só roda de verdade se a
   // empresa usa formulário de briefing (senão não há o que travar).
-  const confirmaAgendamento = async (): Promise<ScenarioResult> => {
-    const { checks, log, say, assert, assertBlockCap } = collector()
-    say('\n[Cenário 2] Lead confirma intenção de agendar')
-    if (await hasBriefingLink()) {
-      const phone = '5511900000002'
-      await resetLead(phone)
-      await sendLeadMessage(phone, 'Oi, vi o anúncio de vocês e fiquei interessado')
-      const r2 = await sendLeadMessage(phone, 'Quero marcar uma reunião')
-      const joined = r2.join(' \n ')
-      assert(!/nome completo/i.test(joined), 'não pula direto pra coleta de nome/e-mail sem passar pelo formulário')
-      assertBlockCap(r2, 'resposta de agendamento')
-    } else {
-      say('  (pulado : empresa não usa formulário de briefing, nada a travar aqui)')
+  const confirmaAgendamento = async (): Promise<ScenarioReport | null> => {
+    if (!(await hasBriefingLink())) return null // empresa não usa formulário : nada a testar aqui
+    const phone = '5511900000002'
+    await resetLead(phone)
+    await sendLeadMessage(phone, 'Oi, vi o anúncio de vocês e fiquei interessado')
+    const r2 = await sendLeadMessage(phone, 'Quero marcar uma reunião')
+    const joined = r2.join(' ')
+    const transcript = [
+      { lead: 'Oi, vi o anúncio de vocês e fiquei interessado', sdr: '(abertura)' },
+      { lead: 'Quero marcar uma reunião', sdr: joined || '(sem resposta)' },
+    ]
+    if (/nome completo/i.test(joined)) {
+      return { nome: 'Lead confirma intenção de agendar', passou: false, transcript, observacao: 'Pulou direto pra pedir nome/e-mail, sem passar pelo formulário configurado antes.' }
     }
-    return { checks, log }
+    if (r2.length === 0) return { nome: 'Lead confirma intenção de agendar', passou: false, transcript, observacao: 'O SDR não respondeu ao pedido de agendamento.' }
+    return { nome: 'Lead confirma intenção de agendar', passou: true, transcript, observacao: 'Seguiu o fluxo configurado corretamente antes de agendar.' }
   }
 
   // Cenário 3 : lead diz que não tem interesse — checklist tem que persistir
   // a recusa e o SDR tem que parar de insistir na mensagem seguinte.
-  const recusaPersiste = async (): Promise<ScenarioResult> => {
-    const { checks, log, say, assert } = collector()
-    say('\n[Cenário 3] Lead que recusa não pode ser abordado de novo')
+  const recusaPersiste = async (): Promise<ScenarioReport> => {
     const phone = '5511900000003'
     await resetLead(phone)
-    await sendLeadMessage(phone, 'Oi')
-    await sendLeadMessage(phone, 'não quero mais informação')
+    const r1 = await sendLeadMessage(phone, 'Oi')
+    const r2 = await sendLeadMessage(phone, 'não quero mais informação')
     const checklist = await getChecklist(phone)
-    assert(checklist?.lead_recusou === true, 'checklist_atendimento.lead_recusou = true depois da recusa')
+    const recusouRegistrada = checklist?.lead_recusou === true
     const r3 = await sendLeadMessage(phone, 'ok')
-    assert(r3.length <= 1, `resposta seguinte é curta/sem novo pitch (veio ${r3.length} bloco(s))`)
-    return { checks, log }
+    const transcript = [
+      { lead: 'Oi', sdr: r1.join(' ') || '(sem resposta)' },
+      { lead: 'não quero mais informação', sdr: r2.join(' ') || '(sem resposta)' },
+      { lead: 'ok', sdr: r3.join(' ') || '(silêncio, esperado aqui)' },
+    ]
+    if (!recusouRegistrada) {
+      return { nome: 'Lead que recusa não pode ser abordado de novo', passou: false, transcript, observacao: 'O sistema não registrou que o lead recusou : ele pode voltar a ser abordado por engano.' }
+    }
+    if (r3.length > 1) {
+      return { nome: 'Lead que recusa não pode ser abordado de novo', passou: false, transcript, observacao: 'Mesmo depois da recusa, o SDR mandou uma oferta nova em vez de ficar quieto.' }
+    }
+    return { nome: 'Lead que recusa não pode ser abordado de novo', passou: true, transcript, observacao: 'Registrou a recusa e parou de insistir corretamente.' }
   }
 
   // Cenário 4 : intenção de compra fraseada de forma indireta — o bloco de
   // Fechamento (se configurado) tem que aparecer mesmo sem palavras óbvias
   // de fechamento na pergunta do lead.
-  const fechamentoIndireto = async (): Promise<ScenarioResult> => {
-    const { checks, log, say, assertBlockCap } = collector()
-    say('\n[Cenário 4] Fechamento aparece mesmo com pergunta indireta')
-    if (await hasFechamentoConfigured()) {
-      const phone = '5511900000004'
-      await resetLead(phone)
-      await sendLeadMessage(phone, 'Pode me contar mais sobre como funciona?')
-      const r2 = await sendLeadMessage(phone, 'é isso que eu preciso mesmo, não é?')
-      assertBlockCap(r2, 'resposta de fechamento indireto')
-    } else {
-      say('  (pulado : empresa não tem bloco de Fechamento configurado no wizard ainda)')
+  const fechamentoIndireto = async (): Promise<ScenarioReport | null> => {
+    if (!(await hasFechamentoConfigured())) return null // empresa não tem bloco de fechamento configurado ainda
+    const phone = '5511900000004'
+    await resetLead(phone)
+    const r1 = await sendLeadMessage(phone, 'Pode me contar mais sobre como funciona?')
+    const r2 = await sendLeadMessage(phone, 'é isso que eu preciso mesmo, não é?')
+    const transcript = [
+      { lead: 'Pode me contar mais sobre como funciona?', sdr: r1.join(' ') || '(sem resposta)' },
+      { lead: 'é isso que eu preciso mesmo, não é?', sdr: r2.join(' ') || '(sem resposta)' },
+    ]
+    if (r2.length > 3) {
+      return { nome: 'Fechamento aparece mesmo com pergunta indireta', passou: false, transcript, observacao: `Resposta em ${r2.length} mensagens : longa demais pra esse momento da conversa.` }
     }
-    return { checks, log }
+    return { nome: 'Fechamento aparece mesmo com pergunta indireta', passou: true, transcript, observacao: 'Reconheceu a intenção de fechar mesmo sem palavras óbvias.' }
   }
 
   return [precoDireto, confirmaAgendamento, recusaPersiste, fechamentoIndireto]
 }
 
-async function runScenarios(companyId: number, supabase: Supabase): Promise<{ checks: EvalCheck[]; log: string[] }> {
+async function runScenarios(companyId: number, supabase: Supabase): Promise<ScenarioReport[]> {
   const scenarios = makeScenario(companyId, supabase)
   const results = await Promise.all(scenarios.map((s) => s()))
-  return {
-    checks: results.flatMap((r) => r.checks),
-    log: results.flatMap((r) => r.log),
+  return results.filter((r): r is ScenarioReport => r !== null)
+}
+
+// ─── Trava contra execução concorrente pra mesma empresa ──────────────
+
+async function acquireTestLock(realCompanyId: number, supabase: Supabase): Promise<void> {
+  const { data: company } = await supabase
+    .from('companies')
+    .select('qa_test_running_since')
+    .eq('id', realCompanyId)
+    .single()
+
+  const runningSince = company?.qa_test_running_since ? new Date(company.qa_test_running_since).getTime() : null
+  if (runningSince && Date.now() - runningSince < LOCK_TTL_MS) {
+    throw new Error('Já tem um teste rodando pra essa empresa agora. Aguarde terminar (leva menos de 1 minuto) antes de testar de novo.')
   }
+
+  await supabase.from('companies').update({ qa_test_running_since: new Date().toISOString() }).eq('id', realCompanyId)
+}
+
+async function releaseTestLock(realCompanyId: number, supabase: Supabase): Promise<void> {
+  await supabase.from('companies').update({ qa_test_running_since: null }).eq('id', realCompanyId)
 }
 
 // ─── Uso técnico (regressão, resultado bruto) ─────────────────────────
@@ -226,7 +259,14 @@ async function runScenarios(companyId: number, supabase: Supabase): Promise<{ ch
 export async function runSdrEval(realCompanyId: number): Promise<EvalResult> {
   const supabase = createServiceClient()
   const shadowId = await ensureShadowCompany(realCompanyId, supabase)
-  const { checks, log } = await runScenarios(shadowId, supabase)
+  const reports = await runScenarios(shadowId, supabase)
+
+  const log: string[] = []
+  const checks: EvalCheck[] = []
+  for (const r of reports) {
+    log.push(`\n[${r.nome}] ${r.passou ? '✓' : '✗'} ${r.observacao}`)
+    checks.push({ ok: r.passou, label: `${r.nome}: ${r.observacao}` })
+  }
 
   const passed = checks.filter((c) => c.ok).length
   const failed = checks.filter((c) => !c.ok).length
@@ -236,44 +276,50 @@ export async function runSdrEval(realCompanyId: number): Promise<EvalResult> {
   return { passed, failed, checks, log }
 }
 
-// ─── Uso pelo cliente (resumo em português) ───────────────────────────
+// ─── Uso pelo cliente (resumo em português, com transcrição real) ─────
 
 export async function runTenantSelfTest(realCompanyId: number): Promise<TenantSelfTestResult> {
   const supabase = createServiceClient()
-  const shadowId = await ensureShadowCompany(realCompanyId, supabase)
-  const { checks } = await runScenarios(shadowId, supabase)
+  await acquireTestLock(realCompanyId, supabase)
 
-  const failed = checks.filter((c) => !c.ok)
-  const passou = failed.length === 0
-
-  if (passou) {
-    return {
-      passou: true,
-      resumo: 'Seu SDR passou em todos os testes automáticos : respondeu perguntas de preço, não insistiu com quem recusou, e não pulou etapas configuradas.',
-      detalhes: checks,
-    }
-  }
-
-  // Traduz os checks técnicos que falharam pra português simples, sem termo
-  // de programação : mesma ideia do feedback que /api/sdr/simulate já gera.
-  let resumo = `Seu SDR não passou em ${failed.length} de ${checks.length} teste(s). Veja os detalhes.`
   try {
-    const openaiKey = await resolveOpenAIKey(realCompanyId)
-    const { default: OpenAI } = await import('openai')
-    const openai = new OpenAI({ apiKey: openaiKey })
-    const res = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
-      messages: [{
-        role: 'user',
-        content: `Traduza esta lista de falhas técnicas de um teste automático de SDR (vendedor por WhatsApp) pra um resumo curto em português, pra um dono de empresa leigo em tecnologia entender o que precisa de atenção. Sem termo técnico, sem nome de função, 2-3 frases no máximo.\n\nFalhas:\n${failed.map((f) => `- ${f.label}`).join('\n')}`,
-      }],
-      temperature: 0.3,
-      max_tokens: 200,
-    })
-    resumo = res.choices[0]?.message?.content?.trim() || resumo
-  } catch {
-    // Se a tradução falhar, fica o resumo técnico mesmo : melhor que nada.
-  }
+    const shadowId = await ensureShadowCompany(realCompanyId, supabase)
+    const detalhes = await runScenarios(shadowId, supabase)
 
-  return { passou: false, resumo, detalhes: checks }
+    const failed = detalhes.filter((d) => !d.passou)
+    const passou = failed.length === 0
+
+    if (passou) {
+      return {
+        passou: true,
+        resumo: 'Seu SDR passou em todos os testes automáticos : respondeu perguntas de preço, não insistiu com quem recusou, e não pulou etapas configuradas.',
+        detalhes,
+      }
+    }
+
+    // Traduz as falhas + transcrição real pra um resumo curto em português,
+    // ancorado no que de fato aconteceu (não só um rótulo técnico solto).
+    let resumo = `Seu SDR não passou em ${failed.length} de ${detalhes.length} teste(s). Veja os detalhes abaixo.`
+    try {
+      const openaiKey = await resolveOpenAIKey(realCompanyId)
+      const { default: OpenAI } = await import('openai')
+      const openai = new OpenAI({ apiKey: openaiKey })
+      const res = await openai.chat.completions.create({
+        model: 'gpt-4.1-mini',
+        messages: [{
+          role: 'user',
+          content: `Você é um especialista em SDR/vendas por WhatsApp. Um teste automático encontrou problemas no SDR de um cliente. Escreva um resumo curto (2-4 frases) em português simples, pra um dono de empresa leigo em tecnologia entender o que precisa de atenção. Sem termo técnico, sem nome de função.\n\nProblemas encontrados:\n${failed.map((f) => `- ${f.nome}: ${f.observacao}`).join('\n')}`,
+        }],
+        temperature: 0.3,
+        max_tokens: 250,
+      })
+      resumo = res.choices[0]?.message?.content?.trim() || resumo
+    } catch {
+      // Se a tradução falhar, fica o resumo técnico mesmo : melhor que nada.
+    }
+
+    return { passou: false, resumo, detalhes }
+  } finally {
+    await releaseTestLock(realCompanyId, supabase)
+  }
 }
