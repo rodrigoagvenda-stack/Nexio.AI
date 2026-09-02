@@ -137,14 +137,18 @@ export interface UazapiWebhookMessage {
     text: string
     content?: {
       mimetype?: string
-      // Confirmado por terceiro em comunidade uazapi (não oficial da uazapi,
-      // não veio pelo suporte deles) : nem sempre presente, e o nome do campo
-      // varia entre variações camelCase/snake_case conforme a versão. Ver
-      // extractCtwaReferral() : checa todos os formatos reportados.
+      // Campo real confirmado em payload de produção (2026-09-02, via
+      // system_logs type=debug_ctwa_uazapi) : o suporte oficial da uazapi já
+      // tinha avisado que o contato da comunidade podia estar desatualizado,
+      // e estava — o campo de verdade é ctwaPayload (base64 opaco), não
+      // ctwaClid. Mantidos os campos antigos como fallback, sem custo.
       contextInfo?: {
         externalAdReply?: { ctwaClid?: string; ctwa_clid?: string }
         ctwaClid?: string
         ctwa_clid?: string
+        ctwaPayload?: string    // confirmado em produção : token opaco base64, passar direto pro Meta CAPI como ctwa_clid, nunca decodificar
+        conversionData?: string // confirmado em produção : blob similar a ctwaPayload, fallback
+        ctwaSignals?: string    // ex: "all,all"
         entryPointConversionSource?: string // ex: "ctwa_ad"
         entryPointConversionApp?: string    // ex: "instagram"
       }
@@ -164,11 +168,12 @@ export interface UazapiWebhookMessage {
 }
 
 /**
- * Extrai ctwa_clid do payload uazapi : tentando todos os formatos confirmados
- * por terceiro em comunidade (não suporte oficial uazapi), já que o nome do
- * campo varia. Quando ctwaClid não vier, mas entryPointConversionSource
- * indicar 'ctwa_ad', ainda retorna sinal de atribuição sem o click id exato
- * (CAPI aceita ctwa_clid OU telefone do lead como identificador).
+ * Extrai o identificador de atribuição CTWA do payload uazapi. Prioriza
+ * ctwaPayload/conversionData (confirmado em payload real de produção,
+ * 2026-09-02) sobre ctwaClid (só existia em relato de comunidade, nunca
+ * apareceu de fato em nenhum evento real até agora). Os dois blobs são
+ * tokens opacos base64 : nunca decodificar, passar direto pro Meta CAPI
+ * no campo ctwa_clid, exatamente como recebido.
  */
 export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undefined | null): {
   ctwaClid: string | null
@@ -178,6 +183,8 @@ export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undef
   if (!ctx) return null
 
   const ctwaClid =
+    ctx.ctwaPayload ??
+    ctx.conversionData ??
     ctx.externalAdReply?.ctwaClid ??
     ctx.externalAdReply?.ctwa_clid ??
     ctx.ctwaClid ??
