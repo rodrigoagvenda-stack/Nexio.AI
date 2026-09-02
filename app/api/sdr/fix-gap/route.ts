@@ -5,9 +5,38 @@ import { decrypt } from '@/lib/crypto'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// Insere um chunk diretamente na base sem apagar nada existente.
-// Usa o mesmo filename e flow dos docs existentes para ficar no lugar certo.
+// Insere um chunk na base, mas antes checa similaridade semântica contra o
+// que já existe (mesma empresa+flow+tipo) : se achar um chunk quase igual,
+// SUBSTITUI em vez de empilhar duplicata. Achado real : a versão anterior
+// era só INSERT cego, sem checar nada, então clicar "Aplicar" mais de uma
+// vez no mesmo gap (ou em gap parecido com o que já existia) ia empilhando
+// chunks redundantes pra sempre, competindo entre si na busca.
 type DiagDocType = 'diagnostico_conhecimento' | 'diagnostico_objecoes'
+const SIMILARITY_DUPLICATE_THRESHOLD = 0.87
+
+// pgvector volta via supabase-js como string "[0.1,0.2,...]" em alguns
+// clients/versões, e como number[] em outros : aceita os dois formatos em
+// vez de assumir um só (silenciosamente não comparava nada se viesse string).
+function parseEmbedding(raw: unknown): number[] | null {
+  if (Array.isArray(raw)) return raw as number[]
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed as number[]
+    } catch { /* ignora, cai no null abaixo */ }
+  }
+  return null
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, normA = 0, normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
+}
 
 async function appendChunk(params: {
   companyId: number
@@ -19,10 +48,10 @@ async function appendChunk(params: {
   const { companyId, flowId, tableType, text, openaiKey } = params
   const service = createServiceClient()
 
-  // Acha o filename e o maior chunk_index dos docs existentes desse tipo
+  // Busca docs existentes desse tipo, já trazendo embedding pra comparar
   const { data: existing } = await service
     .from('documents')
-    .select('metadata')
+    .select('id, embedding, metadata')
     .eq('company_id', companyId)
     .contains('metadata', { flow_id: flowId, doc_type: tableType })
     .order('created_at', { ascending: false })
@@ -47,6 +76,25 @@ async function appendChunk(params: {
     input: text,
   })
   const embedding = embRes.data[0].embedding
+
+  // Acha o chunk existente mais parecido semanticamente com o novo
+  let bestMatch: { id: number; similarity: number } | null = null
+  for (const doc of existing ?? []) {
+    const docEmbedding = parseEmbedding(doc.embedding)
+    if (!docEmbedding) continue
+    const sim = cosineSimilarity(embedding, docEmbedding)
+    if (!bestMatch || sim > bestMatch.similarity) bestMatch = { id: doc.id, similarity: sim }
+  }
+
+  if (bestMatch && bestMatch.similarity >= SIMILARITY_DUPLICATE_THRESHOLD) {
+    // Já existe algo quase igual : substitui o conteúdo em vez de duplicar
+    const { error } = await service
+      .from('documents')
+      .update({ content: text, embedding })
+      .eq('id', bestMatch.id)
+    if (error) throw new Error(`Erro ao atualizar chunk existente: ${error.message}`)
+    return
+  }
 
   const { error } = await service.from('documents').insert({
     company_id: companyId,
