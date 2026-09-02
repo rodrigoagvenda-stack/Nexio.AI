@@ -2626,14 +2626,13 @@ export async function runSequenceImmediateById(
 
     try {
       const media = step.media_config as StepMediaConfig | undefined
+      const tipoMsg = (step.tipo_mensagem ?? 'text') as StepTipoMensagem
       const texto = substituirVariaveis(step.mensagem ?? '', lead as unknown as Lead)
-      await sendRichStepUnified(
-        companyId,
-        phone,
-        (step.tipo_mensagem ?? 'text') as StepTipoMensagem,
-        texto,
-        media
-      )
+      await sendRichStepUnified(companyId, phone, tipoMsg, texto, media)
+      // Grava na conversa (mensagens_do_whatsapp) : sem isso a mensagem
+      // chegava no WhatsApp do lead mas não aparecia no Atendimento, achado
+      // ao vivo testando o gatilho "Forms Preenchido".
+      await gravarMensagemFollow(leadId, companyId, phone, texto, 'webhook_seq', supabase, tipoMsg, media)
       sent++
       console.log(`[webhook-seq] company=${companyId} lead=${leadId} seq="${sequence.nome}" step=${step.ordem} enviado`)
 
@@ -2645,6 +2644,7 @@ export async function runSequenceImmediateById(
         if (!blocoTexto) continue
         await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1500))
         await sendRichStepUnified(companyId, phone, 'text', blocoTexto, undefined)
+        await gravarMensagemFollow(leadId, companyId, phone, blocoTexto, 'webhook_seq', supabase, 'text')
         sent++
       }
 
