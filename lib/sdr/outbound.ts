@@ -6,11 +6,18 @@
  *   o resto (limites, campanha, conversa) é CRUD direto.
  * - Rate limit por hora corrigido : rolling window real via `outbound_campaigns`,
  *   não staticData em memória (que nunca resetava entre dias no n8n).
- * - Sem checagem de horário comercial em runtime : o próprio agendamento do
- *   cron (pg_cron `outbound-trigger`, 11h/13h/16h/18h/20h seg-sex) já é o gate.
- * - Anti-ban: sem wait de 45-300s por lead (inviável em função serverless).
- *   Confia em: poucas janelas fixas por dia, teto por hora, teto diário por
- *   número, e no delay de digitação já embutido em `sendRichStepUnified`.
+ * - Horário comercial verificado em runtime (isWithinBusinessHours abaixo) :
+ *   necessário porque o cron agora roda a cada minuto (ver anti-ban abaixo),
+ *   diferente da versão anterior que confiava só nos horários fixos do cron.
+ * - Anti-ban IDÊNTICO ao n8n original (mesmos valores do node "Delay
+ *   Anti-Ban1" : 45-135s primeira abordagem, 120-300s follow-up), mas sem o
+ *   "wait" preso dentro da função (inviável em serverless, timeout de 5min).
+ *   Em vez disso : `companies.outbound_next_allowed_at` guarda o próximo
+ *   horário liberado, calculado com o mesmo random do n8n após cada envio.
+ *   O cron roda a cada minuto e só envia 1 mensagem por empresa por tick,
+ *   respeitando esse campo : na prática, o espaçamento real entre leads
+ *   fica igual ou mais preciso que o n8n, e sobrevive a redeploy/restart
+ *   (o n8n perdia o wait se o worker reiniciasse no meio).
  * - Canal uazapi OU Meta (via `sendRichStepUnified`), não só uazapi.
  *
  * Gatilho de criação de campanha continua sendo o trigger de banco
@@ -27,8 +34,33 @@ import { syslog } from '@/lib/logger'
 type Supabase = ReturnType<typeof createServiceClient>
 
 const HOURLY_CAP = 30
-const LEADS_PER_COMPANY_PER_TICK = 40
 const OUTBOUND_MODEL = 'gpt-4.1-mini'
+
+// Mesmos valores do node "Delay Anti-Ban1" do n8n original (.claude/outbound.json,
+// linha 155) : primeira abordagem espera menos (é mais curta, menos "suspeita"),
+// follow-up espera mais (2-5min, imita alguém revendo antes de insistir de novo).
+function antiBanDelaySeconds(categoria: string): number {
+  return categoria === 'primeira_abordagem'
+    ? Math.floor(Math.random() * 90) + 45   // 45-135s
+    : Math.floor(Math.random() * 180) + 120 // 120-300s
+}
+
+/** Seg-Sex, 9h-18h, fuso America/Sao_Paulo : necessário em runtime porque o
+ * cron passou a rodar a cada minuto (antes, os 5 horários fixos do cron já
+ * eram o gate de horário comercial). */
+function isWithinBusinessHours(): boolean {
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(now)
+  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? ''
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0')
+  const isWeekday = !['Sat', 'Sun'].includes(weekday)
+  return isWeekday && hour >= 9 && hour < 18
+}
 
 interface Abertura {
   id: number
@@ -164,6 +196,12 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
   let processed = 0
   let sent = 0
 
+  // Horário comercial em runtime : o cron agora roda a cada minuto (pra
+  // conseguir respeitar o espaçamento anti-ban de 45-300s entre leads), então
+  // precisa desse gate aqui — antes disso era o próprio agendamento fixo do
+  // cron (5 horários/dia) que garantia isso.
+  if (!isWithinBusinessHours()) return { processed: 0, sent: 0, errors: [] }
+
   const { data: companies } = await supabase
     .from('companies')
     .select('id, features')
@@ -194,14 +232,31 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
   return { processed, sent, errors }
 }
 
+/** Só 1 envio por empresa por tick (o cron roda a cada minuto) : o
+ * espaçamento anti-ban entre leads diferentes vem de outbound_next_allowed_at,
+ * não de processar um lote inteiro de uma vez como antes. */
 async function dispatchForCompany(companyId: number, features: Record<string, unknown>, supabase: Supabase): Promise<number> {
+  const { data: companyRow } = await supabase
+    .from('companies')
+    .select('outbound_next_allowed_at')
+    .eq('id', companyId)
+    .maybeSingle()
+
+  if (companyRow?.outbound_next_allowed_at && new Date(companyRow.outbound_next_allowed_at) > new Date()) {
+    return 0 // ainda dentro do delay anti-ban do envio anterior
+  }
+
+  if (!(await withinHourlyRate(companyId, supabase))) return 0
+
+  // Busca um pequeno buffer de candidatos (não só 1) pra poder pular quem
+  // estiver bloqueado/frio/limite batido sem desperdiçar o tick inteiro.
   const { data: leads } = await supabase
     .from('vw_leads_disponiveis')
     .select('*')
     .eq('company_id', companyId)
     .lte('proximo_contato_em', new Date().toISOString())
     .order('proximo_contato_em', { ascending: true })
-    .limit(LEADS_PER_COMPANY_PER_TICK)
+    .limit(10)
 
   const leadsDisponiveis = (leads ?? []) as LeadDisponivel[]
   if (!leadsDisponiveis.length) return 0
@@ -214,21 +269,23 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
     : { data: [] as any[] }
   const mqlById = new Map((mqlRows ?? []).map((r: any) => [r.id, r]))
 
-  const openaiKey = await resolveOpenAIKey(companyId)
-  const openai = new OpenAI({ apiKey: openaiKey })
-  const persona = await fetchPersona(companyId, supabase)
-  const aberturasPool = await fetchOpenersPool(companyId, supabase)
+  let openai: OpenAI | null = null
+  let persona: Persona | null = null
+  let aberturasPool: Abertura[] | null = null
 
-  let sentCount = 0
   for (const lead of leadsDisponiveis) {
+    if (lead.numero_bloqueado) continue
+    if (lead.mensagens_enviadas_hoje >= lead.limite_diario) continue
+    const mql = lead.lead_id != null ? mqlById.get(lead.lead_id) : null
+    if (mql?.nivel_interesse === 'Frio ❄️') continue
+
     try {
-      if (lead.numero_bloqueado) continue
-      if (lead.mensagens_enviadas_hoje >= lead.limite_diario) continue
-
-      const mql = lead.lead_id != null ? mqlById.get(lead.lead_id) : null
-      if (mql?.nivel_interesse === 'Frio ❄️') continue
-
-      if (!(await withinHourlyRate(companyId, supabase))) break // teto da empresa batido : não adianta tentar o resto do lote agora
+      if (!openai) {
+        const openaiKey = await resolveOpenAIKey(companyId)
+        openai = new OpenAI({ apiKey: openaiKey })
+        persona = await fetchPersona(companyId, supabase)
+        aberturasPool = await fetchOpenersPool(companyId, supabase)
+      }
 
       const categoria = lead.tentativas === 0 ? 'primeira_abordagem' : lead.tentativas === 1 ? 'follow_up_1' : 'follow_up_2'
       const template = await fetchTemplate(companyId, categoria, supabase)
@@ -246,7 +303,7 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
         mqlResumo,
         templatePrompt: template?.prompt_sistema ?? null,
         persona,
-        aberturasPool,
+        aberturasPool: aberturasPool ?? undefined,
       })
 
       const blocos = mensagem.split(/\n\n+/).map((b) => b.trim()).filter(Boolean)
@@ -258,7 +315,12 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
       await advanceCampaign(companyId, lead, mensagem, supabase)
       await bumpLimits(companyId, lead.whatsapp, supabase)
 
-      sentCount++
+      // Agenda o próximo horário liberado pra essa empresa : mesmo random do
+      // n8n original, agora persistido em vez de "wait" preso na função.
+      const nextAllowedAt = new Date(Date.now() + antiBanDelaySeconds(categoria) * 1000).toISOString()
+      await supabase.from('companies').update({ outbound_next_allowed_at: nextAllowedAt }).eq('id', companyId)
+
+      return 1
     } catch (err: any) {
       await supabase.from('outbound_campaigns_errors').insert({
         campaign_id: lead.id,
@@ -266,9 +328,10 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
         error_message: String(err?.message ?? 'erro desconhecido').slice(0, 500),
         whatsapp: lead.whatsapp,
       })
+      return 0
     }
   }
-  return sentCount
+  return 0 // nenhum candidato elegível no buffer (todos bloqueados/frios/limite batido)
 }
 
 /** Rolling 1h, por empresa : mesma convenção de `withinRateLimit` em lib/sdr/follow.ts */

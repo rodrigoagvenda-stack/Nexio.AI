@@ -14,17 +14,21 @@ async function handler(request: Request) {
   }
 
   const started = Date.now()
-  await syslog({ type: 'outbound', severity: 'info', message: 'Outbound dispatch cron iniciado' })
 
   try {
     const result = await runOutboundDispatch()
-    const ms = Date.now() - started
-    await syslog({
-      type: 'outbound',
-      severity: 'info',
-      message: `Outbound dispatch concluído em ${ms}ms`,
-      payload: result as unknown as Record<string, unknown>,
-    })
+    // Cron roda a cada minuto agora (pra respeitar o delay anti-ban entre
+    // leads) : só loga quando aconteceu algo de fato, senão vira ruído
+    // (~1440 linhas/dia em system_logs pra ticks vazios fora do que importa).
+    if (result.sent > 0 || result.errors.length > 0) {
+      const ms = Date.now() - started
+      await syslog({
+        type: 'outbound',
+        severity: result.errors.length > 0 ? 'error' : 'info',
+        message: `Outbound dispatch concluído em ${ms}ms`,
+        payload: result as unknown as Record<string, unknown>,
+      })
+    }
     return NextResponse.json({ ok: true, ...result })
   } catch (err: any) {
     console.error('[Cron outbound-dispatch]', err)
