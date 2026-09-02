@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
     let query = serviceSupabase
       .from('companies')
       .select('*', { count: 'exact' })
+      .eq('is_shadow_company', false) // empresa-sombra de teste não é cliente, não aparece na lista geral
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

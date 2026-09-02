@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     .from('companies')
     .select('id, name, email, created_at, trial_ends_at, plan_type, is_active')
     .eq('plan_type', 'trial')
+    .eq('is_shadow_company', false)
     .order('created_at', { ascending: false })
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })

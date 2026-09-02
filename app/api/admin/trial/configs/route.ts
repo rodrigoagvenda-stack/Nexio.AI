@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     .from('companies')
     .select('id, name')
     .eq('is_active', true)
+    .eq('is_shadow_company', false)
     .order('name')
 
   const { data: trialConfigs } = await auth.service

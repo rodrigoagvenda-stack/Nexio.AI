@@ -47,6 +47,7 @@ export async function GET() {
       .from('companies')
       .select('id, name, plan_type, tokens_limit, tokens_used')
       .eq('is_active', true)
+      .eq('is_shadow_company', false)
 
     return NextResponse.json({
       monthly: { tokens: totalTokens, cost_usd: totalCostUsd },

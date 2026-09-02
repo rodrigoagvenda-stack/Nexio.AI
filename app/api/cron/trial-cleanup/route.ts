@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const { data: companies, error: compErr } = await supabase
     .from('companies')
     .select('id, name, plan_type, trial_ends_at, subscription_expires_at')
+    .eq('is_shadow_company', false) // empresa-sombra de teste nunca deve ser desativada por trial vencido
     .not('plan_type', 'in', `(${PAID_PLAN_TYPES.join(',')})`)
     .or(`trial_ends_at.lt.${cutoffDate},subscription_expires_at.lt.${cutoffDate}`)
 

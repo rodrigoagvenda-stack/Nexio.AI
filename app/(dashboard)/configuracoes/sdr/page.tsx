@@ -21,7 +21,7 @@ import {
   Monitor, Wand2, Smile, Activity, Leaf, Stethoscope,
   Heart, BarChart2, ShoppingCart, GraduationCap,
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
-  TrendingUp, Link2, Copy, Target,
+  TrendingUp, Link2, Copy, Target, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 import { BotMessageSquareIcon } from '@/components/ui/bot-message-square'
@@ -1827,6 +1827,8 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   const [autoRounds, setAutoRounds] = useState(4)
   const [showAutoPanel, setShowAutoPanel] = useState(false)
   const [autoSummary, setAutoSummary] = useState<{ avgScore: number; wouldConvert: boolean; errors: string[]; rounds: number } | null>(null)
+  const [realTestRunning, setRealTestRunning] = useState(false)
+  const [realTestResult, setRealTestResult] = useState<{ passou: boolean; resumo: string; detalhes: { ok: boolean; label: string }[] } | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -1936,6 +1938,24 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao aplicar correção', variant: 'destructive' })
     } finally { setApplyingIndex(null) }
+  }
+
+  // Diferente da simulação acima (que reescreve o prompt do zero) : chama o
+  // motor de produção de verdade, contra uma cópia isolada da sua empresa.
+  async function runRealTest() {
+    if (!flowId || realTestRunning) return
+    setRealTestRunning(true)
+    setRealTestResult(null)
+    try {
+      const res = await fetch('/api/sdr/self-test', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erro ao testar o SDR')
+      setRealTestResult(data)
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao testar o SDR', variant: 'destructive' })
+    } finally {
+      setRealTestRunning(false)
+    }
   }
 
   async function runAutoSim() {
@@ -2143,6 +2163,21 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
               {autoRunning ? 'Simulando…' : 'Iniciar'}
             </Button>
           </div>
+          {flowId && (
+            <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground">
+                Isso aqui em cima é uma simulação. Pra testar o SDR de verdade (com seu conteúdo real), use o botão ao lado.
+              </p>
+              <Button
+                size="sm" variant="outline"
+                onClick={runRealTest} disabled={realTestRunning}
+                className="h-8 gap-1.5 text-xs shrink-0"
+              >
+                {realTestRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                {realTestRunning ? 'Testando…' : 'Testar meu SDR de verdade'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -2228,6 +2263,29 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           <div className="mx-2 flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-xl px-3 py-2">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             {error}
+          </div>
+        )}
+
+        {realTestResult && (
+          <div className={cn(
+            'mx-3 rounded-xl border p-4 space-y-2 animate-in fade-in duration-300',
+            realTestResult.passou ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'
+          )}>
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <ShieldCheck className={cn('w-3.5 h-3.5', realTestResult.passou ? 'text-emerald-500' : 'text-amber-500')} />
+              Teste real do seu SDR
+            </p>
+            <p className="text-xs text-foreground/90">{realTestResult.resumo}</p>
+            {!realTestResult.passou && realTestResult.detalhes.some((d) => !d.ok) && (
+              <div className="space-y-1 pt-1">
+                {realTestResult.detalhes.filter((d) => !d.ok).map((d, i) => (
+                  <div key={i} className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-lg px-2.5 py-2">
+                    <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0 text-amber-500" />
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 flex-1">{d.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

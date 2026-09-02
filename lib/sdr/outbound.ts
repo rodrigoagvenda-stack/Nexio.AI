@@ -206,6 +206,7 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
     .from('companies')
     .select('id, features')
     .eq('is_active', true)
+    .eq('is_shadow_company', false) // nunca disparar outbound de verdade pra empresa-sombra de teste
 
   const enabled = (companies ?? []).filter((c: any) => c.features?.outbound === true)
 
