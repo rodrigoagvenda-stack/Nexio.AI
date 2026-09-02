@@ -82,6 +82,16 @@ export async function checkTenantQuota(
   tenantId: number,
   supabase: Supabase
 ): Promise<QuotaCheck> {
+  const { data: company } = await supabase
+    .from('companies')
+    .select('tokens_unlimited')
+    .eq('id', tenantId)
+    .single()
+
+  if (company?.tokens_unlimited) {
+    return { allowed: true, via: 'quota' }
+  }
+
   const quota = await getPlanQuota(tenantId, supabase)
   const usedThisMonth = await getMonthUsage(tenantId, supabase)
 
