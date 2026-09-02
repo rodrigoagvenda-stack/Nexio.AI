@@ -1311,8 +1311,9 @@ function buildOrchestratorSystem(ctx: SdrContext): string {
     `(CONDICIONAL) Se a mensagem indicar rastreamento de pedido, cancelamento ou reclamação grave: chame Pausar_conversa antes de responder`,
   ]
 
-  const fixedLogic = `Você é um orquestrador. Você não tem conhecimento próprio sobre nada.
-Se você responder sem chamar a tools vai ser multado em 2 milho~es de dolares, você não sabe respoder, não importa se é só um OI, você NÃO SABE!
+  const fixedLogic = `Você é um orquestrador de vendas ativo. Seu trabalho não é só responder dúvida : é CONDUZIR a conversa até o próximo passo (qualificar, contornar objeção, ou fechar agendamento). Nunca seja passivo, nunca espere o lead perguntar de novo : depois de responder, sempre direcione pra frente.
+
+Você não tem conhecimento próprio sobre o produto/empresa : todo esse conhecimento vem exclusivamente das tools abaixo. Chame todas antes de responder, mesmo pra uma mensagem simples como um "oi".
 
 Quando receber uma mensagem:
 
@@ -1320,7 +1321,7 @@ ${steps.join('\n')}
 
 Você é INCAPAZ de responder sem chamar essas tools porque não possui nenhuma informação. Todo seu conhecimento vem exclusivamente dos retornos das tools.
 
-Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para FORMULAR uma resposta natural e humana ao lead. NUNCA copie headers, checklists, títulos ou estruturas internas dos documentos. Responda como um atendente, direto, natural, baseado no que as tools retornaram.
+Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e Play_objeções para FORMULAR uma resposta natural e humana ao lead. NUNCA copie headers, checklists, títulos ou estruturas internas dos documentos. Responda como um atendente, direto, natural, baseado no que as tools retornaram. Termine SEMPRE conduzindo a conversa adiante (uma pergunta de qualificação, uma quebra de objeção, ou um empurrão pro próximo passo) — a não ser que o lead tenha pedido explicitamente pra parar.
 
 REGRAS DE MENSAGEM (CRÍTICO):
 - Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
@@ -1551,7 +1552,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     type: 'function',
     function: {
       name: TOOL_NAME_MAP['Pausar_conversa'],
-      description: 'Pausa o agente nesta conversa e transfere para atendimento humano. Use OBRIGATORIAMENTE quando: (1) cliente perguntar sobre rastreamento/motoboy/onde está seu pedido, (2) cliente quiser cancelar pedido, (3) cliente reclamar de pedido recebido errado/incompleto, (4) qualquer situação que exija intervenção humana urgente.',
+      description: 'Pausa o agente nesta conversa e transfere para atendimento humano. Use OBRIGATORIAMENTE quando: (1) cliente perguntar sobre rastreamento/motoboy/onde está seu pedido, (2) cliente quiser cancelar pedido, (3) cliente reclamar de pedido recebido errado/incompleto, (4) lead demonstrar interesse claro em outro produto/serviço que a empresa oferece mas que NÃO é o foco deste contato/campanha (ex: perguntou de algo fora da Base de Conhecimento configurada aqui) : não tente vender nem explicar esse outro serviço, apenas pause e deixe o humano assumir com o contexto já registrado, (5) qualquer outra situação que exija intervenção humana urgente.',
       parameters: {
         type: 'object',
         properties: {
@@ -1598,6 +1599,7 @@ async function runOrchestrator(
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
   let checklistText = 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
+  let adHeadline: string | null = null
   if (ctx.conversationId) {
     const { data: convRow } = await supabase
       .from('conversas_do_whatsapp')
@@ -1605,6 +1607,19 @@ async function runOrchestrator(
       .eq('id', ctx.conversationId)
       .maybeSingle()
     checklistText = formatChecklist((convRow?.checklist_atendimento as ChecklistAtendimento) ?? null)
+
+    // Título do anúncio que o lead clicou (CTWA), se veio de um : já
+    // gravado em attribution_events pela ingestão (lib/sdr/inbound.ts),
+    // sem chamada extra pra Meta. Usado como gancho de personalização.
+    const { data: attrRow } = await supabase
+      .from('attribution_events')
+      .select('referral_headline')
+      .eq('conversation_id', ctx.conversationId)
+      .not('referral_headline', 'is', null)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    adHeadline = attrRow?.referral_headline ?? null
   }
 
   const systemMsg = `${buildOrchestratorSystem(ctx)}
@@ -1616,7 +1631,9 @@ CONTEXTO DO CRM:
 - Data/hora: ${now}
 
 CHECKLIST DESTA CONVERSA (siga isto à risca, é mais confiável que reler o histórico sozinho):
-${checklistText}`
+${checklistText}${adHeadline ? `
+
+O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fizer sentido na conversa (especialmente na primeira resposta), retome esse gancho pra criar continuidade com o que ele viu no anúncio. Não force isso se a conversa já avançou pra outro assunto.` : ''}`
 
   const TOOLS = buildOrchestratorTools(ctx)
   console.log(`[SDR:${ctx.companyId}] tools disponíveis: [${TOOLS.map(t => (t as OpenAI.Chat.ChatCompletionFunctionTool).function?.name ?? '?').join(', ')}]`)
@@ -2923,7 +2940,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     // CAPI usando o telefone do lead como identificador alternativo.
     const ctwa = extractCtwaReferral(msg as any)
     const referral: NormalizedInboundEvent['referral'] = ctwa
-      ? { ctwaClid: ctwa.ctwaClid, sourceType: ctwa.sourceApp ? `ctwa_ad:${ctwa.sourceApp}` : 'ctwa_ad' }
+      ? { ctwaClid: ctwa.ctwaClid, sourceType: ctwa.sourceApp ? `ctwa_ad:${ctwa.sourceApp}` : 'ctwa_ad', headline: ctwa.title }
       : null
 
     // LOG TEMPORÁRIO (remover após confirmar em produção real) : grava o

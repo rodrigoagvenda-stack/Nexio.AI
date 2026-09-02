@@ -137,6 +137,11 @@ export interface UazapiWebhookMessage {
     text: string
     content?: {
       mimetype?: string
+      // Confirmado em payload de produção (2026-09-02) : título/headline do
+      // criativo do anúncio, presente junto com contextInfo quando a
+      // mensagem veio de um clique CTWA. Não precisa de nenhuma chamada
+      // extra pra Meta pra usar isso, já vem pronto no payload.
+      title?: string
       // Campo real confirmado em payload de produção (2026-09-02, via
       // system_logs type=debug_ctwa_uazapi) : o suporte oficial da uazapi já
       // tinha avisado que o contato da comunidade podia estar desatualizado,
@@ -178,6 +183,7 @@ export interface UazapiWebhookMessage {
 export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undefined | null): {
   ctwaClid: string | null
   sourceApp: string | null
+  title: string | null
 } | null {
   const ctx = msg?.content?.contextInfo
   if (!ctx) return null
@@ -194,7 +200,11 @@ export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undef
   const isCtwa = !!ctwaClid || ctx.entryPointConversionSource === 'ctwa_ad'
   if (!isCtwa) return null
 
-  return { ctwaClid, sourceApp: ctx.entryPointConversionApp ?? null }
+  // Título/headline do criativo : sobe junto com content.title (irmão de
+  // contextInfo, não dentro dele), confirmado em payload real de produção.
+  const title = msg?.content?.title?.trim() || null
+
+  return { ctwaClid, sourceApp: ctx.entryPointConversionApp ?? null, title }
 }
 
 export class UazapiClient {
