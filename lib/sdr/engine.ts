@@ -1203,6 +1203,15 @@ REGRAS:
           attendeeEmail: args.email,
           attendeeName: nomeCompleto,
         })
+        // Sincroniza nome/email de volta pro lead : nome_completo e email já
+        // vieram validados acima (obrigatórios pra agendar), mas até aqui só
+        // iam pro evento do Calendar, nunca voltavam pra tabela leads : o CRM
+        // ficava com o dado antigo (ex: nome parcial vindo do Briefing) pra
+        // sempre, mesmo o lead confirmando o nome completo na conversa.
+        await supabase.from('leads').update({
+          contact_name: nomeCompleto,
+          email: args.email,
+        }).eq('id', ctx.leadId)
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] Agendar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
