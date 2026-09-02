@@ -392,6 +392,20 @@ async function searchDocuments(
       .sort((a, b) => b._score - a._score)
       .slice(0, 4)
 
+    // O bloco de Fechamento (link/CTA de conversão) nem sempre bate por
+    // similaridade semântica com a pergunta do lead : achado ao vivo
+    // (2026-09-02) que "preciso de manutenção, num é isso?" (intenção clara
+    // de compra) não trouxe o bloco === FECHAMENTO === porque a query
+    // gerada pela IA foi educativa, não usava palavras de fechamento. Em vez
+    // de depender só da busca acertar, o bloco de Fechamento SEMPRE entra
+    // junto quando existe pra empresa : as regras de "não repita link já
+    // enviado"/"só use quando fizer sentido" já existentes no wizard seguem
+    // controlando quando o modelo realmente usa isso.
+    if (docType === 'conhecimento' && !ranked.some((d) => d.content.includes('=== FECHAMENTO ==='))) {
+      const closing = typed.find((d) => d.content.includes('=== FECHAMENTO ==='))
+      if (closing) ranked.push({ content: closing.content, similarity: closing.similarity, _score: 0 })
+    }
+
     console.log(`[SDR:${companyId}] RAG results: ${ranked.length} docs (fallback sem tag: ${usedFallback})`)
     if (ranked.length === 0) return ''
     return ranked.map((d) => d.content).join('\n\n')
@@ -1359,6 +1373,7 @@ Após chamar todas as tools, use o conteúdo retornado pelo Play_conhecimento e 
 REGRAS DE MENSAGEM (CRÍTICO):
 - Cada bloco de mensagem é separado por UMA linha em branco (\\n\\n). O sistema envia cada bloco como uma mensagem separada no WhatsApp.
 - Máximo 1 a 2 frases por bloco.
+- Máximo 3 blocos por resposta, a não ser que o lead peça explicitamente mais detalhe. 4+ blocos vira discurso educativo longo, mesmo com frases curtas : corte, não explique tudo de uma vez.
 - NUNCA junte tudo em um parágrafo só. Sempre quebre em blocos.
 - NUNCA use travessão (—). Use vírgula ou ponto.
 - NUNCA repita a mesma muleta de frase em mensagens seguidas (ex: "Se quiser, posso...", "Fico à disposição", "Qualquer dúvida me avisa"). Revise mentalmente a ÚLTIMA mensagem que você mandou nesta conversa : se ela já terminava com uma oferta parecida, feche essa mensagem de um jeito diferente ou sem oferta nenhuma.
