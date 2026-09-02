@@ -136,9 +136,25 @@ export interface Lead {
   notes?: string;
   mql_resumo?: string;
   resumo_ia?: string;
+  places_analysis?: PlacesAnalysis | null;
   created_at: string;
   updated_at: string;
   lead_tags?: LeadTag[];
+}
+
+export interface PlacesAnalysis {
+  score?: {
+    total: number;
+    grade: string;
+  };
+  gaps?: {
+    key: string;
+    titulo: string;
+    texto: string;
+    severidade: 'critico' | 'atencao' | string;
+  }[];
+  summary?: string;
+  fetchedAt?: string;
 }
 
 export interface ICPConfiguration {

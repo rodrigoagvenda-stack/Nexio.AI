@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image, ChevronDown, ChevronUp, Copy, Check, Save, Megaphone } from 'lucide-react';
+import { Building2, Phone, Mail, Tag, User, DollarSign, FileText, StickyNote, Calendar, Image, ChevronDown, ChevronUp, Copy, Check, Save, Megaphone, MapPin, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import { ChatNotesTab } from './ChatNotesTab';
@@ -440,6 +440,46 @@ export function LeadInfoSidebar({
                   </div>
                 </div>
               )}
+
+              {/* Análise de perfil Google (Places) : mesma base usada pra personalizar a abordagem outbound */}
+              {lead.places_analysis?.gaps?.length ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Análise do perfil Google</p>
+                    {lead.places_analysis.score && (
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ml-auto ${
+                          lead.places_analysis.score.total < 50
+                            ? 'text-red-500 border-red-500/40'
+                            : lead.places_analysis.score.total < 75
+                              ? 'text-amber-500 border-amber-500/40'
+                              : 'text-emerald-500 border-emerald-500/40'
+                        }`}
+                      >
+                        {lead.places_analysis.score.total}/100 · {lead.places_analysis.score.grade}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-xs">
+                    {lead.places_analysis.gaps.map((gap) => (
+                      <div key={gap.key} className="flex items-start gap-1.5">
+                        <AlertTriangle className={`h-3 w-3 mt-0.5 shrink-0 ${gap.severidade === 'critico' ? 'text-red-500' : 'text-amber-500'}`} />
+                        <div>
+                          <p className="font-medium leading-snug">{gap.titulo}</p>
+                          <p className="text-muted-foreground text-[11px] leading-snug">{gap.texto}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {lead.places_analysis.fetchedAt && (
+                      <p className="text-[10px] text-muted-foreground pt-1 border-t border-border">
+                        Analisado em {new Date(lead.places_analysis.fetchedAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
             </TabsContent>
 

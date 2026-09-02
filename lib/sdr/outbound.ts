@@ -383,6 +383,7 @@ REGRAS OBRIGATÓRIAS:
 - Toda frase começa com letra maiúscula
 - Use a abordagem abaixo só como INSPIRAÇÃO : nunca copie literalmente, reescreva com as próprias palavras, respeitando o tom da empresa acima
 - Se fizer sentido dividir em duas mensagens curtas, separe os blocos com uma linha em branco (no máximo 2 blocos)
+- Se o "Contexto sobre o lead" abaixo citar um "Gap:" específico do perfil Google (ex: sem site, sem fotos, sem posts), cite ESSE dado concreto na mensagem. NUNCA generalize pra algo vago tipo "pode melhorar" ou "tem espaço pra crescer" sem dizer o quê : o gancho só funciona sendo específico.
 
 Abordagem de inspiração (categoria: ${abertura.categoria}):
 "${abertura.texto}"
