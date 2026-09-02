@@ -2198,7 +2198,17 @@ async function saveInbound(
 
   await supabase
     .from('conversas_do_whatsapp')
-    .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
+    .update({
+      ultima_mensagem: displayText,
+      hora_da_ultima_mensagem: new Date().toISOString(),
+      // Achado ao vivo (2026-09-02, harness de autoteste) : sem isso a janela
+      // de 24h (lib/sdr/window.ts) fica permanentemente "fechada" pra
+      // qualquer conversa que não passou pelo webhook real primeiro
+      // (ensureConversationAtWebhookTime em lib/sdr/inbound.ts já seta isso
+      // no fluxo normal, mas defesa em profundidade : toda mensagem inbound
+      // deveria renovar isso, não só a que chegou via webhook).
+      ultima_mensagem_inbound_at: new Date().toISOString(),
+    })
     .eq('id', conversationId)
 }
 
