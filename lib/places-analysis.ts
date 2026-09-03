@@ -191,16 +191,23 @@ export function computePlacesScore(details: PlaceDetails, manual: ManualInputs =
     criterios.push({ key: 'avaliacoes', label: 'Avaliações', pontos, pesoMax: 20, pct: (pontos / 20) * 100 })
   }
 
-  // 4. Fotos (10) : quantidade (6) + recência estimada (4)
+  // 4. Fotos (10) : quantidade (6, real da API) + recência estimada (4, chute)
+  // Achado ao vivo (2026-09-03) : antes isso era 1 critério só, marcado
+  // "unknown" inteiro sempre que a recência faltava (quase sempre), o que
+  // descartava também a contagem de fotos, que é dado 100% real da API
+  // (photos.length) e é justamente a recomendação oficial do Google
+  // ("adicionar fotos e vídeos", support.google.com/business/answer/7091).
+  // Separado em dois critérios pra contagem virar gap citável de verdade.
   {
     const qtd = details.photos?.length ?? 0
     const qtdPts = qtd >= 50 ? 6 : qtd >= 20 ? 4 : qtd >= 5 ? 2 : 0
+    criterios.push({ key: 'fotos_qtd', label: 'Quantidade de fotos', pontos: qtdPts, pesoMax: 6, pct: (qtdPts / 6) * 100 })
+
     const diasUltimaFoto = manual.diasUltimaFoto
     const recenciaPts = diasUltimaFoto === undefined ? 0 : diasUltimaFoto <= 30 ? 4 : diasUltimaFoto <= 90 ? 2 : 0
-    const pontos = qtdPts + recenciaPts
     criterios.push({
-      key: 'fotos', label: 'Fotos', pontos, pesoMax: 10, pct: (pontos / 10) * 100,
-      unknown: manual.diasUltimaFoto === undefined,
+      key: 'fotos_recencia', label: 'Recência das fotos', pontos: recenciaPts, pesoMax: 4, pct: (recenciaPts / 4) * 100,
+      unknown: diasUltimaFoto === undefined,
     })
   }
 
@@ -285,9 +292,15 @@ export function buildGaps(score: PlacesScoreResult, details: PlaceDetails, manua
         }`
         titulo = 'Avaliações precisam de atenção'
         break
-      case 'fotos':
-        titulo = c.unknown ? 'Data das fotos não confirmada' : 'Poucas fotos ou desatualizadas'
-        texto = `${details.photos?.length ?? 0} fotos no perfil. Perfis com fotos recentes e em maior quantidade recebem mais cliques e passam mais confiança antes do primeiro contato.`
+      case 'fotos_qtd': {
+        const qtd = details.photos?.length ?? 0
+        titulo = qtd === 0 ? 'Perfil sem nenhuma foto' : 'Poucas fotos no perfil'
+        texto = `${qtd} foto${qtd === 1 ? '' : 's'} no perfil. O Google recomenda oficialmente adicionar fotos e vídeos : perfis com mais fotos recebem mais cliques e passam mais confiança antes do primeiro contato.`
+        break
+      }
+      case 'fotos_recencia':
+        titulo = 'Data das fotos não confirmada'
+        texto = `Não temos como confirmar há quanto tempo as fotos foram atualizadas pela API do Google.`
         break
       case 'posts':
         titulo = 'Perfil sem atividade de posts'

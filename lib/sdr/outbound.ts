@@ -405,33 +405,36 @@ async function generateMessage(
     ? `\n\nESTE É O ÚLTIMO TOQUE da sequência (3º e final), o lead não respondeu às 2 anteriores. A última foi:\n"${ctx.previousMessage ?? '(mensagem anterior não encontrada)'}"\nEscreva uma mensagem de ENCERRAMENTO educado, tipo "não vou insistir mais, mas fico à disposição se fizer sentido no futuro" : sem pressão, sem culpa, deixando a porta aberta. NÃO repita o gancho anterior, NÃO peça desculpa por insistir.`
     : ''
 
-  // Consultivo : quando existe análise real com 2+ gaps concretos, vale gastar
-  // mais palavras listando os problemas antes de puxar pra call, em vez de um
-  // gancho de 1 linha só. Sem isso (contexto genérico ou ausente), mantém o
-  // estilo curto de sempre.
+  // Achado ao vivo (2026-09-03) : citar o gap específico (mesmo só 1) ainda
+  // dá pro lead contestar/rebater (caso Figueiredo) e, quando o achado é
+  // fraco (ex: descrição curta numa imobiliária já forte), soa nitpicking.
+  // Levando a Information Gap Theory até o fim : quando existe gap real
+  // confirmado pela análise (gapCount >= 1), a mensagem sinaliza que algo foi
+  // encontrado SEM dizer o quê, deixando o lead perguntar. Sem gap real
+  // nenhum (sem análise Places ou perfil já impecável), mantém o gancho curto
+  // genérico de sempre : não dá pra fingir achado que não existe.
   const gapCount = (ctx.mqlResumo?.match(/Gap:/g) ?? []).length
-  const consultivo = gapCount >= 2
+  const temGapReal = gapCount >= 1
 
-  const systemPrompt = `Você é um especialista em prospecção fria via WhatsApp${p?.nomeAgente ? `, escrevendo como ${p.nomeAgente}` : ''}${p?.empresa ? ` da ${p.empresa}` : ''}. Gere UMA mensagem${consultivo ? ' consultiva' : ' curta'}, natural e personalizada pra iniciar contato com um lead frio.
+  const systemPrompt = `Você é um especialista em prospecção fria via WhatsApp${p?.nomeAgente ? `, escrevendo como ${p.nomeAgente}` : ''}${p?.empresa ? ` da ${p.empresa}` : ''}. Gere UMA mensagem curta, natural e personalizada pra iniciar contato com um lead frio.
 ${p?.tom ? `\nTom de voz da empresa: ${p.tom}` : ''}
 ${p?.produto ? `Produto/serviço: ${p.produto}` : ''}
 ${p?.restricoes ? `Restrições : NUNCA quebrar: ${p.restricoes}` : ''}
 
 REGRAS OBRIGATÓRIAS:
-${consultivo ? `- Cumprimente o lead pelo nome
-- Diga que reparou algo no perfil da empresa no Google : NUNCA mencione site ou qualquer canal que não apareça no "Contexto sobre o lead" abaixo, só afirme o que a análise realmente cobriu
-- Cite SOMENTE 1 problema CONCRETO listado no "Contexto sobre o lead" (o "Gap:" mais relevante), nunca a lista inteira : revelar tudo de uma vez mata a curiosidade (Information Gap Theory). Nunca invente um problema que não está lá
-- Feche com uma pergunta NEUTRA que deixa o lead completar o raciocínio sozinho (estilo Josh Braun, "poke the bear") : NUNCA pergunta do tipo "posso te mostrar/explicar como resolver" ou "quer que eu te ajude com isso" : são leading questions com resposta óbvia, dado real (Gong.io) mostra que reduzem resposta. Prefira algo tipo "Isso é algo que vocês já tinham notado?" ou uma pergunta didática sobre o tema, sem oferecer ajuda diretamente
-- Máximo 80 palavras, pode quebrar em até 3 blocos (linha em branco entre eles)` : `- Máximo 40 palavras, máximo 3 linhas
+${temGapReal ? `- Cumprimente o lead pelo nome
+- Diga que analisou/deu uma olhada no perfil da empresa no Google agora : NUNCA mencione site ou qualquer outro canal que não apareça no "Contexto sobre o lead" abaixo, só afirme que olhou o perfil do Google
+- NÃO revele qual é o problema encontrado (não cite "Gap:" nenhum do contexto por nome). Apenas sinalize que achou um ponto relevante, no máximo com uma pista vaga de categoria de impacto (ex: "um ponto que costuma pesar na hora de aparecer na busca", "algo que pode afastar quem tá pesquisando"), nunca o achado específico : dizer qual mata a curiosidade (Information Gap Theory) e dá margem pro lead contestar um detalhe pontual. O objetivo é o lead perguntar "o que foi?", não a gente responder isso na mesma mensagem
+- Máximo 50 palavras, pode quebrar em até 2 blocos (linha em branco entre eles)` : `- Máximo 40 palavras, máximo 3 linhas
 - Se fizer sentido dividir em duas mensagens curtas, separe os blocos com uma linha em branco (no máximo 2 blocos)
-- Se o "Contexto sobre o lead" abaixo citar um "Gap:" específico do perfil Google (ex: sem site, sem fotos, sem posts), cite ESSE dado concreto na mensagem. NUNCA generalize pra algo vago tipo "pode melhorar" ou "tem espaço pra crescer" sem dizer o quê : o gancho só funciona sendo específico.`}
+- Sem gap real confirmado, use a abordagem de inspiração abaixo (categoria: ${abertura.categoria}), nunca invente um problema específico que não está no "Contexto sobre o lead".`}
 - Sem markdown, sem negrito, sem itálico
 - Máximo 1 emoji
 - Sem CAIXA ALTA
 - Nunca se apresente formalmente ("Olá, sou o assistente virtual da empresa X" é proibido)
 - Sem gírias de vendedor genérico, sem slogans
 - Linguagem humana e natural, como alguém mandando WhatsApp de verdade : "vc", reticências, vírgulas naturais
-- Faça 1 pergunta simples
+- Feche com UMA pergunta NEUTRA que deixa o lead completar o raciocínio sozinho (estilo Josh Braun, "poke the bear") : NUNCA pergunta do tipo "posso te mostrar/explicar como resolver", "quer que eu te mostre", "quer ajuda pra melhorar" ou "posso te contar qual" : todas são leading questions com resposta óbvia, dado real (Gong.io) mostra que reduzem resposta. Isso vale mesmo quando o achado tá escondido : NUNCA peça permissão pra revelar o que encontrou. Prefira algo tipo "Isso é algo que vocês já tinham notado?" ou uma pergunta didática sobre o tema, sem oferecer ajuda nem pedir permissão pra contar mais. Essa regra vale pro gancho curto também, não só quando tem gap real.
 - Toda frase começa com letra maiúscula
 - Use a abordagem abaixo só como INSPIRAÇÃO : nunca copie literalmente, reescreva com as próprias palavras, respeitando o tom da empresa acima
 
