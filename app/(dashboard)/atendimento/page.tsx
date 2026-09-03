@@ -103,6 +103,7 @@ interface Conversation {
   briefing?: Record<string, string> | null;
   ctwa_clid?: string | null;
   attribution_source?: string | null;
+  origem_real?: 'inbound' | 'outbound';
   lead_source?: {
     type: string;
     ctwa_clid?: string;
@@ -1736,6 +1737,19 @@ export default function AtendimentoPage() {
                         {conv.ultima_mensagem}
                       </p>
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        {conv.origem_real && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] px-1.5 py-0 gap-0.5 ${
+                              conv.origem_real === 'outbound'
+                                ? 'border-violet-500/50 text-violet-500'
+                                : 'border-emerald-500/50 text-emerald-500'
+                            }`}
+                          >
+                            {conv.origem_real === 'outbound' ? <Zap className="h-2.5 w-2.5" /> : <MessageSquare className="h-2.5 w-2.5" />}
+                            {conv.origem_real === 'outbound' ? 'Outbound' : 'Inbound'}
+                          </Badge>
+                        )}
                         {(() => {
                           const wb = fmtWindowBadge(conv)
                           return wb ? (
@@ -1847,9 +1861,24 @@ export default function AtendimentoPage() {
 
                   {/* Nome + empresa */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">
-                      {selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-semibold text-sm truncate">
+                        {selectedConversation.nome_do_contato || selectedConversation.numero_de_telefone}
+                      </p>
+                      {selectedConversation.origem_real && (
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 gap-0.5 flex-shrink-0 ${
+                            selectedConversation.origem_real === 'outbound'
+                              ? 'border-violet-500/50 text-violet-500'
+                              : 'border-emerald-500/50 text-emerald-500'
+                          }`}
+                        >
+                          {selectedConversation.origem_real === 'outbound' ? <Zap className="h-2.5 w-2.5" /> : <MessageSquare className="h-2.5 w-2.5" />}
+                          {selectedConversation.origem_real === 'outbound' ? 'Outbound' : 'Inbound'}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground truncate">
                       {selectedConversation.lead?.company_name || selectedConversation.numero_de_telefone}
                     </p>

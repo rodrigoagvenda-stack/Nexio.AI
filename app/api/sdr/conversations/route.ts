@@ -45,7 +45,29 @@ export async function GET() {
     const { data, error } = await baseQuery
     if (error) throw error
 
-    return NextResponse.json({ conversations: data ?? [], instanceName })
+    // Origem real (inbound/outbound) : achado ao vivo (2026-09-03, feedback do
+    // Bruno) que a única indicação de origem no card era a badge "Outbound" na
+    // 1ª mensagem da conversa, ou o valor de leads.status (que muda com o
+    // pipeline e deixa de refletir a origem assim que o lead avança de
+    // estágio). outbound_campaigns é a mesma fonte de verdade já usada pro
+    // raciocínio da IA (engine.ts) : existe campanha outbound pra esse
+    // telefone = outbound, senão inbound. Independe do estágio atual.
+    const phones = [...new Set((data ?? []).map((c: any) => c.numero_de_telefone).filter(Boolean))]
+    const { data: outboundRows } = phones.length
+      ? await service
+          .from('outbound_campaigns')
+          .select('whatsapp')
+          .eq('company_id', userData.company_id)
+          .in('whatsapp', phones)
+      : { data: [] as { whatsapp: string }[] }
+    const outboundPhones = new Set((outboundRows ?? []).map((r) => r.whatsapp))
+
+    const conversations = (data ?? []).map((c: any) => ({
+      ...c,
+      origem_real: outboundPhones.has(c.numero_de_telefone) ? 'outbound' : 'inbound',
+    }))
+
+    return NextResponse.json({ conversations, instanceName })
   } catch (err: any) {
     console.error('[SDR conversations]', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
