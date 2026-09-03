@@ -74,7 +74,7 @@ async function cloneWizardContent(realCompanyId: number, shadowId: number, supab
   // ── sdr_configs ──────────────────────────────────────────────────────
   const { data: realConfig } = await supabase
     .from('sdr_configs')
-    .select('agent_type, prompt, whatsapp_provider, billing_recurring, google_calendar_id')
+    .select('agent_type, prompt, whatsapp_provider, billing_recurring, google_calendar_id, openai_key')
     .eq('company_id', realCompanyId)
     .maybeSingle()
 
@@ -89,6 +89,12 @@ async function cloneWizardContent(realCompanyId: number, shadowId: number, supab
       uazapi_token: 'dryrun-fake-token', // nunca usado de verdade, qa_dry_run pula o envio real
       whatsapp_provider: realConfig?.whatsapp_provider ?? 'uazapi',
       billing_recurring: realConfig?.billing_recurring ?? false,
+      // Clona a chave OpenAI própria da empresa (já vem criptografada, copia
+      // o valor cru mesmo) : achado ao vivo (2026-09-02) que sem isso o teste
+      // caía na chave COMPARTILHADA da plataforma (fallback de quem não tem
+      // chave própria) e podia estourar o limite de taxa de outras empresas
+      // reais usando essa mesma chave.
+      openai_key: realConfig?.openai_key ?? null,
       // google_calendar_id fica de fora de propósito : não reusar o calendário
       // real do cliente pra criar/apagar evento de teste nele.
     },

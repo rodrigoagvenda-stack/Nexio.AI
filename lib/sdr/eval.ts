@@ -229,7 +229,17 @@ function makeScenario(companyId: number, supabase: Supabase) {
 
 async function runScenarios(companyId: number, supabase: Supabase): Promise<ScenarioReport[]> {
   const scenarios = makeScenario(companyId, supabase)
-  const results = await Promise.all(scenarios.map((s) => s()))
+  // Sequencial de propósito, não Promise.all : achado ao vivo (2026-09-02)
+  // que rodar os 4 cenários em paralelo dispara várias chamadas gpt-4.1
+  // simultâneas (cada turno já é um orquestrador inteiro com várias tools,
+  // várias chamadas sozinho) e estoura o limite de tokens/min da chave —
+  // que pode ser a chave PRÓPRIA da empresa, compartilhada com o
+  // atendimento real dela. Mais lento, mas não arrisca travar cliente de
+  // verdade por causa de um teste.
+  const results: (ScenarioReport | null)[] = []
+  for (const scenario of scenarios) {
+    results.push(await scenario())
+  }
   return results.filter((r): r is ScenarioReport => r !== null)
 }
 
@@ -278,6 +288,28 @@ export async function runSdrEval(realCompanyId: number): Promise<EvalResult> {
 
 // ─── Uso pelo cliente (resumo em português, com transcrição real) ─────
 
+async function summarizeFailures(realCompanyId: number, failed: ScenarioReport[]): Promise<string> {
+  let resumo = `Seu SDR não passou em ${failed.length} teste(s). Veja os detalhes abaixo.`
+  try {
+    const openaiKey = await resolveOpenAIKey(realCompanyId)
+    const { default: OpenAI } = await import('openai')
+    const openai = new OpenAI({ apiKey: openaiKey })
+    const res = await openai.chat.completions.create({
+      model: 'gpt-4.1-mini',
+      messages: [{
+        role: 'user',
+        content: `Você é um especialista em SDR/vendas por WhatsApp. Um teste automático encontrou problemas no SDR de um cliente. Escreva um resumo curto (2-4 frases) em português simples, pra um dono de empresa leigo em tecnologia entender o que precisa de atenção. Sem termo técnico, sem nome de função.\n\nProblemas encontrados:\n${failed.map((f) => `- ${f.nome}: ${f.observacao}`).join('\n')}`,
+      }],
+      temperature: 0.3,
+      max_tokens: 250,
+    })
+    resumo = res.choices[0]?.message?.content?.trim() || resumo
+  } catch {
+    // Se a tradução falhar, fica o resumo técnico mesmo : melhor que nada.
+  }
+  return resumo
+}
+
 export async function runTenantSelfTest(realCompanyId: number): Promise<TenantSelfTestResult> {
   const supabase = createServiceClient()
   await acquireTestLock(realCompanyId, supabase)
@@ -288,37 +320,48 @@ export async function runTenantSelfTest(realCompanyId: number): Promise<TenantSe
 
     const failed = detalhes.filter((d) => !d.passou)
     const passou = failed.length === 0
+    const resumo = passou
+      ? 'Seu SDR passou em todos os testes automáticos : respondeu perguntas de preço, não insistiu com quem recusou, e não pulou etapas configuradas.'
+      : await summarizeFailures(realCompanyId, failed)
 
-    if (passou) {
-      return {
-        passou: true,
-        resumo: 'Seu SDR passou em todos os testes automáticos : respondeu perguntas de preço, não insistiu com quem recusou, e não pulou etapas configuradas.',
-        detalhes,
+    return { passou, resumo, detalhes }
+  } finally {
+    await releaseTestLock(realCompanyId, supabase)
+  }
+}
+
+// ─── Variante em streaming (SSE) : evita timeout de proxy num teste que
+// demora (4 cenários sequenciais, cada um com vários turnos reais) —
+// manda cada cenário assim que termina, em vez de segurar tudo calado até
+// o fim. Mesmo padrão já usado em /api/sdr/auto-simulate. ────────────────
+
+export async function runTenantSelfTestStream(
+  realCompanyId: number,
+  onScenario: (report: ScenarioReport) => void
+): Promise<TenantSelfTestResult> {
+  const supabase = createServiceClient()
+  await acquireTestLock(realCompanyId, supabase)
+
+  try {
+    const shadowId = await ensureShadowCompany(realCompanyId, supabase)
+    const scenarios = makeScenario(shadowId, supabase)
+
+    const detalhes: ScenarioReport[] = []
+    for (const scenario of scenarios) {
+      const report = await scenario()
+      if (report) {
+        detalhes.push(report)
+        onScenario(report)
       }
     }
 
-    // Traduz as falhas + transcrição real pra um resumo curto em português,
-    // ancorado no que de fato aconteceu (não só um rótulo técnico solto).
-    let resumo = `Seu SDR não passou em ${failed.length} de ${detalhes.length} teste(s). Veja os detalhes abaixo.`
-    try {
-      const openaiKey = await resolveOpenAIKey(realCompanyId)
-      const { default: OpenAI } = await import('openai')
-      const openai = new OpenAI({ apiKey: openaiKey })
-      const res = await openai.chat.completions.create({
-        model: 'gpt-4.1-mini',
-        messages: [{
-          role: 'user',
-          content: `Você é um especialista em SDR/vendas por WhatsApp. Um teste automático encontrou problemas no SDR de um cliente. Escreva um resumo curto (2-4 frases) em português simples, pra um dono de empresa leigo em tecnologia entender o que precisa de atenção. Sem termo técnico, sem nome de função.\n\nProblemas encontrados:\n${failed.map((f) => `- ${f.nome}: ${f.observacao}`).join('\n')}`,
-        }],
-        temperature: 0.3,
-        max_tokens: 250,
-      })
-      resumo = res.choices[0]?.message?.content?.trim() || resumo
-    } catch {
-      // Se a tradução falhar, fica o resumo técnico mesmo : melhor que nada.
-    }
+    const failed = detalhes.filter((d) => !d.passou)
+    const passou = failed.length === 0
+    const resumo = passou
+      ? 'Seu SDR passou em todos os testes automáticos : respondeu perguntas de preço, não insistiu com quem recusou, e não pulou etapas configuradas.'
+      : await summarizeFailures(realCompanyId, failed)
 
-    return { passou: false, resumo, detalhes }
+    return { passou, resumo, detalhes }
   } finally {
     await releaseTestLock(realCompanyId, supabase)
   }

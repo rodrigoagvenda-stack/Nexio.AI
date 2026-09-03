@@ -1955,15 +1955,52 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   async function runRealTest() {
     if (!flowId || realTestRunning) return
     setRealTestRunning(true)
-    setRealTestResult(null)
     setAppliedRealTestIndices(new Set())
+    // Cenários chegam um a um (streaming) : mostra progresso em vez de
+    // ficar calado por até 2 minutos (o teste roda sequencial de propósito,
+    // pra não estourar limite de taxa da OpenAI rodando tudo junto).
+    setRealTestResult({ passou: true, resumo: 'Testando...', detalhes: [] })
     try {
       const res = await fetch('/api/sdr/self-test', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erro ao testar o SDR')
-      setRealTestResult(data)
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Erro ao testar o SDR')
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+            if (event.type === 'scenario') {
+              setRealTestResult((prev) => ({
+                passou: prev?.passou ?? true,
+                resumo: 'Testando...',
+                detalhes: [...(prev?.detalhes ?? []), event.report],
+              }))
+            } else if (event.type === 'done') {
+              setRealTestResult((prev) => ({ passou: event.passou, resumo: event.resumo, detalhes: prev?.detalhes ?? [] }))
+            } else if (event.type === 'error') {
+              throw new Error(event.message)
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes('JSON')) throw parseErr
+          }
+        }
+      }
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao testar o SDR', variant: 'destructive' })
+      setRealTestResult(null)
     } finally {
       setRealTestRunning(false)
     }
