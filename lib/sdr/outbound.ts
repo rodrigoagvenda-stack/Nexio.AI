@@ -45,6 +45,20 @@ function antiBanDelaySeconds(categoria: string): number {
     : Math.floor(Math.random() * 180) + 120 // 120-300s
 }
 
+// Pausa em lote (2026-09-03) : a cada 10-15 disparos seguidos de uma empresa,
+// força uma pausa maior, imitando alguém que trabalha em blocos e depois
+// para pra fazer outra coisa, em vez de mandar contínuo o dia inteiro.
+// Chance de pausar cresce entre o 10º e o 15º envio, garantida no 15º.
+function shouldBatchPause(countAfterSend: number): boolean {
+  if (countAfterSend < 10) return false
+  if (countAfterSend >= 15) return true
+  return Math.random() < (countAfterSend - 9) / 6
+}
+
+function batchPauseSeconds(): number {
+  return Math.floor(Math.random() * 300) + 300 // 5-10min
+}
+
 /** Seg-Sex, 9h-18h, fuso America/Sao_Paulo : necessário em runtime porque o
  * cron passou a rodar a cada minuto (antes, os 5 horários fixos do cron já
  * eram o gate de horário comercial). */
@@ -159,7 +173,7 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
 async function dispatchForCompany(companyId: number, features: Record<string, unknown>, supabase: Supabase): Promise<number> {
   const { data: companyRow } = await supabase
     .from('companies')
-    .select('outbound_next_allowed_at')
+    .select('outbound_next_allowed_at, outbound_batch_count')
     .eq('id', companyId)
     .maybeSingle()
 
@@ -254,8 +268,19 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
 
       // Agenda o próximo horário liberado pra essa empresa : mesmo random do
       // n8n original, agora persistido em vez de "wait" preso na função.
-      const nextAllowedAt = new Date(Date.now() + antiBanDelaySeconds(categoria) * 1000).toISOString()
-      await supabase.from('companies').update({ outbound_next_allowed_at: nextAllowedAt }).eq('id', companyId)
+      // Além disso, a cada 10-15 disparos seguidos, pausa 5-10min : delay
+      // individual sozinho não basta, envio contínuo em sequência (mesmo
+      // espaçado) ainda sinaliza atividade de bot pra faixas de detecção
+      // que olham volume por janela, não só intervalo entre mensagens.
+      const batchCount = (companyRow?.outbound_batch_count ?? 0) + 1
+      const pause = shouldBatchPause(batchCount)
+      const nextAllowedAt = new Date(
+        Date.now() + (pause ? batchPauseSeconds() : antiBanDelaySeconds(categoria)) * 1000
+      ).toISOString()
+      await supabase
+        .from('companies')
+        .update({ outbound_next_allowed_at: nextAllowedAt, outbound_batch_count: pause ? 0 : batchCount })
+        .eq('id', companyId)
 
       return 1
     } catch (err: any) {

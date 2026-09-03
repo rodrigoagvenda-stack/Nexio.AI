@@ -62,6 +62,7 @@ export interface Gap {
   severidade: 'critico' | 'atencao'
   titulo: string
   texto: string
+  unknown?: boolean
 }
 
 /** Extrai o nome do negócio da URL colada do Google Maps e, se tiver
@@ -310,7 +311,7 @@ export function buildGaps(score: PlacesScoreResult, details: PlaceDetails, manua
         break
     }
 
-    gaps.push({ key: c.key, severidade: sev, titulo, texto })
+    gaps.push({ key: c.key, severidade: sev, titulo, texto, unknown: c.unknown })
   }
 
   // Ordena crítico primeiro, depois por menor % (mais impacto primeiro)
@@ -322,10 +323,17 @@ export function buildGaps(score: PlacesScoreResult, details: PlaceDetails, manua
 
 /** Resumo curto (pro contexto do outbound/SDR) : 5-6 linhas, factual, sem invenção.
  * 4 gaps (não 2) pra abordagem consultiva conseguir listar vários problemas
- * concretos antes de puxar pra call, em vez de só 1 gancho isolado. */
+ * concretos antes de puxar pra call, em vez de só 1 gancho isolado.
+ *
+ * `unknown: true` : achado ao vivo (2026-09-03, caso Figueiredo Advogados,
+ * lead real reagiu mal a "perfil sem posts"/"sem produtos cadastrados", que
+ * a gente não tinha como confirmar, só assumia por falta de dado da Places
+ * API). Fora daqui : nunca citar como fato pro lead algo que só é "unknown",
+ * não gap comprovado. Continua aparecendo no painel interno (buildGaps), só
+ * não alimenta mais a mensagem de prospecção. */
 export function summarizeForOutreach(details: PlaceDetails, score: PlacesScoreResult, gaps: Gap[]): string {
   const nome = details.displayName?.text ?? 'o negócio'
-  const criticos = gaps.filter((g) => g.severidade === 'critico').slice(0, 4)
+  const criticos = gaps.filter((g) => g.severidade === 'critico' && !g.unknown).slice(0, 4)
   const linhas = [
     `${nome}: nota ${(details.rating ?? 0).toFixed(1)} (${details.userRatingCount ?? 0} avaliações), perfil Google score ${score.total}/100 (${score.grade}).`,
     ...criticos.map((g) => `Gap: ${g.titulo}.`),

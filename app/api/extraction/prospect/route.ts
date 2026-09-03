@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Não autorizado' }, { status: 401 });
     }
 
-    const { url, limit, companyId, cidade, estado, nicho } = await request.json();
+    const { url, limit, companyId, cidade, estado, nicho, projectValue } = await request.json();
 
     if (!limit || !companyId) {
       return NextResponse.json(
@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
 
     // Roda em background : a página já faz polling direto no Supabase
     // (RLS permite leitura da própria empresa em extraction_sessions).
-    runExtraction({ sessionId, companyId, mapsUrl: finalUrl, quantity: leadsToExtract }).catch((err) => {
+    const parsedProjectValue = typeof projectValue === 'number' && projectValue > 0 ? projectValue : null
+    runExtraction({ sessionId, companyId, mapsUrl: finalUrl, quantity: leadsToExtract, projectValue: parsedProjectValue }).catch((err) => {
       console.error('[Prospect] runExtraction falhou:', err?.message)
     });
 

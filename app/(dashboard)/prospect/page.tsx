@@ -67,6 +67,7 @@ export default function ProspectAIPage() {
   const [estado, setEstado] = useState('');
   const [nicho, setNicho] = useState('');
   const [customNicho, setCustomNicho] = useState('');
+  const [projectValue, setProjectValue] = useState('');
 
   const [extracting, setExtracting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -176,6 +177,7 @@ export default function ProspectAIPage() {
           cidade,
           estado,
           nicho: nicho === 'Outros' ? customNicho : nicho,
+          projectValue: projectValue ? parseFloat(projectValue) : null,
         }),
       });
 
@@ -470,6 +472,23 @@ export default function ProspectAIPage() {
               </SelectContent>
             </Select>
             <span className="text-xs text-muted-foreground/60 font-light">leads para extrair</span>
+          </div>
+
+          {/* Valor do projeto (opcional, aplicado a todos os leads extraídos) */}
+          <div className="space-y-1.5">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={projectValue}
+              onChange={(e) => setProjectValue(e.target.value)}
+              disabled={extracting}
+              placeholder="Valor do projeto (opcional)"
+              className="h-10 text-sm bg-background/50 border-border/50 focus:border-primary/50"
+            />
+            <p className="text-[10px] text-muted-foreground/60">
+              Se preenchido, aplica esse valor pra todos os leads extraídos nessa busca
+            </p>
           </div>
 
           {/* Extract Button */}

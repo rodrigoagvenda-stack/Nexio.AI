@@ -197,8 +197,9 @@ export async function runExtraction(params: {
   companyId: number
   mapsUrl: string
   quantity: number
+  projectValue?: number | null
 }): Promise<void> {
-  const { sessionId, companyId, mapsUrl, quantity } = params
+  const { sessionId, companyId, mapsUrl, quantity, projectValue } = params
   const supabase = createServiceClient()
 
   try {
@@ -291,6 +292,7 @@ export async function runExtraction(params: {
           // 'google_maps' nunca foi valor válido) : lead extraído ainda não foi
           // contatado ativamente, mais próximo semanticamente de 'inbound'.
           origem: 'inbound',
+          ...(projectValue != null ? { project_value: projectValue } : {}),
         }).select('id').single()
         if (error) throw new Error(error.message)
 
