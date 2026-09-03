@@ -23,8 +23,12 @@ async function getOpenAIClient(apiKey: string): Promise<OpenAI> {
 
 /** Resolve OpenAI key: env var → sdr_configs (empresa) → platform_config (global) */
 export async function resolveOpenAIKey(companyId: number): Promise<string> {
-  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
-
+  // Achado ao vivo (2026-09-03) : isso checava process.env.OPENAI_API_KEY
+  // PRIMEIRO, incondicional. Se existisse (existia, valor antigo/estourado
+  // no servidor), a chave trocada em Admin → Configurações de Plataforma
+  // nunca era usada : o código nem chegava a olhar pro banco. Ordem agora
+  // igual ao resto do sistema (engine.ts) : chave da empresa → plataforma
+  // (banco, editável na hora) → variável de ambiente só como último recurso.
   try {
     const supabase = createServiceClient()
     const { data: cfg } = await supabase
@@ -34,6 +38,8 @@ export async function resolveOpenAIKey(companyId: number): Promise<string> {
 
   const platform = await getPlatformConfig()
   if (platform.openai_api_key) return platform.openai_api_key
+
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY
 
   throw new Error('Chave OpenAI não configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente do EasyPanel, ou acesse Admin → Configurações de Plataforma.')
 }

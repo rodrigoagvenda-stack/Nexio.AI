@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
 import {
   Megaphone,
@@ -515,7 +516,7 @@ export default function OutboundPage() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 px-2 md:px-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
@@ -904,10 +905,9 @@ export default function OutboundPage() {
                     </div>
 
                     {/* Status */}
-                    <select
+                    <Select
                       value={m.call_status}
-                      onChange={async (e) => {
-                        const novoStatus = e.target.value;
+                      onValueChange={async (novoStatus) => {
                         const anterior = m.call_status;
                         setMeetings((prev) => prev.map((x) => x.id === m.id ? { ...x, call_status: novoStatus } : x));
                         try {
@@ -922,14 +922,18 @@ export default function OutboundPage() {
                           toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
                         }
                       }}
-                      className="shrink-0 text-xs font-medium bg-muted/60 border border-border/60 rounded-md px-2 py-1.5 text-foreground hover:border-border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <option value="agendada">Agendada</option>
-                      <option value="confirmada">Confirmada</option>
-                      <option value="realizada">Realizada (ligou/atendeu)</option>
-                      <option value="no_show">No-show</option>
-                      <option value="cancelada">Cancelada</option>
-                    </select>
+                      <SelectTrigger className="shrink-0 w-[190px] h-8 text-xs font-medium">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="agendada">Agendada</SelectItem>
+                        <SelectItem value="confirmada">Confirmada</SelectItem>
+                        <SelectItem value="realizada">Realizada (ligou/atendeu)</SelectItem>
+                        <SelectItem value="no_show">No-show</SelectItem>
+                        <SelectItem value="cancelada">Cancelada</SelectItem>
+                      </SelectContent>
+                    </Select>
 
                     {/* Meet link */}
                     {m.meet_url ? (
