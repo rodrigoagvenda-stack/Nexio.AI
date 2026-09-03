@@ -117,7 +117,8 @@ async function generateConhecimento(
 Sua tarefa é escrever a seção dinâmica de um system prompt de SDR com base nas informações do negócio.
 Escreva APENAS as seções pedidas : os blocos imutáveis de comportamento são gerados automaticamente pelo sistema.
 Use linguagem clara, direta e natural. Scripts devem estar entre aspas. Máximo 3 linhas por mensagem.
-O resultado deve ser no nível de qualidade de um prompt de produção profissional.`
+O resultado deve ser no nível de qualidade de um prompt de produção profissional.
+NUNCA escreva scripts que terminem com "posso te mostrar/explicar/ajudar com isso?" ou "quer que eu te mostre?" : são leading questions com resposta óbvia (Josh Braun, "Ditch the Pitch"), dado real (Gong.io, 300M+ ligações) mostra que reduzem taxa de resposta. Prefira perguntas neutras que deixam o lead completar o raciocínio sozinho, ou uma afirmação direta seguida de pergunta objetiva. Também nunca use "se quiser" como abertura de oferta : é hedge passivo.`
 
   const userPrompt = `Com base nestas informações, escreva a seção dinâmica do system prompt SDR.
 
@@ -276,7 +277,9 @@ o que está por trás dela (a preocupação real do lead, não a frase literal),
 esclarecimento quando fizer sentido, e um exemplo de resposta que o agente deve ADAPTAR ao que o lead
 disse : nunca copiar palavra por palavra pra leads diferentes.
 Cada exemplo: máximo 3 linhas, linguagem natural de WhatsApp, valide antes de redirecionar.
-O formato deve ser rigoroso: gatilhos, o que está por trás, exemplo de resposta (adaptável), o que nunca dizer, condicionais.`
+O formato deve ser rigoroso: gatilhos, o que está por trás, exemplo de resposta (adaptável), o que nunca dizer, condicionais.
+NUNCA escreva um exemplo de resposta que termine com "posso te mostrar/explicar/ajudar com isso?" ou "quer que eu te mostre?" : são leading questions com resposta óbvia (Josh Braun, "Ditch the Pitch"), dado real (Gong.io, 300M+ ligações) mostra que reduzem taxa de resposta. Prefira uma afirmação direta seguida de pergunta objetiva ("Quer agendar?", "Faz sentido?"). Também nunca use "se quiser" como abertura de oferta : é hedge passivo, soa hesitante.
+Quando a objeção for pedido de tempo/espaço (vou pensar, vou ver, depois te respondo), o exemplo de resposta é 1 mensagem só que já embute o próximo passo : nunca duas frases separadas onde uma recua ("sem pressa") e a segunda empurra de novo : mesmo educado, isso soa como insistência.`
 
   const userPrompt = `Escreva a base de scripts de objeções para este negócio com base nas informações fornecidas.
 
@@ -373,6 +376,8 @@ ${scriptsText}
 
 === REGRA GERAL DE OBJEÇÃO ===
 Nunca rebater diretamente. Sempre validar antes de redirecionar.
+Toda resposta de objeção tem que ter pelo menos UM destes três elementos: reformular o valor pro caso do lead, oferecer o próximo passo (diagnóstico/teste/agendamento) sem compromisso, ou fazer uma pergunta que avance a qualificação. NUNCA responda só "sem problema, me chama depois" sem nenhum desses três : isso é desistir do lead, não é cordialidade.
+Quando o lead pedir tempo ou espaço (vou pensar, vou ver, deixa eu analisar, te chamo depois) : a resposta é 1 mensagem só, curta, que já embute o próximo passo na mesma frase. NUNCA mande um bloco tipo "sem pressa, fica à vontade" e DEPOIS um segundo bloco reforçando a oferta : ainda que educado, dois blocos seguidos parecem insistência. É 1 mensagem, não 2.
 Se recusar duas vezes → encerre EXATAMENTE assim: "Entendi! 😊
 Se mudar de ideia, pode me chamar. Qualquer coisa tô aqui."
 ${interp(blocks.OBJ_FOOTER)}`
