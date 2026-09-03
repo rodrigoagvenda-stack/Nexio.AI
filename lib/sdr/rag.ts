@@ -73,29 +73,67 @@ export function tagChunk(
   return { stored, embedText }
 }
 
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, normA = 0, normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
+}
+
+const CORRECTION_SIMILARITY_THRESHOLD = 0.82
+
 /**
- * Cap de correções acumuladas (achado 2/3 da auditoria) : patch/route.ts só
- * inseria, nunca limpava, e correções antigas podiam contradizer as novas
- * sem nenhum critério de qual prevalece na busca. Mantém só as N mais
- * recentes por flow+tipo, apagando o excedente mais antigo antes de inserir.
+ * Reconcilia correções acumuladas (achado 2/3 da auditoria, revisado após
+ * achar 5 correções quase-duplicadas/contraditórias vivas na base da Grupo
+ * Venda em produção : o cap por contagem sozinho NUNCA resolvia duplicação,
+ * só adiava : uma correção sobre "revelar preço direto" e outra sobre
+ * "só revelar preço após checklist de orçamento" conviviam as duas, porque
+ * nada comparava o CONTEÚDO da correção nova com o que já existia.
+ *
+ * Antes de inserir uma correção nova : busca as correções existentes do
+ * mesmo flow+tipo, compara por similaridade de embedding (não só created_at)
+ * e APAGA as que tratam do mesmo assunto, pra a nova substituir de verdade
+ * em vez de empilhar por cima. O cap por contagem continua como rede de
+ * segurança, bem mais baixo, pro caso de correções sobre assuntos distintos
+ * legitimamente se acumularem.
  */
 export async function capCorrectionChunks(
   supabase: ReturnType<typeof createServiceClient>,
   companyId: number,
   flowId: string,
   docType: string,
-  maxKeep = 19 // +1 nova inserida logo em seguida = 20 no total
+  newEmbedding?: number[],
+  maxKeep = 7
 ): Promise<void> {
   const { data } = await supabase
     .from('documents')
-    .select('id, created_at')
+    .select('id, created_at, embedding')
     .eq('company_id', companyId)
     .contains('metadata', { flow_id: flowId, doc_type: docType, is_correction: true })
     .order('created_at', { ascending: false })
 
-  const excess = (data ?? []).slice(maxKeep)
-  if (excess.length === 0) return
-  await supabase.from('documents').delete().in('id', excess.map((r) => r.id))
+  if (!data || data.length === 0) return
+
+  const idsToDelete = new Set<number>()
+
+  if (newEmbedding) {
+    for (const row of data) {
+      const existingEmbedding = row.embedding as unknown as number[] | null
+      if (!existingEmbedding) continue
+      if (cosineSimilarity(newEmbedding, existingEmbedding) >= CORRECTION_SIMILARITY_THRESHOLD) {
+        idsToDelete.add(row.id)
+      }
+    }
+  }
+
+  const remaining = data.filter((r) => !idsToDelete.has(r.id))
+  for (const row of remaining.slice(maxKeep)) idsToDelete.add(row.id)
+
+  if (idsToDelete.size === 0) return
+  await supabase.from('documents').delete().in('id', Array.from(idsToDelete))
 }
 
 const MAX_CHUNK_CHARS = 1100 // ~300 tokens : um assunto por chunk

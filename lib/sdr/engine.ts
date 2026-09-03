@@ -80,7 +80,6 @@ interface SdrContext {
   asaasAtivo: boolean
   billingRecurring: boolean
   placesAnalysisAtivo: boolean
-  briefingLinkPending: boolean
   qaDryRun: boolean
 }
 
@@ -691,8 +690,9 @@ async function runAgenteOutbound(
 ⚠️ ATENÇÃO: Você TEM tools disponíveis. Use-as OBRIGATORIAMENTE. NUNCA responda sem usar as tools.
 
 PASSO 1 : USE AGORA a tool "Buscar_origem_lead_no_supabase" passando whatsapp e company_id:
-- Se status = "Outbound" → lead veio de abordagem ativa, vá para PASSO 2
-- Se diferente → lead inbound, vá direto para o RETORNO FINAL com origem = "inbound"
+- Ela retorna "origem_real": "outbound" quando existe uma campanha outbound de verdade enviada pra esse número (fonte confiável), ou "inbound" quando não existe. NUNCA use a coluna "status" pra decidir isso : "status" é o estágio do funil ("Em contato", "Interessado", "Remarketing"...), não a origem do contato.
+- Se "origem_real" = "outbound" → vá para PASSO 2
+- Se "origem_real" = "inbound" → vá direto para o RETORNO FINAL com origem = "inbound"
 - Verifique a coluna "briefing_preenchido":
   - true → lead já preencheu o briefing
   - false → briefing ainda não preenchido
@@ -705,7 +705,14 @@ PASSO 3 : USE AGORA a tool "Salvar_resposta_e_score_do_lead" passando lead_id e 
 - respondeu: true
 - respondeu_em: data/hora atual
 - mensagem_recebida: mensagem que o lead enviou
-- score_interesse: analise o tom e atribua de 1 a 10:
+- resposta_bot: true se a mensagem recebida tiver QUALQUER um destes sinais (senão false):
+  - Menciona horário de atendimento, ausência ou indisponibilidade
+  - Oferece opções numeradas ou menu
+  - Está assinada com nome de empresa diferente da que você representa (é o WhatsApp Business do PRÓPRIO lead respondendo automático, não ele digitando)
+  - Diz ser assistente virtual, ou tom padronizado de descrição institucional ("Somos uma empresa que atende...", "Como podemos ajudar?")
+  - Saudação automática de boas-vindas/catálogo
+  Se tiver dúvida se é bot ou humano real → marque resposta_bot: true (mais seguro contar como incerto do que inflar taxa de resposta real)
+- score_interesse: se resposta_bot=true, use 0. Senão, analise o tom e atribua de 1 a 10:
   - 1-3: desinteressado, pediu para parar, ignorou
   - 4-6: neutro, perguntou algo básico
   - 7-9: demonstrou interesse, fez perguntas relevantes
@@ -760,9 +767,10 @@ RETORNO FINAL : somente após usar todas as tools:
             respondeu: { type: 'boolean' },
             respondeu_em: { type: 'string' },
             mensagem_recebida: { type: 'string' },
+            resposta_bot: { type: 'boolean', description: 'true se a resposta é auto-reply/bot do WhatsApp Business do próprio lead, não uma pessoa real digitando' },
             score_interesse: { type: 'number' },
           },
-          required: ['respondeu', 'respondeu_em', 'mensagem_recebida', 'score_interesse'],
+          required: ['respondeu', 'respondeu_em', 'mensagem_recebida', 'resposta_bot', 'score_interesse'],
         },
       },
     },
@@ -771,12 +779,27 @@ RETORNO FINAL : somente após usar todas as tools:
   const handlers: Record<string, (args: any) => Promise<string>> = {
     'Think7': async (args) => `Raciocínio registrado: ${args.thought}`,
     'Buscar_origem_lead_no_supabase': async (_args) => {
-      const { data } = await supabase
+      const { data: lead } = await supabase
         .from('leads')
         .select('id, status, origem, whatsapp, contact_name, briefing_preenchido')
         .eq('id', ctx.leadId)
         .single()
-      return JSON.stringify(data ?? {})
+      // "status" é estágio de funil, não origem : origem real vem de existir (ou
+      // não) um disparo outbound de verdade pra esse número, não de um campo
+      // textual que pode ficar desatualizado (achado ao vivo : lead com outbound
+      // confirmado tinha status="Remarketing" e origem="inbound" salvos).
+      const { data: campaign } = await supabase
+        .from('outbound_campaigns')
+        .select('mensagem_enviada, status, created_at')
+        .eq('company_id', ctx.companyId)
+        .eq('whatsapp', ctx.leadPhone)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return JSON.stringify({
+        ...(lead ?? {}),
+        origem_real: campaign?.mensagem_enviada ? 'outbound' : 'inbound',
+      })
     },
     'Buscar_mensagem_enviada_outbound': async (_args) => {
       const { data } = await supabase
@@ -790,17 +813,22 @@ RETORNO FINAL : somente após usar todas as tools:
       return JSON.stringify(data ?? { mensagem_enviada: null })
     },
     'Salvar_resposta_e_score_do_lead': async (args) => {
+      // Achado ao vivo (2026-09-03) : essa tool gravava em "mensagem_recebida",
+      // coluna que não existe em outbound_campaigns (é "resposta_recebida") :
+      // a chamada sempre falhava silenciosamente, então mesmo quando a
+      // detecção de origem funcionasse, o resultado nunca era salvo.
       await supabase
         .from('outbound_campaigns')
         .update({
           respondeu: true,
           respondeu_em: new Date().toISOString(),
-          mensagem_recebida: args.mensagem_recebida,
+          resposta_recebida: args.mensagem_recebida,
+          resposta_bot: args.resposta_bot === true,
           score_interesse: args.score_interesse,
         })
         .eq('company_id', ctx.companyId)
         .eq('whatsapp', ctx.leadPhone)
-      return JSON.stringify({ salvo: true, score_interesse: args.score_interesse })
+      return JSON.stringify({ salvo: true, score_interesse: args.score_interesse, resposta_bot: args.resposta_bot === true })
     },
   }
 
@@ -1169,6 +1197,14 @@ REGRAS:
     },
   ]
 
+  // Trava estrutural (achado ao vivo, 2026-09-03 : lead recebeu "tá agendado"
+  // com data e link fabricados, nada foi salvo em leads.call_de_venda/
+  // calendar_event_id : o modelo produziu o texto de sucesso sem o
+  // "Agendar_gcal" ter de fato sido bem-sucedido nesse turno). Depender só da
+  // instrução de prompt "chame Reuniao_marcada depois" já provou não ser
+  // confiável o suficiente pra uma confirmação que vai direto pro cliente.
+  let agendamentoRealNesteTurno: { eventId: string; meetUrl: string; startIso: string } | null = null
+
   const handlers: Record<string, (args: any) => Promise<string>> = {
     'Think3': async (args) => `Raciocínio registrado: ${args.thought}`,
     'Hora_atual': async (_args) => {
@@ -1256,10 +1292,23 @@ REGRAS:
         // iam pro evento do Calendar, nunca voltavam pra tabela leads : o CRM
         // ficava com o dado antigo (ex: nome parcial vindo do Briefing) pra
         // sempre, mesmo o lead confirmando o nome completo na conversa.
+        //
+        // Persiste o agendamento AQUI, direto, em vez de depender do modelo
+        // lembrar de chamar "Reuniao_marcada" depois (achado ao vivo,
+        // 2026-09-03 : lead recebeu confirmação de agendamento e nada foi
+        // salvo em leads, porque o passo 7 do fluxo é só instrução de prompt,
+        // não uma trava real). Se o evento no Calendar existe, o CRM tem que
+        // refletir isso, sempre, sem depender de mais nenhuma decisão da IA.
         await supabase.from('leads').update({
           contact_name: nomeCompleto,
           email: args.email,
+          call_de_venda: true,
+          call_agendada_para: event.start.toISOString(),
+          meet_url: event.meetUrl,
+          call_status: 'agendada',
+          calendar_event_id: event.eventId,
         }).eq('id', ctx.leadId)
+        agendamentoRealNesteTurno = { eventId: event.eventId, meetUrl: event.meetUrl, startIso: event.start.toISOString() }
         return JSON.stringify({ event_id: event.eventId, meet_url: event.meetUrl, start: event.start.toISOString(), data_formatada: formatDateTimeBR(event.start) })
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] Agendar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
@@ -1300,7 +1349,7 @@ REGRAS:
     },
   }
 
-  return runAgentLoop(
+  const resultado = await runAgentLoop(
     systemPrompt,
     `WhatsApp do lead: ${ctx.leadPhone}\nNome: ${ctx.leadName}\nMensagem: ${message}`,
     tools, handlers, openai, 'gpt-4.1', acc, 'agendamento', 10, history,
@@ -1312,6 +1361,19 @@ REGRAS:
       return null
     }
   )
+
+  // Trava final : se o texto parece uma confirmação de agendamento (o
+  // template fixo do prompt, "[Nome], tá agendado! 🎉..."), mas nenhum
+  // "Agendar_gcal" realmente bem-sucedido aconteceu nesse turno, é uma
+  // resposta fabricada : bloqueia antes de sair pro lead, em vez de confiar
+  // que o modelo só produz esse texto quando o evento existe de verdade.
+  const pareceConfirmacao = /tá agendado|ta agendado/i.test(resultado) && resultado.includes('🎉')
+  if (pareceConfirmacao && !agendamentoRealNesteTurno) {
+    console.error(`[SDR:${ctx.companyId}] Agente_de_Agendamento : bloqueada confirmação sem Agendar_gcal bem-sucedido nesse turno. Texto original: ${resultado.slice(0, 200)}`)
+    return `Desculpe, ${ctx.leadName}, tive um problema técnico ao confirmar o agendamento agora. Pode me confirmar o dia e horário de novo, por favor? 🙏`
+  }
+
+  return resultado
 }
 
 
@@ -1409,11 +1471,7 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   }
 
   // ── Camada 3 (FIXO condicional): agendamento : exato do AI Agent2 ─
-  const schedulingBlock = ctx.briefingLinkPending
-    ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
-Esta empresa exige preencher o formulário de briefing ANTES de marcar reunião. Você NÃO tem a tool "Agente_de_Agendamento" disponível agora, de propósito : não tente chamá-la, ela não existe na sua lista de tools desta vez.
-Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma reunião/call, chame "Play_conhecimento" com essa intenção como query pra pegar o link do formulário de fechamento configurado na base de conhecimento, e mande esse link pro lead. NUNCA invente um link, NUNCA diga que vai agendar sem o link ter sido enviado antes.`
-    : ctx.calendarId
+  const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
 1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
 2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
@@ -1553,7 +1611,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
     })
   }
 
-  if (ctx.calendarId && !ctx.briefingLinkPending) {
+  if (ctx.calendarId) {
     tools.push({
       type: 'function',
       function: {
@@ -1658,6 +1716,24 @@ async function runOrchestrator(
 
   let checklistText = 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
   let adHeadline: string | null = null
+
+  // Origem real do lead (outbound vs inbound), calculada uma vez aqui como
+  // fato determinístico e injetada no CONTEXTO DO CRM abaixo : achado ao vivo
+  // (2026-09-03, Grupo Venda) que confiar no modelo pra adivinhar isso no meio
+  // da conversa, ou numa tool que ele pode ou não chamar, falhava (lead com
+  // outbound confirmado no banco foi tratado como se tivesse chegado sozinho).
+  // Fonte de verdade: existe (ou não) um disparo outbound real pra esse número.
+  const { data: outboundRow } = await supabase
+    .from('outbound_campaigns')
+    .select('mensagem_enviada')
+    .eq('company_id', ctx.companyId)
+    .eq('whatsapp', ctx.leadPhone)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const origemReal: 'outbound' | 'inbound' = outboundRow?.mensagem_enviada ? 'outbound' : 'inbound'
+  const mensagemOutboundOriginal = outboundRow?.mensagem_enviada ?? null
+
   if (ctx.conversationId) {
     const { data: convRow } = await supabase
       .from('conversas_do_whatsapp')
@@ -1693,26 +1769,6 @@ async function runOrchestrator(
       .limit(1)
       .maybeSingle()
     adHeadline = attrRow?.referral_headline ?? null
-
-    // Trava agendamento direto até o formulário de briefing ser preenchido,
-    // pra empresa que configurou esse fluxo (achado ao vivo, 2026-09-02 :
-    // Grupo Venda) : a regra "chame Agente_de_Agendamento imediatamente" do
-    // núcleo é incondicional e sempre vencia o link do formulário no wizard,
-    // porque o modelo pula Play_conhecimento quando detecta intenção de
-    // agendar. Travando a TOOL em si (não só pedindo por prompt), o modelo
-    // fisicamente não consegue pular a etapa : sobra só Play_conhecimento,
-    // que é onde o link de fechamento mora.
-    const estagioAtual = (convRow?.checklist_atendimento as ChecklistAtendimento | null)?.estagio_atual
-    if (estagioAtual !== 'formulario_preenchido') {
-      const { data: companyRow } = await supabase
-        .from('companies')
-        .select('features')
-        .eq('id', ctx.companyId)
-        .maybeSingle()
-      if ((companyRow?.features as Record<string, boolean> | null)?.briefing === true) {
-        ctx.briefingLinkPending = true
-      }
-    }
   }
 
   const systemMsg = `${buildOrchestratorSystem(ctx)}
@@ -1722,6 +1778,7 @@ CONTEXTO DO CRM:
 - Notas: ${leadNotes || 'nenhuma'}
 - Empresa: ${ctx.companyName}
 - Data/hora: ${now}
+- Origem deste lead: ${origemReal === 'outbound' ? `OUTBOUND (a empresa entrou em contato primeiro). Mensagem original enviada: "${mensagemOutboundOriginal}"` : 'INBOUND (o lead entrou em contato primeiro, sem nenhuma abordagem prévia da empresa). NUNCA diga que "reparou" ou "notou" algo no perfil dele : você não pesquisou nada antes, foi ele quem chegou até você.'}
 
 CHECKLIST DESTA CONVERSA (siga isto à risca, é mais confiável que reler o histórico sozinho):
 ${checklistText}${adHeadline ? `
@@ -2670,7 +2727,6 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       asaasAtivo,
       billingRecurring: cfg.billing_recurring,
       placesAnalysisAtivo: cfg.placesAnalysisAtivo,
-      briefingLinkPending: false, // recalculado em runOrchestrator, com o checklist da conversa em mãos
       qaDryRun: (company?.features as Record<string, boolean> | null)?.qa_dry_run === true,
     }
 
@@ -2937,7 +2993,67 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     if (body.message?.fromMe) {
-      console.log(`[SDR:${companyId}] ignorado : fromMe=true`)
+      // fromMe=true acontece em dois casos bem diferentes : eco da própria
+      // mensagem que o SDR (ou o botão de enviar do Atendimento) já mandou
+      // via API, ou uma mensagem que um humano digitou DIRETO no celular
+      // conectado (achado ao vivo, 2026-09-03 : Bruno respondendo lead pelo
+      // celular e nada aparecia no chat, porque os dois casos eram tratados
+      // igual, sempre descartado). Diferencia pelo messageId : se já existe
+      // em mensagens_do_whatsapp, é eco do que a gente mesma mandou, ignora.
+      // Se não existe, é mensagem nova de humano : salva e pausa o SDR nessa
+      // conversa (humano assumiu, IA não deve continuar respondendo).
+      const fromMeMsgId = body.message.id ?? body.message.messageid
+      if (!fromMeMsgId) {
+        console.log(`[SDR:${companyId}] ignorado : fromMe=true sem messageId`)
+        return false
+      }
+      const { data: jaExiste } = await supabase
+        .from('mensagens_do_whatsapp')
+        .select('id')
+        .eq('whatsapp_message_id', fromMeMsgId)
+        .maybeSingle()
+      if (jaExiste) {
+        console.log(`[SDR:${companyId}] ignorado : fromMe=true, eco de mensagem já salva`)
+        return false
+      }
+
+      const fromMePhone = normalizePhone(body.chat?.phone ?? '')
+      const { data: conv } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('id, id_do_lead')
+        .eq('company_id', companyId)
+        .eq('numero_de_telefone', fromMePhone)
+        .maybeSingle()
+      if (!conv) {
+        console.log(`[SDR:${companyId}] ignorado : fromMe=true de número sem conversa existente (${fromMePhone})`)
+        return false
+      }
+
+      const fromMeMsg = body.message as any
+      const fromMeType = detectMessageType(body.message)
+      const fromMeText = fromMeMsg?.text || fromMeMsg?.conversation || fromMeMsg?.extendedTextMessage?.text || fromMeMsg?.body || ''
+      const fromMeDisplay = fromMeType === 'audio' ? '🎵 Áudio' : fromMeType === 'image' ? '📷 Imagem'
+        : fromMeType === 'document' ? '📄 Documento' : fromMeType === 'video' ? '🎥 Vídeo' : fromMeText
+
+      console.log(`[SDR:${companyId}] fromMe=true de mensagem nova : humano respondeu direto pelo celular, salvando e pausando SDR`)
+      await supabase.from('mensagens_do_whatsapp').insert({
+        id_da_conversacao: conv.id,
+        id_do_lead: conv.id_do_lead,
+        company_id: companyId,
+        texto_da_mensagem: fromMeDisplay,
+        tipo_de_mensagem: fromMeType,
+        direcao: 'outbound',
+        sender_type: 'human',
+        status: 'sent',
+        carimbo_de_data_e_hora: new Date().toISOString(),
+        whatsapp_message_id: fromMeMsgId,
+      })
+      await supabase.from('conversas_do_whatsapp').update({
+        ultima_mensagem: fromMeDisplay,
+        hora_da_ultima_mensagem: new Date().toISOString(),
+        agente_pausado: true,
+      }).eq('id', conv.id)
+
       return false
     }
 

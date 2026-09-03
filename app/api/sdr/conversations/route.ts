@@ -27,12 +27,14 @@ export async function GET() {
 
     const instanceName = sdrConfig?.uazapi_instance_name ?? null
 
+    // Ordenado por mensagem mais recente primeiro, igual WhatsApp : achado ao vivo
+    // (2026-09-03) que ordenar por lead_score primeiro fazia lead novo (sem score
+    // ainda) sumir da lista ou ficar enterrado, mesmo sendo a conversa mais recente.
     let baseQuery = service
       .from('conversas_do_whatsapp')
       .select(`*, lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*, lead_tags(tag_id, tags(id, tag_name, tag_color)))`)
       .eq('company_id', userData.company_id)
-      .order('lead_score', { ascending: false, nullsFirst: false })
-      .order('hora_da_ultima_mensagem', { ascending: false })
+      .order('hora_da_ultima_mensagem', { ascending: false, nullsFirst: false })
       .limit(50)
 
     // Closer só vê conversas dos seus leads atribuídos

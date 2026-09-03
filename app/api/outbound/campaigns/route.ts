@@ -20,7 +20,7 @@ export async function GET() {
         .order('created_at', { ascending: false }),
       supabase.from('outbound_campaigns').select('id').eq('company_id', companyId).eq('status', 'enviado'),
       supabase.from('outbound_campaigns').select('lead_id').eq('company_id', companyId).gt('tentativas', 0),
-      supabase.from('outbound_campaigns').select('id').eq('company_id', companyId).not('respondeu_em', 'is', null),
+      supabase.from('outbound_campaigns').select('id').eq('company_id', companyId).not('respondeu_em', 'is', null).eq('resposta_bot', false),
     ])
 
   if (error) {

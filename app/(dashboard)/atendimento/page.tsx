@@ -1642,7 +1642,7 @@ export default function AtendimentoPage() {
               const tabs: ConvTabKey[] = isAdmin
                 ? ['minhas', 'nao_atribuidas', 'todas']
                 : ['minhas', 'nao_atribuidas'];
-              const labels: Record<ConvTabKey, string> = { minhas: 'Minhas', nao_atribuidas: 'Livres', todas: 'Todas' };
+              const labels: Record<ConvTabKey, string> = { minhas: 'Minhas', nao_atribuidas: 'Sem dono', todas: 'Todas' };
               const counts: Record<ConvTabKey, number> = {
                 minhas: conversations.filter(c => c.assigned_to === user?.id).length,
                 nao_atribuidas: conversations.filter(c => c.assigned_to == null).length,

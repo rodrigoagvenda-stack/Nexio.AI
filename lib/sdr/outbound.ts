@@ -70,107 +70,27 @@ interface Abertura {
 
 // Pool de 100 aberturas, portado 1:1 do node "Abordagem Aleatoria" do n8n.
 // Usadas só como inspiração pro prompt de geração : a IA reescreve, nunca copia literalmente.
+// Reescrito : o pool de 100 aberturas anterior era, quase todo, o padrão que
+// dados reais mostram que NÃO funciona (leading question tipo "posso te
+// mostrar", estatística inventada, case fabricado, urgência falsa, conexão
+// forjada). Baseado em Josh Braun (pergunta neutra, "poke the bear", nunca
+// leading question com resposta óbvia) e Gong.io (300M+ ligações : abertura
+// calorosa + motivo concreto e real aumenta taxa de sucesso, "did I catch
+// you at a bad time" reduz 40%). Nenhuma entrada aqui promete resultado,
+// inventa estatística, ou finge pesquisa/conexão que não existe : só
+// observação real (o "Gap:" que vem do Buscar_analise_places) + pergunta
+// neutra que deixa a pessoa completar o raciocínio sozinha.
 const ABERTURAS: Abertura[] = [
-  { id: 1, categoria: 'Curiosidade', texto: 'Oi [Nome]! Vi algo aqui que me fez pensar direto em você — posso te mostrar em 2 minutos?' },
-  { id: 2, categoria: 'Curiosidade', texto: 'Acabei de descobrir uma forma que [segmento] tá usando pra dobrar resultado sem aumentar custo. Você já ouviu falar?' },
-  { id: 3, categoria: 'Curiosidade', texto: '[Nome], tenho uma pergunta rápida que pode mudar como você vê [área do negócio]. Posso te fazer ela?' },
-  { id: 4, categoria: 'Curiosidade', texto: 'Tem algo acontecendo no mercado de [nicho] que a maioria ainda não sabe. Você tem 1 min?' },
-  { id: 5, categoria: 'Curiosidade', texto: 'Vi que você atua com [segmento]. Posso te contar o que os top players tão fazendo diferente?' },
-  { id: 6, categoria: 'Curiosidade', texto: '[Nome], você sabia que 80% dos [profissão] estão perdendo dinheiro por um detalhe simples?' },
-  { id: 7, categoria: 'Curiosidade', texto: 'Acabei de sair de uma reunião com [perfil similar] e o resultado foi surpreendente. Como você lida com [dor]?' },
-  { id: 8, categoria: 'Curiosidade', texto: 'Oi [Nome]! Tenho uma informação que pode ser valiosa pra você — ou não. Mas acho que vale 2 minutos.' },
-  { id: 9, categoria: 'Curiosidade', texto: 'Você já parou pra calcular quanto [problema] te custa por mês? A resposta costuma surpreender.' },
-  { id: 10, categoria: 'Curiosidade', texto: '[Nome], existe um padrão que toda empresa que cresce rápido em [nicho] tem em comum. Posso te mostrar?' },
-  { id: 11, categoria: 'Prova Social', texto: 'Oi [Nome]! A [empresa similar] usou nossa solução e teve [resultado] em 30 dias. Faz sentido conversar?' },
-  { id: 12, categoria: 'Prova Social', texto: 'Trabalhei com 3 empresas de [nicho] esse mês e todas tinham o mesmo problema. Você também passa por isso?' },
-  { id: 13, categoria: 'Prova Social', texto: '[Nome], um cliente meu com perfil parecido ao seu saiu de [X] para [Y] em 60 dias. Posso te contar como?' },
-  { id: 14, categoria: 'Prova Social', texto: 'Seu concorrente já tá usando isso. Você ainda não conhece?' },
-  { id: 15, categoria: 'Prova Social', texto: 'Oi [Nome]! Acabei de ajudar uma [tipo de empresa] a resolver [problema]. Você tem esse mesmo desafio?' },
-  { id: 16, categoria: 'Prova Social', texto: 'Nesse mês já ajudei [X] empresas de [nicho] com [solução]. Posso ver se faz sentido pra você também?' },
-  { id: 17, categoria: 'Prova Social', texto: '[Nome], tenho cases de [segmento] com resultados que vão te surpreender. Vale uma conversa rápida?' },
-  { id: 18, categoria: 'Prova Social', texto: 'Nossa solução foi adotada por [X] empresas de [nicho] só esse trimestre. Posso te mostrar por quê?' },
-  { id: 19, categoria: 'Prova Social', texto: 'Vi que você está crescendo em [área]. Empresas no mesmo momento usaram [solução] pra escalar mais rápido.' },
-  { id: 20, categoria: 'Prova Social', texto: 'Oi [Nome]! Um [cargo similar] que conheço dobrou [resultado] em 45 dias com uma mudança simples. Posso compartilhar?' },
-  { id: 21, categoria: 'Dor', texto: '[Nome], você sente que [dor específica] toma mais tempo do que devia no seu dia?' },
-  { id: 22, categoria: 'Dor', texto: 'Oi! Sei que [problema] é uma pedra no sapato pra maioria das empresas de [nicho]. É o seu caso?' },
-  { id: 23, categoria: 'Dor', texto: '[Nome], como você tá lidando com [desafio]? Pergunto porque tenho visto muita gente travada nisso.' },
-  { id: 24, categoria: 'Dor', texto: 'Você já perdeu [tempo/dinheiro/cliente] por causa de [problema]? Isso é mais comum do que parece.' },
-  { id: 25, categoria: 'Dor', texto: 'Oi [Nome]! Qual é o maior obstáculo hoje pra você chegar em [objetivo]?' },
-  { id: 26, categoria: 'Dor', texto: 'Muita gente de [segmento] me fala que [dor] ainda é manual e consome muito. Na sua empresa também é assim?' },
-  { id: 27, categoria: 'Dor', texto: '[Nome], se você pudesse eliminar [dor] hoje, o que isso mudaria no seu resultado?' },
-  { id: 28, categoria: 'Dor', texto: 'Sabe aquela sensação de [problema frustrante]? Tenho uma solução que já eliminou isso pra vários clientes.' },
-  { id: 29, categoria: 'Dor', texto: 'Oi! Você está no controle de [processo] ou ainda depende de [fator de risco]?' },
-  { id: 30, categoria: 'Dor', texto: '[Nome], o que mais trava o crescimento de [empresa/área] hoje pra você?' },
-  { id: 31, categoria: 'Valor Direto', texto: 'Oi [Nome]! Tenho algo que pode te economizar [X horas] por semana — posso te mostrar em 5 minutos?' },
-  { id: 32, categoria: 'Valor Direto', texto: '[Nome], tenho uma proposta que pode gerar [resultado tangível] sem precisar de grande investimento. Faz sentido ver?' },
-  { id: 33, categoria: 'Valor Direto', texto: 'E se você pudesse [resultado desejado] em metade do tempo que leva hoje? Isso é o que nossos clientes estão conseguindo.' },
-  { id: 34, categoria: 'Valor Direto', texto: 'Oi! Posso te mostrar como reduzir [custo/problema] em [X]% com uma mudança que leva menos de uma semana?' },
-  { id: 35, categoria: 'Valor Direto', texto: '[Nome], estou ajudando empresas de [nicho] a [resultado claro]. Vale 15 minutos da sua agenda?' },
-  { id: 36, categoria: 'Valor Direto', texto: 'Tenho algo específico pra quem quer [objetivo]. Você está nesse momento agora?' },
-  { id: 37, categoria: 'Valor Direto', texto: 'Oi [Nome]! Imagina [resultado positivo] sem precisar de [esforço/custo atual]. Posso te mostrar como?' },
-  { id: 38, categoria: 'Valor Direto', texto: '[Nome], o que você acha de [resultado específico] em [prazo realista]? Tenho um caminho claro pra isso.' },
-  { id: 39, categoria: 'Valor Direto', texto: 'Você está deixando [X valor/oportunidade] na mesa sem saber. Posso te mostrar onde?' },
-  { id: 40, categoria: 'Valor Direto', texto: 'Oi! Nosso método já gerou [resultado] pra empresas como a sua. Tenho 3 minutos pra te explicar como funciona?' },
-  { id: 41, categoria: 'Personalização', texto: 'Oi [Nome]! Vi o post que você fez sobre [assunto] — fez total sentido com o que trabalho. Posso te contar?' },
-  { id: 42, categoria: 'Personalização', texto: '[Nome], pesquisei um pouco sobre [empresa] e identifiquei algo que pode fazer diferença pra vocês. Posso compartilhar?' },
-  { id: 43, categoria: 'Personalização', texto: 'Vi que sua empresa está [crescendo/expandindo/contratando]. Esse é exatamente o momento certo pra gente conversar.' },
-  { id: 44, categoria: 'Personalização', texto: 'Oi [Nome]! Li sobre [conquista da empresa] — parabéns! Aproveitei pra pensar em como posso contribuir com esse crescimento.' },
-  { id: 45, categoria: 'Personalização', texto: '[Nome], você e eu temos contatos em comum: [nome]. Ele achou que faria sentido a gente trocar uma ideia.' },
-  { id: 46, categoria: 'Personalização', texto: 'Acompanho o trabalho de [empresa] e admiro muito [algo específico]. Tenho algo que pode somar.' },
-  { id: 47, categoria: 'Personalização', texto: 'Oi! Vi que você tem desafios parecidos com outros [cargos similares] que atendo. Posso te contar o que funcionou?' },
-  { id: 48, categoria: 'Personalização', texto: '[Nome], parece que você está no momento de [transição/crescimento]. Tenho algo relevante pra esse exato estágio.' },
-  { id: 49, categoria: 'Personalização', texto: 'Oi [Nome]! Fui indicado por [nome] que disse que você é exatamente quem precisa conhecer isso.' },
-  { id: 50, categoria: 'Personalização', texto: 'Vi que você atua em [cidade/região]. Tenho algo que está funcionando muito bem nesse mercado especificamente.' },
-  { id: 51, categoria: 'Urgência', texto: '[Nome], tem uma janela de oportunidade em [nicho] que não vai durar muito. Você está olhando pra isso?' },
-  { id: 52, categoria: 'Urgência', texto: 'Oi! Estou com uma condição especial disponível só até [data]. Faz sentido te contar?' },
-  { id: 53, categoria: 'Urgência', texto: '[Nome], o mercado de [nicho] tá mudando rápido. Quem agir agora vai ter vantagem. Você está preparado?' },
-  { id: 54, categoria: 'Urgência', texto: 'Acabamos de abrir [X] vagas para [solução]. Se isso faz sentido pra você, vale conversar antes de fechar.' },
-  { id: 55, categoria: 'Urgência', texto: 'Oi [Nome]! Esse é literalmente o melhor momento pra [ação]. Em 3 meses vai ser tarde.' },
-  { id: 56, categoria: 'Urgência', texto: '[Nome], estou ajudando um número limitado de empresas esse mês. Você se encaixa no perfil — faz sentido conversar?' },
-  { id: 57, categoria: 'Urgência', texto: 'Vi que [mudança de mercado/lei/tendência] vai impactar [segmento] em breve. Você já está se preparando?' },
-  { id: 58, categoria: 'Urgência', texto: 'Oi! Temos uma condição que não vai se repetir. Não quero que você perca sem pelo menos saber o que é.' },
-  { id: 59, categoria: 'Urgência', texto: '[Nome], seus concorrentes já estão se movendo. O que você está esperando pra agir?' },
-  { id: 60, categoria: 'Urgência', texto: 'A janela pra [vantagem competitiva] está aberta agora. Em [X meses] vai ser muito mais caro ou difícil.' },
-  { id: 61, categoria: 'Pergunta Poderosa', texto: '[Nome], se você pudesse resolver um problema hoje no seu negócio, qual seria?' },
-  { id: 62, categoria: 'Pergunta Poderosa', texto: 'Oi! O que te impede de [resultado desejado] hoje?' },
-  { id: 63, categoria: 'Pergunta Poderosa', texto: '[Nome], quanto você está investindo atualmente em [área] e qual o retorno que está tendo?' },
-  { id: 64, categoria: 'Pergunta Poderosa', texto: 'Se eu te mostrasse uma forma de [resultado], isso seria relevante pra você agora?' },
-  { id: 65, categoria: 'Pergunta Poderosa', texto: 'Oi [Nome]! Qual é a sua meta de [resultado] pros próximos 90 dias?' },
-  { id: 66, categoria: 'Pergunta Poderosa', texto: '[Nome], o que você já tentou pra resolver [problema] e por que não funcionou?' },
-  { id: 67, categoria: 'Pergunta Poderosa', texto: 'Oi! Numa escala de 1 a 10, o quão satisfeito você está com [área do negócio] hoje?' },
-  { id: 68, categoria: 'Pergunta Poderosa', texto: '[Nome], se [problema] não fosse um obstáculo, onde estaria sua empresa hoje?' },
-  { id: 69, categoria: 'Pergunta Poderosa', texto: 'Você já calculou quanto [problema] custa pro seu negócio por ano? Posso te ajudar a ver esse número.' },
-  { id: 70, categoria: 'Pergunta Poderosa', texto: 'Oi [Nome]! O que precisa acontecer pra [objetivo] virar realidade pra você?' },
-  { id: 71, categoria: 'Autoridade', texto: 'Oi [Nome]! Trabalho com [nicho] há [X anos] e consigo identificar rápido o que está travando o crescimento. Posso dar uma olhada no seu caso?' },
-  { id: 72, categoria: 'Autoridade', texto: '[Nome], ajudei mais de [X] empresas de [nicho] a [resultado]. Posso ver se faz sentido pra você também?' },
-  { id: 73, categoria: 'Autoridade', texto: 'Sou especialista em [área] e consigo te dizer em 10 minutos se existe uma oportunidade concreta no seu negócio.' },
-  { id: 74, categoria: 'Autoridade', texto: 'Oi! Fui convidado pra palestrar sobre [tema] justamente por ter resultados consistentes em [área]. Posso compartilhar algo relevante?' },
-  { id: 75, categoria: 'Autoridade', texto: '[Nome], já analisei mais de [X] operações de [tipo] e vejo um padrão claro. Posso te mostrar o que separa quem cresce de quem trava?' },
-  { id: 76, categoria: 'Autoridade', texto: 'Oi [Nome]! Nossa metodologia foi validada com [X clientes]. Posso te mostrar como aplicar no seu contexto?' },
-  { id: 77, categoria: 'Autoridade', texto: '[Nome], desenvolvemos um processo específico pra [nicho] que gera [resultado]. Você tem interesse em conhecer?' },
-  { id: 78, categoria: 'Autoridade', texto: 'Trabalho exclusivamente com [segmento]. Isso me dá uma visão que poucos profissionais têm — posso compartilhar?' },
-  { id: 79, categoria: 'Autoridade', texto: 'Oi! Tenho um diagnóstico gratuito que já ajudou [X empresas] a identificar onde estão deixando dinheiro na mesa. Interesse?' },
-  { id: 80, categoria: 'Autoridade', texto: '[Nome], nossa taxa de sucesso em [nicho] é de [X]%. Isso fala mais do que qualquer pitch que eu poderia fazer.' },
-  { id: 81, categoria: 'Conexão Humana', texto: 'Oi [Nome]! A gente tem vários contatos em comum e fiquei curioso pra entender mais sobre o seu trabalho.' },
-  { id: 82, categoria: 'Conexão Humana', texto: '[Nome], vi que você passou por [desafio parecido]. Como você resolveu?' },
-  { id: 83, categoria: 'Conexão Humana', texto: 'Oi! Não é um pitch — só quero entender melhor como funciona o seu negócio. Você topa uma conversa de 10 min?' },
-  { id: 84, categoria: 'Conexão Humana', texto: '[Nome], sempre admiro quem constrói algo em [área]. O que você está construindo agora?' },
-  { id: 85, categoria: 'Conexão Humana', texto: 'Oi [Nome]! Estou pesquisando sobre [tema] e você parece ter uma visão real sobre isso. Posso te fazer algumas perguntas?' },
-  { id: 86, categoria: 'Conexão Humana', texto: 'Vi que você está num momento importante em [área]. Já passei por isso — posso te contar o que aprendi?' },
-  { id: 87, categoria: 'Conexão Humana', texto: '[Nome], tenho aprendido muito com pessoas de [nicho]. Posso trocar uma ideia rápida contigo?' },
-  { id: 88, categoria: 'Conexão Humana', texto: 'Oi! Antes de qualquer coisa — quero entender o que você precisa. Pode me contar mais sobre seu negócio?' },
-  { id: 89, categoria: 'Conexão Humana', texto: '[Nome], fui indicado pra falar com você porque dizem que você é referência em [área]. Faz sentido trocar uma ideia?' },
-  { id: 90, categoria: 'Conexão Humana', texto: 'Oi [Nome]! Sou [seu nome], trabalho com [área] e achei que poderíamos ter uma conversa que vale pra nós dois.' },
-  { id: 91, categoria: 'Diferenciação', texto: '[Nome], posso te provar que [solução] funciona antes de você gastar um centavo. Você aceitaria esse desafio?' },
-  { id: 92, categoria: 'Diferenciação', texto: 'Oi! A maioria das empresas de [nicho] está errando em [área]. Você quer saber se está nesse grupo?' },
-  { id: 93, categoria: 'Diferenciação', texto: '[Nome], tenho certeza que você já ouviu promessas de [resultado]. O que faço é diferente — posso te mostrar por quê?' },
-  { id: 94, categoria: 'Diferenciação', texto: 'Oi [Nome]! Não vou te prometer o mundo — mas posso te mostrar algo real e concreto. Você aceita?' },
-  { id: 95, categoria: 'Diferenciação', texto: '[Nome], se você está cansado de [solução comum que não funciona], tenho uma abordagem diferente. Posso te apresentar?' },
-  { id: 96, categoria: 'Diferenciação', texto: 'Oi! O que fazemos vai contra o convencional — e é exatamente por isso que funciona. Você topa ouvir?' },
-  { id: 97, categoria: 'Diferenciação', texto: '[Nome], sei que seu tempo é valioso. Por isso vou direto: tenho algo específico pra [dor]. Faz sentido ouvir?' },
-  { id: 98, categoria: 'Diferenciação', texto: 'A maioria das pessoas que vejo em [nicho] está resolvendo [problema] do jeito errado. Você quer saber qual é o jeito certo?' },
-  { id: 99, categoria: 'Diferenciação', texto: 'Oi [Nome]! Não vim com um script pronto — vim com uma solução real pra um problema real. Posso te mostrar?' },
-  { id: 100, categoria: 'Diferenciação', texto: '[Nome], o que faço não é pra todo mundo. Mas pra quem se encaixa, muda o jogo. Você quer descobrir se é o seu caso?' },
+  { id: 1, categoria: 'Observação Neutra', texto: 'Oi [Nome]! Reparei uma coisa no perfil de [empresa] no Google : [gap específico]. Isso costuma fazer o perfil aparecer menos nas buscas, sabia?' },
+  { id: 2, categoria: 'Observação Neutra', texto: '[Nome], notei que [gap específico] no perfil de vocês no Google. Isso normalmente afeta como o negócio aparece pra quem procura na região.' },
+  { id: 3, categoria: 'Observação Neutra', texto: 'Oi! Vi que o perfil da [empresa] no Google tá com [gap específico]. Isso é algo que vocês já tinham notado?' },
+  { id: 4, categoria: 'Observação Neutra', texto: '[Nome], seu perfil no Google tem [gap específico]. Isso costuma ser o primeiro motivo de perfil não converter visita em cliente.' },
+  { id: 5, categoria: 'Observação Neutra', texto: '[Nome], reparei [gap específico] no perfil de vocês no Google. Vale eu te contar o que encontrei?' },
+  { id: 6, categoria: 'Pergunta Didática', texto: 'Oi [Nome]! Como você sabe se o perfil do seu negócio no Google tá trazendo cliente ou fazendo você perder pra concorrência sem perceber?' },
+  { id: 7, categoria: 'Pergunta Didática', texto: '[Nome], você sabe dizer quantas pessoas acham seu negócio pelo Google todo mês, ou isso ainda é um número que ninguém olha?' },
+  { id: 8, categoria: 'Pergunta Didática', texto: 'Oi! O que você acha que faz um negócio aparecer primeiro nas buscas do Google : sorte, ou tem um motivo técnico por trás?' },
+  { id: 9, categoria: 'Pergunta Didática', texto: '[Nome], existe uma diferença grande entre negócio que aparece bem no Google e um que só existe lá. Você sabe em qual desses tá o seu hoje?' },
+  { id: 10, categoria: 'Curiosidade Real', texto: 'Oi [Nome]! Passei pelo perfil da [empresa] e reparei algo específico que dá pra melhorar rápido. Vale eu te contar?' },
 ]
 
 interface LeadDisponivel {
@@ -299,9 +219,25 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
         ? mql.places_analysis.summary
         : mql?.mql_resumo ?? null
 
+      // Mensagem(ns) já enviada(s) : achado ao vivo (2026-09-03) que a geração
+      // não sabia em qual toque estava nem o que já tinha mandado, gerando
+      // follow-up igual ao toque 1 (mesmo ângulo, sem escalar). Busca só
+      // quando é follow-up : toque 1 não tem histórico.
+      let previousMessage: string | null = null
+      if (categoria !== 'primeira_abordagem') {
+        const { data: prevRow } = await supabase
+          .from('outbound_campaigns')
+          .select('mensagem_enviada')
+          .eq('id', lead.id)
+          .maybeSingle()
+        previousMessage = prevRow?.mensagem_enviada ?? null
+      }
+
       const mensagem = await generateMessage(openai, {
         contactName: lead.contact_name,
         mqlResumo,
+        categoria,
+        previousMessage,
         templatePrompt: template?.prompt_sistema ?? null,
         persona,
         aberturasPool: aberturasPool ?? undefined,
@@ -424,11 +360,25 @@ async function generateMessage(
     templatePrompt: string | null
     persona?: Persona | null
     aberturasPool?: Abertura[]
+    categoria?: string
+    previousMessage?: string | null
   }
 ): Promise<string> {
   const pool = ctx.aberturasPool?.length ? ctx.aberturasPool : ABERTURAS
   const abertura = pool[Math.floor(Math.random() * pool.length)]
   const p = ctx.persona
+
+  // Diferenciação por toque (achado ao vivo, 2026-09-03 : a geração não sabia
+  // em qual toque estava, gerando follow-up idêntico ao primeiro em ângulo,
+  // sem escalar : dado real (Gong.io, cold-outreach benchmarks) mostra que a
+  // maior parte da resposta vem do 2º-4º toque, não do 1º, e que a mensagem
+  // de "breakup" no último toque costuma ter a maior taxa de resposta da
+  // sequência inteira, por gerar perda em vez de insistência.
+  const toqueBlock = ctx.categoria === 'follow_up_1'
+    ? `\n\nESTE É O 2º TOQUE (follow-up), não o primeiro contato : o lead não respondeu a esta mensagem anterior:\n"${ctx.previousMessage ?? '(mensagem anterior não encontrada)'}"\nNUNCA repita o mesmo gancho ou frase da mensagem anterior. Traga um ângulo NOVO (outro achado, outra pergunta, outra forma de dizer), sem soar repetitivo ou insistente. NUNCA use frases tipo "não recebi retorno" ou "será que você viu minha mensagem" : dado real mostra que esse tipo de frase reduz a taxa de resposta.`
+    : ctx.categoria === 'follow_up_2'
+    ? `\n\nESTE É O ÚLTIMO TOQUE da sequência (3º e final), o lead não respondeu às 2 anteriores. A última foi:\n"${ctx.previousMessage ?? '(mensagem anterior não encontrada)'}"\nEscreva uma mensagem de ENCERRAMENTO educado, tipo "não vou insistir mais, mas fico à disposição se fizer sentido no futuro" : sem pressão, sem culpa, deixando a porta aberta. NÃO repita o gancho anterior, NÃO peça desculpa por insistir.`
+    : ''
 
   // Consultivo : quando existe análise real com 2+ gaps concretos, vale gastar
   // mais palavras listando os problemas antes de puxar pra call, em vez de um
@@ -462,7 +412,7 @@ ${consultivo ? `- Cumprimente o lead pelo nome e pergunte como está
 
 Abordagem de inspiração (categoria: ${abertura.categoria}):
 "${abertura.texto}"
-${ctx.templatePrompt ? `\nEsqueleto sugerido pela empresa (use como base, nunca copie literalmente):\n${ctx.templatePrompt}` : ''}`
+${ctx.templatePrompt ? `\nEsqueleto sugerido pela empresa (use como base, nunca copie literalmente):\n${ctx.templatePrompt}` : ''}${toqueBlock}`
 
   const userPrompt = `Nome do lead: ${ctx.contactName || 'não informado'}
 ${ctx.mqlResumo ? `Contexto sobre o lead:\n${ctx.mqlResumo}` : 'Sem contexto adicional sobre o lead : use apenas o nome, se houver.'}

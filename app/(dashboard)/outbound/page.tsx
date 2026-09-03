@@ -485,7 +485,12 @@ export default function OutboundPage() {
   const noshowTotal = noshowData.reduce((acc, d) => acc + d.quantidade, 0);
 
   const enviadas_hoje = limits.mensagens_enviadas_hoje ?? 0;
-  const taxa = limits.taxa_resposta !== undefined ? `${Number(limits.taxa_resposta).toFixed(1)}%` : '—';
+  // limits.taxa_resposta vem de outbound_limits, tabela por-número (não por
+  // empresa) : nunca foi atualizada desde a criação, sempre "0.00" (achado ao
+  // vivo, 2026-09-03). Calcula direto de totalRespondidas/totalEnviadas, que
+  // já vêm agregados e corretos (e já excluem resposta de bot) da mesma
+  // chamada que preenche esses dois estados acima.
+  const taxa = totalEnviadas > 0 ? `${((totalRespondidas / totalEnviadas) * 100).toFixed(1)}%` : '—';
 
   // Meeting stats
   const now = new Date();

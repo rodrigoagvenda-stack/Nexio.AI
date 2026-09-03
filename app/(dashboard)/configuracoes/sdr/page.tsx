@@ -21,7 +21,7 @@ import {
   Monitor, Wand2, Smile, Activity, Leaf, Stethoscope,
   Heart, BarChart2, ShoppingCart, GraduationCap,
   UtensilsCrossed, Shirt, Scissors, PawPrint, Dumbbell, Wrench,
-  TrendingUp, Link2, Copy, Target, ShieldCheck,
+  TrendingUp, Link2, Copy, Target,
   type LucideIcon,
 } from 'lucide-react'
 import { BotMessageSquareIcon } from '@/components/ui/bot-message-square'
@@ -1827,13 +1827,6 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
   const [autoRounds, setAutoRounds] = useState(4)
   const [showAutoPanel, setShowAutoPanel] = useState(false)
   const [autoSummary, setAutoSummary] = useState<{ avgScore: number; wouldConvert: boolean; errors: string[]; rounds: number } | null>(null)
-  const [realTestRunning, setRealTestRunning] = useState(false)
-  const [realTestResult, setRealTestResult] = useState<{
-    passou: boolean
-    resumo: string
-    detalhes: { nome: string; passou: boolean; transcript: { lead: string; sdr: string }[]; observacao: string }[]
-  } | null>(null)
-  const [appliedRealTestIndices, setAppliedRealTestIndices] = useState<Set<number>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -1943,67 +1936,6 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
     } catch (err: any) {
       toast({ title: err.message || 'Erro ao aplicar correção', variant: 'destructive' })
     } finally { setApplyingIndex(null) }
-  }
-
-  // Diferente da simulação acima (que reescreve o prompt do zero) : chama o
-  // motor de produção de verdade, contra uma cópia isolada da sua empresa.
-  async function applyRealTestCorrection(index: number, observacao: string) {
-    await applyAutoError(observacao)
-    setAppliedRealTestIndices((prev) => new Set(prev).add(index))
-  }
-
-  async function runRealTest() {
-    if (!flowId || realTestRunning) return
-    setRealTestRunning(true)
-    setAppliedRealTestIndices(new Set())
-    // Cenários chegam um a um (streaming) : mostra progresso em vez de
-    // ficar calado por até 2 minutos (o teste roda sequencial de propósito,
-    // pra não estourar limite de taxa da OpenAI rodando tudo junto).
-    setRealTestResult({ passou: true, resumo: 'Testando...', detalhes: [] })
-    try {
-      const res = await fetch('/api/sdr/self-test', { method: 'POST' })
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Erro ao testar o SDR')
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          try {
-            const event = JSON.parse(line.slice(6))
-            if (event.type === 'scenario') {
-              setRealTestResult((prev) => ({
-                passou: prev?.passou ?? true,
-                resumo: 'Testando...',
-                detalhes: [...(prev?.detalhes ?? []), event.report],
-              }))
-            } else if (event.type === 'done') {
-              setRealTestResult((prev) => ({ passou: event.passou, resumo: event.resumo, detalhes: prev?.detalhes ?? [] }))
-            } else if (event.type === 'error') {
-              throw new Error(event.message)
-            }
-          } catch (parseErr: any) {
-            if (parseErr.message && !parseErr.message.includes('JSON')) throw parseErr
-          }
-        }
-      }
-    } catch (err: any) {
-      toast({ title: err.message || 'Erro ao testar o SDR', variant: 'destructive' })
-      setRealTestResult(null)
-    } finally {
-      setRealTestRunning(false)
-    }
   }
 
   async function runAutoSim() {
@@ -2211,21 +2143,6 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
               {autoRunning ? 'Simulando…' : 'Iniciar'}
             </Button>
           </div>
-          {flowId && (
-            <div className="pt-2 border-t border-border/60 flex items-center justify-between gap-2">
-              <p className="text-[11px] text-muted-foreground">
-                Isso aqui em cima é uma simulação. Pra testar o SDR de verdade (com seu conteúdo real), use o botão ao lado.
-              </p>
-              <Button
-                size="sm" variant="outline"
-                onClick={runRealTest} disabled={realTestRunning}
-                className="h-8 gap-1.5 text-xs shrink-0"
-              >
-                {realTestRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                {realTestRunning ? 'Testando…' : 'Testar meu SDR de verdade'}
-              </Button>
-            </div>
-          )}
         </div>
       )}
 
@@ -2311,60 +2228,6 @@ function SimulatorChat({ nicheId, variables, flowId }: { nicheId: string; variab
           <div className="mx-2 flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded-xl px-3 py-2">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             {error}
-          </div>
-        )}
-
-        {realTestResult && (
-          <div className={cn(
-            'mx-3 rounded-xl border p-4 space-y-3 animate-in fade-in duration-300',
-            realTestResult.passou ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/5'
-          )}>
-            <div>
-              <p className="text-xs font-semibold flex items-center gap-1.5">
-                <ShieldCheck className={cn('w-3.5 h-3.5', realTestResult.passou ? 'text-emerald-500' : 'text-amber-500')} />
-                Teste real do seu SDR
-              </p>
-              <p className="text-xs text-foreground/90 mt-1">{realTestResult.resumo}</p>
-            </div>
-            <div className="space-y-2">
-              {realTestResult.detalhes.map((d, i) => (
-                <div key={i} className={cn(
-                  'rounded-lg border px-3 py-2.5 space-y-1.5',
-                  d.passou ? 'border-border bg-card' : 'border-amber-500/20 bg-amber-500/5'
-                )}>
-                  <div className="flex items-start gap-2">
-                    {d.passou
-                      ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-500" />
-                      : <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium">{d.nome}</p>
-                      <p className={cn('text-[11px] mt-0.5', d.passou ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400')}>{d.observacao}</p>
-                    </div>
-                  </div>
-                  {d.transcript.length > 0 && (
-                    <div className="pl-6 space-y-1 border-l border-border/60 ml-1.5">
-                      {d.transcript.map((t, ti) => (
-                        <div key={ti} className="text-[10px] leading-relaxed">
-                          <span className="text-emerald-600 dark:text-emerald-500">Lead:</span> <span className="text-muted-foreground">{t.lead}</span>
-                          <br />
-                          <span className="text-primary">SDR:</span> <span className="text-muted-foreground">{t.sdr}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {!d.passou && flowId && (
-                    <button
-                      type="button"
-                      onClick={() => applyRealTestCorrection(i, d.observacao)}
-                      disabled={appliedRealTestIndices.has(i)}
-                      className="text-[10px] font-medium text-primary hover:underline disabled:text-muted-foreground disabled:no-underline ml-6"
-                    >
-                      {appliedRealTestIndices.has(i) ? '✓ Correção aplicada' : 'Aplicar correção'}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
           </div>
         )}
 

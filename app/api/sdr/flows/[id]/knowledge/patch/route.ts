@@ -74,10 +74,9 @@ Não explique o motivo : só diga o que fazer.`
     const embedding = embRes.data[0]?.embedding
     if (!embedding) throw new Error('Falha ao gerar embedding')
 
-    // Limita acúmulo antes de inserir a nova (achado 2/3 da auditoria RAG :
-    // correção nunca era removida, podia contradizer correção mais recente
-    // sem nenhum critério de qual prevalece na busca)
-    await capCorrectionChunks(service, userData.company_id, params.id, type)
+    // Substitui correção existente sobre o mesmo assunto (por similaridade de
+    // embedding) em vez de só empilhar por cima : achado 2/3 da auditoria RAG.
+    await capCorrectionChunks(service, userData.company_id, params.id, type, embedding)
 
     const { error: insertError } = await service.from('documents').insert({
       company_id: userData.company_id,
