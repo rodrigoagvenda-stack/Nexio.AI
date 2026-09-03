@@ -132,20 +132,29 @@ function resolveNoshowCount(counts: Record<string, number>, keys: string[]): num
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, sub, color }: {
+function KpiCard({ icon: Icon, label, value, sub, color, accent }: {
   icon: React.ElementType; label: string; value: string | number; sub?: string; color?: string;
+  accent?: 'blue' | 'violet' | 'emerald' | 'amber';
 }) {
+  const accents: Record<string, { bar: string; iconBg: string; iconText: string }> = {
+    blue:    { bar: 'bg-blue-500',    iconBg: 'bg-blue-500/10',    iconText: 'text-blue-500' },
+    violet:  { bar: 'bg-violet-500',  iconBg: 'bg-violet-500/10',  iconText: 'text-violet-500' },
+    emerald: { bar: 'bg-emerald-500', iconBg: 'bg-emerald-500/10', iconText: 'text-emerald-500' },
+    amber:   { bar: 'bg-amber-500',   iconBg: 'bg-amber-500/10',   iconText: 'text-amber-500' },
+  };
+  const a = accents[accent ?? 'blue'];
   return (
-    <Card>
-      <CardContent className="pt-5 pb-4">
+    <Card className="relative overflow-hidden">
+      <div className={`absolute inset-y-0 left-0 w-[3px] ${a.bar}`} />
+      <CardContent className="pt-5 pb-4 pl-5">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">{label}</p>
-            <p className={`text-2xl font-bold ${color ?? ''}`}>{value}</p>
-            {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">{label}</p>
+            <p className={`text-[26px] leading-none font-bold tabular-nums ${color ?? ''}`}>{value}</p>
+            {sub && <p className="text-xs text-muted-foreground mt-1.5">{sub}</p>}
           </div>
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Icon className="h-4 w-4 text-primary" />
+          <div className={`p-2 rounded-lg shrink-0 ${a.iconBg}`}>
+            <Icon className={`h-4 w-4 ${a.iconText}`} />
           </div>
         </div>
       </CardContent>
@@ -164,23 +173,6 @@ function CampaignStatusBadge({ status }: { status?: string }) {
   if (s === 'erro' || s === 'error' || s === 'failed')
     return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-xs">Erro</Badge>;
   return <Badge variant="secondary" className="text-xs">{status || 'Pendente'}</Badge>;
-}
-
-function MeetingStatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case 'agendada':
-      return <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-xs">Agendada</Badge>;
-    case 'confirmada':
-      return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Confirmada</Badge>;
-    case 'realizada':
-      return <Badge className="bg-green-500/15 text-green-600 border-green-500/30 text-xs">Realizada</Badge>;
-    case 'no_show':
-      return <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-xs">No-show</Badge>;
-    case 'cancelada':
-      return <Badge className="bg-zinc-500/15 text-zinc-500 border-zinc-500/30 text-xs">Cancelada</Badge>;
-    default:
-      return <Badge variant="secondary" className="text-xs">{status}</Badge>;
-  }
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -525,19 +517,21 @@ export default function OutboundPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 px-2 md:px-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          <Zap className="h-6 w-6 text-primary" />
-          Automação
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Outbound, Reuniões, Anti Noshow e Remarketing via IA
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+          <Zap className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground leading-tight">Automação</h1>
+          <p className="text-sm text-muted-foreground">
+            Outbound, Reuniões, Anti Noshow e Remarketing via IA
+          </p>
+        </div>
       </div>
 
       {/* Aviso de horário */}
       <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-        <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
+        <Clock className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
         <div className="space-y-0.5 text-sm">
           <p className="font-semibold text-foreground">Orbit.AI — Horário de operação</p>
           <p className="text-muted-foreground leading-relaxed">
@@ -551,13 +545,13 @@ export default function OutboundPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="campanhas" className="space-y-4">
-        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto !justify-start" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
-          <TabsTrigger value="campanhas" className="gap-1.5 flex-shrink-0">
-            <Send className="h-3.5 w-3.5" />
+        <TabsList className="flex w-full overflow-x-auto h-auto gap-1 flex-nowrap sm:flex-wrap sm:w-auto !justify-start p-1" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+          <TabsTrigger value="campanhas" className="group gap-1.5 flex-shrink-0">
+            <Send className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
             Campanhas
           </TabsTrigger>
-          <TabsTrigger value="reunioes" className="gap-1.5 flex-shrink-0">
-            <Calendar className="h-3.5 w-3.5" />
+          <TabsTrigger value="reunioes" className="group gap-1.5 flex-shrink-0">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
             Reuniões
             {meetingsHoje.length > 0 && (
               <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
@@ -565,20 +559,20 @@ export default function OutboundPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="noshow" className="gap-1.5 flex-shrink-0">
-            <ShieldCheck className="h-3.5 w-3.5" />
+          <TabsTrigger value="noshow" className="group gap-1.5 flex-shrink-0">
+            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
             Anti Noshow
           </TabsTrigger>
-          <TabsTrigger value="remarketing" className="gap-1.5 flex-shrink-0">
-            <Bell className="h-3.5 w-3.5" />
+          <TabsTrigger value="remarketing" className="group gap-1.5 flex-shrink-0">
+            <Bell className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
             Remarketing
           </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-1.5 flex-shrink-0">
-            <FileText className="h-3.5 w-3.5" />
+          <TabsTrigger value="templates" className="group gap-1.5 flex-shrink-0">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="configuracoes" className="gap-1.5 flex-shrink-0">
-            <Settings className="h-3.5 w-3.5" />
+          <TabsTrigger value="configuracoes" className="group gap-1.5 flex-shrink-0">
+            <Settings className="h-3.5 w-3.5 text-muted-foreground group-data-[state=active]:text-primary transition-colors" />
             Configurações
           </TabsTrigger>
         </TabsList>
@@ -587,17 +581,18 @@ export default function OutboundPage() {
         <TabsContent value="campanhas" className="space-y-4">
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <KpiCard icon={Send} label="Total enviadas" value={totalEnviadas} />
-            <KpiCard icon={Users} label="Leads abordados" value={totalAbordados} />
-            <KpiCard icon={MessageSquare} label="Responderam" value={totalRespondidas} color="text-emerald-600" />
+            <KpiCard icon={Send} label="Total enviadas" value={totalEnviadas} accent="blue" />
+            <KpiCard icon={Users} label="Leads abordados" value={totalAbordados} accent="violet" />
+            <KpiCard icon={MessageSquare} label="Responderam" value={totalRespondidas} color="text-emerald-600" accent="emerald" />
             <KpiCard
               icon={Activity}
               label="Enviadas hoje"
               value={enviadas_hoje}
               sub={limits.limite_diario ? `Limite: ${limits.limite_diario}` : undefined}
               color={(limits.mensagens_nao_respondidas_seguidas ?? 0) >= 5 ? 'text-red-500' : ''}
+              accent={(limits.mensagens_nao_respondidas_seguidas ?? 0) >= 5 ? 'amber' : 'blue'}
             />
-            <KpiCard icon={MessageSquare} label="Taxa de resposta" value={taxa} color="text-emerald-600" />
+            <KpiCard icon={TrendingUp} label="Taxa de resposta" value={taxa} color="text-emerald-600" accent="emerald" />
           </div>
 
           <div className="flex items-center justify-between">
@@ -829,10 +824,10 @@ export default function OutboundPage() {
         <TabsContent value="reunioes" className="space-y-4">
           {/* KPI cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard icon={Calendar}     label="Hoje"         value={meetingsHoje.length}   sub="reuniões agendadas" />
-            <KpiCard icon={CalendarCheck} label="Esta semana" value={meetingsSemana.length}  sub="próximos 7 dias" />
-            <KpiCard icon={Video}        label="Total"        value={meetings.length}        sub="todas as reuniões" />
-            <KpiCard icon={AlertCircle}  label="No-shows"     value={noShows.length}         color={noShows.length > 0 ? 'text-red-500' : ''} />
+            <KpiCard icon={Calendar}     label="Hoje"         value={meetingsHoje.length}   sub="reuniões agendadas" accent="blue" />
+            <KpiCard icon={CalendarCheck} label="Esta semana" value={meetingsSemana.length}  sub="próximos 7 dias" accent="violet" />
+            <KpiCard icon={Video}        label="Total"        value={meetings.length}        sub="todas as reuniões" accent="emerald" />
+            <KpiCard icon={AlertCircle}  label="No-shows"     value={noShows.length}         color={noShows.length > 0 ? 'text-red-500' : ''} accent={noShows.length > 0 ? 'amber' : 'emerald'} />
           </div>
 
           {/* Filtro */}
@@ -881,8 +876,13 @@ export default function OutboundPage() {
             </Card>
           ) : (
             <div className="space-y-2">
-              {displayedMeetings.map((m) => (
-                <Card key={m.id} className="overflow-hidden">
+              {displayedMeetings.map((m) => {
+                const statusAccent: Record<string, string> = {
+                  agendada: 'border-l-blue-500', confirmada: 'border-l-emerald-500',
+                  realizada: 'border-l-green-500', no_show: 'border-l-red-500', cancelada: 'border-l-zinc-400',
+                };
+                return (
+                <Card key={m.id} className={`overflow-hidden border-l-[3px] ${statusAccent[m.call_status] ?? 'border-l-border'}`}>
                   <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                     {/* Info */}
                     <div className="flex-1 min-w-0">
@@ -891,7 +891,6 @@ export default function OutboundPage() {
                         {m.contact_name && m.company_name && (
                           <span className="text-xs text-muted-foreground truncate">· {m.contact_name}</span>
                         )}
-                        <MeetingStatusBadge status={m.call_status} />
                       </div>
                       {m.call_agendada_para && (
                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
@@ -903,6 +902,34 @@ export default function OutboundPage() {
                         </p>
                       )}
                     </div>
+
+                    {/* Status */}
+                    <select
+                      value={m.call_status}
+                      onChange={async (e) => {
+                        const novoStatus = e.target.value;
+                        const anterior = m.call_status;
+                        setMeetings((prev) => prev.map((x) => x.id === m.id ? { ...x, call_status: novoStatus } : x));
+                        try {
+                          const res = await fetch('/api/outbound/meetings', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ leadId: m.id, call_status: novoStatus }),
+                          });
+                          if (!res.ok) throw new Error();
+                        } catch {
+                          setMeetings((prev) => prev.map((x) => x.id === m.id ? { ...x, call_status: anterior } : x));
+                          toast({ title: 'Erro ao atualizar status', variant: 'destructive' });
+                        }
+                      }}
+                      className="shrink-0 text-xs font-medium bg-muted/60 border border-border/60 rounded-md px-2 py-1.5 text-foreground hover:border-border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="agendada">Agendada</option>
+                      <option value="confirmada">Confirmada</option>
+                      <option value="realizada">Realizada (ligou/atendeu)</option>
+                      <option value="no_show">No-show</option>
+                      <option value="cancelada">Cancelada</option>
+                    </select>
 
                     {/* Meet link */}
                     {m.meet_url ? (
@@ -934,7 +961,8 @@ export default function OutboundPage() {
                     )}
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>
