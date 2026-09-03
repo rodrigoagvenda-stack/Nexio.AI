@@ -3035,6 +3035,29 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       const fromMeDisplay = fromMeType === 'audio' ? '🎵 Áudio' : fromMeType === 'image' ? '📷 Imagem'
         : fromMeType === 'document' ? '📄 Documento' : fromMeType === 'video' ? '🎥 Vídeo' : fromMeText
 
+      // Achado ao vivo (2026-09-03) : mídia mandada direto do celular conectado
+      // (não pelo botão de enviar do Atendimento) caía aqui sem nunca baixar o
+      // arquivo, só salvando o rótulo genérico : por isso não tocava/mostrava
+      // preview no chat, mesmo o fluxo normal (lead mandando mídia) já fazendo
+      // esse download logo abaixo. Mesmo download+persist, reaproveitado aqui.
+      const fromMeIsMedia = fromMeType === 'audio' || fromMeType === 'image' || fromMeType === 'document' || fromMeType === 'video'
+      let fromMeMediaUrl: string | undefined
+      if (fromMeIsMedia) {
+        try {
+          const uazapiMedia = createUazapiClient(body.BaseUrl ?? 'https://nexioai.uazapi.com', body.token ?? '')
+          const { base64Data, mimetype } = await uazapiMedia.downloadMedia(fromMeMsgId)
+          fromMeMediaUrl = (await persistMediaToStorage({
+            companyId,
+            phone: fromMePhone,
+            bytes: Buffer.from(base64Data, 'base64'),
+            mimetype: mimetype || '',
+            kind: fromMeType as 'audio' | 'image' | 'document' | 'video',
+          })) ?? undefined
+        } catch (e: any) {
+          console.error(`[SDR:${companyId}] download/persist de mídia (fromMe) falhou:`, e.message)
+        }
+      }
+
       console.log(`[SDR:${companyId}] fromMe=true de mensagem nova : humano respondeu direto pelo celular, salvando e pausando SDR`)
       await supabase.from('mensagens_do_whatsapp').insert({
         id_da_conversacao: conv.id,
@@ -3045,6 +3068,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         direcao: 'outbound',
         sender_type: 'human',
         status: 'sent',
+        url_da_midia: fromMeMediaUrl ?? null,
         carimbo_de_data_e_hora: new Date().toISOString(),
         whatsapp_message_id: fromMeMsgId,
       })
