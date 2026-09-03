@@ -3083,6 +3083,28 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
       || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
       || ''
 
+    // Detecção de bot/IVR determinística : achado ao vivo (2026-09-03) que a
+    // regra de "detecção de bot" no prompt (doc de conhecimento) não é
+    // confiável, o modelo repetidamente respondia a menu automático de
+    // atendente ("Opção inválida. Escolha uma das opções disponíveis") como
+    // se fosse o lead falando, várias vezes seguidas na mesma conversa.
+    // Padrão inequívoco de menu/IVR/away-message : trava aqui, antes de
+    // gastar qualquer chamada de IA, em vez de depender do modelo perceber.
+    const BOT_PATTERNS = [
+      /op[çc][ãa]o inv[áa]lida/i,
+      /escolha uma das op[çc][õo]es/i,
+      /digite\s+\d+\s+para/i,
+      /atendimento autom[áa]tico/i,
+      /fora do hor[áa]rio de atendimento/i,
+      /hor[áa]rio de atendimento[^\n]{0,40}(é|:|de)\s/i,
+      /deixe sua mensagem que retornaremos/i,
+      /em breve (você|vc) ser[áa] atendido/i,
+    ]
+    if (text && BOT_PATTERNS.some((re) => re.test(text))) {
+      console.log(`[SDR:${companyId}] ignorado : padrão de bot/IVR detectado ("${text.slice(0, 60)}")`)
+      return false
+    }
+
     // Mensagens de mídia sem texto são válidas : serão enriquecidas (transcrição/vision) em processSdrMessage
     if (!text.trim() && !isMedia) {
       console.warn(`[SDR:${companyId}] ignorado : texto vazio e não é mídia. Campos:`, Object.keys(msg ?? {}))

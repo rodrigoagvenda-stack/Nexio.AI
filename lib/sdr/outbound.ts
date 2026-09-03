@@ -393,10 +393,10 @@ ${p?.produto ? `Produto/serviço: ${p.produto}` : ''}
 ${p?.restricoes ? `Restrições : NUNCA quebrar: ${p.restricoes}` : ''}
 
 REGRAS OBRIGATÓRIAS:
-${consultivo ? `- Cumprimente o lead pelo nome e pergunte como está
-- Diga que fez uma análise detalhada do perfil da empresa no Google : NUNCA mencione site ou qualquer canal que não apareça no "Contexto sobre o lead" abaixo, só afirme o que a análise realmente cobriu
-- Cite de 2 a 4 problemas CONCRETOS listados no "Contexto sobre o lead" (os "Gap:"), nunca invente um problema que não está lá
-- Feche perguntando se pode bater um papo rápido pra mostrar como resolver isso : tom consultivo, veio ajudar, não empurrar venda
+${consultivo ? `- Cumprimente o lead pelo nome
+- Diga que reparou algo no perfil da empresa no Google : NUNCA mencione site ou qualquer canal que não apareça no "Contexto sobre o lead" abaixo, só afirme o que a análise realmente cobriu
+- Cite SOMENTE 1 problema CONCRETO listado no "Contexto sobre o lead" (o "Gap:" mais relevante), nunca a lista inteira : revelar tudo de uma vez mata a curiosidade (Information Gap Theory). Nunca invente um problema que não está lá
+- Feche com uma pergunta NEUTRA que deixa o lead completar o raciocínio sozinho (estilo Josh Braun, "poke the bear") : NUNCA pergunta do tipo "posso te mostrar/explicar como resolver" ou "quer que eu te ajude com isso" : são leading questions com resposta óbvia, dado real (Gong.io) mostra que reduzem resposta. Prefira algo tipo "Isso é algo que vocês já tinham notado?" ou uma pergunta didática sobre o tema, sem oferecer ajuda diretamente
 - Máximo 80 palavras, pode quebrar em até 3 blocos (linha em branco entre eles)` : `- Máximo 40 palavras, máximo 3 linhas
 - Se fizer sentido dividir em duas mensagens curtas, separe os blocos com uma linha em branco (no máximo 2 blocos)
 - Se o "Contexto sobre o lead" abaixo citar um "Gap:" específico do perfil Google (ex: sem site, sem fotos, sem posts), cite ESSE dado concreto na mensagem. NUNCA generalize pra algo vago tipo "pode melhorar" ou "tem espaço pra crescer" sem dizer o quê : o gancho só funciona sendo específico.`}
