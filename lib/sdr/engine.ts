@@ -257,11 +257,16 @@ const OPT_OUT_PATTERNS = [
   /\bn(?:ã|a)o\s+tenho\s+interesse/i,
   /\bn(?:ã|a)o\s+preciso(?:\s+mais)?/i,
   /\bremov(?:e|er|a)\s+(?:o\s+)?(?:meu\s+)?(?:contato|n[uú]mero)/i,
+  /\bexclu(?:a|ir|i)\s+(?:o\s+)?(?:meu\s+)?(?:contato|n[uú]mero)/i,
   /\bdescadastr/i,
   /\bcancelar\s+(?:a\s+)?inscri[cç][aã]o/i,
   /\bsa(?:i|ir)\s+da\s+lista/i,
   /\bn(?:ã|a)o\s+me\s+(?:mand|escrev|chame|contate)/i,
   /^\s*(?:stop|unsubscribe)\s*$/i,
+  /\bisso\s+[ée]\s+spam/i,
+  /\bvou\s+denunciar/i,
+  /\bn[uú]mero\s+(?:pessoal|errado)/i,
+  /\bn(?:ã|a)o\s+conhe[cç]o\s+(?:essa|esta|voc[eê]s?)/i,
 ]
 
 export function isOptOutRequest(text: string): boolean {
@@ -3272,7 +3277,38 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     }
 
     if (text && isOptOutRequest(text)) {
-      markOptOut(companyId, normalizePhone(body.chat.phone), text).catch(() => {})
+      // Achado ao vivo (2026-09-04, Choko Pet Shop) : opt-out só bloqueava
+      // disparo outbound futuro, mas a conversa ATUAL seguia normal (o SDR
+      // continuou pedindo o nome do lead depois dele pedir pra excluir o
+      // número). Pedido explícito de remoção é risco real de denúncia/spam,
+      // trava aqui : manda 1 mensagem final educada, bloqueia o contato de
+      // verdade na instância (mesma tool já usada pra abuso/prompt injection
+      // acima) e pausa a conversa pra sempre, sem depender do modelo decidir.
+      const phoneOptOut = normalizePhone(body.chat.phone)
+      markOptOut(companyId, phoneOptOut, text).catch(() => {})
+
+      const uazapiOptOut = createUazapiClient(body.BaseUrl ?? 'https://nexioai.uazapi.com', body.token ?? '')
+      uazapiOptOut.sendText({
+        number: phoneOptOut,
+        text: 'Peço desculpas pelo incômodo! Vou remover seu contato agora e não vamos mais te chamar por aqui. Tenha um ótimo dia!',
+      }).catch(() => {})
+      uazapiOptOut.blockContact(phoneOptOut).catch(() => {})
+
+      const { data: convOptOut } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('numero_de_telefone', phoneOptOut)
+        .maybeSingle()
+      if (convOptOut) {
+        // agente_pausado_em fica de fora de propósito : sem carimbo, o
+        // auto-liberar de 24h (isAgentePausadoAtivo) nunca dispara aqui,
+        // diferente da pausa por handoff humano, que é temporária.
+        await supabase.from('conversas_do_whatsapp').update({ agente_pausado: true }).eq('id', convOptOut.id)
+      }
+
+      await log(companyId, 'opt_out_blocked', { text }, supabase, phoneOptOut)
+      return false
     }
 
     const senderName: string = msg?.senderName || body.chat?.wa_contactName || body.message?.senderName || ''
