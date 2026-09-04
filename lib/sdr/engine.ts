@@ -265,8 +265,11 @@ const OPT_OUT_PATTERNS = [
   /^\s*(?:stop|unsubscribe)\s*$/i,
   /\bisso\s+[ée]\s+spam/i,
   /\bvou\s+denunciar/i,
-  /\bn[uú]mero\s+(?:pessoal|errado)/i,
+  /\bn[uú]mero\s+(?:pessoal|errado|trocado)/i,
   /\bn(?:ã|a)o\s+conhe[cç]o\s+(?:essa|esta|voc[eê]s?)/i,
+  /\bn(?:ã|a)o\s+[ée]\s+(?:o\s+)?n[uú]mero\s+d[aeo]\b/i,
+  /\bpessoa\s+errada/i,
+  /\bengano\s+(?:de|no)\s+(?:contato|n[uú]mero)/i,
 ]
 
 export function isOptOutRequest(text: string): boolean {
