@@ -902,10 +902,22 @@ export default function BriefingPage() {
                   questions.map((q) => {
                     const val = selectedResponse.answers[q.field_key];
                     const display = Array.isArray(val) ? val.join(', ') : val != null && String(val).trim() !== '' ? String(val) : null;
+                    const isUrlAnswer = q.question_type === 'url' && !!display && /^[^\s]+\.[a-z]{2,}([/?#].*)?$/i.test(display.trim());
                     return (
                       <div key={q.field_key} className="space-y-1.5">
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{q.label}</p>
-                        <p className="text-sm leading-relaxed">{display ?? <span className="text-muted-foreground italic">Não informado</span>}</p>
+                        {isUrlAnswer ? (
+                          <a
+                            href={/^https?:\/\//i.test(display!) ? display! : `https://${display}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm leading-relaxed text-primary underline underline-offset-2 break-all"
+                          >
+                            {display}
+                          </a>
+                        ) : (
+                          <p className="text-sm leading-relaxed">{display ?? <span className="text-muted-foreground italic">Não informado</span>}</p>
+                        )}
                         <div className="border-b border-border/50" />
                       </div>
                     );

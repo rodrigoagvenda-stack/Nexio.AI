@@ -149,6 +149,14 @@ export default function BriefingPublicPage() {
     if (currentQuestion.question_type === 'email' && val) {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
     }
+    // Achado ao vivo (Wanessa Rosa, 2026-09-04) : campo "url" não validava
+    // formato nenhum, então texto colado por engano (nada a ver com link)
+    // avançava normalmente e ficava salvo como se fosse o link. Mesma lógica
+    // do email acima : só valida se tiver algo digitado, campo continua
+    // opcional quando is_required é false.
+    if (currentQuestion.question_type === 'url' && val) {
+      return /^[^\s]+\.[a-z]{2,}([/?#].*)?$/i.test(String(val).trim());
+    }
     if (!currentQuestion.is_required) return true;
     if (isMulti(currentQuestion.question_type)) return Array.isArray(val) && val.length > 0;
     return !!val && val !== '';
