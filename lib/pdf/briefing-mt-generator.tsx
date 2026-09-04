@@ -224,7 +224,10 @@ async function toDataUri(url: string): Promise<string | null> {
     const objectUrl = URL.createObjectURL(blob);
     try {
       const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image();
+        // "Image" sem qualificar aqui resolveria pro componente <Image> do
+        // @react-pdf/renderer (importado no topo do arquivo pro JSX do PDF),
+        // não pro construtor HTMLImageElement do DOM -- por isso window.Image.
+        const el = new window.Image();
         el.onload = () => resolve(el);
         el.onerror = reject;
         el.src = objectUrl;

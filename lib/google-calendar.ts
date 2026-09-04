@@ -187,6 +187,10 @@ export async function checkAvailableSlots(
   let openTime = '09:00'
   let closeTime = '18:00'
   let diaFechado = isBrazilNationalHoliday(dateStr)
+  // Meio-dia fixo (-03:00) só pra achar o dia da semana certo, sem risco de
+  // virada de dia por causa de fuso : não precisa do DST-aware
+  // parseBrazilDateTime aqui, é só pra pegar o weekday.
+  const dayOfWeek = new Date(`${dateStr}T12:00:00-03:00`).getDay()
   try {
     const service = createServiceClient()
     const { data: hoursRows } = await service
@@ -196,10 +200,6 @@ export async function checkAvailableSlots(
       .is('wa_number_id', null)
 
     if (hoursRows && hoursRows.length > 0) {
-      // Meio-dia fixo (-03:00) só pra achar o dia da semana certo, sem
-      // risco de virada de dia por causa de fuso : não precisa do
-      // DST-aware parseBrazilDateTime aqui, é só pra pegar o weekday.
-      const dayOfWeek = new Date(`${dateStr}T12:00:00-03:00`).getDay()
       const today = hoursRows.find((r) => r.day_of_week === dayOfWeek)
       if (!today || today.closed || !today.open_time || !today.close_time) {
         diaFechado = true
@@ -207,9 +207,19 @@ export async function checkAvailableSlots(
         openTime = today.open_time.slice(0, 5)
         closeTime = today.close_time.slice(0, 5)
       }
+    } else {
+      // Achado ao vivo (Rodrigo, 2026-09-04) : sem NENHUMA linha configurada,
+      // o fallback abria sábado e domingo também (só bloqueava feriado) --
+      // regressão em relação ao hardcoded Seg-Sex 9h-18h de antes desta
+      // função passar a ler business_hours. O SDR continua respondendo
+      // mensagem todo dia (isWithinBusinessHours, lib/sdr/business-hours.ts,
+      // tem seu próprio "sem linha = sempre aberto" -- isso não muda), só a
+      // OFERTA DE HORÁRIO DE REUNIÃO volta a assumir Seg-Sex por padrão.
+      if (dayOfWeek === 0 || dayOfWeek === 6) diaFechado = true
     }
   } catch {
-    // Falha ao ler business_hours : mantém o fallback 9h-18h, nunca quebra o agendamento por isso
+    // Falha ao ler business_hours : mantém o fallback Seg-Sex 9h-18h, nunca quebra o agendamento por isso
+    if (dayOfWeek === 0 || dayOfWeek === 6) diaFechado = true
   }
 
   if (diaFechado) return []

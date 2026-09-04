@@ -56,6 +56,7 @@ export function aggregateMessageFunnel(rawRows: unknown[]): MessageFunnelStage[]
   return STAGE_MATCHERS.map(s => ({
     key: s.key,
     label: s.label,
+    group: s.group,
     count: sumActionValue(allActions, s.match),
   }))
 }
