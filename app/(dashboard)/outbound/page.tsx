@@ -194,6 +194,8 @@ export default function OutboundPage() {
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [newTemplateDraft, setNewTemplateDraft] = useState({ categoria: '', prompt_sistema: '', exemplos: '' });
 
+  const [outboundPausado, setOutboundPausado] = useState(false);
+  const [togglingOutbound, setTogglingOutbound] = useState(false);
   const [totalEnviadas, setTotalEnviadas] = useState(0);
   const [totalAbordados, setTotalAbordados] = useState(0);
   const [totalRespondidas, setTotalRespondidas] = useState(0);
@@ -303,10 +305,34 @@ export default function OutboundPage() {
       fetchLimits();
       fetchAntiNoshow();
       fetchMeetings();
+      fetch('/api/outbound/pause')
+        .then((r) => r.json())
+        .then((json) => { if (json.success) setOutboundPausado(json.pausado); })
+        .catch(() => {});
     }
   }, [company?.id, fetchCampaigns, fetchTemplates, fetchLimits, fetchAntiNoshow, fetchMeetings]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
+
+  async function handleToggleOutbound() {
+    const novoPausado = !outboundPausado;
+    setTogglingOutbound(true);
+    try {
+      const res = await fetch('/api/outbound/pause', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pausado: novoPausado }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+      setOutboundPausado(novoPausado);
+      toast({ title: novoPausado ? 'Outbound pausado' : 'Outbound reativado' });
+    } catch (err: any) {
+      toast({ title: err.message || 'Erro ao alterar outbound', variant: 'destructive' });
+    } finally {
+      setTogglingOutbound(false);
+    }
+  }
 
   const handleExpandCampaign = (id: number) => {
     if (expandedCampaign === id) {
@@ -522,12 +548,21 @@ export default function OutboundPage() {
         <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
           <Zap className="h-5 w-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-semibold text-foreground leading-tight">Automação</h1>
           <p className="text-sm text-muted-foreground">
             Outbound, Reuniões, Anti Noshow e Remarketing via IA
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={togglingOutbound}
+          onClick={handleToggleOutbound}
+          className={outboundPausado ? 'border-amber-500/50 text-amber-500' : ''}
+        >
+          {outboundPausado ? 'Outbound pausado · reativar' : 'Pausar outbound'}
+        </Button>
       </div>
 
       {/* Aviso de horário */}

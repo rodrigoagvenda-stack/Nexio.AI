@@ -141,6 +141,7 @@ export async function runOutboundDispatch(): Promise<{ processed: number; sent: 
     .select('id, features')
     .eq('is_active', true)
     .eq('is_shadow_company', false) // nunca disparar outbound de verdade pra empresa-sombra de teste
+    .eq('outbound_pausado', false) // achado ao vivo (2026-09-04) : erro fatal encontrado, kill switch manual pela UI
 
   const enabled = (companies ?? []).filter((c: any) => c.features?.outbound === true)
 
@@ -189,6 +190,7 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
     .from('vw_leads_disponiveis')
     .select('*')
     .eq('company_id', companyId)
+    .eq('tentativas', 0) // achado ao vivo (2026-09-04) : follow-up/remarketing/anti-noshow são exclusivos do canvas agora, outbound só faz a 1ª abordagem, nunca 2º/3º toque próprio
     .lte('proximo_contato_em', new Date().toISOString())
     .order('proximo_contato_em', { ascending: true })
     .limit(10)
