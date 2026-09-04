@@ -932,7 +932,8 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
             segment: { type: 'string' },
             priority: { type: 'string', enum: ['Alta', 'Média', 'Baixa'] },
             nivel_interesse: { type: 'string', enum: ['Quente 🔥', 'Morno 🌡️', 'Frio ❄️'] },
-            apresentacao_feita: { type: 'boolean', description: 'true assim que a Zaia se apresentar pela primeira vez nesta conversa' },
+            apresentacao_feita: { type: 'boolean', description: 'true assim que a Zaia se apresentar pela primeira vez nesta conversa (nome do agente + empresa)' },
+            nome_perguntado: { type: 'boolean', description: 'true assim que a Zaia perguntar explicitamente o nome do lead nesta conversa (ex: "como posso te chamar?"). É item SEPARADO de apresentacao_feita, marque os dois de forma independente : um não substitui o outro' },
             link_briefing_enviado: { type: 'boolean', description: 'true assim que o link do briefing/formulário (retornado pelo Play_conhecimento, seção FECHAMENTO) for mandado pro lead nesta conversa' },
             nova_pergunta_respondida: {
               type: 'object',
@@ -977,7 +978,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       // Checklist estruturado : merge com o que já existe, nunca sobrescreve
       // apagando (apresentacao_feita só vira true e fica true; perguntas novas
       // se acumulam na lista, sem duplicar rótulo).
-      if (ctx.conversationId && (args.apresentacao_feita || args.link_briefing_enviado || args.nova_pergunta_respondida || args.estagio_atual)) {
+      if (ctx.conversationId && (args.apresentacao_feita || args.nome_perguntado || args.link_briefing_enviado || args.nova_pergunta_respondida || args.estagio_atual)) {
         const { data: convAtual } = await supabase
           .from('conversas_do_whatsapp')
           .select('checklist_atendimento')
@@ -992,6 +993,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
         }
         const novoChecklist: ChecklistAtendimento = {
           apresentacao_feita: atual.apresentacao_feita || !!args.apresentacao_feita,
+          nome_perguntado: atual.nome_perguntado || !!args.nome_perguntado,
           link_briefing_enviado: atual.link_briefing_enviado || !!args.link_briefing_enviado,
           perguntas_e_respostas: perguntas,
           estagio_atual: args.estagio_atual ?? atual.estagio_atual,
@@ -1702,6 +1704,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
 
 interface ChecklistAtendimento {
   apresentacao_feita?: boolean
+  nome_perguntado?: boolean
   link_briefing_enviado?: boolean
   perguntas_e_respostas?: { pergunta: string; resposta: string }[]
   estagio_atual?: string
@@ -1716,14 +1719,20 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
   // sempre que a apresentação ainda não foi feita : é obrigatória em toda
   // conversa, mesmo quando o WhatsApp já mostra um nome de contato (não é
   // confiável, pode ser apelido ou número de terceiro).
-  if (!checklist || (!checklist.apresentacao_feita && !checklist.perguntas_e_respostas?.length && !checklist.estagio_atual && !checklist.lead_recusou)) {
-    return '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. OBRIGATÓRIO nesta resposta, antes de qualquer qualificação ou pitch : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead. Faça isso MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
+  // Segundo achado (mesmo dia, lead Samuel Alves) : mesmo com essa regra já
+  // no ar, o modelo cumpriu só a apresentação e pulou a pergunta do nome,
+  // porque as duas viviam juntas numa instrução só e "meio feito" contava
+  // como feito. Separadas em dois itens de checklist rastreados de forma
+  // independente, cada um precisa ser marcado true separadamente.
+  if (!checklist || (!checklist.apresentacao_feita && !checklist.nome_perguntado && !checklist.perguntas_e_respostas?.length && !checklist.estagio_atual && !checklist.lead_recusou)) {
+    return '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. São DUAS obrigações SEPARADAS nesta resposta, antes de qualquer qualificação ou pitch, nenhuma substitui a outra : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead (ex: "como posso te chamar?"). Faça as duas MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
   }
   const lines: string[] = []
   if (checklist.lead_recusou) {
     lines.push('⚠️ O LEAD JÁ RECUSOU/PEDIU PRA PARAR EXPLICITAMENTE nesta conversa. NÃO ofereça nada novo, NÃO faça pergunta de qualificação, NÃO empurre a conversa adiante. Responda no máximo uma frase curta e educada se ele mandar algo, e só volte a vender de verdade se ELE fizer uma pergunta clara e nova sobre o produto.')
   }
-  lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome + empresa) E pergunte o nome do lead antes de qualquer outra coisa'}`)
+  lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome do agente + empresa)'}`)
+  lines.push(`Nome do lead já foi perguntado: ${checklist.nome_perguntado ? 'SIM : NUNCA pergunte de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, pergunte o nome do lead (item SEPARADO da apresentação, os dois são obrigatórios independentemente)'}`)
   lines.push(`Link do briefing já enviado: ${checklist.link_briefing_enviado ? 'SIM' : 'NÃO : se o "Contexto sobre o lead" ou o Play_conhecimento tiver um link de briefing/formulário, ele é OBRIGATÓRIO antes de chamar Agente_de_Agendamento pela primeira vez nesta conversa, independente do lead ter demonstrado interesse'}`)
   if (checklist.perguntas_e_respostas?.length) {
     lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
@@ -1745,7 +1754,7 @@ async function runOrchestrator(
   const userInput = messages.map((m) => m.content).join('\n\n')
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
-  let checklistText = '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. OBRIGATÓRIO nesta resposta, antes de qualquer qualificação ou pitch : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead. Faça isso MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
+  let checklistText = '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. São DUAS obrigações SEPARADAS nesta resposta, antes de qualquer qualificação ou pitch, nenhuma substitui a outra : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead (ex: "como posso te chamar?"). Faça as duas MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
   let adHeadline: string | null = null
 
   // Origem real do lead (outbound vs inbound), calculada uma vez aqui como
@@ -2088,6 +2097,7 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
             .from('conversas_do_whatsapp')
             .update({
               agente_pausado: true,
+              agente_pausado_em: new Date().toISOString(),
               current_status: 'livre',
               kanban_stage: 'fila',
               queue_entered_at: new Date().toISOString(),
@@ -2389,6 +2399,19 @@ async function sendWithHumanDelay(
   const isMeta = !!(metaPhoneNumberId && metaToken)
   const uazapi = isMeta ? null : createUazapiClient(uazapiUrl, token)
 
+  // Re-checa pausa AQUI, logo antes de enviar de verdade : achado ao vivo
+  // (2026-09-04, lead Danilo Menna) que "agente_pausado" só era checado UMA
+  // vez, no início de processSdrMessage, antes de rodar toda a cadeia de
+  // tools (Think1 → RAG → Pipeline → Segmentação → Outbound → Memory_long →
+  // gerar resposta), que leva vários segundos. Se um humano assumia a
+  // conversa NO MEIO desse processamento, a resposta antiga saía mesmo
+  // assim, embolando com o humano. Essa recheck fecha essa brecha.
+  if (await isAgentePausadoAtivo(conversationId, supabase)) {
+    console.warn(`[SDR:${ctx.companyId}] envio cancelado : humano assumiu a conversa durante o processamento (conversationId=${conversationId})`)
+    await log(ctx.companyId, 'send_blocked_agent_paused_mid_processing', { conversationId }, supabase, phone, ctx.leadId)
+    return
+  }
+
   // Janela de 24h : fora dela, mensagem livre falha direto na API da Meta.
   // Bloqueia antes de tentar, em vez de deixar a chamada estourar.
   const windowState = await getWindowStateForConversation(supabase, conversationId)
@@ -2444,6 +2467,39 @@ async function sendWithHumanDelay(
       await new Promise((r) => setTimeout(r, 1500))
     }
   }
+}
+
+// ─── Pausa por humano : checagem + auto-reativação após 24h ────
+//
+// Achado ao vivo (2026-09-04) : "agente_pausado" ficava travado pra sempre
+// se o humano assumisse e esquecesse de reativar manualmente, deixando o
+// lead sem resposta nenhuma (nem do SDR, nem do humano) indefinidamente.
+// Antes de tratar como pausado de verdade, checa há quanto tempo foi
+// pausado : passou de 24h sem reativação manual, auto-libera o SDR.
+const PAUSE_AUTO_RELEASE_MS = 24 * 60 * 60 * 1000
+
+async function isAgentePausadoAtivo(
+  conversationId: string,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<boolean> {
+  const { data: conv } = await supabase
+    .from('conversas_do_whatsapp')
+    .select('agente_pausado, agente_pausado_em')
+    .eq('id', conversationId)
+    .maybeSingle()
+
+  if (!conv?.agente_pausado) return false
+
+  const pausadoEm = conv.agente_pausado_em ? new Date(conv.agente_pausado_em).getTime() : null
+  if (pausadoEm && Date.now() - pausadoEm > PAUSE_AUTO_RELEASE_MS) {
+    await supabase
+      .from('conversas_do_whatsapp')
+      .update({ agente_pausado: false, agente_pausado_em: null })
+      .eq('id', conversationId)
+    return false
+  }
+
+  return true
 }
 
 // ─── Log ───────────────────────────────────────────────────────
@@ -2781,13 +2837,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     }
 
     // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
-    const { data: conv } = await supabase
-      .from('conversas_do_whatsapp')
-      .select('agente_pausado')
-      .eq('id', conversationId)
-      .single()
-
-    if (conv?.agente_pausado) {
+    if (await isAgentePausadoAtivo(conversationId, supabase)) {
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
       return
     }
@@ -2897,6 +2947,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           .from('conversas_do_whatsapp')
           .update({
             agente_pausado: true,
+            agente_pausado_em: new Date().toISOString(),
             current_status: 'livre',
             kanban_stage: 'fila',
             queue_entered_at: new Date().toISOString(),
@@ -3107,6 +3158,7 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
         ultima_mensagem: fromMeDisplay,
         hora_da_ultima_mensagem: new Date().toISOString(),
         agente_pausado: true,
+        agente_pausado_em: new Date().toISOString(),
       }).eq('id', conv.id)
 
       return false

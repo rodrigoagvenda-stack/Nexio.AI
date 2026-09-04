@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
 
     const { data, error } = await service
       .from('conversas_do_whatsapp')
-      .update({ agente_pausado: pausado })
+      .update({ agente_pausado: pausado, agente_pausado_em: pausado ? new Date().toISOString() : null })
       .eq('id', params.id)
       .eq('company_id', userData.company_id)
       .select('id, agente_pausado')
