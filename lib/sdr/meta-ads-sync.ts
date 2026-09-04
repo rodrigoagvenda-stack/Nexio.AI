@@ -23,9 +23,26 @@ interface MetaInsightRow {
   actions?: unknown
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-04) : "date_preset=yesterday" 1x/dia era
+// impreciso demais pra quem acompanha campanha no mesmo dia -- o gasto de
+// HOJE só apareceria amanhã. Agora busca uma janela rolante (hoje + 2 dias
+// anteriores) a cada execução : o upsert (onConflict company_id,ad_id,date)
+// reescreve os mesmos dias com o valor mais atual da Meta a cada rodada, sem
+// duplicar nada. Combinado com o cron rodando de hora em hora (não mais só
+// 1x/dia), o dado de hoje fica sempre razoavelmente fresco.
+function janelaRolante(dias = 3): { since: string; until: string } {
+  const hoje = new Date()
+  const inicio = new Date(hoje)
+  inicio.setDate(inicio.getDate() - (dias - 1))
+  const fmt = (d: Date) => d.toISOString().slice(0, 10)
+  return { since: fmt(inicio), until: fmt(hoje) }
+}
+
 async function fetchAdAccountInsights(adAccountId: string, token: string): Promise<MetaInsightRow[]> {
   const fields = 'spend,impressions,clicks,campaign_id,campaign_name,ad_id,ad_name,actions'
-  const url = `https://graph.facebook.com/v21.0/act_${adAccountId}/insights?level=ad&fields=${fields}&date_preset=yesterday&time_increment=1&limit=500`
+  const { since, until } = janelaRolante()
+  const timeRange = encodeURIComponent(JSON.stringify({ since, until }))
+  const url = `https://graph.facebook.com/v21.0/act_${adAccountId}/insights?level=ad&fields=${fields}&time_range=${timeRange}&time_increment=1&limit=500`
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   const json = await res.json()
   if (!res.ok) throw new Error(json?.error?.message ?? `Meta insights falhou (status ${res.status})`)

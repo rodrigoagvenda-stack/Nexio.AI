@@ -19,15 +19,26 @@ export interface MessageFunnelStage {
   key: string
   label: string
   count: number
+  /**
+   * Conferido ao vivo (Rodrigo, 2026-09-04) com dado real : "funil" são
+   * marcos sequenciais por conversa (uma conta por conversa), dá pra tratar
+   * como funil de verdade com % de queda entre etapas. "profundidade" é
+   * volume de MENSAGENS enviadas depois que a conversa atingiu aquela
+   * profundidade -- não é contagem de pessoas, pode passar do estágio
+   * anterior sem que nada esteja errado (ex: depth_5 > depth_3 é normal).
+   * Renderizar como % de queda junto do funil real é que gerava número
+   * bizarro tipo "243%".
+   */
+  group: 'funil' | 'profundidade'
 }
 
-const STAGE_MATCHERS: { key: string; label: string; match: (actionType: string) => boolean }[] = [
-  { key: 'conversas_iniciadas', label: 'Conversas iniciadas', match: (t) => t.includes('messaging_conversation_started') },
-  { key: 'contatos_por_mensagem', label: 'Contatos por mensagem', match: (t) => t.includes('total_messaging_connection') },
-  { key: 'primeira_resposta', label: 'Primeira resposta da empresa', match: (t) => t.includes('messaging_first_reply') },
-  { key: 'profundidade_2', label: '2ª mensagem do usuário', match: (t) => t.includes('messaging_user_depth_2') },
-  { key: 'profundidade_3', label: '3ª mensagem do usuário', match: (t) => t.includes('messaging_user_depth_3') },
-  { key: 'profundidade_5', label: '5ª mensagem (engajada)', match: (t) => t.includes('messaging_user_depth_5') },
+const STAGE_MATCHERS: { key: string; label: string; group: 'funil' | 'profundidade'; match: (actionType: string) => boolean }[] = [
+  { key: 'conversas_iniciadas', label: 'Conversas iniciadas', group: 'funil', match: (t) => t.includes('messaging_conversation_started') },
+  { key: 'contatos_por_mensagem', label: 'Contatos por mensagem', group: 'funil', match: (t) => t.includes('total_messaging_connection') },
+  { key: 'primeira_resposta', label: 'Primeira resposta da empresa', group: 'funil', match: (t) => t.includes('messaging_first_reply') },
+  { key: 'profundidade_2', label: 'Mensagens com 2+ trocas', group: 'profundidade', match: (t) => t.includes('messaging_user_depth_2') },
+  { key: 'profundidade_3', label: 'Mensagens com 3+ trocas', group: 'profundidade', match: (t) => t.includes('messaging_user_depth_3') },
+  { key: 'profundidade_5', label: 'Mensagens com 5+ trocas', group: 'profundidade', match: (t) => t.includes('messaging_user_depth_5') },
 ]
 
 function sumActionValue(actions: MetaAction[], matcher: (t: string) => boolean): number {

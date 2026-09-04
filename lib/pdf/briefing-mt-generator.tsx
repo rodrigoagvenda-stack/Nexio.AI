@@ -207,17 +207,38 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
 // (reading 'hasOwnProperty')" durante o layout). Workaround padrão da
 // própria comunidade da lib: buscar a imagem à parte e passar já como
 // data URI base64, evitando o caminho de código com o bug.
+//
+// Achado ao vivo (Rodrigo, 2026-09-04) : o mesmo erro continuava mesmo já
+// convertendo pra base64 -- a logo é upload livre do usuário (arbitrário,
+// via wizard), e o decoder de PNG interno do react-pdf trava em alguns
+// formatos válidos de PNG (ex: perfil de cor ICC embutido, entrelaçado,
+// 16-bit) que o navegador abre sem problema mas a lib não sabe ler. Fix:
+// redesenhar a imagem num <canvas> antes de exportar como data URI -- isso
+// força um PNG "normalizado" (RGBA padrão, sem os metadados exóticos que
+// travavam o decoder da lib), contornando o bug sem depender de reupload.
 async function toDataUri(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = objectUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0);
+      return canvas.toDataURL('image/png');
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   } catch {
     return null;
   }
