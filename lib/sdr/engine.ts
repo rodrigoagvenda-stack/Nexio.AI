@@ -933,6 +933,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
             priority: { type: 'string', enum: ['Alta', 'Média', 'Baixa'] },
             nivel_interesse: { type: 'string', enum: ['Quente 🔥', 'Morno 🌡️', 'Frio ❄️'] },
             apresentacao_feita: { type: 'boolean', description: 'true assim que a Zaia se apresentar pela primeira vez nesta conversa' },
+            link_briefing_enviado: { type: 'boolean', description: 'true assim que o link do briefing/formulário (retornado pelo Play_conhecimento, seção FECHAMENTO) for mandado pro lead nesta conversa' },
             nova_pergunta_respondida: {
               type: 'object',
               properties: {
@@ -976,7 +977,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       // Checklist estruturado : merge com o que já existe, nunca sobrescreve
       // apagando (apresentacao_feita só vira true e fica true; perguntas novas
       // se acumulam na lista, sem duplicar rótulo).
-      if (ctx.conversationId && (args.apresentacao_feita || args.nova_pergunta_respondida || args.estagio_atual)) {
+      if (ctx.conversationId && (args.apresentacao_feita || args.link_briefing_enviado || args.nova_pergunta_respondida || args.estagio_atual)) {
         const { data: convAtual } = await supabase
           .from('conversas_do_whatsapp')
           .select('checklist_atendimento')
@@ -991,6 +992,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
         }
         const novoChecklist: ChecklistAtendimento = {
           apresentacao_feita: atual.apresentacao_feita || !!args.apresentacao_feita,
+          link_briefing_enviado: atual.link_briefing_enviado || !!args.link_briefing_enviado,
           perguntas_e_respostas: perguntas,
           estagio_atual: args.estagio_atual ?? atual.estagio_atual,
         }
@@ -1492,8 +1494,9 @@ Olá, Rodrigo! Tudo bem por aqui, e com você? Como posso te ajudar hoje? Se qui
   // ── Camada 3 (FIXO condicional): agendamento : exato do AI Agent2 ─
   const schedulingBlock = ctx.calendarId
     ? `\n\nREGRA CRÍTICA DE AGENDAMENTO:
+0. ⛔ ANTES de chamar "Agente_de_Agendamento" PELA PRIMEIRA VEZ nesta conversa : confira "Link do briefing já enviado" no CHECKLIST abaixo. Se for NÃO e existir um link de briefing/formulário no "Contexto sobre o lead" ou no retorno do Play_conhecimento (seção FECHAMENTO), MANDE esse link agora, nesta resposta, antes de agendar : o link é obrigatório sempre, independente do lead ter demonstrado interesse na hora. Só chame "Agente_de_Agendamento" no PRÓXIMO turno, depois do link já ter sido mandado. Se não existir link nenhum configurado, ignore este passo e siga direto pro 1.
 1. Se a ÚLTIMA mensagem que você enviou ao lead era uma pergunta de confirmação de agendamento (ex: "[Nome], [dia] [data] às [hora] : confirma?") E a resposta do lead for qualquer afirmação ("sim", "pode", "ok", "confirmo", "isso", "s", "claro", "quero"), chame IMEDIATAMENTE "Agente_de_Agendamento" : NÃO processe mais nada, NÃO chame outras tools.
-2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico".
+2. Se o lead demonstrar QUALQUER intenção de agendar, remarcar ou cancelar uma REUNIÃO ou CALL com data e hora marcadas, chame IMEDIATAMENTE "Agente_de_Agendamento" : sem enviar nenhuma mensagem de texto antes, sem dizer "aguarde", sem dizer "já verifico" (a não ser que o passo 0 acima se aplique, aí manda o link primeiro).
 Em ambos os casos: chame a tool diretamente e retorne exatamente o que ela responder, sem alterar nada. Mensagens genéricas sobre outros assuntos NÃO devem acionar esse agente.
 ⛔ PROIBIDO chamar "Agente_de_Agendamento" para: pedido de teste grátis, link de teste, cadastro, demonstração, dúvida sobre produto ou preço, ou qualquer coisa que não seja marcar uma reunião/call com data e hora reais. Esse agente só sabe mexer no Google Calendar : ele NÃO conhece o produto, não tem link de teste e não envia e-mail nenhum. Pedido de teste/trial é respondido com "Play_conhecimento"/"Play_objecoes", nunca com este agente.`
     : ''
@@ -1699,6 +1702,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
 
 interface ChecklistAtendimento {
   apresentacao_feita?: boolean
+  link_briefing_enviado?: boolean
   perguntas_e_respostas?: { pergunta: string; resposta: string }[]
   estagio_atual?: string
   lead_recusou?: boolean
@@ -1720,6 +1724,7 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
     lines.push('⚠️ O LEAD JÁ RECUSOU/PEDIU PRA PARAR EXPLICITAMENTE nesta conversa. NÃO ofereça nada novo, NÃO faça pergunta de qualificação, NÃO empurre a conversa adiante. Responda no máximo uma frase curta e educada se ele mandar algo, e só volte a vender de verdade se ELE fizer uma pergunta clara e nova sobre o produto.')
   }
   lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome + empresa) E pergunte o nome do lead antes de qualquer outra coisa'}`)
+  lines.push(`Link do briefing já enviado: ${checklist.link_briefing_enviado ? 'SIM' : 'NÃO : se o "Contexto sobre o lead" ou o Play_conhecimento tiver um link de briefing/formulário, ele é OBRIGATÓRIO antes de chamar Agente_de_Agendamento pela primeira vez nesta conversa, independente do lead ter demonstrado interesse'}`)
   if (checklist.perguntas_e_respostas?.length) {
     lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
     for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
