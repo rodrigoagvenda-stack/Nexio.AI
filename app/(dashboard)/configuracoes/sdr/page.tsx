@@ -559,7 +559,7 @@ function DicaDeOuro() {
   const [copiedObjecoes, setCopiedObjecoes] = useState(false)
 
   useEffect(() => {
-    const start = () => iconRef.current?.startAnimation()
+    const start = () => iconRef.current?.startAnimation?.()
     start()
     const interval = setInterval(start, 3000)
     return () => clearInterval(interval)

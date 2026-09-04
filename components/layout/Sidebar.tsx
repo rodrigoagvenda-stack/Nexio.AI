@@ -187,8 +187,8 @@ function NavItemLinkComp({
       prefetch={true}
       data-tour={TOUR_TARGETS[link.href]}
       onClick={onClick}
-      onMouseEnter={() => iconRef.current?.startAnimation()}
-      onMouseLeave={() => iconRef.current?.stopAnimation()}
+      onMouseEnter={() => iconRef.current?.startAnimation?.()}
+      onMouseLeave={() => iconRef.current?.stopAnimation?.()}
       className={cn(
         'relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-100',
         isActive
@@ -234,8 +234,8 @@ function NavItemFlyoutComp({
   const Icon = link.icon as unknown as AnyAnimIcon;
   return (
     <div
-      onMouseEnter={(e) => { iconRef.current?.startAnimation(); onMouseEnter(e); }}
-      onMouseLeave={() => { iconRef.current?.stopAnimation(); onMouseLeave(); }}
+      onMouseEnter={(e) => { iconRef.current?.startAnimation?.(); onMouseEnter(e); }}
+      onMouseLeave={() => { iconRef.current?.stopAnimation?.(); onMouseLeave(); }}
       className={cn(
         'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-100 select-none',
         isParentActive
