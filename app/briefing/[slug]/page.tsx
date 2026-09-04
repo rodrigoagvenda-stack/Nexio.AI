@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2, Check } from 'lucide-react';
 
@@ -34,6 +34,14 @@ interface BriefingQuestion {
 export default function BriefingPublicPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const searchParams = useSearchParams();
+  // Link personalizado (mandado pelo SDR com o telefone já embutido, veja
+  // personalizeBriefingLinks em lib/sdr/engine.ts) : o número é o mesmo da
+  // conversa de WhatsApp, então pula a pergunta em vez de arriscar erro de
+  // digitação (foi assim que "Wanessa Rosa" duplicou : typo no telefone).
+  const telParam = searchParams.get('tel');
+  const telDigits = telParam ? telParam.replace(/\D/g, '') : '';
+  const [telLocked, setTelLocked] = useState(false);
 
   const [config, setConfig] = useState<BriefingConfig | null>(null);
   const [questions, setQuestions] = useState<BriefingQuestion[]>([]);
@@ -67,7 +75,12 @@ export default function BriefingPublicPage() {
         initial[q.field_key] = isMulti(q.question_type) ? [] : '';
       });
       if (data.data.config.whatsapp_required !== false) {
-        initial['whatsapp'] = '';
+        if (telDigits.length >= 10) {
+          initial['whatsapp'] = telDigits;
+          setTelLocked(true);
+        } else {
+          initial['whatsapp'] = '';
+        }
       }
       setAnswers(initial);
     } catch {
@@ -98,6 +111,7 @@ export default function BriefingPublicPage() {
   }
 
   const hasWhatsapp = config?.whatsapp_required !== false;
+  const showWhatsappStep = hasWhatsapp && !telLocked;
 
   // Build ordered steps by sorting questions + whatsapp by their order_index
   type StepDef =
@@ -106,7 +120,7 @@ export default function BriefingPublicPage() {
 
   const stepsArray: StepDef[] = [
     ...questions.map(q => ({ type: 'question' as const, question: q, _key: q.order_index })),
-    ...(hasWhatsapp ? [{ type: 'whatsapp' as const, _key: config?.whatsapp_order_index ?? 9999 }] : []),
+    ...(showWhatsappStep ? [{ type: 'whatsapp' as const, _key: config?.whatsapp_order_index ?? 9999 }] : []),
   ]
     .sort((a, b) => a._key - b._key)
     .map(({ _key: _k, ...rest }) => rest as StepDef);

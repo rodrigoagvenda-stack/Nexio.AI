@@ -2393,6 +2393,25 @@ export async function findOrCreateLead(
 
 // ─── Envio com delay humanizado ────────────────────────────────
 
+// ─── Personalização de link de briefing ─────────────────────────────
+//
+// Achado ao vivo (Wanessa Rosa, 2026-09-04) : o link do formulário vem como
+// texto genérico fixo no documento de conhecimento (mesmo link pra qualquer
+// lead da empresa), exigindo digitar o WhatsApp de novo na tela : bastou um
+// dígito errado pra criar um lead duplicado. Aqui a URL recebe o telefone
+// (já validado, é o mesmo da conversa) como query param antes de sair : a
+// tela do formulário (app/briefing/[slug]/page.tsx) detecta o param e pula
+// a pergunta do WhatsApp inteiramente, em vez de arriscar novo erro de
+// digitação.
+function personalizeBriefingLinks(text: string, phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return text
+  return text.replace(/https?:\/\/[^\s'"]+\/briefing\/[a-zA-Z0-9-]+/g, (url) => {
+    const sep = url.includes('?') ? '&' : '?'
+    return `${url}${sep}tel=${digits}`
+  })
+}
+
 async function sendWithHumanDelay(
   paragraphs: string[],
   phone: string,
@@ -2430,7 +2449,7 @@ async function sendWithHumanDelay(
   }
 
   for (let i = 0; i < paragraphs.length; i++) {
-    const paragraph = paragraphs[i]
+    const paragraph = personalizeBriefingLinks(paragraphs[i], phone)
     if (!paragraph.trim()) continue
 
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000

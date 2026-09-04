@@ -816,7 +816,11 @@ function stepsToNodes(steps: FollowStep[] | undefined | null, sequenceName: stri
     }
     else if (isWait) nodes.push({ id: step.id, type: 'waitNode', position: { x, y }, data: { kind: 'wait', label: 'Aguardar', dia_offset: step.dia_offset, stepId: step.id, customLabel } satisfies WaitNodeData });
     else {
-      const offset_unit: 'days' | 'hours' = (step.media_config as any)?.offset_unit ?? (sequenceTipo === 'anti_noshow' ? 'hours' : 'days');
+      // anti_noshow sempre usa AntiNoshowOffsetPicker, que só trabalha em
+      // minutos (ver onChange dele) : default correto é 'minutes', não
+      // 'hours' (achado ao vivo, 2026-09-04, causava reinterpretação errada
+      // de dia_offset em minuto pra dia_offset em hora depois de recarregar).
+      const offset_unit: 'days' | 'hours' | 'minutes' = (step.media_config as any)?.offset_unit ?? (sequenceTipo === 'anti_noshow' ? 'minutes' : 'days');
       nodes.push({ id: step.id, type: 'messageNode', position: { x, y }, data: { kind: 'message', label: 'Mensagem', dia_offset: step.dia_offset, horario: step.horario, mensagem: mensagemDisplay, tipo_mensagem: tipoCanvas, stepId: step.id, media_url, media_name, location_url, location_name, location_address, menu_choices, carousel_json, metaTemplateId, metaTemplateBodyParams, blocos, customLabel, sdr_ativo: step.sdr_ativo ?? null, offset_unit } satisfies MessageNodeData });
     }
   });
@@ -899,8 +903,13 @@ function nodesToSteps(nodes: Node<AutoNodeData>[]): FollowStep[] {
 
       // When using blocos, first block becomes mensagem for backwards compat with executors
       const mensagemFinal = d.blocos && d.blocos.length > 0 ? (d.blocos[0] || null) : (d.mensagem || null);
-      const finalMediaConfig = d.offset_unit === 'hours'
-        ? { ...(media_config ?? {}), offset_unit: 'hours' }
+      // Achado ao vivo (2026-09-04) : só persistia offset_unit quando era
+      // 'hours' exatamente, então 'minutes' (o que o AntiNoshowOffsetPicker
+      // sempre usa) era descartado no salvamento — ao recarregar, o loader
+      // não achava a tag e caía no default errado ('hours'), reinterpretando
+      // minutos como se fossem horas. Persiste qualquer unit não-default agora.
+      const finalMediaConfig = (d.offset_unit === 'hours' || d.offset_unit === 'minutes')
+        ? { ...(media_config ?? {}), offset_unit: d.offset_unit }
         : media_config;
       return { id: stepId, dia_offset: d.dia_offset, horario: d.offset_unit === 'hours' ? '00:00' : d.horario, mensagem: mensagemFinal, tipo_mensagem: tipoDb, ordem: idx + 1, condicao: '', media_config: finalMediaConfig,
         sdr_ativo: d.sdr_ativo ?? null };
