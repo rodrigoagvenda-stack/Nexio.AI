@@ -1705,14 +1705,21 @@ interface ChecklistAtendimento {
 }
 
 function formatChecklist(checklist: ChecklistAtendimento | null): string {
+  // Achado ao vivo (2026-09-04) : ~90% dos leads não recebiam apresentação
+  // nem pergunta de nome, porque na 1ª mensagem da conversa (checklist ainda
+  // null) o texto de fallback era genérico demais, e o script (RAG) competia
+  // com dezenas de outras instruções sem força nenhuma. Regra dura, explícita,
+  // sempre que a apresentação ainda não foi feita : é obrigatória em toda
+  // conversa, mesmo quando o WhatsApp já mostra um nome de contato (não é
+  // confiável, pode ser apelido ou número de terceiro).
   if (!checklist || (!checklist.apresentacao_feita && !checklist.perguntas_e_respostas?.length && !checklist.estagio_atual && !checklist.lead_recusou)) {
-    return 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
+    return '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. OBRIGATÓRIO nesta resposta, antes de qualquer qualificação ou pitch : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead. Faça isso MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
   }
   const lines: string[] = []
   if (checklist.lead_recusou) {
     lines.push('⚠️ O LEAD JÁ RECUSOU/PEDIU PRA PARAR EXPLICITAMENTE nesta conversa. NÃO ofereça nada novo, NÃO faça pergunta de qualificação, NÃO empurre a conversa adiante. Responda no máximo uma frase curta e educada se ele mandar algo, e só volte a vender de verdade se ELE fizer uma pergunta clara e nova sobre o produto.')
   }
-  lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : 'NÃO : apresente-se nesta resposta'}`)
+  lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome + empresa) E pergunte o nome do lead antes de qualquer outra coisa'}`)
   if (checklist.perguntas_e_respostas?.length) {
     lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
     for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
@@ -1733,7 +1740,7 @@ async function runOrchestrator(
   const userInput = messages.map((m) => m.content).join('\n\n')
   const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
-  let checklistText = 'Nenhum item registrado ainda : esta é a primeira interação de qualificação desta conversa.'
+  let checklistText = '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. OBRIGATÓRIO nesta resposta, antes de qualquer qualificação ou pitch : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead. Faça isso MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
   let adHeadline: string | null = null
 
   // Origem real do lead (outbound vs inbound), calculada uma vez aqui como

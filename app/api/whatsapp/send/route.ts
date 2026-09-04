@@ -42,17 +42,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Conversa não encontrada ou acesso negado' }, { status: 403 })
     }
 
-    // Janela de 24h : fora dela, mensagem livre falha direto na API da Meta.
-    const windowState = computeWindowState({
-      ultimaMensagemInboundAt: conversation.ultima_mensagem_inbound_at,
-      ctwaClid: conversation.ctwa_clid,
-      ctwaFirstReplyAt: conversation.ctwa_first_reply_at,
-    })
-    if (!canSendFreeform(windowState)) {
-      return NextResponse.json(
-        { success: false, code: 'OUTSIDE_WINDOW', message: 'Fora da janela de 24h : só é possível enviar template aprovado.' },
-        { status: 422 }
-      )
+    // Janela de 24h : é regra de política da API OFICIAL da Meta (fora dela,
+    // mensagem livre falha na API deles, só template aprovado passa). Achado
+    // ao vivo (2026-09-04) que isso bloqueava envio manual até pra empresa
+    // conectada via uazapi (Baileys/WhatsApp Web), que não tem essa restrição
+    // nenhuma : é o mesmo protocolo do app normal, manda mensagem livre a
+    // qualquer hora, igual mandar pelo celular.
+    const { data: sdrConfig } = await supabase
+      .from('sdr_configs')
+      .select('whatsapp_provider')
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    if (sdrConfig?.whatsapp_provider !== 'uazapi') {
+      const windowState = computeWindowState({
+        ultimaMensagemInboundAt: conversation.ultima_mensagem_inbound_at,
+        ctwaClid: conversation.ctwa_clid,
+        ctwaFirstReplyAt: conversation.ctwa_first_reply_at,
+      })
+      if (!canSendFreeform(windowState)) {
+        return NextResponse.json(
+          { success: false, code: 'OUTSIDE_WINDOW', message: 'Fora da janela de 24h : só é possível enviar template aprovado.' },
+          { status: 422 }
+        )
+      }
     }
 
     let waMessageId: string | undefined
