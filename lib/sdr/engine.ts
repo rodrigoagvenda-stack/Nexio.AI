@@ -1273,6 +1273,25 @@ REGRAS:
           return 'BLOQUEADO: Você precisa coletar o nome completo do lead antes de agendar. Pergunte agora: "Para enviar o convite, pode me informar seu nome completo e e-mail?"'
         }
         const start = parseBrazilDateTime(args.data_hora)
+
+        // Trava estrutural (achado ao vivo, 2026-09-04 : lead Danilo Menna
+        // recebeu evento real criado pro dia 09/04, o modelo calculou a data
+        // errado por 5 meses a partir de "quinta-feira" sem ninguém pegar
+        // isso antes de criar o evento de verdade). O n8n original confiava
+        // 100% no cálculo do modelo também, nunca validava — mesma falha
+        // estrutural, só nunca tinha batido. Prompt sozinho (mesmo com "Hora
+        // atual" correta injetada) não impede o modelo de errar a aritmética
+        // de "próxima quinta" : só validação em código depois do cálculo
+        // pega isso de verdade.
+        const minutosAteInicio = (start.getTime() - Date.now()) / 60_000
+        if (minutosAteInicio < 40) {
+          return `BLOQUEADO: A data/hora calculada (${formatDateTimeBR(start)}) já passou ou fica a menos de 40 minutos de agora. Chame "Hora_atual" de novo pra confirmar a data e hora certas antes de oferecer um horário com folga.`
+        }
+        const DIAS_MAX_FUTURO = 60
+        if (minutosAteInicio > DIAS_MAX_FUTURO * 24 * 60) {
+          return `BLOQUEADO: A data calculada (${formatDateTimeBR(start)}) está mais de ${DIAS_MAX_FUTURO} dias no futuro, isso não é normal pra um agendamento comercial. Chame "Hora_atual" de novo e recalcule a data certa, provavelmente você errou o mês ou o dia.`
+        }
+
         const nomeCompleto: string = args.nome_completo
         const resolvedTitle = ctx.eventTitleTemplate
           ? ctx.eventTitleTemplate.replace('{nome}', nomeCompleto)
