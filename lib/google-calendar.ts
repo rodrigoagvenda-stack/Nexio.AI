@@ -104,17 +104,118 @@ export interface CreateEventParams {
   attendeeName?: string
 }
 
-/** Verifica slots disponíveis em um dia (Seg-Sex, 9h-18h, fuso America/Sao_Paulo) */
+// ─── Feriados nacionais (Brasil) ─────────────────────────────────
+//
+// Achado ao vivo (2026-09-04) : SDR ofereceu segunda-feira 07/09, feriado
+// da Independência, porque nada verificava feriado nenhum — só bloqueava
+// dia com evento manual no Google Calendar ou dia marcado fechado no
+// horário semanal recorrente. Feriado muda de data (móveis) e ninguém
+// lembra de bloquear a agenda toda vez : calcula automaticamente, sem
+// depender de ação manual.
+function easterSunday(year: number): Date {
+  // Algoritmo de Meeus/Jones/Butcher (Gregoriano), padrão pra calcular a Páscoa
+  const a = year % 19
+  const b = Math.floor(year / 100)
+  const c = year % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+// Fixos (MM-DD) : nacionais oficiais + os observados universalmente no
+// comércio, mesmo quando "ponto facultativo" técnico (ninguém agenda reunião
+// comercial nesses dias na prática).
+const FIXED_HOLIDAYS_MD = new Set([
+  '01-01', // Confraternização Universal
+  '04-21', // Tiradentes
+  '05-01', // Dia do Trabalho
+  '09-07', // Independência do Brasil
+  '10-12', // Nossa Senhora Aparecida
+  '11-02', // Finados
+  '11-15', // Proclamação da República
+  '11-20', // Consciência Negra
+  '12-25', // Natal
+])
+
+function isBrazilNationalHoliday(dateStr: string): boolean {
+  const year = Number(dateStr.slice(0, 4))
+  if (FIXED_HOLIDAYS_MD.has(dateStr.slice(5))) return true
+
+  const easter = easterSunday(year)
+  const dayMs = 86_400_000
+  const movable = [
+    new Date(easter.getTime() - 48 * dayMs), // Carnaval : segunda
+    new Date(easter.getTime() - 47 * dayMs), // Carnaval : terça
+    new Date(easter.getTime() - 2 * dayMs),  // Sexta-feira Santa
+    new Date(easter.getTime() + 60 * dayMs), // Corpus Christi
+  ].map((d) => d.toISOString().slice(0, 10))
+
+  return movable.includes(dateStr)
+}
+
+/**
+ * Verifica slots disponíveis em um dia, fuso America/Sao_Paulo.
+ *
+ * Janela do dia vem de `business_hours` (mesma tabela que já controla se o
+ * SDR responde mensagem fora do horário, lib/sdr/business-hours.ts) : achado
+ * ao vivo (2026-09-04) que essa função nunca lia essa tabela, ficava sempre
+ * hardcoded Seg-Sex 9h-18h mesmo que a empresa configurasse outro horário —
+ * config órfã. Sem linha configurada (wa_number_id null) pro dia = mantém o
+ * fallback 9h-18h de sempre, pra nunca quebrar empresa que nunca mexeu nisso.
+ * Também bloqueia feriado nacional automaticamente (ver isBrazilNationalHoliday
+ * acima). Dia fechado/feriado = retorna lista vazia, que o chamador (Consultar_gcal
+ * em engine.ts) já converte corretamente em "Sem horários disponíveis nesta
+ * data", nunca em "dia livre".
+ */
 export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
   const { calendarId, companyId, date, durationMinutes = 60 } = params
   const calendar = await getCalendarClientForCompany(companyId)
 
-  // Define janela 9h–18h no fuso Brasil (DST-aware via parseBrazilDateTime)
   const dateStr = date.toISOString().slice(0, 10)
-  const dayStart = parseBrazilDateTime(`${dateStr}T09:00:00`)
-  const dayEnd = parseBrazilDateTime(`${dateStr}T18:00:00`)
+
+  let openTime = '09:00'
+  let closeTime = '18:00'
+  let diaFechado = isBrazilNationalHoliday(dateStr)
+  try {
+    const service = createServiceClient()
+    const { data: hoursRows } = await service
+      .from('business_hours')
+      .select('day_of_week, open_time, close_time, closed')
+      .eq('company_id', companyId)
+      .is('wa_number_id', null)
+
+    if (hoursRows && hoursRows.length > 0) {
+      // Meio-dia fixo (-03:00) só pra achar o dia da semana certo, sem
+      // risco de virada de dia por causa de fuso : não precisa do
+      // DST-aware parseBrazilDateTime aqui, é só pra pegar o weekday.
+      const dayOfWeek = new Date(`${dateStr}T12:00:00-03:00`).getDay()
+      const today = hoursRows.find((r) => r.day_of_week === dayOfWeek)
+      if (!today || today.closed || !today.open_time || !today.close_time) {
+        diaFechado = true
+      } else {
+        openTime = today.open_time.slice(0, 5)
+        closeTime = today.close_time.slice(0, 5)
+      }
+    }
+  } catch {
+    // Falha ao ler business_hours : mantém o fallback 9h-18h, nunca quebra o agendamento por isso
+  }
+
+  if (diaFechado) return []
+
+  const dayStart = parseBrazilDateTime(`${dateStr}T${openTime}:00`)
+  const dayEnd = parseBrazilDateTime(`${dateStr}T${closeTime}:00`)
 
   // Busca eventos existentes no dia
   const { data } = await calendar.events.list({

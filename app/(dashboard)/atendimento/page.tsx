@@ -443,8 +443,7 @@ export default function AtendimentoPage() {
         `)
         .eq('id_da_conversacao', conversationId)
         .eq('company_id', company!.id)
-        .order('carimbo_de_data_e_hora', { ascending: false })
-        .limit(100);
+        .order('carimbo_de_data_e_hora', { ascending: false });
 
       if (error) throw error;
       const incoming = (data || []).reverse();

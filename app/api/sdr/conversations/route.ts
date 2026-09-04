@@ -35,7 +35,6 @@ export async function GET() {
       .select(`*, lead:leads!conversas_do_whatsapp_id_do_lead_fkey(*, lead_tags(tag_id, tags(id, tag_name, tag_color)))`)
       .eq('company_id', userData.company_id)
       .order('hora_da_ultima_mensagem', { ascending: false, nullsFirst: false })
-      .limit(50)
 
     // Closer só vê conversas dos seus leads atribuídos
     if (userData.role === 'closer') {
