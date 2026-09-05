@@ -1693,12 +1693,6 @@ export default function AtendimentoPage() {
                 <div
                   key={conv.id}
                   className={`group w-full text-left p-3 rounded-xl border transition-colors relative ${
-                    conv.agente_pausado
-                      ? 'border-l-4 border-l-red-500'
-                      : conv.kanban_stage === 'fila' && !conv.current_attendant_id
-                        ? 'border-l-4 border-l-amber-500'
-                        : ''
-                  } ${
                     selectedConversation?.id === conv.id
                       ? 'bg-muted border-border'
                       : 'bg-card border-border/40 hover:bg-accent hover:border-border'
@@ -1735,9 +1729,15 @@ export default function AtendimentoPage() {
                           badge técnico demais e nenhum sinal claro de PRÓXIMO PASSO. Um
                           selo só, em português direto, na cor mais chamativa do card :
                           "Sua vez" quando o SDR parou (agente_pausado = humano assumiu ou
-                          precisa assumir) é o sinal mais acionável que existe hoje no
-                          banco, sem precisar de campo novo. */}
-                      {conv.agente_pausado ? (
+                          precisa assumir) E a última mensagem foi do LEAD (não adianta nada
+                          se um humano já respondeu por último -- aí é vez do lead, não sua;
+                          bug encontrado ao vivo comparando hora_da_ultima_mensagem, que
+                          reflete qualquer direção, com ultima_mensagem_inbound_at). */}
+                      {conv.agente_pausado
+                        && conv.ultima_mensagem_inbound_at
+                        && conv.hora_da_ultima_mensagem
+                        && new Date(conv.hora_da_ultima_mensagem).getTime() <= new Date(conv.ultima_mensagem_inbound_at).getTime() + 1000
+                      ? (
                         <div className="flex items-center gap-1 mb-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
                           <p className="text-xs font-semibold text-red-500">Sua vez de responder</p>
