@@ -2892,15 +2892,21 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
         await sendText({ companyId, phoneNumber: phone, text: msg })
 
-        await supabase.from('mensagens_do_whatsapp').insert({
+        // Achado ao vivo (Rodrigo, 2026-09-04, lead "Assistência") : sender_type
+        // 'sdr' não existe na constraint da tabela (só aceita 'ai'/'human'/'lead'),
+        // então esse insert falhava TODA VEZ, silenciosamente (error nunca
+        // checado) -- a mensagem de fora do horário nunca aparecia no histórico
+        // do chat, mesmo a conversa sendo corretamente movida pra fila.
+        const { error: insertAusenteError } = await supabase.from('mensagens_do_whatsapp').insert({
           company_id: companyId,
           id_da_conversacao: conversationId,
           texto_da_mensagem: msg,
           tipo_de_mensagem: 'text',
           direcao: 'outbound',
-          sender_type: 'sdr',
+          sender_type: 'ai',
           carimbo_de_data_e_hora: new Date().toISOString(),
         })
+        if (insertAusenteError) console.error(`[SDR:${companyId}] INSERT mensagem fora-do-horário falhou:`, insertAusenteError.message)
 
         await supabase.from('conversas_do_whatsapp').update({
           kanban_stage: 'fila',
@@ -2985,15 +2991,18 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         const uazClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
         await uazClient.sendText({ number: phone, text: handoffMsg })
 
-        await supabase.from('mensagens_do_whatsapp').insert({
+        // Mesmo bug de sender_type 'sdr' (não existe na constraint) do bloco
+        // de fora-do-horário acima : corrigido pra 'ai' + erro logado.
+        const { error: insertHandoffError } = await supabase.from('mensagens_do_whatsapp').insert({
           company_id: companyId,
           id_da_conversacao: conversationId,
           texto_da_mensagem: handoffMsg,
           tipo_de_mensagem: 'text',
           direcao: 'outbound',
-          sender_type: 'sdr',
+          sender_type: 'ai',
           carimbo_de_data_e_hora: new Date().toISOString(),
         })
+        if (insertHandoffError) console.error(`[SDR:${companyId}] INSERT mensagem handoff falhou:`, insertHandoffError.message)
 
         await log(companyId, 'recepcao_handoff', { briefing: currentBriefing }, supabase, phone, leadId)
         return
@@ -3011,15 +3020,16 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       const uazClient = createUazapiClient(cfg.uazapi_instance_url, cfg.uazapi_token)
       await uazClient.sendText({ number: phone, text: question })
 
-      await supabase.from('mensagens_do_whatsapp').insert({
+      const { error: insertPerguntaError } = await supabase.from('mensagens_do_whatsapp').insert({
         company_id: companyId,
         id_da_conversacao: conversationId,
         texto_da_mensagem: question,
         tipo_de_mensagem: 'text',
         direcao: 'outbound',
-        sender_type: 'sdr',
+        sender_type: 'ai',
         carimbo_de_data_e_hora: new Date().toISOString(),
       })
+      if (insertPerguntaError) console.error(`[SDR:${companyId}] INSERT pergunta recepção falhou:`, insertPerguntaError.message)
 
       await log(companyId, 'recepcao_briefing_question', { field: nextField.name, remaining: remainingMissing.length }, supabase, phone, leadId)
       recordUsage(companyId, [], supabase, quotaCheck.packageId).catch(console.error)
