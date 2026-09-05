@@ -966,6 +966,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
             apresentacao_feita: { type: 'boolean', description: 'true assim que a Zaia se apresentar pela primeira vez nesta conversa (nome do agente + empresa)' },
             nome_perguntado: { type: 'boolean', description: 'true assim que a Zaia perguntar explicitamente o nome do lead nesta conversa (ex: "como posso te chamar?"). É item SEPARADO de apresentacao_feita, marque os dois de forma independente : um não substitui o outro' },
             link_briefing_enviado: { type: 'boolean', description: 'true assim que o link do briefing/formulário (retornado pelo Play_conhecimento, seção FECHAMENTO) for mandado pro lead nesta conversa' },
+            nome_informado: { type: 'string', description: 'Preencha APENAS quando o lead disser seu nome ou como quer ser chamado, em resposta direta a uma pergunta tipo "como posso te chamar?"/"qual seu nome?". Deixe vazio em qualquer outro caso (não é pra repetir o nome em toda mensagem, só na hora em que ele é informado pela primeira vez).' },
             nova_pergunta_respondida: {
               type: 'object',
               properties: {
@@ -1005,6 +1006,21 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       if (args.segment) updates.segment = args.segment
       if (args.priority) updates.priority = args.priority
       if (args.nivel_interesse) updates.nivel_interesse = args.nivel_interesse
+      // Achado ao vivo (Rodrigo, 2026-09-05) : leads ficavam salvos com o
+      // número de telefone como nome pra sempre, mesmo depois do lead
+      // responder "como posso te chamar?" com o nome real -- a resposta só
+      // ficava guardada solta em perguntas_e_respostas, nunca virava o nome
+      // de exibição de verdade (nem em leads.contact_name, nem na lista de
+      // conversas). Agora atualiza os dois quando o lead informa o nome.
+      if (args.nome_informado?.trim()) {
+        updates.contact_name = args.nome_informado.trim()
+        if (ctx.conversationId) {
+          await supabase
+            .from('conversas_do_whatsapp')
+            .update({ nome_do_contato: args.nome_informado.trim() })
+            .eq('id', ctx.conversationId)
+        }
+      }
 
       // Checklist estruturado : merge com o que já existe, nunca sobrescreve
       // apagando (apresentacao_feita só vira true e fica true; perguntas novas

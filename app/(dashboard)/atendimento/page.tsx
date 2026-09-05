@@ -1693,6 +1693,12 @@ export default function AtendimentoPage() {
                 <div
                   key={conv.id}
                   className={`group w-full text-left p-3 rounded-xl border transition-colors relative ${
+                    conv.agente_pausado
+                      ? 'border-l-4 border-l-red-500'
+                      : conv.kanban_stage === 'fila' && !conv.current_attendant_id
+                        ? 'border-l-4 border-l-amber-500'
+                        : ''
+                  } ${
                     selectedConversation?.id === conv.id
                       ? 'bg-muted border-border'
                       : 'bg-card border-border/40 hover:bg-accent hover:border-border'
@@ -1724,6 +1730,24 @@ export default function AtendimentoPage() {
                           </span>
                         )}
                       </div>
+                      {/* Achado ao vivo (Rodrigo repassando feedback do Bruno, 2026-09-05) :
+                          "não sei o que fazer, qual lead estou atendendo" -- a lista tinha
+                          badge técnico demais e nenhum sinal claro de PRÓXIMO PASSO. Um
+                          selo só, em português direto, na cor mais chamativa do card :
+                          "Sua vez" quando o SDR parou (agente_pausado = humano assumiu ou
+                          precisa assumir) é o sinal mais acionável que existe hoje no
+                          banco, sem precisar de campo novo. */}
+                      {conv.agente_pausado ? (
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                          <p className="text-xs font-semibold text-red-500">Sua vez de responder</p>
+                        </div>
+                      ) : conv.kanban_stage === 'fila' && !conv.current_attendant_id ? (
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                          <p className="text-xs font-semibold text-amber-500">Na fila, sem responsável</p>
+                        </div>
+                      ) : null}
                       {conv.lead && (
                         <div className="flex items-center gap-1 mb-1">
                           <Building2 className="h-3 w-3 text-muted-foreground" />

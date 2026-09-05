@@ -82,6 +82,19 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-05) : a lista mostrava Object.values(r.answers)[0],
+// que na prática é "o primeiro campo que aparecer no objeto" -- acabava sendo o
+// telefone por acaso de ordem, não o nome. Mesma heurística de campo (contém
+// "nome"/"name" na chave) já usada no backend (extrairNomeDasRespostas em
+// app/api/briefing/public/[slug]/route.ts) pra achar o nome de verdade.
+function nomeDeExibicao(answers: Record<string, any>): string | null {
+  for (const [key, v] of Object.entries(answers)) {
+    if (key === 'whatsapp') continue;
+    if (typeof v === 'string' && v.trim() && /nome|name/i.test(key)) return v.trim();
+  }
+  return null;
+}
+
 function buildCombinedList(questions: BriefingQuestion[], whatsappOrderIndex: number): SortableListItem[] {
   const items: SortableListItem[] = [
     ...questions.map(q => ({ itemId: q.id!, type: 'question' as const, q, order_index: q.order_index })),
@@ -602,7 +615,7 @@ export default function BriefingPage() {
                       </div>
                       <div>
                         <p className="font-medium text-sm">
-                          {Object.values(r.answers)[0] as string || `Resposta #${r.id}`}
+                          {nomeDeExibicao(r.answers) || (r.answers['whatsapp'] as string) || `Resposta #${r.id}`}
                         </p>
                         <p className="text-xs text-muted-foreground">{formatDate(r.submitted_at)}</p>
                       </div>
