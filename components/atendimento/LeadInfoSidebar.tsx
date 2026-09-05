@@ -47,6 +47,7 @@ interface LeadInfoSidebarProps {
   ultimaMensagemInboundAt?: string | null;
   ctwaClid?: string | null;
   ctwaFirstReplyAt?: string | null;
+  waProvider?: 'uazapi' | 'meta';
   onLeadUpdate?: (updatedLead: Lead) => void;
   onTagsUpdate?: (tags: string[]) => void;
 }
@@ -63,6 +64,7 @@ export function LeadInfoSidebar({
   ultimaMensagemInboundAt,
   ctwaClid,
   ctwaFirstReplyAt,
+  waProvider = 'uazapi',
   onLeadUpdate,
   onTagsUpdate,
 }: LeadInfoSidebarProps) {
@@ -417,7 +419,7 @@ export function LeadInfoSidebar({
                         <p className="font-mono text-[10px] text-muted-foreground truncate">{leadSource.ctwa_clid.slice(0, 24)}…</p>
                       </div>
                     )}
-                    {ultimaMensagemInboundAt && (() => {
+                    {waProvider === 'meta' && ultimaMensagemInboundAt && (() => {
                       const state = computeWindowState({
                         ultimaMensagemInboundAt: ultimaMensagemInboundAt ?? null,
                         ctwaClid: ctwaClid ?? null,

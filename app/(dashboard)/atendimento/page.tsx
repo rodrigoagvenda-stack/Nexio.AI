@@ -1750,6 +1750,12 @@ export default function AtendimentoPage() {
                           </Badge>
                         )}
                         {(() => {
+                          // Achado ao vivo (Rodrigo, 2026-09-05) : janela de 24h/CTWA é
+                          // regra da Meta Cloud API oficial, não existe pra números
+                          // conectados via uazapi (WhatsApp Web não-oficial) -- mostrar
+                          // esse badge pra empresa uazapi só confunde (Bruno), não reflete
+                          // nenhuma regra real aplicável ao número dela.
+                          if (waProvider !== 'meta') return null
                           const wb = fmtWindowBadge(conv)
                           return wb ? (
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${wb.style}`}>
@@ -2210,6 +2216,7 @@ export default function AtendimentoPage() {
               ultimaMensagemInboundAt={selectedConversation.ultima_mensagem_inbound_at}
               ctwaClid={selectedConversation.ctwa_clid}
               ctwaFirstReplyAt={selectedConversation.ctwa_first_reply_at}
+              waProvider={waProvider}
               onLeadUpdate={(updatedLead) => {
                 // Atualizar o lead na conversa selecionada
                 setSelectedConversation((prev) =>
@@ -2268,6 +2275,7 @@ export default function AtendimentoPage() {
                 ultimaMensagemInboundAt={selectedConversation.ultima_mensagem_inbound_at}
                 ctwaClid={selectedConversation.ctwa_clid}
                 ctwaFirstReplyAt={selectedConversation.ctwa_first_reply_at}
+                waProvider={waProvider}
                 className="flex flex-col border-0 shadow-none rounded-none bg-transparent"
                 onLeadUpdate={(updatedLead) => {
                   setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);
