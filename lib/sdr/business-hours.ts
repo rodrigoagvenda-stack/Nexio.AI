@@ -5,6 +5,18 @@ type Supabase = ReturnType<typeof createServiceClient>
 // Sem horário configurado (nenhuma linha em business_hours) = sempre aberto,
 // pra não quebrar empresas que nunca mexeram na aba Horários.
 export async function isWithinBusinessHours(companyId: number, supabase: Supabase): Promise<boolean> {
+  // Achado ao vivo (Rodrigo, 2026-09-04) : apagar a config de Horários pra
+  // forçar 24h destrói o trabalho de configurar dias/horários específicos.
+  // O correto é um botão dedicado : ligado, ignora business_hours por
+  // completo (24h de verdade, todo dia, sem exceção nem feriado) sem perder
+  // a configuração normal por baixo pra quando for desligado de novo.
+  const { data: cfg24h } = await supabase
+    .from('sdr_configs')
+    .select('horario_24h_ativo')
+    .eq('company_id', companyId)
+    .maybeSingle()
+  if (cfg24h?.horario_24h_ativo) return true
+
   const { data: rows } = await supabase
     .from('business_hours')
     .select('day_of_week, open_time, close_time, closed')

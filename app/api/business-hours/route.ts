@@ -24,11 +24,11 @@ export async function GET(req: NextRequest) {
 
   const { data: cfg } = await supabase
     .from('sdr_configs')
-    .select('business_hours_message')
+    .select('business_hours_message, horario_24h_ativo')
     .eq('company_id', context.companyId)
     .maybeSingle()
 
-  return NextResponse.json({ data, message: cfg?.business_hours_message ?? null })
+  return NextResponse.json({ data, message: cfg?.business_hours_message ?? null, ativo24h: cfg?.horario_24h_ativo ?? false })
 }
 
 export async function PUT(req: NextRequest) {
@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest) {
   if (authError) return authError
 
   const body = await req.json()
-  const { hours, wa_number_id, message } = body // hours: [{day_of_week, open_time, close_time, closed}]
+  const { hours, wa_number_id, message, ativo24h } = body // hours: [{day_of_week, open_time, close_time, closed}]
 
   if (!Array.isArray(hours) || hours.length === 0) {
     return NextResponse.json({ error: 'hours array obrigatório' }, { status: 400 })
@@ -60,8 +60,11 @@ export async function PUT(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  if (typeof message === 'string') {
-    await supabase.from('sdr_configs').update({ business_hours_message: message }).eq('company_id', context.companyId)
+  if (typeof message === 'string' || typeof ativo24h === 'boolean') {
+    const updates: Record<string, unknown> = {}
+    if (typeof message === 'string') updates.business_hours_message = message
+    if (typeof ativo24h === 'boolean') updates.horario_24h_ativo = ativo24h
+    await supabase.from('sdr_configs').update(updates).eq('company_id', context.companyId)
   }
 
   return NextResponse.json({ ok: true })

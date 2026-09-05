@@ -35,6 +35,7 @@ const DEFAULT_MESSAGE = 'No momento estamos fora do horário de atendimento. Ass
 export function HorarioContent() {
   const [hours, setHours] = useState<DayConfig[]>(DEFAULT_HOURS);
   const [message, setMessage] = useState('');
+  const [ativo24h, setAtivo24h] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -50,6 +51,7 @@ export function HorarioContent() {
           setHours(merged);
         }
         setMessage(d?.message ?? '');
+        setAtivo24h(!!d?.ativo24h);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -65,7 +67,7 @@ export function HorarioContent() {
       const res = await fetch('/api/business-hours', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hours, message }),
+        body: JSON.stringify({ hours, message, ativo24h }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       toast({ title: 'Horários salvos!' });
@@ -90,7 +92,17 @@ export function HorarioContent() {
         Configure os horários em que o Zaapply aceita novos atendimentos. Fora desse horário, o SDR responde com uma mensagem de ausência e a conversa fica em fila.
       </p>
 
-      <div className="space-y-2">
+      <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
+        <Switch checked={ativo24h} onCheckedChange={setAtivo24h} className="scale-90" />
+        <div className="flex-1">
+          <p className="text-sm font-medium">Atendimento 24h</p>
+          <p className="text-xs text-muted-foreground">
+            Ligado, o SDR responde e oferece horário de reunião a qualquer hora, todo dia, sem exceção (ignora os horários abaixo). Desligado, volta a valer a configuração de dias/horários.
+          </p>
+        </div>
+      </div>
+
+      <div className={ativo24h ? 'space-y-2 opacity-50 pointer-events-none' : 'space-y-2'}>
         {DAYS.map(day => {
           const config = hours.find(h => h.day_of_week === day.id) ?? DEFAULT_HOURS[day.id];
           return (

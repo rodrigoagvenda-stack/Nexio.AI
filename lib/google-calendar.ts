@@ -193,29 +193,45 @@ export async function checkAvailableSlots(
   const dayOfWeek = new Date(`${dateStr}T12:00:00-03:00`).getDay()
   try {
     const service = createServiceClient()
-    const { data: hoursRows } = await service
-      .from('business_hours')
-      .select('day_of_week, open_time, close_time, closed')
-      .eq('company_id', companyId)
-      .is('wa_number_id', null)
 
-    if (hoursRows && hoursRows.length > 0) {
-      const today = hoursRows.find((r) => r.day_of_week === dayOfWeek)
-      if (!today || today.closed || !today.open_time || !today.close_time) {
-        diaFechado = true
-      } else {
-        openTime = today.open_time.slice(0, 5)
-        closeTime = today.close_time.slice(0, 5)
-      }
+    // Botão "Atendimento 24h" (Configurações → SDR → Horários) : ligado,
+    // ignora business_hours e feriado por completo -- 24h de verdade, todo
+    // dia, inclusive pra oferta de horário de reunião, sem precisar apagar a
+    // configuração normal que fica guardada pra quando desligar de novo.
+    const { data: cfg24h } = await service
+      .from('sdr_configs')
+      .select('horario_24h_ativo')
+      .eq('company_id', companyId)
+      .maybeSingle()
+    if (cfg24h?.horario_24h_ativo) {
+      openTime = '00:00'
+      closeTime = '23:59'
+      diaFechado = false
     } else {
-      // Achado ao vivo (Rodrigo, 2026-09-04) : sem NENHUMA linha configurada,
-      // o fallback abria sábado e domingo também (só bloqueava feriado) --
-      // regressão em relação ao hardcoded Seg-Sex 9h-18h de antes desta
-      // função passar a ler business_hours. O SDR continua respondendo
-      // mensagem todo dia (isWithinBusinessHours, lib/sdr/business-hours.ts,
-      // tem seu próprio "sem linha = sempre aberto" -- isso não muda), só a
-      // OFERTA DE HORÁRIO DE REUNIÃO volta a assumir Seg-Sex por padrão.
-      if (dayOfWeek === 0 || dayOfWeek === 6) diaFechado = true
+      const { data: hoursRows } = await service
+        .from('business_hours')
+        .select('day_of_week, open_time, close_time, closed')
+        .eq('company_id', companyId)
+        .is('wa_number_id', null)
+
+      if (hoursRows && hoursRows.length > 0) {
+        const today = hoursRows.find((r) => r.day_of_week === dayOfWeek)
+        if (!today || today.closed || !today.open_time || !today.close_time) {
+          diaFechado = true
+        } else {
+          openTime = today.open_time.slice(0, 5)
+          closeTime = today.close_time.slice(0, 5)
+        }
+      } else {
+        // Achado ao vivo (Rodrigo, 2026-09-04) : sem NENHUMA linha configurada,
+        // o fallback abria sábado e domingo também (só bloqueava feriado) --
+        // regressão em relação ao hardcoded Seg-Sex 9h-18h de antes desta
+        // função passar a ler business_hours. O SDR continua respondendo
+        // mensagem todo dia (isWithinBusinessHours, lib/sdr/business-hours.ts,
+        // tem seu próprio "sem linha = sempre aberto" -- isso não muda), só a
+        // OFERTA DE HORÁRIO DE REUNIÃO volta a assumir Seg-Sex por padrão.
+        if (dayOfWeek === 0 || dayOfWeek === 6) diaFechado = true
+      }
     }
   } catch {
     // Falha ao ler business_hours : mantém o fallback Seg-Sex 9h-18h, nunca quebra o agendamento por isso
