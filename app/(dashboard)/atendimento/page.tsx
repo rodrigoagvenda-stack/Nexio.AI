@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign, Zap } from 'lucide-react';
+import { MessageSquare, Search, Send, Phone, Mail, Building2, Tag, User, Bot, PauseCircle, Mic, Paperclip, ArrowLeft, Image, FileText, Video, Download, File, UserCircle2, ExternalLink, Clock, ChevronRight, ChevronLeft, ChevronDown, X, Trash2, MoreVertical, Info, Wifi, WifiOff, Loader2 as Loader2Icon, QrCode, Pencil, FlaskConical, DollarSign, Zap, Calendar, CheckCircle2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { computeWindowState, formatWindowBadge } from '@/lib/sdr/window';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -47,6 +47,23 @@ function fmtConvTime(iso: string): string {
   if (diffDays === 1) return 'Ontem';
   if (diffDays < 7) return d.toLocaleDateString('pt-BR', { weekday: 'short' });
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+// Achado ao vivo (Rodrigo, 2026-09-05) : Bruno pediu um jeito de se situar na
+// lista sem abrir conversa por conversa : quem tem reunião marcada, pra
+// quando, e quem já foi realizada. Usa os campos que o Agente_de_Agendamento
+// já grava em leads (call_de_venda, call_agendada_para, call_status).
+function fmtMeetingBadge(lead: { call_de_venda?: boolean; call_agendada_para?: string | null; call_status?: string | null } | undefined | null): { label: string; realizada: boolean } | null {
+  if (!lead?.call_de_venda || !lead.call_agendada_para) return null
+  if (lead.call_status === 'cancelada') return null
+  const realizada = lead.call_status === 'realizada'
+  const data = new Date(lead.call_agendada_para)
+  const dataFmt = data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+  const horaFmt = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+  return {
+    label: realizada ? `Reunião realizada ${dataFmt}` : `Reunião ${dataFmt} às ${horaFmt}`,
+    realizada,
+  }
 }
 
 function fmtWindowBadge(conv: {
@@ -1760,6 +1777,22 @@ export default function AtendimentoPage() {
                         {conv.ultima_mensagem}
                       </p>
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        {(() => {
+                          const mb = fmtMeetingBadge(conv.lead)
+                          return mb ? (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 gap-0.5 ${
+                                mb.realizada
+                                  ? 'border-muted-foreground/40 text-muted-foreground'
+                                  : 'border-blue-500/50 text-blue-500'
+                              }`}
+                            >
+                              {mb.realizada ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Calendar className="h-2.5 w-2.5" />}
+                              {mb.label}
+                            </Badge>
+                          ) : null
+                        })()}
                         {conv.origem_real && (
                           <Badge
                             variant="outline"

@@ -137,6 +137,9 @@ export interface Lead {
   mql_resumo?: string;
   resumo_ia?: string;
   places_analysis?: PlacesAnalysis | null;
+  call_de_venda?: boolean;
+  call_agendada_para?: string | null;
+  call_status?: 'agendada' | 'realizada' | 'cancelada' | string | null;
   created_at: string;
   updated_at: string;
   lead_tags?: LeadTag[];
