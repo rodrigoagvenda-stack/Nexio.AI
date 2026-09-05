@@ -277,6 +277,29 @@ export function isOptOutRequest(text: string): boolean {
   return OPT_OUT_PATTERNS.some((p) => p.test(text))
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-05) : lead disse claramente "agora eu não
+// posso falar, depois eu te ligo" e o SDR respondeu reconhecendo MAS ainda
+// emendou uma pergunta ("quando seria bom pra você?"), pressionando por uma
+// resposta imediata do exato tipo que o lead pediu pra adiar. Regra em prosa
+// ("não seja passivo, sempre conduza adiante") não é suficiente aqui : o
+// lead pedir espaço é a exceção explícita a essa regra, precisa ser
+// detectado de forma determinística e virar instrução dura só nesta
+// resposta (não é recusa permanente como isOptOutRequest, é só "agora não").
+const DEFER_CONTACT_PATTERNS = [
+  /\b(?:eu\s+)?te\s+lig(?:o|arei)\s+(?:depois|mais\s+tarde|daqui\s+a\s+pouco)/i,
+  /\bn(?:ã|a)o\s+(?:posso|consigo|d[áa])\s+falar\s+agora/i,
+  /\bagora\s+(?:eu\s+)?n(?:ã|a)o\s+(?:posso|consigo|d[áa])/i,
+  /\bdepois\s+(?:eu\s+)?(?:te\s+)?(?:chamo|ligo|falo|conversamos|respondo)/i,
+  /\bmais\s+tarde\s+(?:eu\s+)?(?:te\s+)?(?:chamo|ligo|falo|respondo)/i,
+  /\bt(?:o|ô)\s+(?:ocupad[oa]|em\s+reuni[ãa]o|dirigindo|no\s+trabalho)/i,
+  /\bagora\s+n(?:ã|a)o\s+d[áa]\b/i,
+]
+
+export function isDeferContactRequest(text: string): boolean {
+  if (!text) return false
+  return DEFER_CONTACT_PATTERNS.some((p) => p.test(text))
+}
+
 // ─── Buffer (Supabase) ────────────────────────────────────────
 
 export async function bufferMessage(
@@ -1819,7 +1842,11 @@ async function runOrchestrator(
     adHeadline = attrRow?.referral_headline ?? null
   }
 
-  const systemMsg = `${buildOrchestratorSystem(ctx)}
+  const deferBlock = isDeferContactRequest(userInput)
+    ? `\n\n⛔ REGRA CRÍTICA NESTA RESPOSTA : o lead acabou de dizer que não pode falar agora e vai retomar contato depois (ligar, chamar, responder mais tarde). Responda com NO MÁXIMO UMA frase curta reconhecendo isso (ex: "Sem problema, fico no aguardo!" ou "Combinado, falamos quando puder"). NÃO faça nenhuma pergunta nesta resposta. NÃO peça horário, data ou confirmação de quando. NÃO chame Agente_de_Agendamento nem ofereça agendar nada agora. Apenas reconheça e encerre : a regra de "sempre conduzir a conversa adiante" NÃO se aplica aqui, o lead pediu espaço.`
+    : ''
+
+  const systemMsg = `${buildOrchestratorSystem(ctx)}${deferBlock}
 
 CONTEXTO DO CRM:
 - Lead: ${ctx.leadName} | WhatsApp: ${ctx.leadPhone}
