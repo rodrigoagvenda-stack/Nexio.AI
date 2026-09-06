@@ -195,9 +195,14 @@ export async function checkAvailableSlots(
     const service = createServiceClient()
 
     // Botão "Atendimento 24h" (Configurações → SDR → Horários) : ligado,
-    // ignora business_hours e feriado por completo -- 24h de verdade, todo
-    // dia, inclusive pra oferta de horário de reunião, sem precisar apagar a
-    // configuração normal que fica guardada pra quando desligar de novo.
+    // ignora business_hours e amplia o horário do dia inteiro -- mas NUNCA
+    // marca reunião em fim de semana ou feriado, mesmo com 24h ligado.
+    // Achado ao vivo (Rodrigo, 2026-09-06) : "24h" é o SDR responder mensagem
+    // todo dia sem exceção (isso mudou em lib/sdr/business-hours.ts), mas
+    // marcar reunião de verdade continua respeitando dia útil sempre. Uma
+    // versão anterior deste bypass zerava até o "diaFechado" de feriado, que
+    // já tinha sido calculado no topo da função : corrigido, feriado e fim
+    // de semana continuam bloqueando o agendamento com 24h ligado.
     const { data: cfg24h } = await service
       .from('sdr_configs')
       .select('horario_24h_ativo')
@@ -206,7 +211,7 @@ export async function checkAvailableSlots(
     if (cfg24h?.horario_24h_ativo) {
       openTime = '00:00'
       closeTime = '23:59'
-      diaFechado = false
+      if (dayOfWeek === 0 || dayOfWeek === 6) diaFechado = true
     } else {
       const { data: hoursRows } = await service
         .from('business_hours')
