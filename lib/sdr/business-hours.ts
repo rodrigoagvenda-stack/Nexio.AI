@@ -1,15 +1,29 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { isBrazilNationalHoliday } from '@/lib/google-calendar'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
 // Sem horário configurado (nenhuma linha em business_hours) = sempre aberto,
 // pra não quebrar empresas que nunca mexeram na aba Horários.
 export async function isWithinBusinessHours(companyId: number, supabase: Supabase): Promise<boolean> {
+  const spNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+  const dayOfWeek = spNow.getDay() // 0=domingo..6=sábado, mesma convenção da coluna
+  const dateStr = spNow.toISOString().slice(0, 10)
+  const ehFimDeSemana = dayOfWeek === 0 || dayOfWeek === 6
+  const ehFeriado = isBrazilNationalHoliday(dateStr)
+
+  // Achado ao vivo (Rodrigo, 2026-09-06, domingo) : "24h" tinha virado
+  // "todo dia, sem exceção", inclusive sábado/domingo/feriado -- mas a
+  // empresa não atende nesses dias de jeito nenhum, 24h é só "sem limite de
+  // horário dentro dos dias que atendemos". Fim de semana e feriado sempre
+  // fecham, mesmo com o 24h ligado.
+  if (ehFimDeSemana || ehFeriado) return false
+
   // Achado ao vivo (Rodrigo, 2026-09-04) : apagar a config de Horários pra
   // forçar 24h destrói o trabalho de configurar dias/horários específicos.
   // O correto é um botão dedicado : ligado, ignora business_hours por
-  // completo (24h de verdade, todo dia, sem exceção nem feriado) sem perder
-  // a configuração normal por baixo pra quando for desligado de novo.
+  // completo (24h de verdade, dentro dos dias úteis) sem perder a
+  // configuração normal por baixo pra quando for desligado de novo.
   const { data: cfg24h } = await supabase
     .from('sdr_configs')
     .select('horario_24h_ativo')
@@ -25,8 +39,6 @@ export async function isWithinBusinessHours(companyId: number, supabase: Supabas
 
   if (!rows || rows.length === 0) return true
 
-  const spNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
-  const dayOfWeek = spNow.getDay() // 0=domingo..6=sábado, mesma convenção da coluna
   const hhmm = spNow.toTimeString().slice(0, 5)
 
   const today = rows.find((r) => r.day_of_week === dayOfWeek)

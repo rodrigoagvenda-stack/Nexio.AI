@@ -146,7 +146,7 @@ const FIXED_HOLIDAYS_MD = new Set([
   '12-25', // Natal
 ])
 
-function isBrazilNationalHoliday(dateStr: string): boolean {
+export function isBrazilNationalHoliday(dateStr: string): boolean {
   const year = Number(dateStr.slice(0, 4))
   if (FIXED_HOLIDAYS_MD.has(dateStr.slice(5))) return true
 

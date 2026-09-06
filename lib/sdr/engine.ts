@@ -967,6 +967,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
             nome_perguntado: { type: 'boolean', description: 'true assim que a Zaia perguntar explicitamente o nome do lead nesta conversa (ex: "como posso te chamar?"). É item SEPARADO de apresentacao_feita, marque os dois de forma independente : um não substitui o outro' },
             link_briefing_enviado: { type: 'boolean', description: 'true assim que o link do briefing/formulário (retornado pelo Play_conhecimento, seção FECHAMENTO) for mandado pro lead nesta conversa' },
             nome_informado: { type: 'string', description: 'Preencha APENAS quando o lead disser seu nome ou como quer ser chamado, em resposta direta a uma pergunta tipo "como posso te chamar?"/"qual seu nome?". Deixe vazio em qualquer outro caso (não é pra repetir o nome em toda mensagem, só na hora em que ele é informado pela primeira vez).' },
+            disponibilidade_lead: { type: 'string', description: 'Preencha SEMPRE que o lead mencionar quando está disponível pra call/reunião, mesmo de forma indireta ou numa frase solta (ex: "só posso de manhã", "segunda tô de folga", "à tarde vou num evento"). Isso evita perguntar "qual sua preferência de horário" de novo depois que ele já disse. Deixe vazio se ele não mencionou disponibilidade nesta mensagem.' },
             nova_pergunta_respondida: {
               type: 'object',
               properties: {
@@ -1025,7 +1026,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       // Checklist estruturado : merge com o que já existe, nunca sobrescreve
       // apagando (apresentacao_feita só vira true e fica true; perguntas novas
       // se acumulam na lista, sem duplicar rótulo).
-      if (ctx.conversationId && (args.apresentacao_feita || args.nome_perguntado || args.link_briefing_enviado || args.nova_pergunta_respondida || args.estagio_atual)) {
+      if (ctx.conversationId && (args.apresentacao_feita || args.nome_perguntado || args.link_briefing_enviado || args.disponibilidade_lead?.trim() || args.nova_pergunta_respondida || args.estagio_atual)) {
         const { data: convAtual } = await supabase
           .from('conversas_do_whatsapp')
           .select('checklist_atendimento')
@@ -1038,10 +1039,18 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
           if (idx >= 0) perguntas[idx] = args.nova_pergunta_respondida
           else perguntas.push(args.nova_pergunta_respondida)
         }
+        // Achado ao vivo (Rodrigo, 2026-09-06) : reconstruir o checklist só
+        // com os campos abaixo (sem espalhar "atual" primeiro) apagava
+        // silenciosamente qualquer outro campo já gravado por outro caminho
+        // (link_briefing_message_id, lead_recusou) toda vez que essa tool
+        // rodava de novo. Espalha "atual" primeiro, sobrescreve só o que
+        // está sendo atualizado agora.
         const novoChecklist: ChecklistAtendimento = {
+          ...atual,
           apresentacao_feita: atual.apresentacao_feita || !!args.apresentacao_feita,
           nome_perguntado: atual.nome_perguntado || !!args.nome_perguntado,
           link_briefing_enviado: atual.link_briefing_enviado || !!args.link_briefing_enviado,
+          disponibilidade_lead: args.disponibilidade_lead?.trim() || atual.disponibilidade_lead,
           perguntas_e_respostas: perguntas,
           estagio_atual: args.estagio_atual ?? atual.estagio_atual,
         }
@@ -1753,6 +1762,22 @@ interface ChecklistAtendimento {
   apresentacao_feita?: boolean
   nome_perguntado?: boolean
   link_briefing_enviado?: boolean
+  // Achado ao vivo (Rodrigo, 2026-09-06) : quando o SDR reforça o link do
+  // briefing (lead não preencheu, follow-up etc), a mensagem saía solta,
+  // sem contexto visual nenhum de que é sobre o MESMO link já mandado antes.
+  // Guarda o messageId da primeira vez que o link saiu, pra próxima vez ser
+  // enviada como resposta/citação daquela mensagem original (replyid no
+  // uazapi, context.message_id na Meta Cloud API) : fica mais humano, como
+  // alguém puxando o assunto de novo, não uma mensagem nova solta.
+  link_briefing_message_id?: string
+  // Achado ao vivo (Rodrigo, 2026-09-06, lead Roseli) : ela disse a
+  // disponibilidade dela numa frase solta ("segunda de manhã, à tarde vou
+  // à feira") e a resposta seguinte do SDR perguntou "você tem preferência
+  // de horário?" de novo, ignorando o que ela tinha acabado de dizer. O
+  // mecanismo genérico de nova_pergunta_respondida existe mas não capturava
+  // esse tipo de frase casual de forma confiável. Campo dedicado, sinal
+  // forte e específico só pra isso.
+  disponibilidade_lead?: string
   perguntas_e_respostas?: { pergunta: string; resposta: string }[]
   estagio_atual?: string
   lead_recusou?: boolean
@@ -1781,6 +1806,9 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
   lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome do agente + empresa)'}`)
   lines.push(`Nome do lead já foi perguntado: ${checklist.nome_perguntado ? 'SIM : NUNCA pergunte de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, pergunte o nome do lead (item SEPARADO da apresentação, os dois são obrigatórios independentemente)'}`)
   lines.push(`Link do briefing já enviado: ${checklist.link_briefing_enviado ? 'SIM' : 'NÃO : se o "Contexto sobre o lead" ou o Play_conhecimento tiver um link de briefing/formulário, ele é OBRIGATÓRIO antes de chamar Agente_de_Agendamento pela primeira vez nesta conversa, independente do lead ter demonstrado interesse'}`)
+  if (checklist.disponibilidade_lead) {
+    lines.push(`Disponibilidade que o lead JÁ INFORMOU (mesmo que numa frase solta, não em resposta direta a uma pergunta de horário): "${checklist.disponibilidade_lead}". ⛔ NUNCA pergunte "qual sua preferência de horário" ou similar de novo : use essa informação diretamente pra propor/confirmar o agendamento.`)
+  }
   if (checklist.perguntas_e_respostas?.length) {
     lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
     for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
@@ -2446,13 +2474,20 @@ export async function findOrCreateLead(
 // tela do formulário (app/briefing/[slug]/page.tsx) detecta o param e pula
 // a pergunta do WhatsApp inteiramente, em vez de arriscar novo erro de
 // digitação.
+const BRIEFING_LINK_RE = /https?:\/\/[^\s'"]+\/briefing\/[a-zA-Z0-9-]+/g
+
 function personalizeBriefingLinks(text: string, phone: string): string {
   const digits = phone.replace(/\D/g, '')
   if (!digits) return text
-  return text.replace(/https?:\/\/[^\s'"]+\/briefing\/[a-zA-Z0-9-]+/g, (url) => {
+  return text.replace(BRIEFING_LINK_RE, (url) => {
     const sep = url.includes('?') ? '&' : '?'
     return `${url}${sep}tel=${digits}`
   })
+}
+
+function containsBriefingLink(text: string): boolean {
+  BRIEFING_LINK_RE.lastIndex = 0
+  return BRIEFING_LINK_RE.test(text)
 }
 
 async function sendWithHumanDelay(
@@ -2498,6 +2533,25 @@ async function sendWithHumanDelay(
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000
     let sentMessageId: string | undefined
 
+    // Achado ao vivo (Rodrigo, 2026-09-06) : quando o SDR reforça o link do
+    // briefing (lead não preencheu, follow-up etc), fica mais humano sair
+    // como resposta/citação da mensagem ORIGINAL onde o link já tinha sido
+    // mandado, em vez de solto de novo. Só busca o checklist quando o
+    // parágrafo realmente contém o link, pra não gastar leitura à toa nas
+    // mensagens normais.
+    let quoteMessageId: string | undefined
+    const temLink = containsBriefingLink(paragraph)
+    let checklistParaLink: ChecklistAtendimento | null = null
+    if (temLink && conversationId) {
+      const { data: convLink } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('checklist_atendimento')
+        .eq('id', conversationId)
+        .maybeSingle()
+      checklistParaLink = (convLink?.checklist_atendimento as ChecklistAtendimento) ?? {}
+      quoteMessageId = checklistParaLink.link_briefing_message_id
+    }
+
     if (ctx.qaDryRun) {
       // Harness de avaliação (scripts/sdr-eval.ts) : roda o motor real de
       // ponta a ponta, mas sem entregar WhatsApp de verdade. saveOutbound
@@ -2506,7 +2560,7 @@ async function sendWithHumanDelay(
       sentMessageId = `dryrun-${Date.now()}-${i}`
     } else if (isMeta) {
       await new Promise((r) => setTimeout(r, Math.min(typingDelay, 4000)))
-      const metaRes = await fetch(`https://graph.facebook.com/v21.0/${metaPhoneNumberId}/messages`, {
+      const sendMeta = async (comCitacao: boolean) => fetch(`https://graph.facebook.com/v21.0/${metaPhoneNumberId}/messages`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${metaToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2514,9 +2568,20 @@ async function sendWithHumanDelay(
           to: phone.replace(/\D/g, ''),
           type: 'text',
           text: { body: paragraph, preview_url: true },
+          ...(comCitacao && quoteMessageId ? { context: { message_id: quoteMessageId } } : {}),
         }),
       })
-      const metaJson = await metaRes.json()
+      let metaRes = await sendMeta(true)
+      let metaJson = await metaRes.json()
+      // Achado ao vivo (Rodrigo, 2026-09-06) : messageId citado pode estar
+      // velho/inválido (mensagem apagada, fora da janela) e a Meta rejeita o
+      // envio inteiro por causa disso. Não deixa a citação derrubar a
+      // mensagem : tenta de novo sem citar antes de desistir.
+      if (!metaRes.ok && quoteMessageId) {
+        console.warn(`[SDR:meta] citação falhou (${JSON.stringify(metaJson)}), tentando sem citação`)
+        metaRes = await sendMeta(false)
+        metaJson = await metaRes.json()
+      }
       if (!metaRes.ok) {
         console.error(`[SDR:meta] ERRO ao enviar mensagem: ${JSON.stringify(metaJson)}`)
         throw new Error(metaJson?.error?.message ?? `Meta API error ${metaRes.status}`)
@@ -2526,12 +2591,28 @@ async function sendWithHumanDelay(
     } else {
       await uazapi!.sendPresence(phone, 'composing', typingDelay)
       await new Promise((r) => setTimeout(r, typingDelay))
-      const sendResult = await uazapi!.sendText({ number: phone, text: paragraph })
+      let sendResult: { id: string } | undefined
+      try {
+        sendResult = await uazapi!.sendText({ number: phone, text: paragraph, ...(quoteMessageId ? { replyid: quoteMessageId } : {}) })
+      } catch (err: any) {
+        if (!quoteMessageId) throw err
+        console.warn(`[SDR:uazapi] citação falhou (${err?.message}), tentando sem citação`)
+        sendResult = await uazapi!.sendText({ number: phone, text: paragraph })
+      }
       sentMessageId = sendResult?.id
     }
 
     await saveOutbound(conversationId, ctx, paragraph, supabase, sentMessageId)
     await maybeStampFirstCtwaReply(supabase, conversationId)
+
+    // Primeira vez que o link sai nesta conversa : guarda o messageId pra
+    // um reforço futuro sair como resposta/citação desta mensagem.
+    if (temLink && !quoteMessageId && sentMessageId && conversationId) {
+      await supabase
+        .from('conversas_do_whatsapp')
+        .update({ checklist_atendimento: { ...(checklistParaLink ?? {}), link_briefing_message_id: sentMessageId } })
+        .eq('id', conversationId)
+    }
 
     if (i < paragraphs.length - 1) {
       await new Promise((r) => setTimeout(r, 1500))
