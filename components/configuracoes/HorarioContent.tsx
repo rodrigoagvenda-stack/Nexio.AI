@@ -38,6 +38,7 @@ export function HorarioContent() {
   const [ativo24h, setAtivo24h] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saving24h, setSaving24h] = useState(false);
 
   useEffect(() => {
     fetch('/api/business-hours')
@@ -59,6 +60,31 @@ export function HorarioContent() {
 
   const updateDay = (day: number, patch: Partial<DayConfig>) => {
     setHours(prev => prev.map(h => h.day_of_week === day ? { ...h, ...patch } : h));
+  };
+
+  // Achado ao vivo (Rodrigo, 2026-09-06) : o toggle 24h só existia como estado
+  // local, dependia de clicar em "Salvar horários" lá embaixo pra persistir.
+  // Ligar e sair da tela (ou dar refresh) sem clicar nesse botão perdia a
+  // mudança silenciosamente. Esse toggle é crítico demais (liga/desliga
+  // atendimento pra empresa inteira) pra depender de um segundo clique :
+  // salva sozinho assim que muda.
+  const handleToggle24h = async (value: boolean) => {
+    setAtivo24h(value);
+    setSaving24h(true);
+    try {
+      const res = await fetch('/api/business-hours', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hours, message, ativo24h: value }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast({ title: value ? 'Atendimento 24h ativado!' : 'Atendimento 24h desativado' });
+    } catch (err: any) {
+      setAtivo24h(!value);
+      toast({ title: err.message || 'Erro ao salvar', variant: 'destructive' });
+    } finally {
+      setSaving24h(false);
+    }
   };
 
   const handleSave = async () => {
@@ -93,11 +119,14 @@ export function HorarioContent() {
       </p>
 
       <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
-        <Switch checked={ativo24h} onCheckedChange={setAtivo24h} className="scale-90" />
+        <Switch checked={ativo24h} onCheckedChange={handleToggle24h} disabled={saving24h} className="scale-90" />
         <div className="flex-1">
-          <p className="text-sm font-medium">Atendimento 24h</p>
+          <p className="text-sm font-medium flex items-center gap-1.5">
+            Atendimento 24h
+            {saving24h && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </p>
           <p className="text-xs text-muted-foreground">
-            Ligado, o SDR responde e oferece horário de reunião a qualquer hora, todo dia, sem exceção (ignora os horários abaixo). Desligado, volta a valer a configuração de dias/horários.
+            Ligado, o SDR responde e oferece horário de reunião a qualquer hora, todo dia, sem exceção (ignora os horários abaixo). Desligado, volta a valer a configuração de dias/horários. Salva sozinho ao mudar.
           </p>
         </div>
       </div>
