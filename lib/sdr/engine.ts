@@ -968,6 +968,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
             link_briefing_enviado: { type: 'boolean', description: 'true assim que o link do briefing/formulário (retornado pelo Play_conhecimento, seção FECHAMENTO) for mandado pro lead nesta conversa' },
             nome_informado: { type: 'string', description: 'Preencha APENAS quando o lead disser seu nome ou como quer ser chamado, em resposta direta a uma pergunta tipo "como posso te chamar?"/"qual seu nome?". Deixe vazio em qualquer outro caso (não é pra repetir o nome em toda mensagem, só na hora em que ele é informado pela primeira vez).' },
             disponibilidade_lead: { type: 'string', description: 'Preencha SEMPRE que o lead mencionar quando está disponível pra call/reunião, mesmo de forma indireta ou numa frase solta (ex: "só posso de manhã", "segunda tô de folga", "à tarde vou num evento"). Isso evita perguntar "qual sua preferência de horário" de novo depois que ele já disse. Deixe vazio se ele não mencionou disponibilidade nesta mensagem.' },
+            encerramento_enviado: { type: 'boolean', description: 'true assim que você mandar a mensagem de encerramento padrão ("Eu que agradeço! Qualquer coisa, tô aqui" ou similar) nesta conversa. Evita mandar essa mesma despedida de novo se o lead responder com outro agradecimento/confirmação curta depois.' },
             nova_pergunta_respondida: {
               type: 'object',
               properties: {
@@ -1026,7 +1027,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       // Checklist estruturado : merge com o que já existe, nunca sobrescreve
       // apagando (apresentacao_feita só vira true e fica true; perguntas novas
       // se acumulam na lista, sem duplicar rótulo).
-      if (ctx.conversationId && (args.apresentacao_feita || args.nome_perguntado || args.link_briefing_enviado || args.disponibilidade_lead?.trim() || args.nova_pergunta_respondida || args.estagio_atual)) {
+      if (ctx.conversationId && (args.apresentacao_feita || args.nome_perguntado || args.link_briefing_enviado || args.disponibilidade_lead?.trim() || args.encerramento_enviado || args.nova_pergunta_respondida || args.estagio_atual)) {
         const { data: convAtual } = await supabase
           .from('conversas_do_whatsapp')
           .select('checklist_atendimento')
@@ -1051,6 +1052,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
           nome_perguntado: atual.nome_perguntado || !!args.nome_perguntado,
           link_briefing_enviado: atual.link_briefing_enviado || !!args.link_briefing_enviado,
           disponibilidade_lead: args.disponibilidade_lead?.trim() || atual.disponibilidade_lead,
+          encerramento_enviado: atual.encerramento_enviado || !!args.encerramento_enviado,
           perguntas_e_respostas: perguntas,
           estagio_atual: args.estagio_atual ?? atual.estagio_atual,
         }
@@ -1142,8 +1144,7 @@ FLUXO DE AGENDAMENTO (só se passou pelo guarda-chuva acima):
    - PARE e aguarde a resposta. NÃO avance sem ter os três dados.
    - ⚠️ PENALIDADE: Chamar "Agendar_gcal" sem email e nome_completo é uma falha crítica. Nunca faça isso.
 5. Confirmar: "[Nome], [dia da semana] [data] às [hora], confirma?"
-6. "Agendar_gcal" → criar evento com Meet ativado, passando email e nome_completo coletados
-7. "Reuniao_marcada" → atualizar CRM
+6. "Agendar_gcal" → criar evento com Meet ativado, passando email e nome_completo coletados. Isso JÁ salva tudo no CRM sozinho, não existe passo depois disso.
 
 FLUXO DE CANCELAMENTO:
 - Se o lead pedir para cancelar um agendamento:
@@ -1158,6 +1159,7 @@ APÓS AGENDAR, envie APENAS isso:
 [Data] às [hora], segue o link:
 [link_meet]
 Qualquer coisa é só me chamar 👍"
+⛔ [Data] e [hora] TÊM que ser copiados EXATAMENTE do campo "data_formatada" que "Agendar_gcal" retornou nesta mesma chamada. NUNCA escreva a data/hora de cabeça nem recalcule : mesmo que o lead tenha dito outro número antes, o que vale é o que a tool confirmou de verdade. Achado ao vivo (2026-09-06) : o modelo passou um horário pra "Agendar_gcal" e escreveu outro na confirmação pro lead, na mesma resposta : o lead recebeu um horário, o evento real ficou marcado 3h antes.
 
 REGRAS:
 - 🚫 PROIBIDO: Jamais chame "Agendar_gcal" sem ter email E nome_completo fornecidos pelo lead. Sem esses dados = não agenda, ponto final.
@@ -1236,23 +1238,6 @@ REGRAS:
         name: 'Deletar_gcal',
         description: 'Cancela/deleta um evento existente no Google Calendar',
         parameters: { type: 'object', properties: { event_id: { type: 'string' } }, required: ['event_id'] },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'Reuniao_marcada',
-        description: 'Salva os dados da reunião agendada no CRM',
-        parameters: {
-          type: 'object',
-          properties: {
-            data_hora_iso: { type: 'string' },
-            meet_url: { type: 'string' },
-            event_id: { type: 'string' },
-            acao: { type: 'string', enum: ['agendar', 'remarcar', 'cancelar'] },
-          },
-          required: ['acao'],
-        },
       },
     },
   ]
@@ -1352,6 +1337,56 @@ REGRAS:
           return `BLOQUEADO: A data calculada (${formatDateTimeBR(start)}) está mais de ${DIAS_MAX_FUTURO} dias no futuro, isso não é normal pra um agendamento comercial. Chame "Hora_atual" de novo e recalcule a data certa, provavelmente você errou o mês ou o dia.`
         }
 
+        // Achado ao vivo (Rodrigo, 2026-09-08, lead Alecsander) : Bruno criou
+        // um evento manual no MESMO calendário no intervalo entre o
+        // "Consultar_gcal" (que confirmou livre) e este "Agendar_gcal" (que
+        // cria de verdade) — condição de corrida clássica, ninguém re-checou
+        // bem antes de criar. Reconfere agora, no último instante possível,
+        // e bloqueia se o horário deixou de estar livre nesse meio-tempo.
+        const duracaoMin = args.duracao_minutos ?? 60
+        const reconferencia = await checkAvailableSlots({ calendarId: ctx.calendarId!, companyId: ctx.companyId, date: start, durationMinutes: duracaoMin })
+        const slotPedido = reconferencia.find((s) => Math.abs(s.start.getTime() - start.getTime()) < 60_000)
+        // Achado ao vivo (Rodrigo, 2026-09-06, lead Roseli) : reunião foi
+        // criada pras 7h da manhã, ANTES do horário configurado (8h-18h) --
+        // "slotPedido" vem undefined nesse caso (checkAvailableSlots nunca
+        // gera slot fora do expediente), e o código só bloqueava quando o
+        // slot EXISTIA e estava ocupado, não quando ele nem existia. Agora
+        // bloqueia nos dois casos : fora do expediente OU ocupado.
+        if (!slotPedido || !slotPedido.available) {
+          return `BLOQUEADO: O horário ${formatDateTimeBR(start)} não está disponível (fora do horário de atendimento configurado, feriado, fim de semana, ou acabou de ser ocupado). Avise o lead que esse horário específico não está disponível e chame "Consultar_gcal" de novo pra esse dia, oferecendo outro horário livre.`
+        }
+
+        // Achado ao vivo (Rodrigo, 2026-09-08, leads Roseli x Alecsander) : a
+        // reconferência acima só enxerga o que está de fato no Google Calendar
+        // do "calendarId" configurado -- a reunião do Alecsander tinha sido
+        // registrada no CRM (leads.call_agendada_para/meet_url) sem nunca ter
+        // um calendar_event_id real (agendada por fora do sistema), então
+        // NENHUMA consulta ao Google Calendar consegue vê-la, não importa
+        // quantas vezes reconfira. Segunda camada, independente da primeira :
+        // cruza direto com outros leads da MESMA empresa marcados como
+        // "agendada" no intervalo pedido, usando o que está no nosso próprio
+        // CRM como fonte adicional de verdade (assume 60min pra reuniões sem
+        // duração própria registrada, mesmo padrão do resto do sistema).
+        const janelaMs = 4 * 60 * 60_000
+        const { data: possiveisConflitos } = await supabase
+          .from('leads')
+          .select('id, contact_name, call_agendada_para')
+          .eq('company_id', ctx.companyId)
+          .eq('call_status', 'agendada')
+          .neq('id', ctx.leadId)
+          .not('call_agendada_para', 'is', null)
+          .gte('call_agendada_para', new Date(start.getTime() - janelaMs).toISOString())
+          .lte('call_agendada_para', new Date(start.getTime() + janelaMs).toISOString())
+        const novoFim = start.getTime() + duracaoMin * 60_000
+        const conflitoCrm = (possiveisConflitos ?? []).find((l) => {
+          const outroInicio = new Date(l.call_agendada_para!).getTime()
+          const outroFim = outroInicio + 60 * 60_000
+          return outroInicio < novoFim && outroFim > start.getTime()
+        })
+        if (conflitoCrm) {
+          return `BLOQUEADO: O horário ${formatDateTimeBR(start)} já está reservado no CRM para outro lead (${conflitoCrm.contact_name ?? 'sem nome'}), mesmo que o Google Calendar não mostre conflito. Avise o lead que esse horário não está disponível e chame "Consultar_gcal" de novo pra esse dia, oferecendo outro horário livre.`
+        }
+
         const nomeCompleto: string = args.nome_completo
         const resolvedTitle = ctx.eventTitleTemplate
           ? ctx.eventTitleTemplate.replace('{nome}', nomeCompleto)
@@ -1373,11 +1408,25 @@ REGRAS:
         // sempre, mesmo o lead confirmando o nome completo na conversa.
         //
         // Persiste o agendamento AQUI, direto, em vez de depender do modelo
-        // lembrar de chamar "Reuniao_marcada" depois (achado ao vivo,
-        // 2026-09-03 : lead recebeu confirmação de agendamento e nada foi
-        // salvo em leads, porque o passo 7 do fluxo é só instrução de prompt,
-        // não uma trava real). Se o evento no Calendar existe, o CRM tem que
-        // refletir isso, sempre, sem depender de mais nenhuma decisão da IA.
+        // chamar outra tool depois pra salvar (achado ao vivo, 2026-09-03 :
+        // lead recebeu confirmação de agendamento e nada foi salvo em leads,
+        // porque esse passo extra era só instrução de prompt, não uma trava
+        // real). Se o evento no Calendar existe, o CRM tem que refletir isso,
+        // sempre, sem depender de mais nenhuma decisão da IA.
+        //
+        // Achado ao vivo (Rodrigo, 2026-09-06, lead Roseli) : mesmo depois do
+        // fix acima, o prompt ainda tinha um passo 7 mandando o modelo chamar
+        // a tool "Reuniao_marcada" DEPOIS deste "Agendar_gcal" -- ela escrevia
+        // call_agendada_para de novo, só que com um data_hora_iso recalculado
+        // de cabeça pelo modelo (sem o parse duplo-offset do parseBrazilDateTime,
+        // sem reconferência de disponibilidade, sem nada). Isso sobrescrevia
+        // silenciosamente o valor certo por um valor errado quando o modelo
+        // errava a conta na segunda vez (foi exatamente o caso : evento real
+        // às 10h BRT, banco ficou com 07h BRT). Removida por completo (tool,
+        // handler e passo do prompt) : esta gravação aqui já é a única fonte
+        // de verdade, uma segunda tool livre pra reescrever o mesmo campo era
+        // só risco, sem nenhum uso real sobrando (cancelamento já é feito por
+        // "Deletar_gcal" direto, não por esta tool).
         await supabase.from('leads').update({
           contact_name: nomeCompleto,
           email: args.email,
@@ -1409,22 +1458,6 @@ REGRAS:
       } catch (err: any) {
         return `Erro ao cancelar: ${err.message}`
       }
-    },
-    'Reuniao_marcada': async (args) => {
-      const updates: Record<string, any> = { updated_at: new Date().toISOString() }
-      if (args.acao === 'cancelar') {
-        updates.call_de_venda = false
-        updates.call_status = 'cancelada'
-        updates.calendar_event_id = null
-      } else if (args.data_hora_iso) {
-        updates.call_de_venda = true
-        updates.call_agendada_para = args.data_hora_iso
-        updates.meet_url = args.meet_url ?? null
-        updates.call_status = 'agendada'
-        if (args.event_id) updates.calendar_event_id = args.event_id
-      }
-      await supabase.from('leads').update(updates).eq('id', ctx.leadId)
-      return JSON.stringify({ salvo: true, acao: args.acao })
     },
   }
 
@@ -1780,6 +1813,14 @@ interface ChecklistAtendimento {
   // esse tipo de frase casual de forma confiável. Campo dedicado, sinal
   // forte e específico só pra isso.
   disponibilidade_lead?: string
+  // Achado ao vivo (Rodrigo, 2026-09-06, lead Roseli) : ela mandou "Até lá"
+  // e depois "Ok" como duas mensagens SEPARADAS (mais de 30s de intervalo,
+  // buffers diferentes) : cada uma disparou o motor do zero, e as duas
+  // vezes o modelo concluiu "lead se despediu, só reconhecer" e mandou o
+  // MESMO "Eu que agradeço! Qualquer coisa, é só chamar" repetido. O
+  // documento de encerramento já diz "não responda mais depois", mas nada
+  // impedia o motor de rodar de novo pra uma segunda mensagem de despedida.
+  encerramento_enviado?: boolean
   perguntas_e_respostas?: { pergunta: string; resposta: string }[]
   estagio_atual?: string
   lead_recusou?: boolean
@@ -1810,6 +1851,9 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
   lines.push(`Link do briefing já enviado: ${checklist.link_briefing_enviado ? 'SIM' : 'NÃO : se o "Contexto sobre o lead" ou o Play_conhecimento tiver um link de briefing/formulário, ele é OBRIGATÓRIO antes de chamar Agente_de_Agendamento pela primeira vez nesta conversa, independente do lead ter demonstrado interesse'}`)
   if (checklist.disponibilidade_lead) {
     lines.push(`Disponibilidade que o lead JÁ INFORMOU (mesmo que numa frase solta, não em resposta direta a uma pergunta de horário): "${checklist.disponibilidade_lead}". ⛔ NUNCA pergunte "qual sua preferência de horário" ou similar de novo : use essa informação diretamente pra propor/confirmar o agendamento.`)
+  }
+  if (checklist.encerramento_enviado) {
+    lines.push('⛔ O encerramento padrão ("Eu que agradeço! Qualquer coisa, tô aqui") JÁ FOI ENVIADO nesta conversa. Se a mensagem atual do lead for só um agradecimento/confirmação curta sem pergunta nova (ex: "ok", "até lá", "blz", "valeu", "combinado"), responda com ZERO OUTPUT (não mande nenhuma mensagem, igual detecção de bot). Só volte a responder de verdade se o lead trouxer uma dúvida ou assunto NOVO.')
   }
   if (checklist.perguntas_e_respostas?.length) {
     lines.push('Perguntas de qualificação já respondidas pelo lead (NUNCA repita, mesmo com outras palavras):')
