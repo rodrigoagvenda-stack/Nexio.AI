@@ -644,6 +644,21 @@ async function runAgenteSegmentacao(
   supabase: ReturnType<typeof createServiceClient>,
   acc?: UsageAcc
 ): Promise<string> {
+  // Achado ao vivo (Rodrigo, 2026-09-07, auditoria de custo) : esse agente
+  // rodava em TODA mensagem, mesmo pra lead que já tem segmento definido --
+  // 71% dos leads da Grupo Venda já tinham segmento fixado e mesmo assim a
+  // tool disparava de novo a cada mensagem nova, gastando uma chamada de
+  // modelo inteira só pra confirmar o que já estava certo. Corte direto,
+  // sem chamar modelo nenhum : segmento já definido não precisa reclassificar.
+  const { data: leadAtual } = await supabase
+    .from('leads')
+    .select('segment')
+    .eq('id', ctx.leadId)
+    .maybeSingle()
+  if (leadAtual?.segment) {
+    return JSON.stringify({ atualizado: false, segmento: leadAtual.segment, motivo: 'ja_classificado' })
+  }
+
   const systemPrompt = `Você é o Agente de Segmentação. Identifica o nicho do lead com base na conversa e atualiza o campo de segmento no CRM.
 
 ORDEM DE EXECUÇÃO OBRIGATÓRIA:
@@ -886,12 +901,13 @@ FERRAMENTAS DISPONÍVEIS:
 - "Buscar_lead": busca os dados atuais do lead no CRM usando o whatsapp como identificador único
 - "Atualizar_resumo": atualiza os campos do lead no CRM
 
-ORDEM DE EXECUÇÃO OBRIGATÓRIA:
-1. Use "Think4" para raciocinar sobre o que precisa ser atualizado
-2. Use "Buscar_lead" passando o número do whatsapp do lead
-3. Compare os dados atuais com a nova informação recebida
-4. Use "Think4" novamente para consolidar o que vai atualizar
-5. Use "Atualizar_resumo" para salvar as atualizações no CRM
+ORDEM DE EXECUÇÃO:
+1. Use "Buscar_lead" passando o número do whatsapp do lead, pra ver o estado atual (resumo_ia, segment, priority, nivel_interesse, checklist_atendimento)
+2. Use "Think4" pra comparar a nova informação recebida com o que já está salvo e decidir : tem ALGUMA coisa genuinamente nova pra registrar, seja no resumo narrativo OU em qualquer campo do checklist_atendimento (apresentação, nome, disponibilidade, pergunta respondida, estágio, etc)?
+3. SE tiver algo novo (resumo ou checklist) : use "Atualizar_resumo" só com os campos que realmente mudaram.
+4. SE NÃO tiver nada novo em lugar nenhum (nem resumo, nem nenhum campo do checklist) : NÃO chame "Atualizar_resumo". Apenas responda em texto curto, ex "Nada novo pra registrar nesta mensagem." e pare por aí.
+
+⛔ REGRA DE SEGURANÇA (achado ao vivo, 2026-09-07, auditoria de custo) : essa etapa 4 existe pra cortar chamada desnecessária em mensagem tipo "ok"/"obrigada"/resposta vaga sem dado novo — ela NÃO pode custar informação perdida. Na dúvida se algo é novo ou não, trate como NOVO e registre (etapa 3). Só conclua "nada novo" (etapa 4) quando tiver certeza, comparando com o que "Buscar_lead" retornou, de que a mensagem não trouxe nada além do que já está salvo. Prefira gastar uma chamada a mais a apagar/perder informação real do lead.
 
 CAMPOS QUE VOCÊ ATUALIZA:
 - resumo_ia: resumo executivo da conversa
@@ -912,6 +928,7 @@ REGRAS DO RESUMO (resumo_ia):
 - Inclua: interesse demonstrado, objeções, próximos passos, informações relevantes
 - Priorize informações novas sobre antigas
 - Seja direto : o SDR precisa entender em 30 segundos
+- resumo_ia é um campo OPCIONAL dentro de "Atualizar_resumo" : só inclua quando tiver conteúdo narrativo genuinamente novo pra registrar. Se essa mensagem só atualizou um campo do checklist (ex: nome informado) sem trazer nada novo de narrativa, chame "Atualizar_resumo" sem o parâmetro resumo_ia. NUNCA escreva entradas tipo "nada de novo" / "aguardando mais interações" só pra preencher o campo — isso é exatamente o desperdício que essa mudança existe pra cortar.
 
 NÍVEL DE INTERESSE (use exatamente assim):
 - "Quente 🔥"
