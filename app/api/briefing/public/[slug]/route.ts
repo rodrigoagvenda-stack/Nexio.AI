@@ -202,12 +202,38 @@ export async function POST(request: NextRequest, props: { params: Promise<{ slug
               .eq('id', conv.id);
           }
 
-          // Mensagem de WhatsApp pró-ativa NÃO é mais enviada daqui : "Mensagem
-          // final" é só texto de tela (config.success_message, usado em
-          // app/briefing/[slug]/page.tsx). Quem manda WhatsApp de continuidade
-          // agora é a sequência ligada ao gatilho "Evento de webhook"
-          // (config.webhook_url), configurável no canvas — evita duplicar
-          // mensagem quando as duas coisas disparavam juntas.
+          // Achado ao vivo (Rodrigo, 2026-09-07) : a mensagem fixa da sequência
+          // "Evento de webhook" (config.webhook_url) só confirma o recebimento
+          // ("recebi as suas informações, obrigado") e para por ali -- se o
+          // lead não escrever de novo por conta própria, a conversa morre
+          // mesmo o bot tendo prometido "explicar os próximos passos". Em vez
+          // de depender só de um passo de canvas fixo, reacende o motor de
+          // verdade : ele reage com contexto real (RAG, análise de perfil,
+          // checklist) e já empurra pro agendamento, igual faria se o lead
+          // tivesse mandado outra mensagem. Não reativa lead que já passou da
+          // qualificação (mesma regra do "não regride status" acima).
+          if (leadRow && !STATUS_NAO_REGREDIR.has(leadRow.status)) {
+            try {
+              const { bufferMessage } = await import('@/lib/sdr/engine');
+              const { upsertSdrJob } = await import('@/lib/sdr/inbound');
+              const phoneNormalizado = normalizePhone(whatsappRaw);
+              const respostasResumo = Object.entries(answers)
+                .filter(([k]) => k !== 'whatsapp')
+                .map(([k, v]) => `${k}: ${v}`)
+                .join('\n');
+              await bufferMessage(config.company_id, phoneNormalizado, {
+                content: `O lead acabou de preencher o formulário de briefing. Respostas:\n${respostasResumo}\n\nContinue a conversa a partir daqui : comente algo relevante do que ele respondeu (sem se apresentar de novo, ele já está em conversa) e conduza pra agendar o diagnóstico ao vivo.`,
+                type: 'text',
+                timestamp: new Date().toISOString(),
+                messageId: `briefing-${currentLeadId}-${Date.now()}`,
+                senderName: leadRow.contact_name ?? nomeDoFormulario ?? undefined,
+                synthetic: true,
+              }, supabase);
+              await upsertSdrJob(config.company_id, phoneNormalizado, supabase);
+            } catch (err: any) {
+              console.error('[Briefing] Falha ao reativar o SDR:', err?.message);
+            }
+          }
         } catch (err: any) {
           // Melhor esforço : falha aqui não pode derrubar o envio do formulário em si
           console.error('[Briefing] Falha ao dar continuidade (checklist/status):', err?.message);

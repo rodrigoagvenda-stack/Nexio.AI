@@ -91,6 +91,11 @@ export interface BufferedMessage {
   mediaUrl?: string
   senderName?: string
   senderPhoto?: string
+  // Gatilho interno (ex: formulário de briefing preenchido) : o orquestrador
+  // reage normalmente ao "content", mas NUNCA vira balão de chat, porque não
+  // é uma mensagem que o lead de fato escreveu no WhatsApp -- mostrar isso
+  // como se fosse fala do lead confundiria quem lê o histórico depois.
+  synthetic?: boolean
 }
 
 type ChatMsg = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -3046,7 +3051,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // Salva cada mensagem inbound com tipo e mediaUrl corretos (espelha cada row do N8N flow)
     // SEMPRE salva, mesmo quando pausado : garante histórico no chat e contexto ao reativar
+    // Exceto gatilho sintético (ex: briefing preenchido) : o orquestrador usa o
+    // conteúdo pra reagir, mas isso não vira balão porque o lead não escreveu isso.
     for (const em of enrichedMessages) {
+      if (em.synthetic) continue
       await saveInbound(conversationId, ctx, em.enrichedContent, supabase, em.type, em.mediaUrl, em.messageId)
     }
 
