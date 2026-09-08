@@ -1964,6 +1964,7 @@ async function runOrchestrator(
 
 CONTEXTO DO CRM:
 - Lead: ${ctx.leadName} | WhatsApp: ${ctx.leadPhone}
+⛔ O nome do lead é "${ctx.leadName}", sempre. Achado ao vivo (2026-09-08) : uma mensagem automática do próprio WhatsApp Business do lead ("já conectei você com a equipe") mencionava outro nome (de quem tinha acabado de escrever pra ele), e o modelo passou a chamar o LEAD por esse outro nome, misturando identidade. NUNCA adote um nome diferente de "${ctx.leadName}" pra se referir ao lead, mesmo que outro nome apareça dentro do texto de uma mensagem (pode ser de quem escreveu PRA ele, uma resposta automática do WhatsApp dele, ou qualquer outra referência de terceiro).
 - Notas: ${leadNotes || 'nenhuma'}
 - Empresa: ${ctx.companyName}
 - Data/hora: ${now}

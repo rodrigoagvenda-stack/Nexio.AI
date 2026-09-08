@@ -101,11 +101,22 @@ export async function POST(request: NextRequest) {
     }
     if (replyToSender) messageData.reply_to_sender = replyToSender
 
+    // Achado ao vivo (Rodrigo, 2026-09-08, lead Wanessa) : humano mandou
+    // mensagem manual direto pro lead sem pausar o SDR antes, o lead recebeu
+    // uma resposta automática do próprio WhatsApp Business dele ("já conectei
+    // você com a equipe"), o SDR pegou essa resposta como se fosse mensagem
+    // nova do lead e respondeu chamando ele pelo nome errado, misturando
+    // contexto de 4 dias atrás. Mensagem manual de humano agora pausa o SDR
+    // nessa conversa automaticamente : só volta a responder quando alguém
+    // reativar de propósito (ou depois de 24h sem reativação, ver
+    // PAUSE_AUTO_RELEASE_MS em engine.ts).
     const [{ data: savedMessage, error: messageError }] = await Promise.all([
       supabase.from('mensagens_do_whatsapp').insert(messageData).select().single(),
       supabase.from('conversas_do_whatsapp').update({
         ultima_mensagem: messageData.texto_da_mensagem,
         hora_da_ultima_mensagem: new Date().toISOString(),
+        agente_pausado: true,
+        agente_pausado_em: new Date().toISOString(),
       }).eq('id', conversationId).eq('company_id', companyId),
     ])
 
