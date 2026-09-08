@@ -166,7 +166,7 @@ function pickMessage(step: FollowStep): string {
 }
 
 /** Substitui variáveis de template na mensagem */
-function substituirVariaveis(texto: string, lead: Lead): string {
+function substituirVariaveis(texto: string, lead: Lead, produto: string = ''): string {
   const nome = lead.contact_name || 'você'
   const primeiroNome = nome.split(' ')[0]
   const status = lead.status || ''
@@ -188,6 +188,7 @@ function substituirVariaveis(texto: string, lead: Lead): string {
     .replace(/\{hora_reuniao\}/gi, horaCall)
     .replace(/\{link_meet\}/gi, linkMeet)
     .replace(/\{meet_url\}/gi, linkMeet)
+    .replace(/\{produto\}/gi, produto)
 }
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -805,6 +806,19 @@ async function processFollowGeral(
     .in('status', ['Em contato', 'Interessado'])
     .not('whatsapp', 'is', null)
 
+  // {produto} nas mensagens de reengajamento : nome do produto/campanha vem
+  // do flow ativo da empresa (sdr_flows.descricao), preenchido uma vez na
+  // criação do flow -- sem IA, sem custo extra, funciona pra qualquer
+  // campanha futura (basta preencher esse campo ao criar o flow novo).
+  const { data: flowRow } = await supabase
+    .from('sdr_flows')
+    .select('descricao')
+    .eq('company_id', company.id)
+    .eq('ativo', true)
+    .limit(1)
+    .maybeSingle()
+  const produto = flowRow?.descricao ?? ''
+
   for (const sequence of sequences) {
     const { data: steps } = await supabase
       .from('follow_steps')
@@ -900,7 +914,7 @@ async function processFollowGeral(
           if (await isCircuitOpen(sequence.id)) continue
 
           const textoRaw = pickMessage(step)
-          const texto = substituirVariaveis(textoRaw ?? '', lead)
+          const texto = substituirVariaveis(textoRaw ?? '', lead, produto)
           if (!texto) {
             await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'skipped', supabase)
             leadFired.add(step.id)
@@ -918,7 +932,7 @@ async function processFollowGeral(
               await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, 'text', media)
               const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
               for (let i = 1; i < blocos.length; i++) {
-                const bloco = substituirVariaveis(blocos[i] || '', lead)
+                const bloco = substituirVariaveis(blocos[i] || '', lead, produto)
                 if (!bloco) continue
                 await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
                 await enviarMensagem(phone, bloco, company, 'text', null)
@@ -1266,7 +1280,7 @@ async function processFollowGeral(
         const textoRaw = step.usar_ia
           ? await gerarMensagemIA(lead, step, sequence, openai, company.sdr_prompt)
           : pickMessage(step)
-        const texto = substituirVariaveis(textoRaw, lead)
+        const texto = substituirVariaveis(textoRaw, lead, produto)
 
         const precisaTexto = tipo === 'text' || step.usar_ia
         if (precisaTexto && !texto) {
@@ -1285,7 +1299,7 @@ async function processFollowGeral(
 
             const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
             for (let i = 1; i < blocos.length; i++) {
-              const bloco = substituirVariaveis(blocos[i] || '', lead)
+              const bloco = substituirVariaveis(blocos[i] || '', lead, produto)
               if (!bloco) continue
               await new Promise((r) => setTimeout(r, 1000 + Math.random() * 1000))
               await enviarMensagem(phone, bloco, company, 'text', null)
