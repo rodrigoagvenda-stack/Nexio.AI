@@ -170,6 +170,22 @@ export default function AtendimentoPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [convTab, setConvTab] = useState<'minhas' | 'nao_atribuidas' | 'todas'>('minhas');
+  // Filtro avançado (pedido do Bruno, 2026-09-08) : ele se perde navegando
+  // muitos leads sem conseguir achar rápido quem tem potencial pra ligar
+  // pessoalmente e fechar. Cada campo aqui é opcional (null = não filtra por
+  // ele) ; todos combinam com AND entre si.
+  interface AtendimentoFilters {
+    estagio: string | null
+    prioridade: string | null
+    temperatura: string | null
+    origem: 'inbound' | 'outbound' | null
+    semResposta: boolean
+  }
+  const [convFilters, setConvFilters] = useState<AtendimentoFilters>({
+    estagio: null, prioridade: null, temperatura: null, origem: null, semResposta: false,
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = Object.values(convFilters).filter((v) => v !== null && v !== false).length;
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
@@ -1214,7 +1230,23 @@ export default function AtendimentoPage() {
     return true; // 'todas' : admin/manager only
   });
 
-  const filteredConversations = tabFilteredConversations.filter((conv) =>
+  const advancedFilteredConversations = tabFilteredConversations.filter((conv) => {
+    if (convFilters.estagio && conv.lead?.status !== convFilters.estagio) return false;
+    if (convFilters.prioridade && conv.lead?.priority !== convFilters.prioridade) return false;
+    if (convFilters.temperatura && conv.lead?.nivel_interesse !== convFilters.temperatura) return false;
+    if (convFilters.origem && conv.origem_real !== convFilters.origem) return false;
+    if (convFilters.semResposta) {
+      const suaVez = !!(conv.agente_pausado
+        && conv.ultima_mensagem_inbound_at
+        && conv.hora_da_ultima_mensagem
+        && new Date(conv.hora_da_ultima_mensagem).getTime() <= new Date(conv.ultima_mensagem_inbound_at).getTime() + 1000);
+      const naFila = conv.kanban_stage === 'fila' && !conv.current_attendant_id;
+      if (!suaVez && !naFila) return false;
+    }
+    return true;
+  });
+
+  const filteredConversations = advancedFilteredConversations.filter((conv) =>
     conv.nome_do_contato?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.numero_de_telefone.includes(searchQuery) ||
     conv.lead?.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1644,14 +1676,103 @@ export default function AtendimentoPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar conversas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar conversas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {/* Filtro avançado (pedido do Bruno, 2026-09-08) : achar rápido quem
+                  tem potencial pra ele ligar pessoalmente, sem abrir conversa por
+                  conversa. Cada grupo é opcional, todos combinam com AND. */}
+              <DropdownMenu open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button className={cn(
+                    "relative flex items-center gap-1.5 text-xs font-medium border px-2.5 py-2 rounded-md transition-colors",
+                    activeFilterCount > 0 ? "text-primary bg-primary/10 border-primary/30" : "text-muted-foreground border-border hover:bg-muted"
+                  )}>
+                    <Tag className="h-3.5 w-3.5" />
+                    Filtros
+                    {activeFilterCount > 0 && (
+                      <span className="ml-0.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-primary text-primary-foreground text-[10px]">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 p-3 space-y-3">
+                  {([
+                    { key: 'estagio' as const, label: 'Estágio', options: ['Triagem', 'Outbound', 'Novo lead', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido', 'Remarketing'] },
+                    { key: 'prioridade' as const, label: 'Prioridade', options: ['Alta', 'Média', 'Baixa'] },
+                    { key: 'temperatura' as const, label: 'Temperatura', options: ['Quente 🔥', 'Morno 🌡️', 'Frio ❄️'] },
+                  ]).map((group) => (
+                    <div key={group.key}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">{group.label}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.options.map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => setConvFilters((f) => ({ ...f, [group.key]: f[group.key] === opt ? null : opt }))}
+                            className={cn(
+                              "text-xs px-2 py-1 rounded-full border transition-colors",
+                              convFilters[group.key] === opt
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "border-border text-muted-foreground hover:bg-muted"
+                            )}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Origem</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([['inbound', 'Inbound'], ['outbound', 'Outbound']] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => setConvFilters((f) => ({ ...f, origem: f.origem === val ? null : val }))}
+                          className={cn(
+                            "text-xs px-2 py-1 rounded-full border transition-colors",
+                            convFilters.origem === val
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border text-muted-foreground hover:bg-muted"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={convFilters.semResposta}
+                        onChange={(e) => setConvFilters((f) => ({ ...f, semResposta: e.target.checked }))}
+                        className="h-3.5 w-3.5 rounded border-border"
+                      />
+                      Só sem resposta (sua vez / na fila)
+                    </label>
+                  </div>
+                  {activeFilterCount > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <button
+                        onClick={() => setConvFilters({ estagio: null, prioridade: null, temperatura: null, origem: null, semResposta: false })}
+                        className="text-xs text-muted-foreground hover:text-foreground underline"
+                      >
+                        Limpar filtros
+                      </button>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {/* View tabs */}
             {(() => {
