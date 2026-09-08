@@ -103,7 +103,7 @@ function fmtCompact(v: number): string {
 const photoCache: Record<string, string | null> = {}
 
 // 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
-const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
+const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge, onOpenConversa }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void; onOpenConversa: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: {
@@ -175,7 +175,19 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchEnd}
     >
-      <OrbitCard className="group hover:shadow-md transition-all duration-200 mb-3 bg-card">
+      <OrbitCard
+        className="group hover:shadow-md transition-all duration-200 mb-3 bg-card cursor-pointer"
+        title="Abrir conversa deste lead"
+        onClick={(e) => {
+          // Achado ao vivo (Bruno, 2026-09-08) : queria clicar no card e ir
+          // direto pra conversa do lead no Atendimento, em vez de precisar
+          // abrir o card e procurar manualmente. Ignora clique durante um
+          // drag de verdade (dnd-kit dispara onClick também no fim do drag,
+          // sem isso o card abriria a conversa toda vez que fosse arrastado).
+          if (isDragging) return;
+          onOpenConversa();
+        }}
+      >
         <OrbitCardContent className="p-4 space-y-3 flex flex-col min-h-[100px]">
           {/* Header com ícone e ações */}
           <div className="flex items-start gap-3">
@@ -333,7 +345,7 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
   );
 });
 
-const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void }) {
+const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge, onOpenConversa }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void; onOpenConversa: () => void }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -358,7 +370,7 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
     name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '??';
 
   return (
-    <OrbitCard className="hover:shadow-md transition-shadow">
+    <OrbitCard className="hover:shadow-md transition-shadow cursor-pointer" onClick={onOpenConversa}>
       <OrbitCardContent className="p-3 space-y-2">
         <div className="flex items-start gap-2.5">
           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: 'rgba(1,87,60,0.18)' }}>
@@ -372,13 +384,13 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
             {lead.contact_name && <p className="text-xs text-muted-foreground truncate">{lead.contact_name}</p>}
           </div>
           <div className="flex gap-0.5 flex-shrink-0">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit()}>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
               <Pencil className="h-3 w-3" />
             </Button>
             <Button
               variant="ghost" size="icon"
               className="h-6 w-6 text-destructive"
-              onClick={() => onDelete()}
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -1412,6 +1424,7 @@ export default function CRMPage() {
                               onEdit={() => handleOpenModal(lead)}
                               onDelete={() => setDeletingLead(lead)}
                               onCharge={() => setChargingLead(lead)}
+                              onOpenConversa={() => router.push(`/atendimento?phone=${encodeURIComponent(lead.whatsapp || '')}`)}
                             />
                           ))}
                         </SortableContext>
@@ -1488,6 +1501,7 @@ export default function CRMPage() {
                       onEdit={() => handleOpenModal(lead)}
                       onDelete={() => setDeletingLead(lead)}
                       onCharge={() => setChargingLead(lead)}
+                      onOpenConversa={() => router.push(`/atendimento?phone=${encodeURIComponent(lead.whatsapp || '')}`)}
                     />
                   ))}
                 </div>

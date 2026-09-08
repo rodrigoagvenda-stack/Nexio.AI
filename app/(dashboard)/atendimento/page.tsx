@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -163,9 +164,26 @@ interface Message {
 export default function AtendimentoPage() {
   const { user, company } = useUser();
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  // Deep-link vindo do CRM (Bruno, 2026-09-08) : clicar num card do Kanban
+  // abre direto a conversa desse lead aqui, em vez de precisar procurar
+  // manualmente na lista. Compara só dígitos pra não depender do formato
+  // exato do telefone bater entre as duas telas.
+  useEffect(() => {
+    const phoneParam = searchParams.get('phone');
+    if (!phoneParam || conversations.length === 0) return;
+    const digits = phoneParam.replace(/\D/g, '');
+    if (!digits) return;
+    const match = conversations.find((c) => c.numero_de_telefone?.replace(/\D/g, '').includes(digits) || digits.includes(c.numero_de_telefone?.replace(/\D/g, '') ?? ''));
+    if (match) {
+      setSelectedConversation(match);
+      router.replace('/atendimento');
+    }
+  }, [searchParams, conversations, router]);
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
