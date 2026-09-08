@@ -527,6 +527,7 @@ export default function BriefingPage() {
       const blob = await generateBriefingMtPDF({
         companyName: company?.name || 'Empresa',
         title: config.title || 'Briefing',
+        leadName: nomeDeExibicao(response.answers),
         primaryColor: config.primary_color || '#15803d',
         logoUrl: config.logo_url,
         questions,

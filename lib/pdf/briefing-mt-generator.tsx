@@ -4,6 +4,7 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 interface BriefingMtPDFProps {
   companyName: string;
   title: string;
+  leadName?: string | null;
   primaryColor: string;
   logoUrl?: string;
   questions: { label: string; field_key: string }[];
@@ -14,6 +15,7 @@ interface BriefingMtPDFProps {
 export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
   companyName,
   title,
+  leadName,
   primaryColor,
   logoUrl,
   questions,
@@ -142,7 +144,7 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {logoUrl && <Image src={logoUrl} style={styles.logo} />}
-            <Text style={styles.titleText}>{title || 'Briefing'}</Text>
+            <Text style={styles.titleText}>{leadName || title || 'Briefing'}</Text>
             <Text style={styles.companyText}>{companyName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -187,9 +189,7 @@ export const BriefingMtPDF: React.FC<BriefingMtPDFProps> = ({
         {/* Footer */}
         <View style={styles.footer} fixed>
           <View style={styles.footerLeft}>
-            <Text style={styles.footerBrand}>nexio</Text>
-            <Text style={styles.footerDot}>.</Text>
-            <Text style={styles.footerBrand}>ai</Text>
+            <Text style={styles.footerBrand}>zaapply</Text>
           </View>
           <View style={styles.footerRight}>
             <Text style={styles.footerPage}>

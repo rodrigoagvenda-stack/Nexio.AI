@@ -530,7 +530,21 @@ export default function BriefingPublicPage() {
                   return (
                     <button
                       key={opt}
-                      onClick={() => { setAnswer(q.field_key, opt); setTimeout(nextStep, 300); }}
+                      onClick={() => {
+                        // Achado ao vivo (Rodrigo, 2026-09-08) : "nextStep" capturado aqui
+                        // (closure desta renderização) ainda lê o "answers" de ANTES do
+                        // clique quando o setTimeout dispara, porque setAnswer só atualiza
+                        // o estado na próxima renderização -- canAdvance() via de dentro
+                        // desse nextStep antigo falhava silenciosamente na primeira vez,
+                        // só avançava no segundo clique (closure já atualizada). Avança
+                        // direto aqui, sem depender de canAdvance() : selecionar uma opção
+                        // válida sempre pode avançar, não precisa reconferir.
+                        setAnswer(q.field_key, opt);
+                        setTimeout(() => {
+                          if (currentStep < totalSteps - 1) setCurrentStep((p) => p + 1);
+                          else handleSubmit();
+                        }, 300);
+                      }}
                       className={`w-full text-left p-4 rounded-lg border-2 transition-all flex items-center gap-4 ${borderClass} ${hoverClass}`}
                       style={selected ? { borderColor: primaryColor } : {}}
                     >
