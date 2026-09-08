@@ -2566,6 +2566,16 @@ function containsBriefingLink(text: string): boolean {
   return BRIEFING_LINK_RE.test(text)
 }
 
+// Detecta quando o SDR revela o valor de um dos planos (Essencial/Prime) pro
+// lead : usado pra alimentar sequências de reengajamento específicas pra
+// quem ouviu preço e sumiu (achado ao vivo, 2026-09-08, auditoria pedida
+// pelo Rodrigo : não existia nenhum jeito estrutural de saber quando isso
+// aconteceu, só tag manual, que cobria uma fração pequena dos casos reais).
+const PRECO_RE = /R\$\s?2\.200|R\$\s?5\.280/
+function containsPreco(text: string): boolean {
+  return PRECO_RE.test(text)
+}
+
 async function sendWithHumanDelay(
   paragraphs: string[],
   phone: string,
@@ -2680,6 +2690,18 @@ async function sendWithHumanDelay(
 
     await saveOutbound(conversationId, ctx, paragraph, supabase, sentMessageId)
     await maybeStampFirstCtwaReply(supabase, conversationId)
+
+    // Primeira vez que o preço sai nesta conversa : marca no lead, sem
+    // sobrescrever se já tinha sido informado antes (fica a data da
+    // primeira vez que ele ouviu, não da última repetição).
+    if (containsPreco(paragraph) && ctx.leadId) {
+      supabase
+        .from('leads')
+        .update({ preco_informado_em: new Date().toISOString() })
+        .eq('id', ctx.leadId)
+        .is('preco_informado_em', null)
+        .then(() => {}, () => {})
+    }
 
     // Primeira vez que o link sai nesta conversa : guarda o messageId pra
     // um reforço futuro sair como resposta/citação desta mensagem.

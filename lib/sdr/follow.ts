@@ -97,7 +97,7 @@ interface FollowSequence {
   canvas_config?: {
     remarketing?: RemarketingCanvasConfig
     expira_em_dias?: number
-    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook'
+    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado'
   } | null
 }
 
@@ -113,6 +113,7 @@ interface Lead {
   call_agendada_para: string | null
   call_status: string | null
   meet_url?: string | null
+  preco_informado_em?: string | null
 }
 
 interface CompanyCtx {
@@ -801,9 +802,22 @@ async function processFollowGeral(
 
   const { data: leads } = await supabase
     .from('leads')
-    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
     .eq('company_id', company.id)
     .in('status', ['Em contato', 'Interessado'])
+    .not('whatsapp', 'is', null)
+
+  // Sequências ancoradas em "preço informado" (ex: reengajamento com desconto
+  // pra quem ouviu o valor e sumiu) também precisam alcançar lead marcado
+  // "Perdido" -- faz sentido pra um win-back de verdade, diferente do
+  // nurture geral acima que só mira quem ainda está ativo no funil. Exclui
+  // só "Fechado" (já comprou, não faz sentido oferecer desconto).
+  const { data: leadsPreco } = await supabase
+    .from('leads')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
+    .eq('company_id', company.id)
+    .neq('status', 'Fechado')
+    .not('preco_informado_em', 'is', null)
     .not('whatsapp', 'is', null)
 
   // {produto} nas mensagens de reengajamento : nome do produto/campanha vem
@@ -850,8 +864,11 @@ async function processFollowGeral(
       firedByLead.get(ex.lead_id)!.add(ex.step_id)
     }
 
-    // Hot leads first (call_de_venda, Interessado)
-    const sortedLeads = [...((leads ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
+    // Hot leads first (call_de_venda, Interessado). Sequência ancorada em
+    // "preço informado" usa a lista mais ampla (inclui "Perdido"), as demais
+    // continuam restritas a quem ainda está ativo no funil.
+    const leadsBase = eventoEntrada === 'preco_informado' ? leadsPreco : leads
+    const sortedLeads = [...((leadsBase ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
     for (const step of steps as FollowStep[]) {
       const unit = (step.media_config as any)?.offset_unit === 'hours' ? 'hours' : 'days'
@@ -961,12 +978,16 @@ async function processFollowGeral(
 
         if (await leadJaRespondeuDesde(lead.id, company.id, cutoff, supabase)) continue
 
-        // For novo_lead sequences, anchor timing to lead.created_at; otherwise use last inbound message
+        // For novo_lead sequences, anchor timing to lead.created_at; preco_informado
+        // sequences anchor to quando o SDR revelou o valor pro lead; otherwise use
+        // last inbound message
         let anchorDate: Date | null = null
         if (eventoEntrada === 'novo_lead') {
           const { data: leadRow } = await supabase
             .from('leads').select('created_at').eq('id', lead.id).maybeSingle()
           anchorDate = leadRow?.created_at ? new Date(leadRow.created_at) : null
+        } else if (eventoEntrada === 'preco_informado') {
+          anchorDate = lead.preco_informado_em ? new Date(lead.preco_informado_em) : null
         } else {
           const { data: ultimaMsg } = await supabase
             .from('mensagens_do_whatsapp')
