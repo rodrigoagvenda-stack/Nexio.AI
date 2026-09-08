@@ -1899,6 +1899,7 @@ async function runOrchestrator(
 
   let checklistText = '⛔ ESTA É A PRIMEIRA MENSAGEM DESTA CONVERSA. São DUAS obrigações SEPARADAS nesta resposta, antes de qualquer qualificação ou pitch, nenhuma substitui a outra : (1) se apresente pelo nome do agente e da empresa, (2) pergunte o nome do lead (ex: "como posso te chamar?"). Faça as duas MESMO que o WhatsApp já mostre um nome de contato : não é confiável, pergunte assim mesmo.'
   let adHeadline: string | null = null
+  let apresentacaoJaFeita = false
 
   // Origem real do lead (outbound vs inbound), calculada uma vez aqui como
   // fato determinístico e injetada no CONTEXTO DO CRM abaixo : achado ao vivo
@@ -1924,6 +1925,7 @@ async function runOrchestrator(
       .eq('id', ctx.conversationId)
       .maybeSingle()
     const checklistAtual = (convRow?.checklist_atendimento as ChecklistAtendimento) ?? null
+    apresentacaoJaFeita = !!checklistAtual?.apresentacao_feita
 
     // Lead já recusou/pediu pra parar : achado ao vivo (2026-09-02) que o SDR
     // continuava empurrando venda em toda mensagem seguinte mesmo depois de o
@@ -1968,9 +1970,14 @@ CONTEXTO DO CRM:
 - Origem deste lead: ${origemReal === 'outbound' ? `OUTBOUND (a empresa entrou em contato primeiro). Mensagem original enviada: "${mensagemOutboundOriginal}"` : 'INBOUND (o lead entrou em contato primeiro, sem nenhuma abordagem prévia da empresa). NUNCA diga que "reparou" ou "notou" algo no perfil dele : você não pesquisou nada antes, foi ele quem chegou até você.'}
 
 CHECKLIST DESTA CONVERSA (siga isto à risca, é mais confiável que reler o histórico sozinho):
-${checklistText}${adHeadline ? `
+${checklistText}${adHeadline ? (apresentacaoJaFeita
+    ? `
 
-O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fizer sentido na conversa (especialmente na primeira resposta), retome esse gancho pra criar continuidade com o que ele viu no anúncio. Não force isso se a conversa já avançou pra outro assunto.` : ''}`
+⛔ ACHADO AO VIVO (2026-09-08, lead Adilson) : o lead clicou de novo no botão do anúncio e a mensagem que chegou é o texto padrão de abertura ("Vi o anúncio e quero saber..."). Isso NÃO é um lead novo, é o MESMO lead clicando no anúncio outra vez (por hábito, engano, ou querendo retomar) — o checklist acima já mostra apresentação feita e conversa em andamento, essa é a fonte de verdade, não o texto da mensagem. PROIBIDO se apresentar de novo, PROIBIDO tratar como primeiro contato. Trate como continuação normal : reconheça que já estão conversando e siga do ponto onde pararam (use o "Estágio atual da conversa" e as perguntas já respondidas acima).`
+    : `
+
+O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fizer sentido na conversa (especialmente na primeira resposta), retome esse gancho pra criar continuidade com o que ele viu no anúncio. Não force isso se a conversa já avançou pra outro assunto.`
+  ) : ''}`
 
   const TOOLS = buildOrchestratorTools(ctx)
   console.log(`[SDR:${ctx.companyId}] tools disponíveis: [${TOOLS.map(t => (t as OpenAI.Chat.ChatCompletionFunctionTool).function?.name ?? '?').join(', ')}]`)
