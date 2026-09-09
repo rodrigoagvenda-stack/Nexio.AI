@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveOutboundCaller, isOutboundAuthError } from '@/lib/outbound-auth'
 
-const ALLOWED_FIELDS = ['categoria', 'prompt_sistema', 'exemplos', 'ativo'] as const
+const ALLOWED_FIELDS = ['categoria', 'prompt_sistema', 'exemplos', 'ativo', 'usar_ia'] as const
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params

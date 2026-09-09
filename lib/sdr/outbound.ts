@@ -249,15 +249,17 @@ async function dispatchForCompany(companyId: number, features: Record<string, un
         previousMessage = prevRow?.mensagem_enviada ?? null
       }
 
-      const mensagem = await generateMessage(openai, {
-        contactName: lead.contact_name,
-        mqlResumo,
-        categoria,
-        previousMessage,
-        templatePrompt: template?.prompt_sistema ?? null,
-        persona,
-        aberturasPool: aberturasPool ?? undefined,
-      })
+      const mensagem = (template?.usar_ia === false && template.prompt_sistema)
+        ? aplicarTemplateFixo(template.prompt_sistema, lead.contact_name)
+        : await generateMessage(openai, {
+            contactName: lead.contact_name,
+            mqlResumo,
+            categoria,
+            previousMessage,
+            templatePrompt: template?.prompt_sistema ?? null,
+            persona,
+            aberturasPool: aberturasPool ?? undefined,
+          })
 
       const blocos = mensagem.split(/\n\n+/).map((b) => b.trim()).filter(Boolean)
       for (const bloco of blocos) {
@@ -367,16 +369,26 @@ async function fetchOpenersPool(companyId: number, supabase: Supabase): Promise<
   return ABERTURAS
 }
 
-async function fetchTemplate(companyId: number, categoria: string, supabase: Supabase): Promise<{ prompt_sistema: string } | null> {
+async function fetchTemplate(companyId: number, categoria: string, supabase: Supabase): Promise<{ prompt_sistema: string; usar_ia: boolean } | null> {
   const { data } = await supabase
     .from('outbound_templates')
-    .select('prompt_sistema')
+    .select('prompt_sistema, usar_ia')
     .eq('company_id', companyId)
     .eq('categoria', categoria)
     .eq('ativo', true)
     .limit(1)
     .maybeSingle()
   return data
+}
+
+// Achado ao vivo (Rodrigo, 2026-09-09, Grupo Venda) : o Bruno pediu um
+// script fixo, exato, sem reescrita de IA nenhuma (diferente do "esqueleto
+// sugerido" de sempre, que é só inspiração pro generateMessage reescrever
+// com outras palavras). usar_ia=false na categoria usa o texto do template
+// literal, só substituindo {nome}, sem chamar a OpenAI.
+function aplicarTemplateFixo(prompt: string, contactName: string): string {
+  const nome = contactName?.trim() || ''
+  return prompt.replace(/\{nome\}/gi, nome)
 }
 
 async function generateMessage(

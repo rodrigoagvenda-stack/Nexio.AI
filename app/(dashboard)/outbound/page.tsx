@@ -90,6 +90,7 @@ interface Template {
   prompt_sistema?: string;
   exemplos?: any;
   ativo: boolean;
+  usar_ia?: boolean;
   performance_score?: number;
   [key: string]: any;
 }
@@ -192,7 +193,7 @@ export default function OutboundPage() {
   const [editingTemplate, setEditingTemplate] = useState<number | null>(null);
   const [templateDraft, setTemplateDraft] = useState<Partial<Template>>({});
   const [creatingTemplate, setCreatingTemplate] = useState(false);
-  const [newTemplateDraft, setNewTemplateDraft] = useState({ categoria: '', prompt_sistema: '', exemplos: '' });
+  const [newTemplateDraft, setNewTemplateDraft] = useState({ categoria: '', prompt_sistema: '', exemplos: '', usar_ia: true });
 
   const [outboundPausado, setOutboundPausado] = useState(false);
   const [togglingOutbound, setTogglingOutbound] = useState(false);
@@ -392,6 +393,7 @@ export default function OutboundPage() {
         typeof template.exemplos === 'object'
           ? JSON.stringify(template.exemplos, null, 2)
           : template.exemplos || '',
+      usar_ia: template.usar_ia ?? true,
     });
   };
 
@@ -407,6 +409,7 @@ export default function OutboundPage() {
           categoria: templateDraft.categoria,
           prompt_sistema: templateDraft.prompt_sistema,
           exemplos: exemplosValue,
+          usar_ia: templateDraft.usar_ia,
         }),
       });
       const json = await res.json();
@@ -441,13 +444,14 @@ export default function OutboundPage() {
           categoria: newTemplateDraft.categoria,
           prompt_sistema: newTemplateDraft.prompt_sistema,
           exemplos: exemplosValue,
+          usar_ia: newTemplateDraft.usar_ia,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.message);
       setTemplates((prev) => [...prev, json.template]);
       setCreatingTemplate(false);
-      setNewTemplateDraft({ categoria: '', prompt_sistema: '', exemplos: '' });
+      setNewTemplateDraft({ categoria: '', prompt_sistema: '', exemplos: '', usar_ia: true });
       toast({ title: 'Template criado!' });
     } catch {
       toast({ title: 'Erro ao criar template', variant: 'destructive' });
@@ -1121,6 +1125,18 @@ export default function OutboundPage() {
                     placeholder='[{"entrada": "...", "saida": "..."}]'
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newTemplateDraft.usar_ia}
+                    onCheckedChange={(checked) => setNewTemplateDraft((d) => ({ ...d, usar_ia: checked }))}
+                  />
+                  <div>
+                    <Label className="text-xs">Usar IA pra reescrever</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Desligado : envia o prompt acima palavra por palavra (use {'{nome}'} pro nome do lead, linha em branco separa mensagens). Ligado : IA usa o prompt só como inspiração e reescreve.
+                    </p>
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" size="sm" onClick={() => setCreatingTemplate(false)}>Cancelar</Button>
                   <Button size="sm" onClick={handleCreateTemplate} disabled={savingTemplate} className="gap-1.5">
@@ -1161,6 +1177,11 @@ export default function OutboundPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">{template.categoria}</span>
+                            {template.usar_ia === false && (
+                              <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-xs">
+                                Script fixo (sem IA)
+                              </Badge>
+                            )}
                             {score !== undefined && score !== null && (
                               <Badge
                                 className={
@@ -1242,6 +1263,18 @@ export default function OutboundPage() {
                               className="min-h-[80px] text-xs font-mono resize-y"
                               placeholder='[{"entrada": "...", "saida": "..."}]'
                             />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={templateDraft.usar_ia ?? true}
+                              onCheckedChange={(checked) => setTemplateDraft((d) => ({ ...d, usar_ia: checked }))}
+                            />
+                            <div>
+                              <Label className="text-xs">Usar IA pra reescrever</Label>
+                              <p className="text-xs text-muted-foreground">
+                                Desligado : envia o prompt acima palavra por palavra (use {'{nome}'} pro nome do lead, linha em branco separa mensagens). Ligado : IA usa o prompt só como inspiração e reescreve.
+                              </p>
+                            </div>
                           </div>
                           <div className="flex justify-end gap-2">
                             <Button variant="outline" size="sm" onClick={() => setEditingTemplate(null)}>

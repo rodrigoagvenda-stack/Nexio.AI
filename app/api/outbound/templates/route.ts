@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}))
-  const { categoria, prompt_sistema, exemplos } = body
+  const { categoria, prompt_sistema, exemplos, usar_ia } = body
   if (!categoria?.trim() || !prompt_sistema?.trim()) {
     return NextResponse.json({ success: false, message: 'Preencha categoria e prompt' }, { status: 400 })
   }
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       prompt_sistema,
       exemplos: exemplos ?? null,
       ativo: true,
+      usar_ia: usar_ia ?? true,
     })
     .select()
     .single()
