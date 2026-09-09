@@ -1631,8 +1631,9 @@ Quando for argumentar sobre a presença digital do lead, ou quando fizer sentido
 Regras de uso do que a tool devolver:
 1. Revele SOMENTE o gap_principal, com o dado concreto dele (número, nota, quantidade : nunca genérico tipo "seu perfil tem problemas").
 2. NUNCA liste os outros gaps. Diga que encontrou mais pontos (use outros_gaps_encontrados) sem dizer quais são.
-3. Use isso como o motivo de agendar : "no diagnóstico completo eu te mostro cada um desses pontos e como resolver, ao vivo". A reunião é a entrega do resto, não uma call genérica de apresentação.
-4. Nunca prometa algo que a reunião não vai cumprir : se disser que tem mais gaps, o diagnóstico na call precisa realmente cobrir todos.`
+3. Use isso como o motivo de agendar : "no diagnóstico completo eu te mostro cada um desses pontos e como resolver, na reunião". A reunião é a entrega do resto, não uma call genérica de apresentação.
+4. Nunca prometa algo que a reunião não vai cumprir : se disser que tem mais gaps, o diagnóstico na call precisa realmente cobrir todos.
+⛔ 5. Achado ao vivo (Rodrigo, 2026-09-09, lead Eci Moda Feminina) : se o lead CONTESTAR um dado específico do diagnóstico (ex: "temos muitas fotos sim", "isso não é verdade"), NUNCA concorde totalmente nem elogie o perfil dele revertendo o que você acabou de apontar (ex: NUNCA diga algo como "que bom saber que já têm muitas fotos, mostra que o trabalho está bem feito") : isso contradiz sua própria mensagem anterior e queima a credibilidade do diagnóstico inteiro na hora. Em vez disso, reconheça sem se retratar (ex: "pode ser que o Google não esteja exibindo as fotos mais recentes do perfil de vocês, isso também é comum de acontecer, e é justamente esse tipo de coisa que a gente ajusta no diagnóstico") e continue puxando pra reunião, sem abandonar os outros gaps já mencionados.`
     : ''
 
   return `${fixedLogic}${companyBlock}${schedulingBlock}${placesBlock}`
@@ -1793,7 +1794,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
       type: 'function',
       function: {
         name: TOOL_NAME_MAP['Buscar_analise_places'],
-        description: 'Busca o diagnóstico do perfil Google do lead (nota, avaliações, o que falta no perfil). Use quando for argumentar sobre a presença digital do lead ou quando for oferecer/reforçar o agendamento : o gancho da reunião é o diagnóstico completo ao vivo.',
+        description: 'Busca o diagnóstico do perfil Google do lead (nota, avaliações, o que falta no perfil). Use quando for argumentar sobre a presença digital do lead ou quando for oferecer/reforçar o agendamento : o gancho da reunião é o diagnóstico completo, entregue na call.',
         parameters: { type: 'object', properties: {}, required: [] },
       },
     })
@@ -2249,7 +2250,7 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
             score: analysis.score,
             gap_principal: primeiro,
             outros_gaps_encontrados: resto.length,
-            instrucao: 'Revele SOMENTE o gap_principal na conversa, com o dado concreto dele. NÃO liste os outros. Diga que encontrou mais pontos (use o número em outros_gaps_encontrados) sem detalhar quais são, e ofereça mostrar todos no diagnóstico completo ao vivo na reunião : é o gancho pra agendar.',
+            instrucao: 'Revele SOMENTE o gap_principal na conversa, com o dado concreto dele. NÃO liste os outros. Diga que encontrou mais pontos (use o número em outros_gaps_encontrados) sem detalhar quais são, e ofereça mostrar todos no diagnóstico completo na reunião : é o gancho pra agendar.',
           })
         }
       } else if (fn === 'Pausar_conversa') {
@@ -2473,6 +2474,25 @@ async function saveInbound(
       ultima_mensagem_inbound_at: new Date().toISOString(),
     })
     .eq('id', conversationId)
+
+  // Achado ao vivo (Rodrigo, 2026-09-09) : leads ficavam presos na coluna
+  // "Outbound" do kanban mesmo depois de responder de verdade (Eci Moda
+  // Feminina, várias mensagens trocadas, continuava em "Outbound"), porque
+  // essa transição dependia inteiramente do sub-agente Agente_de_Pipeline
+  // ser chamado E decidir atualizar : duas camadas de "o modelo precisa
+  // lembrar", igual outros gaps de checklist já corrigidos hoje. Determinístico
+  // aqui : primeira mensagem real recebida de um lead que ainda está num
+  // estágio "pré-contato" já avança pra "Em contato", sem depender de IA.
+  // Nunca mexe em leads que já avançaram além disso (Interessado, Proposta
+  // enviada, Fechado, Perdido, Remarketing).
+  if (ctx.leadId) {
+    supabase
+      .from('leads')
+      .update({ status: 'Em contato' })
+      .eq('id', ctx.leadId)
+      .in('status', ['Outbound', 'Triagem', 'Novo lead'])
+      .then(() => {}, () => {})
+  }
 }
 
 async function saveOutbound(
