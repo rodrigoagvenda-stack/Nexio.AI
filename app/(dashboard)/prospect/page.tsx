@@ -76,7 +76,7 @@ export default function ProspectAIPage() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Acumulador de sessão
-  const [session, setSession] = useState<{ runs: number; inserted: number; processed: number } | null>(null);
+  const [session, setSession] = useState<{ runs: number; inserted: number; processed: number; semTelefone: number; semWhatsapp: number } | null>(null);
 
   // Mensagens dinâmicas rotativas durante extração
   const PROGRESS_MESSAGES = [
@@ -196,9 +196,12 @@ export default function ProspectAIPage() {
         setCurrentAction('Concluído!');
         setSession(prev => {
           const ins = prev ? prev.inserted : liveInserted;
+          // Timeout de segurança dispara antes do "complete" gravar a
+          // contagem real de sem_telefone/sem_whatsapp : sem esse dado
+          // ainda, mantém o que já tinha (ou zero na primeira execução).
           return prev
-            ? { runs: prev.runs + 1, inserted: prev.inserted + liveInserted, processed: prev.processed + requested }
-            : { runs: 1, inserted: liveInserted, processed: requested };
+            ? { runs: prev.runs + 1, inserted: prev.inserted + liveInserted, processed: prev.processed + requested, semTelefone: prev.semTelefone, semWhatsapp: prev.semWhatsapp }
+            : { runs: 1, inserted: liveInserted, processed: requested, semTelefone: 0, semWhatsapp: 0 };
         });
         toast({ variant: 'default', title: 'Extração concluída!', description: `${liveInserted} de ${requested} leads com WhatsApp inseridos.` });
         setTimeout(() => { setExtracting(false); setProgress(0); setCurrentAction(''); }, 1500);
@@ -209,13 +212,13 @@ export default function ProspectAIPage() {
       pollingRef.current = setInterval(async () => {
         const { data: sessionRow, error } = await supabase
           .from('extraction_sessions')
-          .select('inserted, status, requested')
+          .select('inserted, status, requested, sem_telefone, sem_whatsapp')
           .eq('id', sessionId)
           .single();
 
         if (error || !sessionRow) return;
 
-        const { inserted, status } = sessionRow;
+        const { inserted, status, sem_telefone: semTelefone, sem_whatsapp: semWhatsapp } = sessionRow;
         setLiveInserted(inserted);
 
         const pct = Math.min(15 + Math.round((inserted / requested) * 80), 95);
@@ -231,8 +234,8 @@ export default function ProspectAIPage() {
           setCurrentAction('Concluído!');
 
           setSession(prev => prev
-            ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + requested }
-            : { runs: 1, inserted, processed: requested }
+            ? { runs: prev.runs + 1, inserted: prev.inserted + inserted, processed: prev.processed + requested, semTelefone: prev.semTelefone + (semTelefone ?? 0), semWhatsapp: prev.semWhatsapp + (semWhatsapp ?? 0) }
+            : { runs: 1, inserted, processed: requested, semTelefone: semTelefone ?? 0, semWhatsapp: semWhatsapp ?? 0 }
           );
 
           toast({
@@ -542,7 +545,7 @@ export default function ProspectAIPage() {
                   Limpar
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-2 gap-3 text-center">
                 <div>
                   <p className="text-lg font-bold text-foreground">{session.processed}</p>
                   <p className="text-[10px] text-muted-foreground">Processados</p>
@@ -551,9 +554,19 @@ export default function ProspectAIPage() {
                   <p className="text-lg font-bold text-emerald-500">{session.inserted}</p>
                   <p className="text-[10px] text-muted-foreground">Com WhatsApp</p>
                 </div>
+              </div>
+              {/* Achado ao vivo (Rodrigo, 2026-09-09) : "Descartados" escondia
+                  que a maior parte da perda é o Google Maps não ter telefone
+                  listado pro lugar, nada a ver com WhatsApp. Divide os dois
+                  motivos, cada um pede ação diferente. */}
+              <div className="grid grid-cols-2 gap-3 text-center pt-1 border-t border-primary/10">
                 <div>
-                  <p className="text-lg font-bold text-rose-400">{session.processed - session.inserted}</p>
-                  <p className="text-[10px] text-muted-foreground">Descartados</p>
+                  <p className="text-sm font-semibold text-amber-500">{session.semTelefone}</p>
+                  <p className="text-[10px] text-muted-foreground">Sem telefone no Maps</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-rose-400">{session.semWhatsapp}</p>
+                  <p className="text-[10px] text-muted-foreground">Telefone sem WhatsApp</p>
                 </div>
               </div>
               {session.runs > 1 && (

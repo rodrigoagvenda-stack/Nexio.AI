@@ -184,8 +184,17 @@ function nivelInteresseFromMqlStatus(status: EnrichedLead['mqlStatus']): string 
   return 'Frio ❄️'
 }
 
-async function markSessionComplete(sessionId: string, supabase: Supabase): Promise<void> {
-  await supabase.from('extraction_sessions').update({ status: 'complete', completed_at: new Date().toISOString() }).eq('id', sessionId)
+async function markSessionComplete(
+  sessionId: string,
+  supabase: Supabase,
+  breakdown: { semTelefone: number; semWhatsapp: number }
+): Promise<void> {
+  await supabase.from('extraction_sessions').update({
+    status: 'complete',
+    completed_at: new Date().toISOString(),
+    sem_telefone: breakdown.semTelefone,
+    sem_whatsapp: breakdown.semWhatsapp,
+  }).eq('id', sessionId)
 }
 
 async function markSessionError(sessionId: string, supabase: Supabase): Promise<void> {
@@ -208,7 +217,12 @@ export async function runExtraction(params: {
 
     const rawPlaces = await runApifyActor(mapsUrl, quantity, platformCfg.apify_api_token)
     if (!rawPlaces.length) {
-      await markSessionComplete(sessionId, supabase)
+      await syslog({
+        type: 'extraction', severity: 'warning',
+        message: `Apify não retornou nenhum lugar pra essa busca (0 resultados)`,
+        company_id: companyId, payload: { sessionId, mapsUrl, quantity },
+      })
+      await markSessionComplete(sessionId, supabase, { semTelefone: 0, semWhatsapp: 0 })
       return
     }
 
@@ -230,10 +244,18 @@ export async function runExtraction(params: {
       })
     }
 
+    // Achado ao vivo (Rodrigo, 2026-09-09, auditoria) : "Descartados" na tela
+    // misturava dois motivos bem diferentes (sem telefone nenhum vindo do
+    // Apify vs telefone existe mas não é WhatsApp), e o primeiro motivo não
+    // tinha NENHUM log -- impossível auditar depois por que uma extração
+    // rendeu poucos leads. Rastreia os dois separadamente agora.
+    let semTelefoneCount = 0
+    let semWhatsappCount = 0
+
     for (const raw of rawPlaces) {
       try {
         const lead = calcularMQL(enriquecer(raw))
-        if (lead.telefone === 'Não informado') continue
+        if (lead.telefone === 'Não informado') { semTelefoneCount++; continue }
 
         // Apify devolve telefone formatado (ex: "(11) 91234-5678") : sem
         // normalizar antes de checar, a uazapi nunca reconhece o número como
@@ -262,6 +284,7 @@ export async function runExtraction(params: {
             })
           }
           if (check && !check.isInWhatsapp) {
+            semWhatsappCount++
             await syslog({
               type: 'extraction',
               severity: 'info',
@@ -332,7 +355,17 @@ export async function runExtraction(params: {
       }
     }
 
-    await markSessionComplete(sessionId, supabase)
+    // Resumo agregado sempre gravado (não só quando tem descarte por
+    // WhatsApp) : antes era impossível saber depois que a maioria da perda
+    // era "sem telefone nenhum vindo do Apify", não "tem telefone mas não é
+    // WhatsApp" -- essas duas coisas pedem correção completamente diferente.
+    await syslog({
+      type: 'extraction', severity: 'info',
+      message: `Extração concluída : ${rawPlaces.length} lugares, ${semTelefoneCount} sem telefone, ${semWhatsappCount} sem WhatsApp`,
+      company_id: companyId,
+      payload: { sessionId, totalApify: rawPlaces.length, semTelefone: semTelefoneCount, semWhatsapp: semWhatsappCount },
+    })
+    await markSessionComplete(sessionId, supabase, { semTelefone: semTelefoneCount, semWhatsapp: semWhatsappCount })
   } catch (err: any) {
     await markSessionError(sessionId, supabase)
     throw err
