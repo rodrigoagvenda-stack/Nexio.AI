@@ -20,16 +20,34 @@ export async function GET() {
     }
 
     const serviceSupabase = createServiceClient();
+
+    // Achado ao vivo (Rodrigo, 2026-09-09, Grupo Venda) : "outbound_limits"
+    // tem UMA linha por lead (company_id + whatsapp), usada pra limitar
+    // quantas mensagens aquele lead específico recebe por dia (anti-spam por
+    // lead) -- não é um contador agregado da empresa. Pegar só a linha mais
+    // recente (como era antes) mostrava o "enviadas hoje" de UM lead só,
+    // travado em 1 pra sempre, porque toda mensagem nova pra um lead novo
+    // cria outra linha com valor 1 que vira "a mais recente" na hora seguinte.
+    // Soma de verdade : todas as linhas resetadas hoje, desta empresa.
+    const hoje = new Date().toISOString().split('T')[0];
     const { data, error } = await serviceSupabase
       .from('outbound_limits')
-      .select('*')
+      .select('mensagens_enviadas_hoje, limite_diario, ultimo_reset, created_at')
       .eq('company_id', userData.company_id)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, limits: data?.[0] ?? null });
+    const rows = data ?? [];
+    const enviadasHoje = rows
+      .filter((r) => r.ultimo_reset === hoje)
+      .reduce((acc, r) => acc + (r.mensagens_enviadas_hoje ?? 0), 0);
+    const limiteDiario = rows[0]?.limite_diario ?? null;
+
+    return NextResponse.json({
+      success: true,
+      limits: rows.length ? { mensagens_enviadas_hoje: enviadasHoje, limite_diario: limiteDiario } : null,
+    });
   } catch (error: any) {
     console.error('outbound limits GET error:', error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

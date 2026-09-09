@@ -191,17 +191,26 @@ export function computePlacesScore(details: PlaceDetails, manual: ManualInputs =
     criterios.push({ key: 'avaliacoes', label: 'Avaliações', pontos, pesoMax: 20, pct: (pontos / 20) * 100 })
   }
 
-  // 4. Fotos (10) : quantidade (6, real da API) + recência estimada (4, chute)
-  // Achado ao vivo (2026-09-03) : antes isso era 1 critério só, marcado
-  // "unknown" inteiro sempre que a recência faltava (quase sempre), o que
-  // descartava também a contagem de fotos, que é dado 100% real da API
-  // (photos.length) e é justamente a recomendação oficial do Google
-  // ("adicionar fotos e vídeos", support.google.com/business/answer/7091).
-  // Separado em dois critérios pra contagem virar gap citável de verdade.
+  // 4. Fotos (10) : quantidade (6) + recência estimada (4, chute)
+  // Achado ao vivo (2026-09-03) : fotos_qtd tinha virado critério citável de
+  // verdade (não mais "unknown"), assumindo que photos.length é dado 100%
+  // real da API. Achado ao vivo (Rodrigo, 2026-09-09, lead Eci Moda Feminina
+  // + Aguilera Advogados) : desde que esse critério existe, voltou "0 fotos"
+  // em 33 de 33 leads da Grupo Venda, sem UMA única exceção, enquanto
+  // "avaliações" (nota/volume, mesma chamada de API) varia normalmente por
+  // lead. Estatisticamente impossível pra negócios reais com 50-200+
+  // avaliações : o campo "photos" provavelmente não está voltando preenchido
+  // pra essa chave/projeto (possível gate de SKU/permissão do lado do
+  // Google, não confirmado ainda por falta de acesso à chave em produção).
+  // Volta a ser tratado como "unknown" (não citável pro lead) até alguém
+  // confirmar com acesso à API que o campo realmente funciona.
   {
     const qtd = details.photos?.length ?? 0
     const qtdPts = qtd >= 50 ? 6 : qtd >= 20 ? 4 : qtd >= 5 ? 2 : 0
-    criterios.push({ key: 'fotos_qtd', label: 'Quantidade de fotos', pontos: qtdPts, pesoMax: 6, pct: (qtdPts / 6) * 100 })
+    criterios.push({
+      key: 'fotos_qtd', label: 'Quantidade de fotos', pontos: qtdPts, pesoMax: 6, pct: (qtdPts / 6) * 100,
+      unknown: true,
+    })
 
     const diasUltimaFoto = manual.diasUltimaFoto
     const recenciaPts = diasUltimaFoto === undefined ? 0 : diasUltimaFoto <= 30 ? 4 : diasUltimaFoto <= 90 ? 2 : 0

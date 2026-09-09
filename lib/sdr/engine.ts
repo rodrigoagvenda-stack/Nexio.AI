@@ -2241,13 +2241,20 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
         }
       } else if (fn === 'Buscar_analise_places') {
         const { data: leadRow } = await supabase.from('leads').select('places_analysis').eq('id', ctx.leadId).maybeSingle()
-        const analysis = leadRow?.places_analysis as { score?: { total: number; grade: string }; gaps?: { titulo: string; texto: string }[] } | null
-        if (!analysis?.gaps?.length) {
-          result = 'Sem diagnóstico de perfil disponível pra esse lead ainda.'
+        const analysis = leadRow?.places_analysis as { score?: { total: number; grade: string }; gaps?: { titulo: string; texto: string; unknown?: boolean }[] } | null
+        // Achado ao vivo (Rodrigo, 2026-09-09) : diferente do outbound
+        // (summarizeForOutreach já filtra "unknown" desde o incidente do
+        // Figueiredo Advogados), esta tool nunca filtrava : podia escolher
+        // como gap_principal um campo que a API nunca confirmou de verdade
+        // (posts, produtos, resposta a avaliações são sempre "unknown"),
+        // citando pro lead como se fosse dado real. Mesmo filtro agora.
+        const gapsConfirmados = (analysis?.gaps ?? []).filter((g) => !g.unknown)
+        if (!gapsConfirmados.length) {
+          result = 'Sem diagnóstico de perfil confirmado disponível pra esse lead ainda.'
         } else {
-          const [primeiro, ...resto] = analysis.gaps
+          const [primeiro, ...resto] = gapsConfirmados
           result = JSON.stringify({
-            score: analysis.score,
+            score: analysis?.score,
             gap_principal: primeiro,
             outros_gaps_encontrados: resto.length,
             instrucao: 'Revele SOMENTE o gap_principal na conversa, com o dado concreto dele. NÃO liste os outros. Diga que encontrou mais pontos (use o número em outros_gaps_encontrados) sem detalhar quais são, e ofereça mostrar todos no diagnóstico completo na reunião : é o gancho pra agendar.',
