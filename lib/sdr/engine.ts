@@ -1830,6 +1830,12 @@ interface ChecklistAtendimento {
   // uazapi, context.message_id na Meta Cloud API) : fica mais humano, como
   // alguém puxando o assunto de novo, não uma mensagem nova solta.
   link_briefing_message_id?: string
+  // Achado ao vivo (Rodrigo, 2026-09-09) : o passo 6 (prova social/Instagram)
+  // do fluxo de qualificação não tinha nenhum campo de checklist dedicado,
+  // diferente de link_briefing_enviado. Sem trava estrutural, o modelo pulava
+  // esse passo quase sempre. Marcado de forma determinística em
+  // sendWithHumanDelay, não depende do modelo reportar via tool call.
+  prova_social_enviada?: boolean
   // Achado ao vivo (Rodrigo, 2026-09-06, lead Roseli) : ela disse a
   // disponibilidade dela numa frase solta ("segunda de manhã, à tarde vou
   // à feira") e a resposta seguinte do SDR perguntou "você tem preferência
@@ -1873,6 +1879,7 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
   }
   lines.push(`Apresentação já feita: ${checklist.apresentacao_feita ? 'SIM : NUNCA se apresente de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, se apresente (nome do agente + empresa)'}`)
   lines.push(`Nome do lead já foi perguntado: ${checklist.nome_perguntado ? 'SIM : NUNCA pergunte de novo' : '⛔ NÃO : OBRIGATÓRIO nesta resposta, pergunte o nome do lead (item SEPARADO da apresentação, os dois são obrigatórios independentemente)'}`)
+  lines.push(`Prova social (Instagram) já enviada: ${checklist.prova_social_enviada ? 'SIM : NUNCA mande de novo' : '⛔ NÃO : OBRIGATÓRIO mandar o link https://www.instagram.com/grupovenda/ (passo 6 do fluxo de qualificação) assim que decisor e investimento estiverem confirmados, SEMPRE antes de oferecer o link do briefing'}`)
   lines.push(`Link do briefing já enviado: ${checklist.link_briefing_enviado ? 'SIM' : 'NÃO : se o "Contexto sobre o lead" ou o Play_conhecimento tiver um link de briefing/formulário, ele é OBRIGATÓRIO antes de chamar Agente_de_Agendamento pela primeira vez nesta conversa, independente do lead ter demonstrado interesse'}`)
   if (checklist.disponibilidade_lead) {
     lines.push(`Disponibilidade que o lead JÁ INFORMOU (mesmo que numa frase solta, não em resposta direta a uma pergunta de horário): "${checklist.disponibilidade_lead}". ⛔ NUNCA pergunte "qual sua preferência de horário" ou similar de novo : use essa informação diretamente pra propor/confirmar o agendamento.`)
@@ -2579,6 +2586,18 @@ function containsPreco(text: string): boolean {
   return PRECO_RE.test(text)
 }
 
+// Detecta quando o SDR manda o link de prova social (Instagram) do passo 6
+// do fluxo de qualificação : achado ao vivo (Rodrigo, 2026-09-09) que quase
+// nenhum lead recebia esse link (1 em 1140 mensagens de saída), porque nada
+// forçava esse passo estruturalmente, diferente de link_briefing_enviado, que
+// tem checklist dedicado. O modelo lia o documento uma vez e pulava direto
+// pro fechamento em quase todas as conversas. Marca de forma determinística,
+// sem depender do modelo se lembrar de reportar via tool call.
+const INSTAGRAM_PROVA_SOCIAL_RE = /instagram\.com\/grupovenda/i
+function containsProvaSocial(text: string): boolean {
+  return INSTAGRAM_PROVA_SOCIAL_RE.test(text)
+}
+
 async function sendWithHumanDelay(
   paragraphs: string[],
   phone: string,
@@ -2618,6 +2637,18 @@ async function sendWithHumanDelay(
   for (let i = 0; i < paragraphs.length; i++) {
     const paragraph = personalizeBriefingLinks(paragraphs[i], phone)
     if (!paragraph.trim()) continue
+
+    // Achado ao vivo (Rodrigo, 2026-09-09, lead Nei) : a recheck acima só
+    // rodava UMA vez, antes deste loop. Uma resposta com 2-3 parágrafos leva
+    // vários segundos pra sair inteira (digitação + intervalo entre blocos) :
+    // se o humano mandasse a mensagem manual bem no meio disso, entre um
+    // parágrafo e outro, os blocos restantes saíam mesmo assim porque a
+    // checagem já tinha passado. Re-checa a cada parágrafo, não só uma vez.
+    if (i > 0 && (await isAgentePausadoAtivo(conversationId, supabase))) {
+      console.warn(`[SDR:${ctx.companyId}] envio interrompido no meio dos blocos : humano assumiu a conversa (conversationId=${conversationId})`)
+      await log(ctx.companyId, 'send_blocked_agent_paused_mid_paragraphs', { conversationId, paragraphIndex: i }, supabase, phone, ctx.leadId)
+      return
+    }
 
     const typingDelay = Math.floor(Math.random() * (8000 - 3000 + 1)) + 3000
     let sentMessageId: string | undefined
@@ -2704,6 +2735,23 @@ async function sendWithHumanDelay(
         .eq('id', ctx.leadId)
         .is('preco_informado_em', null)
         .then(() => {}, () => {})
+    }
+
+    // Primeira vez que o link de prova social (Instagram) sai nesta
+    // conversa : marca no checklist estruturado, de forma determinística.
+    if (containsProvaSocial(paragraph) && conversationId) {
+      const { data: convProvaSocial } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('checklist_atendimento')
+        .eq('id', conversationId)
+        .maybeSingle()
+      const checklistAtualProvaSocial = (convProvaSocial?.checklist_atendimento as ChecklistAtendimento) ?? {}
+      if (!checklistAtualProvaSocial.prova_social_enviada) {
+        await supabase
+          .from('conversas_do_whatsapp')
+          .update({ checklist_atendimento: { ...checklistAtualProvaSocial, prova_social_enviada: true } })
+          .eq('id', conversationId)
+      }
     }
 
     // Primeira vez que o link sai nesta conversa : guarda o messageId pra
