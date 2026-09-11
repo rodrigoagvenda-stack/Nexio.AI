@@ -237,8 +237,22 @@ async function runScenarios(companyId: number, supabase: Supabase): Promise<Scen
   // atendimento real dela. Mais lento, mas não arrisca travar cliente de
   // verdade por causa de um teste.
   const results: (ScenarioReport | null)[] = []
-  for (const scenario of scenarios) {
-    results.push(await scenario())
+  for (const [i, scenario] of scenarios.entries()) {
+    // Achado ao vivo (Rodrigo, 2026-09-11) : processSdrMessage agora relança
+    // erro (antes engolia silenciosamente, mascarando falha real de
+    // resposta). Aqui isso teria que ser fatal pro harness inteiro sem essa
+    // trava : uma falha transiente (ex: rate limit da OpenAI) num cenário
+    // não pode derrubar os outros 3, vira falha reportada nesse cenário só.
+    try {
+      results.push(await scenario())
+    } catch (err: any) {
+      results.push({
+        nome: `Cenário ${i + 1}`,
+        passou: false,
+        transcript: [],
+        observacao: `Erro técnico ao rodar este cenário : ${err?.message ?? 'erro desconhecido'}`,
+      })
+    }
   }
   return results.filter((r): r is ScenarioReport => r !== null)
 }

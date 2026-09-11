@@ -3376,6 +3376,15 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
   } catch (err: any) {
     console.error('[SDR Engine] Erro:', err)
     await log(companyId, 'error', {}, supabase, phone, undefined, err?.message ?? 'Erro desconhecido')
+    // Achado ao vivo (Rodrigo, 2026-09-11, lead Anderson) : esse catch
+    // engolia o erro (sem relançar), então processSdrMessage sempre
+    // "retornava com sucesso" pro worker.ts, mesmo quando a geração da
+    // resposta falhava por inteiro (ex: créditos da OpenAI zerados). O job
+    // virava COMPLETED sem nunca ter enviado nada pro lead, e o retry do
+    // worker (attempts/max_attempts) nunca entrava em ação porque nunca via
+    // o erro. Relança pra quem chamou (worker.ts, reengage-fila.ts, eval.ts)
+    // decidir : todos já tratam erro de forma adequada no próprio contexto.
+    throw err
   }
 }
 
