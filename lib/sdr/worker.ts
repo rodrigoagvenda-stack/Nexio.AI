@@ -52,7 +52,7 @@ async function processNextJobs() {
 
   const { data: jobs, error } = await supabase
     .from('sdr_jobs')
-    .select('id, company_id, phone, attempts, max_attempts')
+    .select('id, company_id, phone, attempts, max_attempts, last_message_at')
     .eq('status', 'PENDING')
     .lt('last_message_at', readyBefore)
     .order('last_message_at', { ascending: true })
@@ -78,6 +78,7 @@ async function processJob(job: {
   phone: string
   attempts: number
   max_attempts: number
+  last_message_at: string
 }) {
   const supabase = createServiceClient()
 
@@ -98,16 +99,34 @@ async function processJob(job: {
   try {
     await processSdrMessage(job.company_id, job.phone)
 
-    await supabase
+    // Achado ao vivo (Rodrigo, 2026-09-11, lead Jordoniel) : se o lead manda
+    // uma mensagem nova ENQUANTO esse processamento ainda está rodando (a
+    // resposta com vários blocos pode levar 15-20s de digitação simulada),
+    // upsertSdrJob (lib/sdr/inbound.ts) já reabre esse mesmo job pra
+    // PENDING com um last_message_at novo. Sem essa trava, o COMPLETED
+    // daqui rodava por cima logo em seguida e apagava esse PENDING : a
+    // mensagem nova ficava presa pra sempre no buffer, sem resposta nenhuma,
+    // porque o job nunca mais aparecia como pendente pro worker. Só marca
+    // COMPLETED se last_message_at continua sendo o mesmo de quando este
+    // job foi travado : se mudou, alguém já reabriu, deixa como está.
+    const { data: completedRows } = await supabase
       .from('sdr_jobs')
       .update({ status: 'COMPLETED', completed_at: new Date().toISOString() })
       .eq('id', job.id)
+      .eq('last_message_at', job.last_message_at)
+      .select('id')
 
-    console.log(`[sdr-worker] job #${job.id} COMPLETED`)
+    if (completedRows && completedRows.length > 0) {
+      console.log(`[sdr-worker] job #${job.id} COMPLETED`)
+    } else {
+      console.log(`[sdr-worker] job #${job.id} : mensagem nova chegou durante o processamento, mantido PENDING pro próximo ciclo`)
+    }
   } catch (e: any) {
     const exhausted = job.attempts + 1 >= job.max_attempts
     console.error(`[sdr-worker] job #${job.id} FAILED (attempt ${job.attempts + 1}/${job.max_attempts}):`, e?.message)
 
+    // Mesma trava : se chegou mensagem nova durante o processamento que
+    // falhou, não sobrescreve o PENDING novo com FAILED/attempts errado.
     await supabase
       .from('sdr_jobs')
       .update({
@@ -116,5 +135,6 @@ async function processJob(job: {
         error: e?.message ?? 'Erro desconhecido',
       })
       .eq('id', job.id)
+      .eq('last_message_at', job.last_message_at)
   }
 }
