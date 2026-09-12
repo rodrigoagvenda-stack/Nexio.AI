@@ -2625,6 +2625,25 @@ function containsProvaSocial(text: string): boolean {
   return INSTAGRAM_PROVA_SOCIAL_RE.test(text)
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-12, lead Cristina) : apresentacao_feita e
+// nome_perguntado no checklist SÓ viravam true se o modelo lembrasse de
+// reportar via Atualizar_resumo/Memory_long -- mesma classe de bug já vista
+// em link_briefing_enviado e prova_social_enviada. Na prática, quase nunca
+// era reportado : o checklist ficava preso em "NÃO apresentado" pra sempre,
+// e formatChecklist mandava o modelo se apresentar de novo em toda resposta,
+// mesmo depois de já ter feito isso várias vezes na mesma conversa (Cristina
+// recebeu "Aqui é a Laura... como posso te chamar?" duas vezes numa
+// conversa de 20 minutos). Detecta pelo texto literal do script (documento
+// 2016, Passo 0), sem depender do modelo reportar.
+const APRESENTACAO_RE = /especialista em presen[çc]a digital do Grupo Venda/i
+function containsApresentacao(text: string): boolean {
+  return APRESENTACAO_RE.test(text)
+}
+const NOME_PERGUNTADO_RE = /como posso te chamar/i
+function containsNomePerguntado(text: string): boolean {
+  return NOME_PERGUNTADO_RE.test(text)
+}
+
 async function sendWithHumanDelay(
   paragraphs: string[],
   phone: string,
@@ -2777,6 +2796,27 @@ async function sendWithHumanDelay(
         await supabase
           .from('conversas_do_whatsapp')
           .update({ checklist_atendimento: { ...checklistAtualProvaSocial, prova_social_enviada: true } })
+          .eq('id', conversationId)
+      }
+    }
+
+    // Apresentação e pergunta de nome : mesma lógica determinística, pra não
+    // depender do modelo reportar via tool call (achado ao vivo, lead
+    // Cristina : essas duas flags nunca viravam true, e o SDR se
+    // reapresentava várias vezes na mesma conversa).
+    if ((containsApresentacao(paragraph) || containsNomePerguntado(paragraph)) && conversationId) {
+      const { data: convApres } = await supabase
+        .from('conversas_do_whatsapp')
+        .select('checklist_atendimento')
+        .eq('id', conversationId)
+        .maybeSingle()
+      const checklistAtualApres = (convApres?.checklist_atendimento as ChecklistAtendimento) ?? {}
+      const novoApresentacao = checklistAtualApres.apresentacao_feita || containsApresentacao(paragraph)
+      const novoNomePerguntado = checklistAtualApres.nome_perguntado || containsNomePerguntado(paragraph)
+      if (novoApresentacao !== checklistAtualApres.apresentacao_feita || novoNomePerguntado !== checklistAtualApres.nome_perguntado) {
+        await supabase
+          .from('conversas_do_whatsapp')
+          .update({ checklist_atendimento: { ...checklistAtualApres, apresentacao_feita: novoApresentacao, nome_perguntado: novoNomePerguntado } })
           .eq('id', conversationId)
       }
     }
