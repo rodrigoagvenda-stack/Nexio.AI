@@ -31,10 +31,12 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
       <CardHeader className="pb-2 flex-shrink-0">
         <CardTitle className="text-base font-semibold flex items-center gap-1.5">
           Taxa de conversão
-          <Info
-            className="h-3 w-3 text-muted-foreground/60 cursor-help"
+          <span
             title="Fechados dividido por (fechados + em andamento). Não conta os leads marcados como Perdido nem no total nem no cálculo -- diferente do card 'Taxa de conversão' no topo da página, que inclui os Perdidos."
-          />
+            className="cursor-help"
+          >
+            <Info className="h-3 w-3 text-muted-foreground/60" />
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col pb-5 px-2">

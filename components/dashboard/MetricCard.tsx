@@ -59,10 +59,9 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
           </div>
           <p className="text-xs text-muted-foreground truncate">{title}</p>
           {tooltip && (
-            <Info
-              className="h-3 w-3 text-muted-foreground/60 flex-shrink-0 cursor-help"
-              title={tooltip}
-            />
+            <span title={tooltip} className="flex-shrink-0 cursor-help">
+              <Info className="h-3 w-3 text-muted-foreground/60" />
+            </span>
           )}
         </div>
 
