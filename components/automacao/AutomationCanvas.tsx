@@ -147,7 +147,7 @@ interface CanvasConfig {
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
   nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido'; // entry event type
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido'; // entry event type
   extraTriggers?: Array<{ id: string; platform: 'mercadopago' | 'kiwify' | 'asaas'; eventoEntrada?: string; position: { x: number; y: number } }>;
   noDefaultTrigger?: boolean; // primary trigger was deleted by user
 }
@@ -175,7 +175,7 @@ interface TriggerNodeData extends Record<string, unknown> {
   condicao: string;
   customLabel?: string;
   expira_em_dias?: number;
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido';
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido';
   platform?: 'mercadopago' | 'kiwify' | 'asaas'; // per-trigger platform (pagamento tipo only)
   _execState?: ExecState;
   _execError?: string;
@@ -3242,11 +3242,14 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <SelectItem value="webhook">Evento de webhook</SelectItem>
                     <SelectItem value="preco_informado">Preço informado pelo SDR</SelectItem>
                     <SelectItem value="formulario_preenchido">Formulário (briefing) preenchido</SelectItem>
+                    <SelectItem value="call_realizada">Teve a call e não fechou</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
-                  Define quando leads entram automaticamente nesta sequência. "Preço informado" e "Formulário preenchido"
-                  usam a data desse evento como referência pros dias de espera de cada mensagem (ex: 1º dia = 1 dia depois do evento).
+                  Define quando leads entram automaticamente nesta sequência. "Preço informado", "Formulário preenchido" e
+                  "Teve a call e não fechou" usam a data desse evento como referência pros dias de espera de cada mensagem
+                  (ex: 1º dia = 1 dia depois do evento). Leads que já tiveram a call saem automaticamente do reengajamento
+                  genérico e passam a usar essa sequência dedicada.
                 </p>
               </Field>
             )}

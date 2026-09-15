@@ -97,7 +97,7 @@ interface FollowSequence {
   canvas_config?: {
     remarketing?: RemarketingCanvasConfig
     expira_em_dias?: number
-    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido'
+    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada'
   } | null
 }
 
@@ -801,24 +801,51 @@ async function processFollowGeral(
 ): Promise<number> {
   let sent = 0
 
+  // Achado ao vivo (Rodrigo, 2026-09-15) : "quem teve call e não fechou
+  // precisa de sequência própria, separada de quem só interagiu e sumiu
+  // antes da call". A base "leads" abaixo alimenta o reengajamento genérico
+  // pré-call (ex: "Reengajamento - Sumiu") : exclui quem já teve a call
+  // (call_status='realizada'), porque esse público agora tem o próprio
+  // gatilho dedicado (leadsCallRealizada, mais abaixo) com mensagem
+  // apropriada pro estágio, em vez de levar o mesmo "ainda faz sentido pra
+  // você?" genérico de quem nunca conversou com o Bruno de verdade.
+  // .or() porque .neq('call_status', 'realizada') sozinho, em SQL, excluiria
+  // também todo lead com call_status NULL (nunca teve call marcada) : NULL
+  // != 'realizada' avalia como NULL, não como true.
+  const CALL_NAO_REALIZADA = 'call_status.is.null,call_status.neq.realizada'
+
   const { data: leads } = await supabase
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
     .eq('company_id', company.id)
     .in('status', ['Em contato', 'Interessado'])
+    .or(CALL_NAO_REALIZADA)
     .not('whatsapp', 'is', null)
 
   // Sequências ancoradas em "preço informado" (ex: reengajamento com desconto
   // pra quem ouviu o valor e sumiu) também precisam alcançar lead marcado
   // "Perdido" -- faz sentido pra um win-back de verdade, diferente do
   // nurture geral acima que só mira quem ainda está ativo no funil. Exclui
-  // só "Fechado" (já comprou, não faz sentido oferecer desconto).
+  // só "Fechado" (já comprou, não faz sentido oferecer desconto), e exclui
+  // quem já teve a call pelo mesmo motivo do bloco acima.
   const { data: leadsPreco } = await supabase
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
     .eq('company_id', company.id)
     .neq('status', 'Fechado')
+    .or(CALL_NAO_REALIZADA)
     .not('preco_informado_em', 'is', null)
+    .not('whatsapp', 'is', null)
+
+  // Sequência ancorada em "teve call e não fechou" : público próprio, mais
+  // avançado no funil que quem só sumiu antes da call. Inclui "Perdido"
+  // (win-back de verdade), exclui só "Fechado".
+  const { data: leadsCallRealizada } = await supabase
+    .from('leads')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
+    .eq('company_id', company.id)
+    .neq('status', 'Fechado')
+    .eq('call_status', 'realizada')
     .not('whatsapp', 'is', null)
 
   // Sequências ancoradas em "formulário preenchido" (ex: Bruno quer mandar
@@ -892,7 +919,10 @@ async function processFollowGeral(
     // Hot leads first (call_de_venda, Interessado). Sequência ancorada em
     // "preço informado" usa a lista mais ampla (inclui "Perdido"), as demais
     // continuam restritas a quem ainda está ativo no funil.
-    const leadsBase = eventoEntrada === 'preco_informado' ? leadsPreco : eventoEntrada === 'formulario_preenchido' ? leadsForms : leads
+    const leadsBase = eventoEntrada === 'preco_informado' ? leadsPreco
+      : eventoEntrada === 'formulario_preenchido' ? leadsForms
+      : eventoEntrada === 'call_realizada' ? leadsCallRealizada
+      : leads
     const sortedLeads = [...((leadsBase ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
     for (const step of steps as FollowStep[]) {
@@ -1015,6 +1045,8 @@ async function processFollowGeral(
           anchorDate = lead.preco_informado_em ? new Date(lead.preco_informado_em) : null
         } else if (eventoEntrada === 'formulario_preenchido') {
           anchorDate = lead.formulario_preenchido_em ? new Date(lead.formulario_preenchido_em) : null
+        } else if (eventoEntrada === 'call_realizada') {
+          anchorDate = lead.call_agendada_para ? new Date(lead.call_agendada_para) : null
         } else {
           // Achado ao vivo (Rodrigo, 2026-09-15) : consultava a coluna
           // "created_at", que não existe em mensagens_do_whatsapp (o nome
