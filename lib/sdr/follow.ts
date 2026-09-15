@@ -97,7 +97,7 @@ interface FollowSequence {
   canvas_config?: {
     remarketing?: RemarketingCanvasConfig
     expira_em_dias?: number
-    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado'
+    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido'
   } | null
 }
 
@@ -114,6 +114,7 @@ interface Lead {
   call_status: string | null
   meet_url?: string | null
   preco_informado_em?: string | null
+  formulario_preenchido_em?: string | null
 }
 
 interface CompanyCtx {
@@ -820,6 +821,30 @@ async function processFollowGeral(
     .not('preco_informado_em', 'is', null)
     .not('whatsapp', 'is', null)
 
+  // Sequências ancoradas em "formulário preenchido" (ex: Bruno quer mandar
+  // um áudio pessoal reengajando quem preencheu o briefing e sumiu antes da
+  // call). Achado ao vivo (Rodrigo, 2026-09-15) : não existe lead_id em
+  // briefing_mt_responses, só o telefone dentro de "answers" (campo do
+  // próprio formulário) -- casa pelos últimos 8 dígitos, robusto o
+  // suficiente pra diferenças de DDI/DDD/dígito 9 entre os dois cadastros.
+  const { data: formsRows } = await supabase
+    .from('briefing_mt_responses')
+    .select('answers, submitted_at')
+    .eq('company_id', company.id)
+  const last8 = (phone: string) => (phone ?? '').replace(/\D/g, '').slice(-8)
+  const formSubmittedByPhone = new Map<string, string>()
+  for (const row of formsRows ?? []) {
+    const phone = last8((row.answers as Record<string, unknown>)?.whatsapp as string ?? '')
+    if (!phone) continue
+    const existing = formSubmittedByPhone.get(phone)
+    if (!existing || new Date(row.submitted_at) < new Date(existing)) {
+      formSubmittedByPhone.set(phone, row.submitted_at)
+    }
+  }
+  const leadsForms: Lead[] = ((leads ?? []) as Lead[])
+    .filter((l) => formSubmittedByPhone.has(last8(l.whatsapp)))
+    .map((l) => ({ ...l, formulario_preenchido_em: formSubmittedByPhone.get(last8(l.whatsapp)) }))
+
   // {produto} nas mensagens de reengajamento : nome do produto/campanha vem
   // do flow ativo da empresa (sdr_flows.descricao), preenchido uma vez na
   // criação do flow -- sem IA, sem custo extra, funciona pra qualquer
@@ -867,7 +892,7 @@ async function processFollowGeral(
     // Hot leads first (call_de_venda, Interessado). Sequência ancorada em
     // "preço informado" usa a lista mais ampla (inclui "Perdido"), as demais
     // continuam restritas a quem ainda está ativo no funil.
-    const leadsBase = eventoEntrada === 'preco_informado' ? leadsPreco : leads
+    const leadsBase = eventoEntrada === 'preco_informado' ? leadsPreco : eventoEntrada === 'formulario_preenchido' ? leadsForms : leads
     const sortedLeads = [...((leadsBase ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
     for (const step of steps as FollowStep[]) {
@@ -988,6 +1013,8 @@ async function processFollowGeral(
           anchorDate = leadRow?.created_at ? new Date(leadRow.created_at) : null
         } else if (eventoEntrada === 'preco_informado') {
           anchorDate = lead.preco_informado_em ? new Date(lead.preco_informado_em) : null
+        } else if (eventoEntrada === 'formulario_preenchido') {
+          anchorDate = lead.formulario_preenchido_em ? new Date(lead.formulario_preenchido_em) : null
         } else {
           // Achado ao vivo (Rodrigo, 2026-09-15) : consultava a coluna
           // "created_at", que não existe em mensagens_do_whatsapp (o nome
