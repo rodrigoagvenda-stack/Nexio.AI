@@ -387,7 +387,54 @@ function leadPriority(lead: Lead): number {
   return (lead.call_de_venda ? 20 : 0) + (lead.status === 'Interessado' ? 10 : 0) + (lead.status === 'Em contato' ? 5 : 0)
 }
 
+// Mesmo padrão anti-massa do outbound (lib/sdr/outbound.ts) : achado ao vivo
+// (Rodrigo, 2026-09-15) que uma sequência de reengajamento mal configurada
+// disparou dezenas de mensagens em minutos, sem nenhum espaçamento real além
+// de 1-1.5s entre leads -- o cap de 30/hora sozinho não impede rajada rápida
+// dentro dessa hora. follow_next_allowed_at é persistido no banco (não em
+// memória), então mesmo rodadas sobrepostas ou de longa duração respeitam o
+// mesmo relógio, lido de novo antes de cada lead candidato.
+function shouldBatchPause(countAfterSend: number): boolean {
+  if (countAfterSend < 10) return false
+  if (countAfterSend >= 15) return true
+  return Math.random() < (countAfterSend - 9) / 6
+}
+
+function batchPauseSeconds(): number {
+  return Math.floor(Math.random() * 300) + 300 // 5-10min
+}
+
+function followDelaySeconds(): number {
+  return Math.floor(Math.random() * 90) + 45 // 45-135s, mesmo range do outbound
+}
+
+async function bumpFollowPacing(companyId: number, supabase: Supabase): Promise<void> {
+  const { data: companyRow } = await supabase
+    .from('companies')
+    .select('follow_batch_count')
+    .eq('id', companyId)
+    .maybeSingle()
+  const batchCount = (companyRow?.follow_batch_count ?? 0) + 1
+  const pause = shouldBatchPause(batchCount)
+  const nextAllowedAt = new Date(
+    Date.now() + (pause ? batchPauseSeconds() : followDelaySeconds()) * 1000
+  ).toISOString()
+  await supabase
+    .from('companies')
+    .update({ follow_next_allowed_at: nextAllowedAt, follow_batch_count: pause ? 0 : batchCount })
+    .eq('id', companyId)
+}
+
 async function withinRateLimit(companyId: number, supabase: Supabase): Promise<boolean> {
+  const { data: companyRow } = await supabase
+    .from('companies')
+    .select('follow_next_allowed_at')
+    .eq('id', companyId)
+    .maybeSingle()
+  if (companyRow?.follow_next_allowed_at && new Date(companyRow.follow_next_allowed_at) > new Date()) {
+    return false // ainda dentro do espaçamento anti-massa do envio anterior
+  }
+
   const since = new Date(Date.now() - 3_600_000).toISOString()
   const { count } = await supabase
     .from('follow_executions')
@@ -507,6 +554,11 @@ async function registrarExecucao(
     company_id: companyId,
     status,
   })
+  // Ponto único por onde todo follow_geral/remarketing/proposta passa ao
+  // marcar 'sent' : atualiza o relógio anti-massa aqui cobre os ~10 pontos
+  // de disparo do arquivo de uma vez, sem precisar duplicar a chamada em
+  // cada um.
+  if (status === 'sent') await bumpFollowPacing(companyId, supabase)
 }
 
 async function gerarMensagemIA(
@@ -2310,6 +2362,16 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
       .eq('agente_ativo', true)
 
     for (const cfg of configs ?? []) {
+      // Lock por empresa : evita que um tick do cron (a cada 5 min) comece uma
+      // nova rodada antes da anterior terminar de esvaziar sua lista de leads.
+      // Sem isso, ativo=false num meio de rodada não tinha efeito nenhum : a
+      // rodada antiga (com a lista antiga, já em memória) continuava mandando
+      // mensagem normalmente, e cada tick novo empilhava mais uma rodada em
+      // paralelo sobre a mesma empresa.
+      const runLockKey = `follow:runlock:${cfg.company_id}`
+      const gotLock = await acquireSendLock(runLockKey, 280)
+      if (!gotLock) continue
+
       try {
         const company: CompanyCtx = {
           id: cfg.company_id,
@@ -2380,6 +2442,8 @@ export async function runFollowUp(): Promise<{ processed: number; errors: string
           company_id: cfg.company_id,
           payload: { stack: err.stack },
         })
+      } finally {
+        await releaseSendLock(runLockKey)
       }
     }
   } catch (err: any) {
