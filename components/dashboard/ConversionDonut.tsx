@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ConversionRadialProps {
@@ -29,7 +29,13 @@ export function ConversionDonut({ fechados, emAndamento, delta, periodo }: Conve
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-2 flex-shrink-0">
-        <CardTitle className="text-base font-semibold">Taxa de conversão</CardTitle>
+        <CardTitle className="text-base font-semibold flex items-center gap-1.5">
+          Taxa de conversão
+          <Info
+            className="h-3 w-3 text-muted-foreground/60 cursor-help"
+            title="Fechados dividido por (fechados + em andamento). Não conta os leads marcados como Perdido nem no total nem no cálculo -- diferente do card 'Taxa de conversão' no topo da página, que inclui os Perdidos."
+          />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col pb-5 px-2">
         {/* Gauge + Delta: ocupa o espaço disponível */}

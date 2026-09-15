@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { LucideIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { LucideIcon, ArrowUpRight, ArrowDownRight, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -13,9 +13,10 @@ interface MetricCardProps {
   format?: 'number' | 'currency' | 'percentage';
   highlight?: { bg: string; text?: string };
   delta?: number | null;
+  tooltip?: string;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight, delta }: MetricCardProps) {
+export function MetricCard({ title, value, subtitle, icon: Icon, format = 'number', highlight, delta, tooltip }: MetricCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -57,6 +58,12 @@ export function MetricCard({ title, value, subtitle, icon: Icon, format = 'numbe
             <Icon className="h-4 w-4" style={{ color: '#96F63C' }} />
           </div>
           <p className="text-xs text-muted-foreground truncate">{title}</p>
+          {tooltip && (
+            <Info
+              className="h-3 w-3 text-muted-foreground/60 flex-shrink-0 cursor-help"
+              title={tooltip}
+            />
+          )}
         </div>
 
         {hasDelta && (

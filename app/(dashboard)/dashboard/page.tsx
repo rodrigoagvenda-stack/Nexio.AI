@@ -486,6 +486,7 @@ export default function DashboardPage() {
           icon={TrendingUp}
           format="percentage"
           delta={deltaTaxaConversao}
+          tooltip="Fechados dividido pelo total de leads que entraram no período, incluindo os marcados como Perdido. Difere do gráfico 'Taxa de conversão' ao lado, que não conta os Perdidos na conta."
         />
         <MetricCard
           title="Em negociação"
