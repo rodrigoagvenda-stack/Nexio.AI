@@ -226,6 +226,7 @@ async function resolveGclidForPhone(companyId: number, phone: string, supabase: 
 
 async function insertAttributionEvent(
   conversationId: string,
+  leadId: number,
   referral: NormalizedReferral | null | undefined,
   supabase: Supabase
 ): Promise<void> {
@@ -244,6 +245,18 @@ async function insertAttributionEvent(
     referral_body: referral?.body ?? null,
     window_type: windowType,
   })
+
+  // Achado ao vivo (Rodrigo, 2026-09-15) : "Origem" na ficha do lead
+  // (leads.import_source) é campo manual, ninguém preenche de verdade -- 69%
+  // dos leads da Grupo Venda ficam com o valor padrão "WhatsApp" pra sempre,
+  // mesmo quando o clique real de anúncio (source acima) já prova que veio
+  // de Meta Ads ou Google Ads. Preenche automaticamente com o dado real,
+  // só na criação (isNewConversation, mesmo gatilho desta função) : não
+  // sobrescreve nada que alguém já tenha corrigido manualmente depois.
+  const importSource = attrSource === 'meta_ctwa' ? 'Meta Ads' : attrSource === 'google_ads' ? 'Google Ads' : null
+  if (importSource) {
+    await supabase.from('leads').update({ import_source: importSource }).eq('id', leadId)
+  }
 }
 
 // Peça E: recalcula o lead_score a cada mensagem inbound, usando o que já
@@ -379,7 +392,7 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
     conversationId = convId
 
     if (isNewConversation) {
-      await insertAttributionEvent(conversationId, referral, supabase)
+      await insertAttributionEvent(conversationId, leadId, referral, supabase)
     }
 
     await recomputeAndStoreLeadScore(
