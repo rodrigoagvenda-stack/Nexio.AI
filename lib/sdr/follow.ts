@@ -273,7 +273,7 @@ async function evaluateBranch(
         .select('texto_da_mensagem')
         .eq('id_do_lead', lead.id)
         .eq('direcao', 'inbound')
-        .order('created_at', { ascending: false })
+        .order('carimbo_de_data_e_hora', { ascending: false })
         .limit(1)
         .maybeSingle()
       atual = msg?.texto_da_mensagem ?? null
@@ -286,7 +286,7 @@ async function evaluateBranch(
           .from('mensagens_do_whatsapp')
           .select('texto_da_mensagem')
           .eq('id_do_lead', lead.id).eq('direcao', 'inbound')
-          .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
+          .gte('carimbo_de_data_e_hora', new Date(Date.now() - 7 * 86_400_000).toISOString())
         const matched = (msgs ?? []).some(m => m.texto_da_mensagem?.toLowerCase().includes(customVar.toLowerCase()))
         return matched ? 'sim' : 'nao'
       }
@@ -485,7 +485,7 @@ async function leadJaRespondeuDesde(
     .eq('id_do_lead', leadId)
     .eq('company_id', companyId)
     .eq('direcao', 'inbound')
-    .gte('created_at', since.toISOString())
+    .gte('carimbo_de_data_e_hora', since.toISOString())
     .limit(1)
     .maybeSingle()
   return !!data
@@ -989,15 +989,22 @@ async function processFollowGeral(
         } else if (eventoEntrada === 'preco_informado') {
           anchorDate = lead.preco_informado_em ? new Date(lead.preco_informado_em) : null
         } else {
+          // Achado ao vivo (Rodrigo, 2026-09-15) : consultava a coluna
+          // "created_at", que não existe em mensagens_do_whatsapp (o nome
+          // real é "carimbo_de_data_e_hora") -- o select falhava, "data"
+          // vinha null, anchorDate ficava sempre null e TODA sequência
+          // follow_geral sem eventoEntrada específico (ex: "Reengajamento -
+          // Sumiu", "Forms Preenchido") nunca disparava pra ninguém, desde
+          // que essas sequências existem (zero execuções registradas).
           const { data: ultimaMsg } = await supabase
             .from('mensagens_do_whatsapp')
-            .select('created_at')
+            .select('carimbo_de_data_e_hora')
             .eq('id_do_lead', lead.id)
             .eq('direcao', 'inbound')
-            .order('created_at', { ascending: false })
+            .order('carimbo_de_data_e_hora', { ascending: false })
             .limit(1)
             .maybeSingle()
-          anchorDate = ultimaMsg?.created_at ? new Date(ultimaMsg.created_at) : null
+          anchorDate = ultimaMsg?.carimbo_de_data_e_hora ? new Date(ultimaMsg.carimbo_de_data_e_hora) : null
         }
 
         if (!anchorDate) continue
@@ -1048,7 +1055,7 @@ async function processFollowGeral(
               .select('texto_da_mensagem')
               .eq('id_do_lead', lead.id)
               .eq('direcao', 'inbound')
-              .order('created_at', { ascending: false })
+              .order('carimbo_de_data_e_hora', { ascending: false })
               .limit(1)
               .maybeSingle()
 
@@ -1139,7 +1146,7 @@ async function processFollowGeral(
               .eq('id_do_lead', lead.id)
               .eq('company_id', company.id)
               .eq('direcao', 'inbound')
-              .gte('created_at', since.toISOString())
+              .gte('carimbo_de_data_e_hora', since.toISOString())
             matched = (msgs ?? []).some((m) =>
               m.texto_da_mensagem?.toLowerCase().includes(pattern.toLowerCase())
             )
@@ -1757,15 +1764,15 @@ async function processFollowProposta(
         // Verifica última mensagem inbound
         const { data: ultimaMsg } = await supabase
           .from('mensagens_do_whatsapp')
-          .select('created_at')
+          .select('carimbo_de_data_e_hora')
           .eq('id_do_lead', lead.id)
           .eq('direcao', 'inbound')
-          .order('created_at', { ascending: false })
+          .order('carimbo_de_data_e_hora', { ascending: false })
           .limit(1)
           .maybeSingle()
 
         if (!ultimaMsg) continue
-        const dias = (Date.now() - new Date(ultimaMsg.created_at).getTime()) / 86_400_000
+        const dias = (Date.now() - new Date(ultimaMsg.carimbo_de_data_e_hora).getTime()) / 86_400_000
         if (dias < step.dia_offset) continue
 
         const phone = normalizePhone(lead.whatsapp)
