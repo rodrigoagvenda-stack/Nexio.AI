@@ -148,7 +148,21 @@ export interface UazapiWebhookMessage {
       // e estava — o campo de verdade é ctwaPayload (base64 opaco), não
       // ctwaClid. Mantidos os campos antigos como fallback, sem custo.
       contextInfo?: {
-        externalAdReply?: { ctwaClid?: string; ctwa_clid?: string }
+        // Achado ao vivo (Rodrigo, 2026-09-15) : sourceID/thumbnailURL/body
+        // já vinham prontos no payload de produção desde sempre, só nunca
+        // tinham sido lidos -- extractCtwaReferral só usava ctwaClid/title.
+        // Confirmado contra system_logs type=debug_ctwa_uazapi reais : o
+        // sourceID bate exato com o ad_id do gerenciador de anúncios.
+        externalAdReply?: {
+          ctwaClid?: string
+          ctwa_clid?: string
+          sourceID?: string      // ad ID real, confirmado em produção
+          title?: string
+          body?: string
+          thumbnailURL?: string  // CDN da Meta, expira (link assinado)
+          sourceURL?: string
+          mediaURL?: string
+        }
         ctwaClid?: string
         ctwa_clid?: string
         ctwaPayload?: string    // confirmado em produção : token opaco base64, passar direto pro Meta CAPI como ctwa_clid, nunca decodificar
@@ -184,6 +198,9 @@ export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undef
   ctwaClid: string | null
   sourceApp: string | null
   title: string | null
+  adId: string | null
+  thumbnailUrl: string | null
+  body: string | null
 } | null {
   const ctx = msg?.content?.contextInfo
   if (!ctx) return null
@@ -202,9 +219,18 @@ export function extractCtwaReferral(msg: UazapiWebhookMessage['message'] | undef
 
   // Título/headline do criativo : sobe junto com content.title (irmão de
   // contextInfo, não dentro dele), confirmado em payload real de produção.
-  const title = msg?.content?.title?.trim() || null
+  const title = msg?.content?.title?.trim() || ctx.externalAdReply?.title?.trim() || null
 
-  return { ctwaClid, sourceApp: ctx.entryPointConversionApp ?? null, title }
+  // Achado ao vivo (Rodrigo, 2026-09-15) : sourceID (ad_id real) e
+  // thumbnailURL já vinham prontos dentro de externalAdReply em todo payload
+  // real de produção, só nunca foram lidos -- attribution_events.ad_id
+  // ficava sempre null pro canal uazapi, forçando gambiarra de match por
+  // texto de headline pra identificar qual anúncio gerou o lead.
+  const adId = ctx.externalAdReply?.sourceID?.trim() || null
+  const thumbnailUrl = ctx.externalAdReply?.thumbnailURL?.trim() || null
+  const body = ctx.externalAdReply?.body?.trim() || null
+
+  return { ctwaClid, sourceApp: ctx.entryPointConversionApp ?? null, title, adId, thumbnailUrl, body }
 }
 
 export class UazapiClient {

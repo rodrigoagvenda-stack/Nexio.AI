@@ -3716,7 +3716,14 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     // CAPI usando o telefone do lead como identificador alternativo.
     const ctwa = extractCtwaReferral(msg as any)
     const referral: NormalizedInboundEvent['referral'] = ctwa
-      ? { ctwaClid: ctwa.ctwaClid, sourceType: ctwa.sourceApp ? `ctwa_ad:${ctwa.sourceApp}` : 'ctwa_ad', headline: ctwa.title }
+      ? {
+          ctwaClid: ctwa.ctwaClid,
+          sourceType: ctwa.sourceApp ? `ctwa_ad:${ctwa.sourceApp}` : 'ctwa_ad',
+          headline: ctwa.title,
+          sourceId: ctwa.adId,
+          thumbnailUrl: ctwa.thumbnailUrl,
+          body: ctwa.body,
+        }
       : null
 
     // LOG TEMPORÁRIO (remover após confirmar em produção real) : grava o

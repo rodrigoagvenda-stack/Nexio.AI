@@ -22,6 +22,7 @@ export interface NormalizedReferral {
   sourceType?: string | null
   headline?: string | null
   body?: string | null
+  thumbnailUrl?: string | null
 }
 
 export interface NormalizedInboundEvent {
@@ -233,12 +234,41 @@ async function insertAttributionEvent(
   const ctwaClid = referral?.ctwaClid ?? null
   const attrSource = ctwaClid ? 'meta_ctwa' : referral?.gclid ? 'google_ads' : 'organic'
   const windowType = ctwaClid ? 'meta_ctwa_72h' : 'organic_free'
+
+  // Achado ao vivo (Rodrigo, 2026-09-15) : referral.sourceId é o ad_id de
+  // verdade (confirmado contra o gerenciador de anúncios real), não um
+  // campaign_id -- estava gravado na coluna errada, e nunca chegava
+  // preenchido de qualquer forma porque extractCtwaReferral (uazapi.ts)
+  // não lia esse campo do payload. Agora que chega certo, resolve
+  // nome do anúncio/campanha cruzando com meta_ad_insights (sync já
+  // existente via Marketing API) : nunca duplica esse dado, só referencia.
+  const adId = referral?.sourceId ?? null
+  let adName: string | null = null
+  let campaignId: string | null = null
+  let campaignName: string | null = null
+  if (adId) {
+    const { data: insight } = await supabase
+      .from('meta_ad_insights')
+      .select('ad_name, campaign_id, campaign_name')
+      .eq('ad_id', adId)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    adName = insight?.ad_name ?? null
+    campaignId = insight?.campaign_id ?? null
+    campaignName = insight?.campaign_name ?? null
+  }
+
   await supabase.from('attribution_events').insert({
     conversation_id: conversationId,
     source: attrSource,
     ctwa_clid: ctwaClid,
     gclid: referral?.gclid ?? null,
-    campaign_id: referral?.sourceId ?? null,
+    ad_id: adId,
+    ad_name: adName,
+    campaign_id: campaignId,
+    campaign_name: campaignName,
+    ad_thumbnail_url: referral?.thumbnailUrl ?? null,
     referral_source_url: referral?.sourceUrl ?? null,
     referral_source_type: referral?.sourceType ?? null,
     referral_headline: referral?.headline ?? null,
