@@ -226,6 +226,7 @@ async function resolveGclidForPhone(companyId: number, phone: string, supabase: 
 }
 
 async function insertAttributionEvent(
+  companyId: number,
   conversationId: string,
   leadId: number,
   referral: NormalizedReferral | null | undefined,
@@ -275,6 +276,19 @@ async function insertAttributionEvent(
     referral_body: referral?.body ?? null,
     window_type: windowType,
   })
+
+  // Achado ao vivo (Rodrigo, 2026-09-15) : criativo de teste "TESTE 1 -
+  // BÔNUS 2K" (Grupo Venda) promete R$4.200 + bônus de R$2.400 em anúncios,
+  // valor que muda a qualificação do lead pro Bruno (mais quente, já sabe o
+  // preço). TEMPORÁRIO : remover esse bloco quando o teste desse criativo
+  // acabar/for substituído -- companyId e tagId fixos de propósito, não vale
+  // generalizar pra regra permanente por um único teste de campanha.
+  if (companyId === 30 && adId === '120251667648910505') {
+    await supabase.from('lead_tags').upsert(
+      { lead_id: leadId, tag_id: 9, company_id: companyId },
+      { onConflict: 'lead_id,tag_id', ignoreDuplicates: true }
+    )
+  }
 
   // Achado ao vivo (Rodrigo, 2026-09-15) : "Origem" na ficha do lead
   // (leads.import_source) é campo manual, ninguém preenche de verdade -- 69%
@@ -422,7 +436,7 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
     conversationId = convId
 
     if (isNewConversation) {
-      await insertAttributionEvent(conversationId, leadId, referral, supabase)
+      await insertAttributionEvent(evt.companyId, conversationId, leadId, referral, supabase)
     }
 
     await recomputeAndStoreLeadScore(
