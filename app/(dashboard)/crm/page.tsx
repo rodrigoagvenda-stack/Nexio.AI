@@ -648,12 +648,19 @@ export default function CRMPage() {
   async function fetchLeads() {
     try {
       const supabase = createClient();
+      // Achado ao vivo (Rodrigo, 2026-09-16) : ordenar por created_at com
+      // limit(100) fazia lead reativado/movido de status (ex: marcado
+      // "Remarketing" manualmente) sumir do Kanban inteiro sempre que a
+      // empresa já tinha 100+ leads criados DEPOIS dele -- não é filtro por
+      // coluna, o lead nunca chegava a ser buscado. Ordena por updated_at
+      // (toda mudança de status/campo atualiza esse campo) e sobe o teto,
+      // mesmo padrão de limit(500) já usado no Kanban de conversas.
       let query = supabase
         .from('leads')
         .select('*, lead_tags(tag_id, tags(id, tag_name, tag_color))')
         .eq('company_id', user?.company_id)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .order('updated_at', { ascending: false, nullsFirst: false })
+        .limit(500);
 
       // Closer puro só vê seus próprios leads atribuídos
       if (user?.role === 'closer') {
