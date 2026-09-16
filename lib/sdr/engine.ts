@@ -2539,6 +2539,38 @@ async function saveOutbound(
 
 // ─── Lead ──────────────────────────────────────────────────────
 
+// Achado ao vivo (Rodrigo, 2026-09-16) : quando o lead responde, ele PRECISA
+// sair de qualquer sequência de reengajamento automaticamente (Remarketing,
+// Follow up, No-show) : ele voltou a interagir, o motivo da sequência
+// deixou de existir. Sem isso, a sequência continua mandando mensagem de
+// "reengajamento" pra quem já reengajou sozinho, o que é ridículo e foi
+// exatamente o tipo de confusão que gerou os incidentes desse dia. Roda em
+// TODA mensagem inbound de lead existente, incondicional : não depende do
+// modelo perceber nada.
+async function limparReengajamentoAoResponder(
+  leadId: number,
+  companyId: number,
+  statusAtual: string | null,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  try {
+    if (statusAtual === 'Remarketing') {
+      await supabase.from('leads').update({ status: 'Em contato' }).eq('id', leadId)
+    }
+    const { data: sequenceTags } = await supabase
+      .from('tags')
+      .select('id')
+      .eq('company_id', companyId)
+      .in('tag_name', ['Follow up', 'No-show'])
+    const tagIds = (sequenceTags ?? []).map((t) => t.id)
+    if (tagIds.length) {
+      await supabase.from('lead_tags').delete().eq('lead_id', leadId).in('tag_id', tagIds)
+    }
+  } catch (err: any) {
+    console.error(`[SDR:${companyId}] limparReengajamentoAoResponder falhou (lead=${leadId}):`, err?.message)
+  }
+}
+
 export async function findOrCreateLead(
   companyId: number,
   phone: string,
@@ -2548,12 +2580,15 @@ export async function findOrCreateLead(
 ): Promise<{ id: number; notes: string }> {
   const { data: existing } = await supabase
     .from('leads')
-    .select('id, notes')
+    .select('id, notes, status')
     .eq('company_id', companyId)
     .eq('whatsapp', phone)
     .maybeSingle()
 
-  if (existing) return { id: existing.id, notes: existing.notes ?? '' }
+  if (existing) {
+    await limparReengajamentoAoResponder(existing.id, companyId, existing.status ?? null, supabase)
+    return { id: existing.id, notes: existing.notes ?? '' }
+  }
 
   const { data: created, error: insertError } = await supabase
     .from('leads')

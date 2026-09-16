@@ -97,7 +97,7 @@ interface FollowSequence {
   canvas_config?: {
     remarketing?: RemarketingCanvasConfig
     expira_em_dias?: number
-    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada'
+    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show'
   } | null
 }
 
@@ -115,6 +115,7 @@ interface Lead {
   meet_url?: string | null
   preco_informado_em?: string | null
   formulario_preenchido_em?: string | null
+  tag_aplicada_em?: string | null
 }
 
 interface CompanyCtx {
@@ -866,12 +867,20 @@ async function processFollowGeral(
   // != 'realizada' avalia como NULL, não como true.
   const CALL_NAO_REALIZADA = 'call_status.is.null,call_status.neq.realizada'
 
+  // Achado ao vivo (Rodrigo, 2026-09-16, lead Alecsander) : call_status
+  // 'no_show' passava pelo CALL_NAO_REALIZADA acima (só filtra 'realizada'),
+  // mandando "vi que você começou a falar comigo" pra quem na verdade
+  // marcou e FUROU uma call de verdade -- situação bem mais específica que
+  // agora tem etiqueta própria ("No-show", mais abaixo), não reengajamento
+  // genérico. .not() encadeado em vez de meter dentro da string do .or() :
+  // método tipado, sem risco de erro de sintaxe quebrar o filtro inteiro.
   const { data: leads } = await supabase
     .from('leads')
     .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
     .eq('company_id', company.id)
     .in('status', ['Em contato', 'Interessado'])
     .or(CALL_NAO_REALIZADA)
+    .not('call_status', 'eq', 'no_show')
     .not('whatsapp', 'is', null)
 
   // Sequências ancoradas em "preço informado" (ex: reengajamento com desconto
@@ -924,6 +933,52 @@ async function processFollowGeral(
     .filter((l) => formSubmittedByPhone.has(last8(l.whatsapp)))
     .map((l) => ({ ...l, formulario_preenchido_em: formSubmittedByPhone.get(last8(l.whatsapp)) }))
 
+  // Sequências ancoradas em etiqueta "Follow up" / "No-show" (decisão do
+  // Rodrigo, 2026-09-16, depois do problema do Alecsander) : público
+  // definido manualmente arrastando o card no Kanban, nunca inferido por
+  // status/tempo de silêncio. As duas etiquetas são semeadas por empresa
+  // (migration seed_follow_up_no_show_system_tags + onboarding/complete).
+  // Público amplo (não restrito a Em contato/Interessado) porque quem
+  // decide é a pessoa arrastando o card, não uma regra automática : só
+  // exclui Fechado, não faz sentido reengajar quem já comprou.
+  const { data: leadsAmploTags } = await supabase
+    .from('leads')
+    .select('id, company_id, contact_name, whatsapp, status, resumo_ia, notes, call_de_venda, call_agendada_para, call_status, preco_informado_em')
+    .eq('company_id', company.id)
+    .neq('status', 'Fechado')
+    .not('whatsapp', 'is', null)
+
+  const { data: sequenceTagRows } = await supabase
+    .from('tags')
+    .select('id, tag_name')
+    .eq('company_id', company.id)
+    .in('tag_name', ['Follow up', 'No-show'])
+  const followUpTagId = sequenceTagRows?.find((t) => t.tag_name === 'Follow up')?.id ?? null
+  const noShowTagId = sequenceTagRows?.find((t) => t.tag_name === 'No-show')?.id ?? null
+  const tagIdsParaBuscar = [followUpTagId, noShowTagId].filter((id): id is number => id != null)
+
+  const { data: leadTagRows } = tagIdsParaBuscar.length
+    ? await supabase.from('lead_tags').select('lead_id, tag_id, applied_at').eq('company_id', company.id).in('tag_id', tagIdsParaBuscar)
+    : { data: [] as { lead_id: number; tag_id: number; applied_at: string }[] }
+
+  const appliedAtByLead = (tagId: number | null) => {
+    const map = new Map<number, string>()
+    if (tagId == null) return map
+    for (const row of leadTagRows ?? []) {
+      if (row.tag_id === tagId) map.set(row.lead_id, row.applied_at)
+    }
+    return map
+  }
+  const followUpAppliedAt = appliedAtByLead(followUpTagId)
+  const noShowAppliedAt = appliedAtByLead(noShowTagId)
+
+  const leadsFollowUp: Lead[] = ((leadsAmploTags ?? []) as Lead[])
+    .filter((l) => followUpAppliedAt.has(l.id))
+    .map((l) => ({ ...l, tag_aplicada_em: followUpAppliedAt.get(l.id) }))
+  const leadsNoShow: Lead[] = ((leadsAmploTags ?? []) as Lead[])
+    .filter((l) => noShowAppliedAt.has(l.id))
+    .map((l) => ({ ...l, tag_aplicada_em: noShowAppliedAt.get(l.id) }))
+
   // {produto} nas mensagens de reengajamento : nome do produto/campanha vem
   // do flow ativo da empresa (sdr_flows.descricao), preenchido uma vez na
   // criação do flow -- sem IA, sem custo extra, funciona pra qualquer
@@ -974,6 +1029,8 @@ async function processFollowGeral(
     const leadsBase = eventoEntrada === 'preco_informado' ? leadsPreco
       : eventoEntrada === 'formulario_preenchido' ? leadsForms
       : eventoEntrada === 'call_realizada' ? leadsCallRealizada
+      : eventoEntrada === 'tag_follow_up' ? leadsFollowUp
+      : eventoEntrada === 'tag_no_show' ? leadsNoShow
       : leads
     const sortedLeads = [...((leadsBase ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
@@ -1099,6 +1156,8 @@ async function processFollowGeral(
           anchorDate = lead.formulario_preenchido_em ? new Date(lead.formulario_preenchido_em) : null
         } else if (eventoEntrada === 'call_realizada') {
           anchorDate = lead.call_agendada_para ? new Date(lead.call_agendada_para) : null
+        } else if (eventoEntrada === 'tag_follow_up' || eventoEntrada === 'tag_no_show') {
+          anchorDate = lead.tag_aplicada_em ? new Date(lead.tag_aplicada_em) : null
         } else {
           // Achado ao vivo (Rodrigo, 2026-09-15) : consultava a coluna
           // "created_at", que não existe em mensagens_do_whatsapp (o nome

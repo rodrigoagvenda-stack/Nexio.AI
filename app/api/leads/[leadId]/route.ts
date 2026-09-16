@@ -101,6 +101,19 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ lea
     }
 
     if (field === 'status' && value === 'Remarketing') {
+      // Mesma exclusão mútua do lado das etiquetas (app/api/tags/assign) :
+      // Remarketing/Follow up/No-show são 3 sequências concorrentes, só uma
+      // ativa por lead por vez.
+      const { data: seqTags } = await supabase
+        .from('tags')
+        .select('id')
+        .eq('company_id', context.companyId)
+        .in('tag_name', ['Follow up', 'No-show'])
+      const seqTagIds = (seqTags ?? []).map((t) => t.id)
+      if (seqTagIds.length) {
+        await supabase.from('lead_tags').delete().eq('lead_id', leadId).in('tag_id', seqTagIds)
+      }
+
       const { data: lead } = await supabase
         .from('leads')
         .select('contact_name')

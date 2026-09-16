@@ -74,7 +74,7 @@ interface ConversaState {
   lead_score?: number | null;
   lead_source?: { headline?: string; utm_campaign?: string; utm_source?: string } | null;
 }
-type LeadWithConversa = Lead & { _conversa?: ConversaState };
+type LeadWithConversa = Lead & { _conversa?: ConversaState; _sequenceStats?: { count: number; lastSent: string | null } };
 
 function getConversaBadge(conversa?: ConversaState): { label: string; className: string; Icon: typeof Clock } | null {
   if (!conversa) return null;
@@ -339,6 +339,18 @@ const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete
               </div>
             </div>
           </div>
+          {!!lead._sequenceStats?.count && (
+            <div
+              className="flex items-center gap-1 text-[10px] text-muted-foreground/70 pt-1"
+              title={lead._sequenceStats.lastSent ? `Último envio: ${new Date(lead._sequenceStats.lastSent).toLocaleString('pt-BR')}` : undefined}
+            >
+              <Repeat2 className="h-2.5 w-2.5" />
+              {lead._sequenceStats.count} {lead._sequenceStats.count === 1 ? 'mensagem de sequência' : 'mensagens de sequência'}
+              {lead._sequenceStats.lastSent && (
+                <span>· última {new Date(lead._sequenceStats.lastSent).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+              )}
+            </div>
+          )}
         </OrbitCardContent>
       </OrbitCard>
     </div>
@@ -585,6 +597,14 @@ export default function CRMPage() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deletingMultipleLeads, setDeletingMultipleLeads] = useState(false);
 
+  // Etiquetas de sistema (Follow up / No-show) : ids resolvidos uma vez,
+  // usados pra montar/desmontar as colunas de sequência no Kanban e pra
+  // saber qual tagId mandar pro /api/tags/assign quando arrasta um card.
+  const [systemTags, setSystemTags] = useState<{ followUpId: number | null; noShowId: number | null }>({ followUpId: null, noShowId: null });
+  // Aviso de "já recebeu essa sequência inteira antes" : id do lead pendente
+  // de confirmação antes de arrastar pra Follow up/No-show de novo.
+  const [pendingTagDrop, setPendingTagDrop] = useState<{ leadId: number; tagName: 'Follow up' | 'No-show'; tagId: number } | null>(null);
+
   // Stepper state
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -685,7 +705,42 @@ export default function CRMPage() {
         }
       }
 
-      setLeads((data ?? []).map((l: any) => ({ ...l, _conversa: l.whatsapp ? convByPhone[l.whatsapp] : undefined })));
+      // Etiquetas de sistema (ids) : resolvidos aqui, usados pelo drag-drop
+      // pra saber qual tagId atribuir quando o card cai em Follow up/No-show.
+      const { data: sysTags } = await supabase
+        .from('tags')
+        .select('id, tag_name')
+        .eq('company_id', user?.company_id)
+        .in('tag_name', ['Follow up', 'No-show']);
+      setSystemTags({
+        followUpId: sysTags?.find((t) => t.tag_name === 'Follow up')?.id ?? null,
+        noShowId: sysTags?.find((t) => t.tag_name === 'No-show')?.id ?? null,
+      });
+
+      // Contador de mensagens de reengajamento + data do último envio, pra
+      // mostrar no card do Kanban (padrão HubSpot/Salesforce de mostrar
+      // histórico de campanha direto no card, sem precisar abrir o lead).
+      const leadIds = (data ?? []).map((l: any) => l.id);
+      let statsByLead: Record<number, { count: number; lastSent: string | null }> = {};
+      if (leadIds.length > 0) {
+        const { data: execs } = await supabase
+          .from('follow_executions')
+          .select('lead_id, disparado_em')
+          .eq('status', 'sent')
+          .in('lead_id', leadIds);
+        for (const ex of (execs ?? [])) {
+          const cur = statsByLead[ex.lead_id] ?? { count: 0, lastSent: null };
+          cur.count++;
+          if (!cur.lastSent || ex.disparado_em > cur.lastSent) cur.lastSent = ex.disparado_em;
+          statsByLead[ex.lead_id] = cur;
+        }
+      }
+
+      setLeads((data ?? []).map((l: any) => ({
+        ...l,
+        _conversa: l.whatsapp ? convByPhone[l.whatsapp] : undefined,
+        _sequenceStats: statsByLead[l.id],
+      })));
     } catch (error) {
       console.error('Error fetching leads:', error);
       toast({ title: 'Erro ao carregar leads', variant: 'destructive' });
@@ -706,6 +761,58 @@ export default function CRMPage() {
   //   setOverId(over?.id ?? null);
   // };
 
+  // Qual coluna um lead está ocupando agora nesta tela : etiqueta de
+  // sequência (Follow up/No-show) tem prioridade sobre status de venda,
+  // porque é ali que o card realmente está renderizado (ver leadsByStatus
+  // acima : lead com essas etiquetas não aparece na coluna de status).
+  const getColumnIdForLead = useCallback((lead: LeadWithConversa): string => {
+    const tagNames = new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name));
+    if (tagNames.has('Follow up')) return 'Follow up';
+    if (tagNames.has('No-show')) return 'No-show';
+    return lead.status;
+  }, []);
+
+  // Aplica de fato a etiqueta de sequência : chamado direto (sem aviso) ou
+  // depois de confirmar o dialog de "já recebeu essa sequência antes".
+  const performTagDrop = useCallback(async (lead: LeadWithConversa, tagName: 'Follow up' | 'No-show', tagId: number) => {
+    const outraTagName = tagName === 'Follow up' ? 'No-show' : 'Follow up';
+    // Otimista : atualiza UI antes da resposta do servidor (mesmo padrão do
+    // resto do arquivo), removendo a etiqueta concorrente e status
+    // Remarketing localmente pra refletir a exclusão mútua na hora.
+    setLeads(prev => prev.map(l => {
+      if (l.id !== lead.id) return l;
+      const keptTags = ((l.lead_tags as any[]) ?? []).filter((lt) => lt.tags?.tag_name !== outraTagName);
+      const alreadyHas = keptTags.some((lt) => lt.tags?.tag_name === tagName);
+      const newTags = alreadyHas ? keptTags : [...keptTags, { tag_id: tagId, tags: { id: tagId, tag_name: tagName, tag_color: tagName === 'Follow up' ? '#3b82f6' : '#ef4444' } }];
+      return { ...l, lead_tags: newTags, status: l.status === 'Remarketing' ? 'Em contato' : l.status } as LeadWithConversa;
+    }));
+
+    try {
+      const res = await fetch('/api/tags/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, tagId }),
+      });
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok && resData?.message !== 'Tag já está atribuída a este lead') {
+        throw new Error(resData?.message || `HTTP ${res.status}`);
+      }
+      if (user && company) {
+        logActivity({
+          user_id: user.auth_user_id,
+          company_id: company.id,
+          action: 'lead_tag_sequence',
+          description: `Moveu lead "${lead.company_name}" para "${tagName}"`,
+          metadata: { lead_id: lead.id, tag_name: tagName, lead_name: lead.company_name, contact_name: lead.contact_name },
+        });
+      }
+      toast({ title: 'Lead movido!', description: `Movido para "${tagName}"` });
+    } catch {
+      toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
+      fetchLeads();
+    }
+  }, [user, company]);
+
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setOverId(null);
     const { active, over } = event;
@@ -718,25 +825,72 @@ export default function CRMPage() {
     const activeId = active.id;
     const overId = over.id;
 
-    // Determinar novo status
-    let newStatus: Lead['status'] | null = null;
+    // Determinar coluna de destino (pode ser status de venda OU etiqueta
+    // de sequência -- as duas convivem nas mesmas colunas visuais agora).
+    let targetColumnId: string | null = null;
 
-    // CASO 1: Drop direto na coluna (id = "column-{status}")
+    // CASO 1: Drop direto na coluna (id = "column-{id}")
     if (String(overId).startsWith('column-')) {
-      newStatus = String(overId).replace('column-', '') as Lead['status'];
+      targetColumnId = String(overId).replace('column-', '');
     }
-    // CASO 2: Drop em outro card (pegar status do card de destino)
+    // CASO 2: Drop em outro card (pegar a coluna de destino pelo card, não
+    // só pelo status dele -- ele pode estar na coluna de etiqueta)
     else {
       const targetLead = leads.find(l => l.id === overId || String(l.id) === String(overId));
-      if (targetLead) {
-        newStatus = targetLead.status;
-      }
+      if (targetLead) targetColumnId = getColumnIdForLead(targetLead);
     }
 
-    if (!newStatus) return;
+    if (!targetColumnId) return;
 
     const lead = leads.find(l => l.id === activeId || String(l.id) === String(activeId));
-    if (!lead || lead.status === newStatus) return;
+    if (!lead || getColumnIdForLead(lead) === targetColumnId) return;
+
+    const targetColumn = columns.find(c => c.id === targetColumnId);
+
+    // Coluna de etiqueta (Follow up / No-show) : não mexe em status,
+    // atribui a tag via /api/tags/assign (exclusão mútua já é garantida
+    // no servidor, ver app/api/tags/assign/route.ts).
+    if (targetColumn?.isTag) {
+      const tagId = targetColumnId === 'Follow up' ? systemTags.followUpId : systemTags.noShowId;
+      if (!tagId) {
+        toast({ title: 'Etiqueta de sistema não encontrada', description: 'Recarregue a página e tente de novo.', variant: 'destructive' });
+        return;
+      }
+
+      // Aviso de "já recebeu essa sequência antes" : checa se já existe
+      // envio 'sent' pra esse lead numa sequência ancorada nessa etiqueta,
+      // antes de disparar tudo de novo do zero sem avisar.
+      try {
+        const supabase = createClient();
+        const { data: seqRows } = await supabase
+          .from('follow_sequences')
+          .select('id')
+          .eq('company_id', user?.company_id)
+          .eq('tipo', 'follow_geral')
+          .contains('canvas_config', { eventoEntrada: targetColumnId === 'Follow up' ? 'tag_follow_up' : 'tag_no_show' });
+        const seqIds = (seqRows ?? []).map((s: any) => s.id);
+        if (seqIds.length) {
+          const { count } = await supabase
+            .from('follow_executions')
+            .select('id', { count: 'exact', head: true })
+            .eq('lead_id', lead.id)
+            .eq('status', 'sent')
+            .in('sequence_id', seqIds);
+          if (count && count > 0) {
+            setPendingTagDrop({ leadId: lead.id, tagName: targetColumnId as 'Follow up' | 'No-show', tagId });
+            return;
+          }
+        }
+      } catch {
+        // Falha na checagem não deve bloquear o drag : segue sem aviso.
+      }
+
+      await performTagDrop(lead, targetColumnId as 'Follow up' | 'No-show', tagId);
+      return;
+    }
+
+    // Coluna de status normal : comportamento original.
+    const newStatus = targetColumnId as Lead['status'];
 
     const oldStatus = lead.status;
 
@@ -787,7 +941,7 @@ export default function CRMPage() {
       toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
       fetchLeads();
     }
-  }, [leads, user, company, router]);
+  }, [leads, user, company, router, getColumnIdForLead, performTagDrop, systemTags]);
 
   // Botão "Promover"/"Voltar todos" no header da coluna : move em lote todo
   // mundo de um status pra outro, mesmo endpoint por lead que o drag-and-drop
@@ -1128,7 +1282,12 @@ export default function CRMPage() {
     }
   };
 
-  const columns = [
+  // Achado ao vivo (Rodrigo, 2026-09-16) : Follow up e No-show são colunas
+  // por ETIQUETA (lead_tags), não por status de venda -- um lead continua
+  // "Interessado" de verdade e, ao mesmo tempo, pode estar em uma dessas
+  // duas filas de reengajamento. isTag marca essa diferença pro resto do
+  // código (agrupamento e drag-and-drop tratam diferente de coluna de status).
+  const columns: { id: string; title: string; isTag?: boolean }[] = [
     { id: 'Triagem', title: 'Triagem' },
     { id: 'Outbound', title: 'Outbound' },
     { id: 'Lead novo', title: 'Lead novo' },
@@ -1138,6 +1297,8 @@ export default function CRMPage() {
     { id: 'Fechado', title: 'Fechado' },
     { id: 'Perdido', title: 'Perdido' },
     { id: 'Remarketing', title: 'Remarketing' },
+    { id: 'Follow up', title: 'Follow up', isTag: true },
+    { id: 'No-show', title: 'No-show', isTag: true },
   ];
 
   // Filtros
@@ -1160,22 +1321,44 @@ export default function CRMPage() {
   const leadsByStatus = useMemo(() => {
     const statusMap = new Map<string, typeof filteredLeads>();
     const valueMap = new Map<string, number>();
+    // Colunas por etiqueta (Follow up / No-show) : um lead entra aqui pela
+    // presença da tag em lead_tags, independente do status de venda dele.
+    const tagMap = new Map<string, typeof filteredLeads>();
 
     filteredLeads.forEach((lead) => {
-      const status = lead.status;
-      if (!statusMap.has(status)) {
-        statusMap.set(status, []);
-        valueMap.set(status, 0);
+      const leadTagNames = new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name));
+      const isEmSequenciaTag = leadTagNames.has('Follow up') || leadTagNames.has('No-show');
+
+      // Achado técnico (2026-09-16) : dnd-kit exige id único por card em
+      // toda a tela. Um lead com etiqueta Follow up/No-show continua
+      // "Interessado" de verdade no banco (nada muda aí), mas nesta tela
+      // específica do Kanban ele aparece só na coluna da etiqueta, não
+      // duplicado na coluna de status também -- evita o card colidir com
+      // ele mesmo no drag-and-drop, e deixa claro visualmente onde ele tá.
+      if (!isEmSequenciaTag) {
+        const status = lead.status;
+        if (!statusMap.has(status)) {
+          statusMap.set(status, []);
+          valueMap.set(status, 0);
+        }
+        statusMap.get(status)!.push(lead);
+        valueMap.set(status, (valueMap.get(status) || 0) + (lead.project_value || 0));
       }
-      statusMap.get(status)!.push(lead);
-      valueMap.set(status, (valueMap.get(status) || 0) + (lead.project_value || 0));
+
+      for (const lt of (lead.lead_tags as any[]) ?? []) {
+        const tagName = lt.tags?.tag_name
+        if (tagName !== 'Follow up' && tagName !== 'No-show') continue
+        if (!tagMap.has(tagName)) tagMap.set(tagName, [])
+        tagMap.get(tagName)!.push(lead)
+      }
     });
 
-    return { statusMap, valueMap };
+    return { statusMap, valueMap, tagMap };
   }, [filteredLeads]);
 
-  const getLeadsByStatus = (status: string) => {
-    return leadsByStatus.statusMap.get(status) || [];
+  const getLeadsByStatus = (column: { id: string; isTag?: boolean }) => {
+    if (column.isTag) return leadsByStatus.tagMap.get(column.id) || [];
+    return leadsByStatus.statusMap.get(column.id) || [];
   };
 
   const totalPipelineValue = useMemo(() =>
@@ -1412,7 +1595,7 @@ export default function CRMPage() {
                 }}
               >
                 {columns.map((column) => {
-                  const columnLeads = getLeadsByStatus(column.id);
+                  const columnLeads = getLeadsByStatus(column);
                   return (
                     <div key={column.id} className="w-[320px] flex-shrink-0">
                       <DroppableColumn
@@ -1487,7 +1670,7 @@ export default function CRMPage() {
         {/* Mobile Kanban - Horizontal snap scroll, scroll vertical em cada coluna */}
         <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none', height: 'calc(100dvh - 280px)' }}>
           {columns.map((column) => {
-            const colLeads = getLeadsByStatus(column.id);
+            const colLeads = getLeadsByStatus(column);
             return (
               <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col rounded-xl bg-muted/40 p-2 gap-2">
                 {/* Column header */}
@@ -2046,6 +2229,33 @@ export default function CRMPage() {
               className="bg-red-500 hover:bg-red-600"
             >
               Deletar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Aviso : lead já recebeu essa sequência de reengajamento antes */}
+      <AlertDialog open={!!pendingTagDrop} onOpenChange={(open) => { if (!open) setPendingTagDrop(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Esse lead já recebeu essa sequência antes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esse lead já teve pelo menos uma mensagem enviada por essa mesma sequência de "{pendingTagDrop?.tagName}" em algum
+              momento. Mover ele de novo pra essa coluna vai rodar a sequência inteira outra vez, do início. Quer continuar mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!pendingTagDrop) return;
+                const lead = leads.find((l) => l.id === pendingTagDrop.leadId);
+                const { tagName, tagId } = pendingTagDrop;
+                setPendingTagDrop(null);
+                if (lead) await performTagDrop(lead, tagName, tagId);
+              }}
+            >
+              Mover mesmo assim
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

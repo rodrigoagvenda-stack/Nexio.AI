@@ -24,6 +24,30 @@ export async function POST(request: NextRequest) {
     if (leadError || !lead) return NextResponse.json({ success: false, message: 'Lead não encontrado' }, { status: 404 });
     if (tagError || !tag) return NextResponse.json({ success: false, message: 'Tag não encontrada' }, { status: 404 });
 
+    // Achado ao vivo (Rodrigo, 2026-09-16) : Remarketing (status), Follow up
+    // e No-show (etiquetas) são 3 sequências automáticas concorrentes. Sem
+    // exclusão mútua, um lead podia ficar marcado em duas ao mesmo tempo e
+    // receber as duas sequências juntas, mensagens se atropelando -- foi
+    // exatamente o tipo de confusão do dia. Ao marcar uma, desmarca as
+    // outras automaticamente (mesmo comportamento intuitivo de "arrastar o
+    // card pra coluna nova" que o Kanban já sugere visualmente).
+    const SEQUENCE_TAG_NAMES = ['Follow up', 'No-show']
+    if (SEQUENCE_TAG_NAMES.includes(tag.tag_name)) {
+      const { data: outrasTags } = await supabase
+        .from('tags')
+        .select('id')
+        .eq('company_id', context.companyId)
+        .in('tag_name', SEQUENCE_TAG_NAMES.filter((n) => n !== tag.tag_name))
+      const outrosIds = (outrasTags ?? []).map((t) => t.id)
+      if (outrosIds.length) {
+        await supabase.from('lead_tags').delete().eq('lead_id', leadId).in('tag_id', outrosIds)
+      }
+      const { data: leadAtual } = await supabase.from('leads').select('status').eq('id', leadId).single()
+      if (leadAtual?.status === 'Remarketing') {
+        await supabase.from('leads').update({ status: 'Em contato' }).eq('id', leadId)
+      }
+    }
+
     const { data, error } = await supabase.from('lead_tags').insert({ lead_id: leadId, tag_id: tagId }).select('*, tag:tags(*)').single();
 
     if (error) {

@@ -34,6 +34,14 @@ export async function POST(request: NextRequest) {
 
     if (compErr) return NextResponse.json({ error: compErr.message }, { status: 500 })
 
+    // Etiquetas de sistema (Follow up / No-show) : toda empresa nova já
+    // nasce com elas, mesmo padrão do seed retroativo feito em 2026-09-16
+    // pras empresas existentes (migration seed_follow_up_no_show_system_tags).
+    await service.from('tags').insert([
+      { company_id: company.id, tag_name: 'Follow up', tag_color: '#3b82f6' },
+      { company_id: company.id, tag_name: 'No-show', tag_color: '#ef4444' },
+    ])
+
     const { error: userErr } = await service.from('users').upsert({
       auth_user_id: user.id,
       user_id: user.id,
