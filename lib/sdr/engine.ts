@@ -1576,6 +1576,8 @@ REGRAS DE MENSAGEM (CRÍTICO):
 - NUNCA use a expressão "ao vivo" (pedido direto do Rodrigo, 2026-09-09). Use "na nossa conversa", "na reunião" ou "na call" no lugar.
 - NUNCA repita a mesma muleta de frase em mensagens seguidas (ex: "Se quiser, posso...", "Fico à disposição", "Qualquer dúvida me avisa"). Revise mentalmente a ÚLTIMA mensagem que você mandou nesta conversa : se ela já terminava com uma oferta parecida, feche essa mensagem de um jeito diferente ou sem oferta nenhuma.
 - Evite "Se quiser, posso..." como abertura padrão de oferta : é hedge passivo, soa hesitante e repetitivo. Prefira afirmar direto ou fazer a pergunta objetiva (em vez de "Se quiser, posso te explicar os motivos", use "Isso costuma acontecer por 2-3 motivos : [motivo]. Você já tem X?"). Seja direto e cirúrgico, não ofereça passivamente.
+- ⛔ CRÍTICO (achado ao vivo, 2026-09-16, lead Sara) : NUNCA pergunte a MESMA coisa duas vezes dentro da mesma resposta, mesmo reformulada com outras palavras (ex: "você já fez anúncio no Google ou Instagram?" seguido de "já investiu em alguma divulgação online?" no mesmo bloco de mensagens é a MESMA pergunta duas vezes). Antes de escrever o último bloco, releia os blocos anteriores desta MESMA resposta e corte qualquer repetição.
+- ⛔ CRÍTICO : a mensagem mais recente do lead (recebida agora, motivo desta resposta) SEMPRE responde alguma coisa, mesmo que de forma curta, indireta ou em jargão (ex: "tráfego pago" = já investiu em anúncio; "Instagram" pode responder tanto "onde vêm seus clientes" quanto "já anunciou" dependendo do contexto). Antes de fazer qualquer pergunta nova, primeiro decida explicitamente o que a mensagem mais recente do lead já respondeu, e reconheça isso na sua resposta (ex: "Legal, então você já testou tráfego pago no Instagram!") antes de perguntar a próxima coisa. NUNCA repita, nem de forma reformulada, uma pergunta que a mensagem mais recente do lead já respondeu, mesmo que a resposta pareça incompleta ou ambígua : nesse caso, peça a informação que falta especificamente (ex: "E no Google, chegou a testar?"), nunca repita a pergunta ampla de novo.
 
 ⛔ REGRA CRÍTICA (pedido direto do Bruno, 2026-09-08) : NUNCA revele valor, preço ou número de investimento na conversa, em nenhuma hipótese, mesmo que o lead pergunte diretamente, mesmo que insista, e mesmo que alguma tool retorne um valor numérico. Seu papel não é vender preço, é criar interesse e preparar o lead pra call, quem fecha e fala de valor é o Bruno, nosso especialista em Google, na reunião. Se perguntarem preço antes da qualificação estar completa (nicho, dor, histórico, decisor e investimento disponível confirmados), responda algo como "Nosso especialista em Google, o Bruno, te mostra certinho na nossa conversa, já adaptado pro seu caso" e siga qualificando. NUNCA diga um número de reais em nenhuma circunstância.
 
@@ -2635,13 +2637,33 @@ function containsProvaSocial(text: string): boolean {
 // recebeu "Aqui é a Laura... como posso te chamar?" duas vezes numa
 // conversa de 20 minutos). Detecta pelo texto literal do script (documento
 // 2016, Passo 0), sem depender do modelo reportar.
-const APRESENTACAO_RE = /especialista em presen[çc]a digital do Grupo Venda/i
+// Achado ao vivo (Rodrigo, 2026-09-16, lead Sara) : os dois regex só
+// cobriam UMA forma de frase cada. A abertura real dessa conversa usou
+// "Sou a Laura, atendente do Grupo Venda" e "Qual o seu nome?", nenhum dos
+// dois batendo com o padrão original -- nome_perguntado nunca virou true,
+// o checklist mentiu "não perguntado ainda" a conversa inteira, e o SDR
+// perguntou o nome de novo no fim, depois de já ter chamado a lead pelo
+// nome em 8+ mensagens. Alarga a cobertura pras variações reais que o
+// modelo usa, sem virar genérico demais a ponto de dar falso positivo.
+const APRESENTACAO_RE = /especialista em presen[çc]a digital do Grupo Venda|atendente do Grupo Venda/i
 function containsApresentacao(text: string): boolean {
   return APRESENTACAO_RE.test(text)
 }
-const NOME_PERGUNTADO_RE = /como posso te chamar/i
+const NOME_PERGUNTADO_RE = /como posso te chamar|qual\s+(é\s+)?o?\s*seu\s+nome|como\s+(você\s+)?se\s+chama/i
 function containsNomePerguntado(text: string): boolean {
   return NOME_PERGUNTADO_RE.test(text)
+}
+
+// Achado ao vivo (Rodrigo, 2026-09-16) : a regra "NUNCA use travessão" já
+// existe duas vezes no system prompt (linhas ~1189 e ~1575), mas o modelo
+// não obedece 100% das vezes -- mesma limitação de sempre, instrução em
+// texto não é garantia. Filtro determinístico no envio, não depende do
+// modelo lembrar.
+function stripTravessao(text: string): string {
+  return text
+    .replace(/\s*—\s*/g, ', ')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*\./g, '.')
 }
 
 async function sendWithHumanDelay(
@@ -2681,7 +2703,7 @@ async function sendWithHumanDelay(
   }
 
   for (let i = 0; i < paragraphs.length; i++) {
-    const paragraph = personalizeBriefingLinks(paragraphs[i], phone)
+    const paragraph = stripTravessao(personalizeBriefingLinks(paragraphs[i], phone))
     if (!paragraph.trim()) continue
 
     // Achado ao vivo (Rodrigo, 2026-09-09, lead Nei) : a recheck acima só
