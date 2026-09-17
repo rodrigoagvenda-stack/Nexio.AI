@@ -171,7 +171,26 @@ export interface UazapiWebhookMessage {
         entryPointConversionSource?: string // ex: "ctwa_ad"
         entryPointConversionApp?: string    // ex: "instagram"
       }
+      // Achado ao vivo (Rodrigo, 2026-09-17, lead Rodrigo/teste) : resposta
+      // de botão do WhatsApp nunca era lida em lugar nenhum -- extractText
+      // (engine.ts) só olhava msg.text/conversation/extendedTextMessage/body,
+      // nenhum deles existe numa resposta de clique em botão. A mensagem
+      // ficava com texto vazio e era descartada silenciosamente ("texto
+      // vazio e não é mídia"), fazendo qualquer nó de Condição baseado em
+      // resposta_botao nunca detectar o clique, pra lead real ou em teste.
+      // Nomes abaixo seguem a convenção padrão Baileys (lib por trás da
+      // uazapi) : ainda NÃO confirmados contra payload real de produção,
+      // por isso o log de debug temporário em engine.ts junto com este fix.
+      buttonsResponseMessage?: { selectedButtonId?: string; selectedDisplayText?: string }
+      templateButtonReplyMessage?: { selectedId?: string; selectedDisplayText?: string }
+      listResponseMessage?: { title?: string; singleSelectReply?: { selectedRowId?: string } }
     }
+    // Campo de conveniência da própria uazapi (visto em payload real, sempre
+    // vazio nos exemplos capturados até agora por não serem resposta de
+    // botão) : provavelmente o id/value do botão clicado, não o texto
+    // visível -- por isso não é a fonte primária de match contra o rótulo
+    // configurado no nó de Condição, só mais um fallback.
+    buttonOrListid?: string
     messageTimestamp: number
     messageType: string
     referral?: {

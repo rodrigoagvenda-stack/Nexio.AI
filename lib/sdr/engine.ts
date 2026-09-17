@@ -3629,10 +3629,18 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     const msgType = detectMessageType(body.message)
     const isMedia = msgType === 'audio' || msgType === 'image' || msgType === 'document' || msgType === 'video'
 
+    // Achado ao vivo (Rodrigo, 2026-09-17) : resposta de clique em botão
+    // (menu/botoes) nunca era lida daqui, ficava sempre vazia e a mensagem
+    // era descartada -- ver comentário completo em uazapi.ts junto aos
+    // campos novos. selectedDisplayText é o texto visível do botão (o que
+    // o nó de Condição compara), singleSelectReply cobre resposta de lista.
     const text = msg?.text
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
+      || msg?.content?.buttonsResponseMessage?.selectedDisplayText
+      || msg?.content?.templateButtonReplyMessage?.selectedDisplayText
+      || msg?.content?.listResponseMessage?.title
       || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
       || ''
 
@@ -3661,6 +3669,19 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
     // Mensagens de mídia sem texto são válidas : serão enriquecidas (transcrição/vision) em processSdrMessage
     if (!text.trim() && !isMedia) {
       console.warn(`[SDR:${companyId}] ignorado : texto vazio e não é mídia. Campos:`, Object.keys(msg ?? {}))
+      // LOG TEMPORÁRIO (remover após confirmar em produção real, mesmo
+      // padrão usado pro CTWA em 2026-09-02) : grava o payload bruto sempre
+      // que uma mensagem fica com texto vazio, pra confirmar contra evento
+      // real se os nomes de campo de resposta de botão (buttonsResponseMessage
+      // etc, adicionados agora) batem certo, ou se uazapi usa outro nome.
+      const maskedPhone2 = body.chat?.phone ? `${'*'.repeat(Math.max(body.chat.phone.length - 4, 0))}${body.chat.phone.slice(-4)}` : null
+      syslog({
+        type: 'debug_texto_vazio_uazapi',
+        severity: 'info',
+        message: `Texto vazio : messageType="${msg?.messageType}" buttonOrListid="${body.message?.buttonOrListid ?? ''}"`,
+        company_id: companyId,
+        payload: { phone: maskedPhone2, rawBody: body },
+      })
       return false
     }
 
