@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +74,52 @@ export function LeadInfoSidebar({
   const [editingProjectValue, setEditingProjectValue] = useState<string>('');
   const [hasProjectValueChanged, setHasProjectValueChanged] = useState(false);
   const [activeTab, setActiveTab] = useState('dados'); // 🚀 Performance: Track active tab
+  const [sequenceTagIds, setSequenceTagIds] = useState<{ 'Follow up': number | null; 'No-show': number | null }>({ 'Follow up': null, 'No-show': null });
+  const [updatingSeqTag, setUpdatingSeqTag] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/tags?companyId=${companyId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.success) return;
+        const followUp = data.data.find((t: { id: number; tag_name: string }) => t.tag_name === 'Follow up')?.id ?? null;
+        const noShow = data.data.find((t: { id: number; tag_name: string }) => t.tag_name === 'No-show')?.id ?? null;
+        setSequenceTagIds({ 'Follow up': followUp, 'No-show': noShow });
+      })
+      .catch(() => {});
+  }, [companyId]);
+
+  async function handleToggleSequenceTag(tagName: 'Follow up' | 'No-show') {
+    const tagId = sequenceTagIds[tagName];
+    if (!tagId) {
+      toast({ title: 'Etiqueta de sistema não encontrada', description: 'Recarregue a página e tente de novo.', variant: 'destructive' });
+      return;
+    }
+    const isActive = tags.includes(tagName);
+    setUpdatingSeqTag(tagName);
+    try {
+      const res = await fetch(isActive ? '/api/tags/unassign' : '/api/tags/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, tagId, companyId }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message);
+
+      // Assign no servidor já desmarca Follow up/No-show/Remarketing
+      // concorrentes (exclusão mútua) : reflete isso aqui também.
+      const outraTag = tagName === 'Follow up' ? 'No-show' : 'Follow up';
+      const updatedTags = isActive
+        ? tags.filter((t) => t !== tagName)
+        : [...tags.filter((t) => t !== outraTag), tagName];
+      if (onTagsUpdate) onTagsUpdate(updatedTags);
+      toast({ title: isActive ? `Removido de "${tagName}"` : `Movido para "${tagName}"` });
+    } catch (error: any) {
+      toast({ title: error.message || 'Erro ao atualizar', variant: 'destructive' });
+    } finally {
+      setUpdatingSeqTag(null);
+    }
+  }
 
   async function handleFieldUpdate(field: string, value: any) {
     setUpdating(true);
@@ -231,6 +277,32 @@ export function LeadInfoSidebar({
                       <SelectItem value="Remarketing">Remarketing</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                {/* Achado ao vivo (Rodrigo, 2026-09-17) : Follow up e No-show
+                    viraram etiqueta, não status -- some daqui de "Estágio" e
+                    ficava só na aba Tags, obrigando sair do chat e caçar no
+                    Kanban pra mover o lead. Toggle rápido aqui do lado, com o
+                    chat já aberto, sem trocar de tela. */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Sequência de reengajamento</Label>
+                  <div className="flex gap-2">
+                    {(['Follow up', 'No-show'] as const).map((tagName) => {
+                      const isActive = tags.includes(tagName);
+                      return (
+                        <Button
+                          key={tagName}
+                          type="button"
+                          size="sm"
+                          variant={isActive ? 'default' : 'outline'}
+                          className="h-8 text-xs flex-1"
+                          disabled={updatingSeqTag === tagName}
+                          onClick={() => handleToggleSequenceTag(tagName)}
+                        >
+                          {tagName}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
