@@ -178,19 +178,25 @@ export interface UazapiWebhookMessage {
       // ficava com texto vazio e era descartada silenciosamente ("texto
       // vazio e não é mídia"), fazendo qualquer nó de Condição baseado em
       // resposta_botao nunca detectar o clique, pra lead real ou em teste.
-      // Nomes abaixo seguem a convenção padrão Baileys (lib por trás da
-      // uazapi) : ainda NÃO confirmados contra payload real de produção,
-      // por isso o log de debug temporário em engine.ts junto com este fix.
-      buttonsResponseMessage?: { selectedButtonId?: string; selectedDisplayText?: string }
-      templateButtonReplyMessage?: { selectedId?: string; selectedDisplayText?: string }
+      // CONFIRMADO contra payload real de produção (system_logs
+      // type=debug_texto_vazio_uazapi, 2026-09-17 16:54) : selectedDisplayText
+      // fica direto aqui em content, não aninhado num sub-objeto tipo
+      // buttonsResponseMessage/templateButtonReplyMessage (esses não existem
+      // no payload real da uazapi, primeira tentativa via convenção Baileys
+      // padrão estava um nível errado).
+      selectedID?: string
+      selectedIndex?: number
+      selectedDisplayText?: string  // texto visível do botão : "Sim, bora"
       listResponseMessage?: { title?: string; singleSelectReply?: { selectedRowId?: string } }
     }
-    // Campo de conveniência da própria uazapi (visto em payload real, sempre
-    // vazio nos exemplos capturados até agora por não serem resposta de
-    // botão) : provavelmente o id/value do botão clicado, não o texto
-    // visível -- por isso não é a fonte primária de match contra o rótulo
-    // configurado no nó de Condição, só mais um fallback.
+    // Campo de conveniência da própria uazapi : CONFIRMADO em payload real
+    // (2026-09-17) que carrega o texto visível do botão clicado ("Sim,
+    // bora"), igual message.vote e content.selectedDisplayText -- os três
+    // batem com o mesmo valor no mesmo evento real.
     buttonOrListid?: string
+    // Confirmado no mesmo payload real (2026-09-17) : campo top-level com o
+    // texto visível do botão clicado, mais simples que os outros dois.
+    vote?: string
     messageTimestamp: number
     messageType: string
     referral?: {

@@ -3632,15 +3632,20 @@ export async function handleWebhook(companyId: number, body: UazapiWebhookMessag
 
     // Achado ao vivo (Rodrigo, 2026-09-17) : resposta de clique em botão
     // (menu/botoes) nunca era lida daqui, ficava sempre vazia e a mensagem
-    // era descartada -- ver comentário completo em uazapi.ts junto aos
-    // campos novos. selectedDisplayText é o texto visível do botão (o que
-    // o nó de Condição compara), singleSelectReply cobre resposta de lista.
+    // era descartada. Primeira tentativa de nomes de campo (buttonsResponseMessage/
+    // templateButtonReplyMessage aninhados) estava um nível errado -- CONFIRMADO
+    // contra payload real de produção (system_logs type=debug_texto_vazio_uazapi,
+    // lead Rodrigo/teste, 2026-09-17 16:54) : o campo certo é message.vote
+    // (top-level) e message.content.selectedDisplayText, ambos com o texto
+    // visível do botão ("Sim, bora"). buttonOrListid também bate, mantido
+    // como fallback a mais.
     const text = msg?.text
       || msg?.conversation
       || msg?.extendedTextMessage?.text
       || msg?.body
-      || msg?.content?.buttonsResponseMessage?.selectedDisplayText
-      || msg?.content?.templateButtonReplyMessage?.selectedDisplayText
+      || msg?.vote
+      || msg?.content?.selectedDisplayText
+      || msg?.buttonOrListid
       || msg?.content?.listResponseMessage?.title
       || (msgType === 'text' ? body.chat?.wa_lastMessageTextVote : '')
       || ''
