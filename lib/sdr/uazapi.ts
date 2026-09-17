@@ -570,12 +570,20 @@ export async function sendRichStep(
 }
 
 /** Detecta tipo de mensagem do payload uazapi */
-export function detectMessageType(msg: UazapiWebhookMessage['message']): 'text' | 'audio' | 'image' | 'document' | 'video' | 'unknown' {
+export function detectMessageType(msg: UazapiWebhookMessage['message']): 'text' | 'audio' | 'image' | 'document' | 'video' | 'button' | 'unknown' {
   const mime = msg.content?.mimetype ?? ''
   if (mime.startsWith('audio')) return 'audio'
   if (mime.startsWith('image')) return 'image'
   if (mime === 'application/pdf') return 'document'
   if (mime.startsWith('video')) return 'video'
   if (msg.text) return 'text'
+  // Achado ao vivo (Rodrigo, 2026-09-17) : resposta de clique em botão/lista
+  // não tem msg.text (fica ""), então caía em 'unknown'. tipo_de_mensagem
+  // 'unknown' NÃO é aceito pela CHECK constraint de mensagens_do_whatsapp
+  // (só aceita uma lista fixa que inclui 'button'), então o insert do
+  // registro inbound falhava e era engolido silenciosamente pelo try/catch
+  // best-effort de ingestInboundMessage -- a resposta nunca aparecia no chat
+  // nem no Testar do canvas, mesmo o bot respondendo certo por baixo dos panos.
+  if (msg.vote || msg.buttonOrListid || msg.content?.selectedDisplayText || msg.content?.selectedID) return 'button'
   return 'unknown'
 }

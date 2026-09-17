@@ -1377,6 +1377,19 @@ export default function AtendimentoPage() {
       );
     }
 
+    // Resposta de clique em botão do lead (inbound) : mostra como o próprio WhatsApp
+    // mostra, destacado, não como texto solto -- achado ao vivo (Rodrigo, 2026-09-17),
+    // antes disso a resposta nem aparecia no chat (bug de persistência corrigido em
+    // detectMessageType/uazapi.ts).
+    if (msg.tipo_de_mensagem === 'button' && msg.direcao === 'inbound') {
+      return (
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+          <span className="text-sm font-medium text-primary">{msg.texto_da_mensagem}</span>
+        </div>
+      );
+    }
+
     // Menu/button : antes do bloco url_da_midia porque url_da_midia carrega o JSON de choices
     if (msg.tipo_de_mensagem === 'menu' || msg.tipo_de_mensagem === 'button') {
       let menuData: { menuType?: string; choices?: any[] } = {};
