@@ -2256,11 +2256,12 @@ async function processTrialSaas(
           confirmedDispatched.add(step.id)
           continue
         }
-        const texto = substituirVariaveis(textoRaw ?? '', {
+        const trialAsLead = {
           contact_name: trial.nome, whatsapp: trial.whatsapp, status: trial.status,
           resumo_ia: null, notes: null, call_de_venda: null, call_agendada_para: null, call_status: null,
           id: trial.id, company_id: trial.company_id,
-        })
+        }
+        const texto = substituirVariaveis(textoRaw ?? '', trialAsLead)
         const media = step.media_config
 
         const lockKeyTrial = sendLockKey(company.id, trial.id, step.id)
@@ -2307,7 +2308,7 @@ async function processTrialSaas(
         }
 
         try {
-          await enviarMensagem(phone, texto, company, tipo, media, lead)
+          await enviarMensagem(phone, texto, company, tipo, media, trialAsLead)
           await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase, phone, trial.nome, tipo, media)
 
           // Blocos adicionais
