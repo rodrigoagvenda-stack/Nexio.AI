@@ -1970,6 +1970,34 @@ async function runOrchestrator(
     adHeadline = attrRow?.referral_headline ?? null
   }
 
+  // Achado ao vivo (Rodrigo, 2026-09-17) : lead clicou "Sim, bora" num botão de
+  // uma sequência de reengajamento do canvas (automação separada, roda por conta
+  // própria) e recebeu DUAS respostas sobrepostas : a mensagem do próprio node
+  // "Agendar Call" do canvas, E este orquestrador oferecendo agendamento de novo
+  // do zero, como se fosse pergunta nova. As duas automações não se conheciam.
+  // Genérico pra qualquer sequência/node atual ou futuro do canvas, não só
+  // agendamento : sempre que um passo do canvas mandou mensagem recente pro
+  // lead, avisa o orquestrador pra não duplicar a oferta.
+  let canvasFollowText = ''
+  if (ctx.leadId) {
+    const { data: lastExec } = await supabase
+      .from('follow_executions')
+      .select('disparado_em, sequence:follow_sequences(nome), step:follow_steps(mensagem, tipo_mensagem)')
+      .eq('lead_id', ctx.leadId)
+      .eq('status', 'sent')
+      .gte('disparado_em', new Date(Date.now() - 48 * 3600 * 1000).toISOString())
+      .order('disparado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lastExec) {
+      const seqNome = (lastExec as any).sequence?.nome ?? 'sequência automática'
+      const stepMsg = (lastExec as any).step?.mensagem ?? ''
+      canvasFollowText = `
+
+⛔ FLUXO DE REENGAJAMENTO AUTOMÁTICO ATIVO PRA ESSE LEAD : a sequência "${seqNome}" (automação do canvas, roda sozinha, independente deste chat) mandou uma mensagem pra esse lead recentemente${stepMsg ? ` : "${stepMsg}"` : ''}. NÃO repita nem reofereça do zero o que essa automação já mandou (ex: se ela já ofereceu agendar horário, condição especial, etc). Se o lead está respondendo/confirmando o que a automação ofereceu, dê continuidade normalmente (ex: se ele confirmou querer agendar, pode chamar Agente_de_Agendamento) : só evite duplicar a OFERTA/pitch em si, não fique em silêncio.`
+    }
+  }
+
   const deferBlock = isDeferContactRequest(userInput)
     ? `\n\n⛔ REGRA CRÍTICA NESTA RESPOSTA : o lead acabou de dizer que não pode falar agora e vai retomar contato depois (ligar, chamar, responder mais tarde). Responda com NO MÁXIMO UMA frase curta reconhecendo isso (ex: "Sem problema, fico no aguardo!" ou "Combinado, falamos quando puder"). NÃO faça nenhuma pergunta nesta resposta. NÃO peça horário, data ou confirmação de quando. NÃO chame Agente_de_Agendamento nem ofereça agendar nada agora. Apenas reconheça e encerre : a regra de "sempre conduzir a conversa adiante" NÃO se aplica aqui, o lead pediu espaço.`
     : ''
@@ -1982,7 +2010,7 @@ CONTEXTO DO CRM:
 - Notas: ${leadNotes || 'nenhuma'}
 - Empresa: ${ctx.companyName}
 - Data/hora: ${now}
-- Origem deste lead: ${origemReal === 'outbound' ? `OUTBOUND (a empresa entrou em contato primeiro). Mensagem original enviada: "${mensagemOutboundOriginal}"` : 'INBOUND (o lead entrou em contato primeiro, sem nenhuma abordagem prévia da empresa). NUNCA diga que "reparou" ou "notou" algo no perfil dele : você não pesquisou nada antes, foi ele quem chegou até você.'}
+- Origem deste lead: ${origemReal === 'outbound' ? `OUTBOUND (a empresa entrou em contato primeiro). Mensagem original enviada: "${mensagemOutboundOriginal}"` : 'INBOUND (o lead entrou em contato primeiro, sem nenhuma abordagem prévia da empresa). NUNCA diga que "reparou" ou "notou" algo no perfil dele : você não pesquisou nada antes, foi ele quem chegou até você.'}${canvasFollowText}
 
 CHECKLIST DESTA CONVERSA (siga isto à risca, é mais confiável que reler o histórico sozinho):
 ${checklistText}${adHeadline ? (apresentacaoJaFeita
