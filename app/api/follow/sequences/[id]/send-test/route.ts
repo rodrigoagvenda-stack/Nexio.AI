@@ -157,14 +157,30 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       const { data: leadRow } = await service.from('leads').select('contact_name').eq('id', conversaLead.id_do_lead).single()
       leadName = leadRow?.contact_name ?? ''
     }
+    // Achado ao vivo (Rodrigo, 2026-09-17) : {produto} nunca era substituído
+    // aqui, só {nome} -- mesma fonte que follow.ts usa (sdr_flows.descricao).
+    const { data: flowRow } = await service
+      .from('sdr_flows')
+      .select('descricao')
+      .eq('company_id', context.companyId)
+      .eq('ativo', true)
+      .limit(1)
+      .maybeSingle()
+    const produto = flowRow?.descricao ?? ''
     const primeiroNome = leadName.split(' ')[0]
     const substituir = (t: string) => t
       .replace(/\{nome\}/gi, leadName || 'você')
       .replace(/\{name\}/gi, leadName || 'você')
       .replace(/\{primeiro_nome\}/gi, primeiroNome || 'você')
       .replace(/\{first_name\}/gi, primeiroNome || 'você')
+      .replace(/\{produto\}/gi, produto || 'nosso produto')
 
     const mensagem = substituir(mensagemRaw)
+    // Achado ao vivo (Rodrigo, 2026-09-17) : sendRichStep usa media.text
+    // (não o parâmetro de texto) como legenda de imagem/vídeo/áudio -- media
+    // aqui nunca passava pela substituição, saía "{nome}" literal na legenda
+    // real. Substitui numa cópia antes de enviar.
+    const mediaFinal = media?.text ? { ...media, text: substituir(media.text) } : media
 
     // Typing delay before first message : ~30ms per char, capped at 4s
     const typingMs = (text: string) => Math.min(600 + text.length * 28, 4000) + Math.floor(Math.random() * 600)
@@ -175,7 +191,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       await sendRichStep(uazapi, phone, t, text, m)
     }
 
-    await humanSend(normalizedPhone, tipo, mensagem, media)
+    await humanSend(normalizedPhone, tipo, mensagem, mediaFinal)
 
     // Blocos adicionais com delay humanizado
     const blocos: string[] = Array.isArray(step.media_config?.blocos) ? step.media_config.blocos : []

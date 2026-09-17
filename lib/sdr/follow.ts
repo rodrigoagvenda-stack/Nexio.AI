@@ -618,14 +618,24 @@ REGRAS PARA ESTA MENSAGEM:
     ?? `Oi ${lead.contact_name}! Tudo bem? Gostaria de retomar nossa conversa.`
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-17) : legenda de imagem/vídeo/áudio/
+// documento nunca substituía {nome}/{produto} -- sendRichStep usa media.text
+// diretamente como legenda (lib/sdr/uazapi.ts), ignorando o parâmetro "text"
+// já substituído. Toda mensagem com legenda saía com a variável literal pro
+// lead real. Substitui media.text aqui, no ponto único por onde toda mídia
+// passa antes de enviar, em vez de cada call site lembrar de fazer isso.
 async function enviarMensagem(
   phone: string,
   text: string,
   company: CompanyCtx,
   tipo: StepTipoMensagem = 'text',
-  media?: StepMediaConfig | null
+  media?: StepMediaConfig | null,
+  lead?: Lead
 ): Promise<void> {
-  await sendRichStepUnified(company.id, phone, tipo, text, media)
+  const mediaFinal = media?.text && lead
+    ? { ...media, text: substituirVariaveis(media.text, lead) }
+    : media
+  await sendRichStepUnified(company.id, phone, tipo, text, mediaFinal)
 }
 
 function formatOffsetLabel(dia_offset: number, offsetUnit: string | undefined): string {
@@ -1109,7 +1119,7 @@ async function processFollowGeral(
 
           try {
             if (!isStaging) {
-              await enviarMensagem(phone, texto, company, 'text', media)
+              await enviarMensagem(phone, texto, company, 'text', media, lead)
               await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, 'text', media)
               const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
               for (let i = 1; i < blocos.length; i++) {
@@ -1492,7 +1502,7 @@ async function processFollowGeral(
             // Staging: log intent without sending real WhatsApp message
             console.log(`[follow][staging] skip send : lead=${lead.id} seq=${sequence.id} step=${step.id} tipo=${tipo} msg="${texto.slice(0, 80)}"`)
           } else {
-            await enviarMensagem(phone, texto, company, tipo, media)
+            await enviarMensagem(phone, texto, company, tipo, media, lead)
             await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_geral', supabase, tipo as StepTipoMensagem, media)
 
             const blocos: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
@@ -1640,7 +1650,7 @@ async function processAntiNoshow(
         const nomeAgente = `Anti-Noshow • ${formatOffsetLabel(step.dia_offset, offsetUnit)}`
 
         try {
-          await enviarMensagem(phone, texto, company, tipo, media)
+          await enviarMensagem(phone, texto, company, tipo, media, lead)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'anti_noshow', supabase, tipo as StepTipoMensagem, media, nomeAgente)
 
           // Blocos adicionais (bloco[0] já foi enviado acima como texto principal)
@@ -1850,7 +1860,7 @@ async function processRemarketing(
         }
 
         try {
-          await enviarMensagem(phone, texto, company, tipo, media)
+          await enviarMensagem(phone, texto, company, tipo, media, lead)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'remarketing', supabase, tipo as StepTipoMensagem, media)
 
           const blocosRm: string[] = Array.isArray(media?.blocos) ? (media.blocos as string[]) : []
@@ -1995,7 +2005,7 @@ async function processFollowProposta(
         }
 
         try {
-          await enviarMensagem(phone, texto, company, tipo, media)
+          await enviarMensagem(phone, texto, company, tipo, media, lead)
           await gravarMensagemFollow(lead.id, company.id, phone, texto, 'follow_proposta', supabase, tipo as StepTipoMensagem, media)
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'sent', supabase)
           await recordCircuitSuccess(sequence.id)
@@ -2297,7 +2307,7 @@ async function processTrialSaas(
         }
 
         try {
-          await enviarMensagem(phone, texto, company, tipo, media)
+          await enviarMensagem(phone, texto, company, tipo, media, lead)
           await gravarMensagemTrial(trial.id, company.id, texto, 'trial_saas', supabase, phone, trial.nome, tipo, media)
 
           // Blocos adicionais
@@ -2849,9 +2859,14 @@ export async function runSequenceImmediateById(
     if (!step.mensagem && !step.media_config) continue
 
     try {
-      const media = step.media_config as StepMediaConfig | undefined
+      const mediaRaw = step.media_config as StepMediaConfig | undefined
       const tipoMsg = (step.tipo_mensagem ?? 'text') as StepTipoMensagem
       const texto = substituirVariaveis(step.mensagem ?? '', lead as unknown as Lead)
+      // Mesmo fix do enviarMensagem (achado ao vivo, 2026-09-17) : legenda de
+      // mídia vem de media.text, não do parâmetro de texto já substituído.
+      const media = mediaRaw?.text
+        ? { ...mediaRaw, text: substituirVariaveis(mediaRaw.text, lead as unknown as Lead) }
+        : mediaRaw
       await sendRichStepUnified(companyId, phone, tipoMsg, texto, media)
       // Grava na conversa (mensagens_do_whatsapp) : sem isso a mensagem
       // chegava no WhatsApp do lead mas não aparecia no Atendimento, achado
