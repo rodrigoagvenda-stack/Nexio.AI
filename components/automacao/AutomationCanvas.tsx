@@ -5818,6 +5818,20 @@ function CanvasInner() {
           padding-right: 2rem;
           cursor: pointer;
         }
+        /* Achado ao vivo (Rodrigo, reportado 3x) : cursor sumia dentro do
+           canvas ao arrastar/pan. O React Flow troca pra cursor:grab e
+           cursor:grabbing (ícone de mãozinha do SO) por padrão no pane --
+           no Windows/Chrome esse ícone específico às vezes falha ao
+           redesenhar depois de trocado rápido demais (bug conhecido de
+           composição do Chromium, não é nosso código). Forçar um cursor
+           padrão simples em vez do ícone de mão evita esse glitch. */
+        .react-flow__pane {
+          cursor: default !important;
+        }
+        .react-flow__pane.dragging,
+        .react-flow__pane.selection {
+          cursor: default !important;
+        }
       `}</style>
     </div>
   );
