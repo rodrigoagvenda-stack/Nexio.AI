@@ -713,8 +713,8 @@ export default function CRMPage() {
         .eq('company_id', user?.company_id)
         .in('tag_name', ['Follow up', 'No-show']);
       setSystemTags({
-        followUpId: sysTags?.find((t) => t.tag_name === 'Follow up')?.id ?? null,
-        noShowId: sysTags?.find((t) => t.tag_name === 'No-show')?.id ?? null,
+        followUpId: sysTags?.find((t: { id: number; tag_name: string }) => t.tag_name === 'Follow up')?.id ?? null,
+        noShowId: sysTags?.find((t: { id: number; tag_name: string }) => t.tag_name === 'No-show')?.id ?? null,
       });
 
       // Contador de mensagens de reengajamento + data do último envio, pra
