@@ -262,6 +262,23 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
             // Replica lógica do botão de pause do atendimento: sdr_ativo=false → agente_pausado=true
             ...(step.sdr_ativo != null ? { agente_pausado: !step.sdr_ativo } : {}),
           }).eq('id', conversa.id),
+          // Achado ao vivo (Rodrigo, 2026-09-18) : send-test nunca gravava em
+          // follow_executions, só inseria a mensagem direto no chat. O
+          // orquestrador principal (lib/sdr/engine.ts, canvasFollowText) usa
+          // essa tabela pra saber que o canvas acabou de falar com o lead e
+          // evitar assumir a conversa sozinho -- sem esse registro, um clique
+          // real de botão durante um teste (ex: "Agora não") chegava pelo
+          // webhook e o robô respondia como se fosse uma conversa nova, sem
+          // saber que era um teste do canvas.
+          conversa.id_do_lead
+            ? service.from('follow_executions').insert({
+                lead_id: conversa.id_do_lead,
+                sequence_id: sequence.id,
+                step_id: step.id,
+                company_id: sequence.company_id,
+                status: 'sent',
+              })
+            : Promise.resolve(),
         ])
       }
     } catch {
