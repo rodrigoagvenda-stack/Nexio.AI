@@ -1557,6 +1557,26 @@ async function processFollowGeral(
             sent++
             await antiBanDelay()
           }
+
+          // Achado ao vivo (Rodrigo, 2026-09-18) : "Controle da IA" (Pausar
+          // IA após este node) só era aplicado em processTrialSaas e no botão
+          // "Testar" manual (send-test/route.ts) -- follow_geral nunca lia
+          // step.sdr_ativo, então essa configuração ficava sem efeito nenhum
+          // nos envios reais de sequências como "Reengajamento - Sumiu".
+          if (!isStaging && step.sdr_ativo !== null && step.sdr_ativo !== undefined) {
+            const phoneVars = phoneVariants(phone)
+            const { data: conv } = await supabase
+              .from('conversas_do_whatsapp')
+              .select('id')
+              .eq('company_id', company.id)
+              .in('numero_de_telefone', phoneVars)
+              .order('hora_da_ultima_mensagem', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (conv?.id) {
+              await supabase.from('conversas_do_whatsapp').update({ agente_pausado: !step.sdr_ativo }).eq('id', conv.id)
+            }
+          }
         } catch {
           await registrarExecucao(lead.id, sequence.id, step.id, company.id, 'failed', supabase)
           const { shouldOpen } = await recordCircuitFailure(sequence.id)
