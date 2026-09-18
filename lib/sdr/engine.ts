@@ -2032,7 +2032,23 @@ async function runOrchestrator(
     ? `\n\n⛔ REGRA CRÍTICA NESTA RESPOSTA : o lead acabou de dizer que não pode falar agora e vai retomar contato depois (ligar, chamar, responder mais tarde). Responda com NO MÁXIMO UMA frase curta reconhecendo isso (ex: "Sem problema, fico no aguardo!" ou "Combinado, falamos quando puder"). NÃO faça nenhuma pergunta nesta resposta. NÃO peça horário, data ou confirmação de quando. NÃO chame Agente_de_Agendamento nem ofereça agendar nada agora. Apenas reconheça e encerre : a regra de "sempre conduzir a conversa adiante" NÃO se aplica aqui, o lead pediu espaço.`
     : ''
 
-  const systemMsg = `${buildOrchestratorSystem(ctx)}${deferBlock}
+  // Achado ao vivo (Rodrigo, 2026-09-18, leads Samuel/Ney/company 30) : leads
+  // de remarketing chegam com o texto PADRÃO do próprio anúncio como primeira
+  // mensagem (ex: "Oi, vi o anúncio do GMB por R$1.125, quero saber mais"),
+  // preenchido automaticamente pelo Meta Ads quando clicam no botão -- o lead
+  // não perguntou nada, só clicou. O modelo tratava isso como pergunta real de
+  // preço e desviava com "quem mostra o valor é o Bruno", o que soa estranho
+  // porque o lead já viu esse valor no próprio anúncio que clicou. Existem
+  // várias variações de anúncio com valores diferentes, não é regex de um
+  // valor fixo (containsPreco já cobre os planos oficiais, isso aqui é
+  // qualquer R$ que vier na primeira mensagem).
+  const isPrimeiroContato = !history.some((m) => m.role === 'assistant')
+  const primeiraMensagemComPreco = isPrimeiroContato && /R\$\s?[\d.,]+/.test(userInput)
+  const anuncioPrecoBlock = primeiraMensagemComPreco
+    ? `\n\n⛔ ACHADO AO VIVO (2026-09-18) : essa é a primeira mensagem desta conversa e contém um valor em R$ -- é o texto PADRÃO do próprio anúncio de remarketing que o lead clicou (o Meta Ads preenche essa mensagem sozinho, cada anúncio pode trazer um valor diferente). O lead NÃO perguntou sobre preço, só clicou no anúncio. NÃO trate como pergunta de valor, NÃO diga "quem mostra o valor é o Bruno" nem qualquer desvio parecido, NÃO cite a regra de nunca revelar preço aqui -- ela é pra quando o LEAD pergunta de verdade, não pra esse texto automático de abertura. Siga o fluxo normal de abertura/qualificação como se o valor não estivesse ali.`
+    : ''
+
+  const systemMsg = `${buildOrchestratorSystem(ctx)}${deferBlock}${anuncioPrecoBlock}
 
 CONTEXTO DO CRM:
 - Lead: ${ctx.leadName} | WhatsApp: ${ctx.leadPhone}
