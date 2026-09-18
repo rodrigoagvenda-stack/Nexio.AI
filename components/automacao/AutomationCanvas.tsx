@@ -200,6 +200,7 @@ interface MessageNodeData extends Record<string, unknown> {
   media_url?: string;
   media_name?: string;
   uploading?: boolean;
+  transcribing?: boolean;
   // Localização (Google Maps URL + labels)
   location_url?: string;
   location_name?: string;
@@ -2804,6 +2805,27 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
 
   const horarioValue = d.kind === 'message' ? (d.horario || '09:00').slice(0, 5) : '09:00';
 
+  // Achado ao vivo (Rodrigo, 2026-09-18) : node de áudio nunca teve campo de
+  // texto -- mensagem que sobrava de um node antigo (outro tipo) virava lixo
+  // órfão, e o SDR usava esse texto como se fosse o que o áudio realmente diz.
+  // Transcreve automaticamente no upload (uma vez só, não por envio) e limpa
+  // a mensagem/transcrição antiga assim que um NOVO arquivo é enviado, pra
+  // nunca ficar com transcrição de um áudio que não é mais esse.
+  async function handleAudioUpload(url: string) {
+    onUpdate(node!.id, { media_url: url, uploading: false, mensagem: undefined, transcribing: true });
+    try {
+      const res = await fetch('/api/follow/transcribe-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      onUpdate(node!.id, { mensagem: data.success ? data.text : '', transcribing: false });
+    } catch {
+      onUpdate(node!.id, { transcribing: false });
+    }
+  }
+
   return (
     <div className="w-72 bg-card border-l border-border h-full flex flex-col overflow-y-auto">
       <div className="flex items-center justify-between px-4 h-12 border-b border-border flex-shrink-0">
@@ -2981,15 +3003,32 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
             {(d.tipo_mensagem === 'audio' || d.tipo_mensagem === 'ptt') && (
               <Field label="Áudio">
                 <AudioRecorder current={d.media_url}
-                  onUploadStart={() => onUpdate(node.id, { uploading: true })}
-                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+                  onUploadStart={() => onUpdate(node.id, { uploading: true, mensagem: undefined })}
+                  onUpload={handleAudioUpload} />
                 <div className="relative my-1">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
                   <div className="relative flex justify-center"><span className="bg-card px-2 text-[10px] text-muted-foreground">ou enviar arquivo</span></div>
                 </div>
                 <UploadZone accept="audio/*" label="Enviar arquivo de áudio" current={undefined}
-                  onUploadStart={() => onUpdate(node.id, { uploading: true })}
-                  onUpload={(url) => onUpdate(node.id, { media_url: url, uploading: false })} />
+                  onUploadStart={() => onUpdate(node.id, { uploading: true, mensagem: undefined })}
+                  onUpload={handleAudioUpload} />
+                {d.media_url && (
+                  <div className="mt-2">
+                    <p className="text-[10px] text-muted-foreground mb-1">
+                      Transcrição {d.transcribing ? '(transcrevendo…)' : '(editável)'}
+                    </p>
+                    <textarea
+                      value={d.transcribing ? '' : ((d.mensagem as string) ?? '')}
+                      onChange={(e) => onUpdate(node.id, { mensagem: e.target.value })}
+                      disabled={!!d.transcribing}
+                      placeholder={d.transcribing ? 'Transcrevendo automaticamente…' : 'O que é dito no áudio (usado pelo SDR pra entender o histórico)'}
+                      className="field-input min-h-16 resize-y text-xs"
+                    />
+                    <p className="text-[9px] text-muted-foreground/60 mt-0.5 leading-snug">
+                      Transcrito automaticamente quando o áudio é enviado. Trocar o arquivo apaga essa transcrição e gera outra. É o único registro que o SDR tem do que já foi dito nesse áudio -- mantenha fiel ao que é falado.
+                    </p>
+                  </div>
+                )}
               </Field>
             )}
 

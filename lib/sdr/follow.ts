@@ -727,21 +727,21 @@ export async function gravarMensagemFollow(
   }
 
   // Achado ao vivo (Rodrigo, 2026-09-18) : node de áudio no editor (Automation
-  // Canvas) só tem campo de upload de arquivo, NUNCA teve campo de texto/
-  // legenda -- diferente de vídeo, que tem "Legenda do vídeo" de verdade.
-  // Quando um node muda de tipo (texto -> áudio), o step.mensagem antigo pode
-  // continuar no banco, órfão, sem nenhum jeito de ver ou editar isso no
-  // editor. Usar esse texto como se fosse o conteúdo real do áudio é sempre
-  // errado : pode ser lixo de um node apagado, e o histórico da IA lê esse
-  // texto como se fosse o que foi realmente dito, respondendo em cima de
-  // uma premissa falsa (achado ao vivo : lead ouviu um áudio de despedida
+  // Canvas) só tinha campo de upload de arquivo, sem campo de texto/legenda --
+  // diferente de vídeo, que tem "Legenda do vídeo" de verdade. step.mensagem
+  // pra áudio podia ser lixo órfão de um node apagado, e o histórico da IA
+  // lia esse texto como se fosse o que foi realmente dito, respondendo em
+  // cima de premissa falsa (achado ao vivo : lead ouviu um áudio de despedida
   // educada, respondeu "ok" aceitando, e o SDR seguiu empurrando qualificação
   // porque só via a legenda genérica, não o que o áudio realmente dizia).
-  // Pra áudio/ptt, nunca usa texto -- nem no histórico da mensagem em si,
-  // nem no preview da conversa.
+  // Agora o editor transcreve automaticamente no upload (ver
+  // /api/follow/transcribe-audio) e step.mensagem passa a ser a transcrição
+  // real -- usa ela no histórico da mensagem quando existir; sem transcrição
+  // (upload antigo, ou falha na transcrição), cai no placeholder em vez de
+  // arriscar mostrar lixo/texto de outro node.
   const displayText =
-    tipoMensagem === 'audio' || tipoMensagem === 'ptt'
-      ? '🎵 Áudio'
+    (tipoMensagem === 'audio' || tipoMensagem === 'ptt')
+      ? (text?.trim() || '🎵 Áudio')
       : text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
 
   if (!convId) {
