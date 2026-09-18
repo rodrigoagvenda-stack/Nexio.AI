@@ -257,7 +257,17 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
             carimbo_de_data_e_hora: new Date(Date.now() + 1).toISOString(),
           }),
           service.from('conversas_do_whatsapp').update({
-            ultima_mensagem: mensagem,
+            // Achado ao vivo (Rodrigo, 2026-09-18) : mesmo fix de
+            // lib/sdr/follow.ts (gravarMensagemFollow) -- ultima_mensagem
+            // pra mídia usa um placeholder curto, não o texto/roteiro
+            // completo, senão o preview da lista de conversas mostra o
+            // roteiro inteiro em vez de indicar que foi um áudio/imagem/etc.
+            ultima_mensagem:
+              tipo === 'audio' || tipo === 'ptt' ? '🎵 Áudio' :
+              tipo === 'image' ? '📷 Imagem' :
+              tipo === 'document' ? '📄 Documento' :
+              tipo === 'video' ? '🎥 Vídeo' :
+              mensagem,
             hora_da_ultima_mensagem: now,
             // Replica lógica do botão de pause do atendimento: sdr_ativo=false → agente_pausado=true
             ...(step.sdr_ativo != null ? { agente_pausado: !step.sdr_ativo } : {}),
