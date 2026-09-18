@@ -401,6 +401,29 @@ export async function ingestInboundMessage(evt: NormalizedInboundEvent, supabase
     }
   }
 
+  // Achado ao vivo (Rodrigo, 2026-09-17, lead Rodrigo/company 30, job #886) :
+  // o buffer acima é limpo assim que o worker começa a processar a mensagem
+  // (fica vazio bem antes da resposta terminar de sair, que pode levar
+  // 15-20s com a digitação humanizada). Se o provedor (uazapi/Meta) reentrega
+  // o MESMO webhook nessa janela — comum quando a resposta HTTP do primeiro
+  // recebimento demora —, o check acima não encontra mais o messageId no
+  // buffer (já esvaziado) e trata como mensagem nova : upsertSdrJob reabre o
+  // job pra PENDING, o worker roda o orquestrador de novo do zero e manda a
+  // MESMA resposta pro lead uma segunda vez. mensagens_do_whatsapp é o
+  // registro permanente (não é limpo) : é a fonte de verdade real pra saber
+  // se esse messageId específico já foi atendido, mesmo depois do buffer
+  // esvaziar.
+  const { data: dupMsg } = await supabase
+    .from('mensagens_do_whatsapp')
+    .select('id')
+    .eq('company_id', evt.companyId)
+    .eq('whatsapp_message_id', evt.messageId)
+    .maybeSingle()
+
+  if (dupMsg) {
+    return { handled: false, conversationId: null, leadId: null }
+  }
+
   let conversationId: string | null = null
   let leadId: number | null = null
 

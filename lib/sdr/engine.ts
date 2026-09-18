@@ -1718,6 +1718,7 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
           properties: {
             nova_informacao: { type: 'string', description: 'Informação nova relevante para guardar' },
             numero: { type: 'string', description: 'WhatsApp do lead' },
+            nome_informado: { type: 'string', description: 'Preencha APENAS quando o lead disser seu nome ou como quer ser chamado, em resposta direta a uma pergunta tipo "como posso te chamar?"/"qual seu nome?". Deixe vazio em qualquer outro caso.' },
           },
           required: ['nova_informacao', 'numero'],
         },
@@ -2168,6 +2169,21 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
         result = await runAgenteOutbound(args.message ?? userInput, ctx, openai, supabase, acc)
       } else if (fn === 'Memory_long') {
         const info = args['Nova informação para guardar'] ?? args.info ?? userInput
+        // Achado ao vivo (Rodrigo, 2026-09-17, leads Donato e Carmelli Guincho,
+        // company 30/Grupo Venda) : esse agente usa o toolset novo (Agente_de_
+        // Pipeline/Segmentacao/Outbound + Memory_long), que nunca teve o mesmo
+        // fix de 2026-09-05 do Atualizar_resumo (nome_informado -> contact_name).
+        // O nome real do lead (ex: "Donato") ficava só dentro do texto solto do
+        // Memory_long, nunca virava leads.contact_name -- o CRM continuava
+        // mostrando o nome de contato bruto do WhatsApp (ex: "Eu mesmo",
+        // "Eu Mesmo!!!") pra sempre, mesmo com o lead já identificado.
+        if (args.nome_informado?.trim()) {
+          const nome = args.nome_informado.trim()
+          await supabase.from('leads').update({ contact_name: nome, updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
+          if (ctx.conversationId) {
+            await supabase.from('conversas_do_whatsapp').update({ nome_do_contato: nome }).eq('id', ctx.conversationId)
+          }
+        }
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
         const msg = args['Nova_informa__o_para_guardar'] ?? args.nova_informacao_agendamento ?? args.message ?? userInput
