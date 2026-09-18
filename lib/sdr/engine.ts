@@ -282,6 +282,35 @@ export function isOptOutRequest(text: string): boolean {
   return OPT_OUT_PATTERNS.some((p) => p.test(text))
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-17, leads Donato e Carmelli Guincho) : a
+// instrução em prosa do nome_informado ("preencha só quando for resposta
+// direta à pergunta do nome") não segurou o modelo : ele capturou "Eu mesmo"
+// -- resposta a "você mesmo decide os investimentos?", pergunta de DECISOR,
+// não de nome -- como se fosse o nome do lead, sobrescrevendo o nome real
+// (ou o nome de contato correto do WhatsApp) no CRM. Uma lista de frases
+// proibidas ("eu mesmo", "sim", "ok"...) é gambiarra : nunca cobre toda
+// resposta curta que o modelo pode confundir. Trava de verdade : só aceita
+// nome_informado se a própria pergunta que o SDR realmente mandou (lida do
+// banco, não da memória do modelo) foi pedindo o nome. Olha as últimas
+// mensagens de saída porque a pergunta do nome pode não ser a última linha
+// de um bloco de 2-3 mensagens.
+const PERGUNTA_DE_NOME_RE = /como\s+(?:posso|devo)\s+(?:te\s+|eu\s+te\s+)?chamar|qual\s+(?:é\s+)?(?:o\s+)?(?:seu|teu)\s+nome|(?:seu|teu)\s+nome[,?.]|pra\s+(?:eu\s+)?te\s+chamar/i
+
+export async function ultimaPerguntaFoiSobreNome(
+  conversationId: string | null | undefined,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<boolean> {
+  if (!conversationId) return false
+  const { data } = await supabase
+    .from('mensagens_do_whatsapp')
+    .select('texto_da_mensagem')
+    .eq('id_da_conversacao', conversationId)
+    .eq('direcao', 'outbound')
+    .order('carimbo_de_data_e_hora', { ascending: false })
+    .limit(5)
+  return (data ?? []).some((m) => PERGUNTA_DE_NOME_RE.test(m.texto_da_mensagem ?? ''))
+}
+
 // Achado ao vivo (Rodrigo, 2026-09-05) : lead disse claramente "agora eu não
 // posso falar, depois eu te ligo" e o SDR respondeu reconhecendo MAS ainda
 // emendou uma pergunta ("quando seria bom pra você?"), pressionando por uma
@@ -1036,7 +1065,7 @@ Se não tiver certeza de um campo, mantenha o valor atual do lead.`
       // ficava guardada solta em perguntas_e_respostas, nunca virava o nome
       // de exibição de verdade (nem em leads.contact_name, nem na lista de
       // conversas). Agora atualiza os dois quando o lead informa o nome.
-      if (args.nome_informado?.trim()) {
+      if (args.nome_informado?.trim() && await ultimaPerguntaFoiSobreNome(ctx.conversationId, supabase)) {
         updates.contact_name = args.nome_informado.trim()
         if (ctx.conversationId) {
           await supabase
@@ -2177,7 +2206,7 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
         // Memory_long, nunca virava leads.contact_name -- o CRM continuava
         // mostrando o nome de contato bruto do WhatsApp (ex: "Eu mesmo",
         // "Eu Mesmo!!!") pra sempre, mesmo com o lead já identificado.
-        if (args.nome_informado?.trim()) {
+        if (args.nome_informado?.trim() && await ultimaPerguntaFoiSobreNome(ctx.conversationId, supabase)) {
           const nome = args.nome_informado.trim()
           await supabase.from('leads').update({ contact_name: nome, updated_at: new Date().toISOString() }).eq('id', ctx.leadId)
           if (ctx.conversationId) {
