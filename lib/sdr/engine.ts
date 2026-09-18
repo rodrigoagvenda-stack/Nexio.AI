@@ -1748,6 +1748,8 @@ function buildOrchestratorTools(ctx: SdrContext): OpenAI.Chat.ChatCompletionTool
             nova_informacao: { type: 'string', description: 'Informação nova relevante para guardar' },
             numero: { type: 'string', description: 'WhatsApp do lead' },
             nome_informado: { type: 'string', description: 'Preencha APENAS quando o lead disser seu nome ou como quer ser chamado, em resposta direta a uma pergunta tipo "como posso te chamar?"/"qual seu nome?". Deixe vazio em qualquer outro caso.' },
+            apresentacao_feita: { type: 'boolean', description: 'true assim que você se apresentar pela primeira vez nesta conversa (nome do agente + empresa). Uma vez true, NUNCA marque false de novo nem se apresente outra vez.' },
+            nome_perguntado: { type: 'boolean', description: 'true assim que você perguntar explicitamente o nome do lead nesta conversa (ex: "como posso te chamar?"). Item SEPARADO de apresentacao_feita : marque os dois de forma independente, um não substitui o outro.' },
           },
           required: ['nova_informacao', 'numero'],
         },
@@ -2228,6 +2230,35 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
           if (ctx.conversationId) {
             await supabase.from('conversas_do_whatsapp').update({ nome_do_contato: nome }).eq('id', ctx.conversationId)
           }
+        }
+        // Achado ao vivo (Rodrigo, lead Anderson montador, 2026-09-18) : esse
+        // toolset nunca ganhou o checklist estruturado (apresentacao_feita,
+        // nome_perguntado) que Atualizar_resumo já tem -- sem isso, o
+        // orquestrador não tem nenhuma memória confiável de "já me apresentei/
+        // já perguntei o nome", só infere relendo o histórico cru a cada
+        // turno. Numa conversa de 20 mensagens, um retorno automático de
+        // WhatsApp Business fez o modelo reapresentar tudo do zero e
+        // reperguntar o nome, porque formatChecklist(null) sempre devolve
+        // "ESTA É A PRIMEIRA MENSAGEM" quando o checklist nunca foi escrito.
+        // Mesmo merge-nunca-apaga do Atualizar_resumo : uma vez true, fica
+        // true pra sempre.
+        if (ctx.conversationId && (args.apresentacao_feita || args.nome_perguntado)) {
+          const { data: convAtualChecklist } = await supabase
+            .from('conversas_do_whatsapp')
+            .select('checklist_atendimento')
+            .eq('id', ctx.conversationId)
+            .maybeSingle()
+          const atualChecklist = (convAtualChecklist?.checklist_atendimento as ChecklistAtendimento) ?? {}
+          await supabase
+            .from('conversas_do_whatsapp')
+            .update({
+              checklist_atendimento: {
+                ...atualChecklist,
+                apresentacao_feita: atualChecklist.apresentacao_feita || !!args.apresentacao_feita,
+                nome_perguntado: atualChecklist.nome_perguntado || !!args.nome_perguntado,
+              },
+            })
+            .eq('id', ctx.conversationId)
         }
         result = await runMemoryExpert(info, ctx, openai, supabase, acc)
       } else if (fn === 'Agente_de_Agendamento') {
