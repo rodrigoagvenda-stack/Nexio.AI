@@ -597,13 +597,15 @@ export default function CRMPage() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deletingMultipleLeads, setDeletingMultipleLeads] = useState(false);
 
-  // Etiquetas de sistema (Follow up / No-show) : ids resolvidos uma vez,
-  // usados pra montar/desmontar as colunas de sequência no Kanban e pra
+  // Etiquetas de sistema (Follow up / No-show / Promoção) : ids resolvidos uma
+  // vez, usados pra montar/desmontar as colunas de sequência no Kanban e pra
   // saber qual tagId mandar pro /api/tags/assign quando arrasta um card.
-  const [systemTags, setSystemTags] = useState<{ followUpId: number | null; noShowId: number | null }>({ followUpId: null, noShowId: null });
+  const SEQ_TAG_NAMES = ['Follow up', 'No-show', 'Promoção'] as const;
+  type SeqTagName = typeof SEQ_TAG_NAMES[number];
+  const [systemTags, setSystemTags] = useState<{ followUpId: number | null; noShowId: number | null; promocaoId: number | null }>({ followUpId: null, noShowId: null, promocaoId: null });
   // Aviso de "já recebeu essa sequência inteira antes" : id do lead pendente
-  // de confirmação antes de arrastar pra Follow up/No-show de novo.
-  const [pendingTagDrop, setPendingTagDrop] = useState<{ leadId: number; tagName: 'Follow up' | 'No-show'; tagId: number } | null>(null);
+  // de confirmação antes de arrastar pra Follow up/No-show/Promoção de novo.
+  const [pendingTagDrop, setPendingTagDrop] = useState<{ leadId: number; tagName: SeqTagName; tagId: number } | null>(null);
 
   // Stepper state
   const [currentStep, setCurrentStep] = useState(0);
@@ -706,15 +708,16 @@ export default function CRMPage() {
       }
 
       // Etiquetas de sistema (ids) : resolvidos aqui, usados pelo drag-drop
-      // pra saber qual tagId atribuir quando o card cai em Follow up/No-show.
+      // pra saber qual tagId atribuir quando o card cai em Follow up/No-show/Promoção.
       const { data: sysTags } = await supabase
         .from('tags')
         .select('id, tag_name')
         .eq('company_id', user?.company_id)
-        .in('tag_name', ['Follow up', 'No-show']);
+        .in('tag_name', ['Follow up', 'No-show', 'Promoção']);
       setSystemTags({
         followUpId: sysTags?.find((t: { id: number; tag_name: string }) => t.tag_name === 'Follow up')?.id ?? null,
         noShowId: sysTags?.find((t: { id: number; tag_name: string }) => t.tag_name === 'No-show')?.id ?? null,
+        promocaoId: sysTags?.find((t: { id: number; tag_name: string }) => t.tag_name === 'Promoção')?.id ?? null,
       });
 
       // Contador de mensagens de reengajamento + data do último envio, pra
@@ -769,21 +772,24 @@ export default function CRMPage() {
     const tagNames = new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name));
     if (tagNames.has('Follow up')) return 'Follow up';
     if (tagNames.has('No-show')) return 'No-show';
+    if (tagNames.has('Promoção')) return 'Promoção';
     return lead.status;
   }, []);
 
+  const SEQ_TAG_COLORS: Record<SeqTagName, string> = { 'Follow up': '#3b82f6', 'No-show': '#ef4444', 'Promoção': '#f59e0b' };
+
   // Aplica de fato a etiqueta de sequência : chamado direto (sem aviso) ou
   // depois de confirmar o dialog de "já recebeu essa sequência antes".
-  const performTagDrop = useCallback(async (lead: LeadWithConversa, tagName: 'Follow up' | 'No-show', tagId: number) => {
-    const outraTagName = tagName === 'Follow up' ? 'No-show' : 'Follow up';
+  const performTagDrop = useCallback(async (lead: LeadWithConversa, tagName: SeqTagName, tagId: number) => {
+    const outrasTagNames = SEQ_TAG_NAMES.filter((t) => t !== tagName);
     // Otimista : atualiza UI antes da resposta do servidor (mesmo padrão do
     // resto do arquivo), removendo a etiqueta concorrente e status
     // Remarketing localmente pra refletir a exclusão mútua na hora.
     setLeads(prev => prev.map(l => {
       if (l.id !== lead.id) return l;
-      const keptTags = ((l.lead_tags as any[]) ?? []).filter((lt) => lt.tags?.tag_name !== outraTagName);
+      const keptTags = ((l.lead_tags as any[]) ?? []).filter((lt) => !outrasTagNames.includes(lt.tags?.tag_name));
       const alreadyHas = keptTags.some((lt) => lt.tags?.tag_name === tagName);
-      const newTags = alreadyHas ? keptTags : [...keptTags, { tag_id: tagId, tags: { id: tagId, tag_name: tagName, tag_color: tagName === 'Follow up' ? '#3b82f6' : '#ef4444' } }];
+      const newTags = alreadyHas ? keptTags : [...keptTags, { tag_id: tagId, tags: { id: tagId, tag_name: tagName, tag_color: SEQ_TAG_COLORS[tagName] } }];
       return { ...l, lead_tags: newTags, status: l.status === 'Remarketing' ? 'Em contato' : l.status } as LeadWithConversa;
     }));
 
@@ -847,11 +853,13 @@ export default function CRMPage() {
 
     const targetColumn = columns.find(c => c.id === targetColumnId);
 
-    // Coluna de etiqueta (Follow up / No-show) : não mexe em status,
-    // atribui a tag via /api/tags/assign (exclusão mútua já é garantida
-    // no servidor, ver app/api/tags/assign/route.ts).
+    // Coluna de etiqueta (Follow up / No-show / Promoção) : não mexe em
+    // status, atribui a tag via /api/tags/assign (exclusão mútua já é
+    // garantida no servidor, ver app/api/tags/assign/route.ts).
     if (targetColumn?.isTag) {
-      const tagId = targetColumnId === 'Follow up' ? systemTags.followUpId : systemTags.noShowId;
+      const SEQ_TAG_IDS: Record<SeqTagName, number | null> = { 'Follow up': systemTags.followUpId, 'No-show': systemTags.noShowId, 'Promoção': systemTags.promocaoId };
+      const SEQ_TAG_EVENTO: Record<SeqTagName, string> = { 'Follow up': 'tag_follow_up', 'No-show': 'tag_no_show', 'Promoção': 'tag_promocao' };
+      const tagId = SEQ_TAG_IDS[targetColumnId as SeqTagName];
       if (!tagId) {
         toast({ title: 'Etiqueta de sistema não encontrada', description: 'Recarregue a página e tente de novo.', variant: 'destructive' });
         return;
@@ -867,7 +875,7 @@ export default function CRMPage() {
           .select('id')
           .eq('company_id', user?.company_id)
           .eq('tipo', 'follow_geral')
-          .contains('canvas_config', { eventoEntrada: targetColumnId === 'Follow up' ? 'tag_follow_up' : 'tag_no_show' });
+          .contains('canvas_config', { eventoEntrada: SEQ_TAG_EVENTO[targetColumnId as SeqTagName] });
         const seqIds = (seqRows ?? []).map((s: any) => s.id);
         if (seqIds.length) {
           const { count } = await supabase
@@ -877,7 +885,7 @@ export default function CRMPage() {
             .eq('status', 'sent')
             .in('sequence_id', seqIds);
           if (count && count > 0) {
-            setPendingTagDrop({ leadId: lead.id, tagName: targetColumnId as 'Follow up' | 'No-show', tagId });
+            setPendingTagDrop({ leadId: lead.id, tagName: targetColumnId as SeqTagName, tagId });
             return;
           }
         }
@@ -885,7 +893,7 @@ export default function CRMPage() {
         // Falha na checagem não deve bloquear o drag : segue sem aviso.
       }
 
-      await performTagDrop(lead, targetColumnId as 'Follow up' | 'No-show', tagId);
+      await performTagDrop(lead, targetColumnId as SeqTagName, tagId);
       return;
     }
 
@@ -1299,6 +1307,7 @@ export default function CRMPage() {
     { id: 'Remarketing', title: 'Remarketing' },
     { id: 'Follow up', title: 'Follow up', isTag: true },
     { id: 'No-show', title: 'No-show', isTag: true },
+    { id: 'Promoção', title: 'Promoção', isTag: true },
   ];
 
   // Filtros
@@ -1327,7 +1336,7 @@ export default function CRMPage() {
 
     filteredLeads.forEach((lead) => {
       const leadTagNames = new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name));
-      const isEmSequenciaTag = leadTagNames.has('Follow up') || leadTagNames.has('No-show');
+      const isEmSequenciaTag = leadTagNames.has('Follow up') || leadTagNames.has('No-show') || leadTagNames.has('Promoção');
 
       // Achado técnico (2026-09-16) : dnd-kit exige id único por card em
       // toda a tela. Um lead com etiqueta Follow up/No-show continua
@@ -1347,7 +1356,7 @@ export default function CRMPage() {
 
       for (const lt of (lead.lead_tags as any[]) ?? []) {
         const tagName = lt.tags?.tag_name
-        if (tagName !== 'Follow up' && tagName !== 'No-show') continue
+        if (tagName !== 'Follow up' && tagName !== 'No-show' && tagName !== 'Promoção') continue
         if (!tagMap.has(tagName)) tagMap.set(tagName, [])
         tagMap.get(tagName)!.push(lead)
         // Achado ao vivo (Rodrigo, 2026-09-18) : valueMap só era somado pras

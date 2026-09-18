@@ -97,7 +97,7 @@ interface FollowSequence {
   canvas_config?: {
     remarketing?: RemarketingCanvasConfig
     expira_em_dias?: number
-    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show'
+    eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show' | 'tag_promocao'
   } | null
 }
 
@@ -990,10 +990,11 @@ async function processFollowGeral(
     .from('tags')
     .select('id, tag_name')
     .eq('company_id', company.id)
-    .in('tag_name', ['Follow up', 'No-show'])
+    .in('tag_name', ['Follow up', 'No-show', 'Promoção'])
   const followUpTagId = sequenceTagRows?.find((t) => t.tag_name === 'Follow up')?.id ?? null
   const noShowTagId = sequenceTagRows?.find((t) => t.tag_name === 'No-show')?.id ?? null
-  const tagIdsParaBuscar = [followUpTagId, noShowTagId].filter((id): id is number => id != null)
+  const promocaoTagId = sequenceTagRows?.find((t) => t.tag_name === 'Promoção')?.id ?? null
+  const tagIdsParaBuscar = [followUpTagId, noShowTagId, promocaoTagId].filter((id): id is number => id != null)
 
   const { data: leadTagRows } = tagIdsParaBuscar.length
     ? await supabase.from('lead_tags').select('lead_id, tag_id, applied_at').eq('company_id', company.id).in('tag_id', tagIdsParaBuscar)
@@ -1009,6 +1010,7 @@ async function processFollowGeral(
   }
   const followUpAppliedAt = appliedAtByLead(followUpTagId)
   const noShowAppliedAt = appliedAtByLead(noShowTagId)
+  const promocaoAppliedAt = appliedAtByLead(promocaoTagId)
 
   const leadsFollowUp: Lead[] = ((leadsAmploTags ?? []) as Lead[])
     .filter((l) => followUpAppliedAt.has(l.id))
@@ -1016,6 +1018,9 @@ async function processFollowGeral(
   const leadsNoShow: Lead[] = ((leadsAmploTags ?? []) as Lead[])
     .filter((l) => noShowAppliedAt.has(l.id))
     .map((l) => ({ ...l, tag_aplicada_em: noShowAppliedAt.get(l.id) }))
+  const leadsPromocao: Lead[] = ((leadsAmploTags ?? []) as Lead[])
+    .filter((l) => promocaoAppliedAt.has(l.id))
+    .map((l) => ({ ...l, tag_aplicada_em: promocaoAppliedAt.get(l.id) }))
 
   // {produto} nas mensagens de reengajamento : nome do produto/campanha vem
   // do flow ativo da empresa (sdr_flows.descricao), preenchido uma vez na
@@ -1069,6 +1074,7 @@ async function processFollowGeral(
       : eventoEntrada === 'call_realizada' ? leadsCallRealizada
       : eventoEntrada === 'tag_follow_up' ? leadsFollowUp
       : eventoEntrada === 'tag_no_show' ? leadsNoShow
+      : eventoEntrada === 'tag_promocao' ? leadsPromocao
       : leads
     const sortedLeads = [...((leadsBase ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
@@ -1194,7 +1200,7 @@ async function processFollowGeral(
           anchorDate = lead.formulario_preenchido_em ? new Date(lead.formulario_preenchido_em) : null
         } else if (eventoEntrada === 'call_realizada') {
           anchorDate = lead.call_agendada_para ? new Date(lead.call_agendada_para) : null
-        } else if (eventoEntrada === 'tag_follow_up' || eventoEntrada === 'tag_no_show') {
+        } else if (eventoEntrada === 'tag_follow_up' || eventoEntrada === 'tag_no_show' || eventoEntrada === 'tag_promocao') {
           anchorDate = lead.tag_aplicada_em ? new Date(lead.tag_aplicada_em) : null
         } else {
           // Achado ao vivo (Rodrigo, 2026-09-15) : consultava a coluna

@@ -147,7 +147,7 @@ interface CanvasConfig {
   customLabels?: Record<string, string>; // stepId → customLabel (persisted separately from steps)
   nodeComments?: Record<string, string>; // stepId → comment annotation
   expira_em_dias?: number;              // auto-expire sequence after N days (0 = never)
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido'; // entry event type
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show' | 'tag_promocao' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido'; // entry event type
   extraTriggers?: Array<{ id: string; platform: 'mercadopago' | 'kiwify' | 'asaas'; eventoEntrada?: string; position: { x: number; y: number } }>;
   noDefaultTrigger?: boolean; // primary trigger was deleted by user
 }
@@ -175,7 +175,7 @@ interface TriggerNodeData extends Record<string, unknown> {
   condicao: string;
   customLabel?: string;
   expira_em_dias?: number;
-  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido';
+  eventoEntrada?: 'novo_lead' | 'mudanca_status' | 'webhook' | 'preco_informado' | 'formulario_preenchido' | 'call_realizada' | 'tag_follow_up' | 'tag_no_show' | 'tag_promocao' | 'mercadopago' | 'kiwify' | 'mp_kiwify' | 'asaas_pago' | 'asaas_boleto_gerado' | 'asaas_boleto_vencido';
   platform?: 'mercadopago' | 'kiwify' | 'asaas'; // per-trigger platform (pagamento tipo only)
   _execState?: ExecState;
   _execError?: string;
@@ -3245,15 +3245,16 @@ function ConfigPanel({ node, onClose, onUpdate, onDelete, nodes: allNodes = [], 
                     <SelectItem value="call_realizada">Teve a call e não fechou</SelectItem>
                     <SelectItem value="tag_follow_up">Etiqueta "Follow up" (Kanban)</SelectItem>
                     <SelectItem value="tag_no_show">Etiqueta "No-show" (Kanban)</SelectItem>
+                    <SelectItem value="tag_promocao">Etiqueta "Promoção" (Kanban)</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground/60 mt-1 leading-snug">
                   Define quando leads entram automaticamente nesta sequência. "Preço informado", "Formulário preenchido",
-                  "Teve a call e não fechou", "Follow up" e "No-show" usam a data desse evento como referência pros dias de
-                  espera de cada mensagem (ex: 1º dia = 1 dia depois do evento). Leads que já tiveram a call saem
-                  automaticamente do reengajamento genérico e passam a usar essa sequência dedicada. As etiquetas "Follow up"
-                  e "No-show" são aplicadas manualmente arrastando o card no Kanban (não por status de venda) e saem
-                  sozinhas assim que o lead responder de novo.
+                  "Teve a call e não fechou", "Follow up", "No-show" e "Promoção" usam a data desse evento como referência
+                  pros dias de espera de cada mensagem (ex: 1º dia = 1 dia depois do evento). Leads que já tiveram a call saem
+                  automaticamente do reengajamento genérico e passam a usar essa sequência dedicada. As etiquetas "Follow up",
+                  "No-show" e "Promoção" são aplicadas manualmente arrastando o card no Kanban (não por status de venda) e
+                  saem sozinhas assim que o lead responder de novo.
                 </p>
               </Field>
             )}

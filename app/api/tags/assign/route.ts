@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // exatamente o tipo de confusão do dia. Ao marcar uma, desmarca as
     // outras automaticamente (mesmo comportamento intuitivo de "arrastar o
     // card pra coluna nova" que o Kanban já sugere visualmente).
-    const SEQUENCE_TAG_NAMES = ['Follow up', 'No-show']
+    const SEQUENCE_TAG_NAMES = ['Follow up', 'No-show', 'Promoção']
     if (SEQUENCE_TAG_NAMES.includes(tag.tag_name)) {
       const { data: outrasTags } = await supabase
         .from('tags')

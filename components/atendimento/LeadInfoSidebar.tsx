@@ -74,7 +74,9 @@ export function LeadInfoSidebar({
   const [editingProjectValue, setEditingProjectValue] = useState<string>('');
   const [hasProjectValueChanged, setHasProjectValueChanged] = useState(false);
   const [activeTab, setActiveTab] = useState('dados'); // 🚀 Performance: Track active tab
-  const [sequenceTagIds, setSequenceTagIds] = useState<{ 'Follow up': number | null; 'No-show': number | null }>({ 'Follow up': null, 'No-show': null });
+  const SEQ_TAG_NAMES = ['Follow up', 'No-show', 'Promoção'] as const;
+  type SeqTagName = typeof SEQ_TAG_NAMES[number];
+  const [sequenceTagIds, setSequenceTagIds] = useState<Record<SeqTagName, number | null>>({ 'Follow up': null, 'No-show': null, 'Promoção': null });
   const [updatingSeqTag, setUpdatingSeqTag] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,14 +84,13 @@ export function LeadInfoSidebar({
       .then((r) => r.json())
       .then((data) => {
         if (!data.success) return;
-        const followUp = data.data.find((t: { id: number; tag_name: string }) => t.tag_name === 'Follow up')?.id ?? null;
-        const noShow = data.data.find((t: { id: number; tag_name: string }) => t.tag_name === 'No-show')?.id ?? null;
-        setSequenceTagIds({ 'Follow up': followUp, 'No-show': noShow });
+        const byName = (name: string) => data.data.find((t: { id: number; tag_name: string }) => t.tag_name === name)?.id ?? null;
+        setSequenceTagIds({ 'Follow up': byName('Follow up'), 'No-show': byName('No-show'), 'Promoção': byName('Promoção') });
       })
       .catch(() => {});
   }, [companyId]);
 
-  async function handleToggleSequenceTag(tagName: 'Follow up' | 'No-show') {
+  async function handleToggleSequenceTag(tagName: SeqTagName) {
     const tagId = sequenceTagIds[tagName];
     if (!tagId) {
       toast({ title: 'Etiqueta de sistema não encontrada', description: 'Recarregue a página e tente de novo.', variant: 'destructive' });
@@ -106,12 +107,12 @@ export function LeadInfoSidebar({
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
 
-      // Assign no servidor já desmarca Follow up/No-show/Remarketing
+      // Assign no servidor já desmarca Follow up/No-show/Promoção/Remarketing
       // concorrentes (exclusão mútua) : reflete isso aqui também.
-      const outraTag = tagName === 'Follow up' ? 'No-show' : 'Follow up';
+      const outrasTags = SEQ_TAG_NAMES.filter((t) => t !== tagName);
       const updatedTags = isActive
         ? tags.filter((t) => t !== tagName)
-        : [...tags.filter((t) => t !== outraTag), tagName];
+        : [...tags.filter((t) => !outrasTags.includes(t as SeqTagName)), tagName];
       if (onTagsUpdate) onTagsUpdate(updatedTags);
       toast({ title: isActive ? `Removido de "${tagName}"` : `Movido para "${tagName}"` });
     } catch (error: any) {
@@ -286,7 +287,7 @@ export function LeadInfoSidebar({
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Sequência de reengajamento</Label>
                   <div className="flex gap-2">
-                    {(['Follow up', 'No-show'] as const).map((tagName) => {
+                    {SEQ_TAG_NAMES.map((tagName) => {
                       const isActive = tags.includes(tagName);
                       return (
                         <Button
