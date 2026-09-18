@@ -48,7 +48,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase.from('lead_tags').insert({ lead_id: leadId, tag_id: tagId }).select('*, tag:tags(*)').single();
+    // Achado ao vivo (Rodrigo, 2026-09-18) : company_id nunca era gravado aqui,
+    // ficava sempre NULL. O motor de follow_geral (lib/sdr/follow.ts) filtra
+    // lead_tags por .eq('company_id', company.id) pra montar a lista de leads
+    // com etiqueta "Follow up"/"No-show" -- com company_id sempre NULL, essa
+    // query nunca batia com nada, e sequências com gatilho tag_follow_up/
+    // tag_no_show nunca disparavam pra ninguém, mesmo com leads etiquetados.
+    const { data, error } = await supabase.from('lead_tags').insert({ lead_id: leadId, tag_id: tagId, company_id: context.companyId }).select('*, tag:tags(*)').single();
 
     if (error) {
       if (error.code === '23505') return NextResponse.json({ success: false, message: 'Tag já está atribuída a este lead' }, { status: 400 });
