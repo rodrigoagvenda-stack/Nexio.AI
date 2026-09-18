@@ -1350,6 +1350,10 @@ export default function CRMPage() {
         if (tagName !== 'Follow up' && tagName !== 'No-show') continue
         if (!tagMap.has(tagName)) tagMap.set(tagName, [])
         tagMap.get(tagName)!.push(lead)
+        // Achado ao vivo (Rodrigo, 2026-09-18) : valueMap só era somado pras
+        // colunas de status, nunca pras de etiqueta -- Follow up/No-show
+        // mostravam contagem mas nunca o total em R$, diferente das demais.
+        valueMap.set(tagName, (valueMap.get(tagName) || 0) + (lead.project_value || 0))
       }
     });
 
