@@ -142,7 +142,14 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     const media: StepMediaConfig | undefined = step.media_config ?? undefined
     const menuFallback = tipo === 'menu' ? 'Selecione uma opção:' : null
     const agendamentoFallback = rawTipo === 'agendamento' ? ((step.media_config as any)?.mensagemInicial || null) : null
-    const mensagemRaw: string = step.mensagem || agendamentoFallback || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
+    // Achado ao vivo (Rodrigo, 2026-09-18) : node de áudio no editor só tem
+    // campo de upload, nunca teve campo de texto/legenda (diferente de vídeo).
+    // step.mensagem pra um node de áudio é sempre lixo órfão (sobra de quando
+    // o node era outro tipo), nunca conteúdo real -- não usa aqui.
+    const mensagemRaw: string =
+      rawTipo === 'ptt' || rawTipo === 'audio'
+        ? '🎵 Áudio'
+        : step.mensagem || agendamentoFallback || media?.text || menuFallback || `[Passo D${step.dia_offset}]`
 
     // Substituir variáveis {nome}, {primeiro_nome} etc usando dados reais do lead
     const variants = [normalizedPhone, `+${normalizedPhone}`, normalizedPhone.replace(/^55/, '')]

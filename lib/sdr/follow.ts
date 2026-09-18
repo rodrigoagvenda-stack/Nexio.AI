@@ -726,8 +726,23 @@ export async function gravarMensagemFollow(
     urlMidia = media.file
   }
 
-  // Para mídia, o caption fica em media.text; usa ele se text (step.mensagem) estiver vazio
-  const displayText = text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
+  // Achado ao vivo (Rodrigo, 2026-09-18) : node de áudio no editor (Automation
+  // Canvas) só tem campo de upload de arquivo, NUNCA teve campo de texto/
+  // legenda -- diferente de vídeo, que tem "Legenda do vídeo" de verdade.
+  // Quando um node muda de tipo (texto -> áudio), o step.mensagem antigo pode
+  // continuar no banco, órfão, sem nenhum jeito de ver ou editar isso no
+  // editor. Usar esse texto como se fosse o conteúdo real do áudio é sempre
+  // errado : pode ser lixo de um node apagado, e o histórico da IA lê esse
+  // texto como se fosse o que foi realmente dito, respondendo em cima de
+  // uma premissa falsa (achado ao vivo : lead ouviu um áudio de despedida
+  // educada, respondeu "ok" aceitando, e o SDR seguiu empurrando qualificação
+  // porque só via a legenda genérica, não o que o áudio realmente dizia).
+  // Pra áudio/ptt, nunca usa texto -- nem no histórico da mensagem em si,
+  // nem no preview da conversa.
+  const displayText =
+    tipoMensagem === 'audio' || tipoMensagem === 'ptt'
+      ? '🎵 Áudio'
+      : text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
 
   if (!convId) {
     console.error(`[follow] ERRO: convId null para lead=${leadId} phone=${phone} : mensagem não salva`)
