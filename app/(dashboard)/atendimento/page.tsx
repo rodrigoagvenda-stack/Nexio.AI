@@ -67,6 +67,31 @@ function fmtMeetingBadge(lead: { call_de_venda?: boolean; call_agendada_para?: s
   }
 }
 
+// Achado ao vivo (Rodrigo, 2026-09-18) : conv.ultima_mensagem, pra mídia,
+// guarda um placeholder curto por convenção (🎵 Áudio, 📷 Imagem, 📄 Documento,
+// 🎥 Vídeo -- mesmo padrão de saveInbound em lib/sdr/engine.ts). Renderizar o
+// emoji cru como texto não é o pedido : precisa ser ícone de verdade (lucide),
+// igual o resto da UI já usa em todo canto.
+const CONV_PREVIEW_ICON_MAP: Record<string, { Icon: typeof Mic; label: string }> = {
+  '🎵 Áudio': { Icon: Mic, label: 'Áudio' },
+  '📷 Imagem': { Icon: Image, label: 'Imagem' },
+  '📄 Documento': { Icon: FileText, label: 'Documento' },
+  '🎥 Vídeo': { Icon: Video, label: 'Vídeo' },
+}
+
+function renderConvPreview(text: string | null | undefined) {
+  const trimmed = (text ?? '').trim()
+  const match = CONV_PREVIEW_ICON_MAP[trimmed]
+  if (!match) return text
+  const { Icon, label } = match
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Icon className="h-3 w-3 flex-shrink-0" />
+      {label}
+    </span>
+  )
+}
+
 function fmtWindowBadge(conv: {
   ultima_mensagem_inbound_at?: string | null
   ctwa_clid?: string | null
@@ -1926,7 +1951,7 @@ export default function AtendimentoPage() {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground truncate mt-1 line-clamp-2">
-                        {conv.ultima_mensagem}
+                        {renderConvPreview(conv.ultima_mensagem)}
                       </p>
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
                         {(() => {

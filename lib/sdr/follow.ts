@@ -756,9 +756,22 @@ export async function gravarMensagemFollow(
   console.log(`[follow] mensagem salva : lead=${leadId} conv=${convId} tipo=${tipoMensagem}`)
 
   if (convId) {
+    // Achado ao vivo (Rodrigo, 2026-09-18) : ultima_mensagem usava o texto/
+    // roteiro completo pra qualquer tipo, diferente do resto do sistema
+    // (saveInbound em engine.ts, app/api/whatsapp/send/route.ts), que sempre
+    // mostra um placeholder curto (🎵 Áudio, 📷 Imagem...) no preview da lista
+    // de conversas pra mídia. O card do áudio de follow-up aparecia com o
+    // roteiro inteiro em vez do indicativo de tipo, parecendo uma mensagem de
+    // texto antiga em vez de sinalizar que foi enviado um áudio novo.
+    const previewText =
+      tipoMensagem === 'audio' || tipoMensagem === 'ptt' ? '🎵 Áudio' :
+      tipoMensagem === 'image' ? '📷 Imagem' :
+      tipoMensagem === 'document' ? '📄 Documento' :
+      tipoMensagem === 'video' ? '🎥 Vídeo' :
+      displayText
     await supabase
       .from('conversas_do_whatsapp')
-      .update({ ultima_mensagem: displayText, hora_da_ultima_mensagem: new Date().toISOString() })
+      .update({ ultima_mensagem: previewText, hora_da_ultima_mensagem: new Date().toISOString() })
       .eq('id', convId)
   }
 
