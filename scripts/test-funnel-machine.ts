@@ -221,6 +221,34 @@ function emQualificacao() {
   check('stepFunnel não muta o estado recebido', JSON.stringify(s) === snapshot)
 }
 
+// ─── Adiar : lead ocupado (caso Flávio, "tenho um curso agora") ────────
+{
+  const s = emQualificacao()
+  const r1 = turn(s, read('adiar'))
+  check('adiar: uma frase curta, sem pergunta, sem repetir a pergunta pendente', sent(r1.actions).length === 1 && sent(r1.actions)[0] === cfg.deferReply && !sent(r1.actions)[0].includes('?'), r1.actions)
+  check('adiar: não gasta tentativa do passo nem muda o passo pendente', r1.state.asks.negocio === s.asks.negocio && r1.state.askedStep === s.askedStep, r1.state)
+  const r2 = turn(r1.state, read('adiar'))
+  check('adiar de novo sem o lead voltar: silêncio', has(r2.actions, 'silence'), r2.actions)
+  const r3 = turn(r2.state, read('resposta_passo', { ramo: 'guincho', cidade: 'Piracicaba' }))
+  check('lead volta e responde: o funil segue normal do passo pendente', sent(r3.actions)[0] === 'Você possui o perfil do Google Meu Negócio criado? Se sim, me manda o link ou um print dele.', sent(r3.actions))
+  const r4 = turn(r3.state, read('adiar'))
+  check('novo "ocupado" depois de voltar: responde de novo', sent(r4.actions)[0] === cfg.deferReply, r4.actions)
+}
+{
+  const r = turn(initialState(), read('adiar'), { isFirstTurn: true })
+  check('adiar na 1a mensagem vira abertura (não deixa o lead sem apresentação)', sent(r.actions)[0] === cfg.steps[0].question, r.actions)
+}
+{
+  const semTexto = { ...cfg, deferReply: '' }
+  const r = stepFunnel(semTexto, emQualificacao(), read('adiar'), { isFirstTurn: false, leadText: '' })
+  check('adiar com texto vazio configurado: fica em silêncio', has(r.actions, 'silence') && sent(r.actions).length === 0, r.actions)
+  const { deferReply: _omit, ...semChave } = cfg
+  const r2 = stepFunnel(semChave as typeof cfg, emQualificacao(), read('adiar'), { isFirstTurn: false, leadText: '' })
+  check('adiar sem texto configurado: usa o texto padrão, sem pergunta', sent(r2.actions).length === 1 && !sent(r2.actions)[0].includes('?'), r2.actions)
+  const invalida = { ...cfg, deferReply: 'Quando você pode?' }
+  check('validação recusa pergunta no texto de "ocupado"', validateFunnelConfig(invalida).some((e) => e.includes('ocupado')), validateFunnelConfig(invalida))
+}
+
 // ─── Validação da config (portão de salvar) ─────────────────────────────
 {
   check('config do Grupo Venda é válida', validateFunnelConfig(cfg).length === 0, validateFunnelConfig(cfg))

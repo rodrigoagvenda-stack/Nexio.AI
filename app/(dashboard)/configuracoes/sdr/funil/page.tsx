@@ -456,6 +456,11 @@ export default function FunilPage() {
           <Text label="Quando o lead diz que não quer" value={cfg.refusalReply} onChange={(v) => update((c) => void (c.refusalReply = v))} />
           <Text label="Quando o lead se despede" value={cfg.farewellReply} onChange={(v) => update((c) => void (c.farewellReply = v))} />
           <Text
+            label="Quando o lead avisa que está ocupado agora (sem pergunta; vazio = não responde)"
+            value={cfg.deferReply ?? ''}
+            onChange={(v) => update((c) => void (c.deferReply = v))}
+          />
+          <Text
             label="Quando a pergunta não tem resposta na sua base de conhecimento"
             value={cfg.unknownAnswer}
             onChange={(v) => update((c) => void (c.unknownAnswer = v))}

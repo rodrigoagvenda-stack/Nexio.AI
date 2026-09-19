@@ -153,7 +153,7 @@ export const grupoVendaFunnel: FunnelConfig = {
     },
     sem_tempo: {
       kind: 'objecao',
-      triggers: '"não tenho tempo agora", "tô sem tempo"',
+      triggers: '"não tenho tempo pra uma reunião ou call", "não tenho tempo pra isso" (falta de tempo como motivo pra não avançar; avisar que está ocupado agora e responde depois é outra coisa)',
       scripts: ['Tranquilo, posso ajustar pro horário que encaixa melhor na sua rotina. Quer sugerir um dia e horário?'],
     },
     ja_uso: {
@@ -209,6 +209,7 @@ export const grupoVendaFunnel: FunnelConfig = {
   callOffer:
     'Sem problema! Posso te explicar rapidinho por aqui mesmo, ou já te conecto direto com o Bruno, nosso CEO e especialista em Google Meu Negócio aqui do Grupo Venda : ele mesmo te retorna. O que prefere?',
   callConfirm: 'Perfeito! Vou avisar o Bruno agora, ele deve te retornar em breve.',
+  deferReply: 'Sem problema, responde com calma. Quando puder, me chama aqui.',
   unknownAnswer: 'Isso o Bruno explica direitinho na reunião, olhando o seu caso específico.',
   handoff: {
     waitMessage: 'Vou chamar o Bruno aqui no WhatsApp pra continuar com você, um segundo.',
@@ -271,6 +272,7 @@ export function genericFunnelTemplate(p: { agentName: string; companyName: strin
     maxObjections: 2,
     refusalReply: 'Entendi! Se mudar de ideia, pode me chamar. Qualquer coisa tô aqui.',
     farewellReply: 'Eu que agradeço! Qualquer coisa tô aqui.',
+    deferReply: 'Sem problema, responde com calma. Quando puder, me chama aqui.',
     unknownAnswer: `Isso ${p.humanName} explica direitinho na conversa, olhando o seu caso.`,
     handoff: { waitMessage: `Vou chamar ${p.humanName} aqui no WhatsApp pra continuar com você, um segundo.` },
   }

@@ -20,6 +20,7 @@ const MIN_CONFIDENCE = 0.5
 const DEFAULT_MAX_ASKS = 3
 const MAX_OFF_SCRIPT_FAILS = 2
 const MAX_READER_FAILURES = 3
+const DEFAULT_DEFER_REPLY = 'Sem problema, responde com calma. Quando puder, me chama aqui.'
 
 function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T
@@ -192,9 +193,11 @@ export function stepFunnel(
   let cat = reading.falhou ? 'outro' : reading.categoria
   if (reading.confianca < MIN_CONFIDENCE && cat !== 'resposta_passo' && cat !== 'outro') cat = 'outro'
   // Primeira mensagem : é abertura (muitas vêm de anúncio com texto pronto, que pode até citar valor).
-  if (input.isFirstTurn && (cat === 'preco' || cat === 'objecao' || cat === 'pergunta_fora' || cat === 'agendar')) {
+  if (input.isFirstTurn && (cat === 'preco' || cat === 'objecao' || cat === 'pergunta_fora' || cat === 'agendar' || cat === 'adiar')) {
     cat = 'outro'
   }
+  // O lead voltou a falar de outra coisa : o próximo "estou ocupado" merece resposta de novo.
+  if (cat !== 'adiar') state.deferSent = false
 
   if (state.stage === 'refused') {
     const reopens =
@@ -215,6 +218,16 @@ export function stepFunnel(
   }
 
   switch (cat) {
+    case 'adiar': {
+      // Lead pediu espaço ("tenho um curso agora, respondo depois"): respeita. Uma frase curta
+      // sem pergunta, uma vez só, e NÃO repete a pergunta pendente nem avança o funil.
+      // askedStep continua o mesmo : a resposta dele, quando vier, ainda vale pro passo pendente.
+      if (state.deferSent) return silence(state)
+      state.deferSent = true
+      const reply = config.deferReply ?? DEFAULT_DEFER_REPLY
+      return reply ? { state, actions: [{ type: 'send', texts: [reply] }] } : silence(state)
+    }
+
     case 'bot_automatico':
       state.botCount++
       return silence(state)

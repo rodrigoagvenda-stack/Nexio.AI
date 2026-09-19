@@ -80,6 +80,10 @@ export function validateFunnelConfig(raw: unknown): string[] {
   visible('Texto do preço insistente', c.priceInsistHandoff)
   visible('Oferta de ligação', c.callOffer, false)
   visible('Confirmação de ligação', c.callConfirm, false)
+  visible('Resposta quando o lead está ocupado', c.deferReply, false)
+  if (typeof c.deferReply === 'string' && c.deferReply.includes('?')) {
+    errors.push('Resposta quando o lead está ocupado: não faça pergunta nesse texto.')
+  }
 
   if (!Array.isArray(c.priceScripts)) errors.push('Respostas de preço inválidas.')
   else c.priceScripts.forEach((t, i) => {

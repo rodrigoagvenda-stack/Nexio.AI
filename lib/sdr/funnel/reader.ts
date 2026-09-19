@@ -43,6 +43,7 @@ Formato:
 {"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "confianca": <número de 0 a 1>}
 
 Categorias (escolha UMA, a intenção principal que exige resposta especial):
+- adiar: a pessoa avisa que está ocupada AGORA (curso, reunião, trabalhando, dirigindo) e que vai responder depois ou demorar. Vale só quando ela quer pausar a conversa, sem dizer que não quer avançar. Tem prioridade sobre qualquer objeção da lista quando a mensagem é só "estou ocupado agora". Exemplo: "tenho um curso agora, não consigo responder rápido".
 - preco: pergunta valor, preço, quanto custa, planos ou orçamento. Texto pré-preenchido de anúncio NÃO conta como pergunta de preço.
 - objecao: reclama, hesita ou levanta dúvida que combina com um item da lista de objeções abaixo (preencha objecao_tipo com a chave).
 - pergunta_fora: faz uma pergunta sobre a empresa, o serviço ou o processo que não é preço e não está na lista de objeções.
