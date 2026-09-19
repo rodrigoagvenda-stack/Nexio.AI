@@ -902,12 +902,35 @@ export default function CRMPage() {
 
     const oldStatus = lead.status;
 
+    // Achado ao vivo (Rodrigo, 2026-09-18) : arrastar um card de uma coluna
+    // de etiqueta (Follow up/No-show/Promoção) pra uma coluna de status
+    // normal só atualizava o status, nunca removia a etiqueta -- como
+    // getColumnIdForLead dá prioridade pra etiqueta sobre status, o card
+    // continuava aparecendo na coluna antiga na próxima renderização,
+    // parecendo que o drag não fez nada.
+    const leadTagsAtuais = ((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name as string);
+    const tagAtivaParaRemover = SEQ_TAG_NAMES.find((t) => leadTagsAtuais.includes(t));
+    const SEQ_TAG_IDS_REMOVE: Record<SeqTagName, number | null> = { 'Follow up': systemTags.followUpId, 'No-show': systemTags.noShowId, 'Promoção': systemTags.promocaoId };
+    const tagIdParaRemover = tagAtivaParaRemover ? SEQ_TAG_IDS_REMOVE[tagAtivaParaRemover] : null;
+
     // Update otimista (atualiza UI imediatamente)
     setLeads(prevLeads => prevLeads.map(l =>
       (l.id === activeId || String(l.id) === String(activeId))
-        ? { ...l, status: newStatus! }
+        ? { ...l, status: newStatus!, lead_tags: tagAtivaParaRemover ? ((l.lead_tags as any[]) ?? []).filter((lt) => lt.tags?.tag_name !== tagAtivaParaRemover) : l.lead_tags }
         : l
     ));
+
+    if (tagAtivaParaRemover && tagIdParaRemover) {
+      try {
+        await fetch('/api/tags/unassign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadId: lead.id, tagId: tagIdParaRemover, companyId: user?.company_id }),
+        });
+      } catch {
+        // Falha ao remover etiqueta não deve bloquear a troca de status.
+      }
+    }
 
     // Persistir no banco via API (handle outbound_campaigns unique constraint)
     try {
