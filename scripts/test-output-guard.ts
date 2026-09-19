@@ -116,5 +116,15 @@ function check(name: string, ok: boolean, detail?: unknown) {
   check('resposta curta repetida ("Fechado!") não é tratada como repetição', r.paragraphs.length === 2, r)
 }
 
+{
+  const r = guardOutput(['Eu que agradeço! 😊', 'Qualquer coisa tô aqui.'], ctx({ recentOutbound: ['Eu que agradeço, André! 😊'] }))
+  check('despedida curta repetida em outra execução é cortada (caso André)', r.paragraphs.length === 1 && r.paragraphs[0] === 'Qualquer coisa tô aqui.', r)
+}
+
+{
+  const r = guardOutput(['Tem site?'], ctx({ recentOutbound: ['Tem site próprio?'] }))
+  check('pergunta de 2 palavras não é tratada como repetição', r.paragraphs.length === 1, r)
+}
+
 console.log(failed === 0 ? '\nTodos passaram.' : `\n${failed} caso(s) falharam.`)
 process.exit(failed === 0 ? 0 : 1)

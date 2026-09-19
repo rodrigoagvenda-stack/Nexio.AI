@@ -92,12 +92,16 @@ function similar(a: string, b: string, threshold: number): boolean {
   if (ta.length < MIN_TOKENS_FOR_SIMILARITY || tb.length < MIN_TOKENS_FOR_SIMILARITY) return false
   if (jaccard(ta, tb) >= threshold) return true
   const minLen = Math.min(ta.length, tb.length)
-  if (minLen < MIN_TOKENS_FOR_CONTAINMENT) return false
   const sa = new Set(ta)
   const sb = new Set(tb)
   let inter = 0
   for (const t of sa) if (sb.has(t)) inter++
-  return inter / Math.min(sa.size, sb.size) >= CONTAINMENT_THRESHOLD
+  const overlap = inter / Math.min(sa.size, sb.size)
+  // Frase curta (3 a 4 palavras) só é repetição se estiver INTEIRA dentro da outra
+  // ("Eu que agradeço!" dentro de "Eu que agradeço, André!") : achado ao vivo
+  // 2026-09-19, lead André recebeu a despedida duas vezes seguidas.
+  if (minLen < MIN_TOKENS_FOR_CONTAINMENT) return overlap === 1
+  return overlap >= CONTAINMENT_THRESHOLD
 }
 
 // "Tudo bem?" de abertura é cumprimento, não pergunta de qualificação.
