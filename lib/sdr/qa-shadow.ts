@@ -29,8 +29,40 @@ export async function ensureShadowCompany(realCompanyId: number, supabase: Supab
   // Resincroniza sempre : garante que o teste reflete o conteúdo ATUAL do
   // wizard, não uma foto antiga de quando a sombra foi criada.
   await cloneWizardContent(realCompanyId, shadowId, supabase)
+  await syncBehaviorConfig(realCompanyId, shadowId, supabase)
 
   return shadowId
+}
+
+/**
+ * Copia pra sombra o que muda o COMPORTAMENTO do motor (regras da guarda de
+ * saída, funil em código e a config dele) : o teste só vale se rodar com o
+ * mesmo motor que o lead real encontra.
+ */
+async function syncBehaviorConfig(realCompanyId: number, shadowId: number, supabase: Supabase): Promise<void> {
+  const [{ data: real }, { data: shadow }] = await Promise.all([
+    supabase.from('companies').select('features').eq('id', realCompanyId).single(),
+    supabase.from('companies').select('features').eq('id', shadowId).single(),
+  ])
+  const rf = (real?.features ?? {}) as Record<string, unknown>
+  const sf = { ...((shadow?.features ?? {}) as Record<string, unknown>) }
+  if (rf.sdr_output_rules === undefined) delete sf.sdr_output_rules
+  else sf.sdr_output_rules = rf.sdr_output_rules
+  // Funil v2 : a sombra pode ser ligada ANTES da empresa real (piloto), então
+  // só copia quando a real definiu; se a real não tem a chave, a sombra mantém a dela.
+  if (rf.sdr_funnel_v2 !== undefined) sf.sdr_funnel_v2 = rf.sdr_funnel_v2
+  await supabase.from('companies').update({ features: sf }).eq('id', shadowId)
+
+  const { data: funnel } = await supabase
+    .from('sdr_funnel_configs')
+    .select('enabled, config')
+    .eq('company_id', realCompanyId)
+    .maybeSingle()
+  if (funnel) {
+    await supabase
+      .from('sdr_funnel_configs')
+      .upsert({ company_id: shadowId, enabled: funnel.enabled, config: funnel.config, updated_at: new Date().toISOString() }, { onConflict: 'company_id' })
+  }
 }
 
 async function createShadowCompany(realCompanyId: number, supabase: Supabase): Promise<number> {

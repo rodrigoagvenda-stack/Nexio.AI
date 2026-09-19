@@ -17,6 +17,7 @@ import { createUazapiClient, normalizePhone, detectMessageType, extractCtwaRefer
 import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
+import { runFunnelTurn } from './funnel/runner'
 import { guardOutput, mentionsGratuito, type GuardContext, type GuardRules } from './output-guard'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
@@ -3623,6 +3624,35 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     // ── Acumulador de usage : passado por referência a todos os agentes ──
     const acc: UsageAcc = []
+
+    // ── Funil em código (v2) : quando ligado pra empresa, o código conduz a
+    // qualificação (textos aprovados, estado, portões) e a IA só lê a mensagem.
+    // handled=false devolve o turno pro orquestrador (funil desligado, conversa
+    // antiga, qualificação completa pra agendar, ou falha antes de enviar).
+    if ((company?.features as Record<string, unknown> | null)?.sdr_funnel_v2 === true) {
+      const { handled } = await runFunnelTurn({
+        companyId,
+        leadId,
+        leadName: ctx.leadName,
+        conversationId,
+        leadText: combinedText,
+        deps: {
+          supabase,
+          openai,
+          send: (texts) =>
+            sendWithHumanDelay(texts, phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token),
+          search: (q) => searchDocuments(q, companyId, openai, supabase, 'conhecimento'),
+          onUsage: (completion, agent) => pushUsage(acc, completion, agent),
+          log: (event, data) => log(companyId, event, data, supabase, phone, leadId),
+          distribute: () => distributeQueuedConversations(companyId, supabase),
+        },
+      })
+      if (handled) {
+        recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
+        checkAndSendQuotaAlerts(companyId, supabase).catch(console.error)
+        return
+      }
+    }
 
     // Usa conteúdo enriquecido (transcrição/descrição) para o orquestrador
     const messagesForOrchestrator: BufferedMessage[] = enrichedMessages.map((em) => ({
