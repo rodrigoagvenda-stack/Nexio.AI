@@ -25,6 +25,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { processSdrMessage, bufferMessage, type BufferedMessage } from '@/lib/sdr/engine'
 import { ensureShadowCompany } from '@/lib/sdr/qa-shadow'
 import { resolveOpenAIKey } from '@/lib/sdr/rag'
+import { isQuestionBlock, isRepeatOf, hasPrice, hasJustification } from '@/lib/sdr/output-guard'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
@@ -227,8 +228,186 @@ function makeScenario(companyId: number, supabase: Supabase) {
   return [precoDireto, confirmaAgendamento, recusaPersiste, fechamentoIndireto]
 }
 
-async function runScenarios(companyId: number, supabase: Supabase): Promise<ScenarioReport[]> {
-  const scenarios = makeScenario(companyId, supabase)
+// ─── Cenários profundos (multi-turno, checagem estrutural) ────────────
+// Usados só no CLI/regressão de dev (deep=true) : cada um é uma conversa de
+// vários turnos reais, então rodar tudo demora minutos, longe do que cabe num
+// clique do cliente. A checagem é sobre o QUE SAIU pro lead, não sobre o texto
+// exato : toda resposta, em todo turno, tem que respeitar as regras abaixo
+// (são as falhas reais medidas em produção entre 2026-09-15 e 2026-09-18).
+
+type Turno = { lead: string; silencioEsperado?: boolean }
+
+function makeDeepScenarios(companyId: number, supabase: Supabase) {
+  const { resetLead, sendLeadMessage } = makeRunner(companyId, supabase)
+
+  const getRules = async (): Promise<{ blockPrice: boolean }> => {
+    const { data } = await supabase.from('companies').select('features').eq('id', companyId).single()
+    const rules = (data?.features as { sdr_output_rules?: { blockPrice?: boolean } } | null)?.sdr_output_rules
+    return { blockPrice: rules?.blockPrice === true }
+  }
+
+  let phoneSeq = 10
+  const conversa = (
+    nome: string,
+    turnos: Turno[],
+    especifico?: (saidas: string[][]) => string | null
+  ) => async (): Promise<ScenarioReport> => {
+    const phone = `55119000000${String(phoneSeq++).padStart(2, '0')}`
+    await resetLead(phone)
+    const rules = await getRules()
+
+    const saidas: string[][] = []
+    const transcript: { lead: string; sdr: string }[] = []
+    const problemas: string[] = []
+
+    for (const [i, turno] of turnos.entries()) {
+      const out = await sendLeadMessage(phone, turno.lead)
+      saidas.push(out)
+      transcript.push({ lead: turno.lead, sdr: out.join(' | ') || '(silêncio)' })
+
+      if (out.length === 0 && !turno.silencioEsperado) {
+        problemas.push(`turno ${i + 1}: sem resposta`)
+        continue
+      }
+      const perguntas = out.filter(isQuestionBlock)
+      if (perguntas.length > 1) problemas.push(`turno ${i + 1}: ${perguntas.length} perguntas na mesma rajada`)
+      if (out.some(hasJustification)) problemas.push(`turno ${i + 1}: frase de justificativa ("assim consigo...", "isso me ajuda...")`)
+      if (rules.blockPrice && out.some(hasPrice)) problemas.push(`turno ${i + 1}: revelou valor em reais`)
+      const anteriores = saidas.slice(0, i).flat()
+      const repetido = out.find((b) => anteriores.some((a) => isRepeatOf(b, a)))
+      if (repetido) problemas.push(`turno ${i + 1}: repetiu frase já enviada ("${repetido.slice(0, 60)}")`)
+    }
+
+    const extra = especifico?.(saidas)
+    if (extra) problemas.push(extra)
+
+    return {
+      nome,
+      passou: problemas.length === 0,
+      transcript,
+      observacao: problemas.length === 0 ? 'Todas as respostas dentro das regras.' : problemas.join('; '),
+    }
+  }
+
+  const sem = (out: string[], re: RegExp) => out.some((b) => re.test(b))
+
+  return [
+    conversa('Qualificação completa em turnos', [
+      { lead: 'Oi, vi o anúncio de vocês e quero saber mais' },
+      { lead: 'Meu nome é Carlos' },
+      { lead: 'Tenho uma clínica odontológica em Recife' },
+      { lead: 'Não tenho perfil no Google' },
+      { lead: 'Sim, sou eu que decido' },
+    ]),
+    conversa('Lead manda tudo numa mensagem só', [
+      { lead: 'Oi, sou a Ana, tenho uma loja de roupas em Curitiba, não tenho Google Meu Negócio e eu decido tudo' },
+      { lead: 'ok' },
+    ]),
+    conversa('Empresa com poucos meses', [
+      { lead: 'Oi, quero saber como funciona' },
+      { lead: 'Sou o Paulo' },
+      { lead: 'Minha empresa tem só 2 meses, é uma barbearia em Salvador' },
+    ]),
+    conversa('Pergunta de preço logo de cara', [
+      { lead: 'Oi' },
+      { lead: 'Quanto custa?' },
+    ]),
+    conversa('Preço insistente', [
+      { lead: 'Quanto custa o serviço?' },
+      { lead: 'Mas me fala o valor, quanto é?' },
+      { lead: 'Só quero saber o preço' },
+    ]),
+    conversa('Recusa e depois despedida', [
+      { lead: 'Oi' },
+      { lead: 'Não tenho interesse, obrigado' },
+      { lead: 'ok', silencioEsperado: true },
+      { lead: 'valeu', silencioEsperado: true },
+    ], (s) => {
+      const depois = [...s[2], ...s[3]]
+      if (depois.some(isQuestionBlock)) return 'insistiu com pergunta depois da recusa'
+      return null
+    }),
+    conversa('Resposta automática de outra empresa', [
+      { lead: 'Olá! Sou a Rita, assistente virtual. Como posso ajudar?' },
+      { lead: 'Olá! Sou a Rita, assistente virtual. Como posso ajudar?' },
+      { lead: 'Olá! Sou a Rita, assistente virtual. Como posso ajudar?', silencioEsperado: true },
+    ]),
+    conversa('Lead pede pra falar com uma pessoa', [
+      { lead: 'Oi' },
+      { lead: 'Quero falar com uma pessoa de verdade' },
+    ]),
+    conversa('Pergunta fora do escopo', [
+      { lead: 'Oi, tudo bem?' },
+      { lead: 'Vocês fazem tráfego pago no TikTok?' },
+    ]),
+    conversa('Lead pergunta como será a conversa', [
+      { lead: 'Oi, vi o anúncio' },
+      { lead: 'Como vai ser essa conversa? Vai demorar muito?' },
+    ]),
+    conversa('Lead só responde "sim" e "ok"', [
+      { lead: 'Oi' },
+      { lead: 'sim' },
+      { lead: 'ok' },
+    ]),
+    conversa('Intenção de agendar direta', [
+      { lead: 'Oi, quero marcar uma reunião' },
+      { lead: 'Pode ser amanhã à tarde' },
+    ], (s) => (sem(s[0], /nome completo/i) ? 'pediu dados de agendamento antes da qualificação' : null)),
+    conversa('Lead ambíguo sobre quem decide', [
+      { lead: 'Oi, quero saber como funciona' },
+      { lead: 'Sou o Marcos, tenho uma padaria em Olinda' },
+      { lead: 'Vou ter que ver com meu sócio' },
+    ]),
+  ]
+}
+
+/** Roda cada cenário N vezes e só passa se passar em TODAS : o modelo é
+ * probabilístico, 1 acerto não prova nada (meta : 3 de 3). */
+async function runRepeated(
+  scenarios: (() => Promise<ScenarioReport | null>)[],
+  repeat: number
+): Promise<ScenarioReport[]> {
+  const out: ScenarioReport[] = []
+  for (const [i, scenario] of scenarios.entries()) {
+    const runs: ScenarioReport[] = []
+    for (let n = 0; n < repeat; n++) {
+      try {
+        const r = await scenario()
+        if (!r) break // cenário não se aplica a essa empresa
+        runs.push(r)
+      } catch (err: any) {
+        runs.push({
+          nome: `Cenário ${i + 1}`,
+          passou: false,
+          transcript: [],
+          observacao: `Erro técnico : ${err?.message ?? 'erro desconhecido'}`,
+        })
+      }
+    }
+    if (runs.length === 0) continue
+    const ok = runs.filter((r) => r.passou).length
+    const representante = runs.find((r) => !r.passou) ?? runs[0]
+    out.push({
+      ...representante,
+      passou: ok === runs.length,
+      observacao: `${ok}/${runs.length} : ${representante.observacao}`,
+    })
+  }
+  return out
+}
+
+async function runScenarios(
+  companyId: number,
+  supabase: Supabase,
+  opts: EvalOptions = {}
+): Promise<ScenarioReport[]> {
+  const base = makeScenario(companyId, supabase)
+  const all = opts.deep ? [...base, ...makeDeepScenarios(companyId, supabase)] : base
+  // `only` : índices (na lista completa) pra rodar um cenário por chamada
+  // HTTP (um cenário profundo leva ~1 min, a lista inteira estoura o timeout).
+  const scenarios = opts.only ? all.filter((_, i) => opts.only!.includes(i)) : all
+  const repeat = Math.max(1, opts.repeat ?? 1)
+  if (repeat > 1) return runRepeated(scenarios, repeat)
   // Sequencial de propósito, não Promise.all : achado ao vivo (2026-09-02)
   // que rodar os 4 cenários em paralelo dispara várias chamadas gpt-4.1
   // simultâneas (cada turno já é um orquestrador inteiro com várias tools,
@@ -280,15 +459,27 @@ async function releaseTestLock(realCompanyId: number, supabase: Supabase): Promi
 
 // ─── Uso técnico (regressão, resultado bruto) ─────────────────────────
 
-export async function runSdrEval(realCompanyId: number): Promise<EvalResult> {
+export interface EvalOptions {
+  /** Inclui os cenários multi-turno de regressão estrutural. */
+  deep?: boolean
+  /** Roda cada cenário N vezes; só passa se passar em todas. */
+  repeat?: number
+  /** Índices dos cenários a rodar (na lista completa). */
+  only?: number[]
+}
+
+export async function runSdrEval(realCompanyId: number, opts: EvalOptions = {}): Promise<EvalResult> {
   const supabase = createServiceClient()
   const shadowId = await ensureShadowCompany(realCompanyId, supabase)
-  const reports = await runScenarios(shadowId, supabase)
+  const reports = await runScenarios(shadowId, supabase, opts)
 
   const log: string[] = []
   const checks: EvalCheck[] = []
   for (const r of reports) {
     log.push(`\n[${r.nome}] ${r.passou ? '✓' : '✗'} ${r.observacao}`)
+    if (!r.passou) {
+      for (const t of r.transcript) log.push(`    lead: ${t.lead}\n    sdr:  ${t.sdr}`)
+    }
     checks.push({ ok: r.passou, label: `${r.nome}: ${r.observacao}` })
   }
 

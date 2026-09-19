@@ -61,7 +61,12 @@ async function createShadowCompany(realCompanyId: number, supabase: Supabase): P
         // isso hoje — não faz sentido testar outbound aqui de qualquer jeito.
         briefing: realFeatures.briefing === true,
         places_analysis: realFeatures.places_analysis === true,
-      },
+        // Regras da guarda de saída : o teste tem que rodar com as mesmas
+        // regras da empresa real, senão não testa o que vai pro lead.
+        ...((real?.features as { sdr_output_rules?: unknown } | null)?.sdr_output_rules
+          ? { sdr_output_rules: (real!.features as { sdr_output_rules: unknown }).sdr_output_rules }
+          : {}),
+      } as Record<string, unknown>,
     })
     .select('id')
     .single()

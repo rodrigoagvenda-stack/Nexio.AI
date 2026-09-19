@@ -17,6 +17,7 @@ import { createUazapiClient, normalizePhone, detectMessageType, extractCtwaRefer
 import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
+import { guardOutput, mentionsGratuito, type GuardContext, type GuardRules } from './output-guard'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
 import { isWithinBusinessHours, getBusinessHoursSummary } from './business-hours'
@@ -309,6 +310,61 @@ export async function ultimaPerguntaFoiSobreNome(
     .order('carimbo_de_data_e_hora', { ascending: false })
     .limit(5)
   return (data ?? []).some((m) => PERGUNTA_DE_NOME_RE.test(m.texto_da_mensagem ?? ''))
+}
+
+/**
+ * Monta o contexto da guarda de saída (lib/sdr/output-guard.ts) a partir do
+ * histórico real da conversa e das regras da empresa
+ * (companies.features.sdr_output_rules : { blockPrice?, maxGratuito? }).
+ * Se a leitura falhar, devolve contexto vazio : a guarda só aplica as regras
+ * que não dependem de histórico (R1, R3).
+ */
+async function buildGuardContext(
+  conversationId: string | null | undefined,
+  company: { features?: unknown } | null | undefined,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<GuardContext> {
+  const features = (company?.features ?? {}) as { sdr_output_rules?: GuardRules }
+  const empty: GuardContext = {
+    recentOutbound: [],
+    firstOutbound: [],
+    totalOutbound: 0,
+    gratuitoCount: 0,
+    rules: features.sdr_output_rules,
+  }
+  if (!conversationId) return empty
+
+  const [recent, first, total] = await Promise.all([
+    supabase
+      .from('mensagens_do_whatsapp')
+      .select('texto_da_mensagem')
+      .eq('id_da_conversacao', conversationId)
+      .eq('direcao', 'outbound')
+      .order('carimbo_de_data_e_hora', { ascending: false })
+      .limit(60),
+    supabase
+      .from('mensagens_do_whatsapp')
+      .select('texto_da_mensagem')
+      .eq('id_da_conversacao', conversationId)
+      .eq('direcao', 'outbound')
+      .order('carimbo_de_data_e_hora', { ascending: true })
+      .limit(3),
+    supabase
+      .from('mensagens_do_whatsapp')
+      .select('id', { count: 'exact', head: true })
+      .eq('id_da_conversacao', conversationId)
+      .eq('direcao', 'outbound'),
+  ])
+  if (recent.error || first.error || total.error) return empty
+
+  const texts = (recent.data ?? []).map((m) => m.texto_da_mensagem ?? '').filter(Boolean)
+  return {
+    recentOutbound: texts.slice(0, 12),
+    firstOutbound: (first.data ?? []).map((m) => m.texto_da_mensagem ?? '').filter(Boolean),
+    totalOutbound: total.count ?? 0,
+    gratuitoCount: texts.filter(mentionsGratuito).length,
+    rules: features.sdr_output_rules,
+  }
 }
 
 // Achado ao vivo (Rodrigo, 2026-09-05) : lead disse claramente "agora eu não
@@ -3576,10 +3632,26 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     const aiResponse = await runOrchestrator(messagesForOrchestrator, history, ctx, leadNotes, supabase, openai, acc)
     if (!aiResponse) return
 
-    const paragraphs = aiResponse
+    const rawParagraphs = aiResponse
       .split(/\n\n+/)
       .map((p) => p.trim())
       .filter(Boolean)
+
+    // Guarda de saída : filtro determinístico antes de ir pro lead
+    // (uma pergunta por rajada, sem repetir frase, sem reapresentar, sem
+    // justificativa, regras de preço/gratuito por empresa). Ver output-guard.ts.
+    const guardCtx = await buildGuardContext(conversationId, company, supabase)
+    const guarded = guardOutput(rawParagraphs, guardCtx)
+    const paragraphs = guarded.paragraphs
+    if (guarded.violations.length > 0) {
+      await log(companyId, 'output_guard_violation', { violations: guarded.violations, original: rawParagraphs }, supabase, phone, leadId)
+    }
+    if (paragraphs.length === 0) {
+      console.log(`[SDR:${companyId}] guarda de saída suprimiu toda a resposta para ${phone}`)
+      await log(companyId, 'output_guard_suppressed_all', { original: rawParagraphs }, supabase, phone, leadId)
+      recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
+      return
+    }
 
     console.log(`[SDR:${companyId}] → enviando ${paragraphs.length} bloco(s) para ${phone}:`)
     paragraphs.forEach((p, i) => console.log(`  [${i + 1}] ${p}`))
