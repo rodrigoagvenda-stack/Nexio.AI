@@ -39,6 +39,10 @@ export interface EvalResult {
   failed: number
   checks: EvalCheck[]
   log: string[]
+  /** Cenários rodados, com a conversa completa de cada um. */
+  reports: ScenarioReport[]
+  /** Quantos cenários existem na lista completa (pra quem roda um por vez). */
+  total: number
 }
 
 export interface ScenarioReport {
@@ -488,7 +492,8 @@ export async function runSdrEval(realCompanyId: number, opts: EvalOptions = {}):
   log.push(`\n${'─'.repeat(50)}`)
   log.push(`Resultado: ${passed} passou, ${failed} falhou (empresa-sombra id=${shadowId})`)
 
-  return { passed, failed, checks, log }
+  const total = makeScenario(shadowId, supabase).length + (opts.deep ? makeDeepScenarios(shadowId, supabase).length : 0)
+  return { passed, failed, checks, log, reports, total }
 }
 
 // ─── Uso pelo cliente (resumo em português, com transcrição real) ─────

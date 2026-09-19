@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runSdrEval } from '@/lib/sdr/eval'
+import { requireAdmin } from '@/lib/auth/require-auth'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
 // POST /api/admin/qa/sdr-eval : roda o harness de avaliação do SDR
-// (lib/sdr/eval.ts) contra a empresa-sombra da empresa indicada (body:
-// { companyId }, default 30 = Grupo Venda), em produção, onde a service
-// role key já existe. Mesma auth dos crons : Authorization Bearer
-// CRON_SECRET. Nunca toca em dado real, só na empresa-sombra clonada.
+// (lib/sdr/eval.ts) contra a empresa-sombra da empresa indicada, em produção,
+// onde a service role key já existe. Body: { companyId, deep?, repeat?, only? }.
+// Nunca toca em dado real, só na empresa-sombra clonada.
+// Auth : admin da plataforma logado (página /admin/qa-sdr, sem segredo nenhum
+// no navegador) OU Authorization Bearer CRON_SECRET (scripts).
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  const viaSecret = !!cronSecret && authHeader === `Bearer ${cronSecret}`
+  if (!viaSecret) {
+    const { error } = await requireAdmin(request)
+    if (error) return error
   }
 
   try {
