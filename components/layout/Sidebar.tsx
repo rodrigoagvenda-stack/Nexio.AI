@@ -17,6 +17,7 @@ import {
   Wallet,
   Shield,
   Radar,
+  ListChecks,
 } from 'lucide-react';
 import { TrendingUpIcon } from '@/components/ui/trending-up';
 import { ChartPieIcon } from '@/components/ui/chart-pie';
@@ -130,6 +131,7 @@ const navSections: NavSection[] = [
         icon: BotIcon,
         children: [
           { href: '/configuracoes/sdr', label: 'Agente SDR', icon: BotMessageSquareIcon },
+          { href: '/configuracoes/sdr/funil', label: 'Funil do SDR', icon: ListChecks },
           { href: '/configuracoes/follow', label: 'Canvas', icon: CursorClickIcon },
           { href: '/configuracoes/agenda', label: 'Agenda', icon: CalendarDaysIcon },
           { href: '/configuracoes/metricas', label: 'Métricas', icon: ChartLineIcon },

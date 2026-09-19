@@ -4,7 +4,8 @@
  * Rodar: npx tsx scripts/test-funnel-machine.ts
  */
 import { stepFunnel } from '../lib/sdr/funnel/machine'
-import { grupoVendaFunnel as cfg } from '../lib/sdr/funnel/templates'
+import { grupoVendaFunnel as cfg, genericFunnelTemplate } from '../lib/sdr/funnel/templates'
+import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
 let failed = 0
@@ -218,6 +219,20 @@ function emQualificacao() {
   turn(s, read('pergunta_fora'), { leadText: 'q' })
   turn(s, read('pergunta_fora'), { leadText: 'q', boxAnswer: 'ok' })
   check('stepFunnel não muta o estado recebido', JSON.stringify(s) === snapshot)
+}
+
+// ─── Validação da config (portão de salvar) ─────────────────────────────
+{
+  check('config do Grupo Venda é válida', validateFunnelConfig(cfg).length === 0, validateFunnelConfig(cfg))
+  const gen = genericFunnelTemplate({ agentName: 'Bia', companyName: 'Loja X', humanName: 'a Carla' })
+  check('modelo genérico é válido', validateFunnelConfig(gen).length === 0, validateFunnelConfig(gen))
+  const bad = JSON.parse(JSON.stringify(cfg))
+  bad.steps[1].question = 'Qual o ramo — e a cidade?'
+  bad.priceScripts[0] = 'Custa R$ 500'
+  bad.steps[2].followUp.missingField = 'nao_existe'
+  const errs = validateFunnelConfig(bad)
+  check('rejeita travessão, valor em reais e campo inexistente', errs.length >= 3, errs)
+  check('rejeita config vazia', validateFunnelConfig({ version: 1, steps: [] }).length > 0)
 }
 
 console.log(failed === 0 ? '\nTodos passaram.' : `\n${failed} caso(s) falharam.`)
