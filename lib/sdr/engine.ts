@@ -57,6 +57,9 @@ import { sendInjectionAlertEmail } from '@/lib/email/resend'
 
 // ─── Tipos ───────────────────────────────────────────────────
 
+/** Mais que isso de mídia no mesmo lote (30s) = enxurrada : o SDR não processa, uma pessoa assume. */
+const MAX_MEDIA_BURST = 6
+
 interface SdrContext {
   companyId: number
   companyName: string
@@ -3269,6 +3272,16 @@ async function enrichMediaMessages(
   messages: BufferedMessage[],
   openai: OpenAI
 ): Promise<Array<BufferedMessage & { enrichedContent: string }>> {
+  // Achado ao vivo (Rodrigo, 2026-09-19, lead Crys) : um único lead despejou um
+  // álbum de 37 imagens + 31 vídeos, e cada imagem virava uma chamada de visão
+  // em paralelo, sem teto : custo de token alto e risco de estourar o limite
+  // por minuto da OpenAI (o mesmo que derrubou respostas de outros leads).
+  // Só as primeiras imagens do lote são descritas; as demais seguem como
+  // "Imagem" (o SDR sabe que chegou mídia, não precisa ver todas).
+  const MAX_IMAGES_DESCRIBED = 3
+  let imagesSeen = 0
+  // (acima de MAX_MEDIA_BURST arquivos no lote, nem chega aqui : ver processSdrMessage)
+
   return Promise.all(
     messages.map(async (msg) => {
       if (!msg.mediaUrl) return { ...msg, enrichedContent: msg.content }
@@ -3294,6 +3307,7 @@ async function enrichMediaMessages(
       }
 
       if (msg.type === 'image') {
+        if (++imagesSeen > MAX_IMAGES_DESCRIBED) return { ...msg, enrichedContent: msg.content }
         try {
           const resp = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
@@ -3367,8 +3381,16 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
 
     const openai = await getOpenAIClient(cfg.openai_key || process.env.OPENAI_API_KEY || '')
 
+    // Enxurrada de mídia (achado ao vivo 2026-09-19, lead Crys : 37 imagens + 31
+    // vídeos em 30 segundos) : não descreve nem transcreve nada, não gasta token.
+    // O tratamento (avisar a equipe e pausar) vem logo depois de salvar as mensagens.
+    const mediaCount = bufferedMessages.filter((m) => m.mediaUrl || ['image', 'video', 'audio', 'ptt', 'document'].includes(m.type)).length
+    const mediaBurst = mediaCount > MAX_MEDIA_BURST
+
     // Enriquece mídia (transcrição de áudio, descrição de imagem, extração de documento)
-    const enrichedMessages = await enrichMediaMessages(bufferedMessages, openai)
+    const enrichedMessages = mediaBurst
+      ? bufferedMessages.map((m) => ({ ...m, enrichedContent: m.content }))
+      : await enrichMediaMessages(bufferedMessages, openai)
 
     const { data: company } = await supabase
       .from('companies')
@@ -3444,6 +3466,36 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Verifica se agente está pausado nesta conversa (só APÓS salvar as mensagens)
     if (await isAgentePausadoAtivo(conversationId, supabase)) {
       await log(companyId, 'agent_paused_conversation', {}, supabase, phone, leadId)
+      return
+    }
+
+    // Enxurrada de mídia : uma pessoa cuida (o SDR não tem o que fazer com dezenas de
+    // arquivos). Avisa o lead, tira a conversa do SDR e coloca na fila com aviso no sino.
+    if (mediaBurst) {
+      await sendWithHumanDelay(
+        ['Recebi seus arquivos! Vou passar pra nossa equipe olhar com calma e já te retornam.'],
+        phone, cfg.uazapi_instance_url, cfg.uazapi_token, conversationId, ctx, supabase, cfg.meta_wa_phone_number_id, cfg.meta_wa_token
+      )
+      await supabase
+        .from('conversas_do_whatsapp')
+        .update({
+          agente_pausado: true,
+          agente_pausado_em: new Date().toISOString(),
+          current_status: 'livre',
+          kanban_stage: 'fila',
+          queue_entered_at: new Date().toISOString(),
+        })
+        .eq('id', conversationId)
+      await supabase.from('activity_logs').insert({
+        company_id: companyId,
+        action: 'sdr_handoff',
+        description: `${ctx.leadName || 'Lead'} enviou ${mediaCount} arquivos de uma vez. O SDR parou e a conversa está na fila para uma pessoa.`,
+        metadata: { lead_id: leadId, conversation_id: conversationId, reason: 'enxurrada_de_midia', media_count: mediaCount },
+      })
+      await log(companyId, 'media_burst_handoff', { mediaCount }, supabase, phone, leadId)
+      distributeQueuedConversations(companyId, supabase).catch((e) =>
+        console.error(`[SDR:${companyId}] distribuição pós-enxurrada de mídia falhou:`, e.message)
+      )
       return
     }
 
