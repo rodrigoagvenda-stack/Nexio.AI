@@ -84,8 +84,6 @@ export interface FunnelConfig {
    * Ausente = usa o texto padrão do runner; string vazia = fica em silêncio.
    */
   deferReply?: string
-  /** Lead avisa que está ocupado e responde depois : resposta curta, sem pergunta (vazio = fica em silêncio). */
-  deferReply?: string
   /** Quando a pergunta fora do roteiro não tem resposta na base. */
   unknownAnswer: string
   handoff: {
