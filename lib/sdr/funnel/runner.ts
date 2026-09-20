@@ -17,7 +17,7 @@ import { answerFromKnowledge } from './box'
 import { stepFunnel } from './machine'
 import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
-import { buildReaction, shouldReact } from './reaction'
+import { buildEcho, buildReaction, shouldReact } from './reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
@@ -42,6 +42,9 @@ export interface FunnelTurnParams {
   leadName: string
   conversationId: string
   leadText: string
+  /** A mensagem do lead traz áudio, imagem ou outra mídia (sempre respondida). */
+  hasMedia?: boolean
+  mediaKind?: 'audio' | 'imagem' | 'outro'
   deps: FunnelDeps
 }
 
@@ -259,7 +262,10 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
 
     // Reação humana: quando o lead contou algo além da resposta seca, uma frase curta reconhece isso
     // antes da próxima pergunta. Opcional e à prova de falha: qualquer problema apaga a frase.
-    if (shouldReact({ state: result.state, reading, actions: result.actions, isFirstTurn, enabled: config.reactions !== false })) {
+    // Mídia (áudio, imagem...) é SEMPRE respondida: se a frase do SDR for barrada, sai a confirmação
+    // dos dados guardados. Funil que ignora o que o lead mandou vira bot.
+    const midia = !!p.hasMedia
+    if (shouldReact({ state: result.state, reading, actions: result.actions, isFirstTurn, enabled: config.reactions !== false, hasMedia: midia })) {
       const rx = await buildReaction({
         transcript,
         leadText: p.leadText,
@@ -267,12 +273,19 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
         recentOutbound: outboundNewestFirst,
         openai,
         onUsage: p.deps.onUsage,
+        media: midia,
       })
-      await p.deps.log('funnel_reaction', { frase: rx.frase, aprovada: !!rx.texto, motivo: rx.motivo }).catch(() => {})
-      if (rx.texto) {
+      let texto = rx.texto
+      let usouEco = false
+      if (!texto && midia) {
+        texto = buildEcho(config, state.data, result.state.data, p.mediaKind ?? 'outro')
+        usouEco = true
+      }
+      await p.deps.log('funnel_reaction', { frase: rx.frase, aprovada: !!rx.texto, motivo: rx.motivo, midia, eco: usouEco ? texto : null }).catch(() => {})
+      if (texto) {
         const envio = result.actions[0] as Extract<FunnelAction, { type: 'send' }>
-        envio.texts = [rx.texto, ...envio.texts]
-        result.state.reactionTurn = result.state.turns
+        envio.texts = [texto, ...envio.texts]
+        if (!midia) result.state.reactionTurn = result.state.turns
       }
     }
 

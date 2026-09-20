@@ -8,7 +8,7 @@ import { grupoVendaFunnel as cfg, genericFunnelTemplate } from '../lib/sdr/funne
 import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
 import { detectAskedStep } from '../lib/sdr/funnel/sync'
 import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
-import { shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
+import { buildEcho, shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
@@ -276,9 +276,27 @@ function emQualificacao() {
   check('não reage: intervalo entre reações (última há 2 turnos)', ok({ state: { ...base, reactionTurn: 4 } }) === false)
   check('reage de novo depois do intervalo', ok({ state: { ...base, reactionTurn: 3 } }) === true)
   check(
-    'não reage: resposta cheia de dados é descrição do negócio (caso Erasmo, áudio com nome e endereço)',
-    ok({ reading: rd({ dados: { nome: 'Erasmo', cidade: 'São Paulo' } }) }) === false
+    'texto com dados e SEM desabafo não reage (o leitor não marca comentario)',
+    ok({ reading: rd({ dados: { nome: 'Erasmo', cidade: 'São Paulo' }, comentario: false }) }) === false
   )
+
+  // Mídia: sempre respondida (caso Erasmo: áudio descrevendo o salão foi tratado como bot)
+  check('ÁUDIO/imagem: sempre reage, mesmo sem desabafo', ok({ reading: rd({ comentario: false }), hasMedia: true }) === true)
+  check('mídia: reage mesmo com vários dados no áudio', ok({ reading: rd({ dados: { ramo: 'salão', cidade: 'SP', nome_empresa: 'X' }, comentario: false }), hasMedia: true }) === true)
+  check('mídia: reage mesmo com a reação desligada na empresa', ok({ enabled: false, hasMedia: true }) === true)
+  check('mídia: ignora o intervalo entre reações', ok({ state: { ...base, reactionTurn: 5 }, hasMedia: true }) === true)
+  check('mídia: se o lead fez pergunta de preço, quem responde é o script (sem reação)', ok({ reading: rd({ categoria: 'preco' }), hasMedia: true }) === false)
+  check('mídia: primeira mensagem vira abertura', ok({ isFirstTurn: true, hasMedia: true }) === false)
+  check('mídia: passando pra pessoa não reage', ok({ actions: [{ type: 'handoff', reason: 'x', texts: ['y'] }], hasMedia: true }) === false)
+
+  const eco = (before: Record<string, string>, after: Record<string, string>, kind: 'audio' | 'imagem' | 'outro' = 'audio') => buildEcho(cfg, before, after, kind)
+  check(
+    'eco: confirma só os dados novos guardados ("Anotei: ...")',
+    eco({ nome: 'Erasmo' }, { nome: 'Erasmo', nome_empresa: 'Tesoura de Ouro', ramo: 'salão de beleza', cidade: 'São Paulo' }) === 'Anotei: Tesoura de Ouro, salão de beleza, São Paulo.'
+  )
+  check('eco: não repete dado que já estava guardado', eco({ ramo: 'salão' }, { ramo: 'salão', cidade: 'Recife' }) === 'Anotei: Recife.')
+  check('eco: não inclui sim/não nem o nome da pessoa', eco({}, { nome: 'Ana', tem_site: 'sim' }) === 'Recebi o seu áudio.')
+  check('eco sem dado novo em imagem', eco({}, {}, 'imagem') === 'Recebi a imagem, obrigada.')
 
   const forma = (frase: string, over: Partial<Parameters<typeof structuralChecks>[0]> = {}) =>
     structuralChecks({ frase, leadText: 'perdi minha conta de 10 anos', lastQuestion: 'Já fez anúncio no Google ou no Meta?', recentOutbound: [], ...over })

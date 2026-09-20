@@ -3403,6 +3403,14 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // O tratamento (avisar a equipe e pausar) vem logo depois de salvar as mensagens.
     const mediaCount = bufferedMessages.filter((m) => m.mediaUrl || ['image', 'video', 'audio', 'ptt', 'document'].includes(m.type)).length
     const mediaBurst = mediaCount > MAX_MEDIA_BURST
+    const tiposMidia = bufferedMessages
+      .filter((m) => m.mediaUrl || ['image', 'video', 'audio', 'ptt', 'document'].includes(m.type))
+      .map((m) => m.type)
+    const mediaKind: 'audio' | 'imagem' | 'outro' = tiposMidia.some((t) => t === 'audio' || t === 'ptt')
+      ? 'audio'
+      : tiposMidia.includes('image')
+        ? 'imagem'
+        : 'outro'
 
     // Enriquece mídia (transcrição de áudio, descrição de imagem, extração de documento)
     const enrichedMessages = mediaBurst
@@ -3705,6 +3713,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
         leadName: ctx.leadName,
         conversationId,
         leadText: combinedText,
+        hasMedia: tiposMidia.length > 0,
+        mediaKind,
         deps: {
           supabase,
           openai,
