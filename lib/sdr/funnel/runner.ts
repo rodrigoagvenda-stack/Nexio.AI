@@ -18,6 +18,7 @@ import { stepFunnel } from './machine'
 import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
 import { buildReaction, shouldReact } from './reaction'
+import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -174,6 +175,14 @@ async function execute(
 export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boolean; leadName?: string }> {
   const { supabase, openai } = p.deps
 
+  // Áudio que não pôde ser transcrito, no meio da qualificação: avisa em vez de repetir a pergunta.
+  const avisoAudio = await unreadableAudioReply(p)
+  if (avisoAudio !== null) {
+    if (avisoAudio) await p.deps.send([avisoAudio])
+    await p.deps.log('funnel_audio_ilegivel', { respondeu: !!avisoAudio }).catch(() => {})
+    return { handled: true }
+  }
+
   let config: FunnelConfig
   let result: StepResult
   let prevChecklist: Record<string, unknown> | null
@@ -312,6 +321,22 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
   await execute(p, config, result.state, result.actions)
   await syncLeadCrm(p, config, stageAtStart, result.state, result.actions)
   return { handled: true }
+}
+
+/** null = não é o caso (segue o fluxo normal); string = texto a enviar ('' = ficar em silêncio). */
+async function unreadableAudioReply(p: FunnelTurnParams): Promise<string | null> {
+  if (!isUnreadableAudio(p.leadText)) return null
+  try {
+    const { data: cfgRow } = await p.deps.supabase.from('sdr_funnel_configs').select('enabled, config').eq('company_id', p.companyId).maybeSingle()
+    if (!cfgRow?.enabled) return null
+    const { data: conv } = await p.deps.supabase.from('conversas_do_whatsapp').select('funnel_state').eq('id', p.conversationId).single()
+    const st = loadState(conv?.funnel_state)
+    if (!st || st.stage !== 'qualifying') return null // só no meio da qualificação
+    const cfg = cfgRow.config as Partial<FunnelConfig>
+    return typeof cfg.audioFailReply === 'string' ? cfg.audioFailReply : DEFAULT_AUDIO_FAIL_REPLY
+  } catch {
+    return null
+  }
 }
 
 /**

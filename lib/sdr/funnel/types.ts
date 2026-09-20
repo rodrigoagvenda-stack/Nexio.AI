@@ -89,6 +89,8 @@ export interface FunnelConfig {
    * explica o que vai acontecer. Aceita {nome}. Ausente = não envia nada.
    */
   closingMessage?: string
+  /** Quando o áudio do lead não pôde ser transcrito. Ausente = texto padrão; vazio = fica em silêncio. */
+  audioFailReply?: string
   /** Reação humana curta quando o lead conta algo além da resposta. Ausente = ligada; false = desligada. */
   reactions?: boolean
   /** Quando a pergunta fora do roteiro não tem resposta na base. */

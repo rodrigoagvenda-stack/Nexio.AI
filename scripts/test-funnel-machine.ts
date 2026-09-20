@@ -9,6 +9,7 @@ import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
 import { detectAskedStep } from '../lib/sdr/funnel/sync'
 import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
 import { shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
+import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -290,6 +291,16 @@ function emQualificacao() {
   check('forma: recusa frase vazia', forma('   ') === 'vazia')
   check('forma: recusa repetir frase recente', forma('Poxa, isso é complicado.', { recentOutbound: ['Poxa, isso é complicado.'] }) === 'repetida')
   check('forma: recusa justificativa', forma('Assim já consigo te entender melhor.') === 'justificativa')
+}
+
+// ─── Áudio que não foi transcrito ───────────────────────────────────────
+{
+  check('áudio sem transcrição (só o rótulo) é reconhecido', isUnreadableAudio('🎵 Áudio') === true)
+  check('vários áudios sem transcrição também', isUnreadableAudio('🎵 Áudio\n🎵 Áudio') === true)
+  check('áudio transcrito NÃO é ilegível', isUnreadableAudio('Meu salão fica na Rua das Flores, em São Paulo') === false)
+  check('texto junto com áudio sem transcrição NÃO é ilegível', isUnreadableAudio('Segue meu endereço\n🎵 Áudio') === false)
+  check('texto comum NÃO é ilegível', isUnreadableAudio('Ok') === false)
+  check('aviso padrão é uma frase só, com uma pergunta', DEFAULT_AUDIO_FAIL_REPLY.split('?').length === 2)
 }
 
 // ─── "Ok" sem conteúdo: espera, não repete a pergunta (caso Erasmo) ─────
