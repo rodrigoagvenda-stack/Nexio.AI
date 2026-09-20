@@ -210,6 +210,8 @@ export const grupoVendaFunnel: FunnelConfig = {
     'Sem problema! Posso te explicar rapidinho por aqui mesmo, ou já te conecto direto com o Bruno, nosso CEO e especialista em Google Meu Negócio aqui do Grupo Venda : ele mesmo te retorna. O que prefere?',
   callConfirm: 'Perfeito! Vou avisar o Bruno agora, ele deve te retornar em breve.',
   deferReply: 'Sem problema, responde com calma. Quando puder, me chama aqui.',
+  closingMessage:
+    'Perfeito, {nome}! O próximo passo é uma conversa de diagnóstico com o Bruno, nosso especialista em Google. Ele analisa a presença da sua empresa no Google e mostra o que está travando os resultados.',
   unknownAnswer: 'Isso o Bruno explica direitinho na reunião, olhando o seu caso específico.',
   handoff: {
     waitMessage: 'Vou chamar o Bruno aqui no WhatsApp pra continuar com você, um segundo.',

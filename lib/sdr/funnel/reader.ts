@@ -12,8 +12,8 @@ export interface ReaderInput {
   config: FunnelConfig
   state: FunnelState
   leadText: string
-  /** Últimas mensagens que NÓS enviamos (mais antigas primeiro). */
-  lastOutbound: string[]
+  /** Conversa recente, das mais antigas pras mais novas ("Lead: ..." / "Equipe: ..."), com o que pessoas da equipe escreveram e o que chegou durante pausas. */
+  transcript: string[]
   isFirstTurn: boolean
 }
 
@@ -27,7 +27,6 @@ function unfilledFields(config: FunnelConfig, state: FunnelState): FunnelField[]
 export function buildReaderPrompt(input: ReaderInput): { system: string; user: string } {
   const { config, state } = input
   const fields = unfilledFields(config, state)
-  const pendingStep = state.askedStep ? config.steps.find((s) => s.id === state.askedStep) : undefined
 
   const objLines = Object.entries(config.objections).map(
     ([key, o]) => `- ${key} (${o.kind === 'faq' ? 'dúvida comum' : 'objeção'}): ${o.triggers}`
@@ -70,18 +69,19 @@ Regras:
 - Você NÃO acessa links, só reconhece o tipo pelo endereço. Links que são perfil de empresa no Google: share.google/..., google.com/search?kgmid=..., google.com/maps/place/..., maps.app.goo.gl/..., g.page/..., goo.gl/maps/.... Link de Instagram, Facebook, site próprio ou WhatsApp NÃO é perfil do Google.
 - Quando perguntamos "você tem X? Se sim, mande o link ou print" e a pessoa manda o link ou a imagem, isso responde que ela TEM: preencha também o campo sim|nao correspondente com "sim", além do campo do link.
 - Em campo sim|nao, "não sei" ou resposta que não deixa claro = null.
-- As últimas mensagens que enviamos podem já ter confirmado dados do lead (ex.: uma pessoa da equipe escreveu "Certo Francisco, marcenaria em Brasília" no meio da conversa). Se o lead não contradisse, extraia esses dados também.
+- As mensagens da Equipe podem já ter confirmado dados do lead (ex.: uma pessoa da equipe escreveu "Certo Francisco, marcenaria em Brasília" no meio da conversa). Se o lead não contradisse, extraia esses dados também.
+- A pergunta que o lead está respondendo é a ÚLTIMA pergunta da Equipe na conversa recente, mesmo que uma pessoa (e não o SDR) a tenha escrito. Um "sim" ou "não" responde ESSA pergunta, e o dado dela é o do campo correspondente.
+- A conversa recente pode conter respostas do lead que chegaram enquanto o atendimento automático estava pausado. Extraia TODOS os dados que o lead já respondeu ali (ex.: a Equipe perguntou "Tem site?" e o lead disse que tem), não só os da mensagem nova.
 - confianca baixa (menor que 0.5) quando a mensagem for ambígua ou você estiver em dúvida entre categorias.`
 
-  const lastOut = input.lastOutbound.length
-    ? input.lastOutbound.map((t) => `> ${t.replace(/\n/g, ' ')}`).join('\n')
-    : '(nenhuma ainda)'
+  const conversa = input.transcript.length ? input.transcript.join('\n') : '(nenhuma mensagem ainda)'
   const user = `Primeira mensagem da conversa: ${input.isFirstTurn ? 'sim' : 'não'}
 Ligação já oferecida: ${state.callOffered ? 'sim' : 'não'}
-Pergunta pendente (a última que fizemos): ${pendingStep ? pendingStep.question.replace(/\{nome\}/g, state.data.nome ?? '') : '(nenhuma)'}
-Últimas mensagens que enviamos:
-${lastOut}
 
+Conversa recente (da mais antiga pra mais nova; "Equipe" é o SDR ou uma pessoa da equipe):
+${conversa}
+
+Mensagem(ns) NOVA(s) do lead, a classificar agora:
 <lead>
 ${input.leadText}
 </lead>`

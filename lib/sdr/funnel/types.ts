@@ -84,6 +84,11 @@ export interface FunnelConfig {
    * Ausente = usa o texto padrão do runner; string vazia = fica em silêncio.
    */
   deferReply?: string
+  /**
+   * Mensagem fixa enviada UMA vez quando o roteiro termina, antes do agendamento pedir dados:
+   * explica o que vai acontecer. Aceita {nome}. Ausente = não envia nada.
+   */
+  closingMessage?: string
   /** Quando a pergunta fora do roteiro não tem resposta na base. */
   unknownAnswer: string
   handoff: {

@@ -456,6 +456,12 @@ export default function FunilPage() {
           <Text label="Quando o lead diz que não quer" value={cfg.refusalReply} onChange={(v) => update((c) => void (c.refusalReply = v))} />
           <Text label="Quando o lead se despede" value={cfg.farewellReply} onChange={(v) => update((c) => void (c.farewellReply = v))} />
           <Text
+            label="Ao terminar as perguntas, antes de pedir dados pro agendamento (use {nome}; vazio = não envia)"
+            value={cfg.closingMessage ?? ''}
+            onChange={(v) => update((c) => void (c.closingMessage = v || undefined))}
+            rows={3}
+          />
+          <Text
             label="Quando o lead avisa que está ocupado agora (sem pergunta; vazio = não responde)"
             value={cfg.deferReply ?? ''}
             onChange={(v) => update((c) => void (c.deferReply = v))}

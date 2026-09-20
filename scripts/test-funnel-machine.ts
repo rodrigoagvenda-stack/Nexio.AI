@@ -6,6 +6,8 @@
 import { stepFunnel } from '../lib/sdr/funnel/machine'
 import { grupoVendaFunnel as cfg, genericFunnelTemplate } from '../lib/sdr/funnel/templates'
 import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
+import { detectAskedStep } from '../lib/sdr/funnel/sync'
+import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
 let failed = 0
@@ -219,6 +221,35 @@ function emQualificacao() {
   turn(s, read('pergunta_fora'), { leadText: 'q' })
   turn(s, read('pergunta_fora'), { leadText: 'q', boxAnswer: 'ok' })
   check('stepFunnel não muta o estado recebido', JSON.stringify(s) === snapshot)
+}
+
+// ─── Funil acompanha a conversa real quando uma pessoa assume (caso Isaías) ─
+{
+  const st = { ...initialState(), data: { nome: 'Isaías' } }
+  check('pergunta feita por pessoa é reconhecida: anúncios', detectAskedStep(cfg, st, ['Já fez anúncio no Google ou no Meta?']) === 'anuncios')
+  check('pergunta curta feita por pessoa: "Tem site?"', detectAskedStep(cfg, st, ['Tem site?']) === 'site')
+  check(
+    'pergunta em duas mensagens da pessoa (perfil do Google)',
+    detectAskedStep(cfg, st, ['Se sim, me manda o link ou um print dele.', 'Você possui o perfil do Google Meu Negócio criado?']) === 'perfil_google'
+  )
+  check('pergunta com o nome do lead na frente', detectAskedStep(cfg, st, ['Isaías, qual o nome, o ramo e a cidade da sua empresa?']) === 'negocio')
+  check('comentário da pessoa não é pergunta do roteiro', detectAskedStep(cfg, st, ['Acessei o site, Isaías, a estrutura está muito boa por sinal!']) === null)
+  check('comentário depois da pergunta: ainda acha a pergunta', detectAskedStep(cfg, st, ['Acessei o site, a estrutura está muito boa!', 'Já fez anúncio no Google ou no Meta?']) === 'anuncios')
+
+  const p = buildReaderPrompt({
+    config: cfg,
+    state: st,
+    leadText: 'Sim',
+    transcript: ['Equipe: Tem site?', 'Lead: Sim, temos um site oficial!', 'Equipe: Já fez anúncio no Google ou no Meta?'],
+    isFirstTurn: false,
+  })
+  check('leitor recebe a conversa real (o que a equipe perguntou por último)', p.user.includes('Equipe: Já fez anúncio no Google ou no Meta?') && p.user.includes('Lead: Sim, temos um site oficial!'), p.user)
+  check('leitor não usa mais a "pergunta pendente" desatualizada do estado', !p.user.includes('Pergunta pendente'))
+
+  // Reprodução do caso: o site foi respondido durante a pausa, o "Sim" é da pergunta de anúncios
+  const base = { ...initialState(), data: { nome: 'Isaías', ramo: 'transporte executivo', cidade: 'Barueri', tem_gmb: 'sim', gmb_link: 'https://share.google/x' }, askedStep: 'anuncios' }
+  const r = turn(base, read('resposta_passo', { tem_site: 'sim', fez_anuncio: 'sim' }))
+  check('site respondido na pausa + "Sim" dos anúncios: segue pro passo 5, não repete "Tem site?"', sent(r.actions)[0] === 'Hoje, você vive só de indicação e boca a boca?', sent(r.actions))
 }
 
 // ─── Nunca repetir a mesma pergunta (caso Francisco, "Masenaria Brasília") ─

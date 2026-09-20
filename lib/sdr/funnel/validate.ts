@@ -81,6 +81,7 @@ export function validateFunnelConfig(raw: unknown): string[] {
   visible('Oferta de ligação', c.callOffer, false)
   visible('Confirmação de ligação', c.callConfirm, false)
   visible('Resposta quando o lead está ocupado', c.deferReply, false)
+  visible('Mensagem ao terminar as perguntas', c.closingMessage, false)
   if (typeof c.deferReply === 'string' && c.deferReply.includes('?')) {
     errors.push('Resposta quando o lead está ocupado: não faça pergunta nesse texto.')
   }

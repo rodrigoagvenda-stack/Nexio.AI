@@ -15,6 +15,7 @@ import type { createServiceClient } from '@/lib/supabase/server'
 import { readMessage } from './reader'
 import { answerFromKnowledge } from './box'
 import { stepFunnel } from './machine'
+import { detectAskedStep } from './sync'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -168,7 +169,7 @@ async function execute(
  * (funil desligado, conversa antiga sem estado, qualificação completa, ou falha
  * antes de enviar qualquer coisa).
  */
-export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boolean }> {
+export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boolean; leadName?: string }> {
   const { supabase, openai } = p.deps
 
   let config: FunnelConfig
@@ -194,15 +195,26 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
       .single()
     prevChecklist = (conv?.checklist_atendimento as Record<string, unknown> | null) ?? null
 
-    const { data: outRows, count } = await supabase
+    // Conversa REAL (as duas pontas, por quem for): o estado do funil pode estar desatualizado
+    // se uma pessoa assumiu no meio ou se mensagens chegaram durante uma pausa.
+    const { data: recentRows, count } = await supabase
       .from('mensagens_do_whatsapp')
-      .select('texto_da_mensagem, carimbo_de_data_e_hora', { count: 'exact' })
+      .select('texto_da_mensagem, direcao', { count: 'exact' })
+      .eq('id_da_conversacao', p.conversationId)
+      .order('carimbo_de_data_e_hora', { ascending: false })
+      .limit(14)
+    const recent = (recentRows ?? []).filter((m) => (m.texto_da_mensagem ?? '').trim())
+    const transcript = [...recent]
+      .reverse()
+      .map((m) => `${m.direcao === 'inbound' ? 'Lead' : 'Equipe'}: ${(m.texto_da_mensagem ?? '').replace(/\s+/g, ' ').slice(0, 300)}`)
+    const outboundNewestFirst = recent.filter((m) => m.direcao === 'outbound').map((m) => m.texto_da_mensagem ?? '')
+
+    const { count: outCount } = await supabase
+      .from('mensagens_do_whatsapp')
+      .select('id', { count: 'exact', head: true })
       .eq('id_da_conversacao', p.conversationId)
       .eq('direcao', 'outbound')
-      .order('carimbo_de_data_e_hora', { ascending: false })
-      .limit(3)
-    const totalOutbound = count ?? 0
-    const lastOutbound = (outRows ?? []).map((m) => m.texto_da_mensagem ?? '').filter(Boolean).reverse()
+    const totalOutbound = outCount ?? count ?? 0
 
     const stored = loadState(conv?.funnel_state)
     // Conversa que já rodava no motor antigo (sem estado, mas com mensagens nossas) termina nele :
@@ -210,15 +222,18 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     if (!stored && totalOutbound > 0) return { handled: false }
 
     let state = stored ?? initialState()
-    if (state.stage === 'scheduling') return { handled: false }
+    if (state.stage === 'scheduling') return { handled: false, leadName: state.data.nome }
     if (state.stage === 'handoff') {
       // Se chegou aqui, o humano devolveu a conversa pro SDR (conversa não está pausada).
       state = { ...state, stage: 'qualifying', asks: {}, objectionTurns: 0, priceAsked: 0, offScriptFails: 0, readerFailures: 0 }
     }
+    // A pergunta pendente é a última pergunta do roteiro que foi de fato enviada (SDR ou pessoa).
+    const askedStep = detectAskedStep(config, state, outboundNewestFirst)
+    if (askedStep) state = { ...state, askedStep }
     prevName = state.data.nome
     const isFirstTurn = totalOutbound === 0
 
-    reading = await readMessage({ config, state, leadText: p.leadText, lastOutbound, isFirstTurn }, openai, p.deps.onUsage)
+    reading = await readMessage({ config, state, leadText: p.leadText, transcript, isFirstTurn }, openai, p.deps.onUsage)
 
     result = stepFunnel(config, state, reading, { isFirstTurn, leadText: p.leadText })
     if (result.needBox) {
@@ -256,7 +271,16 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     acoes: result.actions.map((a) => a.type),
   })
 
-  if (result.actions.some((a) => a.type === 'delegate_scheduling')) return { handled: false }
+  if (result.actions.some((a) => a.type === 'delegate_scheduling')) {
+    // Qualificação completa: antes de o agendamento (motor antigo) pedir dados, uma mensagem fixa
+    // explica o que vai acontecer. Só sai uma vez (depois disso o estágio é 'scheduling').
+    if (config.closingMessage?.trim()) {
+      const nome = result.state.data.nome
+      const text = nome ? config.closingMessage.replace(/\{nome\}/g, nome) : config.closingMessage.replace(/\{nome\},?\s*/g, '')
+      await p.deps.send([text])
+    }
+    return { handled: false, leadName: result.state.data.nome }
+  }
 
   await execute(p, config, result.state, result.actions)
   return { handled: true }

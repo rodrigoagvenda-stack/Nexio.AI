@@ -3682,7 +3682,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // handled=false devolve o turno pro orquestrador (funil desligado, conversa
     // antiga, qualificação completa pra agendar, ou falha antes de enviar).
     if ((company?.features as Record<string, unknown> | null)?.sdr_funnel_v2 === true) {
-      const { handled } = await runFunnelTurn({
+      const { handled, leadName: nomeInformado } = await runFunnelTurn({
         companyId,
         leadId,
         leadName: ctx.leadName,
@@ -3699,6 +3699,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
           distribute: () => distributeQueuedConversations(companyId, supabase),
         },
       })
+      // Nome que o próprio lead informou (o do perfil do WhatsApp, ex: "Eng Mauricio", não é confiável).
+      if (nomeInformado) ctx.leadName = nomeInformado
       if (handled) {
         recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
         checkAndSendQuotaAlerts(companyId, supabase).catch(console.error)
