@@ -41,9 +41,10 @@ export function buildReaderPrompt(input: ReaderInput): { system: string; user: s
 Formato:
 {"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "comentario": true|false, "confianca": <número de 0 a 1>}
 
-"comentario" = true quando, além de responder (ou no lugar), a pessoa CONTOU algo: uma dificuldade, uma experiência ruim ou boa, um desabafo, um contexto pessoal (ex.: "Sim, sem retorno", "perdi minha conta de 10 anos", "é difícil conseguir cliente"). É false para resposta seca ("sim", "não", "não tenho", nome, cidade, ramo), para mensagem que é só link, imagem, site ou print, e para pergunta ou objeção.
+"comentario" = true SOMENTE quando a pessoa RELATOU uma dificuldade, um problema, uma frustração, uma perda ou uma experiência (boa ou ruim) com o marketing ou com o negócio dela (ex.: "Sim, sem retorno", "perdi minha conta de 10 anos", "é difícil conseguir cliente"). É false para: resposta seca ("sim", "não", "não tenho"); DESCREVER o negócio (nome da empresa, endereço, cidade, ramo, serviços, horário, contato), mesmo em áudio longo; mensagem que é só link, imagem, site ou print; pergunta ou objeção. Na dúvida, false.
 
 Categorias (escolha UMA, a intenção principal que exige resposta especial):
+- ok: confirmação curta SEM conteúdo (ok, certo, beleza, blz, entendi, tá, combinado) que não responde a pergunta pendente e não traz dado nenhum. Se a mensagem traz qualquer dado ou resposta, NÃO é ok.
 - adiar: a pessoa avisa que está ocupada AGORA (curso, reunião, trabalhando, dirigindo) e que vai responder depois ou demorar. Vale só quando ela quer pausar a conversa, sem dizer que não quer avançar. Tem prioridade sobre qualquer objeção da lista quando a mensagem é só "estou ocupado agora". Exemplo: "tenho um curso agora, não consigo responder rápido".
 - preco: pergunta valor, preço, quanto custa, planos ou orçamento. Texto pré-preenchido de anúncio NÃO conta como pergunta de preço.
 - objecao: reclama, hesita ou levanta dúvida que combina com um item da lista de objeções abaixo (preencha objecao_tipo com a chave).

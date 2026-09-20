@@ -274,6 +274,10 @@ function emQualificacao() {
   check('não reage: já tem texto fixo antes da pergunta', ok({ actions: [{ type: 'send', texts: ['script', 'pergunta'] }] }) === false)
   check('não reage: intervalo entre reações (última há 2 turnos)', ok({ state: { ...base, reactionTurn: 4 } }) === false)
   check('reage de novo depois do intervalo', ok({ state: { ...base, reactionTurn: 3 } }) === true)
+  check(
+    'não reage: resposta cheia de dados é descrição do negócio (caso Erasmo, áudio com nome e endereço)',
+    ok({ reading: rd({ dados: { nome: 'Erasmo', cidade: 'São Paulo' } }) }) === false
+  )
 
   const forma = (frase: string, over: Partial<Parameters<typeof structuralChecks>[0]> = {}) =>
     structuralChecks({ frase, leadText: 'perdi minha conta de 10 anos', lastQuestion: 'Já fez anúncio no Google ou no Meta?', recentOutbound: [], ...over })
@@ -286,6 +290,22 @@ function emQualificacao() {
   check('forma: recusa frase vazia', forma('   ') === 'vazia')
   check('forma: recusa repetir frase recente', forma('Poxa, isso é complicado.', { recentOutbound: ['Poxa, isso é complicado.'] }) === 'repetida')
   check('forma: recusa justificativa', forma('Assim já consigo te entender melhor.') === 'justificativa')
+}
+
+// ─── "Ok" sem conteúdo: espera, não repete a pergunta (caso Erasmo) ─────
+{
+  const s = emQualificacao()
+  const r1 = turn(s, read('ok'))
+  check('"ok" sem conteúdo: primeira vez fica em silêncio, sem repetir a pergunta', has(r1.actions, 'silence') && sent(r1.actions).length === 0 && r1.state.okWaited === true, r1.actions)
+  check('"ok": não gasta tentativa do passo', r1.state.asks.negocio === s.asks.negocio, r1.state.asks)
+  const r2 = turn(r1.state, read('ok'))
+  check('"ok" de novo em seguida: aí a pergunta volta', sent(r2.actions).length === 1 && sent(r2.actions)[0].includes('qual o nome, o ramo'), r2.actions)
+  const r3 = turn(r1.state, read('resposta_passo', { ramo: 'barbearia', cidade: 'Salvador' }))
+  check('depois do "ok", o lead responde: segue normal', sent(r3.actions)[0].startsWith('Você possui o perfil'), sent(r3.actions))
+  const r4 = turn(turn(r1.state, read('resposta_passo', {})).state, read('ok'))
+  check('"ok" volta a ser esperado depois que o lead fala de outra coisa', has(r4.actions, 'silence'), r4.actions)
+  const r5 = turn(initialState(), read('ok'), { isFirstTurn: true })
+  check('"ok" na primeira mensagem vira abertura', sent(r5.actions)[0] === cfg.steps[0].question, r5.actions)
 }
 
 // ─── CRM do lead: estágio só avança, resumo sai do estado ───────────────

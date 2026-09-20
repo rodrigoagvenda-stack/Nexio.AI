@@ -202,14 +202,17 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     // se uma pessoa assumiu no meio ou se mensagens chegaram durante uma pausa.
     const { data: recentRows, count } = await supabase
       .from('mensagens_do_whatsapp')
-      .select('texto_da_mensagem, direcao', { count: 'exact' })
+      .select('texto_da_mensagem, direcao, metadados', { count: 'exact' })
       .eq('id_da_conversacao', p.conversationId)
       .order('carimbo_de_data_e_hora', { ascending: false })
       .limit(14)
     const recent = (recentRows ?? []).filter((m) => (m.texto_da_mensagem ?? '').trim())
-    const transcript = [...recent]
-      .reverse()
-      .map((m) => `${m.direcao === 'inbound' ? 'Lead' : 'Equipe'}: ${(m.texto_da_mensagem ?? '').replace(/\s+/g, ' ').slice(0, 300)}`)
+    const transcript = [...recent].reverse().map((m) => {
+      // Áudio/imagem entram pelo conteúdo transcrito, não pelo rótulo do balão
+      const transcricao = (m.metadados as { transcricao?: string } | null)?.transcricao
+      const texto = transcricao ? `(por áudio ou imagem) ${transcricao}` : (m.texto_da_mensagem ?? '')
+      return `${m.direcao === 'inbound' ? 'Lead' : 'Equipe'}: ${texto.replace(/\s+/g, ' ').slice(0, 400)}`
+    })
     const outboundNewestFirst = recent.filter((m) => m.direcao === 'outbound').map((m) => m.texto_da_mensagem ?? '')
 
     const { count: outCount } = await supabase

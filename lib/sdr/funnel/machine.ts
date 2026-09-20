@@ -218,6 +218,18 @@ export function stepFunnel(
   }
   // O lead voltou a falar de outra coisa : o próximo "estou ocupado" merece resposta de novo.
   if (cat !== 'adiar') state.deferSent = false
+  // "Ok" sem conteúdo: primeira vez só espera (o lead pode estar dizendo "vou mandar"); repetir a
+  // pergunta na hora soa como bot (achado ao vivo 2026-09-20, lead Erasmo). Se o próximo também
+  // não responder nada, aí a pergunta volta.
+  if (cat === 'ok') {
+    if (state.stage === 'qualifying' && !state.okWaited && !input.isFirstTurn) {
+      state.okWaited = true
+      return silence(state)
+    }
+    cat = 'outro'
+  } else {
+    state.okWaited = false
+  }
 
   if (state.stage === 'refused') {
     const reopens =

@@ -550,7 +550,7 @@ async function getHistory(
 ): Promise<ChatMsg[]> {
   const { data } = await supabase
     .from('mensagens_do_whatsapp')
-    .select('texto_da_mensagem, sender_type')
+    .select('texto_da_mensagem, sender_type, metadados')
     .eq('id_do_lead', leadId)
     .eq('company_id', companyId)
     .order('carimbo_de_data_e_hora', { ascending: false })
@@ -560,10 +560,14 @@ async function getHistory(
   return data
     .reverse()
     .filter((m) => m.texto_da_mensagem)
-    .map((m) => ({
-      role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-      content: m.texto_da_mensagem ?? '',
-    }))
+    .map((m) => {
+      // Áudio/imagem: usa o conteúdo transcrito em vez do rótulo "🎵 Áudio"
+      const transcricao = (m.metadados as { transcricao?: string } | null)?.transcricao
+      return {
+        role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content: transcricao ? `[Lead disse por áudio/imagem] ${transcricao}` : (m.texto_da_mensagem ?? ''),
+      }
+    })
 }
 
 // ─── Loop genérico de sub-agente (espelha AI Agent node do N8N) ──
@@ -2622,20 +2626,33 @@ async function saveInbound(
     return
   }
 
+  // Transcrição do áudio / descrição da imagem: o texto do balão continua sendo o rótulo
+  // ("🎵 Áudio"), mas o CONTEÚDO fica em metadados.transcricao. Achado ao vivo (2026-09-20, lead
+  // Erasmo): sem isso, o que o lead falou por áudio se perdia depois do turno, e o SDR não
+  // sabia o que já tinha sido dito.
+  const transcricao = (tipo === 'audio' || tipo === 'image') && text && text !== displayText ? text : null
+
   // Dedup: pula insert se messageId já está na tabela (webhook pode ter salvo antes)
   if (messageId) {
     const { data: existing } = await supabase
       .from('mensagens_do_whatsapp')
-      .select('id')
+      .select('id, metadados')
       .eq('whatsapp_message_id', messageId)
       .maybeSingle()
     if (existing) {
       console.log(`[SDR:${ctx.companyId}] saveInbound dedup : messageId=${messageId} já existe`)
+      if (transcricao) {
+        await supabase
+          .from('mensagens_do_whatsapp')
+          .update({ metadados: { ...((existing.metadados as Record<string, unknown> | null) ?? {}), transcricao } })
+          .eq('id', existing.id)
+      }
       return
     }
   }
 
   const { error } = await supabase.from('mensagens_do_whatsapp').insert({
+    ...(transcricao ? { metadados: { transcricao } } : {}),
     id_da_conversacao: conversationId,
     id_do_lead: ctx.leadId,
     company_id: ctx.companyId,

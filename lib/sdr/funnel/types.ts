@@ -117,6 +117,8 @@ export interface FunnelState {
   farewellSent: boolean
   /** Já respondemos o "estou ocupado" e o lead ainda não voltou : não responder de novo. */
   deferSent: boolean
+  /** Já esperamos um "ok" sem conteúdo: se o próximo também não responder, aí sim pergunta de novo. */
+  okWaited?: boolean
   /** Turno (state.turns) da última reação humana enviada, pro intervalo entre reações. */
   reactionTurn?: number
   turns: number
@@ -133,11 +135,13 @@ export type Categoria =
   | 'pede_ligacao'
   | 'aceita_ligacao'
   | 'despedida'
+  | 'ok'
   | 'adiar'
   | 'agendar'
   | 'outro'
 
 export const CATEGORIAS: readonly Categoria[] = [
+  'ok',
   'adiar',
   'resposta_passo',
   'preco',
