@@ -77,6 +77,22 @@ function mergeData(config: FunnelConfig, state: FunnelState, reading: Reading): 
   }
 }
 
+/**
+ * Mandar o link/print pedido JÁ responde a pergunta "você tem?". Derivado da própria
+ * pergunta extra do passo (followUp : "se tem, peça o link"): se o dado do link está
+ * preenchido e o sim/não ainda não, o sim/não é o valor do gatilho. Achado ao vivo
+ * 2026-09-20 (lead Isaías): mandou o link do perfil e o funil perguntou de novo
+ * "você tem o perfil?", porque o leitor guardou só o link.
+ */
+function applyImplications(config: FunnelConfig, state: FunnelState): void {
+  for (const step of config.steps) {
+    const fu = step.followUp
+    if (fu && state.data[fu.missingField] && !state.data[fu.whenField]) {
+      state.data[fu.whenField] = fu.equals
+    }
+  }
+}
+
 // ─── Próximo passo ──────────────────────────────────────────────────────
 
 type Pending =
@@ -189,6 +205,7 @@ export function stepFunnel(
   if (state.stage === 'scheduling') return { state, actions: [{ type: 'delegate_scheduling' }] }
 
   mergeData(config, state, reading)
+  applyImplications(config, state)
 
   let cat = reading.falhou ? 'outro' : reading.categoria
   if (reading.confianca < MIN_CONFIDENCE && cat !== 'resposta_passo' && cat !== 'outro') cat = 'outro'

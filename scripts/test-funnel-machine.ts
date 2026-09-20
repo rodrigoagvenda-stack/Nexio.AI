@@ -221,6 +221,20 @@ function emQualificacao() {
   check('stepFunnel não muta o estado recebido', JSON.stringify(s) === snapshot)
 }
 
+// ─── Link do perfil já responde "você tem?" (caso Isaías) ───────────────
+{
+  let s = turn(initialState(), read('outro'), { isFirstTurn: true }).state
+  s = turn(s, read('resposta_passo', { nome: 'Isaías' })).state
+  s = turn(s, read('resposta_passo', { ramo: 'transporte executivo', cidade: 'Barueri', nome_empresa: 'SC rádio táxi executivo' })).state
+  const r = turn(s, read('resposta_passo', { gmb_link: 'https://share.google/hhtW3ZuXHTKffEvPD' }))
+  check('mandou o link do perfil: conta como "tem perfil" e segue pro Passo 3', r.state.data.tem_gmb === 'sim' && sent(r.actions)[0] === 'Tem site?', { data: r.state.data, sent: sent(r.actions) })
+  check('mandou o link: não pede o link de novo', !sent(r.actions).some((t) => t.includes('link ou print')), sent(r.actions))
+  // mesmo caso, mas o link chegou num turno e o "sim/não" nunca veio: o próximo turno não repete a pergunta
+  const semSimNao = { ...s, data: { ...s.data, gmb_link: 'https://share.google/x' } }
+  const r2 = turn(semSimNao, read('outro'))
+  check('link já guardado sem o sim/não: o próximo turno resolve sozinho', r2.state.data.tem_gmb === 'sim' && sent(r2.actions)[0] === 'Tem site?', sent(r2.actions))
+}
+
 // ─── Adiar : lead ocupado (caso Flávio, "tenho um curso agora") ────────
 {
   const s = emQualificacao()
