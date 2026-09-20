@@ -89,6 +89,8 @@ export interface FunnelConfig {
    * explica o que vai acontecer. Aceita {nome}. Ausente = não envia nada.
    */
   closingMessage?: string
+  /** Reação humana curta quando o lead conta algo além da resposta. Ausente = ligada; false = desligada. */
+  reactions?: boolean
   /** Quando a pergunta fora do roteiro não tem resposta na base. */
   unknownAnswer: string
   handoff: {
@@ -115,6 +117,8 @@ export interface FunnelState {
   farewellSent: boolean
   /** Já respondemos o "estou ocupado" e o lead ainda não voltou : não responder de novo. */
   deferSent: boolean
+  /** Turno (state.turns) da última reação humana enviada, pro intervalo entre reações. */
+  reactionTurn?: number
   turns: number
 }
 
@@ -155,6 +159,8 @@ export interface Reading {
   objecaoTipo: string | null
   dados: Record<string, string>
   confianca: number
+  /** O lead disse algo além da resposta seca (dificuldade, história, desabafo): candidato a uma reação humana. */
+  comentario?: boolean
   /** true quando o leitor falhou e isto é o valor neutro de fallback. */
   falhou?: boolean
 }

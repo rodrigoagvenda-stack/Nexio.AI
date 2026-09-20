@@ -17,6 +17,7 @@ import { answerFromKnowledge } from './box'
 import { stepFunnel } from './machine'
 import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
+import { buildReaction, shouldReact } from './reaction'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -242,6 +243,25 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     if (result.needBox) {
       const boxAnswer = await answerFromKnowledge({ question: result.needBox, search: p.deps.search, openai, onUsage: p.deps.onUsage })
       result = stepFunnel(config, state, reading, { isFirstTurn, leadText: p.leadText, boxAnswer })
+    }
+
+    // Reação humana: quando o lead contou algo além da resposta seca, uma frase curta reconhece isso
+    // antes da próxima pergunta. Opcional e à prova de falha: qualquer problema apaga a frase.
+    if (shouldReact({ state: result.state, reading, actions: result.actions, isFirstTurn, enabled: config.reactions !== false })) {
+      const rx = await buildReaction({
+        transcript,
+        leadText: p.leadText,
+        lastQuestion: outboundNewestFirst[0] ?? '',
+        recentOutbound: outboundNewestFirst,
+        openai,
+        onUsage: p.deps.onUsage,
+      })
+      await p.deps.log('funnel_reaction', { frase: rx.frase, aprovada: !!rx.texto, motivo: rx.motivo }).catch(() => {})
+      if (rx.texto) {
+        const envio = result.actions[0] as Extract<FunnelAction, { type: 'send' }>
+        envio.texts = [rx.texto, ...envio.texts]
+        result.state.reactionTurn = result.state.turns
+      }
     }
 
     const extra: Record<string, unknown> = {}

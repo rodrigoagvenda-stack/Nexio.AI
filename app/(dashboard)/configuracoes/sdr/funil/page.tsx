@@ -453,6 +453,18 @@ export default function FunilPage() {
 
       <Section title="Encerramentos e passagem para uma pessoa">
         <div className="space-y-3">
+          <label className="flex items-start gap-3 rounded-xl border border-[#212121] bg-[#141414] p-3 text-sm text-zinc-300">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={cfg.reactions !== false}
+              onChange={(e) => update((c) => void (c.reactions = e.target.checked))}
+            />
+            <span>
+              Reação humana: quando o lead conta algo além da resposta (uma dificuldade, um desabafo), o SDR responde com uma frase curta antes da próxima
+              pergunta. Uma revisão automática barra promessas e afirmações inventadas, e no máximo uma reação a cada 3 mensagens.
+            </span>
+          </label>
           <Text label="Quando o lead diz que não quer" value={cfg.refusalReply} onChange={(v) => update((c) => void (c.refusalReply = v))} />
           <Text label="Quando o lead se despede" value={cfg.farewellReply} onChange={(v) => update((c) => void (c.farewellReply = v))} />
           <Text

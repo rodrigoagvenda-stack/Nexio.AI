@@ -8,6 +8,7 @@ import { grupoVendaFunnel as cfg, genericFunnelTemplate } from '../lib/sdr/funne
 import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
 import { detectAskedStep } from '../lib/sdr/funnel/sync'
 import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
+import { shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -251,6 +252,40 @@ function emQualificacao() {
   const base = { ...initialState(), data: { nome: 'Isaías', ramo: 'transporte executivo', cidade: 'Barueri', tem_gmb: 'sim', gmb_link: 'https://share.google/x' }, askedStep: 'anuncios' }
   const r = turn(base, read('resposta_passo', { tem_site: 'sim', fez_anuncio: 'sim' }))
   check('site respondido na pausa + "Sim" dos anúncios: segue pro passo 5, não repete "Tem site?"', sent(r.actions)[0] === 'Hoje, você vive só de indicação e boca a boca?', sent(r.actions))
+}
+
+// ─── Reação humana: quando reagir e a forma da frase (caso Cristiane, "Sim sem retorno") ─
+{
+  const base = { ...initialState(), turns: 6 }
+  const enviar = [{ type: 'send' as const, texts: ['Hoje, você vive só de indicação e boca a boca?'] }]
+  const rd = (over: Partial<Reading> = {}): Reading => ({ ...read('resposta_passo', { fez_anuncio: 'sim' }), comentario: true, ...over })
+  const ok = (over: Partial<Parameters<typeof shouldReact>[0]> = {}) =>
+    shouldReact({ state: base, reading: rd(), actions: enviar, isFirstTurn: false, enabled: true, ...over })
+
+  check('reage: lead respondeu e desabafou ("Sim sem retorno")', ok() === true)
+  check('não reage: resposta seca (comentario falso)', ok({ reading: rd({ comentario: false }) }) === false)
+  check('não reage: leitor não marcou comentario', ok({ reading: { ...read('resposta_passo'), comentario: undefined } }) === false)
+  check('não reage: objeção tem resposta aprovada', ok({ reading: rd({ categoria: 'objecao' }) }) === false)
+  check('não reage: pergunta de preço', ok({ reading: rd({ categoria: 'preco' }) }) === false)
+  check('não reage: primeira mensagem', ok({ isFirstTurn: true }) === false)
+  check('não reage: recurso desligado na empresa', ok({ enabled: false }) === false)
+  check('não reage: passando pra pessoa', ok({ actions: [{ type: 'handoff', reason: 'x', texts: ['y'] }] }) === false)
+  check('não reage: fim do roteiro (transição pro agendamento)', ok({ actions: [{ type: 'delegate_scheduling' }] }) === false)
+  check('não reage: já tem texto fixo antes da pergunta', ok({ actions: [{ type: 'send', texts: ['script', 'pergunta'] }] }) === false)
+  check('não reage: intervalo entre reações (última há 2 turnos)', ok({ state: { ...base, reactionTurn: 4 } }) === false)
+  check('reage de novo depois do intervalo', ok({ state: { ...base, reactionTurn: 3 } }) === true)
+
+  const forma = (frase: string, over: Partial<Parameters<typeof structuralChecks>[0]> = {}) =>
+    structuralChecks({ frase, leadText: 'perdi minha conta de 10 anos', lastQuestion: 'Já fez anúncio no Google ou no Meta?', recentOutbound: [], ...over })
+  check('forma ok: empatia curta com número do próprio lead', forma('Poxa, perder uma conta de 10 anos é complicado.') === null)
+  check('forma: recusa pergunta', forma('Poxa, e aí, como foi?') === 'tem_pergunta' || forma('Poxa, e como foi?') === 'tem_pergunta')
+  check('forma: recusa número que o lead não disse', forma('Poxa, 5 anos é muito tempo.') === 'numero_inventado')
+  check('forma: recusa valor em reais', forma('Poxa, gastar R$ 500 é complicado.') === 'tem_valor')
+  check('forma: recusa frase longa', forma('Poxa, isso realmente deve ter sido muito complicado e chato de passar por essa situação toda sozinho no começo do seu negócio, sem ninguém ajudando.') === 'longa_demais')
+  check('forma: recusa travessão e markdown', forma('Poxa — isso é complicado.') === 'formato')
+  check('forma: recusa frase vazia', forma('   ') === 'vazia')
+  check('forma: recusa repetir frase recente', forma('Poxa, isso é complicado.', { recentOutbound: ['Poxa, isso é complicado.'] }) === 'repetida')
+  check('forma: recusa justificativa', forma('Assim já consigo te entender melhor.') === 'justificativa')
 }
 
 // ─── CRM do lead: estágio só avança, resumo sai do estado ───────────────
