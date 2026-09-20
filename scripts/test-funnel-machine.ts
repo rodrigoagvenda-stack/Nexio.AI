@@ -7,6 +7,7 @@ import { stepFunnel } from '../lib/sdr/funnel/machine'
 import { grupoVendaFunnel as cfg, genericFunnelTemplate } from '../lib/sdr/funnel/templates'
 import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
 import { detectAskedStep } from '../lib/sdr/funnel/sync'
+import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -250,6 +251,29 @@ function emQualificacao() {
   const base = { ...initialState(), data: { nome: 'Isaías', ramo: 'transporte executivo', cidade: 'Barueri', tem_gmb: 'sim', gmb_link: 'https://share.google/x' }, askedStep: 'anuncios' }
   const r = turn(base, read('resposta_passo', { tem_site: 'sim', fez_anuncio: 'sim' }))
   check('site respondido na pausa + "Sim" dos anúncios: segue pro passo 5, não repete "Tem site?"', sent(r.actions)[0] === 'Hoje, você vive só de indicação e boca a boca?', sent(r.actions))
+}
+
+// ─── CRM do lead: estágio só avança, resumo sai do estado ───────────────
+{
+  check('estágio: Lead novo -> Em contato', nextStatus('Lead novo', 'Em contato') === 'Em contato')
+  check('estágio: sem status -> Em contato', nextStatus(null, 'Em contato') === 'Em contato')
+  check('estágio: já em Em contato não regrava', nextStatus('Em contato', 'Em contato') === null)
+  check('estágio: nunca volta (Interessado não vira Em contato)', nextStatus('Interessado', 'Em contato') === null)
+  check('estágio: Em contato -> Interessado ao fim do roteiro', nextStatus('Em contato', 'Interessado') === 'Interessado')
+  check('estágio: call marcada (Proposta enviada) não é rebaixada', nextStatus('Proposta enviada', 'Interessado') === null)
+  check('estágio: recusa vira Perdido', nextStatus('Em contato', 'Perdido') === 'Perdido')
+  check('estágio: recusa não derruba Proposta enviada', nextStatus('Proposta enviada', 'Perdido') === null)
+  check('estágio: lead perdido que volta a responder reabre em Em contato', nextStatus('Perdido', 'Em contato') === 'Em contato')
+  check('estágio: Fechado não muda', nextStatus('Fechado', 'Interessado') === null)
+
+  const st = { ...initialState(), data: { nome: 'Isaías', ramo: 'transporte executivo', cidade: 'Barueri', tem_gmb: 'sim', decisor: 'nao' } }
+  const resumo = buildResumo(cfg, st)
+  check(
+    'resumo do estado: linhas legíveis, sem artigo do rótulo',
+    resumo.includes('- Nome: Isaías') && resumo.includes('- Ramo: transporte executivo') && resumo.includes('- Perfil do Google Meu Negócio: sim') && resumo.includes('- Quem decide: nao'),
+    resumo
+  )
+  check('resumo vazio quando não há dado', buildResumo(cfg, initialState()) === '')
 }
 
 // ─── Nunca repetir a mesma pergunta (caso Francisco, "Masenaria Brasília") ─

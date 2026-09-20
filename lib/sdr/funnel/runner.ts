@@ -16,6 +16,7 @@ import { readMessage } from './reader'
 import { answerFromKnowledge } from './box'
 import { stepFunnel } from './machine'
 import { detectAskedStep } from './sync'
+import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -177,6 +178,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
   let prevChecklist: Record<string, unknown> | null
   let reading: Reading
   let prevName: string | undefined
+  let stageAtStart: FunnelState['stage'] = 'qualifying'
 
   try {
     const { data: cfgRow } = await supabase.from('sdr_funnel_configs').select('enabled, config').eq('company_id', p.companyId).maybeSingle()
@@ -231,6 +233,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     const askedStep = detectAskedStep(config, state, outboundNewestFirst)
     if (askedStep) state = { ...state, askedStep }
     prevName = state.data.nome
+    stageAtStart = state.stage
     const isFirstTurn = totalOutbound === 0
 
     reading = await readMessage({ config, state, leadText: p.leadText, transcript, isFirstTurn }, openai, p.deps.onUsage)
@@ -279,9 +282,67 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
       const text = nome ? config.closingMessage.replace(/\{nome\}/g, nome) : config.closingMessage.replace(/\{nome\},?\s*/g, '')
       await p.deps.send([text])
     }
+    await syncLeadCrm(p, config, stageAtStart, result.state, result.actions)
     return { handled: false, leadName: result.state.data.nome }
   }
 
   await execute(p, config, result.state, result.actions)
+  await syncLeadCrm(p, config, stageAtStart, result.state, result.actions)
   return { handled: true }
+}
+
+/**
+ * Mantém o CRM do lead em dia (estágio, segmento, prioridade, temperatura, resumo).
+ * Roda DEPOIS do envio e nunca derruba o atendimento : falha aqui só vira log.
+ */
+async function syncLeadCrm(
+  p: FunnelTurnParams,
+  config: FunnelConfig,
+  stageAtStart: FunnelState['stage'],
+  state: FunnelState,
+  actions: FunnelAction[]
+): Promise<void> {
+  try {
+    const { supabase, openai, onUsage } = p.deps
+    const { data: lead } = await supabase
+      .from('leads')
+      .select('status, segment, resumo_ia')
+      .eq('id', p.leadId)
+      .single()
+    if (!lead) return
+
+    const upd: Record<string, unknown> = {}
+
+    const resumo = buildResumo(config, state)
+    if (resumo && resumo !== lead.resumo_ia) upd.resumo_ia = resumo
+
+    const recusou = actions.some((a) => a.type === 'mark_refused')
+    const alvo = recusou ? 'Perdido' : state.stage === 'scheduling' ? 'Interessado' : 'Em contato'
+    const status = nextStatus(lead.status, alvo)
+    if (status) upd.status = status
+
+    if (!lead.segment && state.data.ramo) {
+      const segmento = await classifySegment(state.data.ramo, openai, onUsage)
+      if (segmento) upd.segment = segmento
+    }
+
+    // Prioridade e temperatura: uma vez, na virada de etapa (fim do roteiro, recusa ou passagem pra pessoa)
+    if (state.stage !== stageAtStart) {
+      const desfecho = recusou ? 'recusou' : state.stage === 'scheduling' ? 'qualificado' : state.stage === 'handoff' ? 'passou_para_pessoa' : null
+      if (desfecho) {
+        const av = await assessLead(resumo || '(sem dados coletados)', desfecho, openai, onUsage)
+        if (av) {
+          upd.priority = av.prioridade
+          upd.nivel_interesse = av.temperatura
+        }
+      }
+    }
+
+    if (Object.keys(upd).length > 0) {
+      await supabase.from('leads').update({ ...upd, updated_at: new Date().toISOString() }).eq('id', p.leadId)
+      await p.deps.log('funnel_crm_sync', { campos: Object.keys(upd), status: upd.status ?? null, segmento: upd.segment ?? null })
+    }
+  } catch (err: any) {
+    console.error(`[Funnel:${p.companyId}] atualização do CRM falhou (atendimento segue):`, err?.message)
+  }
 }
