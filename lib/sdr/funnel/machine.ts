@@ -105,7 +105,8 @@ function nextPending(config: FunnelConfig, state: FunnelState): Pending | null {
     const required = step.fields.filter((f) => f.required !== false)
     const missing = required.filter((f) => !state.data[f.key])
     if (missing.length > 0) {
-      return { kind: 'main', step, missing, someAnswered: missing.length < required.length }
+      // Qualquer dado do passo já preenchido conta (inclusive os opcionais, ex: só o nome da empresa).
+      return { kind: 'main', step, missing, someAnswered: step.fields.some((f) => !!state.data[f.key]) }
     }
     const fu = step.followUp
     if (
@@ -166,6 +167,8 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
         }
         return handoff(state, config, `lead_nao_responde:${step.id}`)
       }
+      // Achado ao vivo 2026-09-20 (lead Francisco): se o lead já respondeu ALGUMA coisa do passo
+      // (mesmo só o nome da empresa), pergunta só o que falta em vez de repetir a pergunta inteira.
       if (asks === 0) text = step.question
       else if (pending.someAnswered && step.partialQuestion) {
         text = step.partialQuestion.replace('{faltando}', joinLabels(pending.missing.map((f) => f.label)))

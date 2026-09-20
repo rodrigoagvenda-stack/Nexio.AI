@@ -221,6 +221,19 @@ function emQualificacao() {
   check('stepFunnel não muta o estado recebido', JSON.stringify(s) === snapshot)
 }
 
+// ─── Nunca repetir a mesma pergunta (caso Francisco, "Masenaria Brasília") ─
+{
+  let s = turn(initialState(), read('outro'), { isFirstTurn: true }).state
+  s = turn(s, read('resposta_passo', { nome: 'Francisco' })).state
+  const r = turn(s, read('resposta_passo', { nome_empresa: 'Masenaria Brasília' }))
+  const t = sent(r.actions)[0]
+  check('só o nome da empresa veio: pergunta o que falta, não repete a pergunta idêntica', t === 'E o ramo e a cidade?' && t !== cfg.steps[1].question.replace('{nome}', 'Francisco'), t)
+  const r2 = turn(s, read('outro'))
+  check('nada respondido: repete a pergunta completa (só uma vez, depois passa pro humano)', sent(r2.actions)[0] === 'Francisco, qual o nome, o ramo e a cidade da sua empresa?', sent(r2.actions))
+  const r3 = turn(r.state, read('resposta_passo', { ramo: 'marcenaria', cidade: 'Brasília' }))
+  check('depois de responder o que faltava, segue pro Passo 2', sent(r3.actions)[0].startsWith('Você possui o perfil'), sent(r3.actions))
+}
+
 // ─── Link do perfil já responde "você tem?" (caso Isaías) ───────────────
 {
   let s = turn(initialState(), read('outro'), { isFirstTurn: true }).state

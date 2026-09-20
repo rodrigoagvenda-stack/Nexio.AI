@@ -62,7 +62,7 @@ Se a mensagem traz dados E uma pergunta/objeção/preço, extraia os dados e esc
 Objeções e dúvidas conhecidas:
 ${objLines.length ? objLines.join('\n') : '(nenhuma configurada)'}
 
-Campos que você pode extrair (use null quando a mensagem não informar; NUNCA invente, NUNCA deduza do que não foi dito):
+Campos que você pode extrair (use null quando a mensagem não informar; NUNCA invente nada que não esteja na mensagem, mas EXTRAIA o que está claramente contido nela, inclusive dentro de um nome de empresa: "Marcenaria Brasília" informa o ramo "marcenaria" e a cidade "Brasília"; "Clínica Sorriso Campinas" informa ramo "clínica" e cidade "Campinas"):
 ${fieldLines.length ? fieldLines.join('\n') : '(nenhum)'}
 
 Regras:
