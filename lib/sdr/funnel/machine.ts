@@ -23,6 +23,8 @@ const MAX_OFF_SCRIPT_FAILS = 2
 const MAX_READER_FAILURES = 3
 /** Na 3a vez que o lead pergunta "o que é isso" a conversa passa pra uma pessoa em vez de repetir a explicação. */
 const MAX_CONTEXT_ASKS = 3
+/** Turnos seguidos de conversa livre antes de passar pra uma pessoa. */
+const MAX_CONVERSE_STREAK = 4
 /** Categorias que o funil continua tratando depois do fim do roteiro (o resto vai pro agendamento). */
 const POS_ROTEIRO = new Set<string>([
   'recusa', 'preco', 'objecao', 'pergunta_fora', 'pede_humano', 'pede_ligacao', 'aceita_ligacao', 'bot_automatico', 'adiar', 'despedida',
@@ -338,12 +340,13 @@ function stepFunnelCore(
   // apresentação sai primeiro, depois a resposta, depois a pergunta.
   if (
     input.isFirstTurn &&
-    (cat === 'preco' || cat === 'objecao' || cat === 'agendar' || cat === 'adiar' || cat === 'duvida_contexto')
+    (cat === 'preco' || cat === 'objecao' || cat === 'agendar' || cat === 'adiar' || cat === 'duvida_contexto' || cat === 'conversa')
   ) {
     cat = 'outro'
   }
   // O lead voltou a falar de outra coisa : o próximo "estou ocupado" merece resposta de novo.
   if (cat !== 'adiar') state.deferSent = false
+  if (cat !== 'conversa') state.converseStreak = 0
   // "Ok" sem conteúdo: primeira vez só espera (o lead pode estar dizendo "vou mandar"); repetir a
   // pergunta na hora soa como bot (achado ao vivo 2026-09-20, lead Erasmo). Se o próximo também
   // não responder nada, aí a pergunta volta.
@@ -460,6 +463,16 @@ function stepFunnelCore(
 
     case 'pergunta_fora':
       return foraDoRoteiro(config, state, input)
+
+    case 'conversa': {
+      // Lead conversando fora do roteiro (contesta, se confunde, pede algo): o SDR responde de verdade (o runner
+      // executa a ação). NÃO gasta tentativa do passo e NÃO empurra a pergunta pendente por cima do que ele disse;
+      // a resposta dele ao roteiro, quando vier, ainda vale pro passo pendente (askedStep continua o mesmo).
+      // Conversa que roda em círculo passa pra uma pessoa.
+      state.converseStreak = (state.converseStreak ?? 0) + 1
+      if (state.converseStreak > MAX_CONVERSE_STREAK) return handoff(state, config, 'conversa_longa')
+      return { state, actions: [{ type: 'converse' }] }
+    }
 
     case 'duvida_contexto': {
       // Lead não entendeu do que se trata ("o que seria?", "quem é?"): responde ISSO primeiro e só depois

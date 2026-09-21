@@ -15,6 +15,8 @@ import { buildReaderPrompt, evidenceOk, validateReading } from '../lib/sdr/funne
 import { countMessages, formatMemoria, formatTranscript, structuralMemoryChecks } from '../lib/sdr/funnel/memory'
 import { BOX_REVIEW_KEYS, evaluateBoxReview, validateBoxAnswer } from '../lib/sdr/funnel/box'
 import { firedStepsByLead } from '../lib/sdr/follow-round'
+import { CONVERSE_REVIEW_KEYS, evaluateConverseReview, structuralConversationChecks } from '../lib/sdr/funnel/converse'
+import { isRepeatOf } from '../lib/sdr/output-guard'
 import { needsUnderstanding } from '../lib/sdr/media-understanding'
 import { ConversationQueue, conversationKey } from '../lib/sdr/conversation-queue'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
@@ -602,6 +604,55 @@ function emQualificacao() {
   const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
   check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
   check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
+}
+
+// ─── Modo conversa: o SDR troca ideia quando o lead sai do roteiro (caso Isaías, "faz um vídeo da pesquisa") ─────
+{
+  const s = emQualificacao() // pendente: negócio
+  const r = turn(s, read('conversa'), { leadText: 'Faz um vídeo pra mim da pesquisa, porque eu pesquiso e aparece' })
+  check('conversa: a máquina pede resposta livre do SDR (não pergunta o próximo passo por cima)', has(r.actions, 'converse') && sent(r.actions).length === 0, r.actions)
+  check('conversa: não gasta tentativa do passo e mantém a pergunta pendente', r.state.asks.negocio === s.asks.negocio && r.state.askedStep === s.askedStep, r.state)
+  let st = s
+  let ultimo = r
+  for (let i = 0; i < 4; i++) {
+    ultimo = turn(st, read('conversa'))
+    st = ultimo.state
+  }
+  check('conversa: até 4 turnos seguidos o SDR conversa', has(ultimo.actions, 'converse') && ultimo.state.converseStreak === 4, ultimo.state.converseStreak)
+  const quinto = turn(st, read('conversa'))
+  check('conversa: no 5o turno seguido passa pra uma pessoa (não roda em círculo)', has(quinto.actions, 'handoff') && quinto.state.stage === 'handoff', quinto.actions)
+  const volta = turn(st, read('resposta_passo', { ramo: 'barbearia', cidade: 'Salvador' }))
+  check('conversa: quando o lead volta a responder o roteiro, a contagem zera e o funil segue', volta.state.converseStreak === 0 && sent(volta.actions).length > 0, volta.state)
+  check('conversa: na 1a mensagem vira abertura', sent(turn(initialState(), read('conversa'), { isFirstTurn: true }).actions)[0] === cfg.steps[0].question)
+  const sched: FunnelState = { ...initialState(), stage: 'scheduling', data: { nome: 'Ana', ramo: 'x', cidade: 'y', tem_gmb: 'nao', tem_site: 'nao', fez_anuncio: 'nao', so_indicacao: 'nao', aparece_google: 'nao', decisor: 'sim' }, turns: 9 }
+  check('conversa depois do roteiro: quem conversa é o orquestrador (agendamento)', has(turn(sched, read('conversa')).actions, 'delegate_scheduling'))
+  check('leitor conhece a categoria conversa', buildReaderPrompt({ config: cfg, state: s, leadText: 'x', transcript: [], isFirstTurn: false }).system.includes('- conversa:'))
+
+  // Conferência da resposta de conversa
+  const corpus = 'Lead: Faz um vídeo da pesquisa. Eu pesquiso aqui e aparece. SC rádio táxi executivo'
+  const ok = 'Entendi, Isaías. Que bom que aparece pra você quando pesquisa o nome da empresa.'
+  check('conversa: resposta calma e curta passa na forma', structuralConversationChecks({ texto: ok, corpus, recentOutbound: [] }) === null)
+  check('conversa: recusa valor, número inventado, duas perguntas e texto longo', structuralConversationChecks({ texto: 'Custa R$ 900.', corpus, recentOutbound: [] }) === 'tem_valor' && structuralConversationChecks({ texto: 'Temos 15 anos de mercado.', corpus, recentOutbound: [] }) === 'numero_inventado' && structuralConversationChecks({ texto: 'Pode ser? Quer ver?', corpus, recentOutbound: [] }) === 'perguntas_demais' && structuralConversationChecks({ texto: 'palavra '.repeat(80), corpus, recentOutbound: [] }) === 'longo_demais')
+  check('conversa: recusa travessão, colchete e quebra de linha', structuralConversationChecks({ texto: 'Entendi — sim.', corpus, recentOutbound: [] }) === 'formato' && structuralConversationChecks({ texto: 'Veja [aqui].', corpus, recentOutbound: [] }) === 'formato' && structuralConversationChecks({ texto: 'Oi.\nTudo bem.', corpus, recentOutbound: [] }) === 'formato')
+  check('conversa: recusa repetir o que acabamos de dizer', structuralConversationChecks({ texto: ok, corpus, recentOutbound: [ok] }) === 'repetida')
+  const todosFalse = Object.fromEntries(CONVERSE_REVIEW_KEYS.map((k) => [k, false]))
+  check('conversa: revisor com tudo false aprova', evaluateConverseReview(todosFalse).approved === true)
+  check('conversa: "vou te mandar um vídeo" (promessa) é barrado', evaluateConverseReview({ ...todosFalse, promete_ou_garante_resultado_prazo_ou_entrega: true }).approved === false)
+  check('conversa: "já pesquisamos o seu perfil" é barrado', evaluateConverseReview({ ...todosFalse, diz_que_viu_pesquisou_analisou_ou_verificou_algo_do_lead: true }).approved === false)
+  check('conversa: "Passo 2 do fluxo" é barrado', evaluateConverseReview({ ...todosFalse, menciona_passo_fluxo_roteiro_ou_regra_interna: true }).approved === false)
+  check('conversa: tom defensivo é barrado', evaluateConverseReview({ ...todosFalse, tom_defensivo_ou_discute_com_o_lead: true }).motivo === 'tom_defensivo_ou_discute_com_o_lead')
+  const semChave: Record<string, unknown> = { ...todosFalse }
+  delete semChave.cita_preco_ou_valor
+  check('conversa: revisor com chave faltando reprova (falha fechada)', evaluateConverseReview(semChave).motivo === 'revisor_invalido' && evaluateConverseReview(undefined).approved === false)
+}
+
+// ─── Pergunta repetida: reformulação barrada não pode mandar a mesma pergunta de novo (caso Isaías, 68s) ─────
+{
+  const s = turn(initialState(), read('outro'), { isFirstTurn: true }).state
+  const r = turn(s, read('outro'), { leadText: 'kkk' })
+  const envio = r.actions[0] as Extract<FunnelAction, { type: 'send' }>
+  check('reperguntar: a pergunta reescrevível vem marcada e com o texto aprovado (o runner evita idêntica recente)', envio.humanize?.kind === 'reperguntar' && envio.texts[0] === envio.humanize.script)
+  check('reperguntar: o texto aprovado repetido é reconhecido como igual ao anterior', isRepeatOf(envio.texts[0], 'Qual o seu nome?') === true)
 }
 
 // ─── Sequência de etiqueta recomeça quando a etiqueta é reaplicada (lead de teste, Promoção) ─────

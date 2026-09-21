@@ -133,6 +133,8 @@ export interface FunnelState {
   farewellSent: boolean
   /** Já respondemos o "estou ocupado" e o lead ainda não voltou : não responder de novo. */
   deferSent: boolean
+  /** Turnos seguidos em modo conversa (ao passar do limite a conversa vai pra uma pessoa em vez de rodar em círculos). */
+  converseStreak?: number
   /** Quantas vezes o lead perguntou "o que é isso" (a 3a passa pra uma pessoa em vez de repetir a explicação). */
   contextAsked?: number
   /** Já esperamos um "ok" sem conteúdo: se o próximo também não responder, aí sim pergunta de novo. */
@@ -154,12 +156,14 @@ export type Categoria =
   | 'aceita_ligacao'
   | 'despedida'
   | 'duvida_contexto'
+  | 'conversa'
   | 'ok'
   | 'adiar'
   | 'agendar'
   | 'outro'
 
 export const CATEGORIAS: readonly Categoria[] = [
+  'conversa',
   'duvida_contexto',
   'ok',
   'adiar',
@@ -206,6 +210,8 @@ export type FunnelAction =
   | { type: 'handoff'; reason: string; texts: string[] }
   | { type: 'notify'; reason: string }
   | { type: 'silence' }
+  /** O lead está conversando fora do roteiro: quem responde é o SDR (converse.ts), com trilhos; o runner troca esta ação pelo envio. */
+  | { type: 'converse' }
   | { type: 'mark_refused' }
   /** Qualificação completa : quem conduz o agendamento é o orquestrador atual. */
   | { type: 'delegate_scheduling' }

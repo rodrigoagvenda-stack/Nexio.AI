@@ -21,6 +21,8 @@ import { buildEcho, buildReaction, leadVolunteered, shouldReact } from './reacti
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
 import { enrichOutboundMedia, type MediaRow } from '../media-understanding'
 import { buildFicha, humanizeScript } from './humanize'
+import { runConversation } from './converse'
+import { isRepeatOf } from '../output-guard'
 import { buildMemory, countMessages, formatTranscript, MEMORY_MIN_MESSAGES, TRANSCRIPT_MAX_MESSAGES, type ConvRow, type Memoria } from './memory'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
@@ -54,6 +56,8 @@ export interface FunnelTurnParams {
 const REASON_LABEL: Record<string, string> = {
   lead_pediu_humano: 'pediu para falar com uma pessoa',
   lead_pediu_ligacao: 'pediu ligação',
+  lead_pediu_algo_fora_do_alcance: 'pediu algo que o SDR não pode fazer (por exemplo um vídeo, uma prova ou falar com o dono)',
+  conversa_longa: 'conversou fora do roteiro por vários turnos seguidos',
   lead_quer_ligacao: 'quer receber uma ligação',
   preco_insistente: 'insistiu no preço',
   sem_resposta_na_base: 'fez perguntas que a base não responde',
@@ -64,6 +68,8 @@ function reasonLabel(reason: string): string {
   if (REASON_LABEL[reason]) return REASON_LABEL[reason]
   if (reason.startsWith('objecao_esgotada')) return 'repetiu a mesma objeção'
   if (reason.startsWith('lead_nao_responde')) return 'não respondeu uma pergunta do roteiro depois de 3 tentativas'
+  if (reason.startsWith('conversa_sem_resposta_segura')) return 'está conversando fora do roteiro e o SDR não tinha uma resposta segura'
+  if (reason === 'lead_nao_entende') return 'perguntou várias vezes do que se trata'
   return reason
 }
 
@@ -129,12 +135,13 @@ async function persistChecklist(
   await p.deps.supabase.from('conversas_do_whatsapp').update({ checklist_atendimento: checklist }).eq('id', p.conversationId)
 }
 
-async function notifyTeam(p: FunnelTurnParams, config: FunnelConfig, state: FunnelState, reason: string): Promise<void> {
+async function notifyTeam(p: FunnelTurnParams, config: FunnelConfig, state: FunnelState, reason: string, memoria?: Memoria | null): Promise<void> {
   const resumo = dataSummary(config, state)
+  const contexto = memoria?.resumo ? ` Resumo da conversa: ${memoria.resumo}` : ''
   const { error } = await p.deps.supabase.from('activity_logs').insert({
     company_id: p.companyId,
     action: 'sdr_handoff',
-    description: `${p.leadName || 'Lead'} ${reasonLabel(reason)}.${resumo ? ` Dados coletados: ${resumo}.` : ''}`,
+    description: `${p.leadName || 'Lead'} ${reasonLabel(reason)}.${resumo ? ` Dados coletados: ${resumo}.` : ''}${contexto}`,
     metadata: { lead_id: p.leadId, conversation_id: p.conversationId, reason, data: state.data },
   })
   if (error) console.error(`[Funnel:${p.companyId}] activity_logs falhou:`, error.message)
@@ -144,7 +151,8 @@ async function execute(
   p: FunnelTurnParams,
   config: FunnelConfig,
   state: FunnelState,
-  actions: FunnelAction[]
+  actions: FunnelAction[],
+  memoria?: Memoria | null
 ): Promise<void> {
   for (const action of actions) {
     if (action.type === 'send') {
@@ -162,11 +170,11 @@ async function execute(
           queue_entered_at: new Date().toISOString(),
         })
         .eq('id', p.conversationId)
-      await notifyTeam(p, config, state, action.reason)
+      await notifyTeam(p, config, state, action.reason, memoria)
       await p.deps.log('funnel_handoff', { reason: action.reason, data: state.data })
       p.deps.distribute().catch((e) => console.error(`[Funnel:${p.companyId}] distribuição pós-handoff falhou:`, e?.message))
     } else if (action.type === 'notify') {
-      await notifyTeam(p, config, state, action.reason)
+      await notifyTeam(p, config, state, action.reason, memoria)
     }
     // silence, mark_refused e delegate_scheduling não têm efeito de envio aqui
   }
@@ -265,6 +273,42 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
       return { handled: false, leadName: state.data.nome }
     }
 
+    const midia = !!p.hasMedia
+    // Lead que conta algo por conta própria (ramo, Instagram, link) é sempre reconhecido, como a mídia.
+    const informou = leadVolunteered(config, state, result.state, p.leadText)
+
+    // Modo conversa: o lead saiu do roteiro (contesta, se confunde, pede algo). O SDR responde de verdade, com a
+    // conversa inteira, a memória e os fatos da base, sob conferência em código + revisor. Se ele pediu algo que o
+    // SDR não pode fazer, ou se algo barrar, a conversa vai pra uma pessoa (nunca sai texto não aprovado).
+    let conversou = false
+    if (result.actions.some((a) => a.type === 'converse')) {
+      const conv = await runConversation({
+        config,
+        state: result.state,
+        memoria,
+        transcript,
+        leadText: p.leadText,
+        recentOutbound: outboundNewestFirst,
+        search: p.deps.search,
+        openai,
+        onUsage: p.deps.onUsage,
+      })
+      await p.deps.log('funnel_conversa', { aprovada: !!conv.texto, motivo: conv.motivo, pede_pessoa: conv.pedePessoa, resposta: conv.rascunho }).catch(() => {})
+      conversou = true
+      if (conv.texto && !conv.pedePessoa) {
+        result.actions = [{ type: 'send', texts: [conv.texto] }]
+      } else {
+        result.state.stage = 'handoff'
+        result.actions = [
+          {
+            type: 'handoff',
+            reason: conv.pedePessoa ? 'lead_pediu_algo_fora_do_alcance' : `conversa_sem_resposta_segura:${conv.motivo ?? 'sem_versao'}`,
+            texts: conv.texto ? [conv.texto, config.handoff.waitMessage] : [config.handoff.waitMessage],
+          },
+        ]
+      }
+    }
+
     // Preço e objeção: o SDR reescreve o texto aprovado com as próprias palavras, olhando a ficha.
     // Se a forma ou o revisor barrarem, sai o texto aprovado, palavra por palavra (nunca mudo).
     const paraHumanizar = result.actions.find((a): a is Extract<FunnelAction, { type: 'send' }> => a.type === 'send' && !!a.humanize)
@@ -280,17 +324,33 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
         onUsage: p.deps.onUsage,
       })
       await p.deps.log('funnel_humanizado', { tipo: paraHumanizar.humanize.kind, versao: h.versao, aprovada: !!h.texto, motivo: h.motivo }).catch(() => {})
-      if (h.texto) paraHumanizar.texts[paraHumanizar.humanize.index ?? 0] = h.texto
+      const idx = paraHumanizar.humanize.index ?? 0
+      if (h.texto) {
+        paraHumanizar.texts[idx] = h.texto
+      } else if (paraHumanizar.humanize.kind === 'reperguntar') {
+        // A reformulação foi barrada e o texto aprovado é IGUAL ao que acabamos de mandar: repetir idêntico soa como
+        // bot (achado ao vivo 2026-09-21, lead Isaías: a mesma pergunta duas vezes em 68 segundos). Em vez disso,
+        // reconhece o que o lead contou (se contou algo) ou fica quieto esperando; a tentativa não é contada.
+        const script = paraHumanizar.texts[idx] ?? ''
+        if (outboundNewestFirst.slice(0, 3).some((r) => isRepeatOf(script, r))) {
+          paraHumanizar.texts.splice(idx, 1)
+          const sid = result.state.askedStep
+          if (sid && (result.state.asks[sid] ?? 0) > 0) result.state.asks[sid]--
+          if (paraHumanizar.texts.length === 0) {
+            if (informou || midia) paraHumanizar.texts.push(buildEcho(config, state.data, result.state.data, midia ? (p.mediaKind ?? 'outro') : 'info'))
+            else result.actions = result.actions.map((a) => (a === paraHumanizar ? ({ type: 'silence' } as FunnelAction) : a))
+          }
+          await p.deps.log('funnel_repeticao_evitada', { pergunta: script, virou: paraHumanizar.texts.length ? 'reconhecimento' : 'silencio' }).catch(() => {})
+        }
+      }
     }
 
     // Reação humana: quando o lead contou algo além da resposta seca, uma frase curta reconhece isso
     // antes da próxima pergunta. Opcional e à prova de falha: qualquer problema apaga a frase.
     // Mídia (áudio, imagem...) é SEMPRE respondida: se a frase do SDR for barrada, sai a confirmação
     // dos dados guardados. Funil que ignora o que o lead mandou vira bot.
-    const midia = !!p.hasMedia
-    // Lead que conta algo por conta própria (ramo, Instagram, link) é sempre reconhecido, como a mídia.
-    const informou = leadVolunteered(config, state, result.state, p.leadText)
     if (
+      !conversou &&
       shouldReact({
         state: result.state,
         reading,
@@ -371,7 +431,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     return { handled: false, leadName: result.state.data.nome }
   }
 
-  await execute(p, config, result.state, result.actions)
+  await execute(p, config, result.state, result.actions, memoria)
   await syncLeadCrm(p, config, stageAtStart, result.state, result.actions)
   // Depois de responder: atualiza a memória da conversa inteira (o lead já foi atendido, não atrasa a resposta)
   await updateMemory(p, config, result.state)

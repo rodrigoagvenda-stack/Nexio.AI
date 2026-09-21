@@ -71,6 +71,7 @@ Categorias (escolha UMA, a intenção principal que exige resposta especial):
 - agendar: pede ou aceita marcar reunião, call ou horário.
 - resposta_passo: responde, mesmo em parte, o que perguntamos, ou informa dados sobre o negócio dele.
 - duvida_contexto: a pessoa não entendeu do que se trata, quem somos ou por que estamos falando com ela ("o que seria?", "uque seria", "como assim?", "quem é?", "do que se trata?", "que áudio é esse?", "de onde vocês são?", "o que vocês querem comigo?"), mesmo junto de um cumprimento ("bom dia, o que seria?"). É sobre o PRÓPRIO contato ou assunto da conversa, não sobre o serviço ou a empresa em geral (isso é pergunta_fora). Tem prioridade sobre outro.
+- conversa: a pessoa está CONVERSANDO com a gente e não responde ao roteiro: contesta ou discorda ("isso é estranho", "eu pesquiso e aparece, você pesquisa e não?"), se confunde ou desconfia, pede algo que não é preço nem pergunta sobre a empresa (um vídeo, uma prova, explicar de outro jeito, falar com o dono) ou comenta algo que pede uma resposta de pessoa. Use só quando a mensagem pede uma resposta própria e não se encaixa em resposta_passo, preco, objecao da lista, pergunta_fora, duvida_contexto nem ok.
 - outro: qualquer outra coisa (cumprimento, "ok" sem contexto, mensagem ininteligível).
 
 Se a mensagem traz dados E uma pergunta/objeção/preço, extraia os dados e escolha a categoria da pergunta/objeção/preço.
