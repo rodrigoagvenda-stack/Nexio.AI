@@ -129,7 +129,10 @@ export default function FunilPage() {
       const res = await fetch('/api/sdr/funnel', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: cfg }),
+        // Os nomes de quem atende ficam crus enquanto digita (vírgula no fim); limpa só ao salvar.
+        body: JSON.stringify({
+          config: { ...cfg, agentNames: cfg.agentNames?.map((n) => n.trim()).filter(Boolean) },
+        }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
@@ -358,7 +361,7 @@ export default function FunilPage() {
 
       <Section
         title="Quando o lead pergunta o preço"
-        hint="Nunca coloque valor aqui. Na primeira pergunta sai uma destas respostas. Na segunda, o lead recebe o texto abaixo e a conversa passa para uma pessoa."
+        hint="Cada pergunta de preço recebe a resposta da posição seguinte: 1ª pergunta = Resposta 1, 2ª = Resposta 2, e assim por diante. Valores em reais só são aceitos se o funil estiver configurado pra informar preço. Quando o lead insiste mais vezes do que há respostas (na 3ª pergunta, no Grupo Venda), a conversa passa para uma pessoa com o texto abaixo. Quebras de linha são mantidas."
       >
         <div className="space-y-3">
           {cfg.priceScripts.map((t: string, i: number) => (
@@ -380,6 +383,12 @@ export default function FunilPage() {
             <Plus className="h-4 w-4" />
             Adicionar resposta
           </button>
+          <Text
+            label="1ª pergunta de preço quando as perguntas já terminaram (opcional; vazio = usa a Resposta 1)"
+            value={cfg.pricePosRoteiro ?? ''}
+            onChange={(v) => update((c) => void (c.pricePosRoteiro = v || undefined))}
+            rows={3}
+          />
           <Text label="Se o lead insistir no preço" value={cfg.priceInsistHandoff} onChange={(v) => update((c) => void (c.priceInsistHandoff = v))} />
         </div>
       </Section>
@@ -487,9 +496,7 @@ export default function FunilPage() {
           <Text
             label="Nomes de quem atende, separados por vírgula (nunca são aceitos como nome do lead: 'Oi Bruno' é o lead falando com a gente)"
             value={(cfg.agentNames ?? []).join(', ')}
-            onChange={(v) =>
-              update((c) => void (c.agentNames = v.split(',').map((n) => n.trim()).filter(Boolean)))
-            }
+            onChange={(v) => update((c) => void (c.agentNames = v.split(',').map((n) => n.trimStart())))}
           />
           <Text
             label="Quando a pergunta não tem resposta na sua base de conhecimento"
