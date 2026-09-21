@@ -72,6 +72,12 @@ export interface FunnelConfig {
   priceInsistHandoff: string
   /** Quantas perguntas de preço até passar pro humano (default 2). */
   priceHandoffAt?: number
+  /** Resposta de preço usada na 1a pergunta quando o roteiro já terminou (já tem qualificação, então fecha chamando pro horário). */
+  pricePosRoteiro?: string
+  /** Permite valores em reais nos textos de preço (política de dar um ponto de partida). Sem isso a validação recusa R$. */
+  priceDisclosure?: boolean
+  /** O SDR reescreve preço e objeções com as próprias palavras (com ficha e revisão). Ausente = ligado; false = só o texto aprovado. */
+  humanize?: boolean
   objections: Record<string, FunnelObjection>
   /** Turnos de objeção 'objecao' tolerados antes de encerrar com elegância. */
   maxObjections: number
@@ -171,8 +177,14 @@ export interface Reading {
   falhou?: boolean
 }
 
+/** Texto fixo aprovado que o SDR pode reescrever com as próprias palavras (revisado; se barrar, sai o texto aprovado). */
+export interface HumanizeHint {
+  kind: 'preco' | 'objecao'
+  script: string
+}
+
 export type FunnelAction =
-  | { type: 'send'; texts: string[] }
+  | { type: 'send'; texts: string[]; humanize?: HumanizeHint }
   | { type: 'handoff'; reason: string; texts: string[] }
   | { type: 'notify'; reason: string }
   | { type: 'silence' }

@@ -89,8 +89,14 @@ export function validateFunnelConfig(raw: unknown): string[] {
   if (!Array.isArray(c.priceScripts)) errors.push('Respostas de preço inválidas.')
   else c.priceScripts.forEach((t, i) => {
     visible(`Resposta de preço ${i + 1}`, t)
-    if (isStr(t) && /R\$\s?\d/.test(t)) errors.push(`Resposta de preço ${i + 1}: não coloque valor em reais aqui.`)
+    if (isStr(t) && /R\$\s?\d/.test(t) && c.priceDisclosure !== true) {
+      errors.push(`Resposta de preço ${i + 1}: não coloque valor em reais aqui (ative "dar ponto de partida de preço" para permitir).`)
+    }
   })
+  visible('Resposta de preço depois do roteiro', c.pricePosRoteiro, false)
+  if (typeof c.pricePosRoteiro === 'string' && /R\$\s?\d/.test(c.pricePosRoteiro) && c.priceDisclosure !== true) {
+    errors.push('Resposta de preço depois do roteiro: não coloque valor em reais aqui (ative "dar ponto de partida de preço" para permitir).')
+  }
 
   if (!c.objections || typeof c.objections !== 'object') errors.push('Objeções inválidas.')
   else {

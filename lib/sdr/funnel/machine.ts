@@ -20,6 +20,10 @@ const MIN_CONFIDENCE = 0.5
 const DEFAULT_MAX_ASKS = 3
 const MAX_OFF_SCRIPT_FAILS = 2
 const MAX_READER_FAILURES = 3
+/** Categorias que o funil continua tratando depois do fim do roteiro (o resto vai pro agendamento). */
+const POS_ROTEIRO = new Set<string>([
+  'recusa', 'preco', 'objecao', 'pergunta_fora', 'pede_humano', 'pede_ligacao', 'aceita_ligacao', 'bot_automatico', 'adiar', 'despedida',
+])
 const DEFAULT_DEFER_REPLY = 'Sem problema, responde com calma. Quando puder, me chama aqui.'
 
 function clone<T>(v: T): T {
@@ -146,6 +150,10 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
   for (;;) {
     const pending = nextPending(config, state)
     if (!pending) {
+      // Já no pós-roteiro: só responde (não há próxima pergunta nem nova entrega pro agendamento).
+      if (state.stage === 'scheduling') {
+        return prefix.length > 0 ? { state, actions: [{ type: 'send', texts: prefix }] } : { state, actions: [{ type: 'delegate_scheduling' }] }
+      }
       state.stage = 'scheduling'
       state.askedStep = null
       return { state, actions: [{ type: 'delegate_scheduling' }] }
@@ -181,6 +189,13 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
   }
 }
 
+/** Marca o texto de script da mensagem como reescrevível pelo SDR (o runner decide, com revisão). */
+function marcarHumanizar(res: StepResult, kind: 'preco' | 'objecao', script: string): StepResult {
+  const envio = res.actions.find((a) => a.type === 'send') as Extract<FunnelAction, { type: 'send' }> | undefined
+  if (envio && envio.texts[0] === script) envio.humanize = { kind, script }
+  return res
+}
+
 /** Envia só o texto fixo (sem emendar pergunta do funil), usado quando o próprio texto já termina em pergunta. */
 function sendOnly(state: FunnelState, texts: string[], extra: FunnelAction[] = []): StepResult {
   state.askedStep = null
@@ -205,7 +220,14 @@ export function stepFunnel(
   }
 
   if (state.stage === 'handoff') return silence(state)
-  if (state.stage === 'scheduling') return { state, actions: [{ type: 'delegate_scheduling' }] }
+  // Depois do roteiro o funil continua vivo pro que NÃO é marcar horário (recusa, preço, objeção, dúvida,
+  // pedido de pessoa, despedida...). Achado ao vivo 2026-09-20 (lead Marcelo): tudo isso caía no SDR antigo
+  // sem as proteções, e foi onde o atendimento quebrou. Só o ato de agendar fica com o orquestrador.
+  if (state.stage === 'scheduling') {
+    const c0 = reading.falhou ? 'outro' : reading.categoria
+    const c = reading.confianca >= MIN_CONFIDENCE ? c0 : 'outro'
+    if (!POS_ROTEIRO.has(c)) return { state, actions: [{ type: 'delegate_scheduling' }] }
+  }
 
   mergeData(config, state, reading)
   applyImplications(config, state)
@@ -290,8 +312,22 @@ export function stepFunnel(
       if (state.priceAsked >= (config.priceHandoffAt ?? 2) || config.priceScripts.length === 0) {
         return handoff(state, config, 'preco_insistente', config.priceInsistHandoff)
       }
-      const script = config.priceScripts[(state.priceAsked - 1) % config.priceScripts.length]
-      return hasQuestion(script) ? sendOnly(state, [script]) : askNext(config, state, [script])
+      // Política: responde de verdade e nunca repete a mesma frase vaga. Roteiro já terminado: a 1a resposta
+      // fecha chamando pro horário; nas demais usa a sequência normal de textos.
+      const usaPosRoteiro = state.stage === 'scheduling' && state.priceAsked === 1 && !!config.pricePosRoteiro
+      const script = usaPosRoteiro ? config.pricePosRoteiro! : config.priceScripts[(state.priceAsked - 1) % config.priceScripts.length]
+      const res = hasQuestion(script) ? sendOnly(state, [script]) : askNext(config, state, [script])
+      return marcarHumanizar(res, 'preco', script)
+    }
+
+    case 'despedida': {
+      // Depois do roteiro: agradece uma vez e fica quieto (achado ao vivo: despedida duplicada, lead André).
+      if (state.stage === 'scheduling') {
+        if (state.farewellSent) return silence(state)
+        state.farewellSent = true
+        return { state, actions: [{ type: 'send', texts: [config.farewellReply] }] }
+      }
+      break // durante a qualificação "obrigado" é resposta comum
     }
 
     case 'objecao': {
@@ -309,7 +345,9 @@ export function stepFunnel(
       if (used < obj.scripts.length) {
         state.objections[key] = used + 1
         const script = obj.scripts[used]
-        return hasQuestion(script) ? sendOnly(state, [script]) : askNext(config, state, [script])
+        const res = hasQuestion(script) ? sendOnly(state, [script]) : askNext(config, state, [script])
+        // Só objeção de verdade é reescrita pelo SDR; dúvida comum (dados da empresa, CNPJ) sai palavra por palavra.
+        return obj.kind === 'objecao' ? marcarHumanizar(res, 'objecao', script) : res
       }
       if (obj.kind === 'objecao') return handoff(state, config, `objecao_esgotada:${key}`)
       // faq já respondida uma vez e o lead voltou a perguntar : cai na caixa controlada

@@ -10,6 +10,7 @@ import { detectAskedStep } from '../lib/sdr/funnel/sync'
 import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
 import { buildEcho, shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
+import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -96,15 +97,19 @@ function emQualificacao() {
   return s
 }
 {
+  // Política de preço (Rodrigo, 2026-09-21): 1a dá o ponto de partida, 2a mostra os planos, 3a passa pro Bruno.
   const r1 = turn(emQualificacao(), read('preco'))
   const t = sent(r1.actions)
-  check('preço 1a vez: script do Bruno + pergunta pendente, sem valor', t.length === 2 && t[0] === cfg.priceScripts[0] && t[1].includes('qual o nome, o ramo e a cidade') && !/R\$/.test(t.join(' ')), t)
+  check('preço 1a vez: ponto de partida com valores e pergunta do objetivo (não se esquiva)', t.length === 1 && t[0] === cfg.priceScripts[0] && /R\$ 1\.125/.test(t[0]) && /R\$ 5\.280/.test(t[0]) && t[0].includes('pagamento único'), t)
   const r2 = turn(r1.state, read('preco'))
-  check('preço 2a vez: passa pro Bruno na hora', has(r2.actions, 'handoff') && r2.state.stage === 'handoff' && sent(r2.actions).length === 0, r2.actions)
-  const h = r2.actions.find((a) => a.type === 'handoff') as Extract<FunnelAction, { type: 'handoff' }>
-  check('preço 2a vez: texto de espera do script aprovado', h.texts[0] === cfg.priceInsistHandoff, h.texts)
-  const r3 = turn(r2.state, read('outro'))
+  check('preço 2a vez: mostra os três planos, NÃO repete a frase anterior', sent(r2.actions)[0] === cfg.priceScripts[1] && sent(r2.actions)[0] !== t[0], sent(r2.actions))
+  const r2b = turn(r2.state, read('preco'))
+  check('preço 3a vez: passa pro Bruno na hora', has(r2b.actions, 'handoff') && r2b.state.stage === 'handoff' && sent(r2b.actions).length === 0, r2b.actions)
+  const h = r2b.actions.find((a) => a.type === 'handoff') as Extract<FunnelAction, { type: 'handoff' }>
+  check('preço 3a vez: texto de espera do script aprovado', h.texts[0] === cfg.priceInsistHandoff, h.texts)
+  const r3 = turn(r2b.state, read('outro'))
   check('depois do handoff o funil fica em silêncio', has(r3.actions, 'silence'), r3.actions)
+  check('preço: as respostas são marcadas pra o SDR reescrever (com revisão)', r1.actions.some((a) => a.type === 'send' && a.humanize?.kind === 'preco'), r1.actions)
 }
 
 // ─── Objeções ───────────────────────────────────────────────────────────
@@ -311,6 +316,65 @@ function emQualificacao() {
   check('forma: recusa justificativa', forma('Assim já consigo te entender melhor.') === 'justificativa')
 }
 
+// ─── Depois do roteiro o funil continua vivo (caso Marcelo) ─────────────
+{
+  const dados = { nome: 'Marcelo', ramo: 'construção', cidade: 'Alvorada', tem_gmb: 'nao', tem_site: 'nao', fez_anuncio: 'nao', so_indicacao: 'sim', aparece_google: 'nao', decisor: 'sim' }
+  const sched = { ...initialState(), stage: 'scheduling' as const, data: dados, turns: 9 }
+  const pos = (cat: Categoria, over: Partial<Reading> = {}, s = sched) => turn(s, read(cat, {}, over))
+
+  check('pós-roteiro: recusa é tratada pelo funil (resposta aprovada + encerra)', sent(pos('recusa').actions)[0] === cfg.refusalReply && pos('recusa').state.stage === 'refused')
+  check('pós-roteiro: recusa marca o lead como perdido (mark_refused)', has(pos('recusa').actions, 'mark_refused'))
+  check('pós-roteiro: pedido de pessoa passa pro Bruno com aviso ao lead', has(pos('pede_humano').actions, 'handoff') && pos('pede_humano').state.stage === 'handoff')
+  const p1 = pos('preco')
+  check('pós-roteiro: 1a pergunta de preço usa a resposta que fecha chamando pro horário', sent(p1.actions)[0] === cfg.pricePosRoteiro && !has(p1.actions, 'delegate_scheduling'), p1.actions)
+  const p2 = pos('preco', {}, p1.state)
+  check('pós-roteiro: 2a pergunta de preço mostra os planos (nunca repete)', sent(p2.actions)[0] === cfg.priceScripts[1], sent(p2.actions))
+  const p3 = pos('preco', {}, p2.state)
+  check('pós-roteiro: 3a pergunta de preço chama o Bruno', has(p3.actions, 'handoff'), p3.actions)
+  const ob = pos('objecao', { objecaoTipo: 'sem_tempo' })
+  check('pós-roteiro: objeção usa o script aprovado (marcado pra reescrita) e não entrega ao agendamento', sent(ob.actions)[0] === cfg.objections.sem_tempo.scripts[0] && !has(ob.actions, 'delegate_scheduling'), ob.actions)
+  const faq = pos('objecao', { objecaoTipo: 'golpe' })
+  check('pós-roteiro: dado da empresa (CNPJ) sai palavra por palavra, sem reescrita', sent(faq.actions)[0] === cfg.objections.golpe.scripts[0] && !faq.actions.some((a) => a.type === 'send' && a.humanize), faq.actions)
+  check('pós-roteiro: dúvida vai pra caixa e depois só responde (sem pergunta do funil)', pos('pergunta_fora').needBox !== undefined)
+  const dv = turn(sched, read('pergunta_fora'), { leadText: 'x', boxAnswer: 'Trabalhamos com Google Meu Negócio e site.' })
+  check('pós-roteiro: resposta da caixa sai sozinha, sem repetir pergunta de roteiro nem entregar', sent(dv.actions).length === 1 && !has(dv.actions, 'delegate_scheduling'), dv.actions)
+  check('pós-roteiro: mensagem automática de outra empresa fica em silêncio', has(pos('bot_automatico').actions, 'silence'))
+  const d1 = pos('despedida')
+  check('pós-roteiro: despedida agradece uma vez', sent(d1.actions)[0] === cfg.farewellReply, d1.actions)
+  check('pós-roteiro: despedida repetida fica em silêncio (caso André)', has(pos('despedida', {}, d1.state).actions, 'silence'))
+  for (const c of ['agendar', 'outro', 'resposta_passo', 'ok'] as Categoria[]) {
+    check(`pós-roteiro: "${c}" vai pro agendamento (única coisa que o orquestrador faz)`, pos(c).actions.length === 1 && has(pos(c).actions, 'delegate_scheduling'))
+  }
+  check('pós-roteiro: categoria incerta (baixa confiança) vai pro agendamento', has(pos('recusa', { confianca: 0.2 }).actions, 'delegate_scheduling'))
+}
+
+// ─── Preço reescrito pelo SDR: forma conferida em código ───────────────
+{
+  const script = cfg.priceScripts[0]
+  const base = { script, leadText: 'quanto custa por mês?', ficha: 'ficha', recentOutbound: [] as string[], kind: 'preco' as const }
+  const forma = (texto: string, over: Partial<typeof base> = {}) => structuralHumanChecks({ texto, ...base, ...over })
+  check(
+    'reescrita ok: outras palavras, mesmos valores, mesma pergunta',
+    forma('Depende do que você precisa: vai de R$ 1.125, só o perfil no Google, até R$ 5.280, com perfil e site completo. Não tem mensalidade, é pagamento único. O que você mais precisa hoje?') === null
+  )
+  check('reescrita recusada: sumiu um valor', forma('Depende do que você precisa: a partir de R$ 1.125, só o perfil no Google. Pagamento único. O que você mais precisa hoje?') === 'valor_faltando')
+  check('reescrita recusada: valor inventado', forma('Vai de R$ 1.125 até R$ 5.280, e tem um plano de R$ 999. O que você precisa?') === 'valor_novo')
+  check('reescrita recusada: número que ninguém disse', forma('Vai de R$ 1.125 até R$ 5.280 em 12 dias. O que você mais precisa hoje?') === 'numero_inventado')
+  const semPergunta = 'Tranquilo, posso ajustar pro horário que encaixa melhor na sua rotina.'
+  check('reescrita recusada: pergunta nova quando o script não tinha', structuralHumanChecks({ ...base, script: semPergunta, kind: 'objecao', texto: 'Tranquilo, a gente ajusta. Qual horário você prefere?' }) === 'pergunta_nova')
+  check('reescrita recusada: repete o que já foi enviado', forma(script, { recentOutbound: [script] }) === 'repetida')
+  check('reescrita recusada: travessão', forma('Depende do que você precisa — de R$ 1.125 até R$ 5.280. O que você precisa?') === 'formato')
+
+  const st = { ...initialState(), stage: 'scheduling' as const, priceAsked: 1, objections: { sem_tempo: 1 }, data: { nome: 'Marcelo', ramo: 'construção', cidade: 'Alvorada', tem_site: 'nao' } }
+  const f = buildFicha(cfg, st)
+  check('ficha: fatos do lead', f.includes('Nome: Marcelo') && f.includes('Ramo: construção') && f.includes('Cidade: Alvorada'), f)
+  check('ficha: o que já foi dito (transição, preço, objeção)', f.includes('JÁ foi enviada') && f.includes('valor 1 vez') && f.includes('sem tempo'), f)
+  check('ficha: regras fixas (horário comercial, sem promessa)', f.includes('horário comercial') && f.includes('nunca prometer'), f)
+
+  check('validação: R$ nas respostas de preço passa quando a política de ponto de partida está ligada', validateFunnelConfig(cfg).length === 0, validateFunnelConfig(cfg))
+  check('validação: R$ sem a política ligada é recusado', validateFunnelConfig({ ...cfg, priceDisclosure: false }).some((e) => e.includes('valor em reais')))
+}
+
 // ─── Áudio que não foi transcrito ───────────────────────────────────────
 {
   check('áudio sem transcrição (só o rótulo) é reconhecido', isUnreadableAudio('🎵 Áudio') === true)
@@ -423,6 +487,7 @@ function emQualificacao() {
   const bad = JSON.parse(JSON.stringify(cfg))
   bad.steps[1].question = 'Qual o ramo — e a cidade?'
   bad.priceScripts[0] = 'Custa R$ 500'
+  bad.priceDisclosure = false
   bad.steps[2].followUp.missingField = 'nao_existe'
   const errs = validateFunnelConfig(bad)
   check('rejeita travessão, valor em reais e campo inexistente', errs.length >= 3, errs)

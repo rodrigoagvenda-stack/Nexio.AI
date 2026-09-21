@@ -19,6 +19,7 @@ import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
 import { buildEcho, buildReaction, shouldReact } from './reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
+import { buildFicha, humanizeScript } from './humanize'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -240,7 +241,8 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     if (!stored && totalOutbound > 0) return { handled: false }
 
     let state = stored ?? initialState()
-    if (state.stage === 'scheduling') return { handled: false, leadName: state.data.nome }
+    // (estágio 'scheduling' NÃO sai mais daqui: o funil segue tratando recusa, preço, objeção, dúvida e
+    // pedido de pessoa; só o que for marcar horário é devolvido ao orquestrador mais abaixo)
     if (state.stage === 'handoff') {
       // Se chegou aqui, o humano devolveu a conversa pro SDR (conversa não está pausada).
       state = { ...state, stage: 'qualifying', asks: {}, objectionTurns: 0, priceAsked: 0, offScriptFails: 0, readerFailures: 0 }
@@ -258,6 +260,30 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     if (result.needBox) {
       const boxAnswer = await answerFromKnowledge({ question: result.needBox, search: p.deps.search, openai, onUsage: p.deps.onUsage })
       result = stepFunnel(config, state, reading, { isFirstTurn, leadText: p.leadText, boxAnswer })
+    }
+
+    // Pós-roteiro e o lead só falou de agendamento (horário, dados pro convite...): quem responde é o
+    // orquestrador, com a ficha. Nada a gravar aqui.
+    if (stageAtStart === 'scheduling' && result.actions.length > 0 && result.actions.every((a) => a.type === 'delegate_scheduling')) {
+      return { handled: false, leadName: state.data.nome }
+    }
+
+    // Preço e objeção: o SDR reescreve o texto aprovado com as próprias palavras, olhando a ficha.
+    // Se a forma ou o revisor barrarem, sai o texto aprovado, palavra por palavra (nunca mudo).
+    const paraHumanizar = result.actions.find((a): a is Extract<FunnelAction, { type: 'send' }> => a.type === 'send' && !!a.humanize)
+    if (paraHumanizar?.humanize && config.humanize !== false) {
+      const h = await humanizeScript({
+        kind: paraHumanizar.humanize.kind,
+        script: paraHumanizar.humanize.script,
+        leadText: p.leadText,
+        transcript,
+        ficha: buildFicha(config, result.state),
+        recentOutbound: outboundNewestFirst,
+        openai,
+        onUsage: p.deps.onUsage,
+      })
+      await p.deps.log('funnel_humanizado', { tipo: paraHumanizar.humanize.kind, versao: h.versao, aprovada: !!h.texto, motivo: h.motivo }).catch(() => {})
+      if (h.texto) paraHumanizar.texts[0] = h.texto
     }
 
     // Reação humana: quando o lead contou algo além da resposta seca, uma frase curta reconhece isso
@@ -293,8 +319,9 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     if (result.actions.some((a) => a.type === 'mark_refused')) extra.lead_recusou = true
     if (result.state.stage === 'scheduling') {
       extra.estagio_atual =
-        'qualificacao_completa: todos os passos do roteiro foram respondidos. Ofereça o agendamento agora, chamando Agente_de_Agendamento direto, sem perguntar se pode.'
+        'qualificacao_completa: todos os passos do roteiro foram respondidos. A mensagem explicando a conversa de diagnóstico com o especialista JÁ foi enviada ao lead: NÃO explique o diagnóstico de novo e não use "gratuito". Ofereça direto os horários livres (Consultar_gcal), sem perguntar se pode. Atendimento e reunião só em horário comercial: nunca prometa nem ofereça fora dele.'
     }
+    extra.ficha_funil = buildFicha(config, result.state)
     await persistChecklist(p, config, result.state, prevChecklist, extra)
     await supabase.from('conversas_do_whatsapp').update({ funnel_state: result.state }).eq('id', p.conversationId)
 
@@ -321,8 +348,8 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
 
   if (result.actions.some((a) => a.type === 'delegate_scheduling')) {
     // Qualificação completa: antes de o agendamento (motor antigo) pedir dados, uma mensagem fixa
-    // explica o que vai acontecer. Só sai uma vez (depois disso o estágio é 'scheduling').
-    if (config.closingMessage?.trim()) {
+    // explica o que vai acontecer. Só sai uma vez, na virada (depois disso o estágio já é 'scheduling').
+    if (stageAtStart !== 'scheduling' && config.closingMessage?.trim()) {
       const nome = result.state.data.nome
       const text = nome ? config.closingMessage.replace(/\{nome\}/g, nome) : config.closingMessage.replace(/\{nome\},?\s*/g, '')
       await p.deps.send([text])

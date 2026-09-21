@@ -121,12 +121,17 @@ export const grupoVendaFunnel: FunnelConfig = {
       ],
     },
   ],
+  // Política (Rodrigo, 2026-09-21): dar um ponto de partida na 1a pergunta, nunca repetir a mesma frase vaga
+  // (o lead Marcelo saiu irritado, e 0 de 27 leads que perguntaram preço agendaram). A proposta detalhada
+  // continua sendo do Bruno; na 3a pergunta a conversa passa pra ele.
+  priceDisclosure: true,
   priceScripts: [
-    'Nosso especialista em Google, o Bruno, te mostra certinho na nossa conversa, já adaptado pro seu caso.',
-    'Isso o Bruno explica direitinho na reunião, olhando o seu caso específico.',
-    'Quem fecha os detalhes de valor com você é o Bruno, na call. Ele adapta pro seu cenário.',
+    'Depende do que você precisa: temos planos de R$ 1.125 (só o perfil no Google) até R$ 5.280 (perfil e site completo). E não é mensalidade, é pagamento único. O que você mais precisa hoje?',
+    'Os três planos, sempre pagamento único: Google Meu Negócio, R$ 1.125 (perfil criado ou corrigido, categorias, fotos e 4 posts). Essencial, R$ 2.200 (o perfil mais um site de uma página e SEO local). Prime, R$ 5.280 (o perfil mais site completo de até 15 páginas e SEO local avançado). Qual faz mais sentido pra você?',
   ],
-  priceHandoffAt: 2,
+  pricePosRoteiro:
+    'Depende do plano: de R$ 1.125 (só o perfil no Google) até R$ 5.280 (perfil e site completo), sempre pagamento único. O Bruno mostra na conversa qual serve pro seu caso. Quer que eu veja um horário?',
+  priceHandoffAt: 3,
   priceInsistHandoff: 'Vi que isso é importante pra você decidir agora. Deixa eu já chamar o Bruno aqui no WhatsApp pra te passar certinho, um segundo.',
   objections: {
     caro: {

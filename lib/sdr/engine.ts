@@ -87,6 +87,8 @@ interface SdrContext {
   billingRecurring: boolean
   placesAnalysisAtivo: boolean
   qaDryRun: boolean
+  /** Pausa/handoff pedido durante o turno, aplicado só depois do envio da resposta ao lead. */
+  pendingHandoff?: { motivo: string }
 }
 
 export interface BufferedMessage {
@@ -369,6 +371,49 @@ async function buildGuardContext(
     totalOutbound: total.count ?? 0,
     gratuitoCount: texts.filter(mentionsGratuito).length,
     rules: features.sdr_output_rules,
+  }
+}
+
+/**
+ * Aplica o handoff pedido pelo orquestrador (tool Pausar_conversa) DEPOIS que a resposta ao lead saiu:
+ * pausa a IA, entra na fila, avisa no sino e distribui. Antes a pausa vinha antes do envio e bloqueava
+ * o próprio aviso ao lead (achado ao vivo 2026-09-21, lead Marcelo).
+ */
+async function applyPendingHandoff(
+  ctx: SdrContext,
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<void> {
+  const pendente = ctx.pendingHandoff
+  if (!pendente || !ctx.conversationId) return
+  ctx.pendingHandoff = undefined
+  try {
+    const { error } = await supabase
+      .from('conversas_do_whatsapp')
+      .update({
+        agente_pausado: true,
+        agente_pausado_em: new Date().toISOString(),
+        current_status: 'livre',
+        kanban_stage: 'fila',
+        queue_entered_at: new Date().toISOString(),
+      })
+      .eq('id', ctx.conversationId)
+    if (error) {
+      console.error(`[SDR:${ctx.companyId}] handoff (pausa) falhou:`, error.message)
+      return
+    }
+    await log(ctx.companyId, 'agent_paused_handoff', { motivo: pendente.motivo }, supabase, ctx.leadPhone, ctx.leadId)
+    const { error: notifyError } = await supabase.from('activity_logs').insert({
+      company_id: ctx.companyId,
+      action: 'sdr_handoff',
+      description: `${ctx.leadName || 'Lead'} foi passado para uma pessoa. Motivo: ${pendente.motivo}`,
+      metadata: { lead_id: ctx.leadId, conversation_id: ctx.conversationId, reason: pendente.motivo, origem: 'sdr_orquestrador' },
+    })
+    if (notifyError) console.error(`[SDR:${ctx.companyId}] aviso de handoff (sino) falhou:`, notifyError.message)
+    distributeQueuedConversations(ctx.companyId, supabase).catch((e) =>
+      console.error(`[SDR:${ctx.companyId}] distribuição pós-handoff falhou:`, e.message)
+    )
+  } catch (e: any) {
+    console.error(`[SDR:${ctx.companyId}] handoff pós-envio falhou:`, e?.message)
   }
 }
 
@@ -1956,6 +2001,8 @@ interface ChecklistAtendimento {
   encerramento_enviado?: boolean
   perguntas_e_respostas?: { pergunta: string; resposta: string }[]
   estagio_atual?: string
+  /** Ficha do lead montada pelo funil (fatos, o que já foi dito, regras fixas), pro orquestrador não repetir nem prometer. */
+  ficha_funil?: string
   lead_recusou?: boolean
 }
 
@@ -1994,6 +2041,7 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
     for (const pr of checklist.perguntas_e_respostas) lines.push(`- ${pr.pergunta}: ${pr.resposta}`)
   }
   if (checklist.estagio_atual) lines.push(`Estágio atual da conversa: ${checklist.estagio_atual}`)
+  if (checklist.ficha_funil) lines.push(checklist.ficha_funil)
   return lines.join('\n')
 }
 
@@ -2454,27 +2502,13 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
         // Peça C: além da flag, entra de fato na fila (kanban_stage/current_status)
         // e dispara a distribuição na hora — sem isso a conversa nunca chegava a
         // ser vista pelo motor de distribuição, mesmo já existindo pronto.
+        // Achado ao vivo (Rodrigo, 2026-09-21, lead Marcelo): a pausa era aplicada AQUI, antes da
+        // resposta sair, e o próprio envio checa "conversa pausada" e barrou a mensagem "já vou chamar
+        // o Bruno". O lead pediu falar com ele e nunca soube que alguém ia assumir. Agora a pausa só é
+        // marcada e aplicada DEPOIS do envio (applyPendingHandoff, em processSdrMessage).
         if (ctx.conversationId) {
-          const { error } = await supabase
-            .from('conversas_do_whatsapp')
-            .update({
-              agente_pausado: true,
-              agente_pausado_em: new Date().toISOString(),
-              current_status: 'livre',
-              kanban_stage: 'fila',
-              queue_entered_at: new Date().toISOString(),
-            })
-            .eq('id', ctx.conversationId)
-          if (error) {
-            console.error(`[SDR:${ctx.companyId}] Pausar_conversa erro:`, error.message)
-            result = 'ERRO ao pausar conversa: ' + error.message
-          } else {
-            await log(ctx.companyId, 'agent_paused_handoff', { motivo: args.motivo }, supabase, ctx.leadPhone, ctx.leadId)
-            distributeQueuedConversations(ctx.companyId, supabase).catch((e) =>
-              console.error(`[SDR:${ctx.companyId}] distribuição pós-handoff falhou:`, e.message)
-            )
-            result = `Conversa pausada com sucesso. Motivo: ${args.motivo ?? 'handoff'}. Atendente humano será notificado.`
-          }
+          ctx.pendingHandoff = { motivo: String(args.motivo ?? 'handoff') }
+          result = `Handoff registrado. Motivo: ${args.motivo ?? 'handoff'}. Responda agora ao lead avisando, em uma frase curta, que a pessoa da equipe vai assumir a conversa. A conversa é pausada e entra na fila logo depois do envio da sua resposta.`
         } else {
           result = 'conversationId não disponível : handoff não executado'
         }
@@ -3743,7 +3777,10 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
       content: em.enrichedContent,
     }))
     const aiResponse = await runOrchestrator(messagesForOrchestrator, history, ctx, leadNotes, supabase, openai, acc)
-    if (!aiResponse) return
+    if (!aiResponse) {
+      await applyPendingHandoff(ctx, supabase)
+      return
+    }
 
     const rawParagraphs = aiResponse
       .split(/\n\n+/)
@@ -3762,6 +3799,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     if (paragraphs.length === 0) {
       console.log(`[SDR:${companyId}] guarda de saída suprimiu toda a resposta para ${phone}`)
       await log(companyId, 'output_guard_suppressed_all', { original: rawParagraphs }, supabase, phone, leadId)
+      await applyPendingHandoff(ctx, supabase)
       recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
       return
     }
@@ -3772,6 +3810,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     console.log(`[SDR:${companyId}] ✓ enviado para ${phone}`)
 
     await log(companyId, 'message_sent', { paragraphs, flowId: cfg.flowId }, supabase, phone, leadId)
+    // Handoff pedido durante o turno: só agora (depois de o lead receber o aviso) pausa e enfileira
+    await applyPendingHandoff(ctx, supabase)
 
     // ── Salvar usage_logs e enviar alertas (fire-and-forget) ──
     recordUsage(companyId, acc, supabase, quotaCheck.packageId).catch(console.error)
