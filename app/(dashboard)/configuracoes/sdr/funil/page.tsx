@@ -479,6 +479,19 @@ export default function FunilPage() {
             onChange={(v) => update((c) => void (c.deferReply = v))}
           />
           <Text
+            label="Quando o lead não entende do que se trata (quem somos e por que estamos falando com ele; sem pergunta, o funil emenda a próxima)"
+            value={cfg.aboutReply ?? ''}
+            onChange={(v) => update((c) => void (c.aboutReply = v || undefined))}
+            rows={3}
+          />
+          <Text
+            label="Nomes de quem atende, separados por vírgula (nunca são aceitos como nome do lead: 'Oi Bruno' é o lead falando com a gente)"
+            value={(cfg.agentNames ?? []).join(', ')}
+            onChange={(v) =>
+              update((c) => void (c.agentNames = v.split(',').map((n) => n.trim()).filter(Boolean)))
+            }
+          />
+          <Text
             label="Quando a pergunta não tem resposta na sua base de conhecimento"
             value={cfg.unknownAnswer}
             onChange={(v) => update((c) => void (c.unknownAnswer = v))}

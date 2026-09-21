@@ -82,6 +82,13 @@ export function validateFunnelConfig(raw: unknown): string[] {
   visible('Confirmação de ligação', c.callConfirm, false)
   visible('Resposta quando o lead está ocupado', c.deferReply, false)
   visible('Mensagem ao terminar as perguntas', c.closingMessage, false)
+  visible('Resposta quando o lead não entende do que se trata', c.aboutReply, false)
+  if (typeof c.aboutReply === 'string' && c.aboutReply.includes('?')) {
+    errors.push('Resposta quando o lead não entende do que se trata: não faça pergunta nesse texto (o funil emenda a próxima).')
+  }
+  if (c.agentNames !== undefined && (!Array.isArray(c.agentNames) || c.agentNames.some((n) => typeof n !== 'string' || n.length > 40))) {
+    errors.push('Nomes de quem atende inválidos.')
+  }
   if (typeof c.deferReply === 'string' && c.deferReply.includes('?')) {
     errors.push('Resposta quando o lead está ocupado: não faça pergunta nesse texto.')
   }

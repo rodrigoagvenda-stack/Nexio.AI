@@ -127,11 +127,15 @@ export const grupoVendaFunnel: FunnelConfig = {
   priceDisclosure: true,
   priceScripts: [
     'Depende do que você precisa: temos planos de R$ 1.125 (só o perfil no Google) até R$ 5.280 (perfil e site completo). E não é mensalidade, é pagamento único. O que você mais precisa hoje?',
-    'Os três planos, sempre pagamento único: Google Meu Negócio, R$ 1.125 (perfil criado ou corrigido, categorias, fotos e 4 posts). Essencial, R$ 2.200 (o perfil mais um site de uma página e SEO local). Prime, R$ 5.280 (o perfil mais site completo de até 15 páginas e SEO local avançado). Qual faz mais sentido pra você?',
+    // Uma linha por plano: o parágrafo corrido anterior foi achado confuso (lead Elizeu, 2026-09-21). Esta lista sai palavra por palavra.
+    'Os planos, todos com pagamento único:\nGoogle Meu Negócio, R$ 1.125: perfil no Google criado ou corrigido.\nEssencial, R$ 2.200: o perfil mais um site de uma página.\nPrime, R$ 5.280: o perfil mais um site completo e otimização avançada.\nQual combina mais com o que você precisa?',
   ],
   pricePosRoteiro:
     'Depende do plano: de R$ 1.125 (só o perfil no Google) até R$ 5.280 (perfil e site completo), sempre pagamento único. O Bruno mostra na conversa qual serve pro seu caso. Quer que eu veja um horário?',
   priceHandoffAt: 3,
+  agentNames: ['Laura', 'Bruno'],
+  aboutReply:
+    'Aqui é a Laura, do Grupo Venda Marketing Digital. A gente ajuda empresas a serem encontradas no Google e a receberem mais clientes por lá. Vou te fazer umas perguntas rápidas pra entender o seu caso e te encaminhar pro Bruno, nosso especialista.',
   priceInsistHandoff: 'Vi que isso é importante pra você decidir agora. Deixa eu já chamar o Bruno aqui no WhatsApp pra te passar certinho, um segundo.',
   objections: {
     caro: {
@@ -274,6 +278,8 @@ export function genericFunnelTemplate(p: { agentName: string; companyName: strin
     ],
     priceScripts: [`Os valores ${p.humanName} passa certinho na conversa, já adaptado pro seu caso.`],
     priceHandoffAt: 2,
+    agentNames: [p.agentName, p.humanName],
+    aboutReply: `Aqui é ${p.agentName}, da ${p.companyName}. Vou te fazer umas perguntas rápidas pra entender o seu caso e te encaminhar pra ${p.humanName}.`,
     priceInsistHandoff: `Vi que isso é importante pra você. Deixa eu já chamar ${p.humanName} aqui no WhatsApp pra te passar certinho, um segundo.`,
     objections: {},
     maxObjections: 2,

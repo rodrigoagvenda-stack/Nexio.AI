@@ -319,7 +319,7 @@ function emQualificacao() {
 // ─── Depois do roteiro o funil continua vivo (caso Marcelo) ─────────────
 {
   const dados = { nome: 'Marcelo', ramo: 'construção', cidade: 'Alvorada', tem_gmb: 'nao', tem_site: 'nao', fez_anuncio: 'nao', so_indicacao: 'sim', aparece_google: 'nao', decisor: 'sim' }
-  const sched = { ...initialState(), stage: 'scheduling' as const, data: dados, turns: 9 }
+  const sched: FunnelState = { ...initialState(), stage: 'scheduling', data: dados, turns: 9 }
   const pos = (cat: Categoria, over: Partial<Reading> = {}, s = sched) => turn(s, read(cat, {}, over))
 
   check('pós-roteiro: recusa é tratada pelo funil (resposta aprovada + encerra)', sent(pos('recusa').actions)[0] === cfg.refusalReply && pos('recusa').state.stage === 'refused')
@@ -477,6 +477,88 @@ function emQualificacao() {
   check('adiar sem texto configurado: usa o texto padrão, sem pergunta', sent(r2.actions).length === 1 && !sent(r2.actions)[0].includes('?'), r2.actions)
   const invalida = { ...cfg, deferReply: 'Quando você pode?' }
   check('validação recusa pergunta no texto de "ocupado"', validateFunnelConfig(invalida).some((e) => e.includes('ocupado')), validateFunnelConfig(invalida))
+}
+
+// ─── Dúvida de contexto ("Uque seria", caso Bafão 2026-09-21) ───────────
+{
+  // Lead recebeu o follow-up, respondeu "Opa / Bom dia / Uque seria": o funil precisa RESPONDER, não só re-perguntar o nome
+  const s = turn(initialState(), read('outro'), { isFirstTurn: true }).state
+  const r = turn(s, read('duvida_contexto'), { leadText: 'Opa\nBom dia\nUque seria' })
+  const t = sent(r.actions)
+  check('dúvida de contexto: explica antes de perguntar', t[0] === cfg.aboutReply, t)
+  check('dúvida de contexto: depois da explicação, volta pra pergunta pendente (nome)', t[1] === 'Qual o seu nome?', t)
+  const envio = r.actions[0] as Extract<FunnelAction, { type: 'send' }>
+  check('dúvida de contexto: texto de explicação vai pra reescrita humana', envio.humanize?.kind === 'contexto', envio)
+  const r2 = turn(r.state, read('duvida_contexto'), { leadText: 'não entendi' })
+  check('2a dúvida ainda explica', sent(r2.actions)[0] === cfg.aboutReply, r2.actions)
+  const r3 = turn(r2.state, read('duvida_contexto'), { leadText: 'mas o que é isso?' })
+  check('3a dúvida: passa pra uma pessoa em vez de repetir a explicação', has(r3.actions, 'handoff') && r3.state.stage === 'handoff', r3.actions)
+  const r4 = turn(initialState(), read('duvida_contexto'), { isFirstTurn: true })
+  check('dúvida na 1a mensagem: é abertura, não repete apresentação', sent(r4.actions)[0] === cfg.steps[0].question && sent(r4.actions).length === 1, r4.actions)
+  const semTexto = { ...cfg, aboutReply: undefined }
+  const r5 = stepFunnel(semTexto, s, read('duvida_contexto'), { isFirstTurn: false, leadText: 'o que seria?' })
+  check('sem texto configurado: consulta a base (nunca ignora)', r5.needBox === 'o que seria?', r5)
+  check('validação recusa pergunta no texto de contexto', validateFunnelConfig({ ...cfg, aboutReply: 'Quer saber mais?' }).some((e) => e.includes('não entende')), validateFunnelConfig({ ...cfg, aboutReply: 'Quer saber mais?' }))
+}
+
+// ─── Nome: vocativo da equipe e correção (caso Elizeu "Oi Bruno") ────────
+{
+  const s = turn(initialState(), read('outro'), { isFirstTurn: true }).state
+  const r = turn(s, read('resposta_passo', { nome: 'Bruno' }), { leadText: 'Oi Bruno' })
+  check('"Oi Bruno" (nome da equipe) NÃO vira o nome do lead', r.state.data.nome === undefined, r.state.data)
+  const r1 = turn(s, read('resposta_passo', { nome: 'Bruno' }), { leadText: 'Bom dia, Bruno! Tudo bem?' })
+  check('"Bom dia, Bruno" também não', r1.state.data.nome === undefined, r1.state.data)
+  const r2 = turn(s, read('resposta_passo', { nome: 'Bruno' }), { leadText: 'Bruno' })
+  check('lead que se chama Bruno e responde só "Bruno" à pergunta de nome: aceito', r2.state.data.nome === 'Bruno', r2.state.data)
+  const r3 = turn(s, read('resposta_passo', { nome: 'Bruno' }), { leadText: 'Oi Bruno, meu nome é Bruno também' })
+  check('"meu nome é Bruno": aceito', r3.state.data.nome === 'Bruno', r3.state.data)
+  // nome corrigido depois de já guardado (o passo do nome não é mais o pendente)
+  let t = turn(s, read('resposta_passo', { nome: 'Elizeu' }), { leadText: 'Elizeu' }).state
+  check('nome guardado', t.data.nome === 'Elizeu', t.data)
+  const c = turn(t, read('resposta_passo', { nome: 'Eliseu' }), { leadText: 'na verdade é Eliseu com s' })
+  check('lead corrige o nome por escrito: vale a correção', c.state.data.nome === 'Eliseu', c.state.data)
+  const nc = turn(t, read('resposta_passo', { nome: 'Outro' }), { leadText: 'sim' })
+  check('sem correção explícita o nome não é sobrescrito', nc.state.data.nome === 'Elizeu', nc.state.data)
+}
+
+// ─── Texto corrige o que veio de áudio ───────────────────────────────────
+{
+  let s = emQualificacao()
+  s = turn(s, read('resposta_passo', { nome_empresa: 'Sarão de Ouro', ramo: 'salão', cidade: 'Jaú' })).state
+  const sem = turn(s, read('resposta_passo', { nome_empresa: 'Outra Coisa' }), { leadText: 'sim' })
+  check('sem correção: dado antigo mantido', sem.state.data.nome_empresa === 'Sarão de Ouro', sem.state.data)
+  const com = turn(s, read('resposta_passo', { nome_empresa: 'Salão Tesoura de Ouro' }), { leadText: 'o certo é Salão Tesoura de Ouro' })
+  check('lead corrige por escrito (áudio entendeu errado): a correção vale', com.state.data.nome_empresa === 'Salão Tesoura de Ouro', com.state.data)
+}
+
+// ─── Reperguntar com outras palavras ─────────────────────────────────────
+{
+  const s = turn(initialState(), read('outro'), { isFirstTurn: true }).state
+  const r = turn(s, read('outro'), { leadText: 'kkk' })
+  const envio = r.actions[0] as Extract<FunnelAction, { type: 'send' }>
+  check('repetir a pergunta: vai pra reescrita humana', envio.humanize?.kind === 'reperguntar' && envio.humanize.script === 'Qual o seu nome?', envio)
+  const primeira = turn(initialState(), read('outro'), { isFirstTurn: true })
+  check('1a vez que pergunta: texto aprovado sem reescrita', !(primeira.actions[0] as Extract<FunnelAction, { type: 'send' }>).humanize, primeira.actions)
+}
+
+// ─── Planos em lista (não reescreve, sai palavra por palavra) ─────────────
+{
+  const r1 = turn(emQualificacao(), read('preco'))
+  const r2 = turn(r1.state, read('preco'))
+  const envio = r2.actions[0] as Extract<FunnelAction, { type: 'send' }>
+  check('lista de planos: uma linha por plano', cfg.priceScripts[1].split('\n').length >= 5, cfg.priceScripts[1])
+  check('lista de planos: sai palavra por palavra (sem reescrita)', envio.texts[0] === cfg.priceScripts[1] && !envio.humanize, envio)
+  check('lista de planos: mantém os três valores', ['R$ 1.125', 'R$ 2.200', 'R$ 5.280'].every((v) => cfg.priceScripts[1].includes(v)))
+}
+
+// ─── Leitor: dúvida de contexto e correção no prompt ─────────────────────
+{
+  const p = buildReaderPrompt({ config: cfg, state: emQualificacao(), leadText: 'Uque seria', transcript: [], isFirstTurn: false })
+  check('leitor conhece a categoria duvida_contexto', p.system.includes('duvida_contexto') && p.system.includes('uque seria'), '')
+  const base = emQualificacao()
+  const comRamo = { ...base, data: { ...base.data, ramo: 'barbearia' } }
+  const p2 = buildReaderPrompt({ config: cfg, state: comRamo, leadText: 'na verdade é barbearia e salão', transcript: [], isFirstTurn: false })
+  check('leitor vê campos já guardados só pra correção', p2.system.includes('Campos que já temos') && p2.system.includes('já guardado como "barbearia"'), '')
 }
 
 // ─── Validação da config (portão de salvar) ─────────────────────────────

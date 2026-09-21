@@ -11,6 +11,7 @@ import type {
   FunnelField,
   FunnelState,
   FunnelStep,
+  HumanizeHint,
   Reading,
   StepInput,
   StepResult,
@@ -20,6 +21,8 @@ const MIN_CONFIDENCE = 0.5
 const DEFAULT_MAX_ASKS = 3
 const MAX_OFF_SCRIPT_FAILS = 2
 const MAX_READER_FAILURES = 3
+/** Na 3a vez que o lead pergunta "o que é isso" a conversa passa pra uma pessoa em vez de repetir a explicação. */
+const MAX_CONTEXT_ASKS = 3
 /** Categorias que o funil continua tratando depois do fim do roteiro (o resto vai pro agendamento). */
 const POS_ROTEIRO = new Set<string>([
   'recusa', 'preco', 'objecao', 'pergunta_fora', 'pede_humano', 'pede_ligacao', 'aceita_ligacao', 'bot_automatico', 'adiar', 'despedida',
@@ -65,18 +68,46 @@ function normalizeValue(field: FunnelField, raw: unknown): string | null {
   return field.transform === 'name' ? titleCase(limited) : limited
 }
 
-function mergeData(config: FunnelConfig, state: FunnelState, reading: Reading): void {
+function norm(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+}
+
+/** O lead está corrigindo ou se apresentando de forma explícita ("meu nome é X", "na verdade é Y"). */
+const CORRECTION_RE = /\b(na verdade|corrigindo|correcao|errei|escrevi errado|o certo e|o correto e|quis dizer|meu nome e|me chamo|pode me chamar de)\b/
+
+/**
+ * "Oi Bruno" / "Bom dia, Bruno" é o lead falando COM a gente (Bruno é da equipe), não o nome dele.
+ * Achado ao vivo 2026-09-21 (lead Elizeu): o CRM ficou com o nome do Bruno. Só barra o padrão de
+ * vocativo; quem responde "Bruno" à pergunta de nome (ou diz "meu nome é Bruno") continua valendo.
+ */
+function isVocativeOfAgent(config: FunnelConfig, value: string, leadText: string): boolean {
+  const agents = (config.agentNames ?? []).map(norm).filter(Boolean)
+  if (agents.length === 0) return false
+  const first = norm(value).split(' ')[0]
+  if (!agents.includes(first)) return false
+  const t = norm(leadText).trim()
+  if (CORRECTION_RE.test(t)) return false
+  const a = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const greeting = '(?:oi|ola|opa|eai|e ai|fala|salve|hey|bom dia|boa tarde|boa noite)'
+  return new RegExp(`^(?:${greeting}[,!.\\s]+)+(?:sr\\.?\\s+|sra\\.?\\s+)?${a}\\b|^${a}\\s*[,!]`).test(t)
+}
+
+function mergeData(config: FunnelConfig, state: FunnelState, reading: Reading, leadText: string): void {
   if (reading.falhou || reading.confianca < MIN_CONFIDENCE) return
   const idx = fieldIndex(config)
+  const correcting = CORRECTION_RE.test(norm(leadText))
   for (const [key, raw] of Object.entries(reading.dados)) {
     const hit = idx.get(key)
     if (!hit) continue
     const askedNow = state.askedStep === hit.step.id
-    if (hit.field.mustAskDirectly && !askedNow) continue
+    // O nome só é aceito logo depois de perguntado, ou quando a própria pessoa se apresenta/corrige.
+    if (hit.field.mustAskDirectly && !askedNow && !(correcting && hit.field.transform === 'name')) continue
     const value = normalizeValue(hit.field, raw)
     if (value === null) continue
-    // Não sobrescreve resposta antiga, salvo se este passo acabou de ser perguntado (correção).
-    if (state.data[key] && !askedNow) continue
+    if (hit.field.transform === 'name' && isVocativeOfAgent(config, value, leadText)) continue
+    // Não sobrescreve resposta antiga, salvo se este passo acabou de ser perguntado ou se o lead
+    // corrigiu por escrito (texto vale mais que o que foi captado de áudio).
+    if (state.data[key] && !askedNow && !correcting) continue
     state.data[key] = value
   }
 }
@@ -160,6 +191,7 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
     }
 
     let text: string
+    let reask = false
     if (pending.kind === 'followup') {
       const fu = pending.step.followUp!
       state.followUpAsks[pending.step.id] = (state.followUpAsks[pending.step.id] ?? 0) + 1
@@ -183,15 +215,23 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
       } else text = step.clarify ?? step.question
       state.asks[step.id] = asks + 1
       state.askedStep = step.id
+      reask = asks > 0
     }
 
-    return { state, actions: [{ type: 'send', texts: [...prefix, fillName(text, state)] }] }
+    const finalText = fillName(text, state)
+    const send: Extract<FunnelAction, { type: 'send' }> = { type: 'send', texts: [...prefix, finalText] }
+    // Perguntar de novo a mesma coisa com as mesmas palavras soa como bot: o SDR reformula (revisado;
+    // se barrar, sai a pergunta aprovada). Só quando a pergunta vai sozinha na mensagem.
+    if (reask && prefix.length === 0) send.humanize = { kind: 'reperguntar', script: finalText }
+    return { state, actions: [send] }
   }
 }
 
 /** Marca o texto de script da mensagem como reescrevível pelo SDR (o runner decide, com revisão). */
-function marcarHumanizar(res: StepResult, kind: 'preco' | 'objecao', script: string): StepResult {
+function marcarHumanizar(res: StepResult, kind: HumanizeHint['kind'], script: string): StepResult {
   const envio = res.actions.find((a) => a.type === 'send') as Extract<FunnelAction, { type: 'send' }> | undefined
+  // Lista com uma linha por item (ex.: os planos) sai palavra por palavra: reescrever vira parágrafo confuso.
+  if (script.split('\n').length >= 3) return res
   if (envio && envio.texts[0] === script) envio.humanize = { kind, script }
   return res
 }
@@ -229,13 +269,16 @@ export function stepFunnel(
     if (!POS_ROTEIRO.has(c)) return { state, actions: [{ type: 'delegate_scheduling' }] }
   }
 
-  mergeData(config, state, reading)
+  mergeData(config, state, reading, input.leadText)
   applyImplications(config, state)
 
   let cat = reading.falhou ? 'outro' : reading.categoria
   if (reading.confianca < MIN_CONFIDENCE && cat !== 'resposta_passo' && cat !== 'outro') cat = 'outro'
   // Primeira mensagem : é abertura (muitas vêm de anúncio com texto pronto, que pode até citar valor).
-  if (input.isFirstTurn && (cat === 'preco' || cat === 'objecao' || cat === 'pergunta_fora' || cat === 'agendar' || cat === 'adiar')) {
+  if (
+    input.isFirstTurn &&
+    (cat === 'preco' || cat === 'objecao' || cat === 'pergunta_fora' || cat === 'agendar' || cat === 'adiar' || cat === 'duvida_contexto')
+  ) {
     cat = 'outro'
   }
   // O lead voltou a falar de outra coisa : o próximo "estou ocupado" merece resposta de novo.
@@ -356,6 +399,18 @@ export function stepFunnel(
 
     case 'pergunta_fora':
       return foraDoRoteiro(config, state, input)
+
+    case 'duvida_contexto': {
+      // Lead não entendeu do que se trata ("o que seria?", "quem é?"): responde ISSO primeiro e só depois
+      // segue o funil. Achado ao vivo 2026-09-21 (lead Bafão): perguntou "o que seria?" e recebeu "Qual o
+      // seu nome?" de novo, como se não tivesse dito nada.
+      state.contextAsked = (state.contextAsked ?? 0) + 1
+      if (state.contextAsked >= MAX_CONTEXT_ASKS) return handoff(state, config, 'lead_nao_entende')
+      const script = config.aboutReply
+      if (!script) return foraDoRoteiro(config, state, input)
+      const res = hasQuestion(script) ? sendOnly(state, [script]) : askNext(config, state, [script])
+      return marcarHumanizar(res, 'contexto', script)
+    }
 
     default:
       break

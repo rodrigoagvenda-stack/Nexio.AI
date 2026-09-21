@@ -76,6 +76,14 @@ export interface FunnelConfig {
   pricePosRoteiro?: string
   /** Permite valores em reais nos textos de preço (política de dar um ponto de partida). Sem isso a validação recusa R$. */
   priceDisclosure?: boolean
+  /**
+   * Quando o lead não entendeu do que se trata ("o que seria?", "quem é?", "como assim?"): texto aprovado
+   * que explica quem somos e por que estamos falando com ele. Sem pergunta (o funil emenda a próxima).
+   * Ausente = cai na caixa de conhecimento.
+   */
+  aboutReply?: string
+  /** Nomes de quem ATENDE (agente e equipe). Nunca são aceitos como nome do lead ("Oi Bruno" é o lead falando com a gente). */
+  agentNames?: string[]
   /** O SDR reescreve preço e objeções com as próprias palavras (com ficha e revisão). Ausente = ligado; false = só o texto aprovado. */
   humanize?: boolean
   objections: Record<string, FunnelObjection>
@@ -125,6 +133,8 @@ export interface FunnelState {
   farewellSent: boolean
   /** Já respondemos o "estou ocupado" e o lead ainda não voltou : não responder de novo. */
   deferSent: boolean
+  /** Quantas vezes o lead perguntou "o que é isso" (a 3a passa pra uma pessoa em vez de repetir a explicação). */
+  contextAsked?: number
   /** Já esperamos um "ok" sem conteúdo: se o próximo também não responder, aí sim pergunta de novo. */
   okWaited?: boolean
   /** Turno (state.turns) da última reação humana enviada, pro intervalo entre reações. */
@@ -143,12 +153,14 @@ export type Categoria =
   | 'pede_ligacao'
   | 'aceita_ligacao'
   | 'despedida'
+  | 'duvida_contexto'
   | 'ok'
   | 'adiar'
   | 'agendar'
   | 'outro'
 
 export const CATEGORIAS: readonly Categoria[] = [
+  'duvida_contexto',
   'ok',
   'adiar',
   'resposta_passo',
@@ -179,8 +191,10 @@ export interface Reading {
 
 /** Texto fixo aprovado que o SDR pode reescrever com as próprias palavras (revisado; se barrar, sai o texto aprovado). */
 export interface HumanizeHint {
-  kind: 'preco' | 'objecao'
+  kind: 'preco' | 'objecao' | 'contexto' | 'reperguntar'
   script: string
+  /** Posição do texto reescrevível em texts (padrão 0). */
+  index?: number
 }
 
 export type FunnelAction =
