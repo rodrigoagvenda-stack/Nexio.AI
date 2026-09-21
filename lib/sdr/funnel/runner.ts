@@ -19,6 +19,7 @@ import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
 import { buildEcho, buildReaction, leadVolunteered, shouldReact } from './reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
+import { enrichOutboundMedia, type MediaRow } from '../media-understanding'
 import { buildFicha, humanizeScript } from './humanize'
 import { buildMemory, countMessages, formatTranscript, MEMORY_MIN_MESSAGES, TRANSCRIPT_MAX_MESSAGES, type ConvRow, type Memoria } from './memory'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
@@ -219,7 +220,10 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     // equipe perguntaram), e não só as últimas 14 (achado ao vivo 2026-09-21, lead Isaías).
     const { recent, transcript, count } = await loadConversation(p)
     memoria = (prevChecklist?.memoria as Memoria | undefined) ?? null
-    const outboundNewestFirst = recent.filter((m) => m.direcao === 'outbound').map((m) => m.texto_da_mensagem ?? '')
+    // Texto de cada mensagem NOSSA; em áudio/imagem que enviamos vale o que o arquivo diz (transcrição), não o rótulo
+    const outboundNewestFirst = recent
+      .filter((m) => m.direcao === 'outbound')
+      .map((m) => (m.metadados as { transcricao?: string } | null)?.transcricao || m.texto_da_mensagem || '')
 
     const { count: outCount } = await supabase
       .from('mensagens_do_whatsapp')
@@ -378,10 +382,13 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
 async function loadConversation(p: FunnelTurnParams) {
   const { data: rows, count } = await p.deps.supabase
     .from('mensagens_do_whatsapp')
-    .select('texto_da_mensagem, direcao, sender_type, metadados, carimbo_de_data_e_hora', { count: 'exact' })
+    .select('id, texto_da_mensagem, direcao, sender_type, tipo_de_mensagem, url_da_midia, metadados, carimbo_de_data_e_hora', { count: 'exact' })
     .eq('id_da_conversacao', p.conversationId)
     .order('carimbo_de_data_e_hora', { ascending: false })
     .limit(TRANSCRIPT_MAX_MESSAGES)
+  // O que a empresa mandou em áudio/imagem (follow-up, fluxos, pessoas) é entendido pelo ARQUIVO enviado, não por
+  // texto guardado à parte (achado ao vivo 2026-09-21, lead Isaías: o histórico tinha um texto que o áudio não dizia).
+  await enrichOutboundMedia((rows ?? []) as (MediaRow & { id: number | string })[], p.deps.openai, p.deps.supabase)
   const recent = (rows ?? []).filter((m) => (m.texto_da_mensagem ?? '').trim())
   const transcript = formatTranscript([...recent].reverse() as ConvRow[])
   return { recent, transcript, count }

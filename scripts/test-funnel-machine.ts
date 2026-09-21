@@ -14,6 +14,8 @@ import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
 import { buildReaderPrompt, evidenceOk, validateReading } from '../lib/sdr/funnel/reader'
 import { countMessages, formatMemoria, formatTranscript, structuralMemoryChecks } from '../lib/sdr/funnel/memory'
 import { BOX_REVIEW_KEYS, evaluateBoxReview, validateBoxAnswer } from '../lib/sdr/funnel/box'
+import { firedStepsByLead } from '../lib/sdr/follow-round'
+import { needsUnderstanding } from '../lib/sdr/media-understanding'
 import { ConversationQueue, conversationKey } from '../lib/sdr/conversation-queue'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -600,6 +602,41 @@ function emQualificacao() {
   const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
   check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
   check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
+}
+
+// ─── Sequência de etiqueta recomeça quando a etiqueta é reaplicada (lead de teste, Promoção) ─────
+{
+  const execs = [
+    { lead_id: 1, step_id: 'a', disparado_em: '2026-09-18T14:07:00Z' },
+    { lead_id: 1, step_id: 'b', disparado_em: '2026-09-18T14:08:00Z' },
+    { lead_id: 1, step_id: 'fim', disparado_em: '2026-09-21T12:55:00Z' },
+    { lead_id: 2, step_id: 'a', disparado_em: '2026-09-21T13:00:00Z' },
+  ]
+  const tag = new Map([[1, new Date('2026-09-21T12:40:00Z').getTime()], [2, new Date('2026-09-21T12:22:00Z').getTime()]])
+  const f = firedStepsByLead(execs, tag)
+  check('etiqueta reaplicada: envios de antes da etiqueta não contam (o passo pode disparar de novo)', !f.get(1)!.has('a') && !f.get(1)!.has('b'), [...f.get(1)!])
+  check('etiqueta reaplicada: envio depois da etiqueta conta como já enviado nesta rodada', f.get(1)!.has('fim') && f.get(2)!.has('a'))
+  const semEtiqueta = firedStepsByLead(execs, new Map())
+  check('sequência sem etiqueta: tudo que já foi enviado continua contando', semEtiqueta.get(1)!.size === 3, [...semEtiqueta.get(1)!])
+}
+
+// ─── Entender o que a empresa enviou: áudio e imagem pelo ARQUIVO (caso Isaías, follow-up em áudio) ─────
+{
+  const audioNosso = { direcao: 'outbound', tipo_de_mensagem: 'ptt', url_da_midia: 'https://x.supabase.co/storage/audio.mp3', metadados: null }
+  check('mídia nossa sem conteúdo entendido: precisa entender', needsUnderstanding(audioNosso) === true)
+  check('mídia nossa já entendida: não repete (não gasta token)', needsUnderstanding({ ...audioNosso, metadados: { transcricao: '[Áudio que enviamos, dizia] oi' } }) === false)
+  check('imagem nossa também é entendida', needsUnderstanding({ ...audioNosso, tipo_de_mensagem: 'image' }) === true)
+  check('texto e mídia do lead não entram', needsUnderstanding({ ...audioNosso, tipo_de_mensagem: 'text' }) === false && needsUnderstanding({ ...audioNosso, direcao: 'inbound' }) === false)
+  check('mídia sem arquivo acessível (carousel/menu em JSON) não entra', needsUnderstanding({ ...audioNosso, url_da_midia: '{"menuType":"button"}' }) === false && needsUnderstanding({ ...audioNosso, url_da_midia: null }) === false)
+
+  // O texto órfão do editor NÃO é o que o áudio diz: a conversa usa a transcrição do arquivo
+  const rows = [
+    { texto_da_mensagem: '🎵 Áudio', direcao: 'outbound', sender_type: 'ai', metadados: { transcricao: '[Áudio que enviamos, dizia] Oi Isaías, tudo bem? Posso te ajudar com o seu perfil no Google?' }, carimbo_de_data_e_hora: '2026-09-21T15:00:20Z' },
+    { texto_da_mensagem: '🎵 Áudio', direcao: 'inbound', sender_type: 'human', metadados: { transcricao: 'Não entendi' }, carimbo_de_data_e_hora: '2026-09-21T15:21:29Z' },
+  ]
+  const t = formatTranscript(rows)
+  check('conversa: o que o nosso áudio dizia entra como fala da equipe, rotulado', t.some((l) => l.startsWith('Equipe (SDR): [Áudio que enviamos, dizia] Oi Isaías')), t)
+  check('conversa: áudio do lead continua como antes', t.some((l) => l.startsWith('Lead: (por áudio ou imagem) Não entendi')), t)
 }
 
 // ─── Respostas da base: revisor barra vazamento de processo interno (caso Isaías, "Passo 2 do nosso fluxo") ─────

@@ -26,6 +26,7 @@ import {
   getFailedCount, shouldRetryNow, MAX_RETRIES, backoffMs,
   isUazapiHealthy, isFatigued, recordFatigue, getBestSendHour,
 } from './reliability'
+import { firedStepsByLead } from './follow-round'
 
 /** Mesma lógica de engine.ts : variações de formato do número BR */
 function phoneVariants(phone: string): string[] {
@@ -548,13 +549,23 @@ async function registrarExecucao(
   status: 'sent' | 'failed' | 'skipped' | 'dlq',
   supabase: Supabase
 ): Promise<void> {
-  await supabase.from('follow_executions').insert({
+  const { error } = await supabase.from('follow_executions').insert({
     lead_id: leadId,
     sequence_id: sequenceId,
     step_id: stepId,
     company_id: companyId,
     status,
   })
+  // (lead_id, step_id) é único. Se a linha já existe (etiqueta reaplicada = nova rodada da sequência, ou
+  // retry depois de 'failed'), o insert falhava em silêncio e o passo era reenviado a cada ciclo do cron:
+  // atualiza a linha existente com o envio desta rodada.
+  if (error?.code === '23505') {
+    await supabase
+      .from('follow_executions')
+      .update({ status, sequence_id: sequenceId, company_id: companyId, disparado_em: new Date().toISOString() })
+      .eq('lead_id', leadId)
+      .eq('step_id', stepId)
+  }
   // Ponto único por onde todo follow_geral/remarketing/proposta passa ao
   // marcar 'sent' : atualiza o relógio anti-massa aqui cobre os ~10 pontos
   // de disparo do arquivo de uma vez, sem precisar duplicar a chamada em
@@ -739,9 +750,12 @@ export async function gravarMensagemFollow(
   // real -- usa ela no histórico da mensagem quando existir; sem transcrição
   // (upload antigo, ou falha na transcrição), cai no placeholder em vez de
   // arriscar mostrar lixo/texto de outro node.
+  // Áudio: NUNCA usa o texto do passo (step.mensagem). Ele é órfão do editor e pode nem ser o que o arquivo diz
+  // (achado ao vivo 2026-09-21, lead Isaías: o histórico tinha "...Fundação Digital..." num áudio que dizia outra
+  // coisa). O que o áudio diz é transcrito do ARQUIVO enviado (media-understanding) e fica em metadados.transcricao.
   const displayText =
     (tipoMensagem === 'audio' || tipoMensagem === 'ptt')
-      ? (text?.trim() || '🎵 Áudio')
+      ? '🎵 Áudio'
       : text || media?.text || (tipoMensagem !== 'text' ? `[${tipoMensagem}]` : '')
 
   if (!convId) {
@@ -1053,19 +1067,6 @@ async function processFollowGeral(
     const { adj: graphAdj, entryId: graphEntry } = buildGraphAdj(steps as FollowStep[], sequence.canvas_config as any)
     const hasGraph = (sequence.canvas_config as any)?.edges?.length > 0
 
-    // Batch-load all fired executions for this sequence (avoids N+1 per lead)
-    const { data: seqExecs } = await supabase
-      .from('follow_executions')
-      .select('lead_id, step_id')
-      .eq('sequence_id', sequence.id)
-      .in('status', ['sent', 'skipped', 'dlq'])
-
-    const firedByLead = new Map<number, Set<string>>()
-    for (const ex of seqExecs ?? []) {
-      if (!firedByLead.has(ex.lead_id)) firedByLead.set(ex.lead_id, new Set())
-      firedByLead.get(ex.lead_id)!.add(ex.step_id)
-    }
-
     // Hot leads first (call_de_venda, Interessado). Sequência ancorada em
     // "preço informado" usa a lista mais ampla (inclui "Perdido"), as demais
     // continuam restritas a quem ainda está ativo no funil.
@@ -1076,6 +1077,28 @@ async function processFollowGeral(
       : eventoEntrada === 'tag_no_show' ? leadsNoShow
       : eventoEntrada === 'tag_promocao' ? leadsPromocao
       : leads
+
+    // Sequência de etiqueta recomeça a cada vez que a etiqueta é aplicada de novo (achado ao vivo
+    // 2026-09-21, lead de teste do Rodrigo: a sequência da Promoção já tinha rodado dia 18, então
+    // reaplicar a etiqueta não mandava nada, porque os passos ficavam "já enviados" pra sempre).
+    // Só contam os envios feitos DEPOIS de a etiqueta atual ter sido aplicada; o histórico não é apagado.
+    const isTagSequence = eventoEntrada === 'tag_follow_up' || eventoEntrada === 'tag_no_show' || eventoEntrada === 'tag_promocao'
+    const tagAppliedAtByLead = new Map<number, number>()
+    if (isTagSequence) {
+      for (const l of (leadsBase ?? []) as Lead[]) {
+        if (l.tag_aplicada_em) tagAppliedAtByLead.set(l.id, new Date(l.tag_aplicada_em).getTime())
+      }
+    }
+
+    // Batch-load all fired executions for this sequence (avoids N+1 per lead)
+    const { data: seqExecs } = await supabase
+      .from('follow_executions')
+      .select('lead_id, step_id, disparado_em')
+      .eq('sequence_id', sequence.id)
+      .in('status', ['sent', 'skipped', 'dlq'])
+
+    const firedByLead = firedStepsByLead(seqExecs ?? [], tagAppliedAtByLead)
+
     const sortedLeads = [...((leadsBase ?? []) as Lead[])].sort((a, b) => leadPriority(b) - leadPriority(a))
 
     for (const step of steps as FollowStep[]) {
@@ -1227,9 +1250,12 @@ async function processFollowGeral(
 
         // ── Sequence expiry ──
         if (expiraDias > 0) {
-          const { data: firstExec } = await supabase
+          let firstExecQuery = supabase
             .from('follow_executions').select('disparado_em')
             .eq('lead_id', lead.id).eq('sequence_id', sequence.id)
+          // Etiqueta reaplicada = nova rodada: o prazo conta da rodada atual, não da primeira de todas.
+          if (lead.tag_aplicada_em) firstExecQuery = firstExecQuery.gte('disparado_em', lead.tag_aplicada_em)
+          const { data: firstExec } = await firstExecQuery
             .order('disparado_em', { ascending: true }).limit(1).maybeSingle()
           if (firstExec?.disparado_em && (Date.now() - new Date(firstExec.disparado_em).getTime()) / 86_400_000 > expiraDias) continue
         }

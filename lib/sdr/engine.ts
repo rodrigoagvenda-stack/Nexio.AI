@@ -18,6 +18,7 @@ import { markOptOut } from './outbound'
 import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { runFunnelTurn } from './funnel/runner'
+import { enrichConversationMedia } from './media-understanding'
 import { guardOutput, mentionsGratuito, type GuardContext, type GuardRules } from './output-guard'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
@@ -613,11 +614,13 @@ async function getHistory(
       // pessoa da equipe entrava como se o LEAD tivesse dito, e o orquestrador se confundia sobre quem falou o quê).
       const saiu = m.direcao === 'outbound' || m.sender_type === 'ai'
       const pessoaDaEquipe = m.direcao === 'outbound' && m.sender_type !== 'ai'
-      const content = pessoaDaEquipe
-        ? `[Pessoa da equipe] ${m.texto_da_mensagem ?? ''}`
-        : transcricao
-          ? `[Lead disse por áudio/imagem] ${transcricao}`
-          : (m.texto_da_mensagem ?? '')
+      const content = saiu && transcricao
+        ? transcricao // áudio/imagem que a empresa enviou: já vem rotulado com o que o arquivo diz
+        : pessoaDaEquipe
+          ? `[Pessoa da equipe] ${m.texto_da_mensagem ?? ''}`
+          : transcricao
+            ? `[Lead disse por áudio/imagem] ${transcricao}`
+            : (m.texto_da_mensagem ?? '')
       return { role: (saiu ? 'assistant' : 'user') as 'user' | 'assistant', content }
     })
 }
@@ -3743,6 +3746,8 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
     const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
 
+    // Áudio/imagem que a empresa enviou (follow-up, fluxos, pessoas) é entendido pelo arquivo antes de montar o histórico
+    if (conversationId) await enrichConversationMedia(conversationId, openai, supabase)
     const history = await getHistory(leadId, companyId, supabase, 40)
 
     await log(companyId, 'message_received', { messages: bufferedMessages, flowId: cfg.flowId }, supabase, phone, leadId)

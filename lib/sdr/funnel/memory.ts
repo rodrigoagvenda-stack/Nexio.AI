@@ -61,7 +61,9 @@ export function formatTranscript(rowsOldestFirst: ConvRow[]): string[] {
       }
     }
     const transcricao = (r.metadados as { transcricao?: string } | null)?.transcricao
-    const base = transcricao ? `(por áudio ou imagem) ${transcricao}` : (r.texto_da_mensagem ?? '')
+    // Mídia que a EMPRESA enviou já vem rotulada ("[Áudio que enviamos, dizia] ..."): é o que o arquivo diz de verdade,
+    // não o texto órfão que o editor do follow-up possa ter guardado.
+    const base = transcricao ? (r.direcao === 'outbound' ? transcricao : `(por áudio ou imagem) ${transcricao}`) : (r.texto_da_mensagem ?? '')
     // As últimas mensagens vão quase inteiras; as antigas, mais curtas (a conversa é longa, o tamanho é limitado).
     const cap = i >= rows.length - 6 ? 600 : 350
     out.push(`${roleLabel(r)}: ${base.replace(/\s+/g, ' ').slice(0, cap)}`)
