@@ -499,6 +499,10 @@ function foraDoRoteiro(config: FunnelConfig, state: FunnelState, input: StepInpu
   if (typeof input.boxAnswer === 'string') {
     return hasQuestion(input.boxAnswer) ? sendOnly(state, [input.boxAnswer]) : askNext(config, state, [input.boxAnswer], input.isFirstTurn)
   }
+  // 1a mensagem sem resposta na base: só a abertura. O texto de reserva ("isso o especialista explica") foi feito pra
+  // depois do roteiro; numa 1a mensagem ele soa solto e ainda parece que a dúvida foi respondida (achado ao vivo
+  // 2026-09-21, lead Júnior). A dúvida continua registrada na memória e é respondida quando houver o que dizer.
+  if (input.isFirstTurn) return askNext(config, state, [], true)
   state.offScriptFails++
   if (state.offScriptFails >= MAX_OFF_SCRIPT_FAILS) return handoff(state, config, 'sem_resposta_na_base')
   return askNext(config, state, [config.unknownAnswer], input.isFirstTurn)

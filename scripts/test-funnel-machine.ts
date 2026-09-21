@@ -12,7 +12,7 @@ import { buildEcho, leadVolunteered, shouldReact, structuralChecks } from '../li
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
 import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
 import { buildReaderPrompt, evidenceOk, validateReading } from '../lib/sdr/funnel/reader'
-import { countMessages, formatMemoria, formatTranscript, structuralMemoryChecks } from '../lib/sdr/funnel/memory'
+import { countMessages, dropOwnQuestions, formatMemoria, formatTranscript, structuralMemoryChecks } from '../lib/sdr/funnel/memory'
 import { BOX_REVIEW_KEYS, evaluateBoxReview, validateBoxAnswer } from '../lib/sdr/funnel/box'
 import { firedStepsByLead } from '../lib/sdr/follow-round'
 import { CONVERSE_REVIEW_KEYS, evaluateConverseReview, structuralConversationChecks } from '../lib/sdr/funnel/converse'
@@ -581,7 +581,10 @@ function emQualificacao() {
   check('1a mensagem com pergunta: apresentação, resposta, pergunta do nome (nessa ordem)', JSON.stringify(sent(r.actions)) === JSON.stringify([open.intro, 'O diagnóstico é uma conversa com o especialista em Google.', 'Qual o seu nome?']), sent(r.actions))
   check('1a mensagem com pergunta: dado que ela contou fica guardado', r.state.data.ramo === 'neuropsicologia' && r.state.askedStep === 'nome', r.state)
   const sem = turn(initialState(), read('pergunta_fora'), { isFirstTurn: true, leadText: 'Como funciona?', boxAnswer: null })
-  check('1a mensagem com pergunta sem resposta na base: texto padrão, e a pergunta do nome segue', sent(sem.actions)[1] === cfg.unknownAnswer && sent(sem.actions)[2] === 'Qual o seu nome?', sent(sem.actions))
+  check('1a mensagem com pergunta sem resposta na base: só a abertura (sem o texto de reserva solto)', sent(sem.actions).length === 1 && sent(sem.actions)[0] === cfg.steps[0].question && !sent(sem.actions).includes(cfg.unknownAnswer), sent(sem.actions))
+  check('1a mensagem sem resposta na base: não conta falha da base nem passa pra pessoa', sem.state.offScriptFails === 0 && !has(sem.actions, 'handoff'), sem.state)
+  const naoPrimeira = turn(emQualificacao(), read('pergunta_fora'), { leadText: 'x', boxAnswer: null })
+  check('depois da 1a mensagem, sem resposta na base: continua usando o texto de reserva', sent(naoPrimeira.actions)[0] === cfg.unknownAnswer, sent(naoPrimeira.actions))
   check('1a mensagem que é preço continua virando abertura', sent(turn(initialState(), read('preco'), { isFirstTurn: true }).actions)[0] === cfg.steps[0].question)
 
   // Lead contou algo por conta própria: reconhecido
@@ -753,6 +756,12 @@ function emQualificacao() {
   check('memória: recusa texto longo e pendências demais', structuralMemoryChecks({ ...ok, resumo: 'palavra '.repeat(140) }, conversa) === 'longo_demais' && structuralMemoryChecks({ ...ok, pendencias: ['a', 'b', 'c', 'd'] }, conversa) === 'pendencias_invalidas')
   check('memória: entra na ficha dos escritores e do orquestrador', formatMemoria(ok).length === 2 && buildFicha(cfg, emQualificacao(), ok).includes('Memória da conversa') && buildFicha(cfg, emQualificacao(), ok).includes('ainda sem resposta'), '')
   check('memória ausente: ficha igual à de antes', !buildFicha(cfg, emQualificacao()).includes('Memória da conversa'))
+
+  // Pendência é do LEAD: pergunta que a EQUIPE fez não entra (caso Júnior)
+  const conv2 = ['Lead: Oi, quero saber por que meu negócio não aparece no Google', 'Equipe (SDR): Qual o seu nome?', 'Equipe (SDR): Tem site?', 'Lead: Júnior']
+  check('pendência: descarta pergunta que a equipe fez ao lead', dropOwnQuestions(['Qual o seu nome?', 'Tem site?'], conv2).length === 0)
+  check('pendência: mantém a pergunta do próprio lead', dropOwnQuestions(['Por que meu negócio não aparece no Google', 'Tem site?'], conv2).join('|') === 'Por que meu negócio não aparece no Google')
+  check('pendência: ignora acento e pontuação ao comparar', dropOwnQuestions(['qual o seu nome'], conv2).length === 0)
 }
 
 // ─── Duas intenções no mesmo lote: "valores || como funciona" (caso Willyman) ─────
