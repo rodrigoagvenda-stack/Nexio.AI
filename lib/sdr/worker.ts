@@ -1,5 +1,9 @@
 ﻿import { createServiceClient } from '@/lib/supabase/server'
 import { processSdrMessage } from '@/lib/sdr/engine'
+import { ConversationQueue, conversationKey } from '@/lib/sdr/conversation-queue'
+
+// Um turno por vez em cada conversa: mensagem que chega durante um turno espera na fila (job PENDING).
+const queue = new ConversationQueue()
 
 const BUFFER_SECONDS = 30
 const STUCK_MINUTES = 2
@@ -68,18 +72,35 @@ async function processNextJobs() {
     return
   }
 
-  console.log(`[sdr-worker] ${jobs.length} job(s) prontos para processar`)
-  await Promise.all(jobs.map(processJob))
+  // Conversa com turno em andamento fica na fila: o job continua PENDING e sai no próximo ciclo, já com o
+  // estado atualizado pelo turno anterior.
+  const runnable = queue.pickRunnable(jobs)
+  if (runnable.length === 0) return
+
+  console.log(`[sdr-worker] ${runnable.length} job(s) prontos para processar${jobs.length > runnable.length ? ` (${jobs.length - runnable.length} na fila, conversa ocupada)` : ''}`)
+  await Promise.all(runnable.map(processJob))
 }
 
-async function processJob(job: {
+type SdrJobRow = {
   id: number
   company_id: number
   phone: string
   attempts: number
   max_attempts: number
   last_message_at: string
-}) {
+}
+
+async function processJob(job: SdrJobRow) {
+  const key = conversationKey(job.company_id, job.phone)
+  if (!queue.tryAcquire(key)) return // outro ciclo pegou esta conversa: espera a vez
+  try {
+    await runJob(job)
+  } finally {
+    queue.release(key)
+  }
+}
+
+async function runJob(job: SdrJobRow) {
   const supabase = createServiceClient()
 
   // Optimistic lock : só processa se ainda estiver PENDING

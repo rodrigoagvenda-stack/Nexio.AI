@@ -283,7 +283,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
         onUsage: p.deps.onUsage,
       })
       await p.deps.log('funnel_humanizado', { tipo: paraHumanizar.humanize.kind, versao: h.versao, aprovada: !!h.texto, motivo: h.motivo }).catch(() => {})
-      if (h.texto) paraHumanizar.texts[0] = h.texto
+      if (h.texto) paraHumanizar.texts[paraHumanizar.humanize.index ?? 0] = h.texto
     }
 
     // Reação humana: quando o lead contou algo além da resposta seca, uma frase curta reconhece isso

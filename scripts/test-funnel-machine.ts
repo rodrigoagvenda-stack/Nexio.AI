@@ -12,6 +12,7 @@ import { buildEcho, leadVolunteered, shouldReact, structuralChecks } from '../li
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
 import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
+import { ConversationQueue, conversationKey } from '../lib/sdr/conversation-queue'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
 let failed = 0
@@ -597,6 +598,49 @@ function emQualificacao() {
   const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
   check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
   check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
+}
+
+// ─── Duas intenções no mesmo lote: "valores || como funciona" (caso Willyman) ─────
+{
+  const s = emQualificacao()
+  const dupla = read('preco', {}, { perguntaExtra: true })
+  const pede = turn(s, dupla, { leadText: 'Gostaria de saber sobre valores || Como funciona' })
+  check('duas intenções: consulta a base pra pergunta extra antes de responder', pede.needBox === 'Gostaria de saber sobre valores || Como funciona' && pede.actions.length === 0, pede)
+  const r = turn(s, dupla, { leadText: 'x', boxAnswer: 'O diagnóstico é uma conversa com o especialista em Google.' })
+  const t = sent(r.actions)
+  check('duas intenções: responde o "como funciona" e depois o preço (nenhuma fica sem resposta)', t[0] === 'O diagnóstico é uma conversa com o especialista em Google.' && t[1] === cfg.priceScripts[0], t)
+  const h = (r.actions[0] as Extract<FunnelAction, { type: 'send' }>).humanize
+  check('duas intenções: a reescrita do preço aponta pro texto certo (não sobrescreve a resposta da base)', h?.kind === 'preco' && h.index === 1, h)
+  check('duas intenções: o preço conta como perguntado (política de preço segue)', r.state.priceAsked === 1, r.state)
+  const nula = turn(s, dupla, { leadText: 'x', boxAnswer: null })
+  check('duas intenções sem resposta na base: segue só o preço, nada inventado', sent(nula.actions)[0] === cfg.priceScripts[0] && !nula.needBox, sent(nula.actions))
+  const semExtra = turn(s, read('preco'), { leadText: 'quanto custa' })
+  check('sem pergunta extra: comportamento normal (sem consulta à base)', !semExtra.needBox && sent(semExtra.actions)[0] === cfg.priceScripts[0], semExtra)
+  const primeira = turn(initialState(), dupla, { isFirstTurn: true, leadText: 'x' })
+  check('1a mensagem: pergunta extra não muda a abertura', !primeira.needBox && sent(primeira.actions)[0] === cfg.steps[0].question, primeira)
+  const resp = turn(s, read('resposta_passo', { nome_empresa: 'Tecman', ramo: 'caça vazamento', cidade: 'São Paulo' }, { perguntaExtra: true }), { leadText: 'Tecman, caça vazamento, SP || como funciona?', boxAnswer: 'Funciona assim.' })
+  check('resposta do passo + pergunta extra: responde e segue o funil', sent(resp.actions)[0] === 'Funciona assim.' && sent(resp.actions).length === 2, sent(resp.actions))
+  const p = buildReaderPrompt({ config: cfg, state: s, leadText: 'valores || como funciona', transcript: [], isFirstTurn: false })
+  check('leitor conhece pergunta_extra', p.system.includes('pergunta_extra'), '')
+}
+
+// ─── Fila por conversa: um turno por vez (caso Willyman, 2026-09-21) ─────
+{
+  const q = new ConversationQueue()
+  const k = conversationKey(30, '5511915372811')
+  check('fila: conversa livre é reservada', q.tryAcquire(k) === true)
+  check('fila: segundo turno na mesma conversa espera (não roda junto)', q.tryAcquire(k) === false && q.isBusy(k))
+  check('fila: outra conversa não é bloqueada', q.tryAcquire(conversationKey(30, '5521986694837')) === true)
+  check('fila: mesmo telefone em outra empresa é outra conversa', q.tryAcquire(conversationKey(31, '5511915372811')) === true)
+  const jobs = [
+    { id: 1, company_id: 30, phone: '5511915372811' },
+    { id: 2, company_id: 30, phone: '5500000000001' },
+    { id: 3, company_id: 30, phone: '5500000000001' },
+  ]
+  const prontos = q.pickRunnable(jobs)
+  check('fila: pula a conversa ocupada e não repete a mesma conversa no ciclo', prontos.length === 1 && prontos[0].id === 2, prontos)
+  q.release(k)
+  check('fila: ao terminar o turno a conversa volta a ser atendida', q.pickRunnable(jobs).map((j) => j.id).join() === '1,2', q.pickRunnable(jobs))
 }
 
 // ─── Validação da config (portão de salvar) ─────────────────────────────

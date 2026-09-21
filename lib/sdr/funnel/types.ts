@@ -185,6 +185,8 @@ export interface Reading {
   confianca: number
   /** O lead disse algo além da resposta seca (dificuldade, história, desabafo): candidato a uma reação humana. */
   comentario?: boolean
+  /** Além da intenção principal, a mensagem traz OUTRA pergunta sobre a empresa/serviço ("como funciona?") que precisa de resposta própria. */
+  perguntaExtra?: boolean
   /** true quando o leitor falhou e isto é o valor neutro de fallback. */
   falhou?: boolean
 }

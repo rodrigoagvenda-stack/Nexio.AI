@@ -47,7 +47,9 @@ export function buildReaderPrompt(input: ReaderInput): { system: string; user: s
   const system = `Você é o LEITOR de mensagens de um SDR de WhatsApp. Você NÃO conversa com o lead e NÃO decide nada: só classifica a mensagem dele e extrai dados. Responda SOMENTE um objeto JSON válido, sem texto fora dele.
 
 Formato:
-{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "comentario": true|false, "confianca": <número de 0 a 1>}
+{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "comentario": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
+
+"pergunta_extra" = true quando a mensagem (que pode juntar várias falas do lead) traz, ALÉM da intenção principal escolhida na categoria, outra pergunta sobre a empresa, o serviço ou o processo que precisa de resposta própria (ex.: "Gostaria de saber sobre valores" + "Como funciona": a categoria é preco e pergunta_extra é true). É false quando só há uma intenção, quando a categoria já é pergunta_fora ou duvida_contexto, e para preço ou objeção (esses já têm categoria própria). Na dúvida, false.
 
 "comentario" = true SOMENTE quando a pessoa RELATOU uma dificuldade, um problema, uma frustração, uma perda ou uma experiência (boa ou ruim) com o marketing ou com o negócio dela (ex.: "Sim, sem retorno", "perdi minha conta de 10 anos", "é difícil conseguir cliente"). É false para: resposta seca ("sim", "não", "não tenho"); DESCREVER o negócio (nome da empresa, endereço, cidade, ramo, serviços, horário, contato), mesmo em áudio longo; mensagem que é só link, imagem, site ou print; pergunta ou objeção. Na dúvida, false.
 
@@ -128,7 +130,7 @@ export function validateReading(raw: unknown, config: FunnelConfig): Reading | n
     }
   }
 
-  return { categoria: categoria as Categoria, objecaoTipo: tipo, dados, confianca, comentario: o.comentario === true }
+  return { categoria: categoria as Categoria, objecaoTipo: tipo, dados, confianca, comentario: o.comentario === true, perguntaExtra: o.pergunta_extra === true }
 }
 
 export async function readMessage(

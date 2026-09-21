@@ -266,7 +266,43 @@ function sendOnly(state: FunnelState, texts: string[], extra: FunnelAction[] = [
 
 // ─── Passo do funil ─────────────────────────────────────────────────────
 
+/**
+ * Mensagem (ou lote do buffer) com DUAS intenções: a principal segue o fluxo normal e a pergunta extra
+ * sobre a empresa/serviço é respondida antes, pela caixa de conhecimento. Achado ao vivo 2026-09-21 (lead
+ * Willyman): "Gostaria de saber sobre valores || Como funciona" virou só preço, e o "como funciona" ficou
+ * sem resposta. A pergunta extra é decidida pelo leitor (pergunta_extra), a resposta vem da base aprovada.
+ */
+function wantsExtraAnswer(prev: FunnelState, reading: Reading, input: StepInput): boolean {
+  if (input.isFirstTurn || reading.falhou || reading.perguntaExtra !== true) return false
+  if (prev.stage === 'handoff' || prev.stage === 'refused') return false
+  if (reading.confianca < MIN_CONFIDENCE) return false
+  const c = reading.categoria
+  if (c !== 'preco' && c !== 'resposta_passo' && c !== 'outro') return false
+  // Depois do roteiro só o preço é do funil; o resto é do agendamento (que lê a conversa inteira).
+  return prev.stage === 'qualifying' || c === 'preco'
+}
+
 export function stepFunnel(
+  config: FunnelConfig,
+  prev: FunnelState,
+  reading: Reading,
+  input: StepInput
+): StepResult {
+  if (!wantsExtraAnswer(prev, reading, input)) return stepFunnelCore(config, prev, reading, input)
+
+  if (input.boxAnswer === undefined) return { state: clone(prev), actions: [], needBox: input.leadText }
+  const res = stepFunnelCore(config, prev, reading, { ...input, boxAnswer: undefined })
+  // Sem resposta na base (null) não se inventa nada: segue só a intenção principal.
+  if (typeof input.boxAnswer !== 'string' || res.needBox) return res
+  const envio = res.actions.find((a) => a.type === 'send') as Extract<FunnelAction, { type: 'send' }> | undefined
+  if (!envio) return res
+  envio.texts = [input.boxAnswer, ...envio.texts]
+  // O texto reescrevível deslocou uma posição
+  if (envio.humanize) envio.humanize = { ...envio.humanize, index: (envio.humanize.index ?? 0) + 1 }
+  return res
+}
+
+function stepFunnelCore(
   config: FunnelConfig,
   prev: FunnelState,
   reading: Reading,
