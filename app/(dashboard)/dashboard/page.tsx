@@ -531,8 +531,12 @@ export default function DashboardPage() {
             showRemarketing={!!features.remarketing}
           />
         </div>
-        <div className="h-full overflow-hidden">
-          <RecentSales />
+        {/* Vendas Recentes acompanha a altura do Funil (a lista rola por dentro) em vez de esticar a linha:
+            no desktop o card fica absoluto dentro da célula, então não conta pra altura do grid. */}
+        <div className="relative h-[420px] lg:h-auto">
+          <div className="h-full lg:absolute lg:inset-0">
+            <RecentSales />
+          </div>
         </div>
       </div>
 
