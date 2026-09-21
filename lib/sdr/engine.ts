@@ -596,7 +596,7 @@ async function getHistory(
 ): Promise<ChatMsg[]> {
   const { data } = await supabase
     .from('mensagens_do_whatsapp')
-    .select('texto_da_mensagem, sender_type, metadados')
+    .select('texto_da_mensagem, sender_type, direcao, metadados')
     .eq('id_do_lead', leadId)
     .eq('company_id', companyId)
     .order('carimbo_de_data_e_hora', { ascending: false })
@@ -609,10 +609,16 @@ async function getHistory(
     .map((m) => {
       // Áudio/imagem: usa o conteúdo transcrito em vez do rótulo "🎵 Áudio"
       const transcricao = (m.metadados as { transcricao?: string } | null)?.transcricao
-      return {
-        role: (m.sender_type === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-        content: transcricao ? `[Lead disse por áudio/imagem] ${transcricao}` : (m.texto_da_mensagem ?? ''),
-      }
+      // Tudo que SAIU da empresa é "assistant", inclusive o que uma pessoa da equipe escreveu (antes, mensagem de
+      // pessoa da equipe entrava como se o LEAD tivesse dito, e o orquestrador se confundia sobre quem falou o quê).
+      const saiu = m.direcao === 'outbound' || m.sender_type === 'ai'
+      const pessoaDaEquipe = m.direcao === 'outbound' && m.sender_type !== 'ai'
+      const content = pessoaDaEquipe
+        ? `[Pessoa da equipe] ${m.texto_da_mensagem ?? ''}`
+        : transcricao
+          ? `[Lead disse por áudio/imagem] ${transcricao}`
+          : (m.texto_da_mensagem ?? '')
+      return { role: (saiu ? 'assistant' : 'user') as 'user' | 'assistant', content }
     })
 }
 
@@ -2003,6 +2009,8 @@ interface ChecklistAtendimento {
   estagio_atual?: string
   /** Ficha do lead montada pelo funil (fatos, o que já foi dito, regras fixas), pro orquestrador não repetir nem prometer. */
   ficha_funil?: string
+  /** Memória da conversa inteira (resumo factual + perguntas do lead sem resposta), montada pelo funil. */
+  memoria?: { resumo: string; pendencias: string[]; atualizadoEm?: string }
   lead_recusou?: boolean
 }
 
@@ -2042,6 +2050,10 @@ function formatChecklist(checklist: ChecklistAtendimento | null): string {
   }
   if (checklist.estagio_atual) lines.push(`Estágio atual da conversa: ${checklist.estagio_atual}`)
   if (checklist.ficha_funil) lines.push(checklist.ficha_funil)
+  if (checklist.memoria?.resumo) {
+    lines.push(`Memória da conversa inteira (feita pelo sistema a partir de TUDO que foi dito, inclusive dias anteriores e o que pessoas da equipe já perguntaram; NÃO repita pergunta já respondida aqui): ${checklist.memoria.resumo}`)
+    if (checklist.memoria.pendencias?.length) lines.push(`Perguntas do lead ainda sem resposta (responda estas): ${checklist.memoria.pendencias.join('; ')}`)
+  }
   return lines.join('\n')
 }
 
@@ -3731,7 +3743,7 @@ export async function processSdrMessage(companyId: number, phone: string): Promi
     // Texto combinado para o orquestrador (usa transcrição/descrição para mídia)
     const combinedText = enrichedMessages.map((m) => m.enrichedContent).join('\n')
 
-    const history = await getHistory(leadId, companyId, supabase, 20)
+    const history = await getHistory(leadId, companyId, supabase, 40)
 
     await log(companyId, 'message_received', { messages: bufferedMessages, flowId: cfg.flowId }, supabase, phone, leadId)
 

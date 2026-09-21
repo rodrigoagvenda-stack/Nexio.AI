@@ -187,6 +187,8 @@ export interface Reading {
   comentario?: boolean
   /** Além da intenção principal, a mensagem traz OUTRA pergunta sobre a empresa/serviço ("como funciona?") que precisa de resposta própria. */
   perguntaExtra?: boolean
+  /** Campos que o leitor devolveu mas foram descartados por não ter prova na conversa (auditoria). */
+  descartados?: string[]
   /** true quando o leitor falhou e isto é o valor neutro de fallback. */
   falhou?: boolean
 }

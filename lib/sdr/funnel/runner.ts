@@ -20,6 +20,7 @@ import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
 import { buildEcho, buildReaction, leadVolunteered, shouldReact } from './reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
 import { buildFicha, humanizeScript } from './humanize'
+import { buildMemory, countMessages, formatTranscript, MEMORY_MIN_MESSAGES, TRANSCRIPT_MAX_MESSAGES, type ConvRow, type Memoria } from './memory'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
 
 type Supabase = ReturnType<typeof createServiceClient>
@@ -192,6 +193,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
   let prevChecklist: Record<string, unknown> | null
   let reading: Reading
   let prevName: string | undefined
+  let memoria: Memoria | null = null
   let stageAtStart: FunnelState['stage'] = 'qualifying'
 
   try {
@@ -213,19 +215,10 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
 
     // Conversa REAL (as duas pontas, por quem for): o estado do funil pode estar desatualizado
     // se uma pessoa assumiu no meio ou se mensagens chegaram durante uma pausa.
-    const { data: recentRows, count } = await supabase
-      .from('mensagens_do_whatsapp')
-      .select('texto_da_mensagem, direcao, metadados', { count: 'exact' })
-      .eq('id_da_conversacao', p.conversationId)
-      .order('carimbo_de_data_e_hora', { ascending: false })
-      .limit(14)
-    const recent = (recentRows ?? []).filter((m) => (m.texto_da_mensagem ?? '').trim())
-    const transcript = [...recent].reverse().map((m) => {
-      // Áudio/imagem entram pelo conteúdo transcrito, não pelo rótulo do balão
-      const transcricao = (m.metadados as { transcricao?: string } | null)?.transcricao
-      const texto = transcricao ? `(por áudio ou imagem) ${transcricao}` : (m.texto_da_mensagem ?? '')
-      return `${m.direcao === 'inbound' ? 'Lead' : 'Equipe'}: ${texto.replace(/\s+/g, ' ').slice(0, 400)}`
-    })
+    // Memória: a conversa INTEIRA (até 120 mensagens, com dias anteriores, áudios transcritos e o que pessoas da
+    // equipe perguntaram), e não só as últimas 14 (achado ao vivo 2026-09-21, lead Isaías).
+    const { recent, transcript, count } = await loadConversation(p)
+    memoria = (prevChecklist?.memoria as Memoria | undefined) ?? null
     const outboundNewestFirst = recent.filter((m) => m.direcao === 'outbound').map((m) => m.texto_da_mensagem ?? '')
 
     const { count: outCount } = await supabase
@@ -277,7 +270,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
         script: paraHumanizar.humanize.script,
         leadText: p.leadText,
         transcript,
-        ficha: buildFicha(config, result.state),
+        ficha: buildFicha(config, result.state, memoria),
         recentOutbound: outboundNewestFirst,
         openai,
         onUsage: p.deps.onUsage,
@@ -336,7 +329,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
       extra.estagio_atual =
         'qualificacao_completa: todos os passos do roteiro foram respondidos. A mensagem explicando a conversa de diagnóstico com o especialista JÁ foi enviada ao lead: NÃO explique o diagnóstico de novo e não use "gratuito". Ofereça direto os horários livres (Consultar_gcal), sem perguntar se pode. Atendimento e reunião só em horário comercial: nunca prometa nem ofereça fora dele.'
     }
-    extra.ficha_funil = buildFicha(config, result.state)
+    extra.ficha_funil = buildFicha(config, result.state, memoria)
     await persistChecklist(p, config, result.state, prevChecklist, extra)
     await supabase.from('conversas_do_whatsapp').update({ funnel_state: result.state }).eq('id', p.conversationId)
 
@@ -357,6 +350,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     confianca: reading.confianca,
     falhou: reading.falhou ?? false,
     dados: reading.dados,
+    ...(reading.descartados?.length ? { descartados_sem_prova: reading.descartados } : {}),
     stage: result.state.stage,
     acoes: result.actions.map((a) => a.type),
   })
@@ -375,7 +369,49 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
 
   await execute(p, config, result.state, result.actions)
   await syncLeadCrm(p, config, stageAtStart, result.state, result.actions)
+  // Depois de responder: atualiza a memória da conversa inteira (o lead já foi atendido, não atrasa a resposta)
+  await updateMemory(p, config, result.state)
   return { handled: true }
+}
+
+/** Conversa inteira do banco (mais recentes primeiro em `recent`; `transcript` em ordem cronológica). */
+async function loadConversation(p: FunnelTurnParams) {
+  const { data: rows, count } = await p.deps.supabase
+    .from('mensagens_do_whatsapp')
+    .select('texto_da_mensagem, direcao, sender_type, metadados, carimbo_de_data_e_hora', { count: 'exact' })
+    .eq('id_da_conversacao', p.conversationId)
+    .order('carimbo_de_data_e_hora', { ascending: false })
+    .limit(TRANSCRIPT_MAX_MESSAGES)
+  const recent = (rows ?? []).filter((m) => (m.texto_da_mensagem ?? '').trim())
+  const transcript = formatTranscript([...recent].reverse() as ConvRow[])
+  return { recent, transcript, count }
+}
+
+/**
+ * Memória da conversa: resumo factual + perguntas do lead sem resposta, feitos da conversa inteira e conferidos
+ * (forma em código + revisor sim/não). Se barrar, a memória anterior continua. Nunca derruba o atendimento.
+ */
+async function updateMemory(p: FunnelTurnParams, config: FunnelConfig, state: FunnelState): Promise<void> {
+  try {
+    const { supabase, openai, onUsage } = p.deps
+    const { transcript } = await loadConversation(p)
+    if (countMessages(transcript) < MEMORY_MIN_MESSAGES) return
+
+    const out = await buildMemory({ transcript, openai, onUsage })
+    await p.deps.log('funnel_memoria', { aprovada: !!out.memoria, motivo: out.motivo, resumo: out.memoria?.resumo ?? out.rascunho, pendencias: out.memoria?.pendencias ?? [] }).catch(() => {})
+    if (!out.memoria) return
+
+    const { data: conv } = await supabase.from('conversas_do_whatsapp').select('checklist_atendimento').eq('id', p.conversationId).single()
+    const checklist = { ...((conv?.checklist_atendimento as Record<string, unknown> | null) ?? {}), memoria: out.memoria }
+    await supabase.from('conversas_do_whatsapp').update({ checklist_atendimento: checklist }).eq('id', p.conversationId)
+
+    // O resumo que a equipe lê no CRM: a narrativa da conversa inteira, com os dados coletados logo abaixo
+    const dados = buildResumo(config, state)
+    const resumo = dados ? `${out.memoria.resumo}\n\nDados coletados:\n${dados}` : out.memoria.resumo
+    await supabase.from('leads').update({ resumo_ia: resumo, updated_at: new Date().toISOString() }).eq('id', p.leadId)
+  } catch (err: any) {
+    console.error(`[Funnel:${p.companyId}] memória da conversa falhou (atendimento segue):`, err?.message)
+  }
 }
 
 /** null = não é o caso (segue o fluxo normal); string = texto a enviar ('' = ficar em silêncio). */
@@ -417,7 +453,9 @@ async function syncLeadCrm(
     const upd: Record<string, unknown> = {}
 
     const resumo = buildResumo(config, state)
-    if (resumo && resumo !== lead.resumo_ia) upd.resumo_ia = resumo
+    // Resumo narrativo (memória da conversa) já gravado: quem atualiza é o updateMemory, pra a lista de dados não apagar a narrativa
+    const temNarrativa = (lead.resumo_ia ?? '').includes('Dados coletados:')
+    if (resumo && !temNarrativa && resumo !== lead.resumo_ia) upd.resumo_ia = resumo
 
     const recusou = actions.some((a) => a.type === 'mark_refused')
     const alvo = recusou ? 'Perdido' : state.stage === 'scheduling' ? 'Interessado' : 'Em contato'

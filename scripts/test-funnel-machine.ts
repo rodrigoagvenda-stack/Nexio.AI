@@ -11,7 +11,8 @@ import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
 import { buildEcho, leadVolunteered, shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
 import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
-import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
+import { buildReaderPrompt, evidenceOk, validateReading } from '../lib/sdr/funnel/reader'
+import { countMessages, formatMemoria, formatTranscript, structuralMemoryChecks } from '../lib/sdr/funnel/memory'
 import { ConversationQueue, conversationKey } from '../lib/sdr/conversation-queue'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -598,6 +599,53 @@ function emQualificacao() {
   const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
   check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
   check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
+}
+
+// ─── Memória da conversa inteira (caso Isaías, 2026-09-21) ─────
+{
+  const rows = [
+    { texto_da_mensagem: 'Hoje, você vive só de indicação e boca a boca?', direcao: 'outbound', sender_type: 'human', carimbo_de_data_e_hora: '2026-09-20T20:11:46Z' },
+    { texto_da_mensagem: 'Bom trabalho fazendo campanha no Google ADS e indicação né', direcao: 'inbound', sender_type: 'human', carimbo_de_data_e_hora: '2026-09-20T20:12:28Z' },
+    { texto_da_mensagem: 'Oi Isaías! Vi que você tinha começado...', direcao: 'outbound', sender_type: 'ai', carimbo_de_data_e_hora: '2026-09-21T15:00:20Z' },
+    { texto_da_mensagem: '🎵 Áudio', direcao: 'inbound', sender_type: 'human', metadados: { transcricao: 'Não entendi, por que não tá aparecendo' }, carimbo_de_data_e_hora: '2026-09-21T15:21:29Z' },
+    { texto_da_mensagem: '   ', direcao: 'inbound', sender_type: 'human', carimbo_de_data_e_hora: '2026-09-21T15:22:00Z' },
+  ]
+  const t = formatTranscript(rows)
+  check('transcript: quem falou (pessoa da equipe, SDR e lead) fica claro', t.some((l) => l.startsWith('Equipe (pessoa): Hoje')) && t.some((l) => l.startsWith('Equipe (SDR): Oi Isaías')) && t.some((l) => l.startsWith('Lead: Bom trabalho')), t)
+  check('transcript: marca a mudança de dia (resposta de ontem não parece de agora)', t.filter((l) => l.startsWith('--- ')).length === 2, t)
+  check('transcript: áudio entra pelo que foi dito', t.some((l) => l.includes('(por áudio ou imagem) Não entendi, por que não tá aparecendo')), t)
+  check('transcript: mensagem vazia não entra', countMessages(t) === 4, t)
+  const longa = Array.from({ length: 300 }, (_, i) => ({ texto_da_mensagem: `msg ${i}`, direcao: 'inbound', carimbo_de_data_e_hora: '2026-09-21T15:00:00Z' }))
+  check('transcript: conversa longa entra até o limite, das mais recentes', countMessages(formatTranscript(longa)) === 120 && formatTranscript(longa).some((l) => l.includes('msg 299')), '')
+
+  // Evidência: o dado só vale se a prova está na conversa
+  const conversa = t.join('\n')
+  check('prova que está na conversa vale', evidenceOk('campanha no Google ADS e indicação', conversa) === true)
+  check('prova inventada é recusada', evidenceOk('vivo só de indicação de amigos', conversa) === false)
+  check('resposta curta ("Sim") vale quando está na conversa', evidenceOk('Sim', 'Lead: Sim, tenho site') === true)
+  check('sem prova nenhuma é recusado', evidenceOk('', conversa) === false && evidenceOk(undefined, conversa) === false)
+
+  const bruto = { categoria: 'resposta_passo', confianca: 0.9, dados: { so_indicacao: 'nao', tem_site: 'sim' }, evidencias: { so_indicacao: 'campanha no Google ADS e indicação' } }
+  const lido = validateReading(bruto, cfg, conversa)
+  check('leitor: dado com prova verificável fica, dado sem prova cai (e é registrado)', lido?.dados.so_indicacao === 'nao' && lido?.dados.tem_site === undefined && lido?.descartados?.[0] === 'tem_site', lido)
+  const inventado = validateReading({ ...bruto, evidencias: { so_indicacao: 'texto que ninguém disse', tem_site: 'x' } }, cfg, conversa)
+  check('leitor: prova inventada derruba o dado', inventado?.dados.so_indicacao === undefined, inventado)
+  const legado = validateReading({ categoria: 'resposta_passo', confianca: 0.9, dados: { tem_site: 'sim' } }, cfg, conversa)
+  check('leitor: resposta sem o campo de provas (formato antigo) continua funcionando', legado?.dados.tem_site === 'sim', legado)
+  const semCorpus = validateReading(bruto, cfg)
+  check('leitor: sem conversa pra conferir, não descarta nada', semCorpus?.dados.tem_site === 'sim', semCorpus)
+
+  const pr = buildReaderPrompt({ config: cfg, state: emQualificacao(), leadText: 'x', transcript: t, isFirstTurn: false })
+  check('leitor recebe a conversa inteira e a regra de prova', pr.user.includes('--- 20/09 ---') && pr.system.includes('evidencias') && pr.user.includes('Conversa completa'), '')
+
+  // Memória: forma conferida em código
+  const ok = { resumo: 'Isaías, dono da SC rádio táxi executivo em Barueri. Faz campanha no Google ADS e tem indicações. Perguntou por que não aparece no Google.', pendencias: ['Por que a empresa não aparece no Google'] }
+  check('memória: texto factual passa na forma', structuralMemoryChecks(ok, conversa) === null)
+  check('memória: recusa valor em reais, colchete e travessão', structuralMemoryChecks({ ...ok, resumo: 'Custa R$ 500.' }, conversa) === 'tem_valor' && structuralMemoryChecks({ ...ok, resumo: 'Tem [site].' }, conversa) === 'formato' && structuralMemoryChecks({ ...ok, resumo: 'Tem site — bom.' }, conversa) === 'formato')
+  check('memória: recusa número que não está na conversa', structuralMemoryChecks({ ...ok, resumo: 'Tem 15 anos de mercado.' }, conversa) === 'numero_inventado')
+  check('memória: recusa texto longo e pendências demais', structuralMemoryChecks({ ...ok, resumo: 'palavra '.repeat(140) }, conversa) === 'longo_demais' && structuralMemoryChecks({ ...ok, pendencias: ['a', 'b', 'c', 'd'] }, conversa) === 'pendencias_invalidas')
+  check('memória: entra na ficha dos escritores e do orquestrador', formatMemoria(ok).length === 2 && buildFicha(cfg, emQualificacao(), ok).includes('Memória da conversa') && buildFicha(cfg, emQualificacao(), ok).includes('ainda sem resposta'), '')
+  check('memória ausente: ficha igual à de antes', !buildFicha(cfg, emQualificacao()).includes('Memória da conversa'))
 }
 
 // ─── Duas intenções no mesmo lote: "valores || como funciona" (caso Willyman) ─────

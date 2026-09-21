@@ -14,6 +14,7 @@
 import type OpenAI from 'openai'
 import { hasJustification, isRepeatOf } from '../output-guard'
 import type { FunnelConfig, FunnelState, HumanizeHint } from './types'
+import { formatMemoria, type Memoria } from './memory'
 
 const MODEL = 'gpt-4.1-mini'
 type Usage = (c: OpenAI.Chat.ChatCompletion, agent: string) => void
@@ -21,8 +22,10 @@ type Usage = (c: OpenAI.Chat.ChatCompletion, agent: string) => void
 // ─── Ficha ──────────────────────────────────────────────────────────────
 
 /** Ficha do lead montada pelo código: fatos, o que já foi dito e as regras que não mudam. */
-export function buildFicha(config: FunnelConfig, state: FunnelState): string {
+export function buildFicha(config: FunnelConfig, state: FunnelState, memoria?: Pick<Memoria, 'resumo' | 'pendencias'> | null): string {
   const linhas: string[] = ['FICHA DO LEAD (montada pelo sistema a partir da conversa; confie nela e NÃO repita o que já foi dito)']
+  // Memória da conversa inteira (dias anteriores, áudios, o que pessoas da equipe já perguntaram)
+  linhas.push(...formatMemoria(memoria))
 
   const d = state.data
   const quem = [d.nome && `Nome: ${d.nome}`, d.nome_empresa && `Empresa: ${d.nome_empresa}`, d.ramo && `Ramo: ${d.ramo}`, d.cidade && `Cidade: ${d.cidade}`].filter(Boolean)

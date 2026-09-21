@@ -47,7 +47,10 @@ export function buildReaderPrompt(input: ReaderInput): { system: string; user: s
   const system = `Você é o LEITOR de mensagens de um SDR de WhatsApp. Você NÃO conversa com o lead e NÃO decide nada: só classifica a mensagem dele e extrai dados. Responda SOMENTE um objeto JSON válido, sem texto fora dele.
 
 Formato:
-{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "comentario": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
+{"categoria": "<uma das categorias>", "objecao_tipo": <chave da lista de objeções ou null>, "dados": {"<campo>": "<valor>" ou null}, "evidencias": {"<campo>": "<trecho literal>"}, "comentario": true|false, "pergunta_extra": true|false, "confianca": <número de 0 a 1>}
+
+MEMÓRIA COMPLETA: a "Conversa completa" abaixo vai desde o começo (inclui dias anteriores, áudios já transcritos e o que pessoas da Equipe perguntaram). Leia TUDO, como quem acompanhou a conversa inteira: um dado que o lead já respondeu antes (mesmo a uma pessoa da Equipe, mesmo ontem) já está respondido e deve ser extraído agora. Não olhe só a última mensagem.
+"evidencias": para CADA campo preenchido em "dados", copie aqui o trecho curto (até 15 palavras) da conversa que PROVA o valor, exatamente como foi dito. Se não houver um trecho que responda àquele campo de forma clara, deixe o campo null em "dados". Resposta ambígua, que não diz claramente sim ou não, é null.
 
 "pergunta_extra" = true quando a mensagem (que pode juntar várias falas do lead) traz, ALÉM da intenção principal escolhida na categoria, outra pergunta sobre a empresa, o serviço ou o processo que precisa de resposta própria (ex.: "Gostaria de saber sobre valores" + "Como funciona": a categoria é preco e pergunta_extra é true). É false quando só há uma intenção, quando a categoria já é pergunta_fora ou duvida_contexto, e para preço ou objeção (esses já têm categoria própria). Na dúvida, false.
 
@@ -96,7 +99,7 @@ Regras:
   const user = `Primeira mensagem da conversa: ${input.isFirstTurn ? 'sim' : 'não'}
 Ligação já oferecida: ${state.callOffered ? 'sim' : 'não'}
 
-Conversa recente (da mais antiga pra mais nova; "Equipe" é o SDR ou uma pessoa da equipe):
+Conversa completa (da mais antiga pra mais nova; "Equipe (SDR)" é o atendente automático e "Equipe (pessoa)" é um humano da empresa; "--- dd/mm ---" marca a mudança de dia):
 ${conversa}
 
 Mensagem(ns) NOVA(s) do lead, a classificar agora:
@@ -107,8 +110,32 @@ ${input.leadText}
   return { system, user }
 }
 
-/** Valida o JSON do modelo. Devolve null se estiver fora do contrato. */
-export function validateReading(raw: unknown, config: FunnelConfig): Reading | null {
+function normText(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * A prova citada precisa existir na conversa: o texto inteiro contém o trecho, ou (tolerando pontuação e
+ * pequenas trocas) pelo menos 80% das palavras do trecho aparecem na conversa. Trecho inventado = dado descartado.
+ */
+export function evidenceOk(evidence: unknown, corpus: string): boolean {
+  if (typeof evidence !== 'string') return false
+  const ev = normText(evidence)
+  if (!ev) return false
+  const corp = normText(corpus)
+  if (corp.includes(ev)) return true
+  const toks = ev.split(/[^a-z0-9]+/).filter((t) => t.length >= 3)
+  if (toks.length === 0) return false
+  const corpToks = new Set(corp.split(/[^a-z0-9]+/).filter(Boolean))
+  return toks.filter((t) => corpToks.has(t)).length / toks.length >= 0.8
+}
+
+/**
+ * Valida o JSON do modelo. Devolve null se estiver fora do contrato.
+ * corpus = texto da conversa completa: quando informado e o modelo trouxe "evidencias", todo dado precisa de prova
+ * verificável nela (sem prova, o dado é descartado e registrado em `descartados`).
+ */
+export function validateReading(raw: unknown, config: FunnelConfig, corpus?: string): Reading | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
 
@@ -130,7 +157,26 @@ export function validateReading(raw: unknown, config: FunnelConfig): Reading | n
     }
   }
 
-  return { categoria: categoria as Categoria, objecaoTipo: tipo, dados, confianca, comentario: o.comentario === true, perguntaExtra: o.pergunta_extra === true }
+  const descartados: string[] = []
+  const ev = o.evidencias
+  if (corpus !== undefined && ev && typeof ev === 'object' && !Array.isArray(ev)) {
+    for (const k of Object.keys(dados)) {
+      if (!evidenceOk((ev as Record<string, unknown>)[k], corpus)) {
+        delete dados[k]
+        descartados.push(k)
+      }
+    }
+  }
+
+  return {
+    categoria: categoria as Categoria,
+    objecaoTipo: tipo,
+    dados,
+    confianca,
+    comentario: o.comentario === true,
+    perguntaExtra: o.pergunta_extra === true,
+    ...(descartados.length ? { descartados } : {}),
+  }
 }
 
 export async function readMessage(
@@ -145,7 +191,7 @@ export async function readMessage(
       const res = await openai.chat.completions.create({
         model: MODEL,
         temperature: 0,
-        max_tokens: 400,
+        max_tokens: 800,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
@@ -154,7 +200,7 @@ export async function readMessage(
       })
       onUsage?.(res, 'funnel_reader')
       const parsed = JSON.parse(res.choices[0]?.message?.content ?? '')
-      const reading = validateReading(parsed, input.config)
+      const reading = validateReading(parsed, input.config, `${input.transcript.join('\n')}\n${input.leadText}`)
       if (reading) return reading
     } catch {
       // tenta de novo; se esgotar, cai no fallback neutro abaixo
