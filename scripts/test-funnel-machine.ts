@@ -3,12 +3,12 @@
  * roteiro real do Grupo Venda. Sem banco, sem IA : a máquina é pura.
  * Rodar: npx tsx scripts/test-funnel-machine.ts
  */
-import { stepFunnel } from '../lib/sdr/funnel/machine'
+import { splitOpening, stepFunnel } from '../lib/sdr/funnel/machine'
 import { grupoVendaFunnel as cfg, genericFunnelTemplate } from '../lib/sdr/funnel/templates'
 import { validateFunnelConfig } from '../lib/sdr/funnel/validate'
 import { detectAskedStep } from '../lib/sdr/funnel/sync'
 import { buildResumo, nextStatus } from '../lib/sdr/funnel/crm'
-import { buildEcho, shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
+import { buildEcho, leadVolunteered, shouldReact, structuralChecks } from '../lib/sdr/funnel/reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/audio'
 import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
 import { buildReaderPrompt } from '../lib/sdr/funnel/reader'
@@ -559,6 +559,44 @@ function emQualificacao() {
   const comRamo = { ...base, data: { ...base.data, ramo: 'barbearia' } }
   const p2 = buildReaderPrompt({ config: cfg, state: comRamo, leadText: 'na verdade é barbearia e salão', transcript: [], isFirstTurn: false })
   check('leitor vê campos já guardados só pra correção', p2.system.includes('Campos que já temos') && p2.system.includes('já guardado como "barbearia"'), '')
+}
+
+// ─── Não é bot: lead que pergunta ou conta algo é respondido (caso da neuropsicóloga, 2026-09-21) ─────
+{
+  const open = splitOpening(cfg.steps[0].question)
+  check('abertura se divide em apresentação + pergunta', open.intro === 'Olá, tudo bem? Sou a Laura, atendente do Grupo Venda Marketing Digital.' && open.question === 'Qual o seu nome?', open)
+  check('texto de uma frase só não se divide', splitOpening('Tem site?').intro === null)
+
+  // 1a mensagem com pergunta "Como funciona?": responde entre a apresentação e a pergunta do nome
+  const semBox = turn(initialState(), read('pergunta_fora', { ramo: 'neuropsicologia' }), { isFirstTurn: true, leadText: 'Como funciona? Sou Neuropsicóloga' })
+  check('1a mensagem com pergunta: pede a caixa de conhecimento (não ignora)', semBox.needBox === 'Como funciona? Sou Neuropsicóloga', semBox)
+  const r = turn(initialState(), read('pergunta_fora', { ramo: 'neuropsicologia' }), { isFirstTurn: true, leadText: 'Como funciona?', boxAnswer: 'O diagnóstico é uma conversa com o especialista em Google.' })
+  check('1a mensagem com pergunta: apresentação, resposta, pergunta do nome (nessa ordem)', JSON.stringify(sent(r.actions)) === JSON.stringify([open.intro, 'O diagnóstico é uma conversa com o especialista em Google.', 'Qual o seu nome?']), sent(r.actions))
+  check('1a mensagem com pergunta: dado que ela contou fica guardado', r.state.data.ramo === 'neuropsicologia' && r.state.askedStep === 'nome', r.state)
+  const sem = turn(initialState(), read('pergunta_fora'), { isFirstTurn: true, leadText: 'Como funciona?', boxAnswer: null })
+  check('1a mensagem com pergunta sem resposta na base: texto padrão, e a pergunta do nome segue', sent(sem.actions)[1] === cfg.unknownAnswer && sent(sem.actions)[2] === 'Qual o seu nome?', sent(sem.actions))
+  check('1a mensagem que é preço continua virando abertura', sent(turn(initialState(), read('preco'), { isFirstTurn: true }).actions)[0] === cfg.steps[0].question)
+
+  // Lead contou algo por conta própria: reconhecido
+  const base = turn(initialState(), read('outro'), { isFirstTurn: true }).state // pendente: nome
+  const depois = turn(base, read('resposta_passo', { ramo: 'neuropsicologia' }), { leadText: 'Sou Neuropsicóloga' })
+  check('contou o ramo quando pedimos o nome: conta como espontâneo', leadVolunteered(cfg, base, depois.state, 'Sou Neuropsicóloga') === true)
+  check('respondeu o nome que foi pedido: NÃO é espontâneo', leadVolunteered(cfg, base, turn(base, read('resposta_passo', { nome: 'Ana' }), { leadText: 'Ana' }).state, 'Ana') === false)
+  check('mandou o Instagram sem ninguém pedir: espontâneo', leadVolunteered(cfg, base, base, 'Meu Instagram é @psicobemdiagnostico') === true)
+  check('e-mail e link soltos também', leadVolunteered(cfg, base, base, 'https://meusite.com.br') === true)
+  check('conversa comum sem dado nem link: não é espontâneo', leadVolunteered(cfg, base, base, 'kkk') === false)
+  // Passo que pede o link: link é resposta, não espontâneo
+  let s = turn(turn(initialState(), read('outro'), { isFirstTurn: true }).state, read('resposta_passo', { nome: 'Ana' })).state
+  s = turn(s, read('resposta_passo', { ramo: 'barbearia', cidade: 'Salvador' })).state
+  check('passo do perfil pendente: mandar o link é resposta, não espontâneo', s.askedStep === 'perfil_google' && leadVolunteered(cfg, s, s, 'https://share.google/x') === false, s.askedStep)
+
+  const acoes = turn(base, read('resposta_passo'), { leadText: 'Meu Instagram é @x_y' }).actions
+  check('reconhecimento espontâneo é liberado (mesmo com comentario false)', shouldReact({ state: base, reading: read('resposta_passo'), actions: acoes, isFirstTurn: false, enabled: true, volunteered: true }) === true)
+  check('reconhecimento espontâneo respeita a chave "reações" desligada', shouldReact({ state: base, reading: read('resposta_passo'), actions: acoes, isFirstTurn: false, enabled: false, volunteered: true }) === false)
+  check('sem espontâneo e sem relato: não reage (resposta seca segue natural)', shouldReact({ state: base, reading: read('resposta_passo'), actions: acoes, isFirstTurn: false, enabled: true }) === false)
+  const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
+  check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
+  check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
 }
 
 // ─── Validação da config (portão de salvar) ─────────────────────────────

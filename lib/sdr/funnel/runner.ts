@@ -14,10 +14,10 @@ import type OpenAI from 'openai'
 import type { createServiceClient } from '@/lib/supabase/server'
 import { readMessage } from './reader'
 import { answerFromKnowledge } from './box'
-import { stepFunnel } from './machine'
+import { splitOpening, stepFunnel } from './machine'
 import { detectAskedStep } from './sync'
 import { assessLead, buildResumo, classifySegment, nextStatus } from './crm'
-import { buildEcho, buildReaction, shouldReact } from './reaction'
+import { buildEcho, buildReaction, leadVolunteered, shouldReact } from './reaction'
 import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from './audio'
 import { buildFicha, humanizeScript } from './humanize'
 import { initialState, type FunnelAction, type FunnelConfig, type FunnelState, type Reading, type StepResult } from './types'
@@ -291,7 +291,19 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
     // Mídia (áudio, imagem...) é SEMPRE respondida: se a frase do SDR for barrada, sai a confirmação
     // dos dados guardados. Funil que ignora o que o lead mandou vira bot.
     const midia = !!p.hasMedia
-    if (shouldReact({ state: result.state, reading, actions: result.actions, isFirstTurn, enabled: config.reactions !== false, hasMedia: midia })) {
+    // Lead que conta algo por conta própria (ramo, Instagram, link) é sempre reconhecido, como a mídia.
+    const informou = leadVolunteered(config, state, result.state, p.leadText)
+    if (
+      shouldReact({
+        state: result.state,
+        reading,
+        actions: result.actions,
+        isFirstTurn,
+        enabled: config.reactions !== false,
+        hasMedia: midia,
+        volunteered: informou,
+      })
+    ) {
       const rx = await buildReaction({
         transcript,
         leadText: p.leadText,
@@ -300,17 +312,20 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
         openai,
         onUsage: p.deps.onUsage,
         media: midia,
+        info: !midia && informou,
       })
       let texto = rx.texto
       let usouEco = false
-      if (!texto && midia) {
-        texto = buildEcho(config, state.data, result.state.data, p.mediaKind ?? 'outro')
+      if (!texto && (midia || informou)) {
+        texto = buildEcho(config, state.data, result.state.data, midia ? (p.mediaKind ?? 'outro') : 'info')
         usouEco = true
       }
-      await p.deps.log('funnel_reaction', { frase: rx.frase, aprovada: !!rx.texto, motivo: rx.motivo, midia, eco: usouEco ? texto : null }).catch(() => {})
+      await p.deps.log('funnel_reaction', { frase: rx.frase, aprovada: !!rx.texto, motivo: rx.motivo, midia, informou, eco: usouEco ? texto : null }).catch(() => {})
       if (texto) {
         const envio = result.actions[0] as Extract<FunnelAction, { type: 'send' }>
-        envio.texts = [texto, ...envio.texts]
+        // Na 1a mensagem o reconhecimento entra ENTRE a apresentação e a pergunta.
+        const abertura = isFirstTurn && envio.texts.length === 1 ? splitOpening(envio.texts[0]) : null
+        envio.texts = abertura?.intro ? [abertura.intro, texto, abertura.question] : [texto, ...envio.texts]
         if (!midia) result.state.reactionTurn = result.state.turns
       }
     }

@@ -176,8 +176,23 @@ function silence(state: FunnelState): StepResult {
   return { state, actions: [{ type: 'silence' }] }
 }
 
-/** Pergunta o próximo passo pendente (com textos fixos antes, se houver). */
-function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): StepResult {
+/**
+ * Separa a abertura em apresentação + pergunta final ("Olá, tudo bem? Sou a Laura... Qual o seu nome?" vira
+ * "Olá, tudo bem? Sou a Laura..." e "Qual o seu nome?"), pra encaixar uma resposta ENTRE as duas.
+ * Sem apresentação (texto de uma frase só, ou que não termina em pergunta): intro = null.
+ */
+export function splitOpening(text: string): { intro: string | null; question: string } {
+  const parts = (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? []).map((s) => s.trim()).filter(Boolean)
+  if (parts.length < 2 || !parts[parts.length - 1].includes('?')) return { intro: null, question: text }
+  return { intro: parts.slice(0, -1).join(' '), question: parts[parts.length - 1] }
+}
+
+/**
+ * Pergunta o próximo passo pendente (com textos fixos antes, se houver).
+ * opening = primeira mensagem da conversa: se há texto antes da 1a pergunta, a apresentação vai PRIMEIRO
+ * e a pergunta por último (apresentação, resposta, pergunta), em vez de responder antes de o lead saber quem fala.
+ */
+function askNext(config: FunnelConfig, state: FunnelState, prefix: string[], opening = false): StepResult {
   for (;;) {
     const pending = nextPending(config, state)
     if (!pending) {
@@ -192,6 +207,7 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
 
     let text: string
     let reask = false
+    let firstAsk = false
     if (pending.kind === 'followup') {
       const fu = pending.step.followUp!
       state.followUpAsks[pending.step.id] = (state.followUpAsks[pending.step.id] ?? 0) + 1
@@ -216,10 +232,16 @@ function askNext(config: FunnelConfig, state: FunnelState, prefix: string[]): St
       state.asks[step.id] = asks + 1
       state.askedStep = step.id
       reask = asks > 0
+      firstAsk = asks === 0
     }
 
     const finalText = fillName(text, state)
-    const send: Extract<FunnelAction, { type: 'send' }> = { type: 'send', texts: [...prefix, finalText] }
+    let texts = [...prefix, finalText]
+    if (opening && firstAsk && prefix.length > 0) {
+      const { intro, question } = splitOpening(finalText)
+      if (intro) texts = [intro, ...prefix, question]
+    }
+    const send: Extract<FunnelAction, { type: 'send' }> = { type: 'send', texts }
     // Perguntar de novo a mesma coisa com as mesmas palavras soa como bot: o SDR reformula (revisado;
     // se barrar, sai a pergunta aprovada). Só quando a pergunta vai sozinha na mensagem.
     if (reask && prefix.length === 0) send.humanize = { kind: 'reperguntar', script: finalText }
@@ -275,9 +297,12 @@ export function stepFunnel(
   let cat = reading.falhou ? 'outro' : reading.categoria
   if (reading.confianca < MIN_CONFIDENCE && cat !== 'resposta_passo' && cat !== 'outro') cat = 'outro'
   // Primeira mensagem : é abertura (muitas vêm de anúncio com texto pronto, que pode até citar valor).
+  // Pergunta sobre a empresa/serviço NÃO entra aqui: é respondida (achado ao vivo 2026-09-21, lead da
+  // neuropsicóloga: perguntou "como funciona?" na 1a mensagem e recebeu só "Qual o seu nome?"). A
+  // apresentação sai primeiro, depois a resposta, depois a pergunta.
   if (
     input.isFirstTurn &&
-    (cat === 'preco' || cat === 'objecao' || cat === 'pergunta_fora' || cat === 'agendar' || cat === 'adiar' || cat === 'duvida_contexto')
+    (cat === 'preco' || cat === 'objecao' || cat === 'agendar' || cat === 'adiar' || cat === 'duvida_contexto')
   ) {
     cat = 'outro'
   }
@@ -423,9 +448,9 @@ export function stepFunnel(
 function foraDoRoteiro(config: FunnelConfig, state: FunnelState, input: StepInput): StepResult {
   if (input.boxAnswer === undefined) return { state, actions: [], needBox: input.leadText }
   if (typeof input.boxAnswer === 'string') {
-    return hasQuestion(input.boxAnswer) ? sendOnly(state, [input.boxAnswer]) : askNext(config, state, [input.boxAnswer])
+    return hasQuestion(input.boxAnswer) ? sendOnly(state, [input.boxAnswer]) : askNext(config, state, [input.boxAnswer], input.isFirstTurn)
   }
   state.offScriptFails++
   if (state.offScriptFails >= MAX_OFF_SCRIPT_FAILS) return handoff(state, config, 'sem_resposta_na_base')
-  return askNext(config, state, [config.unknownAnswer])
+  return askNext(config, state, [config.unknownAnswer], input.isFirstTurn)
 }
