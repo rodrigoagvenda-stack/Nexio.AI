@@ -19,6 +19,7 @@ import { persistMediaToStorage } from './media-storage'
 import { ingestInboundMessage, type NormalizedInboundEvent } from './inbound'
 import { runFunnelTurn } from './funnel/runner'
 import { enrichConversationMedia } from './media-understanding'
+import { MIN_NOTICE_MINUTES } from '../slot-notice'
 import { guardOutput, mentionsGratuito, type GuardContext, type GuardRules } from './output-guard'
 import { canSendFreeform } from './window'
 import { getWindowStateForConversation, maybeStampFirstCtwaReply } from './window-server'
@@ -1302,10 +1303,10 @@ FLUXO DE AGENDAMENTO (só se passou pelo guarda-chuva acima):
      → Se livre → vá direto para o passo 4.5
      → Se ocupado → informe e peça outro horário
    - Se o lead NÃO informou horário:
-     → Consulte os próximos 3 dias úteis
+     → Consulte com a data de HOJE: a tool devolve os horários de HOJE que ainda têm pelo menos 1 hora de folga (se ainda houver) e os do próximo dia útil
      → A tool devolve só os horários livres DENTRO do expediente. Ofereça somente eles.
      → Retorno com eventos = considere apenas horários não conflitantes
-     → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
+     → Sugira até 3 opções em UMA única mensagem animada (pode misturar hoje e o próximo dia útil) e aguarde a escolha
 4.5. ⛔ COLETA OBRIGATÓRIA : NUNCA PULE ESTE PASSO:
    - Você DEVE ter nome completo, email E objetivo da call do lead.
    - Verifique o histórico: o lead já forneceu os três itens explicitamente?
@@ -1339,7 +1340,7 @@ REGRAS:
 - Chame "Consultar_gcal" apenas UMA vez por interação.
 - Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta.
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data.
-- Seg a Sex, só nos horários que "Consultar_gcal" devolveu, nunca no mesmo dia. NUNCA invente horário, nunca ofereça noite, madrugada ou fim de semana, mesmo que o lead peça: diga que o atendimento é em horário comercial e ofereça os horários livres reais.
+- Seg a Sex, só nos horários que "Consultar_gcal" devolveu. Horário de HOJE só vale se a tool devolveu (ela já tira os que têm menos de 1 hora de folga); nunca ofereça hoje um horário que ela não devolveu. NUNCA invente horário, nunca ofereça noite, madrugada ou fim de semana, mesmo que o lead peça: diga que o atendimento é em horário comercial e ofereça os horários livres reais.
 - Fuso: America/Sao_Paulo (UTC-3).
 - Nunca repita informações já confirmadas pelo lead.
 - O link do Meet deve ser enviado automaticamente, sem o lead precisar pedir.
@@ -1468,12 +1469,39 @@ REGRAS:
       try {
         const date = new Date(args.data)
         if (isNaN(date.getTime())) return 'ERRO_CALENDARIO: data inválida'
+        const horas = (slots: { start: Date; available: boolean }[]) =>
+          slots
+            .filter((s) => s.available)
+            .map((s) => s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }))
+            .join(', ')
+        const rotuloDia = (diaIso: string) =>
+          new Date(`${diaIso}T12:00:00-03:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' })
+
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
         const available = slots.filter((s) => s.available)
+        const diaConsultado = date.toISOString().slice(0, 10)
+        const hoje = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10) // hoje em Brasília
+
+        // Consulta de HOJE: devolve hoje (só o que tem pelo menos 1 hora de folga) e o próximo dia útil com horário,
+        // numa chamada só. Decisão do Rodrigo em 2026-09-21: oferecer hoje se couber no expediente com 1h de folga
+        // (antes só o próximo dia útil, "só amanhã").
+        if (diaConsultado === hoje) {
+          const linhas: string[] = []
+          if (available.length > 0) linhas.push(`HOJE (${rotuloDia(diaConsultado)}): ${horas(slots)}`)
+          for (let i = 1; i <= 7; i++) {
+            const dia = new Date(new Date(`${diaConsultado}T12:00:00Z`).getTime() + i * 86_400_000).toISOString().slice(0, 10)
+            const proximo = await checkAvailableSlots({ calendarId: ctx.calendarId!, date: new Date(`${dia}T12:00:00Z`), companyId: ctx.companyId })
+            if (proximo.some((s) => s.available)) {
+              linhas.push(`${rotuloDia(dia)}: ${horas(proximo)}`)
+              break
+            }
+          }
+          if (linhas.length === 0) return 'Sem horários disponíveis (dia cheio, fora do expediente ou fim de semana).'
+          return `Horários livres no expediente (ofereça SOMENTE estes, nenhum outro; hoje só entram horários com pelo menos 1 hora de folga):\n${linhas.join('\n')}`
+        }
+
         if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio ou fim de semana).'
-        return `Horários livres no expediente (ofereça SOMENTE estes, nenhum outro): ${available.map((s) =>
-          s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
-        ).join(', ')}`
+        return `Horários livres no expediente (ofereça SOMENTE estes, nenhum outro): ${horas(slots)}`
       } catch (err: any) {
         console.error(`[SDR:${ctx.companyId}] Consultar_gcal erro (calendarId=${ctx.calendarId}):`, err.message, err.stack?.slice(0, 500))
         return `ERRO_CALENDARIO: ${err.message}`
@@ -1499,8 +1527,8 @@ REGRAS:
         // de "próxima quinta" : só validação em código depois do cálculo
         // pega isso de verdade.
         const minutosAteInicio = (start.getTime() - Date.now()) / 60_000
-        if (minutosAteInicio < 40) {
-          return `BLOQUEADO: A data/hora calculada (${formatDateTimeBR(start)}) já passou ou fica a menos de 40 minutos de agora. Chame "Hora_atual" de novo pra confirmar a data e hora certas antes de oferecer um horário com folga.`
+        if (minutosAteInicio < MIN_NOTICE_MINUTES) {
+          return `BLOQUEADO: A data/hora calculada (${formatDateTimeBR(start)}) já passou ou fica a menos de ${MIN_NOTICE_MINUTES} minutos de agora (a folga mínima é de 1 hora). Chame "Hora_atual" de novo pra confirmar a data e hora certas antes de oferecer um horário com folga.`
         }
         const DIAS_MAX_FUTURO = 60
         if (minutosAteInicio > DIAS_MAX_FUTURO * 24 * 60) {

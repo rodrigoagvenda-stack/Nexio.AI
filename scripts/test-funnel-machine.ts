@@ -17,6 +17,7 @@ import { BOX_REVIEW_KEYS, evaluateBoxReview, validateBoxAnswer } from '../lib/sd
 import { firedStepsByLead } from '../lib/sdr/follow-round'
 import { CONVERSE_REVIEW_KEYS, evaluateConverseReview, structuralConversationChecks } from '../lib/sdr/funnel/converse'
 import { isRepeatOf } from '../lib/sdr/output-guard'
+import { isTooSoon, MIN_NOTICE_MINUTES } from '../lib/slot-notice'
 import { needsUnderstanding } from '../lib/sdr/media-understanding'
 import { ConversationQueue, conversationKey } from '../lib/sdr/conversation-queue'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
@@ -607,6 +608,18 @@ function emQualificacao() {
   const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
   check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
   check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
+}
+
+// ─── Horário de hoje só com folga de 1 hora (decisão do Rodrigo, 2026-09-21) ─────
+{
+  const agora = new Date('2026-09-21T17:00:00Z').getTime() // 14:00 em Brasília
+  check('folga: horário que já passou não é oferecido', isTooSoon(new Date('2026-09-21T15:00:00Z'), agora) === true)
+  check('folga: começa em 30 minutos, não é oferecido', isTooSoon(new Date('2026-09-21T17:30:00Z'), agora) === true)
+  check('folga: começa em 59 minutos, não é oferecido', isTooSoon(new Date('2026-09-21T17:59:00Z'), agora) === true)
+  check('folga: começa em exatamente 1 hora, é oferecido', isTooSoon(new Date('2026-09-21T18:00:00Z'), agora) === false)
+  check('folga: mais de 1 hora, é oferecido', isTooSoon(new Date('2026-09-21T18:30:00Z'), agora) === false)
+  check('folga: amanhã sempre passa', isTooSoon(new Date('2026-09-22T12:00:00Z'), agora) === false)
+  check('folga mínima é de 60 minutos', MIN_NOTICE_MINUTES === 60)
 }
 
 // ─── Modo conversa: o SDR troca ideia quando o lead sai do roteiro (caso Isaías, "faz um vídeo da pesquisa") ─────

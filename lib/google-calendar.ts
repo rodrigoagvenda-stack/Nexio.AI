@@ -8,6 +8,7 @@
 import type { calendar_v3 } from 'googleapis'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlatformConfig } from '@/lib/platform-config'
+import { isTooSoon } from '@/lib/slot-notice'
 
 const TZ = 'America/Sao_Paulo'
 
@@ -292,7 +293,9 @@ export async function checkAvailableSlots(
     const overlaps = busyIntervals.some(
       (b) => cursor < b.end && slotEnd > b.start
     )
-    slots.push({ start: new Date(cursor), end: slotEnd, available: !overlaps })
+    // Horário que já passou, ou que começa em menos de 1 hora, não é oferecido (vale pro dia de hoje;
+    // nos outros dias o horário está sempre além da folga).
+    slots.push({ start: new Date(cursor), end: slotEnd, available: !overlaps && !isTooSoon(cursor, Date.now()) })
     cursor = new Date(cursor.getTime() + 30 * 60_000) // avança 30min
   }
 
