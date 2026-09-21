@@ -251,7 +251,7 @@ export async function runFunnelTurn(p: FunnelTurnParams): Promise<{ handled: boo
 
     result = stepFunnel(config, state, reading, { isFirstTurn, leadText: p.leadText })
     if (result.needBox) {
-      const boxAnswer = await answerFromKnowledge({ question: result.needBox, search: p.deps.search, openai, onUsage: p.deps.onUsage })
+      const boxAnswer = await answerFromKnowledge({ question: result.needBox, search: p.deps.search, openai, onUsage: p.deps.onUsage, log: p.deps.log })
       result = stepFunnel(config, state, reading, { isFirstTurn, leadText: p.leadText, boxAnswer })
     }
 

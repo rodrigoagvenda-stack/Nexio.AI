@@ -13,6 +13,7 @@ import { DEFAULT_AUDIO_FAIL_REPLY, isUnreadableAudio } from '../lib/sdr/funnel/a
 import { buildFicha, structuralHumanChecks } from '../lib/sdr/funnel/humanize'
 import { buildReaderPrompt, evidenceOk, validateReading } from '../lib/sdr/funnel/reader'
 import { countMessages, formatMemoria, formatTranscript, structuralMemoryChecks } from '../lib/sdr/funnel/memory'
+import { BOX_REVIEW_KEYS, evaluateBoxReview, validateBoxAnswer } from '../lib/sdr/funnel/box'
 import { ConversationQueue, conversationKey } from '../lib/sdr/conversation-queue'
 import { initialState, type Categoria, type FunnelAction, type FunnelState, type Reading, type StepInput } from '../lib/sdr/funnel/types'
 
@@ -599,6 +600,24 @@ function emQualificacao() {
   const aberturaAcoes = turn(initialState(), read('outro', { ramo: 'clínica' }), { isFirstTurn: true }).actions
   check('1a mensagem em que o lead contou algo: reconhecimento liberado', shouldReact({ state: initialState(), reading: read('outro'), actions: aberturaAcoes, isFirstTurn: true, enabled: true, volunteered: true }) === true)
   check('eco quando a frase do SDR é barrada: usa só os dados guardados', buildEcho(cfg, {}, { ramo: 'neuropsicologia' }, 'info') === 'Anotei: neuropsicologia.' && buildEcho(cfg, {}, {}, 'info') === 'Anotei, obrigada.')
+}
+
+// ─── Respostas da base: revisor barra vazamento de processo interno (caso Isaías, "Passo 2 do nosso fluxo") ─────
+{
+  const tudoFalse = Object.fromEntries(BOX_REVIEW_KEYS.map((k) => [k, false]))
+  check('base: revisor com tudo false aprova', evaluateBoxReview(tudoFalse).approved === true)
+  const vazou = evaluateBoxReview({ ...tudoFalse, menciona_passo_etapa_fluxo_roteiro_ou_regra_interna: true })
+  check('base: menção a passo/fluxo interno é barrada, com o motivo', vazou.approved === false && vazou.motivo === 'menciona_passo_etapa_fluxo_roteiro_ou_regra_interna', vazou)
+  check('base: resposta que não responde a pergunta é barrada', evaluateBoxReview({ ...tudoFalse, nao_responde_a_pergunta_do_lead: true }).approved === false)
+  check('base: "já verificamos seu perfil" é barrado', evaluateBoxReview({ ...tudoFalse, diz_que_viu_analisou_ou_verificou_algo_do_lead: true }).approved === false)
+  const faltando: Record<string, unknown> = { ...tudoFalse }
+  delete faltando.promete_ou_garante_resultado
+  check('base: revisor com chave faltando reprova (falha fechada)', evaluateBoxReview(faltando).motivo === 'revisor_invalido')
+  check('base: revisor com valor que não é booleano reprova', evaluateBoxReview({ ...tudoFalse, nao_responde_a_pergunta_do_lead: 'false' }).approved === false)
+  check('base: saída inválida reprova', evaluateBoxReview(null).approved === false && evaluateBoxReview('ok').approved === false)
+  // A resposta que vazou passava na conferência de forma: por isso o revisor é necessário
+  const ctx = 'Passo 2: pedir o link ou print do perfil Google para verificar. Depois seguimos para o próximo passo do diagnóstico.'
+  check('base: a resposta que vazou passava na conferência de forma (só o revisor pega)', validateBoxAnswer('Já pedimos o link ou print do seu perfil Google no Passo 2 do nosso fluxo para verificar.', ctx) !== null)
 }
 
 // ─── Memória da conversa inteira (caso Isaías, 2026-09-21) ─────
