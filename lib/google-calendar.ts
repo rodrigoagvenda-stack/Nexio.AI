@@ -176,10 +176,26 @@ export function isBrazilNationalHoliday(dateStr: string): boolean {
  * em engine.ts) já converte corretamente em "Sem horários disponíveis nesta
  * data", nunca em "dia livre".
  */
+/**
+ * Duração da reunião desta empresa, em minutos (sdr_configs.meeting_duration_min, padrão 60).
+ * O CÓDIGO é dono disso: o modelo não escolhe a duração (achado ao vivo 2026-09-21, Grupo Venda:
+ * a call do Bruno é de 30 minutos e o sistema assumia 60).
+ */
+export async function getMeetingDurationMinutes(companyId: number): Promise<number> {
+  try {
+    const { data } = await createServiceClient().from('sdr_configs').select('meeting_duration_min').eq('company_id', companyId).maybeSingle()
+    const n = Number(data?.meeting_duration_min)
+    return Number.isFinite(n) && n >= 15 && n <= 240 ? n : 60
+  } catch {
+    return 60
+  }
+}
+
 export async function checkAvailableSlots(
   params: CheckSlotsParams
 ): Promise<CalendarSlot[]> {
-  const { calendarId, companyId, date, durationMinutes = 60 } = params
+  const { calendarId, companyId, date } = params
+  const durationMinutes = params.durationMinutes ?? (await getMeetingDurationMinutes(companyId))
   const calendar = await getCalendarClientForCompany(companyId)
 
   const dateStr = date.toISOString().slice(0, 10)
@@ -194,9 +210,9 @@ export async function checkAvailableSlots(
   try {
     const service = createServiceClient()
 
-    // Botão "Atendimento 24h" (Configurações → SDR → Horários) : ligado,
-    // ignora business_hours e amplia o horário do dia inteiro -- mas NUNCA
-    // marca reunião em fim de semana ou feriado, mesmo com 24h ligado.
+    // Botão "Atendimento 24h" (Configurações → SDR → Horários) : NUNCA marca
+    // reunião em fim de semana ou feriado, mesmo com 24h ligado (e, desde
+    // 2026-09-21, também não amplia mais o horário da reunião, ver abaixo).
     // Achado ao vivo (Rodrigo, 2026-09-06) : "24h" é o SDR responder mensagem
     // todo dia sem exceção (isso mudou em lib/sdr/business-hours.ts), mas
     // marcar reunião de verdade continua respeitando dia útil sempre. Uma
@@ -208,11 +224,13 @@ export async function checkAvailableSlots(
       .select('horario_24h_ativo')
       .eq('company_id', companyId)
       .maybeSingle()
-    if (cfg24h?.horario_24h_ativo) {
-      openTime = '00:00'
-      closeTime = '23:59'
-      if (dayOfWeek === 0 || dayOfWeek === 6) diaFechado = true
-    } else {
+    // Achado ao vivo (Rodrigo, 2026-09-21, Grupo Venda) : o botão "24h" abria o dia inteiro
+    // (00:00 a 23:59) TAMBÉM pra oferta de reunião, e o SDR ofereceu 18:30, 19:00 e 19:30 a uma
+    // lead. "24h" vale pro SDR RESPONDER mensagem a qualquer hora; a reunião é com uma pessoa e
+    // sempre respeita o expediente cadastrado (business_hours), em dia útil. Com 24h ligado só
+    // mantém o bloqueio de fim de semana, e o horário segue a tabela.
+    if (cfg24h?.horario_24h_ativo && (dayOfWeek === 0 || dayOfWeek === 6)) diaFechado = true
+    {
       const { data: hoursRows } = await service
         .from('business_hours')
         .select('day_of_week, open_time, close_time, closed')

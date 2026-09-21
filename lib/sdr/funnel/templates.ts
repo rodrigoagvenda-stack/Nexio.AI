@@ -141,7 +141,7 @@ export const grupoVendaFunnel: FunnelConfig = {
     },
     retorno: {
       kind: 'objecao',
-      triggers: '"não sei se terei retorno imediato", "tô começando agora", "não sei se vale a pena nesse momento"',
+      triggers: '"não sei se terei retorno imediato", "tô começando agora", "não sei se vale a pena nesse momento" (receio de que o NOSSO resultado demore ou não compense; não vale para reclamação sobre outra empresa)',
       scripts: [
         'Retorno imediato é bem relativo. Nosso trabalho é construir algo consistente, pros resultados virem ao longo do tempo, não da noite pro dia.\nSe alguém prometer retorno imediato pra você, desconfia.',
       ],
@@ -158,7 +158,7 @@ export const grupoVendaFunnel: FunnelConfig = {
     },
     ja_uso: {
       kind: 'objecao',
-      triggers: '"já uso outro serviço", "já tenho alguém que faz isso", "já tenho agência"',
+      triggers: '"já uso outro serviço", "já tenho alguém que faz isso", "já tenho agência", "tem um rapaz que faz meu anúncio" (já tem alguém fazendo, mesmo que reclame dele, por exemplo dizendo que é devagar)',
       scripts: ['Legal, é ótimo já ter algo rodando. Se quiser comparar com o que fazemos, o diagnóstico é sem compromisso. Faz sentido pra você?'],
     },
     nao_sei_se_preciso: {

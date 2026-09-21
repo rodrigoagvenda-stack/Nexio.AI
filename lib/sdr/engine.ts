@@ -27,6 +27,7 @@ import { sendText } from './whatsapp-sender'
 import { distributeQueuedConversations } from './distribute'
 import {
   checkAvailableSlots,
+  getMeetingDurationMinutes,
   createEventWithMeet,
   cancelEvent,
   getEvent,
@@ -1248,7 +1249,7 @@ FLUXO DE AGENDAMENTO (só se passou pelo guarda-chuva acima):
      → Se ocupado → informe e peça outro horário
    - Se o lead NÃO informou horário:
      → Consulte os próximos 3 dias úteis
-     → Retorno vazio = dia livre, todos os horários entre 9h e 18h disponíveis
+     → A tool devolve só os horários livres DENTRO do expediente. Ofereça somente eles.
      → Retorno com eventos = considere apenas horários não conflitantes
      → Sugira 3 opções em UMA única mensagem animada e aguarde a escolha
 4.5. ⛔ COLETA OBRIGATÓRIA : NUNCA PULE ESTE PASSO:
@@ -1284,7 +1285,7 @@ REGRAS:
 - Chame "Consultar_gcal" apenas UMA vez por interação.
 - Retorno vazio do "Consultar_gcal" = calendário livre, não repita a consulta.
 - Nunca use "amanhã" sem verificar via "Hora_atual" se é dia útil. Sempre use dia da semana + data.
-- Seg a Sex, 9h às 18h, nunca no mesmo dia.
+- Seg a Sex, só nos horários que "Consultar_gcal" devolveu, nunca no mesmo dia. NUNCA invente horário, nunca ofereça noite, madrugada ou fim de semana, mesmo que o lead peça: diga que o atendimento é em horário comercial e ofereça os horários livres reais.
 - Fuso: America/Sao_Paulo (UTC-3).
 - Nunca repita informações já confirmadas pelo lead.
 - O link do Meet deve ser enviado automaticamente, sem o lead precisar pedir.
@@ -1416,7 +1417,7 @@ REGRAS:
         const slots = await checkAvailableSlots({ calendarId: ctx.calendarId!, date, companyId: ctx.companyId })
         const available = slots.filter((s) => s.available)
         if (available.length === 0) return 'Sem horários disponíveis nesta data (dia cheio ou fim de semana).'
-        return `Horários livres (9h–18h): ${available.map((s) =>
+        return `Horários livres no expediente (ofereça SOMENTE estes, nenhum outro): ${available.map((s) =>
           s.start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
         ).join(', ')}`
       } catch (err: any) {
@@ -1458,7 +1459,8 @@ REGRAS:
         // cria de verdade) — condição de corrida clássica, ninguém re-checou
         // bem antes de criar. Reconfere agora, no último instante possível,
         // e bloqueia se o horário deixou de estar livre nesse meio-tempo.
-        const duracaoMin = args.duracao_minutos ?? 60
+        // A duração é do CÓDIGO (config da empresa), nunca do modelo: ele assumia 60 minutos.
+        const duracaoMin = await getMeetingDurationMinutes(ctx.companyId)
         const reconferencia = await checkAvailableSlots({ calendarId: ctx.calendarId!, companyId: ctx.companyId, date: start, durationMinutes: duracaoMin })
         const slotPedido = reconferencia.find((s) => Math.abs(s.start.getTime() - start.getTime()) < 60_000)
         // Achado ao vivo (Rodrigo, 2026-09-06, lead Roseli) : reunião foi
@@ -1495,7 +1497,7 @@ REGRAS:
         const novoFim = start.getTime() + duracaoMin * 60_000
         const conflitoCrm = (possiveisConflitos ?? []).find((l) => {
           const outroInicio = new Date(l.call_agendada_para!).getTime()
-          const outroFim = outroInicio + 60 * 60_000
+          const outroFim = outroInicio + duracaoMin * 60_000
           return outroInicio < novoFim && outroFim > start.getTime()
         })
         if (conflitoCrm) {
@@ -1512,7 +1514,7 @@ REGRAS:
           title: resolvedTitle,
           description: `Lead: ${nomeCompleto}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start,
-          durationMinutes: args.duracao_minutos ?? 60,
+          durationMinutes: duracaoMin,
           attendeeEmail: args.email,
           attendeeName: nomeCompleto,
         })
@@ -2212,7 +2214,7 @@ O lead veio de um anúncio com este título/gancho: "${adHeadline}". Se ainda fi
           title,
           description: `Lead: ${leadName}\nWhatsApp: ${ctx.leadPhone}\nAgendado via Nexio.AI SDR`,
           start: confirmedDt,
-          durationMinutes: 60,
+          durationMinutes: await getMeetingDurationMinutes(ctx.companyId),
           attendeeEmail: leadEmail,
           attendeeName: leadName,
         })
