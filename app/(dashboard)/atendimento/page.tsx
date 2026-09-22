@@ -444,10 +444,15 @@ export default function AtendimentoPage() {
     };
   }, [selectedConversation?.id]);
 
-  // Polling fallback: garante que mensagens apareçam mesmo se realtime falhar
+  // Polling fallback: garante que mensagens apareçam mesmo se realtime falhar.
+  // Achado ao vivo (Rodrigo, 2026-09-22): a cada 8s isso refazia fetchMessages, que busca a
+  // conversa INTEIRA sem limite (select('*') com o histórico todo + metadados de áudio/imagem).
+  // Um atendente com uma conversa aberta a tarde toda gerava ~450 buscas completas por hora : é o
+  // maior suspeito do estouro de egress do Supabase (patamar alto e constante, 93,9% PostgREST).
+  // O realtime já cobre mensagem nova; isto é só rede de segurança, então intervalo bem mais raro.
   useEffect(() => {
     if (!selectedConversation) return;
-    const interval = setInterval(() => fetchMessages(selectedConversation.id), 8000);
+    const interval = setInterval(() => fetchMessages(selectedConversation.id), 60_000);
     return () => clearInterval(interval);
   }, [selectedConversation?.id]);
 
@@ -509,6 +514,10 @@ export default function AtendimentoPage() {
     }
   }
 
+  // Teto de segurança: nenhuma busca de conversa individual pega mais que isso de uma vez
+  // (conversa normal fica bem abaixo; corta o pior caso de uma conversa com milhares de mensagens).
+  const MENSAGENS_POR_BUSCA = 500;
+
   async function fetchMessages(conversationId: number) {
     try {
       const { data, error } = await supabase
@@ -519,7 +528,8 @@ export default function AtendimentoPage() {
         `)
         .eq('id_da_conversacao', conversationId)
         .eq('company_id', company!.id)
-        .order('carimbo_de_data_e_hora', { ascending: false });
+        .order('carimbo_de_data_e_hora', { ascending: false })
+        .limit(MENSAGENS_POR_BUSCA);
 
       if (error) throw error;
       const incoming = (data || []).reverse();
