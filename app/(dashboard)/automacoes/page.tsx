@@ -71,7 +71,7 @@ export default function AutomacoesPage() {
         </div>
       </div>
 
-      <AutomationsNav active="geral" />
+      <AutomationsNav active="geral" title={false} />
 
       {loading ? (
         <div className="flex h-56 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>

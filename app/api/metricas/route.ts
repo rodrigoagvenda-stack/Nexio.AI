@@ -332,6 +332,7 @@ export async function GET(request: NextRequest) {
         trials_ativos: trialsAtivos.length,
         leads_remarketing: remarketingLeads?.length ?? 0,
         leads_frios: coldLeads.length,
+        anterior_enviados: prevEnviados,
         delta_enviados: calcDelta(totalEnviados, prevEnviados),
         delta_responderam: calcDelta(totalResponderam, prevResponderam ?? 0),
         delta_taxa_resposta: taxaResposta - prevTaxa,
