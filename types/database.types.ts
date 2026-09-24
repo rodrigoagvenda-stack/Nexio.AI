@@ -119,6 +119,7 @@ export type Cargo =
 export interface Lead {
   id: number;
   lead_id: string;
+  closed_at?: string | null;
   company_id: number;
   user_id?: string;
   company_name: string;

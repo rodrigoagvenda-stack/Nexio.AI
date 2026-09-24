@@ -35,7 +35,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid, GitBranch, Clock, CheckCheck } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Pencil, Trash2, Search, Flame, Phone, DollarSign, Building2, Download, Filter, Megaphone, UserPlus, MessageCircle, Star, FileText, CheckCircle2, XCircle, Repeat2, LayoutList, LayoutGrid, GitBranch, Clock, CheckCheck, MoreHorizontal, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
 import { Lead } from '@/types/database.types';
@@ -72,6 +73,8 @@ interface ConversaState {
   contagem_nao_lida?: number | null;
   queue_entered_at?: string | null;
   lead_score?: number | null;
+  hora_da_ultima_mensagem?: string | null;
+  ultima_mensagem_inbound_at?: string | null;
   lead_source?: { headline?: string; utm_campaign?: string; utm_source?: string } | null;
 }
 type LeadWithConversa = Lead & { _conversa?: ConversaState; _sequenceStats?: { count: number; lastSent: string | null } };
@@ -102,260 +105,182 @@ function fmtCompact(v: number): string {
 
 const photoCache: Record<string, string | null> = {}
 
-// 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
-const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge, onOpenConversa }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void; onOpenConversa: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: lead.id,
-    data: {
-      type: 'lead',
-      lead,
-    },
-  });
+const DAY_MS = 86_400_000
+/** Depois de tantos dias sem falar com o lead, a etapa aberta vira alerta. */
+const STALE_DAYS = 3
+const STAGES = ['Triagem', 'Lead novo', 'Em contato', 'Interessado', 'Proposta enviada', 'Fechado', 'Perdido'] as const
+const STAGE_DOT: Record<string, string> = {
+  'Triagem': 'bg-orange-400', 'Lead novo': 'bg-blue-500', 'Em contato': 'bg-pink-500', 'Interessado': 'bg-green-500',
+  'Proposta enviada': 'bg-sky-400', 'Fechado': 'bg-[#96F63C]', 'Perdido': 'bg-red-500', 'Outbound': 'bg-violet-400', 'Remarketing': 'bg-amber-400',
+}
+const STAGE_CHIP: Record<string, string> = {
+  'Triagem': 'bg-orange-500/15 text-orange-700 dark:text-orange-300', 'Lead novo': 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  'Em contato': 'bg-pink-500/15 text-pink-700 dark:text-pink-300', 'Interessado': 'bg-green-500/15 text-green-700 dark:text-green-300',
+  'Proposta enviada': 'bg-sky-500/15 text-sky-700 dark:text-sky-300', 'Fechado': 'bg-[#96F63C]/25 text-[#3a6b0a] dark:text-[#96F63C]',
+  'Perdido': 'bg-red-500/15 text-red-700 dark:text-red-300', 'Outbound': 'bg-violet-500/15 text-violet-700 dark:text-violet-300', 'Remarketing': 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+}
+/** Faixa "Automações e etiquetas": Outbound e Remarketing são etapas, as outras três são etiquetas. */
+const AUTOMATIONS: { id: string; kind: 'status' | 'tag'; dot: string }[] = [
+  { id: 'Outbound', kind: 'status', dot: 'bg-violet-400' },
+  { id: 'Remarketing', kind: 'status', dot: 'bg-amber-400' },
+  { id: 'Follow up', kind: 'tag', dot: 'bg-blue-500' },
+  { id: 'No-show', kind: 'tag', dot: 'bg-red-500' },
+  { id: 'Promoção', kind: 'tag', dot: 'bg-amber-500' },
+]
+const OPEN_STAGE = (s: string) => s !== 'Fechado' && s !== 'Perdido'
 
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [longPressed, setLongPressed] = useState(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+function originLabel(src?: string | null): string {
+  if (!src) return 'Sem origem'
+  if (src === 'PEG') return 'Orbit'
+  if (src === 'Interno') return 'Cadastro manual'
+  return src
+}
+
+/** Quem falou por último e quando (a partir da conversa vinculada ao lead). */
+function lastContactOf(lead: LeadWithConversa): { at: string; by: 'lead' | 'us' } | null {
+  const c = lead._conversa
+  if (!c?.hora_da_ultima_mensagem) return null
+  const last = +new Date(c.hora_da_ultima_mensagem)
+  const inbound = c.ultima_mensagem_inbound_at ? +new Date(c.ultima_mensagem_inbound_at) : 0
+  return { at: c.hora_da_ultima_mensagem, by: inbound && inbound >= last - 5000 ? 'lead' : 'us' }
+}
+
+function ageShort(iso: string): string {
+  const diff = Date.now() - +new Date(iso)
+  if (diff < 60_000) return 'agora'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}min`
+  if (diff < DAY_MS) return `${Math.floor(diff / 3_600_000)}h`
+  return `${Math.floor(diff / DAY_MS)}d`
+}
+
+/** Dias parado: desde a última mensagem; sem conversa, desde a última mudança no lead. */
+function idleDays(lead: LeadWithConversa): number {
+  const ref = lastContactOf(lead)?.at ?? lead.updated_at ?? lead.created_at
+  return Math.floor((Date.now() - +new Date(ref)) / DAY_MS)
+}
+
+function ContactLine({ lead }: { lead: LeadWithConversa }) {
+  if (lead.status === 'Fechado' && lead.closed_at) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+        Fechou em {new Date(lead.closed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}
+      </span>
+    )
+  }
+  const lc = lastContactOf(lead)
+  if (!lc) return <span className="text-xs text-muted-foreground">Sem conversa</span>
+  const stale = OPEN_STAGE(lead.status) && idleDays(lead) >= STALE_DAYS
+  const who = lc.by === 'lead' ? 'Lead falou' : 'Nós falamos'
+  return (
+    <span className={cn('flex items-center gap-1.5 text-xs', stale ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', stale ? 'bg-red-500' : lc.by === 'lead' ? 'bg-green-500' : 'bg-muted-foreground/60')} />
+      {who} há {ageShort(lc.at)}
+    </span>
+  )
+}
+
+const TAG_STYLE = (color?: string | null) => (color ? { backgroundColor: `${color}22`, color } : undefined)
+
+// 🚀 PERFORMANCE: Componente memoizado para evitar re-renders desnecessários
+const SortableLeadCard = memo(function SortableLeadCard({ lead, onEdit, onDelete, onCharge, onOpenConversa, onRemoveTag }: {
+  lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void; onOpenConversa: () => void
+  onRemoveTag: (lead: LeadWithConversa, tagId: number, tagName: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: lead.id, data: { type: 'lead', lead } })
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [longPressed, setLongPressed] = useState(false)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleTouchStart = () => {
     longPressTimer.current = setTimeout(() => {
-      setLongPressed(true);
-      longPressTimeout.current = setTimeout(() => setLongPressed(false), 3000);
-    }, 500);
-  };
-  const handleTouchEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  };
+      setLongPressed(true)
+      longPressTimeout.current = setTimeout(() => setLongPressed(false), 3000)
+    }, 500)
+  }
+  const handleTouchEnd = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current) }
+
   useEffect(() => {
-    if (!lead.whatsapp) return;
-    if (lead.whatsapp in photoCache) { setPhotoUrl(photoCache[lead.whatsapp]); return; }
+    if (!lead.whatsapp) return
+    if (lead.whatsapp in photoCache) { setPhotoUrl(photoCache[lead.whatsapp]); return }
     fetch(`/api/chat/contact-photo?phone=${encodeURIComponent(lead.whatsapp)}&leadId=${lead.id}`)
-      .then(r => r.json())
-      .then(d => { photoCache[lead.whatsapp!] = d.photo ?? null; setPhotoUrl(d.photo ?? null); })
-      .catch(() => {});
-  }, [lead.whatsapp]);
+      .then((r) => r.json())
+      .then((d) => { photoCache[lead.whatsapp!] = d.photo ?? null; setPhotoUrl(d.photo ?? null) })
+      .catch(() => {})
+  }, [lead.whatsapp])
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition || 'transform 200ms ease',
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const getPriorityColor = (priority: string) => {
-    const colors = {
-      'Alta': 'bg-red-500/10 text-red-600 dark:text-red-400',
-      'Média': 'bg-primary/10 text-primary',
-      'Baixa': 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
-    };
-    return colors[priority as keyof typeof colors] || colors['Baixa'];
-  };
-
-  const getInterestColor = (interest: string) => {
-    if (interest?.includes('Quente')) return 'bg-primary/10 text-primary';
-    if (interest?.includes('Morno')) return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
-    return 'bg-gray-500/10 text-gray-600 dark:text-gray-400';
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      ?.split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2) || '??';
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition: transition || 'transform 200ms ease', opacity: isDragging ? 0.5 : 1 }
+  const initials = (lead.contact_name || lead.company_name || '??').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+  const badge = getConversaBadge(lead._conversa)
+  const hot = lead.nivel_interesse?.includes('Quente')
+  const chip = 'inline-flex h-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold'
+  const tags = ((lead.lead_tags as any[]) ?? []).filter((lt) => lt.tags)
+  const actionCls = 'h-7 w-7 rounded-md transition-opacity md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100'
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchMove={handleTouchEnd}
-    >
-      <OrbitCard
-        className="group hover:shadow-md transition-all duration-200 mb-3 bg-card cursor-pointer"
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchEnd}>
+      <div
+        className="group mb-2.5 flex cursor-pointer flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 transition-colors hover:border-foreground/25"
         title="Abrir conversa deste lead"
-        onClick={(e) => {
-          // Achado ao vivo (Bruno, 2026-09-08) : queria clicar no card e ir
-          // direto pra conversa do lead no Atendimento, em vez de precisar
-          // abrir o card e procurar manualmente. Ignora clique durante um
-          // drag de verdade (dnd-kit dispara onClick também no fim do drag,
-          // sem isso o card abriria a conversa toda vez que fosse arrastado).
-          if (isDragging) return;
-          onOpenConversa();
-        }}
+        onClick={() => { if (!isDragging) onOpenConversa() }}
       >
-        <OrbitCardContent className="p-4 space-y-3 flex flex-col min-h-[100px]">
-          {/* Header com ícone e ações */}
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: 'rgba(1,87,60,0.18)', flexShrink: 0 }}>
-              {photoUrl ? (
-                <img
-                  src={photoUrl}
-                  alt={lead.contact_name || lead.company_name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ) : (
-                <span className="text-xs font-bold" style={{ color: '#34B270' }}>{getInitials(lead.contact_name || lead.company_name)}</span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm text-foreground line-clamp-2 mb-1">
-                {lead.company_name}
-              </h4>
-              {lead.contact_name && (
-                <p className="text-xs text-muted-foreground truncate">{lead.contact_name}</p>
-              )}
-            </div>
-            <div className="flex gap-0.5 flex-shrink-0" style={{ pointerEvents: 'auto' }}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 md:opacity-0 md:group-hover:opacity-100 hover:bg-accent hover:text-primary rounded-md transition-opacity"
-                style={{ opacity: longPressed ? 1 : undefined }}
-                title="Gerar cobrança"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onCharge();
-                }}
-              >
-                <DollarSign className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 md:opacity-0 md:group-hover:opacity-100 hover:bg-accent rounded-md transition-opacity"
-                style={{ opacity: longPressed ? 1 : undefined }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onEdit();
-                }}
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-accent hover:text-destructive rounded-md transition-opacity"
-                style={{ opacity: longPressed ? 1 : undefined }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onDelete();
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+        <div className="flex items-start gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent text-[11px] font-bold text-[#01573C] dark:text-[#96F63C]">
+            {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} /> : initials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h4 className="truncate text-[15px] font-semibold leading-5 text-foreground">{lead.contact_name || lead.company_name}</h4>
+            {lead.contact_name && lead.company_name && lead.company_name !== lead.contact_name && <p className="truncate text-xs text-muted-foreground">{lead.company_name}</p>}
           </div>
+          <div className="flex shrink-0" style={{ pointerEvents: 'auto' }}>
+            <Button variant="ghost" size="icon" className={actionCls} style={{ opacity: longPressed ? 1 : undefined }} title="Gerar cobrança" aria-label="Gerar cobrança" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); e.preventDefault(); onCharge() }}><DollarSign className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className={actionCls} style={{ opacity: longPressed ? 1 : undefined }} title="Editar lead" aria-label="Editar lead" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEdit() }}><Pencil className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className={cn(actionCls, 'hover:text-destructive')} style={{ opacity: longPressed ? 1 : undefined }} title="Excluir lead" aria-label="Excluir lead" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete() }}><Trash2 className="h-3.5 w-3.5" /></Button>
+          </div>
+        </div>
 
-          {/* Tags */}
-          <div className="flex flex-wrap gap-1.5 flex-1">
-            {lead.priority && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium h-fit ${getPriorityColor(lead.priority)}`}>
-                {lead.priority}
-              </span>
-            )}
+        {(lead.nivel_interesse || lead.priority || badge || tags.length > 0) && (
+          <div className="flex flex-wrap gap-1.5">
             {lead.nivel_interesse && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 h-fit ${getInterestColor(lead.nivel_interesse)}`}>
-                {lead.nivel_interesse.includes('Quente') && <Flame className="h-2.5 w-2.5" />}
-                {lead.nivel_interesse}
+              <span className={cn(chip, hot ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300' : lead.nivel_interesse.includes('Morno') ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-muted text-muted-foreground')}>
+                {hot && <Flame className="h-3 w-3" />}{lead.nivel_interesse.replace(/[^\p{L}\s]/gu, '').trim()}
               </span>
             )}
-            {lead.segment && (
-              <span className="text-[10px] px-2 py-0.5 rounded-md font-medium bg-green-500/10 text-green-600 dark:text-green-400 h-fit">
-                {lead.segment}
-              </span>
+            {lead.priority && (
+              <span className={cn(chip, lead.priority === 'Alta' ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'bg-muted text-muted-foreground')}>{lead.priority}</span>
             )}
-            {(() => {
-              const badge = getConversaBadge(lead._conversa);
-              if (!badge) return null;
-              const { Icon } = badge;
-              return (
-                <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 h-fit ${badge.className}`}>
-                  <Icon className="h-2.5 w-2.5" />
-                  {badge.label}
-                </span>
-              );
-            })()}
-            {(lead.lead_tags as any[])?.map((lt: any) => {
-              const tag = lt.tags;
-              if (!tag) return null;
-              return (
-                <span
-                  key={lt.tag_id}
-                  className="text-[10px] px-2 py-0.5 rounded-md font-medium h-fit"
-                  style={{ backgroundColor: `${tag.tag_color}22`, color: tag.tag_color }}
-                >
-                  {tag.tag_name}
-                </span>
-              );
-            })}
-            {(() => {
-              const src = lead._conversa?.lead_source;
-              const label = src?.utm_campaign || src?.headline || src?.utm_source;
-              if (!label) return null;
-              return (
-                <span className="text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-0.5 h-fit bg-purple-500/10 text-purple-600 dark:text-purple-400 max-w-[140px]" title={label}>
-                  <Megaphone className="h-2.5 w-2.5 shrink-0" />
-                  <span className="truncate">{label}</span>
-                </span>
-              );
-            })()}
+            {badge && <span className={cn(chip, badge.className)}><badge.Icon className="h-3 w-3" />{badge.label}</span>}
+            {tags.map((lt: any) => (
+              <span key={lt.tag_id} className={cn(chip, 'group/tag')} style={TAG_STYLE(lt.tags.tag_color)}>
+                {lt.tags.tag_name}
+                <button
+                  type="button"
+                  aria-label={`Remover etiqueta ${lt.tags.tag_name}`}
+                  className="-mr-1 hidden rounded p-0.5 hover:bg-black/10 group-hover/tag:inline-flex"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemoveTag(lead, lt.tag_id, lt.tags.tag_name) }}
+                ><XCircle className="h-3 w-3" /></button>
+              </span>
+            ))}
           </div>
+        )}
 
-          {/* Footer com métricas */}
-          <div className="flex items-center justify-between text-muted-foreground pt-2 border-t border-border/50 mt-2">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 text-xs font-medium text-foreground/80">
-                <DollarSign className="h-3 w-3 text-primary/60" />
-                <span>{fmtCompact(lead.project_value || 0)}</span>
-              </div>
-              {typeof lead._conversa?.lead_score === 'number' && (
-                <div className="flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground" title="Lead score">
-                  <Flame className="h-2.5 w-2.5" />
-                  {lead._conversa.lead_score}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              {!!lead._conversa?.contagem_nao_lida && lead._conversa.contagem_nao_lida > 0 && (
-                <span className="flex items-center gap-0.5 text-[10px] font-semibold text-primary">
-                  <MessageCircle className="h-2.5 w-2.5" />
-                  {lead._conversa.contagem_nao_lida}
-                </span>
-              )}
-              <div className="text-[10px] text-muted-foreground">
-                {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-              </div>
-            </div>
-          </div>
-          {!!lead._sequenceStats?.count && (
-            <div
-              className="flex items-center gap-1 text-[10px] text-muted-foreground/70 pt-1"
-              title={lead._sequenceStats.lastSent ? `Último envio: ${new Date(lead._sequenceStats.lastSent).toLocaleString('pt-BR')}` : undefined}
-            >
-              <Repeat2 className="h-2.5 w-2.5" />
-              {lead._sequenceStats.count} {lead._sequenceStats.count === 1 ? 'mensagem de sequência' : 'mensagens de sequência'}
-              {lead._sequenceStats.lastSent && (
-                <span>· última {new Date(lead._sequenceStats.lastSent).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
-              )}
-            </div>
-          )}
-        </OrbitCardContent>
-      </OrbitCard>
+        <div className="flex items-center justify-between gap-2">
+          <span className={cn('text-[15px] font-semibold tabular-nums', lead.project_value ? 'text-foreground' : 'text-sm font-normal text-muted-foreground')}>
+            {lead.project_value ? `R$ ${Number(lead.project_value).toLocaleString('pt-BR')}` : 'Sem valor'}
+          </span>
+          <span className="flex min-w-0 items-center gap-2">
+            {!!lead._conversa?.contagem_nao_lida && lead._conversa.contagem_nao_lida > 0 && (
+              <span className="flex items-center gap-0.5 text-[11px] font-semibold text-[#01573C] dark:text-[#96F63C]"><MessageCircle className="h-3 w-3" />{lead._conversa.contagem_nao_lida}</span>
+            )}
+            <ContactLine lead={lead} />
+          </span>
+        </div>
+      </div>
     </div>
-  );
-});
+  )
+})
 
 const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, onCharge, onOpenConversa }: { lead: LeadWithConversa; onEdit: () => void; onDelete: () => void; onCharge: () => void; onOpenConversa: () => void }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -470,104 +395,53 @@ const MobileLeadCard = memo(function MobileLeadCard({ lead, onEdit, onDelete, on
   );
 });
 
-// 🚀 PERFORMANCE: Componente memoizado para evitar re-renders
-const DroppableColumn = memo(function DroppableColumn({
-  id,
-  title,
-  count,
-  totalValue,
-  children,
-  onPromoteAll,
-  onDemoteAll,
-}: {
-  id: string;
-  title: string;
-  count: number;
-  totalValue?: number;
-  children: React.ReactNode;
-  onPromoteAll?: () => void;
-  onDemoteAll?: () => void;
+// Coluna de etapa: recebe cards arrastados e mostra contagem e valor
+const DroppableColumn = memo(function DroppableColumn({ id, title, count, totalValue, children, extra }: {
+  id: string; title: string; count: number; totalValue?: number; children: React.ReactNode; extra?: React.ReactNode
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id,
-    data: {
-      type: 'column',
-      status: id.replace('column-', ''),
-    },
-  });
-
-  const getColumnIcon = () => {
-    const status = id.replace('column-', '');
-    switch (status) {
-      case 'Lead novo':       return <UserPlus      className="h-4 w-4 text-blue-500" />;
-      case 'Em contato':      return <MessageCircle className="h-4 w-4 text-pink-500" />;
-      case 'Interessado':     return <Star          className="h-4 w-4 text-green-500" />;
-      case 'Proposta enviada':return <FileText      className="h-4 w-4 text-cyan-500" />;
-      case 'Fechado':         return <CheckCircle2  className="h-4 w-4 text-green-500" />;
-      case 'Perdido':         return <XCircle       className="h-4 w-4 text-red-500" />;
-      case 'Remarketing':     return <Repeat2       className="h-4 w-4 text-yellow-500" />;
-      default:                return <Filter        className="h-4 w-4 text-muted-foreground" />;
-    }
-  };
-
+  const { setNodeRef, isOver } = useDroppable({ id, data: { type: 'column', status: id.replace('column-', '') } })
   return (
-    <div className="flex flex-col h-[calc(100dvh-300px)]">
-      <div className="mb-3 px-1 flex-shrink-0">
-        <div className="flex items-center gap-1.5">
-          {getColumnIcon()}
-          <span className="font-medium text-sm text-foreground">{title}</span>
-          <span className="text-xs font-medium text-muted-foreground bg-accent px-2 py-0.5 rounded-full tabular-nums">
-            {count}
-          </span>
-          {totalValue && totalValue > 0 ? (
-            <>
-              <span className="text-muted-foreground/30 text-xs select-none">·</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{fmtCompact(totalValue)}</span>
-            </>
-          ) : null}
-          {onPromoteAll && count > 0 && (
-            <button
-              onClick={onPromoteAll}
-              title="Mover todos para Outbound"
-              className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
-            >
-              <Megaphone className="h-3 w-3" />
-              Promover
-            </button>
-          )}
-          {onDemoteAll && count > 0 && (
-            <button
-              onClick={onDemoteAll}
-              title="Voltar todos para Triagem"
-              className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors"
-            >
-              <Filter className="h-3 w-3" />
-              Voltar
-            </button>
-          )}
+    <div
+      ref={setNodeRef}
+      className={cn('flex min-w-0 flex-col rounded-2xl border bg-muted/40 p-3 transition-colors', isOver ? 'border-[#1E6B47] bg-accent/60' : 'border-border')}
+    >
+      <div className="mb-3 flex flex-col gap-0.5 px-1.5">
+        <div className="flex items-center gap-2">
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', STAGE_DOT[title] ?? 'bg-muted-foreground')} />
+          <span className="min-w-0 truncate text-[15px] font-semibold text-foreground">{title}</span>
+          <span className="ml-auto rounded-full bg-card px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">{count}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2 pl-4">
+          <span className="text-[13px] tabular-nums text-muted-foreground">{totalValue ? fmtCompact(totalValue) : 'Sem valor'}</span>
+          {extra}
         </div>
       </div>
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'flex-1 rounded-xl px-1.5 overflow-y-auto transition-all duration-150',
-          isOver ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : 'bg-transparent'
-        )}
-      >
-        {count === 0 && !isOver ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 mx-0.5 mt-0.5 border border-dashed border-border/40 rounded-lg">
-            <p className="text-xs text-muted-foreground/50">Sem leads</p>
-          </div>
-        ) : (
-          <>
-            {children}
-            <div className="min-h-[60px]" />
-          </>
-        )}
-      </div>
+      {children}
     </div>
-  );
-});
+  )
+})
+
+// Cartão da faixa "Automações e etiquetas": filtra ao clicar e recebe cards arrastados
+const AutomationTile = memo(function AutomationTile({ id, dot, count, value, active, onClick }: {
+  id: string; dot: string; count: number; value: number; active: boolean; onClick: () => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `auto-${id}` })
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn('flex items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left transition-colors', active || isOver ? 'border-[#1E6B47] bg-accent' : 'border-border bg-card hover:border-foreground/25')}
+    >
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-center gap-2 text-[15px] font-semibold text-foreground"><span className={cn('h-2 w-2 shrink-0 rounded-full', dot)} />{id}</span>
+        <span className="pl-4 text-[13px] tabular-nums text-muted-foreground">{value ? fmtCompact(value) : 'R$ 0'}</span>
+      </span>
+      <span className={cn('text-[28px] font-semibold tabular-nums leading-8', count === 0 && 'font-normal text-muted-foreground')}>{count}</span>
+    </button>
+  )
+})
 
 export default function CRMPage() {
   const router = useRouter();
@@ -588,12 +462,17 @@ export default function CRMPage() {
   const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
   const [chargingLead, setChargingLead] = useState<Lead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [originFilter, setOriginFilter] = useState('Todas');
+  const [tagFilter, setTagFilter] = useState('Todas');
   const [priorityFilter, setPriorityFilter] = useState('Todas');
+  const [staleFilter, setStaleFilter] = useState(0);
+  const [autoFilter, setAutoFilter] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [sortDesc, setSortDesc] = useState(true);
   const [activeDragId, setActiveDragId] = useState<number | null>(null);
   const [overId, setOverId] = useState<string | number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 9;
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [deletingMultipleLeads, setDeletingMultipleLeads] = useState(false);
 
@@ -699,7 +578,7 @@ export default function CRMPage() {
       if (phones.length > 0) {
         const { data: convs } = await supabase
           .from('conversas_do_whatsapp')
-          .select('numero_de_telefone, kanban_stage, current_status, contagem_nao_lida, queue_entered_at, lead_score, lead_source')
+          .select('numero_de_telefone, kanban_stage, current_status, contagem_nao_lida, queue_entered_at, lead_score, lead_source, hora_da_ultima_mensagem, ultima_mensagem_inbound_at')
           .eq('company_id', user?.company_id)
           .in('numero_de_telefone', phones);
         for (const c of (convs ?? [])) {
@@ -764,18 +643,6 @@ export default function CRMPage() {
   //   setOverId(over?.id ?? null);
   // };
 
-  // Qual coluna um lead está ocupando agora nesta tela : etiqueta de
-  // sequência (Follow up/No-show) tem prioridade sobre status de venda,
-  // porque é ali que o card realmente está renderizado (ver leadsByStatus
-  // acima : lead com essas etiquetas não aparece na coluna de status).
-  const getColumnIdForLead = useCallback((lead: LeadWithConversa): string => {
-    const tagNames = new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name));
-    if (tagNames.has('Follow up')) return 'Follow up';
-    if (tagNames.has('No-show')) return 'No-show';
-    if (tagNames.has('Promoção')) return 'Promoção';
-    return lead.status;
-  }, []);
-
   const SEQ_TAG_COLORS: Record<SeqTagName, string> = { 'Follow up': '#3b82f6', 'No-show': '#ef4444', 'Promoção': '#f59e0b' };
 
   // Aplica de fato a etiqueta de sequência : chamado direto (sem aviso) ou
@@ -823,51 +690,40 @@ export default function CRMPage() {
     setOverId(null);
     const { active, over } = event;
     setActiveDragId(null);
+    if (!over) return;
 
-    if (!over) {
-      return;
+    const lead = leads.find(l => l.id === active.id || String(l.id) === String(active.id));
+    if (!lead) return;
+
+    // Onde o card caiu: coluna de etapa, cartão da faixa (etapa Outbound/Remarketing ou etiqueta) ou outro card
+    const overKey = String(over.id);
+    let targetStatus: string | null = null;
+    let targetTag: SeqTagName | null = null;
+    if (overKey.startsWith('column-')) {
+      targetStatus = overKey.replace('column-', '');
+    } else if (overKey.startsWith('auto-')) {
+      const name = overKey.replace('auto-', '');
+      if ((SEQ_TAG_NAMES as readonly string[]).includes(name)) targetTag = name as SeqTagName;
+      else targetStatus = name;
+    } else {
+      const targetLead = leads.find(l => String(l.id) === overKey);
+      if (targetLead) targetStatus = targetLead.status;
     }
 
-    const activeId = active.id;
-    const overId = over.id;
-
-    // Determinar coluna de destino (pode ser status de venda OU etiqueta
-    // de sequência -- as duas convivem nas mesmas colunas visuais agora).
-    let targetColumnId: string | null = null;
-
-    // CASO 1: Drop direto na coluna (id = "column-{id}")
-    if (String(overId).startsWith('column-')) {
-      targetColumnId = String(overId).replace('column-', '');
-    }
-    // CASO 2: Drop em outro card (pegar a coluna de destino pelo card, não
-    // só pelo status dele -- ele pode estar na coluna de etiqueta)
-    else {
-      const targetLead = leads.find(l => l.id === overId || String(l.id) === String(overId));
-      if (targetLead) targetColumnId = getColumnIdForLead(targetLead);
-    }
-
-    if (!targetColumnId) return;
-
-    const lead = leads.find(l => l.id === activeId || String(l.id) === String(activeId));
-    if (!lead || getColumnIdForLead(lead) === targetColumnId) return;
-
-    const targetColumn = columns.find(c => c.id === targetColumnId);
-
-    // Coluna de etiqueta (Follow up / No-show / Promoção) : não mexe em
-    // status, atribui a tag via /api/tags/assign (exclusão mútua já é
-    // garantida no servidor, ver app/api/tags/assign/route.ts).
-    if (targetColumn?.isTag) {
+    // Etiqueta (Follow up / No-show / Promoção): o lead continua na etapa dele, só ganha a etiqueta,
+    // que é o que dispara a sequência. A exclusão mútua entre elas é garantida no servidor.
+    if (targetTag) {
       const SEQ_TAG_IDS: Record<SeqTagName, number | null> = { 'Follow up': systemTags.followUpId, 'No-show': systemTags.noShowId, 'Promoção': systemTags.promocaoId };
       const SEQ_TAG_EVENTO: Record<SeqTagName, string> = { 'Follow up': 'tag_follow_up', 'No-show': 'tag_no_show', 'Promoção': 'tag_promocao' };
-      const tagId = SEQ_TAG_IDS[targetColumnId as SeqTagName];
+      const tagId = SEQ_TAG_IDS[targetTag];
       if (!tagId) {
         toast({ title: 'Etiqueta de sistema não encontrada', description: 'Recarregue a página e tente de novo.', variant: 'destructive' });
         return;
       }
+      const alreadyTagged = ((lead.lead_tags as any[]) ?? []).some((lt) => lt.tags?.tag_name === targetTag);
+      if (alreadyTagged) return;
 
-      // Aviso de "já recebeu essa sequência antes" : checa se já existe
-      // envio 'sent' pra esse lead numa sequência ancorada nessa etiqueta,
-      // antes de disparar tudo de novo do zero sem avisar.
+      // Aviso de "já recebeu essa sequência antes" antes de disparar tudo de novo do zero
       try {
         const supabase = createClient();
         const { data: seqRows } = await supabase
@@ -875,7 +731,7 @@ export default function CRMPage() {
           .select('id')
           .eq('company_id', user?.company_id)
           .eq('tipo', 'follow_geral')
-          .contains('canvas_config', { eventoEntrada: SEQ_TAG_EVENTO[targetColumnId as SeqTagName] });
+          .contains('canvas_config', { eventoEntrada: SEQ_TAG_EVENTO[targetTag] });
         const seqIds = (seqRows ?? []).map((s: any) => s.id);
         if (seqIds.length) {
           const { count } = await supabase
@@ -885,94 +741,71 @@ export default function CRMPage() {
             .eq('status', 'sent')
             .in('sequence_id', seqIds);
           if (count && count > 0) {
-            setPendingTagDrop({ leadId: lead.id, tagName: targetColumnId as SeqTagName, tagId });
+            setPendingTagDrop({ leadId: lead.id, tagName: targetTag, tagId });
             return;
           }
         }
       } catch {
-        // Falha na checagem não deve bloquear o drag : segue sem aviso.
+        // Falha na checagem não deve bloquear o arrastar: segue sem aviso.
       }
-
-      await performTagDrop(lead, targetColumnId as SeqTagName, tagId);
+      await performTagDrop(lead, targetTag, tagId);
       return;
     }
 
-    // Coluna de status normal : comportamento original.
-    const newStatus = targetColumnId as Lead['status'];
-
+    if (!targetStatus || targetStatus === lead.status) return;
+    const newStatus = targetStatus as Lead['status'];
     const oldStatus = lead.status;
 
-    // Achado ao vivo (Rodrigo, 2026-09-18) : arrastar um card de uma coluna
-    // de etiqueta (Follow up/No-show/Promoção) pra uma coluna de status
-    // normal só atualizava o status, nunca removia a etiqueta -- como
-    // getColumnIdForLead dá prioridade pra etiqueta sobre status, o card
-    // continuava aparecendo na coluna antiga na próxima renderização,
-    // parecendo que o drag não fez nada.
-    const leadTagsAtuais = ((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name as string);
-    const tagAtivaParaRemover = SEQ_TAG_NAMES.find((t) => leadTagsAtuais.includes(t));
-    const SEQ_TAG_IDS_REMOVE: Record<SeqTagName, number | null> = { 'Follow up': systemTags.followUpId, 'No-show': systemTags.noShowId, 'Promoção': systemTags.promocaoId };
-    const tagIdParaRemover = tagAtivaParaRemover ? SEQ_TAG_IDS_REMOVE[tagAtivaParaRemover] : null;
-
-    // Update otimista (atualiza UI imediatamente)
+    // Update otimista (atualiza a tela na hora)
     setLeads(prevLeads => prevLeads.map(l =>
-      (l.id === activeId || String(l.id) === String(activeId))
-        ? { ...l, status: newStatus!, lead_tags: tagAtivaParaRemover ? ((l.lead_tags as any[]) ?? []).filter((lt) => lt.tags?.tag_name !== tagAtivaParaRemover) : l.lead_tags }
-        : l
+      (l.id === active.id || String(l.id) === String(active.id)) ? { ...l, status: newStatus! } : l
     ));
 
-    if (tagAtivaParaRemover && tagIdParaRemover) {
-      try {
-        await fetch('/api/tags/unassign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadId: lead.id, tagId: tagIdParaRemover, companyId: user?.company_id }),
-        });
-      } catch {
-        // Falha ao remover etiqueta não deve bloquear a troca de status.
-      }
-    }
-
-    // Persistir no banco via API (handle outbound_campaigns unique constraint)
+    // Persistir via API (trata a restrição única de outbound_campaigns)
     try {
       const res = await fetch(`/api/leads/${lead.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyId: user?.company_id,
-          field: 'status',
-          value: newStatus,
-        }),
+        body: JSON.stringify({ companyId: user?.company_id, field: 'status', value: newStatus }),
       });
-
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.message || `HTTP ${res.status}`);
       }
 
-      // Criar log de atividade (fire-and-forget via API: bypassa RLS)
       if (user && company) {
         logActivity({
           user_id: user.auth_user_id,
           company_id: company.id,
           action: 'lead_status_change',
           description: `Moveu lead "${lead.company_name}" para "${newStatus}"`,
-          metadata: {
-            lead_id: lead.id,
-            old_status: oldStatus,
-            new_status: newStatus,
-            lead_name: lead.company_name,
-            contact_name: lead.contact_name,
-          },
+          metadata: { lead_id: lead.id, old_status: oldStatus, new_status: newStatus, lead_name: lead.company_name, contact_name: lead.contact_name },
         });
       }
-
       toast({ title: 'Lead movido!', description: `Movido para "${newStatus}"` });
       router.refresh(); // invalida cache do Next.js → dashboard refetch ao voltar
     } catch {
       toast({ title: 'Erro ao atualizar lead', variant: 'destructive' });
       fetchLeads();
     }
-  }, [leads, user, company, router, getColumnIdForLead, performTagDrop, systemTags]);
+  }, [leads, user, company, router, performTagDrop, systemTags]);
+
+  // Tirar uma etiqueta (o ×  no chip do card): o lead não sai da etapa
+  const handleRemoveTag = useCallback(async (lead: LeadWithConversa, tagId: number, tagName: string) => {
+    setLeads(prev => prev.map(l => l.id === lead.id ? ({ ...l, lead_tags: ((l.lead_tags as any[]) ?? []).filter((lt) => lt.tag_id !== tagId) } as LeadWithConversa) : l));
+    try {
+      const res = await fetch('/api/tags/unassign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, tagId, companyId: user?.company_id }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast({ title: 'Etiqueta removida', description: `"${tagName}" saiu de ${lead.contact_name || lead.company_name}` });
+    } catch {
+      toast({ title: 'Não foi possível remover a etiqueta', variant: 'destructive' });
+      fetchLeads();
+    }
+  }, [user]);
 
   // Botão "Promover"/"Voltar todos" no header da coluna : move em lote todo
   // mundo de um status pra outro, mesmo endpoint por lead que o drag-and-drop
@@ -1313,136 +1146,90 @@ export default function CRMPage() {
     }
   };
 
-  // Achado ao vivo (Rodrigo, 2026-09-16) : Follow up e No-show são colunas
-  // por ETIQUETA (lead_tags), não por status de venda -- um lead continua
-  // "Interessado" de verdade e, ao mesmo tempo, pode estar em uma dessas
-  // duas filas de reengajamento. isTag marca essa diferença pro resto do
-  // código (agrupamento e drag-and-drop tratam diferente de coluna de status).
-  const columns: { id: string; title: string; isTag?: boolean }[] = [
-    { id: 'Triagem', title: 'Triagem' },
-    { id: 'Outbound', title: 'Outbound' },
-    { id: 'Lead novo', title: 'Lead novo' },
-    { id: 'Em contato', title: 'Em contato' },
-    { id: 'Interessado', title: 'Interessado' },
-    { id: 'Proposta enviada', title: 'Proposta enviada' },
-    { id: 'Fechado', title: 'Fechado' },
-    { id: 'Perdido', title: 'Perdido' },
-    { id: 'Remarketing', title: 'Remarketing' },
-    { id: 'Follow up', title: 'Follow up', isTag: true },
-    { id: 'No-show', title: 'No-show', isTag: true },
-    { id: 'Promoção', title: 'Promoção', isTag: true },
-  ];
+  const tagNamesOf = (lead: LeadWithConversa) => new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name as string));
 
-  // Filtros
-  // 🚀 Performance: Memoizar filtragem para evitar re-computação desnecessária
-  const filteredLeads = useMemo(() => {
-    return leads.filter(lead => {
-      const matchesSearch =
-        lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.email?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Opções dos filtros, tiradas dos próprios leads
+  const originOptions = useMemo(() => Array.from(new Set(leads.map((l) => l.import_source || 'Sem origem'))).sort(), [leads]);
+  const tagOptions = useMemo(() => {
+    const names = new Set<string>();
+    leads.forEach((l) => ((l.lead_tags as any[]) ?? []).forEach((lt) => lt.tags?.tag_name && names.add(lt.tags.tag_name)));
+    return Array.from(names).sort();
+  }, [leads]);
 
-      const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter;
+  // Tudo que filtra, menos o clique na faixa de automações (a faixa conta em cima disto)
+  const baseFiltered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return leads.filter((lead) => {
+      const matchesSearch = !q
+        || lead.company_name?.toLowerCase().includes(q)
+        || lead.contact_name?.toLowerCase().includes(q)
+        || lead.email?.toLowerCase().includes(q)
+        || (lead.whatsapp ?? '').includes(q.replace(/\D/g, '') || '\u0000');
+      const matchesOrigin = originFilter === 'Todas' || (lead.import_source || 'Sem origem') === originFilter;
+      const matchesTag = tagFilter === 'Todas' || tagNamesOf(lead).has(tagFilter);
       const matchesPriority = priorityFilter === 'Todas' || lead.priority === priorityFilter;
-
-      return matchesSearch && matchesStatus && matchesPriority;
+      const matchesStale = staleFilter === 0 || (OPEN_STAGE(lead.status) && idleDays(lead) >= staleFilter);
+      return matchesSearch && matchesOrigin && matchesTag && matchesPriority && matchesStale;
     });
-  }, [leads, searchTerm, statusFilter, priorityFilter]);
+  }, [leads, searchTerm, originFilter, tagFilter, priorityFilter, staleFilter]);
 
-  // 🚀 Performance: Pré-computar leads por status para evitar filtrar múltiplas vezes
-  const leadsByStatus = useMemo(() => {
-    const statusMap = new Map<string, typeof filteredLeads>();
-    const valueMap = new Map<string, number>();
-    // Colunas por etiqueta (Follow up / No-show) : um lead entra aqui pela
-    // presença da tag em lead_tags, independente do status de venda dele.
-    const tagMap = new Map<string, typeof filteredLeads>();
+  const autoDef = AUTOMATIONS.find((a) => a.id === autoFilter) ?? null;
+  const filteredLeads = useMemo(() => {
+    if (!autoDef) return baseFiltered;
+    return baseFiltered.filter((l) => (autoDef.kind === 'status' ? l.status === autoDef.id : tagNamesOf(l).has(autoDef.id)));
+  }, [baseFiltered, autoDef]);
 
+  // Contagem e valor de cada cartão da faixa
+  const automationStats = useMemo(() => AUTOMATIONS.map((a) => {
+    const list = baseFiltered.filter((l) => (a.kind === 'status' ? l.status === a.id : tagNamesOf(l).has(a.id)));
+    return { ...a, count: list.length, value: list.reduce((s, l) => s + (l.project_value || 0), 0) };
+  }), [baseFiltered]);
+
+  // Colunas do funil. Filtrando por Outbound ou Remarketing (que são etapas fora das 7), a coluna aparece primeiro
+  const boardStages: string[] = autoDef?.kind === 'status' ? [autoDef.id, ...STAGES] : [...STAGES];
+  const leadsByStage = useMemo(() => {
+    const map = new Map<string, LeadWithConversa[]>();
+    const value = new Map<string, number>();
     filteredLeads.forEach((lead) => {
-      const leadTagNames = new Set(((lead.lead_tags as any[]) ?? []).map((lt) => lt.tags?.tag_name));
-      const isEmSequenciaTag = leadTagNames.has('Follow up') || leadTagNames.has('No-show') || leadTagNames.has('Promoção');
-
-      // Achado técnico (2026-09-16) : dnd-kit exige id único por card em
-      // toda a tela. Um lead com etiqueta Follow up/No-show continua
-      // "Interessado" de verdade no banco (nada muda aí), mas nesta tela
-      // específica do Kanban ele aparece só na coluna da etiqueta, não
-      // duplicado na coluna de status também -- evita o card colidir com
-      // ele mesmo no drag-and-drop, e deixa claro visualmente onde ele tá.
-      if (!isEmSequenciaTag) {
-        const status = lead.status;
-        if (!statusMap.has(status)) {
-          statusMap.set(status, []);
-          valueMap.set(status, 0);
-        }
-        statusMap.get(status)!.push(lead);
-        valueMap.set(status, (valueMap.get(status) || 0) + (lead.project_value || 0));
-      }
-
-      for (const lt of (lead.lead_tags as any[]) ?? []) {
-        const tagName = lt.tags?.tag_name
-        if (tagName !== 'Follow up' && tagName !== 'No-show' && tagName !== 'Promoção') continue
-        if (!tagMap.has(tagName)) tagMap.set(tagName, [])
-        tagMap.get(tagName)!.push(lead)
-        // Achado ao vivo (Rodrigo, 2026-09-18) : valueMap só era somado pras
-        // colunas de status, nunca pras de etiqueta -- Follow up/No-show
-        // mostravam contagem mas nunca o total em R$, diferente das demais.
-        valueMap.set(tagName, (valueMap.get(tagName) || 0) + (lead.project_value || 0))
-      }
+      map.set(lead.status, [...(map.get(lead.status) ?? []), lead]);
+      value.set(lead.status, (value.get(lead.status) ?? 0) + (lead.project_value || 0));
     });
-
-    return { statusMap, valueMap, tagMap };
+    return { map, value };
   }, [filteredLeads]);
-
-  const getLeadsByStatus = (column: { id: string; isTag?: boolean }) => {
-    if (column.isTag) return leadsByStatus.tagMap.get(column.id) || [];
-    return leadsByStatus.statusMap.get(column.id) || [];
-  };
+  const stageLeadCount = filteredLeads.filter((l) => (STAGES as readonly string[]).includes(l.status)).length;
 
   const totalPipelineValue = useMemo(() =>
-    leads
-      .filter(l => l.status !== 'Fechado' && l.status !== 'Perdido')
-      .reduce((sum, l) => sum + (l.project_value || 0), 0),
+    leads.filter(l => l.status !== 'Fechado' && l.status !== 'Perdido').reduce((sum, l) => sum + (l.project_value || 0), 0),
     [leads]
   );
+  const closedCount = useMemo(() => leads.filter(l => l.status === 'Fechado').length, [leads]);
 
-  const closedCount = useMemo(() =>
-    leads.filter(l => l.status === 'Fechado').length,
-    [leads]
-  );
+  // Planilha: ordenada pelo último contato
+  const sortedLeads = useMemo(() => {
+    const t = (l: LeadWithConversa) => { const at = lastContactOf(l)?.at; return at ? +new Date(at) : -1; };
+    return [...filteredLeads].sort((a, b) => (sortDesc ? t(b) - t(a) : t(a) - t(b)));
+  }, [filteredLeads, sortDesc]);
 
-  const getTotalValueByStatus = (status: string) => {
-    return leadsByStatus.valueMap.get(status) || 0;
-  };
-
-  // Pagination
-  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  // Paginação
+  const totalPages = Math.max(1, Math.ceil(sortedLeads.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+  const paginatedLeads = sortedLeads.slice(startIndex, startIndex + itemsPerPage);
 
-  // Reset page when filters change
+  // Volta para a primeira página quando os filtros mudam
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, priorityFilter]);
+  }, [searchTerm, originFilter, tagFilter, priorityFilter, staleFilter, autoFilter, itemsPerPage]);
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'Triagem': return 'bg-orange-500/20 text-orange-700';
-      case 'Lead novo': return 'bg-blue-500/20 text-blue-700';
-      case 'Em contato': return 'bg-pink-500/20 text-pink-700';
-      case 'Interessado': return 'bg-green-500/20 text-green-700';
-      case 'Proposta enviada': return 'bg-cyan-500/20 text-cyan-700';
-      case 'Fechado': return 'bg-green-500/20 text-green-700';
-      case 'Perdido': return 'bg-red-500/20 text-red-700';
-      default: return 'bg-gray-500/20 text-gray-700';
-    }
-  };
+  const anyFilter = !!searchTerm || originFilter !== 'Todas' || tagFilter !== 'Todas' || priorityFilter !== 'Todas' || staleFilter !== 0 || !!autoFilter;
+  const clearFilters = () => { setSearchTerm(''); setOriginFilter('Todas'); setTagFilter('Todas'); setPriorityFilter('Todas'); setStaleFilter(0); setAutoFilter(null); };
+
+  const getStatusBadgeColor = (status: string) => STAGE_CHIP[status] ?? 'bg-muted text-muted-foreground';
 
   const getPriorityBadgeColor = (priority: string) => {
     switch (priority) {
-      case 'Alta': return 'bg-red-500/20 text-red-700';
-      case 'Média': return 'bg-primary/20 text-primary';
-      case 'Baixa': return 'bg-gray-500/20 text-gray-700';
-      default: return 'bg-gray-500/20 text-gray-700';
+      case 'Alta': return 'bg-red-500/15 text-red-700 dark:text-red-300';
+      case 'Média': return 'bg-primary/15 text-primary';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -1485,448 +1272,356 @@ export default function CRMPage() {
   }
 
   const activeLead = activeDragId ? leads.find(l => l.id === activeDragId) : null;
+  const VISIBLE_PER_COLUMN = 4;
+  const pillTrigger = 'h-11 w-auto gap-2 rounded-full border-border bg-card px-4 text-sm shadow-none';
+  const openConversa = (lead: LeadWithConversa) => router.push(`/atendimento?phone=${encodeURIComponent(lead.whatsapp || '')}`);
+  const fmtPhone = (p?: string | null) => {
+    const d = (p ?? '').replace(/\D/g, '');
+    if (d.length === 13) return `+${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4, 9)}-${d.slice(9)}`;
+    if (d.length === 12) return `+${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4, 8)}-${d.slice(8)}`;
+    return p || '-';
+  };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {/* Page Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">CRM</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-[26px] font-semibold leading-8 tracking-tight text-foreground">CRM</h1>
+          <p className="text-[15px] text-muted-foreground">
             {leads.length > 0
               ? `${leads.length} leads · ${fmtCompact(totalPipelineValue)} em pipeline · ${closedCount} fechado${closedCount !== 1 ? 's' : ''}`
               : 'Gerencie seus leads e oportunidades'}
           </p>
         </div>
-        {/* View switcher: segmented control */}
-        <div className="flex items-center gap-1 bg-muted p-1 rounded-xl flex-shrink-0">
-          <button
-            onClick={() => router.push('?view=table')}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150',
-              viewMode === 'table'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Planilha</span>
-          </button>
-          <button
-            onClick={() => router.push('?view=kanban')}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150',
-              viewMode === 'kanban'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Kanban</span>
-          </button>
+        <div role="tablist" aria-label="Visualização" className="flex shrink-0 items-center rounded-full bg-muted p-1">
+          {([['table', 'Planilha', LayoutList], ['kanban', 'Kanban', LayoutGrid]] as const).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={viewMode === id}
+              onClick={() => router.push(`?view=${id}`)}
+              className={cn('flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors', viewMode === id ? 'bg-[#0F3D2B] font-semibold text-white' : 'font-medium text-muted-foreground hover:text-foreground')}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Filter bar: zona de descoberta (esquerda) + ações (direita) */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Zona 1: Descoberta */}
-        <div className="relative flex-1 min-w-[160px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar..."
+      {/* Filtros à esquerda, ações à direita */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <label className="flex h-11 min-w-[200px] max-w-xs flex-1 items-center gap-2.5 rounded-full border border-border bg-card px-4">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9 text-sm bg-muted border-border"
+            placeholder="Buscar nome, telefone ou empresa"
+            aria-label="Buscar lead"
+            className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36 h-9 text-sm bg-muted border-border">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Todos">Todos</SelectItem>
-            {columns.map(col => (
-              <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
-            ))}
-          </SelectContent>
+        </label>
+        <Select value={originFilter} onValueChange={setOriginFilter}>
+          <SelectTrigger className={pillTrigger} aria-label="Origem"><span className="text-muted-foreground">Origem:</span><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="Todas">todas</SelectItem>{originOptions.map((o) => <SelectItem key={o} value={o}>{originLabel(o === 'Sem origem' ? null : o)}</SelectItem>)}</SelectContent>
+        </Select>
+        <Select value={tagFilter} onValueChange={setTagFilter}>
+          <SelectTrigger className={pillTrigger} aria-label="Etiqueta"><span className="text-muted-foreground">Etiqueta:</span><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="Todas">todas</SelectItem>{tagOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-32 h-9 text-sm bg-muted border-border">
-            <SelectValue placeholder="Prioridade" />
-          </SelectTrigger>
+          <SelectTrigger className={pillTrigger} aria-label="Prioridade"><span className="text-muted-foreground">Prioridade:</span><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="Todas">todas</SelectItem><SelectItem value="Alta">Alta</SelectItem><SelectItem value="Média">Média</SelectItem><SelectItem value="Baixa">Baixa</SelectItem></SelectContent>
+        </Select>
+        <Select value={String(staleFilter)} onValueChange={(v) => setStaleFilter(Number(v))}>
+          <SelectTrigger className={pillTrigger} aria-label="Parado há"><span className="text-muted-foreground">Parado há:</span><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="Todas">Todas</SelectItem>
-            <SelectItem value="Alta">Alta</SelectItem>
-            <SelectItem value="Média">Média</SelectItem>
-            <SelectItem value="Baixa">Baixa</SelectItem>
+            <SelectItem value="0">qualquer</SelectItem>
+            {[3, 7, 14, 30].map((d) => <SelectItem key={d} value={String(d)}>{d}+ dias</SelectItem>)}
           </SelectContent>
         </Select>
-        {(searchTerm || statusFilter !== 'Todos' || priorityFilter !== 'Todas') && (
-          <button
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
-            onClick={() => { setSearchTerm(''); setStatusFilter('Todos'); setPriorityFilter('Todas'); }}
-          >
-            Limpar
-          </button>
+        {anyFilter && (
+          <button type="button" className="px-1 text-sm text-muted-foreground transition-colors hover:text-foreground" onClick={clearFilters}>Limpar</button>
         )}
 
-        {/* Separador */}
         <div className="flex-1" />
 
-        {/* Zona 2: Ações */}
         {selectedLeads.size > 0 && viewMode === 'table' && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeletingMultipleLeads(true)}
-            className="gap-1.5 h-9"
-          >
+          <Button variant="destructive" onClick={() => setDeletingMultipleLeads(true)} className="h-11 gap-1.5 px-5">
             <Trash2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Deletar {selectedLeads.size}</span>
+            <span className="hidden sm:inline">Excluir {selectedLeads.size}</span>
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={exportToCSV}
-          disabled={filteredLeads.length === 0}
-          className="gap-1.5 h-9"
-        >
-          <Download className="h-3.5 w-3.5" />
+        <Button variant="secondary" onClick={exportToCSV} disabled={filteredLeads.length === 0} className="h-11 gap-2 px-5">
+          <Download className="h-4 w-4" />
           <span className="hidden sm:inline">Exportar</span>
         </Button>
-        <Button size="sm" onClick={() => handleOpenModal()} className="gap-1.5 h-9">
-          <Plus className="h-3.5 w-3.5" />
+        <Button onClick={() => handleOpenModal()} className="h-11 gap-2 px-5">
+          <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Novo Lead</span>
         </Button>
       </div>
 
       {/* Content */}
       {leads.length === 0 ? (
-        <OrbitCard>
-          <OrbitCardContent className="p-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              Nenhum lead encontrado. Clique em "Adicionar Lead" para começar!
-            </p>
-          </OrbitCardContent>
-        </OrbitCard>
+        <div className="flex flex-col items-center gap-3 rounded-[14px] border border-dashed border-border px-8 py-20 text-center">
+          <h2 className="text-lg font-semibold text-foreground">Nenhum lead ainda</h2>
+          <p className="max-w-sm text-[15px] text-muted-foreground">Cadastre o primeiro lead ou busque empresas no Orbit para começar o funil.</p>
+          <Button className="mt-1 h-11 px-6" onClick={() => handleOpenModal()}>Novo Lead</Button>
+        </div>
       ) : viewMode === 'kanban' ? (
         <>
-          {/* Mobile Kanban - Horizontal snap scroll, one column per screen */}
-
-          {/* Desktop Kanban */}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={pointerWithin}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="hidden md:block relative">
-            <ScrollArea className="w-full">
-              <div
-                className="flex gap-4 pb-4"
-                style={{
-                  minWidth: 'min-content',
-                  width: 'fit-content'
-                }}
-              >
-                {columns.map((column) => {
-                  const columnLeads = getLeadsByStatus(column);
-                  return (
-                    <div key={column.id} className="w-[320px] flex-shrink-0">
+          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="hidden flex-col gap-4 md:flex">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-[13px] font-semibold tracking-[0.12em] text-muted-foreground">FUNIL DE VENDA</h2>
+                <p className="text-[13px] text-muted-foreground">{stageLeadCount} leads nas 7 etapas. Etiquetas aparecem no card, o lead não sai da etapa.</p>
+              </div>
+              <div className="overflow-x-auto pb-2">
+                <div className="grid items-start gap-4" style={{ gridAutoFlow: 'column', gridAutoColumns: 'minmax(230px, 1fr)' }}>
+                  {boardStages.map((stage) => {
+                    const stageLeads = leadsByStage.map.get(stage) ?? [];
+                    const isOpen = expanded.has(stage);
+                    const shown = isOpen ? stageLeads : stageLeads.slice(0, VISIBLE_PER_COLUMN);
+                    const hidden = stageLeads.length - shown.length;
+                    return (
                       <DroppableColumn
-                        id={`column-${column.id}`}
-                        title={column.title}
-                        count={columnLeads.length}
-                        totalValue={getTotalValueByStatus(column.id)}
-                        onPromoteAll={column.id === 'Triagem' ? () => handleBulkStatusChange('Triagem', 'Outbound') : undefined}
-                        onDemoteAll={column.id === 'Outbound' ? () => handleBulkStatusChange('Outbound', 'Triagem') : undefined}
+                        key={stage}
+                        id={`column-${stage}`}
+                        title={stage}
+                        count={stageLeads.length}
+                        totalValue={leadsByStage.value.get(stage)}
+                        extra={
+                          stage === 'Triagem' && stageLeads.length > 0 ? (
+                            <button type="button" onClick={() => handleBulkStatusChange('Triagem', 'Outbound')} title="Mover todos da Triagem para Outbound" className="rounded-md bg-orange-500/15 px-2 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-500/25 dark:text-orange-300"><Megaphone className="mr-1 inline h-3 w-3" />Promover</button>
+                          ) : stage === 'Outbound' && stageLeads.length > 0 ? (
+                            <button type="button" onClick={() => handleBulkStatusChange('Outbound', 'Triagem')} title="Voltar todos para a Triagem" className="rounded-md bg-orange-500/15 px-2 py-0.5 text-xs font-medium text-orange-700 hover:bg-orange-500/25 dark:text-orange-300">Voltar</button>
+                          ) : undefined
+                        }
                       >
-                        <SortableContext items={columnLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                          {columnLeads.map((lead) => (
+                        <SortableContext items={shown.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+                          {shown.length === 0 ? (
+                            <p className="rounded-xl border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">Sem leads</p>
+                          ) : shown.map((lead) => (
                             <SortableLeadCard
                               key={lead.id}
                               lead={lead}
                               onEdit={() => handleOpenModal(lead)}
                               onDelete={() => setDeletingLead(lead)}
                               onCharge={() => setChargingLead(lead)}
-                              onOpenConversa={() => router.push(`/atendimento?phone=${encodeURIComponent(lead.whatsapp || '')}`)}
+                              onOpenConversa={() => openConversa(lead)}
+                              onRemoveTag={handleRemoveTag}
                             />
                           ))}
                         </SortableContext>
+                        {(hidden > 0 || (isOpen && stageLeads.length > VISIBLE_PER_COLUMN)) && (
+                          <button
+                            type="button"
+                            onClick={() => setExpanded((prev) => { const n = new Set(prev); if (n.has(stage)) n.delete(stage); else n.add(stage); return n; })}
+                            className="mt-0.5 rounded-xl border border-dashed border-border py-2.5 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                          >
+                            {hidden > 0 ? `Ver mais ${hidden}` : 'Ver menos'}
+                          </button>
+                        )}
                       </DroppableColumn>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-            {/* Fade edge: indica mais colunas à direita */}
-            <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-background to-transparent pointer-events-none z-10" />
+
+              <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-[13px] font-semibold tracking-[0.12em] text-muted-foreground">AUTOMAÇÕES E ETIQUETAS</h2>
+                <p className="text-[13px] text-muted-foreground">
+                  Clique para ver só esses leads, ou arraste um card até aqui.{automationStats.find((a) => a.id === 'Follow up')?.count ? ` Os ${automationStats.find((a) => a.id === 'Follow up')!.count} do Follow up continuam nas etapas acima.` : ''}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+                {automationStats.map((a) => (
+                  <AutomationTile key={a.id} id={a.id} dot={a.dot} count={a.count} value={a.value} active={autoFilter === a.id} onClick={() => setAutoFilter((cur) => (cur === a.id ? null : a.id))} />
+                ))}
+              </div>
             </div>
+
             <DragOverlay>
               {activeLead ? (
-                <OrbitCard className="cursor-grabbing shadow-2xl rotate-1 w-[308px] border-primary/20">
-                  <OrbitCardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-semibold text-primary">
-                          {activeLead.company_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{activeLead.company_name}</p>
-                        {activeLead.contact_name && (
-                          <p className="text-xs text-muted-foreground truncate">{activeLead.contact_name}</p>
-                        )}
-                      </div>
-                    </div>
-                    {(activeLead.priority || (activeLead.project_value && activeLead.project_value > 0)) && (
-                      <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-border/50">
-                        {activeLead.priority && (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium ${
-                            activeLead.priority === 'Alta' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
-                            activeLead.priority === 'Média' ? 'bg-primary/10 text-primary' :
-                            'bg-gray-500/10 text-gray-600 dark:text-gray-400'
-                          }`}>{activeLead.priority}</span>
-                        )}
-                        {activeLead.project_value && activeLead.project_value > 0 && (
-                          <span className="text-xs text-muted-foreground ml-auto tabular-nums">
-                            {fmtCompact(activeLead.project_value)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </OrbitCardContent>
-                </OrbitCard>
+                <div className="w-[260px] rotate-1 cursor-grabbing rounded-xl border border-[#1E6B47] bg-card p-3.5 shadow-2xl">
+                  <p className="truncate text-[15px] font-semibold text-foreground">{activeLead.contact_name || activeLead.company_name}</p>
+                  <p className="mt-1 text-sm tabular-nums text-muted-foreground">{activeLead.project_value ? `R$ ${Number(activeLead.project_value).toLocaleString('pt-BR')}` : 'Sem valor'}</p>
+                </div>
               ) : null}
             </DragOverlay>
           </DndContext>
 
-        {/* Mobile Kanban - Horizontal snap scroll, scroll vertical em cada coluna */}
-        <div className="md:hidden -mx-3 overflow-x-auto flex snap-x snap-mandatory gap-3 px-3 pb-3" style={{ scrollbarWidth: 'none', height: 'calc(100dvh - 280px)' }}>
-          {columns.map((column) => {
-            const colLeads = getLeadsByStatus(column);
-            return (
-              <div key={column.id} className="snap-center flex-shrink-0 w-[85vw] flex flex-col rounded-xl bg-muted/40 p-2 gap-2">
-                {/* Column header */}
-                <div className="flex items-center gap-2 px-1 py-1 flex-shrink-0">
-                  <span className="text-sm font-semibold">{column.title}</span>
-                  <span className="text-xs bg-accent text-muted-foreground px-2 py-0.5 rounded-full">{colLeads.length}</span>
+          {/* Celular: uma coluna por tela, rolagem vertical em cada uma */}
+          <div className="-mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-3 md:hidden" style={{ scrollbarWidth: 'none', height: 'calc(100dvh - 300px)' }}>
+            {boardStages.map((stage) => {
+              const colLeads = leadsByStage.map.get(stage) ?? [];
+              return (
+                <div key={stage} className="flex w-[85vw] flex-shrink-0 snap-center flex-col gap-2 rounded-2xl border border-border bg-muted/40 p-2.5">
+                  <div className="flex flex-shrink-0 items-center gap-2 px-1 py-1">
+                    <span className={cn('h-2 w-2 rounded-full', STAGE_DOT[stage] ?? 'bg-muted-foreground')} />
+                    <span className="text-[15px] font-semibold text-foreground">{stage}</span>
+                    <span className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground">{colLeads.length}</span>
+                  </div>
+                  <div className="flex-1 space-y-2 overflow-y-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                    {colLeads.length === 0 ? (
+                      <div className="flex items-center justify-center rounded-xl border border-dashed border-border py-10 text-sm text-muted-foreground">Sem leads</div>
+                    ) : colLeads.map((lead) => (
+                      <MobileLeadCard key={lead.id} lead={lead} onEdit={() => handleOpenModal(lead)} onDelete={() => setDeletingLead(lead)} onCharge={() => setChargingLead(lead)} onOpenConversa={() => openConversa(lead)} />
+                    ))}
+                  </div>
                 </div>
-                {/* Cards: scroll vertical */}
-                <div className="overflow-y-auto flex-1 space-y-2 pb-1" style={{ scrollbarWidth: 'none' }}>
-                  {colLeads.length === 0 ? (
-                    <div className="flex items-center justify-center py-10 text-sm text-muted-foreground border border-dashed border-border rounded-xl">
-                      Sem leads
-                    </div>
-                  ) : colLeads.map((lead) => (
-                    <MobileLeadCard
-                      key={lead.id}
-                      lead={lead}
-                      onEdit={() => handleOpenModal(lead)}
-                      onDelete={() => setDeletingLead(lead)}
-                      onCharge={() => setChargingLead(lead)}
-                      onOpenConversa={() => router.push(`/atendimento?phone=${encodeURIComponent(lead.whatsapp || '')}`)}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-</>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <>
-          {/* Desktop Table View */}
-          <OrbitCard className="hidden md:block border-border/50">
-            <OrbitCardContent className="p-0">
-              {/* Result counter */}
-              <div className="flex items-center px-4 py-2 border-b border-border/50">
-                <span className="text-xs text-muted-foreground">
-                  {filteredLeads.length === leads.length
-                    ? `${leads.length} lead${leads.length !== 1 ? 's' : ''}`
-                    : `${filteredLeads.length} de ${leads.length} leads`}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="sticky top-0 z-10 bg-card">
-                    <tr className="border-b border-border">
-                      <th className="text-left px-3 py-2.5 w-10">
-                        <Checkbox
-                          checked={selectedLeads.size === paginatedLeads.length && paginatedLeads.length > 0}
-                          onCheckedChange={handleToggleSelectAll}
-                        />
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Empresa</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Segmento</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Status</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Website</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Telefone</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Prioridade</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Observações</th>
-                      <th className="text-left px-4 py-2.5 font-medium text-xs text-muted-foreground uppercase tracking-wider">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {paginatedLeads.map((lead) => (
-                      <tr
-                        key={lead.id}
-                        className="hover:bg-accent/30 transition-colors"
-                      >
-                        <td className="px-3 py-2.5">
-                          <Checkbox
-                            checked={selectedLeads.has(String(lead.id))}
-                            onCheckedChange={() => handleToggleSelectLead(String(lead.id))}
-                          />
+          {/* Planilha (desktop) */}
+          <div className="hidden overflow-hidden rounded-[14px] border border-border bg-card md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1080px] border-collapse">
+                <thead>
+                  <tr className="text-left text-xs font-medium tracking-[0.08em] text-muted-foreground">
+                    <th className="w-12 px-4 py-4">
+                      <Checkbox
+                        aria-label="Selecionar todos desta página"
+                        checked={selectedLeads.size === paginatedLeads.length && paginatedLeads.length > 0}
+                        onCheckedChange={handleToggleSelectAll}
+                      />
+                    </th>
+                    <th className="px-3 py-4 font-medium">LEAD</th>
+                    <th className="px-3 py-4 font-medium">ETAPA</th>
+                    <th className="px-3 py-4 font-medium">SEGMENTO</th>
+                    <th className="px-3 py-4 font-medium">INTERESSE</th>
+                    <th className="px-3 py-4 font-medium">VALOR</th>
+                    <th className="px-3 py-4 font-medium">ORIGEM</th>
+                    <th className="px-3 py-4 font-medium">
+                      <button type="button" onClick={() => setSortDesc((d) => !d)} className="flex items-center gap-1 font-medium text-foreground" aria-label="Ordenar por último contato">
+                        ÚLTIMO CONTATO <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', !sortDesc && 'rotate-180')} />
+                      </button>
+                    </th>
+                    <th className="px-3 py-4 font-medium">ENTRADA</th>
+                    <th className="px-3 py-4 font-medium">AÇÕES</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedLeads.length === 0 && (
+                    <tr><td colSpan={10} className="py-16 text-center text-[15px] text-muted-foreground">Nenhum lead com esses filtros.</td></tr>
+                  )}
+                  {paginatedLeads.map((lead) => {
+                    const hot = lead.nivel_interesse?.includes('Quente');
+                    return (
+                      <tr key={lead.id} className="border-t border-border transition-colors hover:bg-muted/60">
+                        <td className="px-4 py-3.5">
+                          <Checkbox aria-label={`Selecionar ${lead.company_name}`} checked={selectedLeads.has(String(lead.id))} onCheckedChange={() => handleToggleSelectLead(String(lead.id))} />
                         </td>
-                        <td className="px-4 py-2.5">
-                          <div>
-                            <p className="font-medium text-sm text-foreground">{lead.company_name}</p>
-                            {lead.contact_name && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{lead.contact_name}</p>
-                            )}
+                        <td className="px-3 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-[#01573C] dark:text-[#96F63C]">
+                              {(lead.contact_name || lead.company_name || '??').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-[15px] font-semibold leading-5 text-foreground">{lead.contact_name || lead.company_name}</p>
+                              <p className="truncate text-xs tabular-nums text-muted-foreground">{lead.contact_name && lead.company_name ? `${lead.company_name} · ` : ''}{fmtPhone(lead.whatsapp)}</p>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 text-sm text-muted-foreground">{lead.segment || '-'}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${getStatusBadgeColor(lead.status || '')}`}>
-                            {lead.status}
-                          </span>
+                        <td className="px-3 py-3.5"><span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-semibold', getStatusBadgeColor(lead.status || ''))}><span className={cn('h-1.5 w-1.5 rounded-full', STAGE_DOT[lead.status] ?? 'bg-muted-foreground')} />{lead.status}</span></td>
+                        <td className={cn('px-3 py-3.5 text-[15px]', lead.segment ? 'text-foreground' : 'text-muted-foreground')}>{lead.segment || 'Sem segmento'}</td>
+                        <td className="px-3 py-3.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            {lead.nivel_interesse ? (
+                              <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold', hot ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300' : lead.nivel_interesse.includes('Morno') ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300' : 'bg-muted text-muted-foreground')}>
+                                {hot && <Flame className="h-3 w-3" />}{lead.nivel_interesse.replace(/[^\p{L}\s]/gu, '').trim()}
+                              </span>
+                            ) : <span className="text-muted-foreground">-</span>}
+                            {lead.priority && <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-semibold', getPriorityBadgeColor(lead.priority))}>{lead.priority}</span>}
+                          </div>
                         </td>
-                        <td className="px-4 py-2.5">
-                          {lead.website_or_instagram ? (
-                            <a
-                              href={lead.website_or_instagram.startsWith('http') ? lead.website_or_instagram : `https://${lead.website_or_instagram}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:text-primary/70 text-xs transition-colors"
-                            >
-                              Link ↗
-                            </a>
-                          ) : (
-                            <span className="text-sm text-muted-foreground/40">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-sm text-muted-foreground tabular-nums">{lead.whatsapp || '-'}</td>
-                        <td className="px-4 py-2.5">
-                          {lead.priority ? (
-                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium flex items-center gap-1 w-fit ${getPriorityBadgeColor(lead.priority)}`}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                              {lead.priority}
-                            </span>
-                          ) : <span className="text-muted-foreground/40">-</span>}
-                        </td>
-                        <td className="px-4 py-2.5 max-w-[200px]">
-                          {lead.notes ? (
-                            <span
-                              className="text-xs text-muted-foreground truncate block max-w-[180px] cursor-default"
-                              title={lead.notes}
-                            >
-                              {lead.notes}
-                            </span>
-                          ) : <span className="text-muted-foreground/40 text-sm">-</span>}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenModal(lead)}
-                              className="h-7 w-7 hover:bg-accent"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeletingLead(lead)}
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-accent"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                        <td className={cn('px-3 py-3.5 text-[15px] tabular-nums', lead.project_value ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{lead.project_value ? `R$ ${Number(lead.project_value).toLocaleString('pt-BR')}` : 'Sem valor'}</td>
+                        <td className="px-3 py-3.5 text-[15px] text-muted-foreground">{originLabel(lead.import_source)}</td>
+                        <td className="px-3 py-3.5"><ContactLine lead={lead} /></td>
+                        <td className="whitespace-nowrap px-3 py-3.5 text-[15px] text-muted-foreground">{new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</td>
+                        <td className="px-3 py-3.5">
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Abrir conversa" aria-label="Abrir conversa" onClick={() => openConversa(lead)} disabled={!lead.whatsapp}><MessageCircle className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Gerar cobrança" aria-label="Gerar cobrança" onClick={() => setChargingLead(lead)}><DollarSign className="h-4 w-4" /></Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Mais ações"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenModal(lead)}><Pencil className="mr-2 h-3.5 w-3.5" />Editar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeletingLead(lead)}><Trash2 className="mr-2 h-3.5 w-3.5" />Excluir</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3.5">
+              <p className="text-sm text-muted-foreground">
+                {sortedLeads.length === 0 ? 'Nenhum lead' : `Mostrando ${startIndex + 1} a ${Math.min(startIndex + itemsPerPage, sortedLeads.length)} de ${sortedLeads.length} leads.`}
+              </p>
+              <div className="flex items-center gap-3">
+                <Select value={String(itemsPerPage)} onValueChange={(v) => setItemsPerPage(Number(v))}>
+                  <SelectTrigger className="h-9 w-auto gap-2 rounded-full border-border bg-muted px-4 text-sm shadow-none" aria-label="Leads por página"><SelectValue /></SelectTrigger>
+                  <SelectContent>{[10, 25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n} por página</SelectItem>)}</SelectContent>
+                </Select>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1" role="navigation" aria-label="Páginas">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .map((p, i, arr) => (
+                        <span key={p} className="flex items-center gap-1">
+                          {i > 0 && p - arr[i - 1] > 1 && <span className="px-1 text-muted-foreground">…</span>}
+                          <button
+                            type="button"
+                            aria-current={p === currentPage ? 'page' : undefined}
+                            onClick={() => setCurrentPage(p)}
+                            className={cn('h-9 min-w-9 rounded-full px-3 text-sm tabular-nums transition-colors', p === currentPage ? 'bg-[#0F3D2B] font-semibold text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}
+                          >{p}</button>
+                        </span>
+                      ))}
+                  </div>
+                )}
               </div>
-            </OrbitCardContent>
-            {filteredLeads.length > 0 && (
-              <SimplePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredLeads.length}
-                itemsPerPage={itemsPerPage}
-              />
-            )}
-          </OrbitCard>
+            </div>
+          </div>
 
-          {/* Mobile Card View */}
-          <div className="md:hidden space-y-4">
-            <div className="grid gap-4">
+          {/* Planilha (celular): cartões */}
+          <div className="space-y-4 md:hidden">
+            <div className="grid gap-3">
               {paginatedLeads.map((lead) => (
-              <OrbitCard key={lead.id} className="hover:shadow-lg transition-shadow">
-                <OrbitCardContent className="p-4 space-y-3">
+                <div key={lead.id} className="space-y-3 rounded-xl border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-base">{lead.company_name}</h3>
-                      {lead.contact_name && (
-                        <p className="text-sm text-muted-foreground">{lead.contact_name}</p>
-                      )}
+                      <h3 className="text-base font-semibold">{lead.contact_name || lead.company_name}</h3>
+                      {lead.contact_name && <p className="text-sm text-muted-foreground">{lead.company_name}</p>}
                     </div>
-                    {lead.priority && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${getPriorityBadgeColor(lead.priority)}`}>
-                        {lead.priority}
-                      </span>
-                    )}
+                    {lead.priority && <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold', getPriorityBadgeColor(lead.priority))}>{lead.priority}</span>}
                   </div>
-
-                  <div className="space-y-2 text-sm">
-                    {lead.segment && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Building2 className="h-4 w-4" />
-                        <span>{lead.segment}</span>
-                      </div>
-                    )}
-                    {lead.whatsapp && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                        <span>{lead.whatsapp}</span>
-                      </div>
-                    )}
+                  <div className="space-y-1.5 text-sm text-muted-foreground">
+                    {lead.segment && <div className="flex items-center gap-2"><Building2 className="h-4 w-4" /><span>{lead.segment}</span></div>}
+                    {lead.whatsapp && <div className="flex items-center gap-2"><Phone className="h-4 w-4" /><span>{fmtPhone(lead.whatsapp)}</span></div>}
                   </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <span className={`text-xs px-3 py-1 rounded-full ${getStatusBadgeColor(lead.status || '')}`}>
-                      {lead.status}
-                    </span>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleOpenModal(lead)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setDeletingLead(lead)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-semibold', getStatusBadgeColor(lead.status || ''))}>{lead.status}</span>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" aria-label="Editar" onClick={() => handleOpenModal(lead)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" className="text-destructive" aria-label="Excluir" onClick={() => setDeletingLead(lead)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>
-                </OrbitCardContent>
-              </OrbitCard>
+                </div>
               ))}
             </div>
-            {filteredLeads.length > 0 && (
-              <OrbitCard>
-                <SimplePagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                  totalItems={filteredLeads.length}
-                  itemsPerPage={itemsPerPage}
-                />
-              </OrbitCard>
+            {sortedLeads.length > itemsPerPage && (
+              <SimplePagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} totalItems={sortedLeads.length} itemsPerPage={itemsPerPage} />
             )}
           </div>
         </>
