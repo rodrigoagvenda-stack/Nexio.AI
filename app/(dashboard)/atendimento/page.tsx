@@ -2300,6 +2300,7 @@ export default function AtendimentoPage() {
               ctwaClid={selectedConversation.ctwa_clid}
               ctwaFirstReplyAt={selectedConversation.ctwa_first_reply_at}
               waProvider={waProvider}
+              onCharge={selectedConversation?.id_do_lead ? () => setShowChargeModal(true) : undefined}
               onLeadUpdate={(updatedLead) => {
                 // Atualizar o lead na conversa selecionada
                 setSelectedConversation((prev) =>
@@ -2359,6 +2360,7 @@ export default function AtendimentoPage() {
                 ctwaClid={selectedConversation.ctwa_clid}
                 ctwaFirstReplyAt={selectedConversation.ctwa_first_reply_at}
                 waProvider={waProvider}
+              onCharge={selectedConversation?.id_do_lead ? () => setShowChargeModal(true) : undefined}
                 className="flex flex-col border-0 shadow-none rounded-none bg-transparent"
                 onLeadUpdate={(updatedLead) => {
                   setSelectedConversation((prev) => prev ? { ...prev, lead: updatedLead } : prev);
