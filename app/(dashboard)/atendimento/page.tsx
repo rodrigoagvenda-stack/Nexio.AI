@@ -35,6 +35,7 @@ import { LeadInfoSidebar } from '@/components/atendimento/LeadInfoSidebar';
 import { LinkPreviewCard } from '@/components/chat/LinkPreviewCard';
 import { ExpandableMessage } from '@/components/chat/ExpandableMessage';
 import { MetaWhatsAppConnect } from '@/components/sdr/MetaWhatsAppConnect';
+import { WhatsAppConnectScreen } from '@/components/atendimento/WhatsAppConnectScreen';
 import type { Lead } from '@/types/database.types';
 
 const atendimentoPhotoCache = new Map<string, string | null>()
@@ -1582,137 +1583,21 @@ export default function AtendimentoPage() {
     );
   }
 
-  // ── Tela Meta CoEx ─────────────────────────────────────────────────────────
-  if (waStatus !== 'connected' && waProvider === 'meta') {
-    return (
-      <div className="h-full w-full flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-background p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-3 px-6 py-4 bg-[#1877F2]/5 border-b border-[#1877F2]/10">
-              <div className="w-9 h-9 rounded-xl bg-[#1877F2] flex items-center justify-center shrink-0">
-                <Wifi className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-base font-semibold">Meta Cloud API</h1>
-                <p className="text-xs text-muted-foreground">WhatsApp Business oficial</p>
-              </div>
-              <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 font-semibold border border-emerald-500/20">OFICIAL</span>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 space-y-5">
-              <ul className="space-y-3">
-                {[
-                  'Número nunca é banido (API oficial Meta)',
-                  'CoEx: WhatsApp Business App + nuvem simultaneamente',
-                  'Sem QR Code: autenticação via Facebook Business',
-                  'Janela de 72h para leads de anúncios (Click-to-WhatsApp)',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-white text-[9px] font-bold leading-none">✓</span>
-                    </div>
-                    <span className="text-sm text-foreground/80">{item}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <MetaWhatsAppConnect
-                connected={false}
-                onConnected={(_phoneNumberId, _wabaId, _token, phone) => {
-                  setWaStatus('connected');
-                  setWaPhone(phone);
-                }}
-                onDisconnect={() => {}}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Tela de conexão WhatsApp via uazapi (QR Code) ─────────────────────────
+  // ── Sem WhatsApp conectado: QR code (uazapi) ou API oficial da Meta ───────────
   if (waStatus !== 'connected') {
     return (
-      <div className="h-full w-full flex flex-col items-center justify-center bg-[#f0f2f5] dark:bg-background">
-        <div className="w-full max-w-2xl mx-4">
-          <div className="bg-white dark:bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-            <div className="flex flex-col md:flex-row">
-              {/* Lado esquerdo : instruções */}
-              <div className="flex-1 p-8 flex flex-col gap-6">
-                <div>
-                  <h1 className="text-2xl font-light text-foreground mb-1">Conectar WhatsApp</h1>
-                  <p className="text-sm text-muted-foreground">Escaneie o QR code para começar a atender</p>
-                </div>
-                <ol className="space-y-4">
-                  {[
-                    'Abra o WhatsApp no seu celular',
-                    'Toque em Mais opções → Aparelhos conectados',
-                    'Toque em Conectar um aparelho',
-                    'Aponte o celular para esta tela para capturar o QR code',
-                  ].map((step, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <span className="w-6 h-6 rounded-full border-2 border-muted-foreground/40 text-xs font-medium text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                      <span className="text-sm text-foreground">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-                <button
-                  onClick={handleWaConnect}
-                  disabled={waConnecting || waStatus === 'connecting'}
-                  className="text-sm text-primary underline underline-offset-4 hover:opacity-70 transition-opacity text-left disabled:opacity-40"
-                >
-                  {waConnecting ? 'Gerando QR Code…' : 'Gerar novo QR Code'}
-                </button>
-              </div>
-
-              {/* Lado direito : QR Code */}
-              <div className="flex items-center justify-center p-8 bg-muted/30 border-t md:border-t-0 md:border-l border-border min-h-[260px]">
-                {waQrcode ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="p-3 bg-white rounded-xl shadow-sm border">
-                      <NextImage
-                        src={`data:image/png;base64,${waQrcode}`}
-                        alt="QR Code WhatsApp"
-                        width={200}
-                        height={200}
-                        className="rounded"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Loader2Icon className="w-3 h-3 animate-spin" />
-                      Aguardando leitura…
-                    </div>
-                  </div>
-                ) : waPairingCode ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <p className="text-xs text-muted-foreground text-center max-w-[160px]">Digite este código no WhatsApp</p>
-                    <div className="px-6 py-4 bg-white rounded-xl shadow-sm border">
-                      <p className="text-3xl font-mono font-bold tracking-[0.3em] text-foreground">{waPairingCode}</p>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Loader2Icon className="w-3 h-3 animate-spin" />
-                      Aguardando confirmação…
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-[200px] h-[200px] bg-muted rounded-xl flex items-center justify-center">
-                      <Loader2Icon className="w-8 h-8 animate-spin text-muted-foreground" />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Gerando QR Code…</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <p className="text-center text-xs text-muted-foreground mt-4">
-            🔒 Suas mensagens são protegidas com criptografia de ponta a ponta
-          </p>
-        </div>
-      </div>
+      <WhatsAppConnectScreen
+        provider={waProvider}
+        status={waStatus}
+        qrcode={waQrcode}
+        pairingCode={waPairingCode}
+        generating={waConnecting}
+        onGenerate={handleWaConnect}
+        onMetaConnected={(_phoneNumberId, _wabaId, _token, phone) => {
+          setWaStatus('connected');
+          setWaPhone(phone);
+        }}
+      />
     );
   }
 

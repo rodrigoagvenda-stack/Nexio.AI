@@ -13,6 +13,8 @@ declare global {
 }
 
 interface Props {
+  /** 'pill' = botão verde grande da tela de Atendimento; padrão = botão azul pequeno das Configurações */
+  appearance?: 'default' | 'pill'
   connected: boolean
   phoneNumber?: string | null
   onConnected: (phoneNumberId: string, wabaId: string, token: string, phone: string) => void
@@ -22,7 +24,7 @@ interface Props {
 const FB_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
 const CONFIG_ID = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID!
 
-export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDisconnect }: Props) {
+export function MetaWhatsAppConnect({ appearance = 'default', connected, phoneNumber, onConnected, onDisconnect }: Props) {
   const [loading, setLoading] = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
   const codeRef = useRef<string | null>(null)
@@ -123,7 +125,7 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
         return
       }
       onConnected(json.phoneNumberId ?? phoneNumberId ?? '', wabaId, json.token, json.phone ?? wabaId)
-      toast({ title: 'WhatsApp conectado via Meta ✅' })
+      toast({ title: 'WhatsApp conectado', description: 'Conectado pela API oficial da Meta.' })
       reset()
     } catch (e: any) {
       console.error('[MetaConnect] submit error:', e)
@@ -195,6 +197,22 @@ export function MetaWhatsAppConnect({ connected, phoneNumber, onConnected, onDis
           <X className="h-3.5 w-3.5 mr-1" />Desconectar
         </Button>
       </div>
+    )
+  }
+
+  if (appearance === 'pill') {
+    const busy = loading || !sdkReady
+    return (
+      <button
+        type="button"
+        onClick={launch}
+        disabled={busy}
+        className="flex items-center justify-center transition-transform active:translate-y-0.5 disabled:opacity-60"
+        style={{ gap: 10, height: 54, borderRadius: 999, background: '#01573C', boxShadow: '0 3px 0 #013825', color: '#fff', fontFamily: 'system-ui, sans-serif', fontSize: 16, fontWeight: 600, lineHeight: '20px' }}
+      >
+        {busy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Wifi className="h-[18px] w-[18px]" strokeWidth={2.2} />}
+        {loading ? 'Conectando…' : !sdkReady ? 'Carregando…' : 'Conectar com a Meta'}
+      </button>
     )
   }
 

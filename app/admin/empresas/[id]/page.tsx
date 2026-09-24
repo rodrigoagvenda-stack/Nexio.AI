@@ -28,8 +28,8 @@ import {
 const PLANS: Record<string, { label: string; price: number; color: string }> = {
   trial:   { label: 'Trial',          price: 0,   color: 'text-yellow-400' },
   basic:   { label: 'Free',           price: 0,   color: 'text-muted-foreground' },
-  starter: { label: 'Zaapply Start',  price: 397, color: 'text-blue-400' },
-  pro:     { label: 'Zaapply Growth', price: 697, color: 'text-primary' },
+  starter: { label: 'Zaapply Start',  price: 297, color: 'text-blue-400' },
+  pro:     { label: 'Zaapply Growth', price: 497, color: 'text-primary' },
   scale:   { label: 'Zaapply Pro',    price: 997, color: 'text-orange-400' },
 };
 

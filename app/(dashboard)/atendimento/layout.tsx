@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Zap } from 'lucide-react';
+import { PLANS } from '@/lib/onboarding/model';
 
 export default async function AtendimentoLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -53,7 +54,7 @@ export default async function AtendimentoLayout({ children }: { children: React.
               Assinar agora
             </Link>
             <p className="text-[11px] text-muted-foreground">
-              A partir de R$ 397/mês · Cancele quando quiser
+              A partir de R$ {PLANS[0].price}/mês · Cancele quando quiser
             </p>
           </div>
         </div>
